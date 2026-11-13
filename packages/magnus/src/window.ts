@@ -92,8 +92,16 @@ function layOutAttachments(attachments: readonly WindowAttachment[]): {
 
 // Turns with no content are skipped, not counted: a pending or failed Magnus turn has nothing to say
 // to the model, and counting it against the window would silently shrink the real history.
+// A turn the model may read: it has words, and its author has neither removed it nor set it aside by
+// editing an earlier message. Removed and superseded turns stay on the record for the reader's
+// history and the firm's, but an answer is never built on a message its author took back.
 function hasContent(turn: TurnRow): turn is TurnRow & { readonly content: string } {
-  return turn.content !== null && turn.content !== "";
+  return (
+    turn.content !== null &&
+    turn.content !== "" &&
+    turn.removedAt === null &&
+    turn.supersededAt === null
+  );
 }
 
 export interface ConversationWindowOptions {

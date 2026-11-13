@@ -8,4 +8,9 @@ export interface MagnusTurnJob {
   // The outbox row's own identifier, carried so the per-run dedup key is stable across a redelivery
   // of the same submission.
   readonly outboxId: string;
+  // The model and effort the member chose in the composer, when they chose. Labels, not content. The
+  // consumer checks both against the catalog again, because the catalog can change between the
+  // submission and the run.
+  readonly modelId?: string;
+  readonly effort?: string | null;
 }

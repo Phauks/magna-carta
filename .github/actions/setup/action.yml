@@ -21,17 +21,17 @@ runs:
   using: composite
   steps:
     - name: Install pnpm
-      uses: pnpm/action-setup@v6
+      uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
     - name: Install Node
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
       with:
         node-version: 22
         cache: pnpm
 
     - name: Restore the linked workspace (node_modules)
       id: node-modules-cache
-      uses: actions/cache@v6
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         # pnpm's virtual store plus every workspace member's symlink tree. The members' node_modules are
         # symlink farms pointing into node_modules/.pnpm, so they only make sense restored together.

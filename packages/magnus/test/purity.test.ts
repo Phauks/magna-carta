@@ -16,6 +16,7 @@ const allowedPackages = new Set([
   "@magna-carta/data-access/idempotency-statements",
   "@magna-carta/data-access/like-search",
   "@magna-carta/data-access/setting-statements",
+  "@magna-carta/identifiers/field",
   "@magna-carta/identifiers/generate",
   "@magna-carta/identifiers/random",
   "@magna-carta/identifiers/types",
@@ -107,7 +108,7 @@ describe("audit builders cannot receive turn content (fitness)", () => {
   );
 
   it("finds every builder", () => {
-    expect(builders.length).toBe(12);
+    expect(builders.length).toBe(17);
   });
 
   it("each takes exactly (database, context, identifierOnlyInput)", () => {
@@ -119,10 +120,19 @@ describe("audit builders cannot receive turn content (fitness)", () => {
   it("no builder's input type declares a content field", () => {
     const text = readFileSync(join(srcDir, "audit.ts"), "utf8");
     // Every `readonly <name>:` inside this module is an audit metadata field. None of them may be
-    // the turn text, under any of its names.
+    // the turn text, under any of its names, or a label a member typed (a title, a folder's name).
     for (const match of text.matchAll(/readonly\s+([A-Za-z]+)\s*:/g)) {
       const field = (match[1] ?? "").toLowerCase();
-      expect(["content", "text", "prompt", "completion", "message", "body"]).not.toContain(field);
+      expect([
+        "content",
+        "text",
+        "prompt",
+        "completion",
+        "message",
+        "body",
+        "title",
+        "name",
+      ]).not.toContain(field);
     }
   });
 });

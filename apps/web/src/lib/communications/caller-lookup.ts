@@ -101,7 +101,8 @@ export function callerIdentityLine(identity: CallerIdentity): string {
 export type CallerAreaCode = NonNullable<CallerLookup["areaCode"]>;
 
 /**
- * Where the number was issued, as a reader says it: "702 · Henderson, Nevada number".
+ * Where the number was issued, as a reader says it: "702 · Henderson, Nevada". It sits under the
+ * number, so the line does not say "number" again.
  *
  * The town comes from the exchange and the state from the area code. The numbering data writes the
  * town with a postal abbreviation ("Henderson, NV"); that is dropped for the region's full name,
@@ -115,15 +116,15 @@ export function areaCodeLine(areaCode: CallerAreaCode): string {
     town === null || town === "" || areaCode.region.includes(town)
       ? areaCode.region
       : `${town}, ${areaCode.region}`;
-  return `${areaCode.areaCode} · ${where} number`;
+  return `${areaCode.areaCode} · ${where}`;
 }
 
 /**
  * The time where the number was issued, for deciding whether now is a sensible hour to call back:
- * "3:19 PM PST there". Null where the number's zone is not known, which is better than a clock in the
+ * "3:19 PM PST". The zone abbreviation is what says the clock is the number's, not the reader's. Null where the number's zone is not known, which is better than a clock in the
  * wrong zone.
  */
 export function localTimeLine(areaCode: CallerAreaCode, now: Date): string | null {
   if (areaCode.timeZone === null) return null;
-  return `${formatTimeOfDay(now, { timeZone: areaCode.timeZone, zoneName: true })} there`;
+  return formatTimeOfDay(now, { timeZone: areaCode.timeZone, zoneName: true });
 }

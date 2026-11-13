@@ -1,6 +1,8 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerMagnusRoutes } from "./magnus.ts";
+import { registerMagnusShelfRoutes } from "./shelf.ts";
+import { registerMagnusTurnChangeRoutes } from "./turn-changes.ts";
 
 // Magnus, the conversational assistant.
 //
@@ -14,5 +16,9 @@ export function mountMagnus(app: AppRouter, chokepoint: Chokepoint, _deps: Domai
   // consent gates, the submit-and-watch path, and the transcript reads. Every route here refuses
   // unless the firm has opened both gates, and the default adapter reaches no provider.
   registerMagnusRoutes(domain, chokepoint);
+  // A member's own folders and pins for their conversations.
+  registerMagnusShelfRoutes(domain, chokepoint);
+  // Editing or removing one's own message.
+  registerMagnusTurnChangeRoutes(domain, chokepoint);
   app.route("/", domain);
 }

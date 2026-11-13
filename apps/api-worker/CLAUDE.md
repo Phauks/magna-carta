@@ -407,6 +407,13 @@ here over a service binding, and this handler performs exactly one R2 operation.
   header, the size header) because a worker cannot import from another worker. Each side pins them in a
   test; change one and change all of them in the same commit, or every engine read becomes blocked
   egress.
+- **The search service is bound in the test pool to a stub that refuses every operation**
+  (`vitest.config.ts`), because `wrangler.jsonc` binds `SEARCH_SERVICE` and the pool will not boot
+  with a binding that resolves to nothing. So `env.SEARCH_SERVICE` is defined in a test, the port
+  over the binding is what `resolveSearchIndexPort(env)` returns, and it answers `adapter-error`.
+  A test that wants an engine injects a port. A test of the deployment with no binding passes
+  `{ ...env, SEARCH_SERVICE: undefined }`, which is the only way to reach the deferred port and the
+  "not connected" answers.
 - The PUT route registers its path as a **literal string** so the object-dimension fitness scan can tell
   a route registration from a bucket write; a published split is stamped `object_class: search-split`
   with its corpus as the matter.

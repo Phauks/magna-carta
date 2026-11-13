@@ -93,6 +93,7 @@ import type {
   LocationAddressId,
   LocationId,
   MagnusConversationId,
+  MagnusFolderId,
   MagnusTurnId,
   MatterAssetDocumentId,
   MatterAssetEncumbranceId,
@@ -10110,6 +10111,21 @@ export const magnusTurn = sqliteTable(
     // of the conversation. Recorded and surfaced rather than hidden: silent truncation is what
     // produces a confidently wrong answer built on a premise the member believes was in scope.
     contextTruncated: integer("context_truncated", { mode: "boolean" }).notNull().default(false),
+    // The effort the answer was asked for (the provider's effort control: low, medium, high, xhigh or
+    // max), recorded beside the model because it changes what an answer costs and how long the model
+    // thought. Null on a member turn, on a failed turn, and where no effort was sent (a model that
+    // takes none answers at its own default).
+    effort: text("effort"),
+    // When the author removed this member turn and its answer from the conversation. The text is
+    // KEPT: a transcript is work product, erased only when the whole conversation is deleted, so a
+    // removal hides the pair from the reader and from the model behind a marker that says so.
+    removedAt: text("removed_at"),
+    // When an edit of an earlier member turn set this turn aside. Editing re-asks from that point:
+    // the edited turn and every turn after it are superseded, kept on the record, and no longer sent
+    // to the model; the edit is appended as a new member turn naming the one it replaces.
+    supersededAt: text("superseded_at"),
+    // On a member turn made by an edit, the turn it replaces. Null otherwise.
+    replacesTurnId: text("replaces_turn_id").$type<MagnusTurnId>(),
     createdAt: text("created_at").notNull(),
     completedAt: text("completed_at"),
   },
@@ -10179,6 +10195,54 @@ export const magnusConversationAttachment = sqliteTable(
       "magnus_conversation_attachment_text_status_check",
       sql`${table.textStatus} IN ('pending', 'sent', 'cut', 'unreadable')`,
     ),
+  ],
+);
+
+// One member's own named folder for their conversations. It arranges that member's list and nothing
+// else: which folder a conversation sits in decides nothing about who may read it (the matter does
+// that), and another member who may read the same conversation keeps it wherever they keep it. No
+// folder is "General": a conversation in no folder is in General, so the default needs no row and a
+// member who never makes a folder has none. The name is member-typed text about their own work, so
+// it is never audited, the same rule a conversation's title follows.
+export const magnusFolder = sqliteTable(
+  "magnus_folder",
+  {
+    id: text("id").primaryKey().$type<MagnusFolderId>(), // magnusFolder_ handle
+    // The member. Not a foreign key, for the same reason a conversation's author is not.
+    memberId: text("member_id").notNull().$type<UserId>(),
+    name: text("name").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The rail reads one member's folders in name order, and only theirs.
+    index("magnus_folder_member_index").on(table.memberId, table.name),
+  ],
+);
+
+// Where one member keeps one conversation: the folder it sits in, and whether it is pinned. Keyed by
+// the pair, because the shelf is the reader's and not the conversation's: the author keeps it in a
+// folder, and a supervisor reading it under the administrative permission would keep it in their own
+// or nowhere. A conversation with no row is in General and unpinned, which is every conversation
+// until a member moves or pins one, so the listing reads this with an outer join.
+export const magnusConversationShelf = sqliteTable(
+  "magnus_conversation_shelf",
+  {
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    memberId: text("member_id").notNull().$type<UserId>(),
+    folderId: text("folder_id")
+      .$type<MagnusFolderId>()
+      .references(() => magnusFolder.id), // null = General
+    pinnedAt: text("pinned_at"), // null = not pinned; the pinned list is newest pin first
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.conversationId, table.memberId] }),
+    index("magnus_conversation_shelf_folder_index").on(table.memberId, table.folderId),
+    index("magnus_conversation_shelf_pinned_index").on(table.memberId, table.pinnedAt),
   ],
 );
 

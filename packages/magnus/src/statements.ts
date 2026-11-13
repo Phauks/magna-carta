@@ -11,6 +11,7 @@ import { askableTerm, likePattern, LIKE_ESCAPE_CLAUSE } from "@magna-carta/data-
 import type {
   FileId,
   MagnusConversationId,
+  MagnusFolderId,
   MagnusTurnId,
   MatterId,
   UserId,
@@ -48,6 +49,9 @@ export const MAGNUS_CONVERSATION_ATTACHMENT_TABLE = "magnus_conversation_attachm
 const MATTER_TABLE = "matter";
 const FILE_TABLE = "file";
 const FILE_VERSION_TABLE = "file_version";
+// Where a member keeps each conversation (./shelf.ts owns it). Spelled here rather than imported
+// because shelf.ts composes conversation writes and this module must stay below it.
+const SHELF_TABLE = "magnus_conversation_shelf";
 
 interface ConversationDatabaseRow {
   id: string;
@@ -73,6 +77,10 @@ interface TurnDatabaseRow {
   input_tokens: number | null;
   output_tokens: number | null;
   context_truncated: number;
+  effort: string | null;
+  removed_at: string | null;
+  superseded_at: string | null;
+  replaces_turn_id: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -104,6 +112,10 @@ function toTurnRow(row: TurnDatabaseRow): TurnRow {
     inputTokens: row.input_tokens,
     outputTokens: row.output_tokens,
     contextTruncated: row.context_truncated === 1,
+    effort: row.effort,
+    removedAt: row.removed_at,
+    supersededAt: row.superseded_at,
+    replacesTurnId: row.replaces_turn_id as MagnusTurnId | null,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
@@ -236,6 +248,16 @@ export interface ListConversationsOptions {
   readonly sort?: ConversationSort;
   readonly cursor?: SortCursor | CompositeSortCursor;
   readonly limit?: number;
+  /**
+   * Whose shelf each row is read against: the folder it sits in and whether it is pinned are that
+   * member's, never the author's (./shelf.ts). Absent = no shelf is read and every row reads as
+   * General and unpinned, which is the administrative read across members.
+   */
+  readonly shelfMember?: UserId;
+  // Narrows to one of the shelf member's folders, or to General (no folder). Needs `shelfMember`.
+  readonly folder?: MagnusFolderId | "general";
+  // Narrows to the conversations the shelf member has pinned. Needs `shelfMember`.
+  readonly pinnedOnly?: boolean;
 }
 
 /**
@@ -251,6 +273,9 @@ export function searchesContent(options: ListConversationsOptions): boolean {
 // without knowing how the key is composed. For the date order it is simply `createdAt`.
 export interface ListedConversationRow extends ConversationRow {
   readonly sortKey: string;
+  // Where the shelf member keeps it: null folder is General, null pin is not pinned.
+  readonly folderId: MagnusFolderId | null;
+  readonly pinnedAt: string | null;
 }
 
 // THE SORT KEYS, as SQL expressions over the joined row. Each is ONE string so the keyset can compare
@@ -287,6 +312,15 @@ export async function listConversations(
 ): Promise<readonly ListedConversationRow[]> {
   const conditions: string[] = ["c.state <> 'deleted'"];
   const bindings: unknown[] = [];
+  const shelfMember = options.shelfMember;
+  if (shelfMember !== undefined) {
+    if (options.folder === "general") conditions.push("s.folder_id IS NULL");
+    else if (options.folder !== undefined) {
+      conditions.push("s.folder_id = ?");
+      bindings.push(options.folder);
+    }
+    if (options.pinnedOnly === true) conditions.push("s.pinned_at IS NOT NULL");
+  }
   if (options.createdBy !== undefined) {
     conditions.push("c.created_by = ?");
     bindings.push(options.createdBy);
@@ -349,14 +383,29 @@ export async function listConversations(
   }
   const limit = options.limit ?? DEFAULT_PAGE_SIZE;
   bindings.push(limit);
-  const join = sort === "matter" ? `LEFT JOIN ${MATTER_TABLE} m ON m.id = c.matter_id` : "";
+  const matterJoin = sort === "matter" ? `LEFT JOIN ${MATTER_TABLE} m ON m.id = c.matter_id` : "";
+  // The shelf is an OUTER join on the reader: a conversation nobody has moved or pinned has no row
+  // and must still list, in General. Without a shelf member the join matches nothing, so every row
+  // reads as General and unpinned. Its one binding comes first because the join precedes the WHERE.
+  const shelfJoin = `LEFT JOIN ${SHELF_TABLE} s ON s.conversation_id = c.id AND s.member_id = ?`;
   const { results } = await database
     .prepare(
-      `SELECT c.id, c.title, c.created_by, c.matter_id, c.state, c.created_at, c.updated_at, c.deleted_at, ${keyExpression ?? "c.created_at"} AS sort_key FROM ${MAGNUS_CONVERSATION_TABLE} c ${join} WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ?`,
+      `SELECT c.id, c.title, c.created_by, c.matter_id, c.state, c.created_at, c.updated_at, c.deleted_at, s.folder_id, s.pinned_at, ${keyExpression ?? "c.created_at"} AS sort_key FROM ${MAGNUS_CONVERSATION_TABLE} c ${matterJoin} ${shelfJoin} WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} LIMIT ?`,
     )
-    .bind(...bindings)
-    .all<ConversationDatabaseRow & { sort_key: string }>();
-  return results.map((row) => ({ ...toConversationRow(row), sortKey: row.sort_key }));
+    .bind(shelfMember ?? null, ...bindings)
+    .all<
+      ConversationDatabaseRow & {
+        sort_key: string;
+        folder_id: string | null;
+        pinned_at: string | null;
+      }
+    >();
+  return results.map((row) => ({
+    ...toConversationRow(row),
+    sortKey: row.sort_key,
+    folderId: row.folder_id as MagnusFolderId | null,
+    pinnedAt: row.pinned_at,
+  }));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -562,12 +611,14 @@ export interface InsertTurnRow {
   readonly status: TurnStatus;
   readonly createdAt: string;
   readonly completedAt: string | null;
+  // On a member turn made by an edit, the turn it replaces.
+  readonly replacesTurnId?: MagnusTurnId;
 }
 
 export function insertTurnStatement(database: SqlDatabase, row: InsertTurnRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MAGNUS_TURN_TABLE} (id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, created_at, completed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, NULL, NULL, NULL, ?7, ?8)`,
+      `INSERT INTO ${MAGNUS_TURN_TABLE} (id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, created_at, completed_at, replaces_turn_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, NULL, NULL, NULL, ?7, ?8, ?9)`,
     )
     .bind(
       row.id,
@@ -578,7 +629,45 @@ export function insertTurnStatement(database: SqlDatabase, row: InsertTurnRow): 
       row.status,
       row.createdAt,
       row.completedAt,
+      row.replacesTurnId ?? null,
     );
+}
+
+// Hides a member turn and its answer behind the removal marker. The text stays in the row: a
+// transcript is erased only with its whole conversation. Guarded so a turn already set aside by an
+// edit, or already removed, is left as it is.
+export function removeTurnPairStatement(
+  database: SqlDatabase,
+  options: {
+    readonly conversationId: MagnusConversationId;
+    readonly turnIds: readonly MagnusTurnId[];
+    readonly now: string;
+  },
+): SqlStatement {
+  const placeholders = options.turnIds.map((_, index) => `?${String(index + 3)}`).join(", ");
+  return database
+    .prepare(
+      `UPDATE ${MAGNUS_TURN_TABLE} SET removed_at = ?2 WHERE conversation_id = ?1 AND id IN (${placeholders}) AND removed_at IS NULL AND superseded_at IS NULL`,
+    )
+    .bind(options.conversationId, options.now, ...options.turnIds);
+}
+
+// Sets aside every turn from `fromSequence` on, which is what an edit does to the turns after the
+// message it rewrites. Kept on the record; no longer read by the model or shown by default.
+// fitness:unguarded-write — the row count cannot tell a refused edit from a done one: the rewritten message is matched whenever the route's read held, and when two edits race, the first one's new turns sit past the same sequence and are matched instead.
+export function supersedeTurnsFromStatement(
+  database: SqlDatabase,
+  options: {
+    readonly conversationId: MagnusConversationId;
+    readonly fromSequence: number;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MAGNUS_TURN_TABLE} SET superseded_at = ?3 WHERE conversation_id = ?1 AND sequence >= ?2 AND superseded_at IS NULL`,
+    )
+    .bind(options.conversationId, options.fromSequence, options.now);
 }
 
 export interface CompleteTurnOptions {
@@ -591,6 +680,7 @@ export interface CompleteTurnOptions {
   // True when earlier turns did not fit the request window. Recorded on the turn so the member is
   // told, on every later read of the transcript and not only in the moment.
   readonly contextTruncated: boolean;
+  readonly effort: string | null;
   readonly now: string;
 }
 
@@ -605,7 +695,7 @@ export function completeTurnStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MAGNUS_TURN_TABLE} SET status = 'complete', content = ?2, model_id = ?3, snapshot_id = ?4, input_tokens = ?5, output_tokens = ?6, context_truncated = ?7, completed_at = ?8 WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${MAGNUS_TURN_TABLE} SET status = 'complete', content = ?2, model_id = ?3, snapshot_id = ?4, input_tokens = ?5, output_tokens = ?6, context_truncated = ?7, completed_at = ?8, effort = ?9 WHERE id = ?1 AND status = 'pending'`,
     )
     .bind(
       options.id,
@@ -616,6 +706,7 @@ export function completeTurnStatement(
       options.outputTokens,
       options.contextTruncated ? 1 : 0,
       options.now,
+      options.effort,
     );
 }
 
@@ -645,12 +736,43 @@ export async function readTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
     )
     .bind(id)
     .all<TurnDatabaseRow>();
   const row = results[0];
   return row === undefined ? undefined : toTurnRow(row);
+}
+
+// The turn at one place in a conversation: the answer that follows a member turn, when an edit or a
+// removal needs it.
+export async function readTurnAtSequence(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+  sequence: number,
+): Promise<TurnRow | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 AND sequence = ?2 LIMIT 1`,
+    )
+    .bind(conversationId, sequence)
+    .all<TurnDatabaseRow>();
+  const row = results[0];
+  return row === undefined ? undefined : toTurnRow(row);
+}
+
+// Whether an answer is still being written anywhere in the conversation.
+export async function hasPendingTurn(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+): Promise<boolean> {
+  const { results } = await database
+    .prepare(
+      `SELECT 1 AS found FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 AND status = 'pending' AND superseded_at IS NULL AND removed_at IS NULL LIMIT 1`,
+    )
+    .bind(conversationId)
+    .all<{ found: number }>();
+  return results.length > 0;
 }
 
 // The newest turn in a conversation, whatever its speaker — what a socket subscriber is told about
@@ -661,7 +783,7 @@ export async function readNewestTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
     )
     .bind(conversationId)
     .all<TurnDatabaseRow>();
@@ -682,7 +804,7 @@ export async function readRecentTurns(
   // could disagree.
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
     )
     .bind(conversationId, limit)
     .all<TurnDatabaseRow>();
@@ -702,7 +824,7 @@ export async function listTurns(
   bindings.push(options.limit ?? DEFAULT_PAGE_SIZE);
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
     .bind(...bindings)
     .all<TurnDatabaseRow>();

@@ -23,6 +23,8 @@ function conversation(title: string | null): MagnusConversation {
     state: "active",
     createdAt: STARTED_AT,
     updatedAt: STARTED_AT,
+    folderId: null,
+    pinnedAt: null,
   };
 }
 
@@ -37,6 +39,10 @@ function turn(sequence: number, speaker: "member" | "magnus", content: string): 
     modelId: null,
     snapshotId: null,
     contextTruncated: false,
+    effort: null,
+    removedAt: null,
+    supersededAt: null,
+    replacesTurnId: null,
     createdAt: STARTED_AT,
     completedAt: STARTED_AT,
   };

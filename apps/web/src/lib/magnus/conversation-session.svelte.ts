@@ -19,11 +19,14 @@
 import {
   ANSWER_SLOW_AFTER_MILLISECONDS,
   readConversation,
+  editTurn,
   readTurn,
+  removeTurn,
   submitTurn,
   newWriteKey,
   type MagnusAttachment,
   type MagnusConversation,
+  type MagnusModelChoice,
   type MagnusTurn,
   type MagnusTurnProgress,
 } from "./magnus-api.ts";
@@ -188,7 +191,7 @@ export class ConversationSession {
    * turn and the pending answer as one pair, and reading them back is what keeps the sequence on
    * screen the sequence on the record.
    */
-  async send(content: string): Promise<boolean> {
+  async send(content: string, choice: MagnusModelChoice | null = null): Promise<boolean> {
     const conversationId = this.#conversationId;
     if (conversationId === null || this.sending) return false;
     const message = content.trim();
@@ -196,7 +199,13 @@ export class ConversationSession {
     this.sending = true;
     this.submitFailure = null;
     const attempt = this.#latest.attempt();
-    const outcome = await submitTurn(this.#fetchImpl, conversationId, message, newWriteKey());
+    const outcome = await submitTurn(
+      this.#fetchImpl,
+      conversationId,
+      message,
+      newWriteKey(),
+      choice,
+    );
     if (!attempt.current) return false;
     this.sending = false;
     if (outcome.kind !== "ok") {
@@ -205,6 +214,52 @@ export class ConversationSession {
     }
     await this.#read(conversationId, attempt);
     return true;
+  }
+
+  /**
+   * Edit one of the member's messages and ask again from there. Like `send`, the transcript is read
+   * back rather than patched: the server sets the old turns aside and appends the new pair.
+   */
+  async edit(
+    turnId: string,
+    content: string,
+    choice: MagnusModelChoice | null = null,
+  ): Promise<boolean> {
+    const conversationId = this.#conversationId;
+    if (conversationId === null || this.sending) return false;
+    const message = content.trim();
+    if (message === "") return false;
+    this.sending = true;
+    this.submitFailure = null;
+    const attempt = this.#latest.attempt();
+    const outcome = await editTurn(
+      this.#fetchImpl,
+      conversationId,
+      turnId,
+      message,
+      newWriteKey(),
+      choice,
+    );
+    if (!attempt.current) return false;
+    this.sending = false;
+    if (outcome.kind !== "ok") {
+      this.submitFailure = outcome.failure;
+      return false;
+    }
+    await this.#read(conversationId, attempt);
+    return true;
+  }
+
+  /**
+   * Remove one of the member's messages and its answer, then read the transcript back. Null when no
+   * conversation is open, which no control offering removal can be pressed in.
+   */
+  async remove(turnId: string): Promise<ApiOutcome<unknown> | null> {
+    const conversationId = this.#conversationId;
+    if (conversationId === null) return null;
+    const outcome = await removeTurn(this.#fetchImpl, conversationId, turnId, newWriteKey());
+    if (outcome.kind === "ok") await this.#read(conversationId, this.#latest.attempt());
+    return outcome;
   }
 
   /** Resume watching a pending answer after a run of failed polls. */

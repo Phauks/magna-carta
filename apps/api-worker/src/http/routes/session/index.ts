@@ -3,6 +3,7 @@ import { authForEnv, emailAdapterForEnv } from "../../../auth-instance.ts";
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerInvitationRoutes } from "./invitations.ts";
+import { registerMeCommunityHandoffRoute } from "./me-community-handoff.ts";
 import { registerMeNameRoutes } from "./me-name.ts";
 import { registerMePhotoRoutes } from "./me-photo.ts";
 import { registerMeRoute } from "./me.ts";
@@ -32,6 +33,7 @@ export function mountSession(app: AppRouter, chokepoint: Chokepoint, deps: Domai
   registerMemberAdministrationRoutes(domain, chokepoint);
   registerMeNameRoutes(domain, chokepoint);
   registerMePhotoRoutes(domain, chokepoint);
+  registerMeCommunityHandoffRoute(domain, chokepoint);
   // Joining the platform: the anonymous registration pair and the invitation pair (one issued
   // inside a firm, one redeemed by someone who has no account yet). Every anonymous one of them
   // rides the chokepoint's tightest rate-limit bucket.

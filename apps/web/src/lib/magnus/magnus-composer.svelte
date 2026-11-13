@@ -14,6 +14,10 @@
    * most recent question, and an answer built without the document it was asked about is a
    * different answer, so every row says which outcome it got. The Attach control stays on the row
    * when it cannot be pressed, refused with the reason, rather than disappearing.
+   *
+   * THE MODEL LINE NAMES WHAT WILL ANSWER. The member may choose a model and effort for the next
+   * question (model-picker.svelte); the line beside the disclosure names the chosen model, not the
+   * firm's, because that is the one the question will be sent to.
    */
   import Button from "@magna-carta/design-system/button";
   import * as Conversation from "@magna-carta/design-system/conversation";
@@ -23,7 +27,12 @@
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import SendHorizontal from "@lucide/svelte/icons/send-horizontal";
   import X from "@lucide/svelte/icons/x";
-  import type { MagnusAnsweringModel, MagnusAttachment } from "./magnus-api.ts";
+  import type {
+    MagnusAnsweringModel,
+    MagnusAttachment,
+    MagnusModelChoice,
+  } from "./magnus-api.ts";
+  import ModelPicker from "./model-picker.svelte";
   import {
     answeringModelLine,
     attachmentName,
@@ -37,7 +46,11 @@
     onMatter,
     attachments,
     model,
+    models = [],
+    choice = $bindable(null),
     sending = false,
+    editing = false,
+    onCancelEdit,
     sendRefused = false,
     allowanceSpent = false,
     remainingDailyTurns,
@@ -55,7 +68,15 @@
     attachments: readonly MagnusAttachment[];
     /** Which model answers; undefined before the read lands, null where the firm's choice is gone. */
     model: MagnusAnsweringModel | null | undefined;
+    /** Every model the member may choose; empty where the server offered none. */
+    models?: readonly MagnusAnsweringModel[];
+    /** The member's choice for the next question, or null for the firm's model. */
+    choice?: MagnusModelChoice | null;
     sending?: boolean;
+    /** True while the member is rewriting one of their messages rather than asking a new one. */
+    editing?: boolean;
+    /** Stop editing and put the composer back to asking. */
+    onCancelEdit?: () => void;
     sendRefused?: boolean;
     allowanceSpent?: boolean;
     remainingDailyTurns?: number | undefined;
@@ -76,7 +97,12 @@
     onSend();
   }
 
-  const modelLine = $derived(answeringModelLine(model));
+  const answering = $derived(
+    choice === null || model === null || model === undefined
+      ? model
+      : (models.find((candidate) => candidate.modelId === choice?.modelId) ?? model),
+  );
+  const modelLine = $derived(answeringModelLine(answering));
 </script>
 
 <Conversation.Composer>
@@ -118,7 +144,19 @@
     </ul>
   {/if}
 
-  <Label for="magnus-composer">Your message</Label>
+  {#if editing}
+    <!-- Editing is a mode the composer is in, so it says so above the field and offers the way out
+         beside the sentence rather than leaving the reader to guess that Send now does something
+         different. -->
+    <p class="flex items-center justify-between gap-8 text-sm">
+      <span>
+        Editing your message. Sending it asks Magnus again from there; the replies after it are set
+        aside.
+      </span>
+      <Button variant="ghost" size="sm" onclick={() => onCancelEdit?.()}>Cancel Edit</Button>
+    </p>
+  {/if}
+  <Label for="magnus-composer">{editing ? "Your edited message" : "Your message"}</Label>
   <Textarea
     id="magnus-composer"
     bind:ref={composerElement}
@@ -128,6 +166,9 @@
     onkeydown={composerKeydown}
   />
   {#snippet actions()}
+    {#if model !== null && model !== undefined && models.length > 0}
+      <ModelPicker bind:choice firmModel={model} {models} disabled={sendRefused} />
+    {/if}
     <!-- The attach control is a named control on the row, refused with its reason when it cannot
          be pressed: a conversation on no matter has no files to reach, and a picker that vanished
          would leave the reader wondering where the capability went. -->
@@ -148,7 +189,7 @@
         : "Send this message to Magnus."}
     >
       <SendHorizontal aria-hidden="true" />
-      {sending ? "Sending" : "Send"}
+      {sending ? "Sending" : editing ? "Send Edit" : "Send"}
     </Button>
   {/snippet}
   {#if allowanceSpent}

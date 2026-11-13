@@ -13,6 +13,12 @@
    * surface's; this is the region between them, and it carries the same states every region owes:
    * loading (the fixture), empty (a conversation started and not asked in), failed (the notice with
    * Retry), and the ordinary one.
+   *
+   * A member's own message can be edited or removed (the owner's ruling R2.5). Neither erases
+   * anything. An edit asks again from that message: the turns it set aside are left out of the
+   * transcript, and the new message says "Edited". A removal leaves a marker where the message and
+   * its answer were. The words of both stay on the firm's record until the whole conversation is
+   * deleted.
    */
   import * as Conversation from "@magna-carta/design-system/conversation";
   import Button from "@magna-carta/design-system/button";
@@ -31,18 +37,44 @@
   import { toast } from "@magna-carta/design-system/toast";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Copy from "@lucide/svelte/icons/copy";
+  import PencilLine from "@lucide/svelte/icons/pencil-line";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { conversationAuthor } from "./conversation-author.svelte.ts";
   import type { ConversationSession } from "./conversation-session.svelte.ts";
   import { turnFailureSentence, type MagnusTurn } from "./magnus-api.ts";
 
-  let { session }: { session: ConversationSession } = $props();
+  let {
+    session,
+    onEdit,
+    onRemove,
+  }: {
+    session: ConversationSession;
+    /** Start editing one of the reader's own messages. */
+    onEdit?: (turn: MagnusTurn) => void;
+    /** Ask to remove one of the reader's own messages and its answer. */
+    onRemove?: (turn: MagnusTurn) => void;
+  } = $props();
 
-  const turns = $derived(session.turns);
+  /*
+   * What the transcript shows: every turn except those an edit set aside, and except a removed
+   * answer whose words the reader is not shown (its question's marker stands for both).
+   */
+  const turns = $derived(
+    session.turns?.filter(
+      (turn) =>
+        turn.supersededAt === null &&
+        !(turn.speaker === "magnus" && turn.removedAt !== null && turn.content === null),
+    ) ?? null,
+  );
+  /** Nothing in the conversation is being answered, so a message may be changed. */
+  const settled = $derived((turns ?? []).every((turn) => turn.status !== "pending"));
 
   /* Who asked, named the same way the surface names a downloaded transcript. */
   const author = conversationAuthor(() => session.conversation?.createdBy ?? null);
   const memberName = $derived(author.name);
+  /** The reader started the conversation, so its messages are theirs to edit or remove. */
+  const ownMessages = $derived(author.readerIsAuthor);
 
   /** The speaker's name as a reader meets it. */
   function speakerName(turn: MagnusTurn): string {
@@ -82,6 +114,10 @@
       modelId: null,
       snapshotId: null,
       contextTruncated: false,
+      effort: null,
+      removedAt: null,
+      supersededAt: null,
+      replacesTurnId: null,
       createdAt: sampleInstant(0),
       completedAt: sampleInstant(0),
     },
@@ -95,6 +131,10 @@
       modelId: null,
       snapshotId: null,
       contextTruncated: false,
+      effort: null,
+      removedAt: null,
+      supersededAt: null,
+      replacesTurnId: null,
       createdAt: sampleInstant(1),
       completedAt: sampleInstant(1),
     },
@@ -119,7 +159,17 @@
             >
               {formatTimeOfDay(turn.createdAt)}
             </time>
+            {#if turn.replacesTurnId !== null}
+              <span class="text-xs font-normal text-text-muted">Edited</span>
+            {/if}
           </Conversation.TurnSpeaker>
+          {#if turn.removedAt !== null}
+            <Conversation.TurnNote tone="quiet">
+              {turn.speaker === "member"
+                ? `${name} removed this message and Magnus's answer to it. They are kept on the firm's record and are not sent to Magnus again.`
+                : "Removed with the message it answered."}
+            </Conversation.TurnNote>
+          {/if}
           {#if turn.content !== null}
             <Conversation.TurnBody>{turn.content}</Conversation.TurnBody>
           {/if}
@@ -143,7 +193,7 @@
               fit. If what was dropped bears on the answer, restate it and ask again.
             </Conversation.TurnNote>
           {/if}
-          {#if turn.content !== null && turn.status !== "pending"}
+          {#if turn.content !== null && turn.status !== "pending" && turn.removedAt === null}
             <Conversation.TurnActions>
               <!-- The control names whose words it copies and when, because a long conversation
                    otherwise offers a screen reader a column of controls all called Copy. -->
@@ -164,6 +214,50 @@
                 </Tooltip.Trigger>
                 <Tooltip.Content>Copy</Tooltip.Content>
               </Tooltip.Root>
+              {#if live && ownMessages && turn.speaker === "member"}
+                {#if onEdit !== undefined}
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={!settled}
+                          aria-label="Edit your message from {formatTimeOfDay(turn.createdAt)}"
+                          onclick={() => onEdit?.(turn)}
+                        >
+                          <PencilLine class="size-16" aria-hidden="true" />
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>
+                      {settled ? "Edit and Ask Again" : "Wait for the answer to finish"}
+                    </Tooltip.Content>
+                  </Tooltip.Root>
+                {/if}
+                {#if onRemove !== undefined}
+                  <Tooltip.Root>
+                    <Tooltip.Trigger>
+                      {#snippet child({ props })}
+                        <Button
+                          {...props}
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={!settled}
+                          aria-label="Remove your message from {formatTimeOfDay(turn.createdAt)}"
+                          onclick={() => onRemove?.(turn)}
+                        >
+                          <Trash2 class="size-16" aria-hidden="true" />
+                        </Button>
+                      {/snippet}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>
+                      {settled ? "Remove" : "Wait for the answer to finish"}
+                    </Tooltip.Content>
+                  </Tooltip.Root>
+                {/if}
+              {/if}
             </Conversation.TurnActions>
           {/if}
         </Conversation.TurnContent>

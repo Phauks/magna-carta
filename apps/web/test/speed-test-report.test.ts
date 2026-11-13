@@ -16,7 +16,7 @@ const FULL = {
   packetLoss: { measured: false as const, reason: "Sign in to measure packet loss." },
   scores: { streaming: "good", gaming: "average", rtc: "average" },
   server: {
-    clientIp: "24.234.27.182",
+    clientIp: "203.0.113.10",
     asOrganization: "Cox Communications Inc.",
     asn: 22773,
     coloCity: "Las Vegas",

@@ -62,7 +62,9 @@
   import MagnusTranscript from "./magnus-transcript.svelte";
   import MagnusUnavailable from "./magnus-unavailable.svelte";
   import MoveConversationDialog from "./move-conversation-dialog.svelte";
+  import TurnRemoveDialog from "./turn-remove-dialog.svelte";
   import { ConversationSession } from "./conversation-session.svelte.ts";
+  import { ConversationShelf } from "./conversation-shelf.svelte.ts";
   import { MatterCitations } from "./matter-citations.svelte.ts";
   import {
     ALLOWANCE_WORTH_SAYING_AT,
@@ -76,6 +78,8 @@
     type ConversationSort,
     type MagnusAvailability,
     type MagnusConversation,
+    type MagnusModelChoice,
+    type MagnusTurn,
   } from "./magnus-api.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -141,6 +145,18 @@
     "Your conversations with Magnus could not be read.",
   );
   const session = new ConversationSession(fetch);
+  /*
+   * The member's folders and pins (R2.12). Only the column rail shows them: a matter's own section
+   * lists its few conversations in one switcher, and a search reads the whole record as one list,
+   * because a member searching is looking for a conversation wherever they keep it.
+   */
+  const shelf = new ConversationShelf(fetch, (filter) => (cursor) =>
+    listConversations(fetch, cursor, {
+      ...(matterId === null ? {} : { matterId }),
+      sort,
+      ...filter,
+    }),
+  );
   const citations = new MatterCitations(fetch);
 
   let availability = $state<MagnusAvailability | null>(null);
@@ -151,6 +167,8 @@
   let accepting = $state(false);
   let starting = $state(false);
   let draft = $state("");
+  /** The model and effort the member chose for their next question; null is the firm's model. */
+  let modelChoice = $state<MagnusModelChoice | null>(null);
   let sort = $state<ConversationSort>("date");
   /*
    * What the rail is being asked. `searchText` is the field's; `appliedSearch` is what the server was
@@ -174,12 +192,17 @@
   let composingNew = $state(false);
   let deletingConversation = $state<MagnusConversation | null>(null);
   let movingConversation = $state<MagnusConversation | null>(null);
+  /** The member's own message being rewritten in the composer, or null when asking afresh. */
+  let editingTurn = $state<MagnusTurn | null>(null);
+  /** The member's own message the remove dialog is asking about. */
+  let removingTurn = $state<MagnusTurn | null>(null);
   let attachingTo = $state<MagnusConversation | null>(null);
   let detachingFileId = $state<string | null>(null);
   let composerElement = $state<HTMLTextAreaElement | null>(null);
   let loadedSubject: string | null = null;
 
   const rows = $derived(conversations.items);
+  const shelved = $derived(rail === "column" && !searching);
   const readFailure = $derived(conversations.failure);
   const isOpen = $derived(availability?.state === "open");
   const showsDisclosure = $derived(availability?.state === "acknowledgement-required");
@@ -198,6 +221,7 @@
    */
   const selected = $derived(
     rows?.find((row) => row.id === selectedId) ??
+      (selectedId === null ? undefined : shelf.find(selectedId)) ??
       (session.conversation !== null && session.conversation.id === selectedId
         ? session.conversation
         : null),
@@ -314,11 +338,19 @@
     return listConversations(fetch, cursor, {
       ...(matterId === null ? {} : { matterId }),
       ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
+      // With folders shown, this list is General: the conversations in no folder.
+      ...(shelved ? { folder: "general" } : {}),
       sort,
     });
   }
 
+  /* Pinned and the open folders are read again beside General, in the same order. */
+  function reloadShelf(): void {
+    if (shelved) void shelf.reload(`${subject}:${sort}`);
+  }
+
   async function loadConversations(): Promise<void> {
+    reloadShelf();
     await conversations.load(readPage);
     if (showMatter) void citations.resolve((conversations.items ?? []).map((row) => row.matterId));
     openNewestIfNothingIsOpen();
@@ -338,6 +370,7 @@
   async function applySearch(next: string): Promise<void> {
     appliedSearch = next;
     conversations.reset(`${subject}:${next.trim()}`);
+    reloadShelf();
     await conversations.load(readPage);
     if (showMatter) void citations.resolve((conversations.items ?? []).map((row) => row.matterId));
   }
@@ -475,6 +508,30 @@
     else select(value);
   }
 
+  /*
+   * Editing puts the message back in the composer and says so there. The draft the member had is
+   * set aside for the edit, because the composer holds one message at a time; cancelling clears it.
+   */
+  function startEditing(turn: MagnusTurn): void {
+    if (turn.content === null) return;
+    editingTurn = turn;
+    draft = turn.content;
+    composerElement?.focus();
+  }
+
+  function cancelEditing(): void {
+    editingTurn = null;
+    draft = "";
+  }
+
+  /* Opening another conversation, or a read that no longer holds the message, ends the edit. */
+  $effect(() => {
+    const editing = editingTurn;
+    if (editing !== null && !(session.turns ?? []).some((turn) => turn.id === editing.id)) {
+      editingTurn = null;
+    }
+  });
+
   async function send(): Promise<void> {
     const message = draft.trim();
     if (message === "" || sendRefused) return;
@@ -495,9 +552,13 @@
       selectedId = outcome.value.id;
       composingNew = false;
     }
-    const sent = await session.send(message);
+    const sent =
+      editingTurn === null
+        ? await session.send(message, modelChoice)
+        : await session.edit(editingTurn.id, message, modelChoice);
     if (!sent) return;
     draft = "";
+    editingTurn = null;
     void loadConversations();
     void refreshAvailability();
   }
@@ -533,6 +594,27 @@
     session.adoptAttachments(outcome.value);
   }
 
+  /*
+   * Pinning and moving between folders are the reader's own arrangement. The sections are read
+   * again rather than patched, because a moved conversation leaves one section's order and joins
+   * another's, and only the server knows where it lands in each.
+   */
+  async function shelveSelected(next: { folderId: string | null; pinned: boolean }): Promise<void> {
+    const conversation = selected;
+    if (conversation === null) return;
+    const outcome = await shelf.shelve(conversation.id, next);
+    if (outcome.kind !== "ok") {
+      toast.error(
+        outcome.kind === "problem"
+          ? "The conversation was not moved or pinned, and is where it was."
+          : "Nothing answered, so the conversation is where it was.",
+      );
+      return;
+    }
+    session.reload();
+    void loadConversations();
+  }
+
   function conversationDeleted(): void {
     deletingConversation = null;
     selectedId = null;
@@ -552,6 +634,8 @@
       state: "active",
       createdAt: sampleInstant(0),
       updatedAt: sampleInstant(0),
+      folderId: null,
+      pinnedAt: null,
     },
     {
       id: "fixture-conversation-1",
@@ -561,6 +645,8 @@
       state: "active",
       createdAt: sampleInstant(1),
       updatedAt: sampleInstant(1),
+      folderId: null,
+      pinnedAt: null,
     },
   ];
 </script>
@@ -572,6 +658,10 @@
     onMatter={openMatterId !== null}
     attachments={session.attachments}
     model={availability?.model}
+    models={availability?.models ?? []}
+    bind:choice={modelChoice}
+    editing={editingTurn !== null}
+    onCancelEdit={cancelEditing}
     sending={session.sending || starting}
     {sendRefused}
     {allowanceSpent}
@@ -622,6 +712,14 @@
       conversationId={selected?.id ?? null}
       disabled={session.sending}
       {downloading}
+      shelf={shelved && shelf.folders !== null && selected !== null
+        ? {
+            folders: shelf.folders,
+            folderId: selected.folderId,
+            pinned: selected.pinnedAt !== null,
+          }
+        : null}
+      onShelve={(next) => void shelveSelected(next)}
       onRename={() => conversationName?.rename()}
       onMove={() => (movingConversation = selected)}
       onDownload={() => void downloadTranscript()}
@@ -641,7 +739,7 @@
   <Conversation.Root class="min-h-0 flex-1">
     {#if selectedId !== null}
       {@render conversationHeadRow()}
-      <MagnusTranscript {session} />
+      <MagnusTranscript {session} onEdit={startEditing} onRemove={(turn) => (removingTurn = turn)} />
     {:else}
       <!-- TWO ABSENCES, TWO SETS OF WORDS. Nothing on the record is the member never having asked
            anything, which is what the screen's own empty copy is for. A fresh composer while
@@ -706,7 +804,7 @@
   />
 {/snippet}
 
-{#snippet railRows(shown: readonly MagnusConversation[])}
+{#snippet railRows(shown: readonly MagnusConversation[], withShelf: boolean)}
   <MagnusRail
     rows={shown}
     {selectedId}
@@ -717,15 +815,19 @@
     loadingMore={conversations.loadingMore}
     emptyLine={searching
       ? `Nothing you asked matches "${appliedSearch.trim()}".`
-      : "Nothing asked yet."}
+      : withShelf
+        ? "No conversations in General."
+        : "Nothing asked yet."}
+    shelf={withShelf ? shelf : undefined}
     onSelect={select}
     onSortChange={reorder}
     onLoadMore={loadMoreConversations}
+    onFolderRemoved={() => void loadConversations()}
   />
 {/snippet}
 
 {#snippet railFixture()}
-  {@render railRows(FIXTURE_ROWS)}
+  {@render railRows(FIXTURE_ROWS, false)}
 {/snippet}
 
 <!-- THE GATED STATES AND THE RECORD, behind one region. Every answer of the availability read but
@@ -838,7 +940,7 @@
           fixture={railFixture}
           class="flex flex-col gap-8"
         >
-          {@render railRows(rows ?? [])}
+          {@render railRows(rows ?? [], shelved)}
         </LoadingRegion>
       {/if}
     {/snippet}
@@ -862,6 +964,17 @@
   }
   conversation={deletingConversation}
   onDeleted={conversationDeleted}
+/>
+
+<TurnRemoveDialog
+  bind:open={
+    () => removingTurn !== null,
+    (open: boolean) => {
+      if (!open) removingTurn = null;
+    }
+  }
+  {session}
+  turn={removingTurn}
 />
 
 <MoveConversationDialog

@@ -1,6 +1,4 @@
-import { civilDateOf } from "@magna-carta/civil-time/civil-date";
-import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { assertPermission } from "@magna-carta/access-control/registry";
+import { z } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
@@ -17,7 +15,6 @@ import type {
   MagnusTurnId,
   MatterId,
 } from "@magna-carta/identifiers/types";
-import { catalogEntryFor } from "@magna-carta/inference/catalog";
 import { primaryReasoningModelDefinition } from "@magna-carta/inference/settings";
 import {
   memberAcknowledgedAudit,
@@ -32,6 +29,14 @@ import {
   renameConversation,
   startConversation,
 } from "@magna-carta/magnus/conversation";
+import {
+  Availability,
+  ConversationSummary,
+  SubmitTurnRequest,
+  SubmittedTurn,
+  TurnDetail,
+  TurnProgress,
+} from "@magna-carta/magnus/contract";
 import { MAGNUS_DISCLOSURE_VERSION } from "@magna-carta/magnus/disclosure";
 import {
   CONVERSATION_ATTACHMENTS_MAX,
@@ -39,6 +44,7 @@ import {
   exceedsMemberTurnCap,
 } from "@magna-carta/magnus/limits";
 import { magnusDailyTurnCeilingDefinition } from "@magna-carta/magnus/settings";
+import { readShelf } from "@magna-carta/magnus/shelf";
 import {
   countMemberTurnsSince,
   listAttachmentsWithFiles,
@@ -72,13 +78,35 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
 import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
-import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
-import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
+import { Problem, problemJson } from "../../contracts/problem.ts";
+import { defineOpenAPIRoute } from "../../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
-import { resolveMagnusConsent, type MagnusConsent } from "../../../magnus/consent.ts";
+import { resolveMagnusConsent } from "../../../magnus/consent.ts";
 import { magnusSubscribeRequest } from "../../../magnus/magnus-sockets.ts";
+import {
+  answeringModelBody,
+  chooseableModelIds,
+  modelChoiceRefusal,
+  resolveModelChoice,
+} from "../../../magnus/model-choice.ts";
 import { resolveTurnProgress } from "../../../magnus/turn-progress.ts";
+import { acceptTurn, utcDayStart } from "./turn-submission.ts";
 import { isWebSocketUpgrade } from "../../../progress/job-progress-sockets.ts";
+import {
+  DEFAULT_PAGE_SIZE,
+  READ_ALL_PERMISSION,
+  commonErrors,
+  consentRefusal,
+  conversationBody,
+  turnBody,
+  firmGateRefusal,
+  mutationMeta,
+  notFound,
+  readMeta,
+  requireOwnConversation,
+  requireReadableConversation,
+  type MagnusApp,
+} from "./route-shared.ts";
 
 // The Magnus surface: start a conversation, submit a turn, watch the answer arrive, read and delete
 // the record afterwards.
@@ -92,153 +120,8 @@ import { isWebSocketUpgrade } from "../../../progress/job-progress-sockets.ts";
 // SEPARATE permission and a separate branch that writes its own audit row: the read is legitimate
 // supervision, and it is exactly the kind of access that should leave a trace.
 
-const CONVERSE = "magnus:converse";
-const READ_ALL = "magnus:readAllConversations";
-// The branded form, resolved once: the effective-permission set is a set of branded keys, and a raw
-// string is not assignable to one without going through the registry's own narrower.
-const READ_ALL_PERMISSION = assertPermission(READ_ALL);
-
-const DEFAULT_PAGE_SIZE = 50;
-
-const authErrors = {
-  401: {
-    description: "No valid session",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  403: {
-    description: "The session member lacks the permission, or the firm has not opted in",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  404: {
-    description: "The firm is unreachable, the member is deactivated, or the record does not exist",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  409: {
-    description:
-      "The member has not accepted the current disclosure, or a request with this Idempotency-Key " +
-      "is still in progress",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  422: {
-    description: "The request is well-formed but a rule refuses it",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-  429: {
-    description: "Rate limit exceeded",
-    content: { "application/problem+json": { schema: Problem } },
-  },
-};
-
-// Every route in this module can answer any of these: the consent gates produce 403 and 409, the
-// idempotency chokepoint produces 409 and 422, and the record reads produce 404. Declared once so a
-// handler and its contract cannot drift apart.
-const commonErrors = {
-  401: authErrors[401],
-  403: authErrors[403],
-  404: authErrors[404],
-  409: authErrors[409],
-  422: authErrors[422],
-  429: authErrors[429],
-};
-
-function readMeta(action: string): RouteMeta {
-  return {
-    operationId: `magnus.${action}`,
-    surface: "app",
-    authenticated: true,
-    permission: CONVERSE,
-    // A conversation may carry an optional matter link but exists without one, so the firm is its
-    // tenancy root.
-    resource: "firm",
-    audited: false,
-    idempotency: "optional",
-    rateLimit: "default",
-  };
-}
-
-function mutationMeta(action: string, audited: boolean): RouteMeta {
-  return {
-    operationId: `magnus.${action}`,
-    surface: "app",
-    authenticated: true,
-    permission: CONVERSE,
-    resource: "firm",
-    audited,
-    // Required: a retried submit must not put a second question to the model, which is both a second
-    // spend and a transcript that says the member asked twice.
-    idempotency: "required",
-    idempotencyStore: "firm",
-    rateLimit: "default",
-  };
-}
-
 // ---------------------------------------------------------------------------------------------
 // Wire shapes
-
-const ConversationSummary = z
-  .object({
-    id: z.string(),
-    title: z.string().nullable(),
-    createdBy: z.string(),
-    matterId: z.string().nullable(),
-    state: z.enum(["active", "archived", "deleted"]),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  })
-  .openapi("MagnusConversation");
-
-const TurnDetail = z
-  .object({
-    id: z.string(),
-    sequence: z.number(),
-    speaker: z.enum(["member", "magnus"]),
-    content: z.string().nullable(),
-    status: z.enum(["pending", "complete", "failed", "refused"]),
-    failureLabel: z
-      .enum(["model-unavailable", "not-eligible", "ceiling-reached", "too-large", "cancelled"])
-      .nullable(),
-    modelId: z.string().nullable(),
-    snapshotId: z.string().nullable(),
-    // True when earlier messages did not fit the request window, so this answer was built on part of
-    // the conversation.
-    contextTruncated: z.boolean(),
-    createdAt: z.string(),
-    completedAt: z.string().nullable(),
-  })
-  .openapi("MagnusTurn");
-
-const TurnProgress = z
-  .object({
-    turnId: z.string(),
-    status: z.enum(["pending", "complete", "failed", "refused", "unknown"]),
-    content: z.string().optional(),
-    failureLabel: z
-      .enum(["model-unavailable", "not-eligible", "ceiling-reached", "too-large", "cancelled"])
-      .optional(),
-    truncatedContext: z.boolean().optional(),
-  })
-  .openapi("MagnusTurnProgress");
-
-// Which model answers. Reported with the availability so the surface can say it beside the composer:
-// a firm chooses the model on its AI settings screen, and a member typing should be able to see the
-// choice without leaving the conversation.
-const AnsweringModel = z
-  .object({
-    modelId: z.string(),
-    snapshotId: z.string(),
-    zeroDataRetention: z.boolean(),
-  })
-  .openapi("MagnusAnsweringModel");
-
-const Availability = z
-  .object({
-    state: z.enum(["open", "firm-ineligible", "feature-disabled", "acknowledgement-required"]),
-    disclosureVersion: z.number().optional(),
-    remainingDailyTurns: z.number().optional(),
-    // Present when open. Null when the firm's stored model is one the platform no longer carries.
-    model: AnsweringModel.nullable().optional(),
-  })
-  .openapi("MagnusAvailability");
 
 // A file attached to a conversation by reference, as a reader meets it: the file's own name, and what
 // became of its text on the most recent question. `name` is null where the file has been deleted
@@ -357,13 +240,18 @@ const listConversationsRoute = defineOpenAPIRoute(readMeta("listConversations"),
     "was built from. `search` narrows to the conversations a term reaches: on the caller's own " +
     "conversations it matches the title and what was said in them, and on `scope=firm` it matches " +
     "titles alone — one member searching their own work is not the same act as reading across the " +
-    "firm's transcripts, and only the first is what this offers.",
+    "firm's transcripts, and only the first is what this offers. Each row carries where the CALLER " +
+    "keeps it (`folderId`, null for General, and `pinnedAt`); `folder` narrows to one of the " +
+    "caller's folders or to `general`, and `pinned=true` to what the caller has pinned.",
   request: {
     query: cursorQuery.extend({
       scope: z.enum(["own", "firm"]).optional(),
       matterId: identifierField("matter").optional(),
       search: z.string().max(200).optional(),
       sort: z.enum(CONVERSATION_SORTS as [ConversationSort, ...ConversationSort[]]).optional(),
+      // The caller's own shelf: one folder, General ("general"), or what they have pinned.
+      folder: z.union([z.literal("general"), identifierField("magnusFolder")]).optional(),
+      pinned: z.enum(["true"]).optional(),
     }),
   },
   responses: {
@@ -573,7 +461,7 @@ const submitTurnRoute = defineOpenAPIRoute(mutationMeta("submitTurn", true), {
     body: {
       content: {
         "application/json": {
-          schema: z.object({ content: z.string().min(1) }).openapi("MagnusSubmitTurnRequest"),
+          schema: SubmitTurnRequest,
         },
       },
       required: true,
@@ -584,20 +472,14 @@ const submitTurnRoute = defineOpenAPIRoute(mutationMeta("submitTurn", true), {
       description: "The message was recorded and an answer is pending",
       content: {
         "application/json": {
-          schema: z
-            .object({
-              conversationId: z.string(),
-              memberTurnId: z.string(),
-              magnusTurnId: z.string(),
-              status: z.literal("pending"),
-            })
-            .openapi("MagnusSubmitTurnResponse"),
+          schema: SubmittedTurn,
         },
       },
     },
     ...commonErrors,
     422: {
-      description: "The message exceeds the per-turn size limit",
+      description:
+        "The message exceeds the per-turn size limit, or names a model or effort it cannot",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -649,56 +531,6 @@ const eventsRoute = defineOpenAPIRoute(readMeta("events"), {
 // ---------------------------------------------------------------------------------------------
 // Handlers
 
-type MagnusApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
-
-// The refusal every route shares. Each closed gate gets its own problem type: a firm administrator
-// reading "the firm has not enabled Magnus" knows what to do, where a generic permission denial sends
-// them looking at roles.
-function firmGateRefusal(c: Context, consent: MagnusConsent): ProblemResponse<403> | null {
-  if (consent.state === "firm-ineligible") {
-    return problemJson(c, {
-      type: "magnus-firm-not-eligible",
-      title: "This firm has not enabled AI processing",
-      status: 403,
-      detail:
-        "The firm has not consented to sending its content to a third-party model provider. An " +
-        "administrator enables that in firm settings.",
-    });
-  }
-  if (consent.state === "feature-disabled") {
-    return problemJson(c, {
-      type: "magnus-not-enabled",
-      title: "The assistant is not enabled for this firm",
-      status: 403,
-      detail: "An administrator enables the assistant in firm settings.",
-    });
-  }
-  return null;
-}
-
-function consentRefusal(
-  c: Context,
-  consent: MagnusConsent,
-): ProblemResponse<403> | ProblemResponse<409> | null {
-  const firmRefusal = firmGateRefusal(c, consent);
-  if (firmRefusal !== null) return firmRefusal;
-  if (consent.state === "acknowledgement-required") {
-    return problemJson(c, {
-      type: "magnus-acknowledgement-required",
-      title: "The disclosure has not been accepted",
-      status: 409,
-      detail:
-        "Accept the current disclosure before using the assistant. What it can see and do has " +
-        "changed since it was last accepted, or it has not been accepted at all.",
-    });
-  }
-  return null;
-}
-
-function utcDayStart(nowIso: string): string {
-  return `${civilDateOf(nowIso)}T00:00:00.000Z`;
-}
-
 export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): void {
   // Availability — what a client calls before showing an input box.
   app.openapi(
@@ -723,22 +555,15 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         countMemberTurnsSince(firm.firmDatabase, utcDayStart(new Date().toISOString())),
         readFirmSetting(firm.firmDatabase, primaryReasoningModelDefinition),
       ]);
-      // The model that will answer, read through the same setting the consumer reads, so what the
-      // composer says and what the queue sends can never name two models.
-      const entry = catalogEntryFor(modelId);
+      // The firm's model, read through the same setting the consumer reads, so what the composer
+      // offers first and what the queue sends when the member chooses nothing are the same model.
       return c.json(
         {
           state: "open" as const,
           disclosureVersion: consent.disclosureVersion,
           remainingDailyTurns: Math.max(ceiling - spent, 0),
-          model:
-            entry === undefined
-              ? null
-              : {
-                  modelId: entry.modelId,
-                  snapshotId: entry.snapshotId,
-                  zeroDataRetention: entry.zdrEligible,
-                },
+          model: answeringModelBody(modelId),
+          models: chooseableModelIds().flatMap((id) => answeringModelBody(id) ?? []),
         },
         200,
       );
@@ -855,7 +680,15 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       const refusal = consentRefusal(c, consent);
       if (refusal !== null) return refusal;
 
-      const { cursor, scope, matterId, search, sort: requestedSort } = c.req.valid("query");
+      const {
+        cursor,
+        scope,
+        matterId,
+        search,
+        sort: requestedSort,
+        folder,
+        pinned,
+      } = c.req.valid("query");
       const sort = requestedSort ?? "date";
       // The firm-wide scope is a separate grant. Without it a member sees exactly their own, which is
       // the default and needs no opt-in.
@@ -880,6 +713,9 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         sort,
         ...(decodedCursor !== undefined && { cursor: decodedCursor }),
         limit: DEFAULT_PAGE_SIZE + 1,
+        shelfMember: userId,
+        ...(folder !== undefined && { folder }),
+        ...(pinned === "true" && { pinnedOnly: true }),
       });
       const page = rows.slice(0, DEFAULT_PAGE_SIZE);
       const last = page[page.length - 1];
@@ -891,15 +727,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
           : null;
       return c.json(
         {
-          data: page.map((row) => ({
-            id: row.id,
-            title: row.title,
-            createdBy: row.createdBy,
-            matterId: row.matterId,
-            state: row.state,
-            createdAt: row.createdAt,
-            updatedAt: row.updatedAt,
-          })),
+          data: page.map((row) => conversationBody(row, row)),
           nextCursor,
         },
         200,
@@ -955,41 +783,22 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         );
       }
 
-      const [turns, attachments] = await Promise.all([
+      const [turns, attachments, shelf] = await Promise.all([
         listTurns(firm.firmDatabase, conversationId, {
           ...(decodeCursor(cursor) !== undefined && { cursor: decodeCursor(cursor) }),
           limit: DEFAULT_PAGE_SIZE + 1,
         }),
         listAttachmentsWithFiles(firm.firmDatabase, conversationId),
+        readShelf(firm.firmDatabase, conversationId, userId),
       ]);
       const page = turns.slice(0, DEFAULT_PAGE_SIZE);
       const last = page[page.length - 1];
       return c.json(
         {
-          conversation: {
-            id: conversation.id,
-            title: conversation.title,
-            createdBy: conversation.createdBy,
-            matterId: conversation.matterId,
-            state: conversation.state,
-            createdAt: conversation.createdAt,
-            updatedAt: conversation.updatedAt,
-          },
+          conversation: conversationBody(conversation, shelf),
           attachments: attachments.map(attachmentBody),
           turns: {
-            data: page.map((turn) => ({
-              id: turn.id,
-              sequence: turn.sequence,
-              speaker: turn.speaker,
-              content: turn.content,
-              status: turn.status,
-              failureLabel: turn.failureLabel,
-              modelId: turn.modelId,
-              snapshotId: turn.snapshotId,
-              contextTruncated: turn.contextTruncated,
-              createdAt: turn.createdAt,
-              completedAt: turn.completedAt,
-            })),
+            data: page.map((turn) => turnBody(turn, conversation.createdBy === userId)),
             nextCursor:
               turns.length > DEFAULT_PAGE_SIZE && last !== undefined
                 ? encodeCursor(last.createdAt, last.id)
@@ -1113,20 +922,12 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
         return problemResponseForIdempotencyConflict(c, result);
       }
-      const moved = await readConversation(firm.firmDatabase, conversationId);
+      const [moved, shelf] = await Promise.all([
+        readConversation(firm.firmDatabase, conversationId),
+        readShelf(firm.firmDatabase, conversationId, userId),
+      ]);
       if (moved === undefined) return notFound(c);
-      return c.json(
-        {
-          id: moved.id,
-          title: moved.title,
-          createdBy: moved.createdBy,
-          matterId: moved.matterId,
-          state: moved.state,
-          createdAt: moved.createdAt,
-          updatedAt: moved.updatedAt,
-        },
-        200,
-      );
+      return c.json(conversationBody(moved, shelf), 200);
     },
   );
 
@@ -1298,98 +1099,10 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       if (refusal !== null) return refusal;
 
       const { conversationId } = c.req.valid("param");
-      const { content } = c.req.valid("json");
+      const { content, modelId, effort } = c.req.valid("json");
       const owned = await requireOwnConversation(c, conversationId, userId);
       if (owned === null) return notFound(c);
-
-      // The cap is checked here as well as at the write path: a member gets a refusal naming the
-      // limit rather than a request that succeeds and quietly ships a deposition to a provider.
-      if (exceedsMemberTurnCap(content)) {
-        return problemJson(c, {
-          type: "magnus-turn-too-large",
-          title: "Message too long",
-          status: 422,
-          detail: `A message is limited to ${MEMBER_TURN_MAX_BYTES} bytes.`,
-        });
-      }
-
-      // The firm's daily allowance, checked BEFORE anything is enqueued. This is the limit that
-      // matters: the assistant is the first surface where one member can generate unbounded provider
-      // spend just by typing, so the firm is told it reached its own ceiling by name.
-      const ceiling = await readFirmSetting(firm.firmDatabase, magnusDailyTurnCeilingDefinition);
-      const spent = await countMemberTurnsSince(
-        firm.firmDatabase,
-        utcDayStart(new Date().toISOString()),
-      );
-      if (spent >= ceiling) {
-        return problemJson(c, {
-          type: "magnus-daily-ceiling-reached",
-          title: "The firm's daily allowance is spent",
-          status: 429,
-          detail: `This firm's daily limit of ${ceiling} messages has been reached. It resets at 00:00 UTC.`,
-        });
-      }
-
-      const nextSequence = await readNextSequence(firm.firmDatabase, conversationId);
-      const idempotency = requireChokepointIdempotency(c);
-      const now = () => new Date().toISOString();
-      const result = await runIdempotentEffect({
-        database: firm.firmDatabase,
-        key: idempotency.key,
-        fingerprint: idempotency.fingerprint,
-        now,
-        effect: async () => {
-          const submission = submitTurn(
-            firm.firmDatabase,
-            { clock: { now }, actorUserId: userId, randomSource: cryptoRandomSource },
-            {
-              conversationId,
-              content,
-              nextSequence,
-              disclosureVersion: MAGNUS_DISCLOSURE_VERSION,
-            },
-          );
-          if (!submission.ok) {
-            // Unreachable given the check above; kept because the domain is the authority on its own
-            // cap and a route that silently disagreed with it would be the bug.
-            return {
-              write: { statements: [], outboxMessages: [] },
-              responseCode: 422,
-              responseBody: null,
-            };
-          }
-          return {
-            write: submission.effect,
-            responseCode: 202,
-            responseBody: canonicalJsonStringify({
-              conversationId,
-              memberTurnId: submission.memberTurnId,
-              magnusTurnId: submission.magnusTurnId,
-              status: "pending",
-            }),
-          };
-        },
-      });
-      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
-        return problemResponseForIdempotencyConflict(c, result);
-      }
-      if (result.responseBody === null) {
-        return problemJson(c, {
-          type: "magnus-turn-too-large",
-          title: "Message too long",
-          status: 422,
-          detail: `A message is limited to ${MEMBER_TURN_MAX_BYTES} bytes.`,
-        });
-      }
-      return c.json(
-        JSON.parse(result.responseBody) as {
-          conversationId: string;
-          memberTurnId: string;
-          magnusTurnId: string;
-          status: "pending";
-        },
-        202,
-      );
+      return acceptTurn(c, { firm, userId, conversationId, content, modelId, effort });
     },
   );
 
@@ -1454,37 +1167,6 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       return conversation.fetch(magnusSubscribeRequest(firmId, conversationId));
     },
   );
-}
-
-// A conversation the caller may WRITE to: their own, and not deleted. Somebody else's is reported as
-// absent rather than forbidden — a member has no business learning that another member's conversation
-// exists.
-async function requireOwnConversation(
-  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
-  conversationId: MagnusConversationId,
-  userId: string,
-): Promise<true | null> {
-  const firm = requireChokepointFirmContext(c);
-  const conversation = await readConversation(firm.firmDatabase, conversationId);
-  if (conversation === undefined || conversation.state === "deleted") return null;
-  return conversation.createdBy === userId ? true : null;
-}
-
-// A conversation the caller may READ: their own, or anyone's under the administrative permission.
-async function requireReadableConversation(
-  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
-  conversationId: MagnusConversationId,
-  userId: string,
-): Promise<true | null> {
-  const firm = requireChokepointFirmContext(c);
-  const conversation = await readConversation(firm.firmDatabase, conversationId);
-  if (conversation === undefined || conversation.state === "deleted") return null;
-  if (conversation.createdBy === userId) return true;
-  return requireChokepointPermissions(c).has(READ_ALL_PERMISSION) ? true : null;
-}
-
-function notFound(c: Context): ProblemResponse<404> {
-  return problemJson(c, { type: "not-found", status: 404, title: "Conversation not found" });
 }
 
 // An attachment on the wire: the reference and its outcome, never the file's bytes or text.

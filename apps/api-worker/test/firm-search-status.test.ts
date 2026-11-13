@@ -132,9 +132,11 @@ describe("GET /api/v1/firm/search-status", () => {
       expect(place.label.length).toBeGreaterThan(0);
       expect(place.matchedFields.length).toBeGreaterThan(0);
     }
+    // The deployment binds the search service and so does the test pool (a stub with no engine
+    // behind it), so the words inside files read as connected and not yet turned on.
     expect(status.fileContents).toEqual({
       turnedOn: false,
-      serviceConnected: false,
+      serviceConnected: true,
       filesBelonging: 0,
       filesIndexed: 0,
       lastIndexedAt: null,
@@ -201,14 +203,14 @@ describe("GET /api/v1/firm/search-status", () => {
     });
   });
 
-  it("says a service is connected when the deployment binds one", async () => {
+  it("says the service is not connected on a deployment that binds none", async () => {
     const response = await createApp().request(
       ROUTE,
       { headers: { cookie: ownerCookie } },
-      { ...env, SEARCH_SERVICE: { fetch: async () => new Response(null, { status: 503 }) } },
+      { ...env, SEARCH_SERVICE: undefined },
     );
     expect(response.status).toBe(200);
-    expect((await response.json<StatusBody>()).fileContents.serviceConnected).toBe(true);
+    expect((await response.json<StatusBody>()).fileContents.serviceConnected).toBe(false);
   });
 
   it("returns 403 for an authenticated member without firm:manageSearchSettings", async () => {

@@ -29,11 +29,23 @@ export const MAGNUS_AVAILABILITY_STATES = [
 ] as const;
 export type MagnusAvailabilityState = (typeof MAGNUS_AVAILABILITY_STATES)[number];
 
-/** The model that answers, as the firm chose it on its AI settings screen. */
+/** A model that can answer: the firm's own, or another a member may choose in the composer. */
 export interface MagnusAnsweringModel {
   modelId: string;
+  /** The name the composer shows, such as "Claude Opus 5.5". */
+  displayName: string;
   snapshotId: string;
   zeroDataRetention: boolean;
+  /** The effort levels the model takes, lowest first; empty where it takes none. */
+  effortLevels: string[];
+  /** The effort it answers at when none is chosen; null where it takes none. */
+  defaultEffort: string | null;
+}
+
+/** The model and effort a member chose in the composer for their next question. */
+export interface MagnusModelChoice {
+  modelId: string;
+  effort: string | null;
 }
 
 export interface MagnusAvailability {
@@ -47,6 +59,8 @@ export interface MagnusAvailability {
    * no longer carries, which the composer states rather than naming a model that will not answer.
    */
   model?: MagnusAnsweringModel | null;
+  /** Present when open: every model a member may choose, the firm's own among them. */
+  models?: MagnusAnsweringModel[];
 }
 
 /**
@@ -111,6 +125,28 @@ export interface MagnusConversation {
   state: MagnusConversationState;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Which of the READER's folders it sits in; null is General. Where a member keeps a conversation
+   * is theirs alone: it decides nothing about who may read it, and nobody else sees it.
+   */
+  folderId: string | null;
+  /** When the reader pinned it; null when they have not. */
+  pinnedAt: string | null;
+}
+
+/** One of the member's own folders. General is not one: it is where a conversation in no folder sits. */
+export interface MagnusFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Where the reader keeps one conversation, as the server recorded it. */
+export interface MagnusShelf {
+  conversationId: string;
+  folderId: string | null;
+  pinnedAt: string | null;
 }
 
 /** Who is speaking. There is deliberately no third speaker. */
@@ -140,6 +176,17 @@ export interface MagnusTurn {
   snapshotId: string | null;
   /** True when earlier messages did not fit, so this answer was built on part of the conversation. */
   contextTruncated: boolean;
+  /** The effort the answer was asked for, or null where none was sent. */
+  effort: string | null;
+  /**
+   * When the author removed this message and its answer. The text is kept on the record but not
+   * returned to the author, so a removed turn reads as a marker.
+   */
+  removedAt: string | null;
+  /** When an edit of an earlier message set this turn aside; it remains as the earlier version. */
+  supersededAt: string | null;
+  /** On a message made by an edit, the message it replaces. */
+  replacesTurnId: string | null;
   createdAt: string;
   completedAt: string | null;
 }
@@ -250,6 +297,10 @@ export interface ConversationListFilters {
   search?: string;
   /** The order the record is read in. Absent means newest first. */
   sort?: ConversationSort;
+  /** One of the reader's folders by its id, or "general" for the conversations in none. */
+  folder?: string;
+  /** Only what the reader has pinned. */
+  pinned?: boolean;
 }
 
 function conversationQuery(filters: ConversationListFilters, cursor?: string): string {
@@ -262,6 +313,8 @@ function conversationQuery(filters: ConversationListFilters, cursor?: string): s
     query.set("search", filters.search.trim());
   }
   if (filters.sort !== undefined && filters.sort !== "date") query.set("sort", filters.sort);
+  if (filters.folder !== undefined) query.set("folder", filters.folder);
+  if (filters.pinned === true) query.set("pinned", "true");
   return query.size === 0 ? "" : `?${query.toString()}`;
 }
 
@@ -317,11 +370,63 @@ export function submitTurn(
   conversationId: string,
   content: string,
   idempotencyKey: string,
+  choice: MagnusModelChoice | null = null,
 ): Promise<ApiOutcome<MagnusSubmittedTurn>> {
+  // No choice sends no model, and the firm's model answers at its own default effort.
+  const body =
+    choice === null
+      ? { content }
+      : {
+          content,
+          modelId: choice.modelId,
+          ...(choice.effort !== null && { effort: choice.effort }),
+        };
   return requestJson(
     fetchImpl,
     `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/turns`,
-    { method: "POST", body: { content }, idempotencyKey },
+    { method: "POST", body, idempotencyKey },
+  );
+}
+
+/**
+ * Edits one of the member's messages and asks again from there. The message and every turn after
+ * it are set aside (kept on the record), and the edit comes back as a new message with a pending
+ * answer, exactly as a new question does.
+ */
+export function editTurn(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  turnId: string,
+  content: string,
+  idempotencyKey: string,
+  choice: MagnusModelChoice | null = null,
+): Promise<ApiOutcome<MagnusSubmittedTurn>> {
+  const body =
+    choice === null
+      ? { content }
+      : {
+          content,
+          modelId: choice.modelId,
+          ...(choice.effort !== null && { effort: choice.effort }),
+        };
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/turns/${encodeURIComponent(turnId)}`,
+    { method: "PATCH", body, idempotencyKey },
+  );
+}
+
+/** Removes one of the member's messages and its answer from the conversation, behind a marker. */
+export function removeTurn(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  turnId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ memberTurnId: string; magnusTurnId: string | null; removedAt: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/turns/${encodeURIComponent(turnId)}`,
+    { method: "DELETE", idempotencyKey },
   );
 }
 
@@ -426,6 +531,67 @@ export function acknowledgeDisclosure(
     method: "POST",
     idempotencyKey,
   });
+}
+
+/** The member's own folders, by name. */
+export function listFolders(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<{ data: MagnusFolder[] }>> {
+  return requestJson(fetchImpl, "/api/v1/magnus/folders");
+}
+
+export function createFolder(
+  fetchImpl: typeof fetch,
+  name: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusFolder>> {
+  return requestJson(fetchImpl, "/api/v1/magnus/folders", {
+    method: "POST",
+    body: { name },
+    idempotencyKey,
+  });
+}
+
+export function renameFolder(
+  fetchImpl: typeof fetch,
+  folderId: string,
+  name: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusFolder>> {
+  return requestJson(fetchImpl, `/api/v1/magnus/folders/${encodeURIComponent(folderId)}`, {
+    method: "PATCH",
+    body: { name },
+    idempotencyKey,
+  });
+}
+
+/** Removes a folder. What was in it goes back to General; no conversation is removed. */
+export function deleteFolder(
+  fetchImpl: typeof fetch,
+  folderId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, `/api/v1/magnus/folders/${encodeURIComponent(folderId)}`, {
+    method: "DELETE",
+    idempotencyKey,
+  });
+}
+
+/**
+ * Says where the reader keeps one conversation: a folder (null is General) and whether it is
+ * pinned. Both halves at once, so a move and a pin are never half applied.
+ */
+export function shelveConversation(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  shelf: { folderId: string | null; pinned: boolean },
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusShelf>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/shelf`,
+    { method: "PUT", body: shelf, idempotencyKey },
+  );
 }
 
 /** A fresh idempotency key per submitted write, so a retry of THAT write is the same write. */

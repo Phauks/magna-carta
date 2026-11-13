@@ -7,6 +7,11 @@ import { fromBase64, toArrayBuffer } from "@magna-carta/signing";
 export interface SignWorkerEnv {
   readonly PLATFORM_SEAL_KEY?: string;
   readonly PLATFORM_SEAL_CERT?: string;
+  /**
+   * Where a reader writes about a certificate itself, printed on every Certificate of Completion.
+   * A plain variable, not a secret. Unset, the certificate names the platform and gives no address.
+   */
+  readonly CERTIFICATE_SUPPORT_EMAIL?: string;
 }
 
 /** The resolved platform signing identity: a non-extractable signing key and the signer certificate. */

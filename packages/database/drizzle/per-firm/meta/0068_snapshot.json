@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c0f01701-e210-42fe-b98a-ab1050867dbf",
-  "prevId": "3958b2c1-d37c-4e10-8505-eff92517fd9b",
+  "id": "2b15559c-e580-4511-94c0-04f760157a3c",
+  "prevId": "61fb851f-af7f-4d9c-a94e-8a40f333b79b",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -14239,6 +14239,157 @@
         }
       }
     },
+    "magnus_conversation_shelf": {
+      "name": "magnus_conversation_shelf",
+      "columns": {
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "folder_id": {
+          "name": "folder_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pinned_at": {
+          "name": "pinned_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "magnus_conversation_shelf_folder_index": {
+          "name": "magnus_conversation_shelf_folder_index",
+          "columns": [
+            "member_id",
+            "folder_id"
+          ],
+          "isUnique": false
+        },
+        "magnus_conversation_shelf_pinned_index": {
+          "name": "magnus_conversation_shelf_pinned_index",
+          "columns": [
+            "member_id",
+            "pinned_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "magnus_conversation_shelf_conversation_id_magnus_conversation_id_fk": {
+          "name": "magnus_conversation_shelf_conversation_id_magnus_conversation_id_fk",
+          "tableFrom": "magnus_conversation_shelf",
+          "tableTo": "magnus_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "magnus_conversation_shelf_folder_id_magnus_folder_id_fk": {
+          "name": "magnus_conversation_shelf_folder_id_magnus_folder_id_fk",
+          "tableFrom": "magnus_conversation_shelf",
+          "tableTo": "magnus_folder",
+          "columnsFrom": [
+            "folder_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "magnus_conversation_shelf_conversation_id_member_id_pk": {
+          "columns": [
+            "conversation_id",
+            "member_id"
+          ],
+          "name": "magnus_conversation_shelf_conversation_id_member_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "magnus_folder": {
+      "name": "magnus_folder",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "magnus_folder_member_index": {
+          "name": "magnus_folder_member_index",
+          "columns": [
+            "member_id",
+            "name"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "magnus_member_acknowledgement": {
       "name": "magnus_member_acknowledgement",
       "columns": {
@@ -14357,6 +14508,34 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "effort": {
+          "name": "effort",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "replaces_turn_id": {
+          "name": "replaces_turn_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
