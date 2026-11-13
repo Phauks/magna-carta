@@ -294,6 +294,12 @@ is usually the fastest way to understand the rule.
 
 ### Data entry
 
+- **A field is a box you can see, that answers the hand, and says plainly when it is shut.** Its edge
+  meets the 3 to 1 a control's edge needs on every surface it sits on, and steps one shade darker
+  under the pointer. Focus is the ink edge with the gold ring, never a second dark outline that
+  reads as an error. A disabled field is a dashed edge on a pale fill and never shares a fill with
+  a button. A secondary button is outlined, so it never looks like a disabled primary.
+  _(app visual refresh, 2026-11-13)_
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
   column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
@@ -1613,6 +1619,21 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-11-13 — the app's visual refresh: fields, choices and buttons first
+
+The owner, asked to pick one of three directions for the app as a whole:
+
+- **"A, but i am also referring to how fields look, dropdown, data entry. colors are not what i am
+  focusing on much on, but shape, feel, and function."** Direction A keeps the dark sidebar and
+  serif titles; the first pass is the controls themselves. An audit of New Matter and Log Time
+  found fields whose edge was 1.3 to 1 against the page, a disabled field filled with the same grey
+  as a secondary button, no hover, and a focus that read as an error box. Approved from the
+  mockups ("I like this, looks really good") and built as the field, choice and button recipes.
+  Promoted to _Data entry_.
+- **Still to come in later passes:** one choice field in place of Select and Combobox (search, the
+  tick on the right), a typed date, a segmented control for two to four choices, one label voice,
+  and the shell and tables in direction A.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 
