@@ -273,5 +273,9 @@ beneath them. Rows here supersede R1 where they say so.
   files deleted from a matter (a file is only soft-deleted); matters themselves have no archived
   status. The application supplies the searcher (`apps/api-worker/src/conflicts/file-contents-searcher.ts`);
   while `SEARCH_SERVICE` is unbound it supplies none and the check records `files` unavailable with
-  its reason. A `narrowMatters` seam takes the firm-wide term summary the indexing work will build,
+  its reason. Since 2026-11-13, when the binding was declared, it also supplies none for a firm that
+  has not turned file indexing on: that firm's files are in no index, and a searcher there would
+  have the check record Files as searched and empty. **Not yet on the record:** a firm that does
+  index its files can hold files the index does not have yet, and a check that reads `searched`
+  does not count them. The Search and Indexing settings page does. A `narrowMatters` seam takes the firm-wide term summary the indexing work will build,
   so the fan-out shrinks without a change here.

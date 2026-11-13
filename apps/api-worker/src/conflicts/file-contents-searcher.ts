@@ -2,7 +2,9 @@ import type { FileContentsSearcher } from "@magna-carta/conflicts/file-search";
 import type { FirmId, MatterId } from "@magna-carta/identifiers/types";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
 import type { SearchIndexPort } from "@magna-carta/search/port";
+import { readSearchIndexingEnabled } from "@magna-carta/search/settings";
 import type { Bindings } from "../bindings.ts";
+import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { runKeywordSearch } from "../search/keyword-search.ts";
 import { resolveSearchIndexPort } from "../search/search-engine.ts";
 
@@ -13,14 +15,22 @@ import { resolveSearchIndexPort } from "../search/search-engine.ts";
 //
 // Undefined while the search service is not bound: the check then records Files as not searched,
 // without spending a catalog read per matter to learn what the binding already says.
-export function fileContentsSearcherFor(
+//
+// Undefined, too, for a firm that has not turned file indexing on. Its files are in no index, so
+// every matter would answer "no file names this party" and the check would record Files as searched
+// with nothing found, on a record nobody can amend, when not one file had been read. A firm that
+// turned indexing off again is treated the same way, as its matter search treats it: off means not
+// asked.
+export async function fileContentsSearcherFor(
   env: Bindings,
   firmId: FirmId,
   port: SearchIndexPort | undefined = env.SEARCH_SERVICE === undefined
     ? undefined
     : resolveSearchIndexPort(env),
-): FileContentsSearcher | undefined {
+): Promise<FileContentsSearcher | undefined> {
   if (port === undefined) return undefined;
+  const indexing = await readSearchIndexingEnabled(firmDatabaseFor(env.FIRM_DATABASE, firmId));
+  if (!indexing) return undefined;
   return {
     async query({ matterId, phrases, limit }) {
       const result = await runKeywordSearch(

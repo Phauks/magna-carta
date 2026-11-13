@@ -30,9 +30,13 @@ import {
 // "Holdings" on another. A party is found by name only, so every result is tier 2; a document cannot
 // carry the Directory link that would make it tier 1.
 //
-// DORMANT UNTIL THE SEARCH SERVICE IS CONNECTED. The searcher reports `unavailable` while the index's
-// service is not bound, and the check records Files as not searched, with that reason, instead of as
-// searched and empty.
+// NOT SEARCHED WITHOUT AN INDEX TO ASK. The application supplies no searcher while the index's
+// service is not bound, and none for a firm that has not turned file indexing on, and the check then
+// records Files as not searched, with the reason, instead of as searched and empty.
+//
+// SEARCHED MEANS THE INDEX WAS ASKED, NOT THAT EVERY FILE IS IN IT. A firm that indexes its files can
+// still hold files the index does not have yet (waiting their turn, unreadable, or failed), and this
+// module does not count them. The Search and Indexing settings page does.
 
 // What the run hands this module: the one way it reaches the file contents index. The application
 // supplies it, because only the application holds the service binding and the firm's catalog of

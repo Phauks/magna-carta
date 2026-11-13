@@ -128,8 +128,9 @@ export type Bindings = {
   // deploy-time binding is added; while unset, the seal route returns 503 (deferred activation).
   SIGN_SERVICE?: Fetcher;
   // The dedicated discovery search-index worker (magna-carta-search), reached over a service binding.
-  // It owns the Tantivy engine Container (crates/search-core) and range-reads splits from R2. Optional:
-  // absent in every test environment and until the deploy-time binding is added; while unset,
+  // It owns the Tantivy engine Container (crates/search-core) and range-reads splits from R2. Bound in
+  // wrangler.jsonc; the test pool binds a stub that refuses every operation (vitest.config.ts). It
+  // stays optional because a deployment may be without it (a preview, a rollback), and while unset
   // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
   SEARCH_SERVICE?: Fetcher;
   // The dedicated address engine worker (magna-carta-address), reached over a service binding. It owns
