@@ -528,6 +528,11 @@ export const PROBLEM_TYPES = {
   // request limit that says nothing about cost): this is the firm's own spend ceiling, and it is
   // named so the firm knows which limit it reached and that it resets.
   "magnus-daily-ceiling-reached": "magnus-daily-ceiling-reached",
+  // A message that cannot be edited or removed now (HTTP 409): it is an answer rather than a member's
+  // message, it was already removed or set aside by an edit, or an answer is still being written in
+  // the conversation. DISTINCT from `not-found`: the message exists and the member can see it, and
+  // the detail says which of the three it is so the member knows whether waiting will help.
+  "magnus-turn-unchangeable": "magnus-turn-unchangeable",
   // A load that would carry a review set past its document ceiling (HTTP 422). DISTINCT from
   // `validation` (request-shape) — the request is well-formed and the refusal carries two numbers a
   // caller acts on: how many documents the set holds and what its ceiling is. It is a REFUSAL rather
