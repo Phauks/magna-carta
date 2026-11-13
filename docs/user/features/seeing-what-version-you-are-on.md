@@ -1,6 +1,6 @@
 # Seeing What Version You Are On
 
-The small chip at the top right of the screen always shows the version of Magna Carta you are running. Click it to see what version is serving the app, which features are not working, and whether your firm's records are reachable from where you are sitting. The full report is the **System Status** page under **Settings › Data & Platform** (the page that used to be called **Versions**; an old link still lands there). The chip is the quick view and the page is the full one. They never disagree, because they are one report read from the same places.
+The small chip at the top right of the screen always shows the version of Magna Carta you are running. Click it to see what version is serving the app, which features are not working, and whether your firm's records are reachable from where you are sitting. The full report is the **System Status** page, opened from the pulse icon beside Customize at the foot of the sidebar, or from **Settings › Data & Platform** (the page that used to be called **Versions**; an old link still lands there). The chip is the quick view and the page is the full one. They never disagree, because they are one report read from the same places.
 
 ## The System Status page
 

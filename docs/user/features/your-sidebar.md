@@ -25,7 +25,9 @@ the heading points down while the group is open and sideways while it is folded.
 about the sidebar: everything in a folded group is still one search away.
 
 Settings sits at the foot of the sidebar, alongside the controls for [Uploads](../uploads.md),
-[Downloads](../downloads.md) and Customize.
+[Downloads](../downloads.md), Customize and System Status. System Status, the pulse icon beside
+Customize, opens the page that shows which features are working
+([Seeing what version you are on](seeing-what-version-you-are-on.md)).
 
 ## Tools
 
