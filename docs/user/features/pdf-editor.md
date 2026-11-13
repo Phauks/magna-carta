@@ -1,7 +1,7 @@
 # PDF Editor
 
 Use the PDF Editor to change a PDF that is on a matter. Nothing you rely on is overwritten:
-redacting, numbering, watermarking, extracting and splitting save new files beside the original, and arranging the pages
+redacting, numbering, watermarking, protecting, extracting and splitting save new files beside the original, and arranging the pages
 saves a new version, with the version before it kept in the file's history.
 
 To open it, open a PDF from the matter's documents and choose **Edit PDF**. Choose **Read** to go
@@ -94,3 +94,25 @@ across the pages.
 
 The marked copy is saved beside the original, named with the words, for example
 **Brief (Confidential).pdf**. A watermark is printed on top of the page and removes nothing.
+
+## Secure
+
+Protect a copy with a password before it goes out, and choose what the people who receive it can do.
+
+**What This File Carries** counts what is in the file besides its pages: text hidden under
+something, comments, metadata, hidden layers and filled-in form fields. It shows how many, never
+what they say. If it finds hidden text, redact it first: a password does not remove anything.
+
+1. Set a **Password to Open** if the copy should ask for one. Leave it empty for a copy that opens
+   freely but still keeps its permissions.
+2. Set a **Password to Change Permissions**, or leave it empty and one is made for you. A made
+   password is shown once when the copy is saved; keep it somewhere safe, because Magna Carta does
+   not keep any of these passwords.
+3. Under **Recipients May**, tick what they can do: print, copy text, edit or fill forms, comment.
+4. Choose **AES-256**, or **AES-128** only if the recipient has an old PDF reader.
+5. Leave **Remove metadata, attachments, form values, bookmarks and layers first** ticked unless
+   the recipient needs those.
+6. Choose **Save Protected Copy**.
+
+The protected copy is saved beside the original, named with **(Protected)** at the end. The
+original is not protected.

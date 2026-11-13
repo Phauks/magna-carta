@@ -5,8 +5,9 @@
  * The engine and its several megabytes load inside the worker only, and only once the reader asks
  * for a change, so opening the editor costs nothing more than opening the reader does.
  */
-import type { BatesStampOptions, WatermarkOptions } from "@magna-carta/pdf";
+import type { BatesStampOptions, SecureOptions, WatermarkOptions } from "@magna-carta/pdf";
 import type { ArrangementPlan } from "./page-arrangement.ts";
+import type { DocumentReadings } from "./secure.ts";
 
 /** One operation the worker can run. Each later tool adds its own variant here. */
 export type PdfOperation =
@@ -34,6 +35,16 @@ export type PdfOperation =
       /** Draw a text or image watermark on the pages (`watermark.ts`). */
       readonly kind: "watermark";
       readonly options: WatermarkOptions;
+    }
+  | {
+      /** Count what the file carries, for the Secure tab. Makes no document. */
+      readonly kind: "inspect";
+    }
+  | {
+      /** Optionally scrub hidden data, then encrypt with a password and permissions (`secure.ts`). */
+      readonly kind: "secure";
+      readonly options: SecureOptions;
+      readonly scrubFirst: boolean;
     };
 
 export interface PdfOperationRequest {
@@ -63,6 +74,8 @@ export type PdfOperationReply =
       readonly documents: readonly Uint8Array[];
       /** How many pages the operation touched, for the result line. */
       readonly pagesChanged: number;
+      /** What the file carries, counted. Present for an inspection only. */
+      readonly readings?: DocumentReadings;
     }
   | {
       readonly kind: "failed";

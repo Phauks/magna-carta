@@ -12,10 +12,16 @@
  */
 import {
   DecompressionBombError,
+  detectDocument,
+  inspectSecurity,
+  readForm,
   redactDocument,
+  sanitizeDocument,
+  secureDocument,
   stampBates,
   watermarkDocument,
 } from "@magna-carta/pdf";
+import { countReadings } from "./secure.ts";
 import { arrangeDocument } from "./arrange-document.ts";
 import type { PdfOperationReply, PdfOperationRequest } from "./pdf-operations.ts";
 
@@ -85,6 +91,36 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
           documents: [result.pdf],
           pagesChanged: options.pages?.length ?? 0,
         };
+      }
+      case "inspect": {
+        const security = await inspectSecurity(bytes);
+        if (security.encrypted) {
+          return {
+            kind: "done",
+            id: request.id,
+            documents: [],
+            pagesChanged: 0,
+            readings: countReadings(security, [], []),
+          };
+        }
+        const [report, fields] = await Promise.all([detectDocument(bytes), readForm(bytes)]);
+        return {
+          kind: "done",
+          id: request.id,
+          documents: [],
+          pagesChanged: 0,
+          // Counted here, inside the worker, so the recovered text never reaches the page.
+          readings: countReadings(
+            security,
+            report.findings,
+            fields.map((field) => field.value),
+          ),
+        };
+      }
+      case "secure": {
+        const scrubbed = request.operation.scrubFirst ? (await sanitizeDocument(bytes)).pdf : bytes;
+        const result = await secureDocument(scrubbed, { ...request.operation.options });
+        return { kind: "done", id: request.id, documents: [result.pdf], pagesChanged: 0 };
       }
       default:
         return { kind: "failed", id: request.id, reason: "unsupported", message: "" };
