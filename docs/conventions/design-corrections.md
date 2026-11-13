@@ -3562,7 +3562,7 @@ generalizes to:
   only ever say what they are granting, not what they are not granting. Simpler permission windows."**
   One design-system window: what is being allowed, who is asking, the list of grants. No "will not"
   list. Generalizes: **a request tells the reader what they are agreeing to and stops.** Decision:
-  `docs/decisions/pending/a-permission-request-states-only-what-it-grants.md`.
+  `docs/decisions/0508-a-permission-request-states-only-what-it-grants.md`.
 - **Email matching "could be bad or dangerous" if wrong, and needs "a good long conversation".** No
   mailbox is connected until that design is settled. Not a visual ruling; recorded so a later build
   does not fold email into the calendar pages.
@@ -3590,3 +3590,17 @@ The owner, working through New Person. What was said, and what each part general
   the fields above it.
 - **"Use → Type", then "remove type for address"** (the place / mailing / PO box choice). Recorded so
   a later build does not bring the question back; a new address is recorded as a physical place.
+
+### 2026-11-13 — a record's sections are folding cards
+
+The owner, choosing between a hairline rule, cards and a heading band for New Person's sections:
+
+- **"Cards seems better, but remove the sub part like 'Ways to Reach Them' and make the header for
+  each card better, allow the cards to be collapsible as well."** Generalizes: **a record's sections
+  are cards, and a card says its name once.** The header carries the section's icon, name and
+  count, and nothing inside the card repeats it as a second heading. **Every card folds** from its
+  header, and jumping to a folded section from the rail opens it. Built once in
+  `apps/web/src/lib/directory/record-sections.svelte`, so New Person and the record window agree.
+- **"The right sidebar needs to be improved as well."** The duplicate check states where it stands
+  in one sentence (nobody similar, or how many may be this person) instead of a caps heading over
+  an empty list with a 0 beside it.

@@ -23059,6 +23059,9 @@
               "over_inclusive"
             ]
           },
+          "trigramMatching": {
+            "type": "boolean"
+          },
           "places": {
             "type": "object",
             "properties": {
@@ -23557,6 +23560,9 @@
               "strictness": {
                 "type": "string"
               },
+              "trigramMatching": {
+                "type": "boolean"
+              },
               "places": {
                 "type": "object",
                 "properties": {
@@ -23612,6 +23618,7 @@
             "required": [
               "sources",
               "strictness",
+              "trigramMatching",
               "places"
             ]
           },
@@ -23682,10 +23689,45 @@
           "check": {
             "$ref": "#/components/schemas/ConflictsCheckDetail"
           },
-          "statement": {
+          "report": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "searched",
+                    "names",
+                    "relationships",
+                    "employees",
+                    "messaging",
+                    "tasks",
+                    "magnus",
+                    "files",
+                    "not_searched",
+                    "results"
+                  ]
+                },
+                "heading": {
+                  "type": "string"
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "attention": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "heading",
+                "lines",
+                "attention"
+              ]
             }
           },
           "hits": {
@@ -23697,7 +23739,7 @@
         },
         "required": [
           "check",
-          "statement",
+          "report",
           "hits"
         ]
       },
@@ -23817,12 +23859,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "trigramMatching": {
+            "type": "boolean"
           }
         },
         "required": [
           "nameKeys",
           "phoneticSchemes",
-          "nameRoles"
+          "nameRoles",
+          "trigramMatching"
         ]
       },
       "ConflictsTraversalRecord": {
@@ -86365,7 +86411,7 @@
     },
     "/api/v1/conflicts/checks/{checkId}": {
       "get": {
-        "description": "Returns a conflicts check with every run under it, and the record of the run asked for (the latest, unless `run` names another). A run still in flight reports its stage and counts so far and carries no record; a settled run carries its record: the recorded scope, every hit it surfaced with each hit's current disposition, and a plain-language statement of what the search did. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. The address accepts the check's own handle or any run's handle, so an address written before runs existed still lands on the check it named. A run that stopped reporting is settled as failed by this read, and says so.",
+        "description": "Returns a conflicts check with every run under it, and the record of the run asked for (the latest, unless `run` names another). A run still in flight reports its stage and counts so far and carries no record; a settled run carries its record: the recorded scope, every hit it surfaced with each hit's current disposition, and a plain-language report of what the search did, in sections. The report covers the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. The address accepts the check's own handle or any run's handle, so an address written before runs existed still lands on the check it named. A run that stopped reporting is settled as failed by this read, and says so.",
         "operationId": "conflicts.getCheck",
         "tags": [
           "conflicts"

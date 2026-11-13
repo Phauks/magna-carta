@@ -24,6 +24,7 @@
   import { displayInitials } from "@magna-carta/community/display";
   import { DECLINE_REASON_LABELS, productAreaLabel, type DeclineReason } from "@magna-carta/community/vocabulary";
   import CommunityTopBar from "./community-top-bar.svelte";
+  import TeamTriagePanel, { type StatusUpdate } from "./team-triage-panel.svelte";
   import VoteButton from "./vote-button.svelte";
   import { KIND_LABELS, communityStatusKey } from "./community-status.ts";
   import { boardPath } from "./board-paths.ts";
@@ -46,6 +47,9 @@
     onDeletePost,
     onDeleteComment,
     onReport,
+    isTeam = false,
+    onSetStatus,
+    onAcceptAnswer,
   }: {
     post: BoardPostView;
     comments: readonly BoardCommentView[];
@@ -64,7 +68,17 @@
     onDeletePost?: () => void;
     onDeleteComment?: (id: string) => void;
     onReport?: (reason: FlagReason, commentId?: string) => void;
+    /** Whether the reader is on the Magna Carta team, which brings the triage panel. */
+    isTeam?: boolean;
+    onSetStatus?: (update: StatusUpdate) => Promise<boolean>;
+    /** Marks a reply as the answer to a question, or clears it with null. */
+    onAcceptAnswer?: (commentId: string | null) => void;
   } = $props();
+
+  // A question's author and the team may mark which reply answered it.
+  const canAccept = $derived(
+    canWrite && post.kind === "question" && (post.isOwnPost || isTeam) && onAcceptAnswer !== undefined,
+  );
 
   const statusKey = $derived(communityStatusKey(post.status));
   let draft = $state("");
@@ -186,6 +200,17 @@
                       <span class="text-text-muted">{statusNote}</span>
                     {/if}
                     <time class="text-text-subtle" datetime={comment.createdAt}>{formatInstantDate(comment.createdAt)}</time>
+                    {#if canAccept}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onclick={() => onAcceptAnswer?.(comment.isAcceptedAnswer ? null : comment.id)}
+                      >
+                        <CircleCheck class="size-16" aria-hidden="true" />{comment.isAcceptedAnswer
+                          ? "Clear Answer"
+                          : "Mark as Answer"}
+                      </Button>
+                    {/if}
                     {#if comment.isOwnComment}
                       <Button variant="ghost" size="sm" class="ml-auto" onclick={() => onDeleteComment?.(comment.id)}>
                         <Trash2 class="size-16" aria-hidden="true" />Delete
@@ -265,6 +290,11 @@
             </DefinitionList.Row>
           {/if}
         </DefinitionList.Root>
+        {#if isTeam && post.kind === "request" && onSetStatus !== undefined}
+          {#key `${post.status}:${post.declineReason}:${post.linkedChangelogAnchor}`}
+            <TeamTriagePanel {post} onSave={onSetStatus} />
+          {/key}
+        {/if}
         <p class="px-4 text-xs text-text-subtle">
           Voters are never listed, and no firm is ever shown.
         </p>

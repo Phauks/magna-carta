@@ -1,8 +1,8 @@
 # Choosing what syncs to your calendar
 
 _Status: built, and switched off until your firm's Microsoft connection is set up. Events go from
-Magna Carta to Outlook. A change you make in Outlook is not brought back yet, and repeating events
-are not sent yet._
+Magna Carta to Outlook, a change you make to one in Outlook comes back, and your own Outlook events
+can be shown to you._
 
 ## What it does
 
@@ -64,8 +64,11 @@ This works the way editing the event in Magna Carta does, so it has the same lim
 - Where your firm sends only the event type and matter number to Outlook, the title in Outlook is
   not the event's real title. A change to it is put back, and a change to the time still counts.
 - A repeating event's time, title and place can be changed from Outlook for the whole series. Moving
-  the series to a different first day cannot; that appears under **Different in Outlook**. Changing
-  a single day of a series in Outlook is not picked up, so change one day in Magna Carta.
+  the series to a different first day cannot; that appears under **Different in Outlook**.
+- Changing a single day of a series in Outlook changes that day in Magna Carta and leaves the rest
+  of the series alone, the way **This Event Only** does. The day may move to another date. If you
+  do not have permission to edit the calendar, the day is put back as it was. Deleting a single
+  day in Outlook is not picked up and calls nothing off, so call a day off in Magna Carta.
 - Notes are not carried back.
 
 Deleting your copy in Outlook never cancels the event. A deleted copy appears on this page under

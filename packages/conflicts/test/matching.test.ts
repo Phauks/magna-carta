@@ -176,3 +176,21 @@ test("a weak trigram-only match still appears at every strictness", async () => 
     expect(matches.length).toBeGreaterThan(0);
   }
 });
+
+test("trigram matching turned off drops a trigram-only match at balanced, never at over-inclusive", async () => {
+  const { ctx } = await conflictsTestContext("trigram-off");
+  await createPerson(ctx.database, { given: "Bartholomew", family: "Cathermore" }, ctx);
+  const subject = { kind: "person" as const, given: "Cather", family: "More" };
+
+  const without = await matchParty(ctx, subject, "balanced", { trigramMatching: false });
+  expect(without.some((match) => match.evidence.trigramMatch)).toBe(false);
+
+  // The over-inclusive band ignores the choice, so it still finds at least what balanced with
+  // trigram matching on finds.
+  const overInclusive = await matchParty(ctx, subject, "over_inclusive", {
+    trigramMatching: false,
+  });
+  expect(overInclusive.length).toBeGreaterThan(0);
+  expect(matchOptionsFor("over_inclusive", { trigramMatching: false })).toEqual({});
+  expect(matchOptionsFor("balanced", { trigramMatching: false }).trigram).toBe(false);
+});

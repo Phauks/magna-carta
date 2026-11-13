@@ -76,6 +76,46 @@ describe("reading", () => {
   });
 });
 
+describe("known issues", () => {
+  it("shows the status page's unresolved public events, and nothing else", async () => {
+    const event = (id: string, resolvedAt: string | null) => ({
+      id,
+      title: `Event ${id}`,
+      impact: "minor",
+      lifecycle: resolvedAt === null ? "identified" : "resolved",
+      affectedComponentIds: [],
+      authorUserId: "usr_operator",
+      startedAt: NOW,
+      resolvedAt,
+      updates: [
+        {
+          at: NOW,
+          lifecycle: "identified",
+          body: "Searching is slow.",
+          authorUserId: "usr_operator",
+        },
+      ],
+    });
+    await env.STATUS_KV.put(
+      "status:authored",
+      JSON.stringify({
+        schemaVersion: 1,
+        updatedAt: NOW,
+        events: [event("open", null), event("done", NOW)],
+        overrides: [],
+      }),
+    );
+    const body = await (
+      await SELF.fetch(`${ORIGIN}/api/known-issues`)
+    ).json<{
+      issues: { id: string; latestUpdate: { body: string } }[];
+    }>();
+    expect(body.issues.map((issue) => issue.id)).toEqual(["open"]);
+    expect(body.issues[0]?.latestUpdate.body).toBe("Searching is slow.");
+    expect(JSON.stringify(body)).not.toContain("usr_operator");
+  });
+});
+
 describe("signing in", () => {
   it("redeems a link once", async () => {
     const token = await mintHandoffToken(
@@ -159,6 +199,16 @@ describe("writing", () => {
     const cookie = await signIn("usr_dana");
     const response = await write("/api/posts/1/status", cookie, { status: "planned" });
     expect([403, 404]).toContain(response.status);
+  });
+
+  it("keeps the moderation queue to the team", async () => {
+    expect((await SELF.fetch(`${ORIGIN}/api/moderation-queue`)).status).toBe(403);
+    const cookie = await signIn("usr_dana");
+    const response = await SELF.fetch(`${ORIGIN}/api/moderation-queue`, {
+      headers: { Cookie: cookie },
+    });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ title: "not-team" });
   });
 });
 

@@ -729,9 +729,14 @@ export function resolveFlagsStatement(
 }
 
 // The moderation queue: everything held or hidden, oldest first, for the team.
-export async function listModerationQueue(
-  database: SqlDatabase,
-): Promise<{ posts: PostRow[]; comments: (CommentRow & { postNumber: number })[] }> {
+export async function listModerationQueue(database: SqlDatabase): Promise<{
+  posts: PostRow[];
+  comments: (CommentRow & {
+    postNumber: number;
+    postTitle: string;
+    heldReason: HeldReason | null;
+  })[];
+}> {
   const [posts, comments] = await Promise.all([
     database
       .prepare(
@@ -741,7 +746,8 @@ export async function listModerationQueue(
     database
       .prepare(
         `SELECT c.id, c.post_id, c.body, c.author_user_id, pr.display_name AS author_display_name,
-           c.is_team_response, c.moderation_state, c.created_at, p.number AS post_number
+           c.is_team_response, c.moderation_state, c.held_reason, c.created_at,
+           p.number AS post_number, p.title AS post_title
          FROM community_comment c
          JOIN community_post p ON p.id = c.post_id
          LEFT JOIN community_profile pr ON pr.user_id = c.author_user_id
@@ -755,8 +761,10 @@ export async function listModerationQueue(
         author_display_name: string | null;
         is_team_response: number;
         moderation_state: string;
+        held_reason: string | null;
         created_at: string;
         post_number: number;
+        post_title: string;
       }>(),
   ]);
   return {
@@ -771,6 +779,32 @@ export async function listModerationQueue(
       moderationState: row.moderation_state as ModerationState,
       createdAt: row.created_at,
       postNumber: row.post_number,
+      postTitle: row.post_title,
+      heldReason: row.held_reason as HeldReason | null,
     })),
   };
+}
+
+// What the open reports on held and hidden contributions say: one row per target and reason, with
+// how many people made it. Never who reported, and never their firm.
+export async function listOpenFlagReasons(database: SqlDatabase): Promise<
+  {
+    postId: CommunityPostId;
+    commentId: CommunityCommentId | null;
+    reason: FlagReason;
+    reports: number;
+  }[]
+> {
+  const { results } = await database
+    .prepare(
+      `SELECT post_id, comment_id, reason, COUNT(*) AS reports FROM community_flag
+       WHERE resolved_at IS NULL GROUP BY post_id, comment_id, reason`,
+    )
+    .all<{ post_id: string; comment_id: string | null; reason: string; reports: number }>();
+  return results.map((row) => ({
+    postId: row.post_id as CommunityPostId,
+    commentId: row.comment_id as CommunityCommentId | null,
+    reason: row.reason as FlagReason,
+    reports: row.reports,
+  }));
 }

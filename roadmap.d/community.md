@@ -10,7 +10,7 @@
   status: partial
   adrs: ADR-0044
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: The domain package (packages/community), the control-plane tables, the board's own worker (apps/community-worker, the API, the read-only and off switch, noindex on every answer) and the one-time sign-in link from the app are built and tested; the worker's first deploy and the screens' wiring follow. Board home layout: option A, list with a product-area rail, picked by the owner 2026-11-10.
+  evidence: The domain package (packages/community), the control-plane tables, the board's own worker (apps/community-worker, the API, the read-only and off switch, noindex on every answer), the one-time sign-in link from the app, and the board's screens (requests, questions, a post, the composer, the roadmap, known issues and the team's moderation, under apps/web/src/routes/community-board/) are built and tested; the worker's first deploy waits on the owner. Board home layout: option A, list with a product-area rail, picked by the owner 2026-11-10.
 
 - id: community.board
   name: Feedback board
@@ -18,7 +18,7 @@
   status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: Posting, voting (distinct-firm ranking, counts below five withheld), comments, the status pipeline with decline reasons, duplicates, accepted answers and the roadmap-by-status counts are built in packages/community/src/board-service.ts and tested against the control-plane schema, served by apps/community-worker under /api/, and drawn by the live screens under apps/web/src/routes/community-board/ (rerouted from the community host by apps/web/src/hooks.ts).
+  evidence: Posting, voting (distinct-firm ranking, counts below five withheld), comments, the status pipeline with decline reasons, duplicates, accepted answers and the roadmap-by-status counts are built in packages/community/src/board-service.ts and tested against the control-plane schema, served by apps/community-worker under /api/, and drawn by the live screens under apps/web/src/routes/community-board/ (rerouted from the community host by apps/web/src/hooks.ts), the roadmap columns and the team's moderation queue and triage included.
   audience: public
   public-name: Feature requests and voting
   public-summary: Ask for what your firm needs, vote on what other firms have asked for, and see what we decided and why.
@@ -38,7 +38,7 @@
   status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: Format-only detector (packages/community/src/confidentiality-detector.ts) holds posts and comments that look like client detail; one confidentiality flag hides; author delete is one write. The composer notice and "send to support instead" arrive with the screens.
+  evidence: Format-only detector (packages/community/src/confidentiality-detector.ts) holds posts and comments that look like client detail; one confidentiality flag hides; author delete is one write. The composer warns before posting detected detail; "send to support instead" waits on an app route to receive it.
 
 - id: community.identity
   name: Display-name identity and SSO
@@ -46,7 +46,7 @@
   status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: Separate community_profile record with a display name; firm written at write time and never returned; voter list never read. The Better Auth handoff to the community host is still open.
+  evidence: Separate community_profile record with a display name; firm written at write time and never returned; voter list never read. Sign-in is a one-minute, one-use link from the app (GET /api/v1/me/community-handoff) redeemed by the board's worker into its own host-only session.
 
 - id: community.escalation-bridge
   name: Private-report escalation bridge
@@ -59,10 +59,12 @@
 - id: community.known-issues
   name: Known-issues view
   scope: Public known-issues view mirroring the live status content.
-  status: designed
+  status: partial
+  surface: awaiting-screen
   slices: service-status
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: The KV status source it mirrors is shipped (packages/status); the forum view is design-only.
+  evidence: The board's worker reads the status page's own store through the same public merge (apps/community-worker/src/known-issues.ts) and the Known Issues screen and the board's side panel show its unresolved events; it reaches readers once the board's worker is deployed.
+  awaiting-owner: Connect the magna-carta-community worker to Workers Builds; the screen is not reachable until the board is deployed.
 
 - id: community.changelog-sync
   name: Shipped-items changelog sync

@@ -7,6 +7,7 @@ import type {
   BoardCommentView,
   BoardPostView,
   BoardSummary,
+  ModerationItem,
 } from "@magna-carta/community/board-service";
 import type { ConfidentialityFinding } from "@magna-carta/community/confidentiality-detector";
 import type {
@@ -162,4 +163,25 @@ export function moderate(
   commentId?: string,
 ): Promise<ApiOutcome<Record<string, never>>> {
   return call(`/api/posts/${number}/moderate`, "POST", { decision, commentId });
+}
+
+/** The team's queue: everything held for review or hidden by reports. Anyone else is refused. */
+export function readModerationQueue(): Promise<ApiOutcome<{ items: ModerationItem[] }>> {
+  return call("/api/moderation-queue");
+}
+
+export interface KnownIssue {
+  readonly id: string;
+  readonly title: string;
+  readonly impact: "minor" | "major" | "critical" | "maintenance";
+  readonly lifecycle: "investigating" | "identified" | "monitoring" | "resolved";
+  readonly startedAt: string;
+  readonly latestUpdate: { readonly at: string; readonly body: string } | null;
+}
+
+/** What the public status page says is wrong right now, newest first. */
+export function readKnownIssues(): Promise<
+  ApiOutcome<{ issues: KnownIssue[]; statusPageUrl: string }>
+> {
+  return call("/api/known-issues");
 }

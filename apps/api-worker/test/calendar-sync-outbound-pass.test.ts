@@ -18,6 +18,11 @@
  * And for a series: it leaves as one event carrying its rule, whenever it began; a changed day
  * leaves as its own event and is named as skipped on the series; a series that has run its course
  * is not sent; and one the provider will not take is a question for the member, not a silence.
+ *
+ * And for one day of a series the member changed on its own: it becomes that day's own row under
+ * the series, as "this event only" does, and the series itself is untouched; a member who may not
+ * edit the calendar has the day written back as it was sent; and a day that reads as sent, or
+ * that already has a row, is left alone.
  */
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -25,8 +30,9 @@ import type {
   CalendarSyncPort,
   ProviderEventSnapshot,
   ProviderEventWrite,
+  ProviderSeriesChangedDay,
 } from "@magna-carta/calendar/sync-port";
-import { instantForCivilDateTime } from "@magna-carta/civil-time/time-zone";
+import { instantForCivilDateTime, zonedReading } from "@magna-carta/civil-time/time-zone";
 import type { FirmId, IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import { adapterError, ok } from "@magna-carta/integrations/dispatch";
 import { integrationProblem } from "@magna-carta/integrations/problem";
@@ -49,7 +55,12 @@ let trialTypeId: string;
 type Call =
   | { op: "create"; calendar: string; event: ProviderEventWrite; transactionId: string }
   | { op: "update"; remoteId: string; event: ProviderEventWrite }
-  | { op: "delete"; remoteId: string };
+  | { op: "delete"; remoteId: string }
+  | { op: "update-day"; remoteId: string; event: ProviderEventWrite };
+
+// The days of a series the member changed on their own, by the series' remote identifier. The
+// member's calendar, like `remote`, so it outlives any one recorder.
+let changedDays = new Map<string, ProviderSeriesChangedDay[]>();
 
 interface RemoteCopy {
   event: ProviderEventWrite;
@@ -130,7 +141,36 @@ function recorder(remote = new Map<string, RemoteCopy>()): {
         if (!remote.has(remoteId)) return Promise.resolve(ok({ found: false as const }));
         const versionTag = `w${(writes += 1)}`;
         remote.set(remoteId, { event, versionTag });
+        // A real adapter takes the skipped days out of the provider's series after every write.
+        const skipped = event.repeats?.skippedDays ?? [];
+        changedDays.set(
+          remoteId,
+          (changedDays.get(remoteId) ?? []).filter(
+            (day) =>
+              !skipped.includes(
+                zonedReading(day.originalStartsAtMilliseconds, event.timeZone).civilDate,
+              ),
+          ),
+        );
         return Promise.resolve(ok({ found: true as const, versionTag }));
+      },
+      listSeriesChangedDays: (seriesRemoteId) =>
+        Promise.resolve(
+          ok(remote.has(seriesRemoteId) ? (changedDays.get(seriesRemoteId) ?? []) : null),
+        ),
+      updateSeriesDay: (remoteId, event) => {
+        calls.push({ op: "update-day", remoteId, event });
+        for (const days of changedDays.values()) {
+          const at = days.findIndex((day) => day.remoteId === remoteId);
+          const day = days[at];
+          if (day === undefined) continue;
+          days[at] = {
+            ...snapshotOf(remoteId, { event, versionTag: "day-written" }),
+            originalStartsAtMilliseconds: day.originalStartsAtMilliseconds,
+          };
+          return Promise.resolve(ok({ found: true as const, versionTag: "day-written" }));
+        }
+        return Promise.resolve(ok({ found: false as const }));
       },
       deleteEvent: (remoteId) => {
         calls.push({ op: "delete", remoteId });
@@ -299,6 +339,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   nextTransaction = 0;
+  changedDays = new Map();
   for (const table of [
     "connection_sync_issue",
     "calendar_sync_link",
@@ -1017,6 +1058,167 @@ describe("a repeating event", () => {
     expect(third.calls).toMatchObject([
       { op: "update", event: { repeats: { skippedDays: ["2026-12-01", "2026-12-08"] } } },
     ]);
+  });
+
+  // The member opens one day of the series in their own calendar and changes it alone.
+  function memberChangesDay(
+    occurrenceOn: string,
+    to: { startsOn: string; startsAtTime: string; endsAtTime: string; title?: string },
+  ): void {
+    changedDays.set("remote-txn-1", [
+      {
+        ...snapshotOf(`day-${occurrenceOn}`, {
+          versionTag: "member-day",
+          event: {
+            title: to.title ?? "Status conference",
+            notes: null,
+            location: "Courtroom 4",
+            startsOn: to.startsOn,
+            startsAtTime: to.startsAtTime,
+            endsOn: null,
+            endsAtTime: to.endsAtTime,
+            timeZone: "America/Chicago",
+          },
+        }),
+        originalStartsAtMilliseconds: instantForCivilDateTime(
+          occurrenceOn,
+          "09:30",
+          "America/Chicago",
+        ),
+      },
+    ]);
+  }
+
+  const daysOfSeries = async () =>
+    (
+      await firmDatabase
+        .prepare(
+          "SELECT recurrence_occurrence_on, starts_on, starts_at_time, ends_at_time, title FROM matter_event WHERE recurrence_parent_id = ?1 ORDER BY recurrence_occurrence_on",
+        )
+        .bind(SERIES)
+        .all<Record<string, string | null>>()
+    ).results;
+
+  it("gives one day the member moved a row of its own, and leaves the series as it was", async () => {
+    eventsChanged = 0;
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+    memberChangesDay("2026-12-01", {
+      startsOn: "2026-12-02",
+      startsAtTime: "14:00",
+      endsAtTime: "15:00",
+    });
+
+    const second = recorder(provider.remote);
+    expect(await pass(second.port, { as: memberUserId })).toMatchObject({
+      kind: "settled",
+      report: { applied: 1, flagged: 0, putBack: 0 },
+    });
+    expect(second.calls).toEqual([]);
+    expect(eventsChanged).toBe(1);
+    expect(await daysOfSeries()).toEqual([
+      {
+        recurrence_occurrence_on: "2026-12-01",
+        starts_on: "2026-12-02",
+        starts_at_time: "14:00",
+        ends_at_time: "15:00",
+        title: "Status conference",
+      },
+    ]);
+    const series = await firmDatabase
+      .prepare("SELECT starts_on, starts_at_time, recurrence_rule FROM matter_event WHERE id = ?1")
+      .bind(SERIES)
+      .first<Record<string, string | null>>();
+    expect(series).toEqual({
+      starts_on: "2026-11-03",
+      starts_at_time: "09:30",
+      recurrence_rule: "FREQ=WEEKLY",
+    });
+    const audit = await firmDatabase
+      .prepare(
+        "SELECT actor_user_id, metadata FROM audit_log WHERE subject_id = ?1 AND event = 'calendar_sync.provider_edit_applied'",
+      )
+      .bind(SERIES)
+      .first<{ actor_user_id: string; metadata: string }>();
+    expect(audit?.actor_user_id).toBe(memberUserId);
+    expect(JSON.parse(audit?.metadata ?? "{}")).toMatchObject({ occurrenceOn: "2026-12-01" });
+
+    // The next pass takes the day out of the provider's series and sends the row as its own
+    // event, and then there is nothing left to do.
+    const third = recorder(provider.remote);
+    expect(await pass(third.port, { as: memberUserId })).toMatchObject({
+      report: { created: 1, updated: 1, applied: 0, putBack: 0 },
+    });
+    expect(third.calls).toMatchObject([
+      { op: "update", event: { repeats: { skippedDays: ["2026-12-01"] } } },
+      { op: "create", event: { startsOn: "2026-12-02", startsAtTime: "14:00" } },
+    ]);
+    const fourth = recorder(provider.remote);
+    await pass(fourth.port, { as: memberUserId });
+    expect(fourth.calls).toEqual([]);
+  });
+
+  it("writes a changed day back as it was sent for a member who may not edit the calendar", async () => {
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+    memberChangesDay("2026-12-01", {
+      startsOn: "2026-12-01",
+      startsAtTime: "14:00",
+      endsAtTime: "15:00",
+    });
+
+    const second = recorder(provider.remote);
+    expect(await pass(second.port, { as: "user_holdsnothing0001" as UserId })).toMatchObject({
+      report: { applied: 0, flagged: 0, putBack: 1 },
+    });
+    expect(second.calls).toMatchObject([
+      {
+        op: "update-day",
+        remoteId: "day-2026-12-01",
+        event: {
+          startsOn: "2026-12-01",
+          startsAtTime: "09:30",
+          endsAtTime: "11:00",
+          repeats: null,
+        },
+      },
+    ]);
+    expect(await daysOfSeries()).toEqual([]);
+
+    // The day now reads as it was sent, so the next pass leaves it alone.
+    const third = recorder(provider.remote);
+    await pass(third.port, { as: "user_holdsnothing0001" as UserId });
+    expect(third.calls).toEqual([]);
+  });
+
+  it("leaves alone a changed day that still reads as sent, and one the rule does not fall on", async () => {
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+    // Changed in some way a calendar does not show, such as its reminder.
+    memberChangesDay("2026-12-01", {
+      startsOn: "2026-12-01",
+      startsAtTime: "09:30",
+      endsAtTime: "11:00",
+    });
+    const second = recorder(provider.remote);
+    expect(await pass(second.port, { as: memberUserId })).toMatchObject({
+      report: { applied: 0, putBack: 0 },
+    });
+    // A Wednesday is no day of a Tuesday series: whatever this is, it is not changed from here.
+    memberChangesDay("2026-12-02", {
+      startsOn: "2026-12-02",
+      startsAtTime: "14:00",
+      endsAtTime: "15:00",
+    });
+    const third = recorder(provider.remote);
+    expect(await pass(third.port, { as: memberUserId })).toMatchObject({
+      report: { applied: 0, putBack: 0 },
+    });
+    expect([...second.calls, ...third.calls]).toEqual([]);
+    expect(await daysOfSeries()).toEqual([]);
   });
 
   it("does not send a series whose last day is behind the window", async () => {
