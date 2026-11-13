@@ -1,5 +1,6 @@
 /*
- * Email Inspector — a message's headers, the route it took, and what it carried.
+ * Email Inspector — a message's headers, the route it took, and what it carried, and the message
+ * saved as a PDF. Read in this browser by the Rust parser compiled to WebAssembly.
  */
 import MailSearch from "@lucide/svelte/icons/mail-search";
 import { assertPermission } from "@magna-carta/access-control/registry";
@@ -11,11 +12,11 @@ export const emailCapability: CapabilityModule = {
   label: "Email",
   icon: MailSearch,
   permission: assertPermission("tools:emailInspector"),
-  stage: "soon",
+  stage: "alpha",
   timing: "on-arrival",
   scope: "single",
   description: "Inspect an email file's headers, routing, and attachments.",
-  awaiting: "the message parser reaching this surface",
+  awaiting: null,
   applies(file) {
     return isEmail(file)
       ? APPLIES

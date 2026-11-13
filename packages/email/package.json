@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./src/pkg/email_core_bg.wasm": "./src/pkg/email_core_bg.wasm"
+    "./src/pkg/email_core_bg.wasm": "./src/pkg/email_core_bg.wasm",
+    "./message-document": "./src/message-document.ts"
   },
   "scripts": {
     "test": "vp test run",
@@ -16,5 +17,8 @@
     "@types/node": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@magna-carta/pdf-compose": "workspace:*"
   }
 }
