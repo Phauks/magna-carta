@@ -186,7 +186,7 @@ describe("sign worker — platform seal on workerd", () => {
     expect(printed).toContain("Alice Example");
     expect(printed).toContain("198.51.100.7");
     expect(printed).toContain("Sent for Signature");
-    expect(printed).toContain(response.documentHashSha256.slice(0, 32));
+    expect(printed.replaceAll(" ", "")).toContain(response.documentHashSha256.slice(0, 32));
   });
 
   it("holds the summary, eight signers and the contacts on the certificate's first page", async () => {

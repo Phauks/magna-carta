@@ -64,7 +64,15 @@ describe("certificateSheet", () => {
     expect(value("Signers")).toBe("1");
     expect(value("Signatures")).toBe("2");
     expect(value("Initials")).toBe("5");
-    expect(value("Document Hash (SHA-256)")?.replace(" ", "")).toBe(HASH);
+    // Two lines of 32 characters, each in groups of six.
+    const printedHash = value("Document Hash (SHA-256)") ?? "";
+    expect(printedHash.replaceAll(/\s/g, "")).toBe(HASH);
+    expect(
+      printedHash.split("\n").map((line) => line.split(" ").map((group) => group.length)),
+    ).toEqual([
+      [6, 6, 6, 6, 6, 2],
+      [6, 6, 6, 6, 6, 2],
+    ]);
     expect(value("Email")).toBe("alice@example.test");
     expect(value("Identified By")).toBe("Email/SMS one-time access code");
     expect(value("Identity Proof")).toBe("code_42");
@@ -148,6 +156,45 @@ describe("certificateSheet", () => {
     expect(before("Audit Log")).toEqual({ type: "pageBreak" });
   });
 
+  it("keeps two signers to a page and heads every page of a section with its place", () => {
+    const base = certificate();
+    const [first] = base.signers;
+    if (first === undefined) throw new Error("the fixture has a signer");
+    const sheet = certificateSheet({
+      ...base,
+      signers: Array.from({ length: 5 }, (_, index) => ({
+        ...first,
+        intent: { ...first.intent, name: `Signer ${index + 1}` },
+      })),
+      events: Array.from({ length: 45 }, () => ({
+        kind: "viewed" as const,
+        at: "2026-07-18T11:58:00Z",
+      })),
+    });
+
+    // Each section page: a page break, its heading, then what the page holds.
+    const pages: { heading: string; signers: string[]; rows: number }[] = [];
+    for (const [index, block] of sheet.blocks.entries()) {
+      if (block.type === "heading" && block.level === 1 && index > 0) {
+        if (sheet.blocks[index - 1]?.type !== "pageBreak") continue;
+        pages.push({ heading: block.text, signers: [], rows: 0 });
+      } else if (block.type === "heading" && block.level === 2) {
+        pages.at(-1)?.signers.push(block.text);
+      } else if (block.type === "table" && pages.length > 0) {
+        const page = pages.at(-1);
+        if (page !== undefined) page.rows += block.rows.length;
+      }
+    }
+    expect(pages).toEqual([
+      { heading: "Signer Details (1 of 3)", signers: ["Signer 1", "Signer 2"], rows: 0 },
+      { heading: "Signer Details (2 of 3)", signers: ["Signer 3", "Signer 4"], rows: 0 },
+      { heading: "Signer Details (3 of 3)", signers: ["Signer 5"], rows: 0 },
+      { heading: "Audit Log (1 of 3)", signers: [], rows: 20 },
+      { heading: "Audit Log (2 of 3)", signers: [], rows: 20 },
+      { heading: "Audit Log (3 of 3)", signers: [], rows: 5 },
+    ]);
+  });
+
   it("says who to ask: the firm about the document, the platform about the certificate", () => {
     const contact = (sheet: ReturnType<typeof certificateSheet>) =>
       sheet.blocks.flatMap((block) =>
@@ -159,8 +206,8 @@ describe("certificateSheet", () => {
     const plain = certificateSheet(certificate());
     expect(plain.blocks).toContainEqual({ type: "heading", level: 2, text: "Contact" });
     expect(contact(plain)).toEqual([
-      "The Document: Bob Sender, bob@example.test",
-      "This Certificate: Magna Carta",
+      "Document: Bob Sender, bob@example.test",
+      "Certificate of Completion: Magna Carta",
     ]);
     const named = certificateSheet(
       {
@@ -173,8 +220,8 @@ describe("certificateSheet", () => {
       { issuerContact: { name: "Magna Carta", email: "help@example.test" } },
     );
     expect(contact(named)).toEqual([
-      "The Document: Example Law Firm, office@example.test, 555-0100",
-      "This Certificate: Magna Carta, help@example.test",
+      "Document: Example Law Firm, office@example.test, 555-0100",
+      "Certificate of Completion: Magna Carta, help@example.test",
     ]);
   });
 

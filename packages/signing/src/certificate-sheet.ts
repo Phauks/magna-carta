@@ -103,6 +103,21 @@ const ISSUER_NAME = "Magna Carta";
  */
 const PAGE_MARGIN_VERTICAL = 54;
 
+/**
+ * How many signers' full records one page holds. A record is never run across two pages: a reader
+ * checking one person's consent and signature should not have to turn the sheet. Two is what a
+ * letter page takes with room for a browser string that wraps.
+ */
+const SIGNERS_PER_PAGE = 2;
+
+/** How many audit log rows one page holds, with room for rows whose details wrap. */
+const EVENTS_PER_PAGE = 20;
+
+/** `Signer Details (1 of 3)`: a section's heading on each of its pages, plain where it has one. */
+function pageHeading(section: string, page: number, pages: number): string {
+  return pages > 1 ? `${section} (${page + 1} of ${pages})` : section;
+}
+
 /** A contact as one small line: what it answers for, then who and how to reach them. */
 function contactLine(about: string, contact: SigningContact): CertificateSheetBlock {
   const reach = [contact.name, contact.email, contact.phone].filter(
@@ -124,9 +139,13 @@ function initialCount(signer: SignerCompletion): number {
   return signer.intent.initialCount ?? 0;
 }
 
-/** The hash in two rows of 32, so it fits a column and still reads as one value. */
+/**
+ * The hash as two lines of 32 characters, each set in groups of six, so a reader comparing it
+ * against another copy keeps their place. The last group of a line is the two characters left over.
+ */
 function hashRows(hash: string): string {
-  return `${hash.slice(0, 32)} ${hash.slice(32)}`;
+  const lines = hash.match(/.{1,32}/g) ?? [hash];
+  return lines.map((line) => (line.match(/.{1,6}/g) ?? [line]).join(" ")).join("\n");
 }
 
 /** `2026-07-18 12:00:01`: an instant to the second, in Coordinated Universal Time. */
@@ -164,7 +183,8 @@ function createdOn(instant: string): CertificateSheet["created"] {
 
 /**
  * Lay a Certificate of Completion out as a sheet: what was signed and by whom on the first page,
- * each signer in full on the next, then the audit log. Deterministic for a given certificate.
+ * each signer in full on the pages after it, two to a page, then the audit log. Every page of a
+ * section carries its heading. Deterministic for a given certificate.
  */
 export function certificateSheet(
   certificate: CertificateOfCompletion,
@@ -226,13 +246,22 @@ export function certificateSheet(
       ]),
     },
     { type: "heading", level: 2, text: "Contact" },
-    ...(documentContact === undefined ? [] : [contactLine("The Document", documentContact)]),
-    contactLine("This Certificate", options.issuerContact ?? { name: ISSUER_NAME }),
-    { type: "pageBreak" },
-    { type: "heading", level: 1, text: "Signer Details" },
+    ...(documentContact === undefined ? [] : [contactLine("Document", documentContact)]),
+    contactLine("Certificate of Completion", options.issuerContact ?? { name: ISSUER_NAME }),
   ];
 
-  for (const signer of signers) {
+  const detailPages = Math.ceil(signers.length / SIGNERS_PER_PAGE);
+  for (const [index, signer] of signers.entries()) {
+    if (index % SIGNERS_PER_PAGE === 0) {
+      blocks.push(
+        { type: "pageBreak" },
+        {
+          type: "heading",
+          level: 1,
+          text: pageHeading("Signer Details", index / SIGNERS_PER_PAGE, detailPages),
+        },
+      );
+    }
     const fields: SheetField[] = [];
     if (signer.intent.email !== undefined && signer.intent.name !== undefined) {
       fields.push({ label: "Email", value: signer.intent.email });
@@ -261,27 +290,33 @@ export function certificateSheet(
     );
   }
 
-  blocks.push(
-    { type: "pageBreak" },
-    { type: "heading", level: 1, text: "Audit Log" },
-    {
-      type: "table",
-      columns: [
-        { heading: "Time (UTC)", weight: 21 },
-        { heading: "Event", weight: 20 },
-        { heading: "By", weight: 17 },
-        { heading: "IP Address", weight: 14 },
-        { heading: "Details", weight: 28 },
-      ],
-      rows: (certificate.events ?? []).map((event) => [
-        clock(event.at),
-        SIGNING_EVENT_LABEL[event.kind],
-        event.actor ?? "System",
-        event.observedIp ?? "",
-        event.detail ?? "",
-      ]),
-    },
-  );
+  const events = certificate.events ?? [];
+  const logPages = Math.max(1, Math.ceil(events.length / EVENTS_PER_PAGE));
+  for (let page = 0; page < logPages; page += 1) {
+    blocks.push(
+      { type: "pageBreak" },
+      { type: "heading", level: 1, text: pageHeading("Audit Log", page, logPages) },
+      {
+        type: "table",
+        columns: [
+          { heading: "Time (UTC)", weight: 21 },
+          { heading: "Event", weight: 20 },
+          { heading: "By", weight: 19 },
+          { heading: "IP Address", weight: 16 },
+          { heading: "Details", weight: 24 },
+        ],
+        rows: events
+          .slice(page * EVENTS_PER_PAGE, (page + 1) * EVENTS_PER_PAGE)
+          .map((event) => [
+            clock(event.at),
+            SIGNING_EVENT_LABEL[event.kind],
+            event.actor ?? "System",
+            event.observedIp ?? "",
+            event.detail ?? "",
+          ]),
+      },
+    );
+  }
 
   return {
     title: "Certificate of Completion",
