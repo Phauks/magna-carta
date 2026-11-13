@@ -18,7 +18,7 @@
    *
    * A RUN IN FLIGHT CAN BE STOPPED FROM ITS OWN BADGE. "Running · 31 s" and Cancel are one control
    * in the header, so the one thing a person can do about a running search sits on the word that
-   * says it is running. A cancelled run says so in that badge and on the Runs tab; the report
+   * says it is running. A cancelled run says so in that badge and on the History tab; the report
    * needs no paragraph about it.
    *
    * NOTHING ON THIS PAGE CONCLUDES ANYTHING. A check that surfaced nothing says 0 results; a
@@ -34,10 +34,11 @@
   import * as Masthead from "@magna-carta/design-system/masthead";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import * as Popover from "@magna-carta/design-system/popover";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { toast } from "@magna-carta/design-system/toast";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
@@ -119,6 +120,7 @@
   let cancelling = $state(false);
   let filing = $state(false);
   let matterToFile = $state<ChosenMatter | null>(null);
+  let assignOpen = $state(false);
   let actFailure = $state<StatedFailure | null>(null);
   let entityNames = $state<ReadonlyMap<string, string>>(new Map());
   let unnameable = $state<ReadonlySet<string>>(new Set());
@@ -311,10 +313,11 @@
     );
     filing = false;
     if (outcome.kind !== "ok") {
-      actFailure = stated(outcome.failure, "The check could not be filed on that matter.");
+      actFailure = stated(outcome.failure, "The check could not be assigned to that matter.");
       return;
     }
     matterToFile = null;
+    assignOpen = false;
     await read();
   }
 
@@ -466,6 +469,38 @@
         </Badge>
       {/if}
     {/if}
+    {#if check !== null && run !== null && check.matterId === null}
+      <!-- Assigning moves no search record; the next run searches with the matter's own parties. -->
+      <Popover.Root bind:open={assignOpen}>
+        <Popover.Trigger
+          class={buttonClasses({ variant: "secondary", size: "default" })}
+          disabled={!mayRun}
+          title={mayRun ? undefined : RUN_REFUSAL}
+        >
+          <FolderInput class="size-16" aria-hidden="true" />
+          Assign to Matter
+        </Popover.Trigger>
+        <Popover.Content align="end" class="flex w-sm flex-col gap-8">
+          <Label for="assign-to-matter">Assign to Matter</Label>
+          <MatterChoice
+            subjectEntityIds={run.subjectParties.map((subject) => subject.entityId)}
+            value={matterToFile}
+            inputId="assign-to-matter"
+            disabled={filing}
+            placeholder="Matter"
+            onpick={(matter) => (matterToFile = matter)}
+          />
+          <div class="flex justify-end">
+            <Button
+              disabled={matterToFile === null || filing}
+              onclick={() => void fileOnMatter()}
+            >
+              {filing ? "Assigning" : "Assign"}
+            </Button>
+          </div>
+        </Popover.Content>
+      </Popover.Root>
+    {/if}
     <Button
       variant="secondary"
       size="icon"
@@ -540,8 +575,8 @@
     <Tabs.Root bind:value={tab} class="flex flex-col gap-16">
       <Tabs.List>
         <Tabs.Trigger value="report">Report</Tabs.Trigger>
-        <Tabs.Trigger value="runs">
-          Runs
+        <Tabs.Trigger value="history">
+          History
           <span class="ms-4 text-text-muted tabular-nums">{String(result.runs.length)}</span>
         </Tabs.Trigger>
       </Tabs.List>
@@ -551,8 +586,8 @@
           <p class="text-sm text-text-muted">
             Showing run {String(run.ordinal)} of {String(result.runs.length)}, started
             {formatInstant(run.startedAt ?? run.createdAt)}.
-            <button type="button" class="underline underline-offset-2" onclick={() => (tab = "runs")}>
-              Other runs
+            <button type="button" class="underline underline-offset-2" onclick={() => (tab = "history")}>
+              History
             </button>
           </p>
         {/if}
@@ -623,35 +658,6 @@
                     {/if}
                   </DefinitionList.Row>
                 </DefinitionList.Root>
-                {#if check.matterId === null}
-                  <!-- Filing moves no search record; the next run searches with the matter's own
-                       parties. -->
-                  <div class="flex flex-col gap-8 pt-8">
-                    <Label for="file-on-matter">File on a Matter</Label>
-                    <div class="flex flex-wrap items-end gap-8">
-                      <div class="min-w-0 flex-1">
-                        <MatterChoice
-                          subjectEntityIds={run.subjectParties.map((subject) => subject.entityId)}
-                          value={matterToFile}
-                          inputId="file-on-matter"
-                          disabled={filing || !mayRun}
-                          title={mayRun ? undefined : RUN_REFUSAL}
-                          placeholder="Matter"
-                          onpick={(matter) => (matterToFile = matter)}
-                        />
-                      </div>
-                      <Button
-                        variant="secondary"
-                        disabled={matterToFile === null || filing || !mayRun}
-                        title={mayRun ? undefined : RUN_REFUSAL}
-                        onclick={() => void fileOnMatter()}
-                      >
-                        <FolderInput class="size-16" aria-hidden="true" />
-                        {filing ? "Filing" : "File"}
-                      </Button>
-                    </div>
-                  </div>
-                {/if}
               </div>
             </Accordion.Content>
           </Accordion.Item>
@@ -717,11 +723,8 @@
         </Accordion.Root>
       </Tabs.Content>
 
-      <Tabs.Content value="runs" class="flex flex-col gap-16">
-        <div class="flex items-center justify-between gap-16">
-          <p class="text-sm text-text-muted">
-            Every search run under {check.checkNumber}. Open one to read its report.
-          </p>
+      <Tabs.Content value="history" class="flex flex-col gap-16">
+        <div class="flex items-center justify-end gap-16">
           <Button
             variant="secondary"
             disabled={rerunning || inFlight || !mayRun}
