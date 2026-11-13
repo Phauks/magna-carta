@@ -14,7 +14,8 @@
     "@magna-carta/build-identity": "workspace:*",
     "@magna-carta/pdf": "workspace:*",
     "@magna-carta/pdf-compose": "workspace:*",
-    "@magna-carta/signing": "workspace:*"
+    "@magna-carta/signing": "workspace:*",
+    "@magna-carta/worker-secrets": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "catalog:",

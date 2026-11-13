@@ -209,6 +209,9 @@
     },
     {
       "path": "../../packages/whois/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/worker-secrets/tsconfig.build.json"
     }
   ],
   "include": [

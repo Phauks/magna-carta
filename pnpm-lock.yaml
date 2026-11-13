@@ -506,6 +506,9 @@ importers:
       '@magna-carta/whois':
         specifier: workspace:*
         version: link:../../packages/whois
+      '@magna-carta/worker-secrets':
+        specifier: workspace:*
+        version: link:../../packages/worker-secrets
       aws4fetch:
         specifier: 'catalog:'
         version: 1.0.20
@@ -576,6 +579,9 @@ importers:
       '@magna-carta/object-dimensions':
         specifier: workspace:*
         version: link:../../packages/object-dimensions
+      '@magna-carta/worker-secrets':
+        specifier: workspace:*
+        version: link:../../packages/worker-secrets
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
@@ -613,6 +619,9 @@ importers:
       '@magna-carta/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
+      '@magna-carta/worker-secrets':
+        specifier: workspace:*
+        version: link:../../packages/worker-secrets
       hono:
         specifier: 'catalog:'
         version: 4.13.16
@@ -855,6 +864,9 @@ importers:
       '@magna-carta/build-identity':
         specifier: workspace:*
         version: link:../../packages/build-identity
+      '@magna-carta/worker-secrets':
+        specifier: workspace:*
+        version: link:../../packages/worker-secrets
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
@@ -911,6 +923,9 @@ importers:
       '@magna-carta/signing':
         specifier: workspace:*
         version: link:../../packages/signing
+      '@magna-carta/worker-secrets':
+        specifier: workspace:*
+        version: link:../../packages/worker-secrets
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
@@ -3310,6 +3325,18 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
+  packages/worker-secrets:
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261106.1
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
