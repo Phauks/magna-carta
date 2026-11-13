@@ -114,8 +114,7 @@
       variant: "warning",
       title: "This Document Was Refused as Unsafe to Open",
       description:
-        "It expands far past what a page is expected to hold, so the reader stopped rather than " +
-        "opening it. It is stored on the matter and it can be downloaded.",
+        "It's too large to open safely here. It's saved on the matter and you can download it.",
     },
     "render-failed": {
       variant: "warning",
@@ -308,8 +307,7 @@
         variant: "warning",
         title: "This Document Is Larger Than the Viewer Opens",
         description:
-          `It is ${formatDocumentSize(outcome.sizeBytes)}; the viewer opens up to ` +
-          `${formatDocumentSize(PDF_VIEWER_MAX_BYTES)}. Download it to read it.`,
+          `It's ${formatDocumentSize(outcome.sizeBytes)}; the viewer opens up to ${formatDocumentSize(PDF_VIEWER_MAX_BYTES)}. Download it to read it.`,
       };
       opening = false;
       return;

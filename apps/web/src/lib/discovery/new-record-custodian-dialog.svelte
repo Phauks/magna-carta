@@ -130,8 +130,7 @@
 
       {#if kind === "unattributed"}
         <p class="text-text-muted text-sm">
-          Material that arrived with no custodial attribution. Recording that is a statement the firm
-          can make to a court; leaving the question blank is not.
+          Material that arrived with no custodian. Recording this is a statement the firm can make to a court; leaving it blank is not.
         </p>
       {:else}
         <div class="flex flex-col gap-8">

@@ -397,15 +397,10 @@
     <span>Network quality score</span>
     <InfoHint label="What do these scores mean?">
       <p>
-        Cloudflare's Aggregated Internet Measurement scores this connection for video streaming,
-        online gaming, and video calls, rating each bad, poor, average, good, or great.
+        Cloudflare's Aggregated Internet Measurement rates this connection for video streaming, online gaming and video calls, from bad to great.
       </p>
       <p class="mt-8">
-        Each measurement earns points against published thresholds — for example, unloaded latency
-        scores 20 points under 10ms and nothing over 100ms. Streaming weighs download speed,
-        latency, packet loss, and how much latency rises under load; gaming weighs packet loss,
-        latency, and that same rise; video calls add jitter. The points behind each rating are
-        published; the exact cutoffs between the five ratings are not.
+        Each rating is based on published thresholds for download speed, latency, packet loss, jitter and how much latency rises under load. The exact cutoffs between ratings aren't published.
       </p>
       <p class="mt-8">
         Packet loss isn't measured here, and all three ratings use it, so read them as incomplete.
@@ -445,7 +440,5 @@
 </section>
 
 <footer class="mt-40 border-t border-border-default pt-16 text-xs text-text-muted">
-  A full test transfers around 200 MB of data; low internet usage mode transfers under 20 MB, and
-  measures a fast connection as slower than it is. Your public address is shared with Cloudflare's
-  measurement endpoints to run it. This tool runs outside any matter, and nothing is saved.
+  A full test uses about 200 MB of data; low data mode uses under 20 MB but underestimates fast connections. Your IP address is shared with Cloudflare to run the test. Nothing is saved.
 </footer>

@@ -97,7 +97,7 @@ export function seriesChangeChoices(occurrenceOn: string): SeriesChangeChoice[] 
     {
       value: "all",
       label: "All events in the series",
-      detail: "Every one, including ones already past.",
+      detail: "All of them, including past ones.",
     },
   ];
 }

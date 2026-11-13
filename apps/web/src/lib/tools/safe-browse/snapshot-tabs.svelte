@@ -471,9 +471,7 @@
           <Alert.Root variant="info">
             <Alert.Title>No registration record found</Alert.Title>
             <Alert.Description>
-              The RDAP registry answered, but returned no public registration details for
-              {outcome.result.target}. The domain may be unregistered, or its registry may not
-              publish them.
+              The registry answered, but has no public registration details for {outcome.result.target}. The domain may be unregistered, or its registry may not publish them.
             </Alert.Description>
           </Alert.Root>
         {:else if outcome.kind === "raw"}
