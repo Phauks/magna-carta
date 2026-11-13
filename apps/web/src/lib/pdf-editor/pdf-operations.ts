@@ -5,7 +5,13 @@
  * The engine and its several megabytes load inside the worker only, and only once the reader asks
  * for a change, so opening the editor costs nothing more than opening the reader does.
  */
-import type { BatesStampOptions, SecureOptions, WatermarkOptions } from "@magna-carta/pdf";
+import type {
+  BatesStampOptions,
+  FormField,
+  FormFillValues,
+  SecureOptions,
+  WatermarkOptions,
+} from "@magna-carta/pdf";
 import type { ArrangementPlan } from "./page-arrangement.ts";
 import type { DocumentReadings } from "./secure.ts";
 
@@ -45,6 +51,16 @@ export type PdfOperation =
       readonly kind: "secure";
       readonly options: SecureOptions;
       readonly scrubFirst: boolean;
+    }
+  | {
+      /** Read the form's fields and their current values (`forms.ts`). Makes no document. */
+      readonly kind: "readForm";
+    }
+  | {
+      /** Write the reader's answers into the form, and optionally flatten it. */
+      readonly kind: "fillForm";
+      readonly values: FormFillValues;
+      readonly flatten: boolean;
     };
 
 export interface PdfOperationRequest {
@@ -76,6 +92,8 @@ export type PdfOperationReply =
       readonly pagesChanged: number;
       /** What the file carries, counted. Present for an inspection only. */
       readonly readings?: DocumentReadings;
+      /** The form's fields. Present for a form reading only. */
+      readonly fields?: readonly FormField[];
     }
   | {
       readonly kind: "failed";

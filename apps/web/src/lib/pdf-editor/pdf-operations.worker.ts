@@ -13,6 +13,8 @@
 import {
   DecompressionBombError,
   detectDocument,
+  fillForm,
+  flattenForm,
   inspectSecurity,
   readForm,
   redactDocument,
@@ -120,6 +122,19 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
       case "secure": {
         const scrubbed = request.operation.scrubFirst ? (await sanitizeDocument(bytes)).pdf : bytes;
         const result = await secureDocument(scrubbed, { ...request.operation.options });
+        return { kind: "done", id: request.id, documents: [result.pdf], pagesChanged: 0 };
+      }
+      case "readForm": {
+        const fields = await readForm(bytes);
+        return { kind: "done", id: request.id, documents: [], pagesChanged: 0, fields };
+      }
+      case "fillForm": {
+        const { values, flatten } = request.operation;
+        // With nothing to write, flattening alone still has to run, so the copy is fixed as it stands.
+        const result =
+          Object.keys(values).length === 0 && flatten
+            ? await flattenForm(bytes)
+            : await fillForm(bytes, { ...values }, { flatten });
         return { kind: "done", id: request.id, documents: [result.pdf], pagesChanged: 0 };
       }
       default:

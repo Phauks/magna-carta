@@ -11,6 +11,7 @@
   import { invalidateAll } from "$app/navigation";
   import BookOpen from "@lucide/svelte/icons/book-open";
   import EyeOff from "@lucide/svelte/icons/eye-off";
+  import FileText from "@lucide/svelte/icons/file-text";
   import Hash from "@lucide/svelte/icons/hash";
   import Layers from "@lucide/svelte/icons/layers";
   import Lock from "@lucide/svelte/icons/lock";
@@ -23,6 +24,7 @@
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { formatDocumentSize } from "$lib/documents/document-presentation.ts";
   import BatesTool from "$lib/pdf-editor/bates-tool.svelte";
+  import FormsTool from "$lib/pdf-editor/forms-tool.svelte";
   import PagesTool from "$lib/pdf-editor/pages-tool.svelte";
   import RedactTool from "$lib/pdf-editor/redact-tool.svelte";
   import SecureTool from "$lib/pdf-editor/secure-tool.svelte";
@@ -80,6 +82,10 @@
           <EyeOff class="size-16" aria-hidden="true" />
           Redact
         </Tabs.Trigger>
+        <Tabs.Trigger value="forms">
+          <FileText class="size-16" aria-hidden="true" />
+          Forms
+        </Tabs.Trigger>
         <Tabs.Trigger value="bates">
           <Hash class="size-16" aria-hidden="true" />
           Bates
@@ -102,6 +108,8 @@
           <PagesTool {file} onSaved={() => void invalidateAll()} />
         {:else if tool === "redact"}
           <RedactTool {file} />
+        {:else if tool === "forms"}
+          <FormsTool {file} onSaved={() => void invalidateAll()} />
         {:else if tool === "bates"}
           <BatesTool {file} />
         {:else if tool === "watermark"}

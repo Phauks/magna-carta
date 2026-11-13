@@ -59,6 +59,22 @@ Two options sit under the list:
 A PDF locked with a password cannot be redacted until it is unlocked. Unlock it in the
 [File Workbench](file-workbench.md) first.
 
+## Forms
+
+The Forms tab fills in a PDF form, such as a court or tax form, without leaving Magna Carta.
+
+1. Each field the form holds is listed on the right, in page order, with its page number. Choosing
+   a field rings it on the page preview, so you can see where it sits.
+2. Type an answer, tick a box, or pick from a list. A field the form marks as required shows a
+   **Required** badge until it has an answer.
+3. To make the answers part of the page, so nobody can change them later, tick **Flatten**. A
+   flattened form can no longer be filled in.
+4. Choose **Save as New Version**. The button counts the answers you changed.
+
+Only the answers you changed are written, so a field you did not touch keeps what it held. Fields
+the form marks as read-only, buttons and signature fields are shown but cannot be answered here.
+The answers are saved as a new version of the same file, and earlier versions are kept.
+
 ## Bates
 
 Bates numbering prints a running number on every page, such as **SMITH-000041**, so each page of
