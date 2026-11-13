@@ -154,6 +154,19 @@ describe("a member's personal room", () => {
     expect(twice.status).toBe(409);
   });
 
+  it("lists every member's room, including a member with none, and counts who is in", async () => {
+    const response = await call("GET", "/api/v1/meetings/rooms", billingCookie);
+    expect(response.status).toBe(200);
+    const { rooms } = await response.json<{
+      rooms: { name: string; linkCode: string | null; inTheRoom: number; isCaller: boolean }[];
+    }>();
+    const owner = rooms.find((room) => room.name === "Room Owner");
+    const visitor = rooms.find((room) => room.name === "Room Visitor");
+    expect(owner?.linkCode).toMatch(/^[a-z0-9]{10}$/);
+    expect(owner?.isCaller).toBe(false);
+    expect(visitor).toMatchObject({ linkCode: null, inTheRoom: 0, isCaller: true });
+  });
+
   it("answers a link that names nothing as absent", async () => {
     const response = await call("GET", "/api/v1/meetings/rooms/abcdefghjk", billingCookie);
     expect(response.status).toBe(404);

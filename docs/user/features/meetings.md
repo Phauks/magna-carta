@@ -93,11 +93,13 @@ meeting and would rather not go looking for the event it belongs to. It has thre
 - **Upcoming** — the meetings already opened on events today or later, with the day and time of the
   event they belong to, in that event's own time zone. **Join** works here too, so you can be first
   into a room rather than waiting for somebody else to arrive.
-- **Recently ended** — what finished in the last thirty days, with when it ended, **Attendance** for
-  who was in the room, **Recordings** where the meeting was recorded, and a way back to the event.
+- **History** — what finished in the last thirty days, with when it ended, where it was filed (the
+  matter's name, or Firm event), what became of its recording (Not recorded, Being prepared, Saved,
+  Failed or Interrupted), **Attendance** for who was in the room, **Recordings** where the meeting was
+  recorded, and a way back to the event.
 
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
-matter, the row links back to it.
+matter, the row names the matter and links back to it.
 
 ## Your own room
 
@@ -110,6 +112,9 @@ meeting on the calendar first.
 - **Open My Room** starts a meeting in your room and takes you into it. The meeting is put on your
   calendar as an event in your name, starting now. If your room is already open, the button reads
   **Go to My Room** and takes you back in.
+
+The room's settings are in the **...** menu beside the card's title:
+
 - **Hold arrivals in a lobby** is on to begin with, so you let each person in yourself. Turn it off
   to let colleagues straight in.
 - **Open as an audio call** starts your room's meetings without video.
@@ -122,6 +127,14 @@ meeting on their calendar too.
 
 When everybody has left, the meeting ends by itself the next time you open your room, and its
 calendar entry is closed at the time the last person left.
+
+### Everybody's rooms
+
+The **Firm Rooms** card lists every member of the firm and their room, whether or not anybody is in
+it. Each row says **In a meeting** with how many people are there, **Not in a meeting**, or **No room
+set up**. **Copy Link** copies a colleague's room address so you can send it ahead of time, and
+**Join** appears while their room is open. The list checks again every thirty seconds. It does not
+say what a meeting is about.
 
 ### Moving a meeting onto a matter
 

@@ -44,6 +44,7 @@ export const OPERATIONS: readonly string[] = [
   "meetings.join",
   "meetings.leave",
   "meetings.list",
+  "meetings.listFirmRooms",
   "meetings.listGuests",
   "meetings.listMessages",
   "meetings.listPollAnswers",
