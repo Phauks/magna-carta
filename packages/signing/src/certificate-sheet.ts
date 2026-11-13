@@ -29,6 +29,11 @@ export type CertificateSheetBlock =
   | { readonly type: "pageBreak" }
   | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
   | { readonly type: "paragraph"; readonly text: string }
+  | {
+      readonly type: "paragraph";
+      readonly spans: readonly { readonly text: string; readonly bold?: boolean }[];
+      readonly small: true;
+    }
   | { readonly type: "fields"; readonly fields: readonly SheetField[] }
   | {
       readonly type: "table";
@@ -50,9 +55,15 @@ export interface CertificateSheet {
     readonly minute: number;
     readonly second: number;
   };
-  readonly page: { readonly paper: "letter" };
+  readonly page: {
+    readonly paper: "letter";
+    readonly marginTop: number;
+    readonly marginBottom: number;
+  };
   /** The colour of the title, the headings and the rules: red, green and blue. */
   readonly accent: readonly [number, number, number];
+  /** Rows set closer together, so the first page holds the summary, eight signers and the contacts. */
+  readonly compact: true;
   readonly footer: { readonly left: string; readonly right: string };
   readonly blocks: readonly CertificateSheetBlock[];
 }
@@ -85,9 +96,23 @@ export interface CertificateSheetOptions {
 /** The platform's name, where no issuer contact says otherwise. */
 const ISSUER_NAME = "Magna Carta";
 
-/** A contact as one row of the questions table: what it answers for, then how to reach it. */
-function contactRow(about: string, contact: SigningContact): string[] {
-  return [about, contact.name, contact.email ?? "", contact.phone ?? ""];
+/**
+ * The space above and below the page's content, in points: three quarters of an inch. The
+ * composer's own inch leaves the first page short of eight signers, and a certificate that runs its
+ * summary onto a second sheet is one a reader has to staple.
+ */
+const PAGE_MARGIN_VERTICAL = 54;
+
+/** A contact as one small line: what it answers for, then who and how to reach them. */
+function contactLine(about: string, contact: SigningContact): CertificateSheetBlock {
+  const reach = [contact.name, contact.email, contact.phone].filter(
+    (part): part is string => part !== undefined && part !== "",
+  );
+  return {
+    type: "paragraph",
+    small: true,
+    spans: [{ text: `${about}: `, bold: true }, { text: reach.join(", ") }],
+  };
 }
 
 /** The signature blocks a signer completed: one, the signing act itself, where none is counted. */
@@ -186,11 +211,11 @@ export function certificateSheet(
     {
       type: "table",
       columns: [
-        { heading: "Name", weight: 20 },
-        { heading: "Email", weight: 28 },
+        { heading: "Name", weight: 21 },
+        { heading: "Email", weight: 34 },
         { heading: "Signed (UTC)", weight: 22 },
-        { heading: "Signatures", weight: 15 },
-        { heading: "Initials", weight: 15 },
+        { heading: "Signatures", weight: 13 },
+        { heading: "Initials", weight: 10 },
       ],
       rows: signers.map((signer) => [
         signerDisplayName(signer),
@@ -200,20 +225,9 @@ export function certificateSheet(
         String(initialCount(signer)),
       ]),
     },
-    { type: "heading", level: 1, text: "Questions" },
-    {
-      type: "table",
-      columns: [
-        { heading: "About", weight: 20 },
-        { heading: "Contact", weight: 28 },
-        { heading: "Email", weight: 30 },
-        { heading: "Phone", weight: 22 },
-      ],
-      rows: [
-        ...(documentContact === undefined ? [] : [contactRow("The Document", documentContact)]),
-        contactRow("This Certificate", options.issuerContact ?? { name: ISSUER_NAME }),
-      ],
-    },
+    { type: "heading", level: 2, text: "Contact" },
+    ...(documentContact === undefined ? [] : [contactLine("The Document", documentContact)]),
+    contactLine("This Certificate", options.issuerContact ?? { name: ISSUER_NAME }),
     { type: "pageBreak" },
     { type: "heading", level: 1, text: "Signer Details" },
   ];
@@ -279,8 +293,13 @@ export function certificateSheet(
     ...(createdOn(certificate.sealedAt) !== undefined
       ? { created: createdOn(certificate.sealedAt) }
       : {}),
-    page: { paper: "letter" },
+    page: {
+      paper: "letter",
+      marginTop: PAGE_MARGIN_VERTICAL,
+      marginBottom: PAGE_MARGIN_VERTICAL,
+    },
     accent: ACCENT,
+    compact: true,
     footer: {
       left: `Certificate ${certificate.reference}`,
       right: "Page {page} of {pages}",

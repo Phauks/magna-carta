@@ -36,6 +36,9 @@ The sign Worker composes the Certificate of Completion with it.
 - **Colour is one accent, chosen by the document.** A mark is drawn in an `Ink`: a gray, or the
   accent with a gray to fall back on. Layout never names a colour, so a document with no accent
   holds none and one layout serves both.
+- **Density is the document's choice, not a block's.** `compact` narrows the rows of every table and
+  field list at once, and a `small` paragraph is the caption style in the flow. A caller that has to
+  fit a known amount on a page uses those and the page margins, never a font size of its own.
 - **The output is deterministic.** No clock is read: the creation time is the caller's
   `ComposedDocument::created`. The same model and fonts give the same bytes, and a test holds that.
 

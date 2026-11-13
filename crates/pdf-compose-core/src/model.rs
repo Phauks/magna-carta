@@ -18,6 +18,9 @@ pub struct ComposedDocument {
     /// The colour the title, the first two levels of heading and every rule are drawn in.
     /// `None` leaves the document in black and gray.
     pub accent: Option<Rgb>,
+    /// Set the rows of every table and field list closer together, for a document that has to
+    /// hold a known amount on one page.
+    pub compact: bool,
     /// Drawn in the top margin of every page.
     pub header: Option<RunningLine>,
     /// Drawn in the bottom margin of every page.
@@ -156,6 +159,8 @@ impl Span {
 pub struct Paragraph {
     pub spans: Vec<Span>,
     pub alignment: Alignment,
+    /// Set in the smaller, grayer text of a caption: a note beneath the content it serves.
+    pub small: bool,
 }
 
 impl Paragraph {
@@ -163,6 +168,7 @@ impl Paragraph {
         Self {
             spans: vec![Span::plain(text)],
             alignment: Alignment::Start,
+            small: false,
         }
     }
 }

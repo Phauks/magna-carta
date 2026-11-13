@@ -103,6 +103,7 @@ fn text_reads_back_including_accented_names() {
                     Span::plain(", represented since 2024. Fee: €1,250 — “fixed”."),
                 ],
                 alignment: Alignment::Start,
+                small: false,
             }),
         ]),
         &FontFamily::bundled(),
@@ -525,6 +526,37 @@ fn an_accent_colours_the_title_headings_and_rules_and_nothing_without_one() {
     );
     // The colour changes no position: both documents read the same.
     assert_eq!(page_texts(&plain.pdf), page_texts(&coloured.pdf));
+}
+
+#[test]
+fn a_small_paragraph_takes_less_of_the_page() {
+    let json = |small: bool| {
+        let paragraph = format!(
+            r#"{{ "type": "paragraph", "text": "A note under the table.", "small": {small} }}"#
+        );
+        format!(r#"{{ "blocks": [{}] }}"#, vec![paragraph; 40].join(","))
+    };
+    let fonts = FontFamily::bundled();
+    let body = pdf_compose_core::compose_json(&json(false), &[], &fonts).unwrap();
+    let small = pdf_compose_core::compose_json(&json(true), &[], &fonts).unwrap();
+    assert_eq!(page_texts(&body.pdf).len(), 2);
+    assert_eq!(page_texts(&small.pdf).len(), 1);
+}
+
+#[test]
+fn a_compact_document_sets_its_rows_closer_together() {
+    let json = |compact: bool| {
+        let field = r#"{ "label": "Signer", "value": "Maria Rivera" }"#;
+        format!(
+            r#"{{ "compact": {compact}, "blocks": [{{ "type": "fields", "fields": [{}] }}] }}"#,
+            vec![field; 36].join(",")
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let roomy = pdf_compose_core::compose_json(&json(false), &[], &fonts).unwrap();
+    let compact = pdf_compose_core::compose_json(&json(true), &[], &fonts).unwrap();
+    assert_eq!(page_texts(&roomy.pdf).len(), 2);
+    assert_eq!(page_texts(&compact.pdf).len(), 1);
 }
 
 #[test]

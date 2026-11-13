@@ -79,6 +79,9 @@ describe("certificateSheet", () => {
       right: "Page {page} of {pages}",
     });
     expect(sheet.accent).toEqual([98, 72, 0]);
+    // Close rows and three-quarter-inch margins are what let the first page hold eight signers.
+    expect(sheet.compact).toBe(true);
+    expect(sheet.page).toEqual({ paper: "letter", marginTop: 54, marginBottom: 54 });
     expect(sheet.created).toEqual({
       year: 2026,
       month: 7,
@@ -146,16 +149,18 @@ describe("certificateSheet", () => {
   });
 
   it("says who to ask: the firm about the document, the platform about the certificate", () => {
-    const questions = (sheet: ReturnType<typeof certificateSheet>) => {
-      const table = sheet.blocks.find(
-        (block) => block.type === "table" && block.columns[0]?.heading === "About",
+    const contact = (sheet: ReturnType<typeof certificateSheet>) =>
+      sheet.blocks.flatMap((block) =>
+        block.type === "paragraph" && "spans" in block
+          ? [block.spans.map((span) => span.text).join("")]
+          : [],
       );
-      return table?.type === "table" ? table.rows : [];
-    };
     // With no firm contact the sender answers for the document, and the platform is named.
-    expect(questions(certificateSheet(certificate()))).toEqual([
-      ["The Document", "Bob Sender", "bob@example.test", ""],
-      ["This Certificate", "Magna Carta", "", ""],
+    const plain = certificateSheet(certificate());
+    expect(plain.blocks).toContainEqual({ type: "heading", level: 2, text: "Contact" });
+    expect(contact(plain)).toEqual([
+      "The Document: Bob Sender, bob@example.test",
+      "This Certificate: Magna Carta",
     ]);
     const named = certificateSheet(
       {
@@ -167,9 +172,9 @@ describe("certificateSheet", () => {
       },
       { issuerContact: { name: "Magna Carta", email: "help@example.test" } },
     );
-    expect(questions(named)).toEqual([
-      ["The Document", "Example Law Firm", "office@example.test", "555-0100"],
-      ["This Certificate", "Magna Carta", "help@example.test", ""],
+    expect(contact(named)).toEqual([
+      "The Document: Example Law Firm, office@example.test, 555-0100",
+      "This Certificate: Magna Carta, help@example.test",
     ]);
   });
 

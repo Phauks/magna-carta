@@ -124,11 +124,13 @@ const RUNNING: TextStyle = TextStyle {
 };
 
 const PARAGRAPH_GAP: f32 = 7.0;
+const SMALL_PARAGRAPH_GAP: f32 = 2.0;
 const HEADING_GAP_BEFORE: f32 = 14.0;
 const HEADING_GAP_AFTER: f32 = 5.0;
 const BLOCK_GAP: f32 = 12.0;
 const CELL_PADDING_HORIZONTAL: f32 = 5.0;
 const CELL_PADDING_VERTICAL: f32 = 3.5;
+const CELL_PADDING_VERTICAL_COMPACT: f32 = 1.5;
 const MINIMUM_COLUMN_WIDTH: f32 = 34.0;
 /// Pixels per point at the natural size of an image: 96 pixels to the inch, the size a
 /// screen shows it at.
@@ -307,6 +309,8 @@ struct Flow<'a, 'f> {
     pages: Vec<LaidPage>,
     /// The y at which the next block starts.
     cursor: f32,
+    /// The space above and below the text of a table or field row.
+    cell_padding_vertical: f32,
 }
 
 impl Flow<'_, '_> {
@@ -440,9 +444,14 @@ impl Flow<'_, '_> {
             .iter()
             .map(|span| (Face::of(span.bold, span.italic), span.text.clone()))
             .collect();
-        let lines = break_lines(self.measurer, &spans, BODY.size, self.page.content_width());
-        self.flow_lines(&lines, paragraph.alignment, BODY)?;
-        self.gap(PARAGRAPH_GAP);
+        let style = if paragraph.small { CAPTION } else { BODY };
+        let lines = break_lines(self.measurer, &spans, style.size, self.page.content_width());
+        self.flow_lines(&lines, paragraph.alignment, style)?;
+        self.gap(if paragraph.small {
+            SMALL_PARAGRAPH_GAP
+        } else {
+            PARAGRAPH_GAP
+        });
         Ok(())
     }
 
@@ -549,7 +558,7 @@ impl Flow<'_, '_> {
         shaded: bool,
     ) {
         let top = self.cursor;
-        let height = count as f32 * CELL.line_height + 2.0 * CELL_PADDING_VERTICAL;
+        let height = count as f32 * CELL.line_height + 2.0 * self.cell_padding_vertical;
         if shaded {
             let (x, width) = (self.left(), self.page.content_width());
             self.mark(Mark::Fill {
@@ -562,7 +571,7 @@ impl Flow<'_, '_> {
         }
         for (column, lines) in columns.iter().zip(row) {
             for (offset, line) in lines.iter().skip(first).take(count).enumerate() {
-                let line_top = top + CELL_PADDING_VERTICAL + offset as f32 * CELL.line_height;
+                let line_top = top + self.cell_padding_vertical + offset as f32 * CELL.line_height;
                 let style = TextStyle {
                     ink: column.ink,
                     ..CELL
@@ -606,8 +615,8 @@ impl Flow<'_, '_> {
         ruled: bool,
     ) -> Result<(), ComposeError> {
         let heading_row = heading.map(|cells| self.break_row(columns, cells, true));
-        let row_height =
-            |lines: usize| lines as f32 * CELL.line_height + 2.0 * CELL_PADDING_VERTICAL;
+        let padding = self.cell_padding_vertical;
+        let row_height = |lines: usize| lines as f32 * CELL.line_height + 2.0 * padding;
         let line_count = |row: &[Vec<Line>]| row.iter().map(Vec::len).max().unwrap_or(1).max(1);
         let heading_height = heading_row
             .as_deref()
@@ -631,7 +640,8 @@ impl Flow<'_, '_> {
                     }
                     heading_due = false;
                 }
-                let fitting = ((self.remaining() - 2.0 * CELL_PADDING_VERTICAL) / CELL.line_height)
+                let fitting = ((self.remaining() - 2.0 * self.cell_padding_vertical)
+                    / CELL.line_height)
                     .floor()
                     .max(0.0) as usize;
                 let left = total - first;
@@ -858,6 +868,11 @@ pub(crate) fn lay_out(
         measurer,
         pages: Vec::new(),
         cursor: page.margin_top,
+        cell_padding_vertical: if document.compact {
+            CELL_PADDING_VERTICAL_COMPACT
+        } else {
+            CELL_PADDING_VERTICAL
+        },
     };
     flow.new_page()?;
     let mut image_index = 0;

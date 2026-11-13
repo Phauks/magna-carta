@@ -64,6 +64,8 @@ export type ComposeBlock =
       readonly text?: string;
       readonly spans?: readonly ComposeSpan[];
       readonly alignment?: ComposeAlignment;
+      /** The smaller, grayer text of a caption: a note beneath the content it serves. */
+      readonly small?: boolean;
     }
   | {
       readonly type: "image";
@@ -109,6 +111,11 @@ export interface ComposeDocument {
    * blue from 0 to 255. Omitted, the document is black and gray.
    */
   readonly accent?: readonly [number, number, number];
+  /**
+   * Set the rows of every table and field list closer together, for a document that has to hold a
+   * known amount on one page.
+   */
+  readonly compact?: boolean;
   readonly header?: ComposeRunningLine;
   readonly footer?: ComposeRunningLine;
   readonly blocks: readonly ComposeBlock[];
