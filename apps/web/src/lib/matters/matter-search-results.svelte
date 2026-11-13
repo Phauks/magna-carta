@@ -196,7 +196,7 @@
                 <!-- "There is more", measured by reading one row past the limit. Never a total: this
                      surface has not counted the whole answer and will not imply that it has. -->
                 <p class="px-8 pb-4 text-xs text-text-subtle">
-                  More matches than shown — narrow the search or open the full results.
+                  More matches than shown. Narrow the search or open all results.
                 </p>
               {/if}
               {#if group.matchedFields.length > 0 && !compact}

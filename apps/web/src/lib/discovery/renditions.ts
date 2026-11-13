@@ -74,9 +74,7 @@ export function renditionFor(document: ReviewDocumentDetail): Rendition {
   return {
     kind: "extracted-text",
     label: "Extracted text",
-    explains:
-      "What the engine read out of this document — the same text the corpus indexed, deduplicated " +
-      "and fingerprinted.",
+    explains: "The text read from this document, as indexed for search.",
   };
 }
 

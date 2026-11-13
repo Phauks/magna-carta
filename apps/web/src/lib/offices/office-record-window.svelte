@@ -226,7 +226,7 @@
         saveFailure = stated(
           created.failure,
           "The office was not saved.",
-          "Nothing answered. Nothing was saved.",
+          "Couldn't connect. Nothing was saved.",
         );
         return;
       }
@@ -238,7 +238,7 @@
         saveFailure = stated(
           updated.failure,
           "The change was not saved.",
-          "Nothing answered. Nothing was changed.",
+          "Couldn't connect. Nothing changed.",
         );
         return;
       }

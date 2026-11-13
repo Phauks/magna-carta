@@ -90,7 +90,7 @@ export function reviewPanels(components: {
       label: "Family",
       icon: Files,
       answers:
-        "What arrived with it — a message and its attachments, or an archive and its entries.",
+        "What arrived with it: an email and its attachments, or an archive and its contents.",
       permission: READ_DISCOVERY_PERMISSION,
       stage: "alpha",
       writes: false,
@@ -112,7 +112,7 @@ export function reviewPanels(components: {
       id: "coding",
       label: "Coding",
       icon: Tags,
-      answers: "What this document is, decided — responsive, privileged, confidential.",
+      answers: "How this document was coded, such as responsive, privileged or confidential.",
       permission: "discovery:review",
       stage: "soon",
       waitsOn: "the coding surface",

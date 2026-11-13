@@ -175,7 +175,7 @@
     bookFailure = stated(
       outcome.failure,
       "The booking was not made.",
-      "Nothing answered. The booking was not made, so pressing again makes it once.",
+      "Couldn't connect. The booking wasn't made. Try again.",
     );
     return "refused";
   }

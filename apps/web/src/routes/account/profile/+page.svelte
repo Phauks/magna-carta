@@ -214,7 +214,7 @@
     saveFailure = stated(
       outcome.failure,
       "Your name was not saved.",
-      "Nothing answered, so nothing changed; pressing Save again tries once more.",
+      "Couldn't connect. Nothing changed. Press Save to try again.",
     );
   }
 </script>
@@ -249,8 +249,7 @@
 
         {#if seededFromReading && name !== null}
           <p class="py-12 text-sm text-text-muted">
-            Your account was created with one name, {name.displayName}. Below is how it reads as
-            parts. Check it and press Save, or correct it first — nothing is stored until you do.
+            Your account was created with the name {name.displayName}. Check how it's split into parts below, correct it if needed, and press Save. Nothing is saved until you do.
           </p>
         {/if}
 

@@ -103,7 +103,7 @@
         <Card.Title>{group.label}</Card.Title>
         <Card.Description>
           {group.fields.filter((field) => field.requiresEntry).length === 0
-            ? "Nothing to fill in here — every field in this group fills itself."
+            ? "Nothing to fill in. Every field in this group fills itself."
             : "The fields with a control are the ones needing a value from you."}
         </Card.Description>
       </Card.Header>

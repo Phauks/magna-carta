@@ -70,7 +70,7 @@ const SERVICE_SKEW_MESSAGE =
   "and it will line up again.";
 
 /** Nothing answered at all: not a refusal, and not a verdict on anything the member did. */
-const NO_ANSWER_TITLE = "Nothing answered";
+const NO_ANSWER_TITLE = "Couldn't connect";
 const NO_ANSWER_MESSAGE =
   "The request did not reach Magna Carta, or the answer never arrived. Check your connection, " +
   "then try again.";

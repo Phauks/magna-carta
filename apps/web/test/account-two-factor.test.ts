@@ -25,7 +25,7 @@ describe("what a refused two-factor step says", () => {
   it("tells a rejected code to use the one the app is showing now", () => {
     const sentence = twoFactorRefusal("INVALID_CODE");
     expect(sentence).toContain("30 seconds");
-    expect(sentence).toContain("showing now");
+    expect(sentence).toContain("shows now");
   });
 
   it("tells an expired setup to start again", () => {

@@ -262,7 +262,7 @@
         failure={archiveFailure}
         title="Nothing Changed"
         fallback="The template was not archived."
-        whenSilent="Nothing answered. The template was not archived and is unchanged."
+        whenSilent="Couldn't connect. The template wasn't archived."
       />
     {/if}
   {/snippet}

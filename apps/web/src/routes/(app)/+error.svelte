@@ -31,8 +31,7 @@
 <div class="flex flex-col items-center">
   {#if notFound}
     <EmptyState title="There's nothing at this address">
-      The page may have moved, or the link may be stale — the navigation on the left has everything
-      that exists today.
+      The page may have moved or the link may be out of date. Use the menu on the left to find what you need.
       {#snippet actions()}
         <!-- Back first — the fastest recovery from a wrong turn is the page you just left. -->
         {#if canGoBack}
@@ -47,8 +46,7 @@
       scale="screen"
       subject="This screen"
       fallback={page.error?.message}
-      reassurance="Nothing you have saved is affected — this is the screen failing to draw, not the
-        firm's record."
+      reassurance="Your saved work isn't affected. Only this screen failed to load."
       steps={[
         "Reload: a brief interruption usually clears on the next attempt.",
         "Open the screen again from the navigation on the left.",

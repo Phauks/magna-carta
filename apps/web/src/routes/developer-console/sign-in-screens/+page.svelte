@@ -720,7 +720,7 @@
           address="trevor@goldsmith.example"
           instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done, with the password you chose, and you are signed in on the spot."
           sentAt={SENT_AT}
-          remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
+          remedy="If it doesn't arrive, check your spam folder, then register again. Only the newest code works."
           onEnterCode={noop}
           enterCodeLabel="Enter the Confirmation Code"
           back={noop}
@@ -813,7 +813,7 @@
       >
         <CheckEmailScreen
           address="joan@example.test"
-          instruction="Open the link we sent and choose a password. That is the last step — you can sign in straight afterwards."
+          instruction="Open the link we sent and choose a password. Then you can sign in."
           sentAt={SENT_AT}
           remedy="If it does not arrive, check the spam folder, then ask the firm that invited you to send a new invitation."
           back={noop}

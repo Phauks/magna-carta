@@ -101,7 +101,7 @@
     writeFailure = stated(
       outcome.failure,
       `${subject} was not changed.`,
-      "Nothing answered, so nothing changed; choosing again tries once more.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
   }
 

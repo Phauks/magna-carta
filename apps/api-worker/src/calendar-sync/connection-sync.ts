@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { Bindings } from "../bindings.ts";
 import type { ProviderNotice } from "@magna-carta/calendar/sync-port";
 import { readNotices, type WatchState } from "./change-watch.ts";
@@ -41,7 +41,7 @@ export function retryDelayMs(failuresInARow: number): number {
   return Math.min(RETRY_BASE_MS * 2 ** Math.max(0, failuresInARow - 1), RETRY_CEILING_MS);
 }
 
-export class ConnectionSync extends DurableObject<Bindings> {
+export class ConnectionSync extends StoredSecretsDurableObject {
   async requestPass(identity: ConnectionIdentity): Promise<void> {
     await this.ctx.storage.put("identity", identity);
     await this.ask(SETTLE_MS);

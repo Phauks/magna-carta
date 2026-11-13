@@ -57,7 +57,7 @@
 
   function describeFailure(outcome: { kind: "problem" | "transport"; problem?: { detail?: string; title?: string } | null }): string {
     if (outcome.kind === "transport") {
-      return "Nothing answered. Check the connection and try again.";
+      return "Couldn't connect. Check your connection and try again.";
     }
     return outcome.problem?.detail ?? outcome.problem?.title ?? "The request could not be completed.";
   }

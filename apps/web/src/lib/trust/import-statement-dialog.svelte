@@ -188,7 +188,7 @@
     failure = stated(
       outcome.failure,
       "The file was not read, so there is nothing to review yet.",
-      "Nothing answered, so the file was not read. Nothing has been stored either way.",
+      "Couldn't connect. The file wasn't read and nothing was saved.",
     );
   }
 
@@ -264,7 +264,7 @@
     failure = stated(
       outcome.failure,
       "No statement was recorded.",
-      "Nothing answered, so no statement was recorded. Retrying sends this same submission rather than recording a second statement for the period.",
+      "Couldn't connect. No statement was recorded, and trying again won't record it twice.",
     );
     return "refused";
   }

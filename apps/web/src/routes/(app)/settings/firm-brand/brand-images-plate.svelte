@@ -120,7 +120,7 @@
       addFailure = stated(
         outcome.failure,
         "The image was not added.",
-        "Nothing answered, so nothing was added; pressing again tries once more.",
+        "Couldn't connect. Nothing was added. Try again.",
       );
       return "refused";
     }

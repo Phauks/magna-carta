@@ -390,7 +390,7 @@
     failure = stated(
       outcome.failure,
       "The event could not be recorded.",
-      "Nothing answered. The event was not recorded, so pressing again records it once.",
+      "Couldn't connect. The event wasn't saved. Try again.",
     );
     return "refused";
   }

@@ -154,7 +154,7 @@
     {/if}
 
     {#if pressFailed}
-      <p class="text-xs text-text-muted">The caller ID service did not answer. Nothing was kept; try again.</p>
+      <p class="text-xs text-text-muted">Caller ID didn't respond. Nothing was saved. Try again.</p>
     {/if}
   </div>
 {/if}

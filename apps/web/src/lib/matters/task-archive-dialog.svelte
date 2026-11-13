@@ -65,7 +65,7 @@
     failure = stated(
       outcome.failure,
       "The task was not archived.",
-      "Nothing answered. Nothing was changed, so pressing again archives it once.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
     return "refused";
   }
@@ -99,9 +99,7 @@
         <Textarea id="{identity}-reason" rows={3} disabled={busy} bind:value={reason} />
       </div>
       <p class="text-sm text-text-muted">
-        The task comes off the list and keeps everything it carries — its detail, its documents, the
-        time logged against it. Putting it back returns it to the rung it left from. Deleting is the
-        other way out, and it takes the task with it.
+        The task leaves the list but keeps its details, documents and time. Restoring it puts it back where it was. To remove it for good, delete it instead.
       </p>
     </div>
   {/snippet}

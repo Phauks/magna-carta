@@ -81,7 +81,7 @@ export const SESSIONS_UNAVAILABLE =
 
 /** A revocation the server refused or never answered. The session is assumed still live. */
 export const REVOKE_FAILED =
-  "That device could not be signed out — it may still be signed in. Try again.";
+  "That device couldn't be signed out and may still be signed in. Try again.";
 
 /*
  * USER AGENT → DEVICE, in the only way this is honestly done: a short table of exact tokens, tried

@@ -132,10 +132,7 @@ export function adjustReason(row: InvoiceRow): string {
       "number never changes."
     );
   }
-  return (
-    "A payment has been applied to this bill, so it is locked — the correction path is a credit " +
-    "note beside it."
-  );
+  return "A payment has been applied to this bill, so it's locked. To correct it, add a credit note.";
 }
 
 /**
@@ -210,7 +207,7 @@ export function billActions(
       : !isDraft
         ? {
             disabledReason:
-              "Only a draft can be voided — a finalized bill is corrected by a credit note beside it.",
+              "Only a draft can be voided. To correct a finalized bill, add a credit note.",
           }
         : lacks(context, BILLING_PERMISSIONS.draft)
           ? { disabledReason: permissionRefusal("Voiding a draft bill", BILLING_PERMISSIONS.draft) }

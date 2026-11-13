@@ -129,7 +129,7 @@
     failure = stated(
       outcome.failure,
       "No reconciliation was opened.",
-      "Nothing answered, so no reconciliation was opened. Retrying sends this same submission rather than opening a second one.",
+      "Couldn't connect. No reconciliation was opened, and trying again won't open a second one.",
     );
     return "refused";
   }

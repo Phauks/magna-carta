@@ -291,6 +291,9 @@
     },
     {
       "path": "packages/whois/tsconfig.test.json"
+    },
+    {
+      "path": "packages/worker-secrets/tsconfig.test.json"
     }
   ]
 }

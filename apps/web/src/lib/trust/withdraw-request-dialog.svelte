@@ -70,7 +70,7 @@
     failure = stated(
       outcome.failure,
       "Nothing was taken back: the request is still waiting on a decision.",
-      "Nothing answered, so nothing was taken back. The request is still waiting on a decision.",
+      "Couldn't connect. Nothing was taken back, and the request is still waiting for a decision.",
     );
     return "refused";
   }

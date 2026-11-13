@@ -133,7 +133,7 @@
     failure = stated(
       outcome.failure,
       "The posture is unchanged: the version in force still governs.",
-      "Nothing answered, so the posture is unchanged. The version in force still governs.",
+      "Couldn't connect. The current version still applies.",
     );
     return "refused";
   }

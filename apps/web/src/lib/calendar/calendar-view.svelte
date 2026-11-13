@@ -466,10 +466,7 @@
          grid would read as three on the calendar, and a reader who then moved to October would be
          entitled to think it had gone. -->
     <p class="text-xs text-text-muted">
-      {(controller.visibleEntries ?? []).length}
-      {(controller.visibleEntries ?? []).length === 1 ? "entry" : "entries"} in {controller.title}
-      {(controller.visibleEntries ?? []).length === 1 ? "matches" : "match"} that. Other dates are not
-      searched — move the calendar to look elsewhere.
+      {(controller.visibleEntries ?? []).length} {(controller.visibleEntries ?? []).length === 1 ? "entry" : "entries"} in {controller.title} {(controller.visibleEntries ?? []).length === 1 ? "matches" : "match"} that. Other dates aren't searched. Move the calendar to look elsewhere.
     </p>
   {/if}
 

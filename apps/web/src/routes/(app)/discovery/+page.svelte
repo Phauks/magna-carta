@@ -183,10 +183,7 @@
       emptyTitle="Nothing Is Open To You Yet"
     >
       {#snippet emptyBody()}
-        A review set is a corpus under review — a production another party served, or the firm's own
-        collection — and you see one only once somebody has put you on its list. New, at the top of
-        the screen, starts one on a matter you are working; a matter's own Discovery section starts
-        one there.
+        No review sets are shared with you. Start one with New, or from a matter's Discovery section.
       {/snippet}
     </ReviewSetList>
   </div>

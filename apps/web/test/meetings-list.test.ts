@@ -281,7 +281,7 @@ describe("a section of the screen", () => {
 
     // A table standing empty over a failure says the firm has no meetings, which nobody asked it.
     expect(rendered.querySelector("table")).toBeNull();
-    expect(rendered.textContent).toContain("Nothing answered");
+    expect(rendered.textContent).toContain("Couldn't connect");
     expect(
       [...rendered.querySelectorAll("button")].some(
         (control) => control.textContent?.trim() === "Retry",

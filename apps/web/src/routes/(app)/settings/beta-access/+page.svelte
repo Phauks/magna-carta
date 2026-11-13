@@ -104,7 +104,7 @@
       next === "beta"
         ? "The firm was not moved to the beta programme."
         : "The firm was not moved back to the released build.",
-      "Nothing answered, so the release channel is unchanged; trying again is safe.",
+      "Couldn't connect. The release channel is unchanged. You can safely try again.",
     );
     return false;
   }
