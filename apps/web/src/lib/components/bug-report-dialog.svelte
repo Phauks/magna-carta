@@ -142,7 +142,7 @@
     }
     sendFailure = stated(
       outcome.failure,
-      "The report was not sent — copy it instead and send it on.",
+      "The report wasn't sent. Copy it and send it yourself.",
     );
     return "refused";
   }

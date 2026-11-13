@@ -77,7 +77,7 @@
     failure = stated(
       outcome.failure,
       "The match still stands.",
-      "Nothing answered, so the match still stands. Retrying sends this same submission.",
+      "Couldn't connect. The match is unchanged. You can safely try again.",
     );
     return "refused";
   }

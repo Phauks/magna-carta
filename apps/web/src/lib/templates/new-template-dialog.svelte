@@ -176,17 +176,17 @@
       case "reserving":
         return {
           fallback: "A slot for the document was not reserved, so nothing was registered.",
-          whenSilent: "Nothing answered when a slot was asked for. Nothing was registered.",
+          whenSilent: "Couldn't connect. Nothing was saved.",
         };
       case "uploading":
         return {
           fallback: "The document did not reach storage, so nothing was registered.",
-          whenSilent: "Storage did not answer. Nothing was registered.",
+          whenSilent: "Couldn't reach storage. Nothing was saved.",
         };
       default:
         return {
           fallback: "The template was not registered.",
-          whenSilent: "Nothing answered when the template was registered. Nothing was registered.",
+          whenSilent: "Couldn't connect. The template wasn't saved.",
         };
     }
   }

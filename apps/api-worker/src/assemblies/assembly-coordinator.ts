@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import { DOCUMENT_ASSEMBLY_COMPLETED_EMISSION_POINT } from "@magna-carta/notifications/emission-points";
 import type { Bindings } from "../bindings.ts";
 import { notifyJobCompletion } from "../jobs/job-completion-notification.ts";
@@ -31,7 +31,7 @@ const UNKNOWN: DocumentAssemblyJobState = {
 };
 
 export class DocumentAssemblyJob
-  extends DurableObject<Bindings>
+  extends StoredSecretsDurableObject
   implements DocumentAssemblyCoordinator
 {
   async start(message: DocumentAssemblyMessage): Promise<DocumentAssemblyJobState> {

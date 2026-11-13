@@ -80,7 +80,7 @@
   // change is announced rather than missed as a region appearing with its text already in it.
   const stateAnnouncement = $derived.by(() => {
     if (client.retrying !== null) {
-      return `The isolated browser did not answer. Trying again, attempt ${client.retrying.attempt} of ${client.retrying.maximumAttempts}.`;
+      return `The secure browser didn't respond. Trying again, attempt ${client.retrying.attempt} of ${client.retrying.maximumAttempts}.`;
     }
     if (opening) return "Opening the isolated remote browser.";
     if (client.status === "ended") return endedTitle();
@@ -308,7 +308,7 @@
           <FailureNotice
             failure={client.failure}
             title={endedTitle()}
-            fallback="The isolated browser did not answer after several attempts."
+            fallback="The secure browser didn't respond after several attempts."
             whenSilent="The connection dropped and did not come back after several attempts."
             onRetry={onrestart}
           />

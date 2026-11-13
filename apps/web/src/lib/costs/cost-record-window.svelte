@@ -374,7 +374,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
           ? `The cost was not saved. The server answered ${String(outcome.problem.status)}.${
               outcome.problem.detail === undefined ? "" : ` ${outcome.problem.detail}`
             }`
-          : "Nothing answered. The cost was not saved and the record is unchanged.";
+          : "Couldn't connect. The cost wasn't saved.";
       return;
     }
     onSaved();

@@ -336,7 +336,7 @@
         registration = { ...registration, attempt: progress };
       }
       if (progress.attempt > 1) {
-        announcement = `The registry did not answer. Trying again, attempt ${progress.attempt} of ${progress.maxAttempts}.`;
+        announcement = `The registry didn't respond. Trying again, attempt ${progress.attempt} of ${progress.maxAttempts}.`;
       }
     });
     // A capture may have moved the viewer to another host while the registry answered; a stale
@@ -385,7 +385,7 @@
         <Alert.Root variant="danger">
           <Alert.Title>The capture service did not respond</Alert.Title>
           <Alert.Description>
-            Nothing answered the request. Check your connection, then try again.
+            Couldn't connect. Check your connection and try again.
           </Alert.Description>
         </Alert.Root>
       {/if}

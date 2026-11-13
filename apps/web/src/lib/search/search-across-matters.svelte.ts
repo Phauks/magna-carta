@@ -365,7 +365,7 @@ export class SearchAcrossMatters {
     return stated(
       failure,
       "The search could not be run.",
-      "Nothing answered. The firm's records were not searched.",
+      "Couldn't connect. The firm's records weren't searched.",
     );
   }
 }

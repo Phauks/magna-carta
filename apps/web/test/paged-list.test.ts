@@ -71,7 +71,7 @@ describe("a paged section list", () => {
 
     await list.loadMore(read);
     expect(list.items?.map((row) => row.id)).toEqual(["a"]);
-    expect(list.failureMessage).toBe("Nothing answered. The costs could not be read.");
+    expect(list.failureMessage).toBe("Couldn't connect. The costs could not be read.");
   });
 
   it("says the server's own words when it sent any, and its own when it did not", async () => {

@@ -79,8 +79,7 @@ export function recorderText(record: WorkInProgressRecord): string {
  * key precisely so that who wrote a record down outlives that person's membership.
  */
 export const GONE_RECORDER_NOTE =
-  "The member who recorded this is no longer at the firm, so there is no name to show. The record " +
-  "itself is unaffected — who wrote it down is still on it.";
+  "The person who recorded this has left the firm, so their name isn't shown. The record is unchanged.";
 
 /**
  * Why a draft came back, or null where it did not.

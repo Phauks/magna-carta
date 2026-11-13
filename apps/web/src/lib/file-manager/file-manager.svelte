@@ -269,7 +269,7 @@
         loadFailure =
           fileResult.kind === "problem"
             ? problemGuidance(fileResult.problem).message
-            : "Nothing answered. The record itself is unaffected.";
+            : "Couldn't connect. Nothing changed.";
       }
       // A folder read that fails is a different failure: the files are still readable and still
       // listed, they just cannot be navigated by folder. Saying "the files could not be read" would
@@ -1666,7 +1666,7 @@
       restoreFailure =
         outcome.kind === "problem"
           ? problemGuidance(outcome.problem).message
-          : "Nothing answered. The file stays deleted, and nothing else changed.";
+          : "Couldn't connect. The file is still deleted and nothing else changed.";
       return "refused";
     }
     deletedFiles = deletedFiles.filter((row) => row.id !== target.id);
@@ -1723,7 +1723,7 @@
         archiveFailure =
           outcome.kind === "problem"
             ? problemGuidance(outcome.problem).message
-            : "Nothing answered. The archive itself is unaffected.";
+            : "Couldn't connect. The archive is unchanged.";
         return;
       }
       archiveEntriesHeld = outcome.value.entries;

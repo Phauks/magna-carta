@@ -189,7 +189,7 @@
     writeFailure = stated(
       result.failure,
       "The party could not be added to this matter.",
-      "Nothing answered. The matter's parties are as they were.",
+      "Couldn't connect. The matter's parties are unchanged.",
     );
   }
 

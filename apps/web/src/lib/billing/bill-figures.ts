@@ -68,7 +68,7 @@ export function billFigures(
     amountMinor: rows
       .filter((row) => row.summary.status === "draft")
       .reduce((total, row) => total + draftTotalMinor(row.detail), 0),
-    caption: `Claimed by open drafts${inView} — computed from their lines.`,
+    caption: `Claimed by open drafts${inView}, from their lines.`,
   });
 
   figures.push({

@@ -178,7 +178,7 @@ describe("stalledSentence", () => {
     const marks = freshMarks(STARTED_AT);
     expect(stalledSentence("session", marks)).toBe("The editing session did not open.");
     expect(stalledSentence("editor", marks)).toBe(
-      "The editor did not answer. It may still be starting, or it could not be reached.",
+      "The editor didn't respond. It may still be starting. Try again in a moment.",
     );
     expect(stalledSentence("frame", marks)).toBe(
       "The editor page arrived but never reported itself ready.",

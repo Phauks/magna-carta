@@ -368,7 +368,7 @@ export function openPace(startedAt: Date, now: Date): OpenPace {
 
 const STALLED_SENTENCES: Record<OpenStage, string> = {
   session: "The editing session did not open.",
-  editor: "The editor did not answer. It may still be starting, or it could not be reached.",
+  editor: "The editor didn't respond. It may still be starting. Try again in a moment.",
   frame: "The editor page arrived but never reported itself ready.",
   information: "The editor came up but never asked the host about the document.",
   bytes: "The host described the document, but the editor never asked for its contents.",

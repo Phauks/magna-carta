@@ -154,7 +154,7 @@
         failure = stated(
           root.failure,
           "The office could not be added to the containers.",
-          "Nothing answered, so no container was added.",
+          "Couldn't connect. The container wasn't added.",
         );
         return;
       }
@@ -171,7 +171,7 @@
       failure = stated(
         created.failure,
         "The container could not be added.",
-        "Nothing answered, so the container was not added.",
+        "Couldn't connect. The container wasn't added.",
       );
       return;
     }

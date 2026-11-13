@@ -55,7 +55,7 @@
         ? { label: "Matter number", value: matter.matterNumber }
         : {
             label: "Consultation number",
-            value: matter.consultationNumber ?? "Unnumbered — consultation",
+            value: matter.consultationNumber ?? "Unnumbered (consultation)",
           },
       // The word comes from the product's one status register, so this page, the header and the
       // docket cannot end up calling the same matter three things.

@@ -64,7 +64,7 @@ export function captureReportText(input: CaptureExportInput): string {
     `Final address: ${view.finalUrl}`,
   ];
   if (landedOnDifferentHost(view)) {
-    overview.push("Different site: yes — the link ended on a different site from where it started");
+    overview.push("Different site: yes, the link ended on a different site from where it started");
   }
   if (status !== null) overview.push(`Final status: ${status}`);
   if (contentType !== null) overview.push(`Content type: ${contentType}`);
@@ -118,7 +118,7 @@ export function captureReportText(input: CaptureExportInput): string {
     section(
       "Registration",
       registration.length === 0
-        ? ["(not looked up — open the Registration tab before downloading to include it)"]
+        ? ["(not looked up; open the Registration tab before downloading to include it)"]
         : registration,
     ),
   ].join("\n");
