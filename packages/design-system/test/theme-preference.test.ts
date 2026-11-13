@@ -368,7 +368,16 @@ describe("applyThemePreference", () => {
 
   it("round-trips through readThemePreference", () => {
     const mode: Mode = "dark";
-    applyThemePreference("midnight", mode, "full", "compact", "high", "hidden", "system", "smaller");
+    applyThemePreference(
+      "midnight",
+      mode,
+      "full",
+      "compact",
+      "high",
+      "hidden",
+      "system",
+      "smaller",
+    );
     expect(readThemePreference()).toEqual({
       theme: "midnight",
       mode,
