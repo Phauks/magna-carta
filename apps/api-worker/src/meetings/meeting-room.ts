@@ -109,6 +109,7 @@ const MEDIUM_PARAMETER = "medium";
 const HOST_ROLE_PARAMETER = "hostRole";
 const LOCKED_PARAMETER = "locked";
 const LOBBY_PARAMETER = "lobby";
+const ENCRYPTED_PARAMETER = "encrypted";
 const WAITING_PARAMETER = "waiting";
 const WAITING_FROM_PARAMETER = "waitingFrom";
 const KIND_PARAMETER = "kind";
@@ -132,6 +133,8 @@ export function meetingSocketRequestUrl(attachment: MeetingSocketContext): strin
     [HOST_ROLE_PARAMETER]: attachment.hostRole ?? "",
     [LOCKED_PARAMETER]: attachment.locked === true ? "true" : "false",
     [LOBBY_PARAMETER]: attachment.lobby ?? "off",
+    // Off the meeting row, fixed for its life: whether the room carries a key group at all.
+    [ENCRYPTED_PARAMETER]: attachment.encrypted === true ? "true" : "false",
     // Derived by the route off the stay it just authorized the upgrade against — the row says
     // whether this person is at the door or in the room, and a browser never gets to name it.
     [WAITING_PARAMETER]: attachment.waiting === true ? "true" : "false",
@@ -204,6 +207,9 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
     // was in before the door existed, and the safe direction: a lobby the room forgot about would
     // put nobody at a door, where a door invented out of a bad label would strand the meeting.
     lobby: parameters.get(LOBBY_PARAMETER) === "on" ? "on" : "off",
+    // Anything but `true` reads as NOT encrypted, which is what every meeting before the column was;
+    // the browsers of an encrypted meeting learn it from the meeting, not from this socket.
+    encrypted: parameters.get(ENCRYPTED_PARAMETER) === "true",
     // And an unreadable one reads as NOT waiting, which is what every socket opened before the door
     // existed was. The route derives it from the stay, so the only way to reach this default is a
     // socket from an older build.

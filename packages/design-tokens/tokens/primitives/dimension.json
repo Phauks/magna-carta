@@ -83,6 +83,16 @@
       "$type": "dimension",
       "$value": { "value": 400, "unit": "px" }
     },
+    "record-aside": {
+      "$description": "How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width.",
+      "$type": "dimension",
+      "$value": { "value": 360, "unit": "px" }
+    },
+    "record-window-wide": {
+      "$description": "How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window.",
+      "$type": "dimension",
+      "$value": { "value": 1640, "unit": "px" }
+    },
     "modal-gutter": {
       "$description": "The least of the screen that shows around a windowed modal on every side. A panel that touches the edge stops reading as a panel over the application and starts reading as a page the application was replaced by, with the panel's own rounded corners cut off against the screen. The gutter is what a panel's caps are measured inside: a panel's width cap and its content decide how big it opens, and this decides how big it can ever be on the screen it is on, so on a laptop a long record scrolls inside a window with air around it rather than running from the top of the screen to the bottom. Fixed rather than a share of the screen because a share swells on a large monitor, where the width caps already leave room, and shrinks on a small one, where the air is needed most (owner ruling 2026-09-03, over a proportional gutter). Expanding drops it: filling the screen is that gesture.",
       "$type": "dimension",

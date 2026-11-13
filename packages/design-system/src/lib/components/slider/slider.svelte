@@ -22,6 +22,7 @@
     valueText,
     buffered,
     disabled = false,
+    tone = "default",
     onValueChange,
     onValueCommit,
     class: className,
@@ -37,6 +38,8 @@
     /** How much of the track has loaded, from 0 to 1. Omit where nothing loads. */
     buffered?: number;
     disabled?: boolean;
+    /** `chrome` draws the slider light-on-dark, for a control laid over a picture. */
+    tone?: "default" | "chrome";
     onValueChange?: (value: number) => void;
     onValueCommit?: (value: number) => void;
     class?: string;
@@ -57,6 +60,7 @@
   {onValueChange}
   {onValueCommit}
   class={mergeClasses("mc-slider w-full min-w-0 flex-1", className)}
+  data-tone={tone}
 >
   {#snippet children({ thumbItems })}
     <span class="mc-slider-track">

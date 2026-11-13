@@ -20,6 +20,7 @@ import {
   subscribeTracks,
 } from "./room-media.ts";
 import { noteSpeakingForCaptions } from "./room-captions.ts";
+import { handleGroupFrame } from "./room-group.ts";
 import { handleHostFrame } from "./room-hosting.ts";
 import { giveUpWaiting } from "./room-lobby.ts";
 import { armAlarmFor } from "./room-lifecycle.ts";
@@ -138,6 +139,9 @@ type SignalingFrame = Exclude<
   | { type: "captions" }
   | { type: "reaction" }
   | { type: "diagnostic-report" }
+  | { type: "mls-key-package" }
+  | { type: "mls-commit" }
+  | { type: "mls-proposal" }
 >;
 
 // The track kinds that carry a picture, which is what a call does not have. A camera and a screen
@@ -423,6 +427,18 @@ async function routeClientFrame(
       );
     }
     return "diagnostic-report";
+  }
+
+  // THE ENCRYPTED MEETING'S GROUP KEYS, answered here for the reason presence is: they ask nothing
+  // of the routing service, and the room relays and orders them without reading a byte. Bounded by
+  // the socket's frame budget like everything else; a commit costs the room one read and one write.
+  if (
+    parsed.frame.type === "mls-key-package" ||
+    parsed.frame.type === "mls-commit" ||
+    parsed.frame.type === "mls-proposal"
+  ) {
+    await handleGroupFrame(room, socket, attachment, parsed.frame);
+    return parsed.frame.type;
   }
 
   // THE HOST'S OWN FRAMES, answered before a routing session for the SENDER is resolved — none of

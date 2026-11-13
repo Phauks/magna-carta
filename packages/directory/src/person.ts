@@ -36,6 +36,12 @@ export interface CreatePersonInput {
   readonly prefix?: string | null;
   readonly middle?: string | null;
   readonly suffix?: string | null;
+  /**
+   * Recorded by something other than a person at the Directory — a meeting guest typed by name and
+   * address — and so waiting for somebody to keep, merge or discard it. Absent means a person
+   * recorded it deliberately.
+   */
+  readonly needsReview?: boolean;
 }
 
 // The typed person projection returned by readPerson — the structured name parts, the rendered
@@ -144,7 +150,7 @@ export function composeCreatePerson(
         suffix: input.suffix ?? null,
         displayName,
         status: "active",
-        needsReview: 0,
+        needsReview: input.needsReview === true ? 1 : 0,
         createdAt: now,
       }),
       insertNameStatement(database, {

@@ -84,6 +84,7 @@
    * theme key), or two `max-w-*` classes would both survive the merge.
    */
   --container-record-window: var(--mc-size-record-window);
+  --container-record-window-wide: var(--mc-size-record-window-wide);
   /*
    * The reading face. Inline (a var() reference, not the resolved stack) because it is a user
    * axis: the :root[data-typeface=…] overlays in tokens.css re-point --mc-font-sans, and every

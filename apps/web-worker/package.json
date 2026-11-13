@@ -5,7 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "build": "vp run -w rust-wasm-build-pdf && vp run -w rust-wasm-build-segmentation && vp run -w rust-wasm-build-noise-suppression && pnpm --filter @magna-carta/web run build && wrangler deploy --dry-run --outdir dist",
+    "build": "vp run -w rust-wasm-build-pdf && vp run -w rust-wasm-build-segmentation && vp run -w rust-wasm-build-noise-suppression && vp run -w rust-wasm-build-mls && pnpm --filter @magna-carta/web run build && wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "vp test run"

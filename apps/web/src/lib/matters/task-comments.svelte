@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * A TASK'S COMMENT THREAD, as the task window's Comments tab.
+   * A TASK'S COMMENT THREAD, as the column on the right of the task window.
    *
    * Flat and oldest first, so it reads top to bottom in the order things were said. Typing "@" or
    * pressing Name Someone offers the firm's people; whoever is named is told, and so are the people

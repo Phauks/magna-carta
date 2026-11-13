@@ -58,7 +58,7 @@ export type Bindings = {
     import("./conversions/conversion-coordinator.ts").ConversionJob
   >;
   // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
-  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
+  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionQueueMessage>;
   // The document-assembly job coordinator: keyed firmId:assemblyId, single-flights one assembly per job
   // so a retried submit can never file two documents onto a matter.
   DOCUMENT_ASSEMBLY_JOB: DurableObjectNamespace<
@@ -375,6 +375,11 @@ export type Bindings = {
   // the session the room opens for it, holding no credential of its own.
   REALTIME_SFU_APP_ID?: string;
   REALTIME_SFU_APP_SECRET?: string;
+  // Whether new meetings open end-to-end encrypted: "on" to open them sealed, anything else (or
+  // nothing) to open them in the clear. Public deployment configuration, not a secret: bound via
+  // wrangler.jsonc vars once the browsers' frame transform has been tried against the live routing
+  // service. Read in one place, `meetings/encryption-switch.ts`.
+  MEETINGS_END_TO_END_ENCRYPTION?: string;
   // One meeting's signaling room, keyed `${firmId}:${meetingId}`. It brokers each browser's session
   // with the routing service and keeps the roster; it holds no media and stores nothing anybody
   // said. Addressed by the SESSION firm id at the route, never a path value.

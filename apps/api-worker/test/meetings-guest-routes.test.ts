@@ -1067,3 +1067,71 @@ describe("the contract", () => {
     }
   });
 });
+
+describe("inviting a guest by name and address", () => {
+  async function startedMeeting(): Promise<string> {
+    const started = await hostPost("/api/v1/meetings", {
+      eventKind: "matter",
+      eventId: await freshEvent(),
+      lobby: "on",
+    });
+    expect(started.status).toBe(201);
+    return (await readJson<{ id: string }>(started)).id;
+  }
+
+  it("makes a person marked needs review for an address nobody holds, and mails the link there", async () => {
+    const meetingId = await startedMeeting();
+
+    const invited = await hostPost(`/api/v1/meetings/${meetingId}/guests/by-address`, {
+      name: "Ruth Okafor",
+      emailAddress: "ruth.okafor@elsewhere.test",
+    });
+    expect(invited.status).toBe(201);
+    const invitation = await readJson<Invitation>(invited);
+    expect(invitation.invitedName).toBe("Ruth Okafor");
+    expect(mail.at(-1)?.to).toBe("ruth.okafor@elsewhere.test");
+
+    const person = await firmDatabase
+      .prepare("SELECT needs_review FROM directory_person WHERE id = ?")
+      .bind(invitation.entityId)
+      .first<{ needs_review: number }>();
+    expect(person?.needs_review).toBe(1);
+  });
+
+  it("lands on the Directory entity that already holds the address", async () => {
+    const meetingId = await startedMeeting();
+    const known = newIdentifier("directoryPerson");
+    const now = new Date().toISOString();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO directory_person (id, display_name, created_at, updated_at) VALUES (?1, 'Mara Quist', ?2, ?2)",
+      )
+      .bind(known, now)
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO directory_email (id, entity_id, address, normalized_address, is_primary, created_at, updated_at) " +
+          "VALUES (?1, ?2, 'Mara@Quist.test', 'mara@quist.test', 1, ?3, ?3)",
+      )
+      .bind(newIdentifier("directoryEmail"), known, now)
+      .run();
+
+    const invited = await hostPost(`/api/v1/meetings/${meetingId}/guests/by-address`, {
+      name: "M. Quist",
+      emailAddress: "MARA@quist.test",
+    });
+    expect(invited.status).toBe(201);
+    const invitation = await readJson<Invitation>(invited);
+    expect(invitation.entityId).toBe(known);
+    expect(invitation.invitedName).toBe("Mara Quist");
+  });
+
+  it("refuses an address that is not one", async () => {
+    const meetingId = await startedMeeting();
+    const refused = await hostPost(`/api/v1/meetings/${meetingId}/guests/by-address`, {
+      name: "Ruth Okafor",
+      emailAddress: "not an address",
+    });
+    expect(refused.status).toBe(422);
+  });
+});

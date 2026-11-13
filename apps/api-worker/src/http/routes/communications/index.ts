@@ -4,12 +4,14 @@ import { registerCallerLookupRoutes } from "./caller-lookup.ts";
 import { registerCommunicationsRoutes } from "./communications.ts";
 import { registerMeetingsRoutes } from "./meetings.ts";
 import { registerMeetingChatRoutes } from "./meeting-chat.ts";
+import { registerMeetingPersonalRoomRoutes } from "./meeting-personal-rooms.ts";
 import { registerMeetingHostingRoutes } from "./meeting-hosting.ts";
 import { registerMeetingInspectRoutes } from "./meeting-inspect.ts";
 import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
 import { registerMeetingPollRoutes } from "./meeting-polls.ts";
 import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
 import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { registerMeetingGuestByAddressRoutes } from "./meeting-guest-by-address.ts";
 import { registerMeetingSettingsRoutes } from "./meeting-settings.ts";
 import { registerMeetingSummaryRoutes } from "./meeting-summary.ts";
 import { emailAdapterForEnv } from "../../../auth-instance.ts";
@@ -35,6 +37,10 @@ export function mountCommunications(
   // different channel: what contact happened, recorded as identifiers and instants. The media is
   // routed between browsers and never reaches this platform; these routes are the record plus the
   // upgrade into the signaling room.
+  // A member's personal room — a standing link that opens an ordinary meeting on an ordinary event.
+  // Ahead of the meeting routes so its literal paths (`/meetings/personal-room`, `/meetings/rooms/…`)
+  // are matched before the meeting-id pattern beside them.
+  registerMeetingPersonalRoomRoutes(domain, chokepoint);
   registerMeetingsRoutes(domain, chokepoint);
   // The meeting's chat, which is the subsystem's one piece of stored content: kept on the record
   // like a filed message rather than discarded with the room, so what was said in a meeting on a
@@ -70,6 +76,11 @@ export function mountCommunications(
   // the guest's six ride the chokepoint's guest lane, which admits a signed credential rather than a
   // session and never stashes a user id, so nothing a guest calls can reach a member handler. The
   // mail goes through the same outbound port every other transactional message does.
+  registerMeetingGuestByAddressRoutes(
+    domain,
+    chokepoint,
+    deps.meetingGuestMail ?? emailAdapterForEnv,
+  );
   registerMeetingGuestRoutes(domain, chokepoint, deps.meetingGuestMail ?? emailAdapterForEnv);
   // The operator's read into one live room, behind the platform-operator guard rather than the
   // firm door every other meeting route goes through: a meeting holds no rows and deletes its own

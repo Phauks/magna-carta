@@ -1,11 +1,11 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/project-thread-5lx5gb
-area: Pure-Rust audio/video transcode engine (documents.conversion.av-transcode)
+area: Playable copy of a video (documents.conversion.av-transcode)
 status: building
-touches: containers/transcode, apps/convert-worker, packages/conversion, apps/api-worker/src/conversions, roadmap.d/documents.md, docs/Magna-Carta-White-Paper.md, tooling/gate/classify.mjs
+touches: packages/file-manager/src/playable-copy.ts, packages/database/drizzle/per-firm, apps/api-worker/src/background/conversions, apps/api-worker/src/http/routes/files/playable-copy.ts, packages/object-dimensions, roadmap.d/documents.md
 ---
 
-Builds the Rust transcode engine (MP4, QuickTime and Matroska with H.264 or HEVC in; a faststart
-H.264/AAC MP4 out) and registers it as the `transcode` engine in the convert worker and the conversion
-registry, replacing the never-built FFmpeg placeholder. The playable-copy adapter (SafeRenditionPort)
-follows in a second pull request; the video player thread owns the preview decision and the UI.
+The Rust transcode engine is merged (pull request 784). This stream adds the playable copy that
+reaches it: a request and status route, the queue producer that streams a version from R2 through
+the engine and back, and five columns on `file_version` that record the copy. The video player
+thread owns the preview decision and the "prepare a playable copy" button.

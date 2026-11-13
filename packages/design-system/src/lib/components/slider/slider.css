@@ -70,4 +70,24 @@
     outline-color: var(--mc-focus-ring);
     outline-width: var(--mc-focus-ring-width);
   }
+
+  /*
+   * The chrome tone, for a slider laid over a picture: the track is the chrome hairline, what has
+   * loaded is the chrome's muted ink, the played part is the gilt accent and the thumb is the strong
+   * chrome ink. The chrome pair does not turn over in dark mode, which is what keeps it legible over
+   * whatever the picture shows.
+   */
+  .mc-slider[data-tone="chrome"] .mc-slider-track {
+    background-color: var(--mc-chrome-border);
+  }
+  .mc-slider[data-tone="chrome"] .mc-slider-buffered {
+    background-color: var(--mc-chrome-text-muted);
+  }
+  .mc-slider[data-tone="chrome"] .mc-slider-range {
+    background-color: var(--mc-chrome-accent);
+  }
+  .mc-slider[data-tone="chrome"] .mc-slider-thumb {
+    border-color: var(--mc-chrome-accent);
+    background-color: var(--mc-chrome-text-strong);
+  }
 }

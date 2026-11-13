@@ -101,13 +101,8 @@ import {
   MeetingMessagePage,
   messageOnTheRecord,
 } from "./meeting-chat.ts";
-import {
-  IceServer,
-  iceServersFor,
-  meetingErrorResponse,
-  meetingRoomFor,
-  notConfigured,
-} from "./meetings.ts";
+import { GuestArrival } from "./meeting-schemas.ts";
+import { iceServersFor, meetingErrorResponse, meetingRoomFor, notConfigured } from "./meetings.ts";
 
 // A MEETING'S GUESTS — somebody from outside the firm on a signed, expiring link — from both sides.
 //
@@ -145,7 +140,7 @@ const InviteGuestRequest = z
 
 // ONE INVITATION AS A HOST READS IT — never the token and never the secret, not even truncated. Unlike
 // a capture address, which a person has to read off a screen, this credential only travels by mail.
-const MeetingGuestInvitation = z
+export const MeetingGuestInvitation = z
   .object({
     id: z.string(),
     entityKind: z.enum(MEETING_GUEST_ENTITY_KINDS),
@@ -194,25 +189,6 @@ const GuestArrivalRequest = z
       .max(MAX_GUEST_CONFIRMED_NAME_LENGTH * 2),
   })
   .openapi("GuestArrivalRequest");
-
-// A GUEST ARRIVING IS A MEMBER ARRIVING AT A LOBBY-ON ROOM, PLUS A CREDENTIAL — so the shape is the
-// member join's, and the browser's meeting client takes it unchanged.
-const GuestArrival = z
-  .object({
-    // Always true: a guest waits at the door until a host admits them, whatever the lobby setting.
-    waiting: z.boolean(),
-    // The guest's own stay, which is what identifies them on the roster and in every frame.
-    participantId: z.string(),
-    // The name they gave at the door — the one the host reads and the room draws on their tile.
-    displayName: z.string(),
-    iceServers: z.array(IceServer),
-    medium: z.enum(MEETING_MEDIA),
-    // The credential every later guest request carries in the `x-meeting-guest` header, and the
-    // socket upgrade carries as its second subprotocol after `meeting-guest`. Shorter-lived than the
-    // link, and dead with the meeting.
-    guestGrant: z.string(),
-  })
-  .openapi("GuestArrival");
 
 const GuestAcknowledged = z.object({ ok: z.literal(true) }).openapi("GuestAcknowledged");
 
@@ -283,7 +259,7 @@ const guestErrors = {
   },
 };
 
-const hostErrors = {
+export const hostErrors = {
   400: {
     description: "Missing Idempotency-Key (this operation requires one)",
     content: { "application/problem+json": { schema: Problem } },
@@ -627,7 +603,7 @@ const sendMessageRoute = defineOpenAPIRoute(
 
 // ---- refusals ----
 
-type GuestProblem =
+export type GuestProblem =
   | ProblemResponse<403>
   | ProblemResponse<404>
   | ProblemResponse<409>
@@ -641,7 +617,7 @@ type GuestProblem =
  * the lane and the same condition met in the service say the same sentence. Everything else is the
  * meetings family's own mapping, so a locked room tells a guest what it tells a member.
  */
-function guestErrorResponse(c: Context, caught: MeetingValidationError): GuestProblem {
+export function guestErrorResponse(c: Context, caught: MeetingValidationError): GuestProblem {
   const linkRefusal = guestLinkRefusalFor(caught.code);
   if (linkRefusal !== null) return problemJson(c, linkRefusal);
   if (caught.code === "guest-not-invitable") {
@@ -699,7 +675,7 @@ function mailNotSent(c: Context, errorId: string): ProblemResponse<503> {
 
 type GuestContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
 
-function hostingOptions(c: GuestContext): MeetingHostingOptions {
+export function hostingOptions(c: GuestContext): MeetingHostingOptions {
   return {
     clock: { now: () => new Date().toISOString() },
     actorUserId: requireChokepointUserId(c),
@@ -729,7 +705,7 @@ class InvitationMailNotSent extends Error {
  * link that now exists is a fresh secret and a fresh mail — rather than being handed the success the
  * first call stored before its mail had even been tried, with the guest never mailed.
  */
-async function commitHostGuestEffect(
+export async function commitHostGuestEffect(
   c: Context,
   database: BatchDatabase,
   idempotency: { key: string | undefined; fingerprint: string },
@@ -844,7 +820,7 @@ async function mailTheLink(
  * works, and nobody is mailed a link while somebody is still sitting in the room on the one it
  * replaces.
  */
-async function replaceAndMail(
+export async function replaceAndMail(
   c: GuestContext,
   sendEmail: (env: Bindings) => SendEmail,
   meetingId: string,
@@ -1190,6 +1166,8 @@ export function registerMeetingGuestRoutes(
         displayName: arrived.confirmedName,
         iceServers: await iceServersFor(c),
         medium: arrived.medium,
+        encrypted: arrived.encrypted,
+        keyGroup: arrived.encrypted ? credential.meetingId : null,
         guestGrant,
       };
       return arrived.returnedToOpenStay ? c.json(body, 200) : c.json(body, 201);
@@ -1272,6 +1250,7 @@ export function registerMeetingGuestRoutes(
           hostRole: null,
           locked: meeting.locked_at !== null,
           lobby: meeting.lobby,
+          encrypted: meeting.encrypted === 1,
           waiting: stay.admitted_at === null,
           waitingFrom: stay.waiting_from,
           participantKind: "guest",

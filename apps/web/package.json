@@ -29,6 +29,7 @@
     "@magna-carta/government-links": "workspace:*",
     "@magna-carta/meeting-protocol": "workspace:*",
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
+    "@magna-carta/mls": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/noise-suppression": "workspace:*",
     "@magna-carta/pdf": "workspace:*",

@@ -38,6 +38,9 @@
   import UserRound from "@lucide/svelte/icons/user-round";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import Button from "@magna-carta/design-system/button";
+  import Input from "@magna-carta/design-system/input";
+  import Label from "@magna-carta/design-system/label";
+  import { EMAIL_ADDRESS_REFUSAL, isEmailAddress } from "@magna-carta/directory/email-address";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { formatInstant } from "@magna-carta/design-system/formatters";
@@ -45,6 +48,7 @@
   import { failureOf } from "$lib/api/api-client.ts";
   import {
     inviteMeetingGuest,
+    inviteMeetingGuestByAddress,
     readMeetingGuests,
     revokeMeetingGuestLink,
     rotateMeetingGuestLink,
@@ -257,6 +261,44 @@
     void act(row, () => inviteMeetingGuest(meetingId, entityId));
   }
 
+  /*
+   * SOMEBODY NOT ON THE LIST, by name and e-mail address. Most guests are somebody in the Directory,
+   * but a host is not made to find or create the entry first: the server matches the address to the
+   * Directory, or makes a person there marked as needing review, puts them on the event and sends the
+   * same link. The list is read again afterwards, so the new guest appears as an ordinary row.
+   */
+  let typedName = $state("");
+  let typedAddress = $state("");
+  let typedBusy = $state(false);
+  const typedAddressRefusal = $derived(
+    typedAddress.trim().length > 0 && !isEmailAddress(typedAddress.trim())
+      ? EMAIL_ADDRESS_REFUSAL
+      : null,
+  );
+  const typedReady = $derived(
+    typedName.trim().length > 0 && typedAddress.trim().length > 0 && typedAddressRefusal === null,
+  );
+
+  async function inviteTyped(): Promise<void> {
+    if (!typedReady || typedBusy) return;
+    typedBusy = true;
+    writeFailure = null;
+    const outcome = await inviteMeetingGuestByAddress(
+      meetingId,
+      typedName.trim(),
+      typedAddress.trim(),
+    );
+    typedBusy = false;
+    if (outcome.kind !== "ok") {
+      writeFailure = outcome.failure;
+      return;
+    }
+    typedName = "";
+    typedAddress = "";
+    void eventRead.refetch();
+    await refreshInvitations();
+  }
+
   /** The row a question is standing over, and which question. Null while none is. */
   let asking = $state<{ readonly row: GuestRow; readonly act: "rotate" | "revoke" } | null>(null);
   let rotating = $state(false);
@@ -306,7 +348,7 @@
     subject="This meeting"
     title={refusedAs(failure, "guest-not-invitable") ? "Nobody Was Invited" : "Nothing Changed"}
     fallback={refusedAs(failure, "guest-not-invitable")
-      ? "Only a person or an organization in the Directory can be sent a link."
+      ? "That person cannot be sent a link. Check the name and address, or invite them from the list."
       : "That did not happen."}
     whenSilent="Nothing answered, so nothing changed for this meeting's guests."
   />
@@ -440,6 +482,43 @@
           <li class="text-sm text-text-muted">Nobody from outside the firm is on this event.</li>
         {/each}
       </ul>
+
+      <form
+        class="flex flex-col gap-8 border-t border-border-subtle pt-12"
+        onsubmit={(submitted) => {
+          submitted.preventDefault();
+          void inviteTyped();
+        }}
+      >
+        <p class="text-sm">Invite somebody by e-mail</p>
+        <div class="flex flex-col gap-4">
+          <Label for="guest-typed-name">Name</Label>
+          <Input id="guest-typed-name" bind:value={typedName} disabled={typedBusy} autocomplete="off" />
+        </div>
+        <div class="flex flex-col gap-4">
+          <Label for="guest-typed-address">E-mail address</Label>
+          <Input
+            id="guest-typed-address"
+            type="email"
+            bind:value={typedAddress}
+            disabled={typedBusy}
+            autocomplete="off"
+            aria-invalid={typedAddressRefusal !== null}
+          />
+          {#if typedAddressRefusal !== null}
+            <p class="text-xs text-text-danger">{typedAddressRefusal}</p>
+          {/if}
+        </div>
+        <p class="text-xs text-text-muted">
+          If nobody in the Directory has this address, a person is added there for somebody to review.
+        </p>
+        <div class="flex justify-end">
+          <Button type="submit" variant="secondary" size="sm" disabled={!typedReady || typedBusy}>
+            <Mail class="size-16" aria-hidden="true" />
+            {typedBusy ? "Inviting" : "Invite"}
+          </Button>
+        </div>
+      </form>
     </LoadingRegion>
   {/snippet}
 </ActionDialog>

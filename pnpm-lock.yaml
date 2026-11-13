@@ -969,6 +969,9 @@ importers:
       '@magna-carta/merge-field-catalog-contract':
         specifier: workspace:*
         version: link:../../packages/merge-field-catalog-contract
+      '@magna-carta/mls':
+        specifier: workspace:*
+        version: link:../../packages/mls
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../../packages/money
@@ -2528,6 +2531,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../directory
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
@@ -2603,6 +2609,21 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
+  packages/mls:
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.5.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(playwright@1.65.0)(vitest@5.1.0))(@vitest/ui@5.1.0(vitest@5.1.0))(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)

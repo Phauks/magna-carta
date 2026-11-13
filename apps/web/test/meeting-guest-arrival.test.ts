@@ -61,6 +61,8 @@ const ARRIVAL = {
   displayName: "Jane Hollis",
   iceServers: [],
   medium: "video",
+  encrypted: false,
+  keyGroup: null,
   guestGrant: GRANT,
 };
 

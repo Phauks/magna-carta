@@ -77,8 +77,12 @@ export function openMethodOf(
   return officeEditorOpens(extensionOf(file.name)) ? "office-editor" : "preview";
 }
 
-/** The two readers a file can open in: the page reader and the player. */
-export type ViewerKind = "pdf" | "video";
+/**
+ * The readers a file can open in: the page reader, and the player for a recording with a picture or
+ * with sound alone. Both recordings open on the same player page, which draws sound alone as a
+ * panel of controls.
+ */
+export type ViewerKind = "pdf" | "video" | "audio";
 
 /**
  * The reader a file's FORMAT calls for where the file can be READ but not written, or null where
@@ -96,6 +100,7 @@ export function viewerKindOf(
   });
   if (category === "pdf") return "pdf";
   if (category === "video") return "video";
+  if (category === "audio") return "audio";
   return null;
 }
 
@@ -110,7 +115,7 @@ export function editorHref(fileId: string): string {
  * over a document nobody can edit is a lie the reader finds out by trying.
  */
 export function viewerHref(fileId: string, viewer: ViewerKind = "pdf"): string {
-  const segment = viewer === "video" ? "watch" : "view";
+  const segment = viewer === "pdf" ? "view" : "watch";
   return `/documents/${encodeURIComponent(fileId)}/${segment}`;
 }
 

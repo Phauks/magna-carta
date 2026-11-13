@@ -19,7 +19,11 @@
   import { openBeside, opensBeside } from "$lib/navigation/open-beside.ts";
   import { fileDownloadUrl, readPreviewGrant, type PreviewGrant } from "./matter-file-api.ts";
 
-  let { fileId, name }: { fileId: string; name: string } = $props();
+  let {
+    fileId,
+    name,
+    media = "video",
+  }: { fileId: string; name: string; media?: "video" | "audio" } = $props();
 
   let asking = $state(true);
   let grant = $state<PreviewGrant | null>(null);
@@ -92,6 +96,7 @@
   {:else if grant?.streamUrl !== undefined}
     <VideoPlayer
       variant="compact"
+      {media}
       src={grant.streamUrl}
       title={name}
       onDownload={() => openBeside(fileDownloadUrl(fileId), "file")}
