@@ -58,7 +58,6 @@ export const ServiceVersion = z
 
 export type ServiceVersionReport = z.infer<typeof ServiceVersion>;
 
-
 // What a sibling's version route answers (packages/build-identity/src/version-route.ts). Parsed
 // strictly enough that a worker answering something else entirely reads as "unreported" rather
 // than as a garbled version.
@@ -190,4 +189,3 @@ export async function readServiceVersionsThroughCache(
   };
   return cachedServiceVersions;
 }
-

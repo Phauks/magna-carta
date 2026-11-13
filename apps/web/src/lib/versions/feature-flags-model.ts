@@ -21,7 +21,9 @@ export interface FeatureFlagRow {
 /** The tab's label. */
 export const FEATURE_FLAGS_SECTION_LABEL = "Feature Flags";
 
-export function featureFlagRows(sessionFlags: Readonly<Record<string, boolean>> | null): FeatureFlagRow[] {
+export function featureFlagRows(
+  sessionFlags: Readonly<Record<string, boolean>> | null,
+): FeatureFlagRow[] {
   const keys = new Set([...Object.keys(FLAG_CATALOG), ...Object.keys(sessionFlags ?? {})]);
   return [...keys].sort().map((key) => {
     const entry = FLAG_CATALOG[key];

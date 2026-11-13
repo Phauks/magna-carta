@@ -52,7 +52,10 @@ export const FEATURE_ROSTER = [
     id: "meetingRecording",
     alternatives: [["MEETING_SINK_SIGNING_KEY", "MEETING_RECORDER", "MEETING_RECORDING_COMPOSE"]],
   },
-  { id: "networkPacketLoss", alternatives: [["REALTIME_TURN_TOKEN_ID", "REALTIME_TURN_TOKEN_SECRET"]] },
+  {
+    id: "networkPacketLoss",
+    alternatives: [["REALTIME_TURN_TOKEN_ID", "REALTIME_TURN_TOKEN_SECRET"]],
+  },
   { id: "callerLookup", alternatives: [["TELNYX_API_KEY"]] },
   // Calendar and email
   { id: "outlookCalendarSync", alternatives: [["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"]] },
@@ -96,7 +99,10 @@ export const FEATURE_ROSTER = [
 ] as const satisfies readonly FeatureDefinition[];
 
 export type FeatureId = (typeof FEATURE_ROSTER)[number]["id"];
-export const FEATURE_IDS = FEATURE_ROSTER.map((feature) => feature.id) as [FeatureId, ...FeatureId[]];
+export const FEATURE_IDS = FEATURE_ROSTER.map((feature) => feature.id) as [
+  FeatureId,
+  ...FeatureId[],
+];
 
 export type FeatureState = "working" | "not-set-up" | "fault";
 

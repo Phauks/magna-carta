@@ -53,7 +53,9 @@ export function describeRecentErrorsState(state: RecentErrorsState): string | nu
 
 /** Where the failure happened: a request's route, or a background pass's name. */
 export function describeErrorPlace(group: RecentErrorGroup): string {
-  return group.where ?? (group.eventName === "operation.failed" ? "a background pass" : "a request");
+  return (
+    group.where ?? (group.eventName === "operation.failed" ? "a background pass" : "a request")
+  );
 }
 
 /** "Request" or "Background", the two kinds of failure the pipeline logs. */

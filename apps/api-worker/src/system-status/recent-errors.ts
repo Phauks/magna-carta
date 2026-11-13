@@ -97,7 +97,8 @@ function readEvent(event: unknown): {
   return {
     service: text(metadata.service) ?? text(workers.scriptName),
     eventName,
-    where: route !== null ? (method !== null ? `${method} ${route}` : route) : text(fields.operation),
+    where:
+      route !== null ? (method !== null ? `${method} ${route}` : route) : text(fields.operation),
     errorName: text(fields.errorName),
     messageHead: text(fields.messageHead),
     errorId: text(fields.errorId),
@@ -192,7 +193,8 @@ export async function readRecentErrors(
   }
   const result = isRecord(body) && isRecord(body.result) ? body.result : null;
   const eventsBlock = result !== null && isRecord(result.events) ? result.events : null;
-  const events = eventsBlock !== null && Array.isArray(eventsBlock.events) ? eventsBlock.events : [];
+  const events =
+    eventsBlock !== null && Array.isArray(eventsBlock.events) ? eventsBlock.events : [];
   const groups = groupRecentErrors(events);
   return {
     state: "read",

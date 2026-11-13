@@ -69,7 +69,9 @@ describe("readRecentErrors", () => {
       now,
       fetchImplementation: (input, init) => {
         sent = { url: String(input), init };
-        return Promise.resolve(Response.json({ success: true, result: { events: { events: [] } } }));
+        return Promise.resolve(
+          Response.json({ success: true, result: { events: { events: [] } } }),
+        );
       },
     });
     expect(sent).not.toBeNull();

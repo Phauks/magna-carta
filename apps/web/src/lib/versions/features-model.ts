@@ -35,7 +35,13 @@ export interface FeatureRequirements {
 /** The heading over the features, which is also its tab's and its fold's label. */
 export const FEATURES_SECTION_LABEL = "Features";
 
-export type FeatureGroupId = "meetings" | "calendarAndEmail" | "files" | "search" | "ai" | "platform";
+export type FeatureGroupId =
+  | "meetings"
+  | "calendarAndEmail"
+  | "files"
+  | "search"
+  | "ai"
+  | "platform";
 
 export const FEATURE_GROUPS: readonly { id: FeatureGroupId; label: string }[] = [
   { id: "meetings", label: "Meetings and Calls" },
@@ -174,7 +180,8 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     name: "Document editing",
     group: "files",
     steps: workerSteps("magna-carta-edit", "EDIT_SERVICE"),
-    deployQueueHeading: "`magna-carta-edit` — deployed 2026-08-21; the screen it gated should now fill",
+    deployQueueHeading:
+      "`magna-carta-edit` — deployed 2026-08-21; the screen it gated should now fill",
   },
   documentSealing: {
     name: "Document sealing",
@@ -204,8 +211,7 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     name: "Discovery processing",
     group: "files",
     steps: workerSteps("magna-carta-discovery", "DISCOVERY_SERVICE"),
-    deployQueueHeading:
-      "Discovery processing lane — done end to end (API-confirmed 2026-08-24)",
+    deployQueueHeading: "Discovery processing lane — done end to end (API-confirmed 2026-08-24)",
   },
   fileContentsSearch: {
     name: "File contents search",
@@ -252,7 +258,8 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
       "Create the Turnstile widget first.",
       "Then, on the magna-carta Worker, set the secret TURNSTILE_SECRET_KEY.",
     ],
-    deployQueueHeading: "Turnstile activation — the order matters, and the widget comes before the secret",
+    deployQueueHeading:
+      "Turnstile activation — the order matters, and the widget comes before the secret",
   },
   communitySignIn: {
     name: "Community board sign-in",
@@ -347,7 +354,9 @@ export function featureStateReading(state: FeatureState): HealthReading {
 /** The order a feature list reads in: what is broken, then what is off, then what works. */
 const STATE_ORDER: Record<FeatureState, number> = { fault: 0, "not-set-up": 1, working: 2 };
 
-export function sortFeatures<Feature extends FeatureStatus>(features: readonly Feature[]): Feature[] {
+export function sortFeatures<Feature extends FeatureStatus>(
+  features: readonly Feature[],
+): Feature[] {
   return [...features].sort((left, right) => STATE_ORDER[left.state] - STATE_ORDER[right.state]);
 }
 
@@ -394,7 +403,9 @@ export function groupFeatures<Feature extends FeatureStatus>(
 export function missingRequirements(requirements: FeatureRequirements | undefined): string[] {
   if (requirements === undefined || requirements.alternatives.length === 0) return [];
   const missingPerAlternative = requirements.alternatives.map((alternative) =>
-    alternative.filter((requirement) => !requirement.present).map((requirement) => requirement.name),
+    alternative
+      .filter((requirement) => !requirement.present)
+      .map((requirement) => requirement.name),
   );
   return missingPerAlternative.reduce((closest, candidate) =>
     candidate.length < closest.length ? candidate : closest,

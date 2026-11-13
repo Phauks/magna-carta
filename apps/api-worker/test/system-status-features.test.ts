@@ -31,15 +31,18 @@ describe("featureStatuses", () => {
   });
 
   it("an empty environment has nothing set up", () => {
-    expect(
-      featureStatuses({}, NO_PROBES).every((feature) => feature.state === "not-set-up"),
-    ).toBe(true);
+    expect(featureStatuses({}, NO_PROBES).every((feature) => feature.state === "not-set-up")).toBe(
+      true,
+    );
   });
 
   it("needs every name in an alternative, not just one of them", () => {
     expect(stateOf({ MICROSOFT_CLIENT_ID: "id" }, "outlookCalendarSync")).toBe("not-set-up");
     expect(
-      stateOf({ MICROSOFT_CLIENT_ID: "id", MICROSOFT_CLIENT_SECRET: "secret" }, "outlookCalendarSync"),
+      stateOf(
+        { MICROSOFT_CLIENT_ID: "id", MICROSOFT_CLIENT_SECRET: "secret" },
+        "outlookCalendarSync",
+      ),
     ).toBe("working");
   });
 
@@ -55,12 +58,18 @@ describe("featureStatuses", () => {
   });
 
   it("a set-up feature whose Worker does not answer is a fault", () => {
-    const probes = { workers: new Map([["scan", "unreachable" as const]]), connectedServices: new Map() };
+    const probes = {
+      workers: new Map([["scan", "unreachable" as const]]),
+      connectedServices: new Map(),
+    };
     expect(stateOf({ SCAN_SERVICE: {} }, "malwareScanning", probes)).toBe("fault");
   });
 
   it("a set-up feature whose outside service refuses the credentials is a fault", () => {
-    const probes = { workers: new Map(), connectedServices: new Map([["realtime", "refused" as const]]) };
+    const probes = {
+      workers: new Map(),
+      connectedServices: new Map([["realtime", "refused" as const]]),
+    };
     expect(
       stateOf({ REALTIME_SFU_APP_ID: "a", REALTIME_SFU_APP_SECRET: "b" }, "meetings", probes),
     ).toBe("fault");

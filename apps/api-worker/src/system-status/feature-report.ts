@@ -58,7 +58,10 @@ export async function reportFeatures(
   env: Bindings,
   input: {
     readonly userId: string;
-    readonly services: readonly { id: string; state: "reported" | "unbound" | "unreachable" | "unreported" }[];
+    readonly services: readonly {
+      id: string;
+      state: "reported" | "unbound" | "unreachable" | "unreported";
+    }[];
     readonly connectedServices: readonly ConnectedServiceStatusReport[];
   },
 ): Promise<{
@@ -67,7 +70,9 @@ export async function reportFeatures(
 }> {
   const features = featureStatuses(env, {
     workers: new Map(input.services.map((service) => [service.id, service.state])),
-    connectedServices: new Map(input.connectedServices.map((service) => [service.id, service.state])),
+    connectedServices: new Map(
+      input.connectedServices.map((service) => [service.id, service.state]),
+    ),
   });
   const operator = await isPlatformOperator(env.DB_CONTROL, input.userId);
   return { features, featureRequirements: operator ? featureRequirements(env) : null };
