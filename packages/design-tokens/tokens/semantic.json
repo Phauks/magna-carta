@@ -1,14 +1,15 @@
 {
   "$description": "Semantic aliases onto primitives — the light/default truth (tokens/modes/* override per mode). Adding a color-bearing semantic token requires adding its @theme inline mapping in tailwind.template.css (until a gate enforces it).",
   "surface": {
-    "$description": "Background colors for layered surfaces. `selected` is the persistent chosen-state fill (rows, list items) — its OWN role so selection can diverge from hover per theme without a recipe sweep; `field` is the form-control resting background, distinct from the page surface for dense forms.",
+    "$description": "Background colors for layered surfaces. `selected` is the persistent chosen-state fill (rows, list items) — its OWN role so selection can diverge from hover per theme without a recipe sweep; `field` is the form-control resting background, distinct from the page surface for dense forms; `field-disabled` is the flatter face of a field that cannot be used, never the grey of a button, so a disabled box does not read as something to press.",
     "default": { "$type": "color", "$value": "{color.neutral.0}" },
     "raised": { "$type": "color", "$value": "{color.neutral.50}" },
     "sunken": { "$type": "color", "$value": "{color.neutral.100}" },
     "overlay": { "$type": "color", "$value": "{color.neutral.0}" },
     "scrim": { "$type": "color", "$value": "{color.scrim}" },
     "selected": { "$type": "color", "$value": "{color.neutral.100}" },
-    "field": { "$type": "color", "$value": "{color.neutral.0}" }
+    "field": { "$type": "color", "$value": "{color.neutral.0}" },
+    "field-disabled": { "$type": "color", "$value": "{color.neutral.50}" }
   },
   "text": {
     "default": { "$type": "color", "$value": "{color.neutral.900}" },
@@ -33,9 +34,13 @@
     "disabled-foreground": { "$type": "color", "$value": "{color.neutral.700}" }
   },
   "border": {
+    "$description": "Edges. `field` is the edge of a box a person types in or picks from, held to 3:1 against the field and the page (WCAG 1.4.11) because a field is identified by its edge; `field-hover` is that edge one step darker under the pointer; `control` is the quieter hairline round a secondary button, which carries its own label.",
     "default": { "$type": "color", "$value": "{color.neutral.200}" },
     "strong": { "$type": "color", "$value": "{color.neutral.500}" },
-    "focus": { "$type": "color", "$value": "{color.brand.600}" }
+    "focus": { "$type": "color", "$value": "{color.brand.600}" },
+    "field": { "$type": "color", "$value": "{color.neutral.500}" },
+    "field-hover": { "$type": "color", "$value": "{color.neutral.700}" },
+    "control": { "$type": "color", "$value": "{color.neutral.300}" }
   },
   "focus": {
     "ring": { "$type": "color", "$value": "{color.brand.500}" }
