@@ -20,6 +20,7 @@
   import { expect, userEvent, waitFor, within } from "storybook/test";
   import * as DropdownMenu from "../lib/components/dropdown-menu/index.ts";
   import DropdownMenuRoot from "../lib/components/dropdown-menu/dropdown-menu-root.svelte";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
 
   const { Story } = defineMeta({
     title: "Overlay/DropdownMenu",
@@ -200,6 +201,46 @@
       await userEvent.unhover(trigger);
       await pastTheLinger();
       await expect(body.getByRole("menu")).toBeVisible();
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
+    });
+  }}
+/>
+
+{#snippet iconOnly(args: DropdownMenuStoryArgs)}
+  <div class="flex justify-end p-24">
+    <DropdownMenu.Root {...args}>
+      <DropdownMenu.Trigger class="mc-button mc-button-ghost mc-button-md" aria-label="More">
+        <Ellipsis class="size-16" aria-hidden="true" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content class="min-w-48">
+        <DropdownMenu.Item>Copy Link</DropdownMenu.Item>
+        <DropdownMenu.Item>Print</DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  </div>
+{/snippet}
+
+<Story
+  name="An icon-only trigger opens only when pressed"
+  tags={["!dev", "!autodocs"]}
+  template={iconOnly}
+  play={async ({ canvas, step }) => {
+    const trigger = canvas.getByRole("button", { name: "More" });
+    const body = within(document.body);
+    // Long enough for the hover controller's open delay to have fired if it were going to.
+    const pastTheDelay = () => new Promise((resolve) => setTimeout(resolve, 400));
+
+    await step("A pointer resting on a trigger with no words opens nothing", async () => {
+      await userEvent.hover(trigger);
+      await pastTheDelay();
+      expect(body.queryByRole("menu")).toBeNull();
+    });
+
+    await step("A press opens it", async () => {
+      await userEvent.click(trigger);
+      const menu = await body.findByRole("menu");
+      await waitFor(() => expect(menu).toBeVisible());
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
     });

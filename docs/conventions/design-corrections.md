@@ -630,6 +630,11 @@ is usually the fastest way to understand the rule.
 
 ### Controls and patterns
 
+- **A menu behind an icon opens only when pressed.** "Don't auto-open ... menu on hover." Hover
+  opening stays for a menu behind a word (Money, Record), which a member points at to read; a "..."
+  button or any other icon-only trigger opens by click, key or tap alone, because it sits beside
+  rows and headers the pointer crosses constantly. Held by `DropdownMenu.Trigger` itself, so no call
+  site has to remember it. _(app visual refresh, 2026-11-13)_
 - **A settings-heavy panel splits along "what I am asking" and "how the engine answers".** The
   primary pane takes the fields a member fills in every time; the context pane takes the machinery.
   In one column the two read as equals, and a form asking for two names and eleven engine settings
@@ -1631,6 +1636,9 @@ The owner, asked to pick one of three directions for the app as a whole:
   as a secondary button, no hover, and a focus that read as an error box. Approved from the
   mockups ("I like this, looks really good") and built as the field, choice and button recipes.
   Promoted to _Data entry_.
+- **"Don't auto-open ... menu on hover."** Every "..." menu opened under a resting pointer, because
+  hover opening was on for every DropdownMenu. A trigger with no words now opens only when pressed.
+  Promoted to _Controls and patterns_.
 - **Still to come in later passes:** one choice field in place of Select and Combobox (search, the
   tick on the right), a typed date, a segmented control for two to four choices, one label voice,
   and the shell and tables in direction A.
