@@ -707,3 +707,31 @@ export const communityFlag = sqliteTable(
     ),
   ],
 );
+
+// A redeemed sign-in handoff to the community board. The app mints a one-minute signed link that
+// carries a random id; the board's own worker records that id here the first time the link is
+// followed, and the insert's conflict on the key is what refuses a second use. The board lives on
+// its own host, so it cannot read the app's session cookie, and this one-time link is the only way a
+// signed-in session crosses to it. Rows older than a day are pruned by the redemption itself.
+export const communitySessionHandoff = sqliteTable(
+  "community_session_handoff",
+  {
+    id: text("id").primaryKey(), // the random id inside the signed link, not a minted handle
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id),
+    redeemedAt: text("redeemed_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [index("community_session_handoff_redeemed_index").on(table.redeemedAt)],
+);
+
+// The board's switch, one row with id "board": open, read-only (every write refused with a stated
+// reason) or off (the board answers that it is closed). An operator flips it with one statement
+// against this database and no deploy, which is what an incident needs. No row reads as open.
+export const communityBoardSwitch = sqliteTable("community_board_switch", {
+  id: text("id").primaryKey(), // always "board"
+  state: text("state").notNull(), // open | read-only | off
+  changedAt: text("changed_at").notNull(), // ISO-8601 instant
+  note: text("note"), // why, for the next operator
+});

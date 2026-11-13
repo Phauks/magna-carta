@@ -227,6 +227,10 @@ export type SetMemberPhotoRequest = {
     imageBase64: string;
 };
 
+export type CommunityHandoff = {
+    url: string;
+};
+
 export type StartRegistrationResponse = {
     next: 'checkEmail' | 'redeemInvitation';
 };
@@ -2961,12 +2965,15 @@ export type DocumentSealResponse = {
     documentHashSha256: string;
     certificate: {
         documentHashSha256: string;
+        reference: string;
         sealedAt: string;
         signers: Array<{
             intent: {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -2988,6 +2995,11 @@ export type DocumentSealResponse = {
             sender?: {
                 name: string;
                 email?: string;
+            };
+            contact?: {
+                name: string;
+                email?: string;
+                phone?: string;
             };
             createdAt?: string;
         };
@@ -10614,6 +10626,39 @@ export type MePhotoContentResponses = {
 };
 
 export type MePhotoContentResponse = MePhotoContentResponses[keyof MePhotoContentResponses];
+
+export type MeCommunityHandoffData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/community-handoff';
+};
+
+export type MeCommunityHandoffErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Signing in to the board is not set up on this deployment
+     */
+    503: Problem;
+};
+
+export type MeCommunityHandoffError = MeCommunityHandoffErrors[keyof MeCommunityHandoffErrors];
+
+export type MeCommunityHandoffResponses = {
+    /**
+     * The address to send the browser to
+     */
+    200: CommunityHandoff;
+};
+
+export type MeCommunityHandoffResponse = MeCommunityHandoffResponses[keyof MeCommunityHandoffResponses];
 
 export type RegistrationsStartData = {
     body: StartRegistrationRequest;
@@ -20580,6 +20625,8 @@ export type EsignSealData = {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };

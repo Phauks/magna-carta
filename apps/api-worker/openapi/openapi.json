@@ -640,6 +640,18 @@
           "imageBase64"
         ]
       },
+      "CommunityHandoff": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
       "StartRegistrationResponse": {
         "type": "object",
         "properties": {
@@ -12642,6 +12654,9 @@
               "documentHashSha256": {
                 "type": "string"
               },
+              "reference": {
+                "type": "string"
+              },
               "sealedAt": {
                 "type": "string"
               },
@@ -12661,6 +12676,12 @@
                         },
                         "email": {
                           "type": "string"
+                        },
+                        "signatureCount": {
+                          "type": "integer"
+                        },
+                        "initialCount": {
+                          "type": "integer"
                         },
                         "adoption": {
                           "type": "string",
@@ -12756,6 +12777,23 @@
                       "name"
                     ]
                   },
+                  "contact": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
                   "createdAt": {
                     "type": "string"
                   }
@@ -12812,6 +12850,7 @@
             },
             "required": [
               "documentHashSha256",
+              "reference",
               "sealedAt",
               "signers"
             ]
@@ -44427,6 +44466,70 @@
         }
       }
     },
+    "/api/v1/me/community-handoff": {
+      "get": {
+        "description": "A one-minute, one-use address on the community board that signs the session member in there. Fetched at the moment they choose to go, never ahead of time.",
+        "operationId": "me.communityHandoff",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.communityHandoff",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "allow",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The address to send the browser to",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityHandoff"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Signing in to the board is not set up on this deployment",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/registrations": {
       "post": {
         "description": "Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; anyone creating an account chooses their password here and is emailed a confirmation link, and the account — with that password already set — is created only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.",
@@ -68099,6 +68202,16 @@
                               "type": "string",
                               "maxLength": 320,
                               "format": "email"
+                            },
+                            "signatureCount": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10000
+                            },
+                            "initialCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
                             },
                             "adoption": {
                               "type": "string",
