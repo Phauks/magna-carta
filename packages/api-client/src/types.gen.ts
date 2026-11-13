@@ -1829,6 +1829,39 @@ export type TimekeeperProductivityReport = {
     }>;
 };
 
+export type OperationalVolumesReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    liveSections: Array<'matters' | 'billing' | 'trust' | 'costs'>;
+    liveSectionsStatement: string;
+    completeness: ReportCompleteness;
+    matters: Array<{
+        measure: 'opened' | 'closed';
+        matterTypeId: string | null;
+        matterTypeName: string | null;
+        count: number;
+    }>;
+    billing: {
+        billsDrafted: number;
+        billsFinalized: number;
+        draftsVoided: number;
+        creditNotesIssued: number;
+        writeOffs: number;
+    };
+    trust: Array<{
+        measure: 'movement' | 'disbursement-requested' | 'disbursement-decided' | 'reconciliation-opened' | 'reconciliation-closed';
+        detail: string | null;
+        count: number;
+    }>;
+    costs: Array<{
+        disbursementClass: 'hard' | 'soft';
+        count: number;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -15397,6 +15430,52 @@ export type ReportsTimekeeperProductivityResponses = {
 };
 
 export type ReportsTimekeeperProductivityResponse = ReportsTimekeeperProductivityResponses[keyof ReportsTimekeeperProductivityResponses];
+
+export type ReportsOperationalVolumesData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/operational-volumes';
+};
+
+export type ReportsOperationalVolumesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or the knowledge instant is not a UTC instant or is in the future
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsOperationalVolumesError = ReportsOperationalVolumesErrors[keyof ReportsOperationalVolumesErrors];
+
+export type ReportsOperationalVolumesResponses = {
+    /**
+     * The volumes for this period
+     */
+    200: OperationalVolumesReport;
+};
+
+export type ReportsOperationalVolumesResponse = ReportsOperationalVolumesResponses[keyof ReportsOperationalVolumesResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

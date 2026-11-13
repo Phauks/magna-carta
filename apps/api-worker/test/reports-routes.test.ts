@@ -446,3 +446,23 @@ describe("GET /api/v1/reports/timekeeper-productivity", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("GET /api/v1/reports/operational-volumes", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/operational-volumes?${query}`;
+
+  it("answers the Owner, naming the sections that are live", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as { liveSections: string[] };
+    expect(report.liveSections).toEqual(["matters", "costs"]);
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./operational-counts": "./src/operational-counts.ts",
     "./types": "./src/types.ts",
     "./trust-validation": "./src/trust-validation.ts",
     "./statements": "./src/statements.ts",

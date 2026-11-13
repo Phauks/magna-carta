@@ -2934,6 +2934,9 @@ importers:
       '@magna-carta/civil-time':
         specifier: workspace:*
         version: link:../civil-time
+      '@magna-carta/costs':
+        specifier: workspace:*
+        version: link:../costs
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
@@ -2943,6 +2946,9 @@ importers:
       '@magna-carta/ledger':
         specifier: workspace:*
         version: link:../ledger
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money

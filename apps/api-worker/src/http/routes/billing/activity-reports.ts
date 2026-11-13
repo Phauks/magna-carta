@@ -1,5 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { identifierField } from "@magna-carta/identifiers/field";
+import { assembleOperationalVolumes } from "@magna-carta/reporting/operational/operational-volumes";
 import { assembleTimekeeperProductivity } from "@magna-carta/reporting/productivity/timekeeper-productivity";
 import { ReportingValidationError } from "@magna-carta/reporting/reporting-validation";
 import type { Bindings } from "../../../bindings.ts";
@@ -10,7 +11,12 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { reportingRefusal } from "./financial-reports.ts";
-import { civilDate, ReportCompleteness } from "./reports.ts";
+import {
+  civilDate,
+  knowledgeInstant,
+  ReportCompleteness,
+  ReportReproducibility,
+} from "./reports.ts";
 
 // THE ACTIVITY REPORTS — how much time people recorded, and how much the firm did.
 //
@@ -129,6 +135,97 @@ const productivityRoute = defineOpenAPIRoute(productivityMeta, {
   },
 });
 
+const OPERATIONAL = "reports:operational" as const;
+
+const OperationalVolumesResponse = z
+  .object({
+    periodStart: z.string(),
+    periodEnd: z.string(),
+    locationId: z.string().nullable(),
+    reproducibility: ReportReproducibility,
+    reproducibilityStatement: z.string(),
+    liveSections: z.array(z.enum(["matters", "billing", "trust", "costs"])),
+    liveSectionsStatement: z.string(),
+    completeness: ReportCompleteness,
+    matters: z.array(
+      z.object({
+        measure: z.enum(["opened", "closed"]),
+        matterTypeId: z.string().nullable(),
+        matterTypeName: z.string().nullable(),
+        count: z.number().int(),
+      }),
+    ),
+    billing: z.object({
+      billsDrafted: z.number().int(),
+      billsFinalized: z.number().int(),
+      draftsVoided: z.number().int(),
+      creditNotesIssued: z.number().int(),
+      writeOffs: z.number().int(),
+    }),
+    trust: z.array(
+      z.object({
+        measure: z.enum([
+          "movement",
+          "disbursement-requested",
+          "disbursement-decided",
+          "reconciliation-opened",
+          "reconciliation-closed",
+        ]),
+        detail: z.string().nullable(),
+        count: z.number().int(),
+      }),
+    ),
+    costs: z.array(
+      z.object({ disbursementClass: z.enum(["hard", "soft"]), count: z.number().int() }),
+    ),
+  })
+  .openapi("OperationalVolumesReport");
+
+const operationalRoute = defineOpenAPIRoute(
+  { ...productivityMeta, operationId: "reports.operationalVolumes", permission: OPERATIONAL },
+  {
+    method: "get",
+    path: "/api/v1/reports/operational-volumes",
+    description:
+      "How much the firm did in a period: matters opened and closed by type, bills drafted, finalized and voided, credit notes and write-offs, trust movements by kind, disbursement requests and their outcomes, reconciliations opened and closed, and costs incurred by class. Counts only, never money. The billing and trust counts honor a knowledge instant; the matter and cost counts are over records that can still change and are live, which the response names. Choosing an office narrows every count; it does not limit who may run the report.",
+    request: {
+      query: z.object({
+        periodStart: civilDate,
+        periodEnd: civilDate,
+        knownAsOf: knowledgeInstant.optional(),
+        locationId: identifierField("location").optional(),
+      }),
+    },
+    responses: {
+      200: {
+        description: "The volumes for this period",
+        content: { "application/json": { schema: OperationalVolumesResponse } },
+      },
+      401: {
+        description: "No valid session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "The session member lacks reports:operational",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      404: {
+        description: "The firm is unreachable or the member is deactivated",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      422: {
+        description:
+          "The period is not two calendar dates or ends before it starts, or the knowledge instant is not a UTC instant or is in the future",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
+
 type ReportsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerActivityReportsRoutes(app: ReportsApp, chokepoint: Chokepoint): void {
@@ -149,6 +246,31 @@ export function registerActivityReportsRoutes(app: ReportsApp, chokepoint: Choke
           { computedAt },
         );
         return c.json(report as unknown as z.infer<typeof TimekeeperProductivityResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...operationalRoute, middleware: chokepointMiddleware(chokepoint, operationalRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleOperationalVolumes(
+          firm.firmDatabase,
+          {
+            periodStart: query.periodStart,
+            periodEnd: query.periodEnd,
+            knownAsOf: query.knownAsOf ?? null,
+            locationId: query.locationId ?? null,
+          },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof OperationalVolumesResponse>, 200);
       } catch (caught) {
         if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
         throw caught;
