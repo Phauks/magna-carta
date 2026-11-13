@@ -138,7 +138,7 @@ const trustCompliance = built<TrustCompliancePack>({
   family: "trust-compliance",
   name: "Trust Compliance Report",
   answers:
-    "For one trust account over one period: every movement of client money, each client's and matter's ledger, what the firm attested to at each reconciliation, and what did not tie out.",
+    "For one trust account over one period: every movement of client money, each client and matter ledger, each reconciliation, and anything that didn't balance.",
   permission: TRUST_COMPLIANCE_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",

@@ -16,54 +16,21 @@
    * the record is written when the first question is actually asked. Nothing generates a title, so
    * a conversation nobody names reads by the instant it started.
    */
-  import CreateControl from "@magna-carta/design-system/create-control";
-  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import MagnusSurface from "$lib/magnus/magnus-surface.svelte";
 
-  let surface = $state<ReturnType<typeof MagnusSurface> | null>(null);
-
-  /*
-   * Why New cannot be pressed, answered by the surface's availability read and carried by the
-   * control in the header. It starts refused rather than live, because the read has not landed on
-   * the first frame and a control that is briefly pressable and inert is the defect this closes:
-   * with the firm's gates shut there is no composer on the page to put a cursor in, so a press
-   * would clear some state, focus nothing, and say nothing about why.
-   */
-  let createRefusal = $state<string | undefined>(
-    "Whether Magnus can be used here has not been read yet.",
-  );
 </script>
 
 <svelte:head>
   <title>Magnus · Magna Carta</title>
 </svelte:head>
 
-<!-- The surface is the design system's two-sided screen and takes the whole canvas; the header
-     rides inside its content column, beside the conversation it names. -->
+<!-- The surface is the design system's two-sided screen and takes the whole canvas. The screen's
+     name, New and the search head the rail, as the owner's board draws them. -->
 <MagnusSurface
-  bind:this={surface}
-  bind:createRefusal
   subject="magnus"
   matterId={null}
   rail="column"
   showMatter
   emptyTitle="Nothing Asked Yet"
   emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
->
-  <!-- The surface owns the search because it owns the read the search narrows; this screen owns
-       where it sits, which is the action row every other Workspace screen keeps its search in. The
-       search leads and the create control follows: the field grows toward the inline start as it
-       opens, so New never moves under the pointer. -->
-  {#snippet header(searchControls)}
-    <ScreenHeader title="Magnus">
-      {#snippet actions()}
-        {@render searchControls()}
-        <CreateControl
-          title="Start a conversation with Magnus, on no matter."
-          refusal={createRefusal}
-          onpress={() => surface?.startNew()}
-        />
-      {/snippet}
-    </ScreenHeader>
-  {/snippet}
-</MagnusSurface>
+/>

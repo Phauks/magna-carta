@@ -2,27 +2,26 @@
   /*
    * One list of conversations: a row each, the words for an empty list, and the load-more control.
    *
-   * The rail draws one of these for every section (Pinned, each folder, General) and one for the
-   * whole record while it is searched. Each list is a read of its own in the server's order, so
-   * nothing here re-orders or regroups the rows it is handed (docs/conventions/magnus-rulings.md,
-   * R1).
+   * The rail draws one of these under every heading (Pinned, each folder, each date or matter group)
+   * and one for the whole record while it is searched. Each list keeps the server's order, so
+   * nothing here re-orders the rows it is handed (docs/conventions/magnus-rulings.md, R1).
+   *
+   * A row is the owner's board (round 2): the conversation's name over one muted line, the matter's
+   * number or General and when it started. The open conversation is marked by a raised ground and
+   * a gold edge on the inline start.
    */
   import Button from "@magna-carta/design-system/button";
-  import ChoiceRow from "@magna-carta/design-system/choice-row";
   import { instantAttribute } from "@magna-carta/design-system/formatters";
-  import MessageSquare from "@lucide/svelte/icons/message-square";
   import Pin from "@lucide/svelte/icons/pin";
-  import {
-    conversationDisplayName,
-    conversationStartedLine,
-    type MagnusConversation,
-  } from "./magnus-api.ts";
+  import { conversationDisplayName, type MagnusConversation } from "./magnus-api.ts";
+  import { railRowLine } from "./magnus-vocabulary.ts";
 
   let {
     rows,
     selectedId,
     label,
-    matterTitleFor,
+    matterNumberFor,
+    now,
     nextCursor = null,
     loadingMore = false,
     emptyLine,
@@ -34,8 +33,10 @@
     selectedId: string | null;
     /** What the list is, for a screen reader: "Pinned conversations", a folder's name. */
     label: string;
-    /** The matter a row cites beneath its name, or null where it cites none. */
-    matterTitleFor?: (matterId: string) => string | null;
+    /** The number of the matter a row is kept on, or null where it is not known. */
+    matterNumberFor?: (matterId: string) => string | null;
+    /** The day the rail is read on, which decides whether a row shows a time or a date. */
+    now: Date;
     nextCursor?: string | null;
     loadingMore?: boolean;
     /** What the list says when it is empty. An empty string says nothing. */
@@ -47,56 +48,42 @@
   } = $props();
 </script>
 
-{#snippet messageGlyph()}
-  <MessageSquare aria-hidden="true" />
-{/snippet}
-
-{#snippet pinGlyph()}
-  <Pin aria-hidden="true" />
-{/snippet}
-
-<ul class="flex flex-col gap-4" aria-label={label}>
+<ul class="flex flex-col" aria-label={label}>
   {#each rows as conversation (conversation.id)}
-    <!-- The line beneath the name carries only what the name does not. An unnamed conversation
-         READS as the instant it started, and unnamed is the ordinary case because nothing
-         generates a title, so a line restating that instant would be the common row saying one
-         fact twice. Where it has nothing to add, the row carries no line at all: absence is the
-         signal, and an empty line would be a gap a reader has to wonder about. -->
-    {@const startedAt = conversationStartedLine(conversation)}
-    {@const matterTitle =
-      matterTitleFor !== undefined && conversation.matterId !== null
-        ? matterTitleFor(conversation.matterId)
-        : null}
-    {#snippet rowDetail()}
-      {#if startedAt !== null}
-        <time datetime={instantAttribute(conversation.createdAt)}>Started {startedAt}</time>
-      {/if}
-      {#if startedAt !== null && matterTitle !== null}
-        <span>&middot;</span>
-      {/if}
-      {#if matterTitle !== null}
-        <span>{matterTitle}</span>
-      {/if}
-    {/snippet}
+    {@const number =
+      conversation.matterId === null
+        ? null
+        : (matterNumberFor?.(conversation.matterId) ?? "A matter")}
     <li>
-      <ChoiceRow
-        selected={conversation.id === selectedId}
+      <button
+        type="button"
+        class="flex w-full min-w-0 flex-col gap-2 rounded-md border-s-2 border-transparent px-12 py-8 text-start hover:bg-surface-sunken aria-[current=true]:border-accent-default aria-[current=true]:bg-surface-selected"
+        aria-current={conversation.id === selectedId}
         onclick={() => onSelect(conversation.id)}
-        icon={markPinned && conversation.pinnedAt !== null ? pinGlyph : messageGlyph}
-        detail={startedAt === null && matterTitle === null ? undefined : rowDetail}
       >
-        {conversationDisplayName(conversation)}
-      </ChoiceRow>
+        <span class="flex min-w-0 items-center gap-4">
+          {#if markPinned && conversation.pinnedAt !== null}
+            <Pin class="size-12 shrink-0 text-text-muted" aria-label="Pinned" />
+          {/if}
+          <span class="truncate text-sm font-medium">{conversationDisplayName(conversation)}</span>
+        </span>
+        <time
+          class="truncate text-xs text-text-muted"
+          datetime={instantAttribute(conversation.createdAt)}
+        >
+          {railRowLine(number, conversation.createdAt, now)}
+        </time>
+      </button>
     </li>
   {/each}
 </ul>
 
 {#if rows.length === 0 && emptyLine !== ""}
-  <p class="text-sm text-text-muted">{emptyLine}</p>
+  <p class="px-12 py-4 text-sm text-text-muted">{emptyLine}</p>
 {/if}
 
 {#if nextCursor !== null && onLoadMore !== undefined}
-  <Button variant="ghost" disabled={loadingMore} onclick={onLoadMore}>
-    Show more conversations
+  <Button variant="ghost" size="sm" disabled={loadingMore} onclick={onLoadMore}>
+    Show More Conversations
   </Button>
 {/if}

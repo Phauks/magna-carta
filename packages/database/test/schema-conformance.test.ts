@@ -210,6 +210,10 @@ describe("schema conformance (fitness functions)", () => {
       // What a conversation has been given to read: the pair IS the fact, and a file is attached to
       // a conversation once, so a surrogate key would let the same attachment exist twice.
       "magnus_conversation_attachment",
+      // A version of a document Magnus wrote is its place in that document's history.
+      "magnus_artifact_version",
+      // A permission turned on for a conversation: the pair IS the permission, and it is on once.
+      "magnus_conversation_permission",
       // A community vote: one per person per post, so the pair IS the vote.
       "community_vote",
       // A list's flow, a team's membership and a task's watchers are each the pair itself: a move is
@@ -242,6 +246,8 @@ describe("schema conformance (fitness functions)", () => {
     // the same integer the file entry and index_split already carry, so spelling it as text here would
     // make the membership disagree with the split row it describes.
     const integerCompositeKeyColumns = new Set([
+      // A version's number orders a document's history, so it sorts as a number.
+      "magnus_artifact_version.version_number",
       // A change's place in its version's document order is a count, and ORDER BY on it must sort
       // numerically: '10' before '2' would read a document backwards.
       "file_version_change.sequence",

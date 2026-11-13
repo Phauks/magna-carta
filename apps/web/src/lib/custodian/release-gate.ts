@@ -60,7 +60,7 @@ function closedRecordRefusal(status: CustodyPacketStatus, act: string): CustodyR
         : "This packet is recorded as lost.";
   return {
     key: `closed-${status}`,
-    reason: `${said} A closed record takes no further movement except a correction, so it cannot be ${act}. Correcting a movement that was recorded wrongly is done by appending a correction, never by editing what is there.`,
+    reason: `${said} A closed record can't be moved, only corrected, so it can't be ${act}. To fix a movement recorded wrongly, add a correction.`,
   };
 }
 
@@ -114,8 +114,8 @@ export function destructionVerdict(packet: {
     refusals.push({
       key: "intrinsic-value",
       reason:
-        `${irreplaceable.length === 1 ? "One item in this packet is" : `${irreplaceable.length} items in this packet are`} recorded as an irreplaceable original, and an irreplaceable original is never destructible. ` +
-        "There is no override. The only way this changes is a person clearing that mark on the object itself, which is a change to a fact about the object rather than a way round the refusal.",
+        `${irreplaceable.length === 1 ? "One item in this packet is" : `${irreplaceable.length} items in this packet are`} marked as an irreplaceable original, so the packet can't be destroyed. ` +
+        "There is no override. Someone has to clear that mark on the item first.",
     });
   }
   return { refusals, permitted: refusals.length === 0 };

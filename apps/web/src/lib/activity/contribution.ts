@@ -166,7 +166,7 @@ export function navigateInto(entry: ActivityEntry): OpenTarget {
   if (section === undefined) {
     return {
       kind: "none",
-      reason: UNSECTIONED_TIMELINE_SOURCES[entry.sourceKey] ?? "No section holds this record",
+      reason: UNSECTIONED_TIMELINE_SOURCES[entry.sourceKey] ?? "Not in any section",
     };
   }
   if (!hasSurface(section.stage)) {

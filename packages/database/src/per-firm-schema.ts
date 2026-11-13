@@ -94,6 +94,7 @@ import type {
   LocationId,
   MagnusConversationId,
   MagnusFolderId,
+  MagnusArtifactId,
   MagnusTurnId,
   MatterAssetDocumentId,
   MatterAssetEncumbranceId,
@@ -10246,6 +10247,76 @@ export const magnusConversationShelf = sqliteTable(
     index("magnus_conversation_shelf_folder_index").on(table.memberId, table.folderId),
     index("magnus_conversation_shelf_pinned_index").on(table.memberId, table.pinnedAt),
   ],
+);
+
+// What Magnus may read beyond the conversation itself, granted per conversation by its author. A
+// row is a permission turned on; no row is off, which is every permission's default. One row per
+// permission rather than a column per permission, because the list grows as Magnus learns to read
+// more (the firm's records, the client, the firm library), and each later one is a new value in the
+// CHECK rather than a new column on every conversation.
+export const magnusConversationPermission = sqliteTable(
+  "magnus_conversation_permission",
+  {
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // `own-matter-conversations`: the author's own other conversations kept on the same matter.
+    permission: text("permission", { enum: ["own-matter-conversations"] }).notNull(),
+    grantedBy: text("granted_by").notNull().$type<UserId>(),
+    grantedAt: text("granted_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.conversationId, table.permission] }),
+    check(
+      "magnus_conversation_permission_check",
+      sql`${table.permission} IN ('own-matter-conversations')`,
+    ),
+  ],
+);
+
+// A document Magnus wrote in a conversation: a letter, a table, a timeline. It belongs to the
+// conversation and goes with it; saving it to a matter's files makes a separate file. The text of each
+// version is a row, not an object, for the reason a turn is: a version is capped (limits.ts in the
+// magnus package), so it is not bulk content.
+export const magnusArtifact = sqliteTable(
+  "magnus_artifact",
+  {
+    id: text("id").primaryKey().$type<MagnusArtifactId>(), // magnusArtifact_ handle
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // The name Magnus gave it. Magnus revises a document by writing it again under the same name.
+    title: text("title").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("magnus_artifact_conversation_index").on(table.conversationId)],
+);
+
+// One version of a document Magnus wrote. Versions are only ever added: a revision by Magnus and a
+// member restoring an earlier version each add one, so the history is never rewritten.
+export const magnusArtifactVersion = sqliteTable(
+  "magnus_artifact_version",
+  {
+    artifactId: text("artifact_id")
+      .notNull()
+      .$type<MagnusArtifactId>()
+      .references(() => magnusArtifact.id),
+    versionNumber: integer("version_number").notNull(),
+    content: text("content").notNull(),
+    // What changed, in a few words, as Magnus or the restore described it.
+    note: text("note"),
+    // The answer that wrote this version; null for a version a member restored.
+    writtenByTurnId: text("written_by_turn_id").$type<MagnusTurnId>(),
+    // The member who asked for it, or who restored it. Not a foreign key, like the conversation's
+    // own author: the record outlives the member row.
+    memberUserId: text("member_user_id").notNull().$type<UserId>(),
+    restoredFromVersion: integer("restored_from_version"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.artifactId, table.versionNumber] })],
 );
 
 // ---------------------------------------------------------------------------------------------

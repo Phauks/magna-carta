@@ -50,7 +50,7 @@ export interface RecoveryCodesIssued {
 
 /** Said when the reason is one we have no sentence for, or when none arrived at all. */
 export const TWO_FACTOR_REFUSED_UNKNOWN =
-  "That did not go through, and nothing changed. Try again, and if it keeps happening, contact your firm's administrator.";
+  "That didn't go through, and nothing changed. Try again, and if it keeps happening, contact your firm's administrator.";
 
 /**
  * The refusals these acts can honestly produce, in the reader's words.

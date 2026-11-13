@@ -19,13 +19,15 @@
    * question (model-picker.svelte); the line beside the disclosure names the chosen model, not the
    * firm's, because that is the one the question will be sent to.
    */
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as Conversation from "@magna-carta/design-system/conversation";
-  import Label from "@magna-carta/design-system/label";
+  import * as Popover from "@magna-carta/design-system/popover";
   import Textarea from "@magna-carta/design-system/textarea";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Paperclip from "@lucide/svelte/icons/paperclip";
-  import SendHorizontal from "@lucide/svelte/icons/send-horizontal";
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import FileText from "@lucide/svelte/icons/file-text";
+  import Info from "@lucide/svelte/icons/info";
   import X from "@lucide/svelte/icons/x";
   import type {
     MagnusAnsweringModel,
@@ -45,6 +47,7 @@
     composerElement = $bindable(null),
     onMatter,
     attachments,
+    readsEarlierConversations = false,
     model,
     models = [],
     choice = $bindable(null),
@@ -66,6 +69,8 @@
     /** True inside a matter, where the disclosure line owes one more sentence. */
     onMatter: boolean;
     attachments: readonly MagnusAttachment[];
+    /** True when this conversation also reads the author's other conversations on the matter. */
+    readsEarlierConversations?: boolean;
     /** Which model answers; undefined before the read lands, null where the firm's choice is gone. */
     model: MagnusAnsweringModel | null | undefined;
     /** Every model the member may choose; empty where the server offered none. */
@@ -105,23 +110,64 @@
   const modelLine = $derived(answeringModelLine(answering));
 </script>
 
-<Conversation.Composer>
-  <!-- One flowing line, not stacked sentences: what the assistant reads, and which model reads it. -->
-  <p class="text-sm text-text-muted">
-    {composerDisclosureLine({ onMatter, attachmentCount: attachments.length })}
-    {#if modelLine !== ""}
-      {modelLine}
+<!-- The owner's board (round 2): one card holding the attached files as chips, the field, and a
+     row of controls under it: attach on the start side; the model, what Magnus reads, and Send on
+     the end side. What Magnus reads sits behind the Info control rather than over the field, and the
+     allowance still says itself when it is about to bind. -->
+<Conversation.Composer class="border-t-0 pt-8 pb-16">
+  <div class="mx-auto flex w-full max-w-3xl flex-col gap-8">
+    {#if editing}
+      <p
+        class="flex flex-wrap items-center justify-between gap-8 rounded-md border border-border-default bg-surface-sunken px-12 py-8 text-sm"
+      >
+        <span>
+          Editing your message. Sending it asks Magnus again from there; the replies after it are
+          set aside.
+        </span>
+        <Button variant="ghost" size="sm" onclick={() => onCancelEdit?.()}>Cancel Edit</Button>
+      </p>
     {/if}
-  </p>
-
-  {#if attachments.length > 0}
-    <ul class="flex flex-col gap-4" aria-label="Files attached to this conversation">
-      {#each attachments as attachment (attachment.fileId)}
-        <li class="flex items-start justify-between gap-8">
-          <span class="flex min-w-0 flex-col">
-            <span class="truncate text-sm font-medium">{attachmentName(attachment)}</span>
-            <span class="text-xs text-text-muted">{attachmentStatusSentence(attachment)}</span>
-          </span>
+    <div
+      class="flex flex-col rounded-lg border border-border-field bg-surface-field focus-within:border-border-focus"
+    >
+      {#if attachments.length > 0}
+        <ul class="flex flex-wrap gap-8 px-12 pt-12" aria-label="Files attached to this conversation">
+          {#each attachments as attachment (attachment.fileId)}
+            <li
+              class="flex max-w-full min-w-0 items-center gap-4 rounded-md border border-border-default bg-surface-sunken py-2 ps-8 pe-2 text-xs"
+              title={attachmentStatusSentence(attachment)}
+            >
+              <FileText class="size-12 shrink-0 text-text-muted" aria-hidden="true" />
+              <span class="truncate font-medium">{attachmentName(attachment)}</span>
+              <span class="sr-only">{attachmentStatusSentence(attachment)}</span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={detachingFileId === attachment.fileId}
+                onclick={() => onDetach(attachment.fileId)}
+                aria-label="Take {attachmentName(attachment)} off this conversation"
+              >
+                <X class="size-12" aria-hidden="true" />
+              </Button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      <label for="magnus-composer" class="sr-only">
+        {editing ? "Your edited message" : "Your message"}
+      </label>
+      <Textarea
+        id="magnus-composer"
+        bind:ref={composerElement}
+        bind:value={draft}
+        rows={2}
+        placeholder="Ask Magnus"
+        class="resize-none border-none bg-transparent shadow-none focus-visible:outline-none"
+        disabled={sendRefused}
+        onkeydown={composerKeydown}
+      />
+      <div class="flex flex-wrap items-center justify-between gap-8 px-8 pb-8">
+        <div class="flex items-center gap-4">
           <Tooltip.Root>
             <Tooltip.Trigger>
               {#snippet child({ props })}
@@ -129,79 +175,73 @@
                   {...props}
                   variant="ghost"
                   size="icon-sm"
-                  disabled={detachingFileId === attachment.fileId}
-                  onclick={() => onDetach(attachment.fileId)}
-                  aria-label="Take {attachmentName(attachment)} off this conversation"
+                  aria-label="Attach files"
+                  disabled={attachRefusal !== undefined}
+                  onclick={onAttach}
                 >
-                  <X class="size-16" aria-hidden="true" />
+                  <Paperclip class="size-16" aria-hidden="true" />
                 </Button>
               {/snippet}
             </Tooltip.Trigger>
-            <Tooltip.Content>Remove</Tooltip.Content>
+            <Tooltip.Content side="top">{attachRefusal ?? "Attach Files"}</Tooltip.Content>
           </Tooltip.Root>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-
-  {#if editing}
-    <!-- Editing is a mode the composer is in, so it says so above the field and offers the way out
-         beside the sentence rather than leaving the reader to guess that Send now does something
-         different. -->
-    <p class="flex items-center justify-between gap-8 text-sm">
-      <span>
-        Editing your message. Sending it asks Magnus again from there; the replies after it are set
-        aside.
-      </span>
-      <Button variant="ghost" size="sm" onclick={() => onCancelEdit?.()}>Cancel Edit</Button>
-    </p>
-  {/if}
-  <Label for="magnus-composer">{editing ? "Your edited message" : "Your message"}</Label>
-  <Textarea
-    id="magnus-composer"
-    bind:ref={composerElement}
-    bind:value={draft}
-    rows={3}
-    disabled={sendRefused}
-    onkeydown={composerKeydown}
-  />
-  {#snippet actions()}
-    {#if model !== null && model !== undefined && models.length > 0}
-      <ModelPicker bind:choice firmModel={model} {models} disabled={sendRefused} />
+        </div>
+        <div class="flex min-w-0 flex-wrap items-center justify-end gap-4">
+          {#if model !== null && model !== undefined && models.length > 0}
+            <ModelPicker bind:choice firmModel={model} {models} disabled={sendRefused} />
+          {/if}
+          <Popover.Root>
+            <Popover.Trigger
+              class={buttonClasses({ variant: "ghost", size: "icon-sm" })}
+              aria-label="What Magnus reads, and the firm's allowance"
+            >
+              <Info class="size-16" aria-hidden="true" />
+            </Popover.Trigger>
+            <Popover.Content class="flex w-xs flex-col gap-8 text-sm">
+              <p>
+                {composerDisclosureLine({
+                  onMatter,
+                  attachmentCount: attachments.length,
+                  readsEarlierConversations,
+                })}
+                {#if modelLine !== ""}
+                  {modelLine}
+                {/if}
+              </p>
+              {#if remainingDailyTurns !== undefined}
+                <p class="text-text-muted">
+                  {remainingDailyTurns === 1
+                    ? "One message left in the firm's daily allowance today."
+                    : `${String(remainingDailyTurns)} messages left in the firm's daily allowance today.`}
+                </p>
+              {/if}
+            </Popover.Content>
+          </Popover.Root>
+          <Button
+            size="icon-sm"
+            onclick={onSend}
+            disabled={draft.trim() === "" || sendRefused}
+            aria-label={sending ? "Sending" : editing ? "Send Edit" : "Send"}
+            title={allowanceSpent
+              ? "The firm's daily allowance for Magnus is spent."
+              : "Send this message to Magnus."}
+          >
+            <ArrowUp class="size-16" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+    </div>
+    {#if allowanceSpent}
+      <p class="text-sm text-text-muted">
+        The firm&rsquo;s daily allowance for Magnus is spent. It resets tomorrow, and an
+        administrator can raise it in the firm&rsquo;s settings.
+      </p>
+    {:else if allowanceWorthSaying && remainingDailyTurns !== undefined}
+      <p class="text-sm text-text-muted">
+        {remainingDailyTurns === 1
+          ? "One message left in the firm's daily allowance today."
+          : `${String(remainingDailyTurns)} messages left in the firm's daily allowance today.`}
+      </p>
     {/if}
-    <!-- The attach control is a named control on the row, refused with its reason when it cannot
-         be pressed: a conversation on no matter has no files to reach, and a picker that vanished
-         would leave the reader wondering where the capability went. -->
-    <Button
-      variant="secondary"
-      onclick={onAttach}
-      disabled={attachRefusal !== undefined}
-      title={attachRefusal ?? "Attach one of the matter's files to this conversation."}
-    >
-      <Paperclip aria-hidden="true" />
-      Attach a File
-    </Button>
-    <Button
-      onclick={onSend}
-      disabled={draft.trim() === "" || sendRefused}
-      title={allowanceSpent
-        ? "The firm's daily allowance for Magnus is spent."
-        : "Send this message to Magnus."}
-    >
-      <SendHorizontal aria-hidden="true" />
-      {sending ? "Sending" : editing ? "Send Edit" : "Send"}
-    </Button>
-  {/snippet}
-  {#if allowanceSpent}
-    <p class="text-sm text-text-muted">
-      The firm&rsquo;s daily allowance for Magnus is spent. It resets tomorrow, and an administrator
-      can raise it in the firm&rsquo;s settings.
-    </p>
-  {:else if allowanceWorthSaying && remainingDailyTurns !== undefined}
-    <p class="text-sm text-text-muted">
-      {remainingDailyTurns === 1
-        ? "One message left in the firm's daily allowance today."
-        : `${String(remainingDailyTurns)} messages left in the firm's daily allowance today.`}
-    </p>
-  {/if}
+  </div>
 </Conversation.Composer>

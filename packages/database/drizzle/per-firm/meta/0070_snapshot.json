@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0a3cd76d-9214-489e-8b48-8bdebcbbc04c",
+  "id": "ab165c00-1d9e-4cab-a2c7-d450058a3658",
   "prevId": "c4149ddc-ae0a-4640-81f0-1d2e1868ceda",
   "tables": {
     "account_balance": {
@@ -14065,6 +14065,161 @@
         }
       }
     },
+    "magnus_artifact": {
+      "name": "magnus_artifact",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "magnus_artifact_conversation_index": {
+          "name": "magnus_artifact_conversation_index",
+          "columns": [
+            "conversation_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "magnus_artifact_conversation_id_magnus_conversation_id_fk": {
+          "name": "magnus_artifact_conversation_id_magnus_conversation_id_fk",
+          "tableFrom": "magnus_artifact",
+          "tableTo": "magnus_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "magnus_artifact_version": {
+      "name": "magnus_artifact_version",
+      "columns": {
+        "artifact_id": {
+          "name": "artifact_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version_number": {
+          "name": "version_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "written_by_turn_id": {
+          "name": "written_by_turn_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "restored_from_version": {
+          "name": "restored_from_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "magnus_artifact_version_artifact_id_magnus_artifact_id_fk": {
+          "name": "magnus_artifact_version_artifact_id_magnus_artifact_id_fk",
+          "tableFrom": "magnus_artifact_version",
+          "tableTo": "magnus_artifact",
+          "columnsFrom": [
+            "artifact_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "magnus_artifact_version_artifact_id_version_number_pk": {
+          "columns": [
+            "artifact_id",
+            "version_number"
+          ],
+          "name": "magnus_artifact_version_artifact_id_version_number_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "magnus_conversation": {
       "name": "magnus_conversation",
       "columns": {
@@ -14236,6 +14391,71 @@
         "magnus_conversation_attachment_text_status_check": {
           "name": "magnus_conversation_attachment_text_status_check",
           "value": "\"magnus_conversation_attachment\".\"text_status\" IN ('pending', 'sent', 'cut', 'unreadable')"
+        }
+      }
+    },
+    "magnus_conversation_permission": {
+      "name": "magnus_conversation_permission",
+      "columns": {
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "permission": {
+          "name": "permission",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "granted_by": {
+          "name": "granted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "magnus_conversation_permission_conversation_id_magnus_conversation_id_fk": {
+          "name": "magnus_conversation_permission_conversation_id_magnus_conversation_id_fk",
+          "tableFrom": "magnus_conversation_permission",
+          "tableTo": "magnus_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "magnus_conversation_permission_conversation_id_permission_pk": {
+          "columns": [
+            "conversation_id",
+            "permission"
+          ],
+          "name": "magnus_conversation_permission_conversation_id_permission_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "magnus_conversation_permission_check": {
+          "name": "magnus_conversation_permission_check",
+          "value": "\"magnus_conversation_permission\".\"permission\" IN ('own-matter-conversations')"
         }
       }
     },
@@ -27449,114 +27669,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "source_record_link": {
-      "name": "source_record_link",
-      "columns": {
-        "source_system": {
-          "name": "source_system",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_kind": {
-          "name": "source_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "local_table": {
-          "name": "local_table",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "local_id": {
-          "name": "local_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "transfer_run_id": {
-          "name": "transfer_run_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "source_record_link_local_index": {
-          "name": "source_record_link_local_index",
-          "columns": [
-            "local_table",
-            "local_id"
-          ],
-          "isUnique": false
-        },
-        "source_record_link_transfer_run_index": {
-          "name": "source_record_link_transfer_run_index",
-          "columns": [
-            "transfer_run_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "source_record_link_transfer_run_id_transfer_run_id_fk": {
-          "name": "source_record_link_transfer_run_id_transfer_run_id_fk",
-          "tableFrom": "source_record_link",
-          "tableTo": "transfer_run",
-          "columnsFrom": [
-            "transfer_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "source_record_link_source_system_source_kind_source_id_local_table_pk": {
-          "columns": [
-            "source_system",
-            "source_kind",
-            "source_id",
-            "local_table"
-          ],
-          "name": "source_record_link_source_system_source_kind_source_id_local_table_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "source_record_link_source_system_shape_check": {
-          "name": "source_record_link_source_system_shape_check",
-          "value": "length(\"source_record_link\".\"source_system\") > 0 AND \"source_record_link\".\"source_system\" = lower(trim(\"source_record_link\".\"source_system\"))"
-        },
-        "source_record_link_nonempty_check": {
-          "name": "source_record_link_nonempty_check",
-          "value": "length(\"source_record_link\".\"source_kind\") > 0 AND length(\"source_record_link\".\"source_id\") > 0 AND length(\"source_record_link\".\"local_table\") > 0 AND length(\"source_record_link\".\"local_id\") > 0"
-        }
-      }
-    },
     "storage_meter": {
       "name": "storage_meter",
       "columns": {
@@ -28692,253 +28804,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "transfer_run": {
-      "name": "transfer_run",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_system": {
-          "name": "source_system",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "started_by": {
-          "name": "started_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "completed_at": {
-          "name": "completed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "abandoned_at": {
-          "name": "abandoned_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "transfer_run_source_system_index": {
-          "name": "transfer_run_source_system_index",
-          "columns": [
-            "source_system",
-            "started_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "transfer_run_started_by_member_user_id_fk": {
-          "name": "transfer_run_started_by_member_user_id_fk",
-          "tableFrom": "transfer_run",
-          "tableTo": "member",
-          "columnsFrom": [
-            "started_by"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "transfer_run_source_system_shape_check": {
-          "name": "transfer_run_source_system_shape_check",
-          "value": "length(\"transfer_run\".\"source_system\") > 0 AND \"transfer_run\".\"source_system\" = lower(trim(\"transfer_run\".\"source_system\"))"
-        },
-        "transfer_run_label_nonempty_check": {
-          "name": "transfer_run_label_nonempty_check",
-          "value": "length(trim(\"transfer_run\".\"label\")) > 0"
-        },
-        "transfer_run_single_ending_check": {
-          "name": "transfer_run_single_ending_check",
-          "value": "\"transfer_run\".\"completed_at\" IS NULL OR \"transfer_run\".\"abandoned_at\" IS NULL"
-        }
-      }
-    },
-    "transfer_source_file": {
-      "name": "transfer_source_file",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "transfer_run_id": {
-          "name": "transfer_run_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_kind": {
-          "name": "source_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "format": {
-          "name": "format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "object_key": {
-          "name": "object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "byte_length": {
-          "name": "byte_length",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "content_sha256": {
-          "name": "content_sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "key_column": {
-          "name": "key_column",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "row_count": {
-          "name": "row_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "registered_at": {
-          "name": "registered_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "read_at": {
-          "name": "read_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "removed_at": {
-          "name": "removed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "transfer_source_file_object_key_unique": {
-          "name": "transfer_source_file_object_key_unique",
-          "columns": [
-            "object_key"
-          ],
-          "isUnique": true
-        },
-        "transfer_source_file_run_content_unique": {
-          "name": "transfer_source_file_run_content_unique",
-          "columns": [
-            "transfer_run_id",
-            "content_sha256"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "transfer_source_file_transfer_run_id_transfer_run_id_fk": {
-          "name": "transfer_source_file_transfer_run_id_transfer_run_id_fk",
-          "tableFrom": "transfer_source_file",
-          "tableTo": "transfer_run",
-          "columnsFrom": [
-            "transfer_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "transfer_source_file_slug_shape_check": {
-          "name": "transfer_source_file_slug_shape_check",
-          "value": "length(\"transfer_source_file\".\"source_kind\") > 0 AND \"transfer_source_file\".\"source_kind\" = lower(trim(\"transfer_source_file\".\"source_kind\")) AND length(\"transfer_source_file\".\"format\") > 0 AND \"transfer_source_file\".\"format\" = lower(trim(\"transfer_source_file\".\"format\"))"
-        },
-        "transfer_source_file_nonempty_check": {
-          "name": "transfer_source_file_nonempty_check",
-          "value": "length(trim(\"transfer_source_file\".\"file_name\")) > 0 AND length(\"transfer_source_file\".\"object_key\") > 0 AND (\"transfer_source_file\".\"key_column\" IS NULL OR length(\"transfer_source_file\".\"key_column\") > 0)"
-        },
-        "transfer_source_file_byte_length_check": {
-          "name": "transfer_source_file_byte_length_check",
-          "value": "\"transfer_source_file\".\"byte_length\" >= 0"
-        },
-        "transfer_source_file_content_sha256_shape_check": {
-          "name": "transfer_source_file_content_sha256_shape_check",
-          "value": "length(\"transfer_source_file\".\"content_sha256\") = 64 AND \"transfer_source_file\".\"content_sha256\" NOT GLOB '*[^0-9a-f]*'"
-        },
-        "transfer_source_file_read_together_check": {
-          "name": "transfer_source_file_read_together_check",
-          "value": "(\"transfer_source_file\".\"row_count\" IS NULL) = (\"transfer_source_file\".\"read_at\" IS NULL) AND (\"transfer_source_file\".\"row_count\" IS NULL OR \"transfer_source_file\".\"row_count\" >= 0)"
-        }
-      }
     },
     "trust_account": {
       "name": "trust_account",

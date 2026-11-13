@@ -38,7 +38,7 @@ export type PasswordChangeOutcome =
 
 /** The refusal shown when the reason is one we have no sentence for, or none arrived at all. */
 export const CHANGE_REFUSED_UNKNOWN =
-  "Your password was not changed. Try again, and if it keeps happening, contact your firm's administrator.";
+  "Your password wasn't changed. Try again, and if it keeps happening, contact your firm's administrator.";
 
 /** Said on success, naming what else the act did. */
 export function passwordChangedMessage(signedOutOtherDevices: boolean): string {

@@ -71,7 +71,7 @@ describe("how a register is served", () => {
     expect(encrypted.label).toBe(CONNECTION_ENCRYPTED);
     expect(plain.label).toBe(CONNECTION_UNENCRYPTED);
     expect(plain.meaning).not.toBe(encrypted.meaning);
-    expect(plain.meaning).toContain("plain HTTP");
+    expect(plain.meaning).toContain("insecure connection");
   });
 });
 

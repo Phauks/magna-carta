@@ -68,7 +68,7 @@ describe("the scan depth options", () => {
 
   it("state each depth's meaning from the verdict model, and what counts at every depth", () => {
     expect(scanTierMeaning("core")).toMatch(/known malware/);
-    expect(scanTierMeaning("extended")).toMatch(/suspicion threshold/);
+    expect(scanTierMeaning("extended")).toMatch(/above the threshold/);
     expect(scanTierMeaning("full")).toMatch(/every rule/i);
     // The antivirus signatures and the structural checks sit outside the tiers.
     expect(SCAN_TIER_ALWAYS_COUNTS).toMatch(/every depth/);
@@ -82,7 +82,7 @@ describe("the scan depth options", () => {
   });
 
   it("marks the rule families as what the engine does not report yet, never a list", () => {
-    expect(SCAN_TIER_RULES_SOON_LINE).toMatch(/once the engine reports them/);
+    expect(SCAN_TIER_RULES_SOON_LINE).toMatch(/once the scanner reports them/);
   });
 
   it("reads a staged value back to its tier, and the default for anything else", () => {

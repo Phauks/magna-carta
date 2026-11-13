@@ -33,7 +33,7 @@
 <ScreenHeader title="Changelog" class="mb-24">
   {#snippet meta()}
     <span>
-      Every pull request merged{lastMerged === null ? "" : ` · last merged ${formatDate(lastMerged)}`}
+      All merged pull requests{lastMerged === null ? "" : ` · last merged ${formatDate(lastMerged)}`}
     </span>
   {/snippet}
   {#snippet actions()}

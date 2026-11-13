@@ -157,8 +157,7 @@
     <Alert.Root variant="info">
       <Alert.Title>No Review Sets On A Sample Matter</Alert.Title>
       <Alert.Description>
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so there is no corpus to read.
+        This is a sample matter for previewing screens. It has no review sets.
       </Alert.Description>
     </Alert.Root>
   {:else}

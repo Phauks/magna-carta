@@ -97,8 +97,7 @@ const REVIEW_SET_STATES: Readonly<Record<ReviewSetState, VocabularyEntry>> = {
     label: "Closed",
     tone: "neutral",
     meaning:
-      "Finished. The extracted text, the metadata and the search index have been released; every " +
-      "row, manifest and exception report survives. A closed review set does not reopen.",
+      "Finished. The extracted text, metadata and search index have been removed; every record, manifest and exception report is kept. A closed review set can't be reopened.",
   },
 };
 
@@ -122,31 +121,25 @@ const LOAD_LANES: Readonly<
   "internal-files": {
     label: "The matter's own files",
     describes:
-      "Documents the firm already holds on this matter. Nothing is copied: each review document " +
-      "points at the file version you pick, and a later version of that file does not change what " +
-      "is under review.",
+      "Documents the firm already has on this matter. Nothing is copied: each document links to the version you pick, and later versions don't change what's under review.",
     built: true,
   },
   "internal-email": {
     label: "The matter's filed email",
     describes:
-      "Email already filed to this matter. A message and its attachments enter together as one " +
-      "family, so nothing is reviewed away from the message it arrived on.",
+      "Email already saved to this matter. A message and its attachments are added together, so they're always reviewed together.",
     built: true,
   },
   "received-production": {
     label: "A production received from another party",
     describes:
-      "Material another party produced, uploaded through the same quarantine gate every other " +
-      "external byte crosses. An archive is expanded into a family rather than refused.",
+      "Material another party produced, uploaded through the usual safety check. Archives are expanded rather than refused.",
     built: true,
   },
   "direct-collection": {
     label: "Collection from a client's own system",
     describes:
-      "Collecting from a client's mailbox or file share needs a collection tool, which the " +
-      "platform does not have. It is named here so its absence is a gap you can see rather than " +
-      "one you have to discover.",
+      "Collecting from a client's mailbox or file share needs a collection tool, which Magna Carta doesn't have yet.",
     built: false,
   },
 };
@@ -182,7 +175,7 @@ const LOAD_STATES: Readonly<Record<DiscoveryLoadState, VocabularyEntry>> = {
   complete: {
     label: "Complete",
     tone: "success",
-    meaning: "Every document reached a terminal state, and the load's two records were written.",
+    meaning: "Every document was processed, and the load's records were written.",
   },
   failed: { label: "Failed", tone: "danger", meaning: "The load did not finish. Nothing further." },
   reversed: {
@@ -204,8 +197,7 @@ const PROCESSING_STATES: Readonly<Record<ReviewDocumentProcessingState, Vocabula
     label: "Not read",
     tone: "warning",
     meaning:
-      "Could not be read, for a named reason. It stays in the corpus and appears on the " +
-      "exception report; it is not lost and it is not skipped.",
+      "Couldn't be read, for the reason shown. It stays in the review set and appears on the exception report.",
   },
 };
 
@@ -227,13 +219,12 @@ const INDEX_STATES: Readonly<Record<ReviewDocumentIndexState, VocabularyEntry>> 
     label: "Not searchable yet",
     tone: "neutral",
     meaning:
-      "Read, but not yet in the search index. This is the platform's work outstanding, not a " +
-      "problem with the document, and it never reaches an exception report.",
+      "Read, but not yet searchable. This isn't a problem with the document and won't appear on the exception report.",
   },
   failed: {
     label: "Indexing failed",
     tone: "warning",
-    meaning: "The document was read; putting it in the search index did not work.",
+    meaning: "The document was read, but couldn't be added to search.",
   },
 };
 
@@ -258,7 +249,7 @@ const EXCEPTION_CODES: Readonly<Record<ReviewDocumentExceptionCode, VocabularyEn
   "unsupported-format": {
     label: "Unsupported format",
     tone: "warning",
-    meaning: "The platform has no reader for this kind of file.",
+    meaning: "Magna Carta can't read this type of file.",
   },
   corrupt: {
     label: "Damaged",
@@ -278,7 +269,7 @@ const EXCEPTION_CODES: Readonly<Record<ReviewDocumentExceptionCode, VocabularyEn
   "encrypted-container-entry": {
     label: "Encrypted entry in an archive",
     tone: "warning",
-    meaning: "The archive opened; one or more entries inside it are encrypted.",
+    meaning: "The archive opened, but some files inside it are encrypted.",
   },
   "container-not-expanded": {
     label: "Archive entry not opened",
@@ -294,7 +285,7 @@ const EXCEPTION_CODES: Readonly<Record<ReviewDocumentExceptionCode, VocabularyEn
   oversize: {
     label: "Too large",
     tone: "warning",
-    meaning: "Larger than the platform will read in one pass.",
+    meaning: "Too large to read in one pass.",
   },
   "extraction-timeout": {
     label: "Timed out",
