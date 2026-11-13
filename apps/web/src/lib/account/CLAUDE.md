@@ -57,7 +57,7 @@ somewhere else first.
   assembles (`$lib/api/api-client.ts`); no surface here reports its own.
 - **A picture is FIRM data.** `member_photo` lives in the per-firm database and its bytes in the
   firm's bucket; the member's NAME is control-plane. The split is recorded in
-  `docs/decisions/pending/a-members-picture-belongs-to-the-firm-not-the-account.md`.
+  `docs/decisions/0485-a-members-picture-belongs-to-the-firm-not-the-account.md`.
 
 ## Dependencies & contracts
 
