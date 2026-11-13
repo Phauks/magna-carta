@@ -35,8 +35,9 @@ routes requests through the chokepoint into those packages.
   provisioners. `src/event-dispatch.ts` is the one module that reaches both sides, because it is the
   event router. The seam is held by `test/http-background-boundary-scan.test.ts`; the one deliberate
   door from the HTTP side to a sweep is `src/http/request-path-sweep.ts`, outside the route tree.
-- `src/stored-secrets.ts` — the secrets this Worker reads (`API_WORKER_SECRET_NAMES`), the resolver
-  the three handlers in `index.ts` run before anything else, and `StoredSecretsDurableObject`, the
+- `src/stored-secrets.ts` — the resolver the three handlers in `index.ts` run before anything else
+  over the secrets this Worker reads (`API_WORKER_SECRET_NAMES`, in `src/stored-secret-names.ts`,
+  which System Status also reads to say where each secret came from), and `StoredSecretsDurableObject`, the
   base every Durable Object here extends instead of `DurableObject` so a secret bound from the
   Secrets Store reaches it as a string. A new secret joins the list; a new Durable Object extends
   the base, and awaits `storedSecretsReady` before constructor work that reads a secret.

@@ -403,6 +403,7 @@ export type FeatureRequirements = {
     alternatives: Array<Array<{
         name: string;
         present: boolean;
+        source: 'secrets-store' | 'worker' | null;
     }>>;
 };
 

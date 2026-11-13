@@ -11,15 +11,18 @@
  * binding fails the type check here rather than leaving a row that can never turn green.
  *
  * Presence is all that is ever read. The value of a secret never leaves this module: the report
- * carries `present: true | false` per name and nothing else, and only a platform operator is shown
- * even that (meta-versions.ts).
+ * carries `present: true | false` per name, and for a secret that is present, whether it came from
+ * the account's Secrets Store or from this Worker's own secret (`source`), and nothing else. Only a
+ * platform operator is shown even that (meta-versions.ts).
  *
  * A feature backed by one of the fleet's Workers (`worker`) or by an outside service with a live
  * probe (`connectedService`) is judged by that probe once it is set up: a Worker that does not
  * answer, or a service that refuses the credentials, is a FAULT, which is a different remedy from
  * a setting nobody has made yet.
  */
+import { secretSourcesOf } from "@magna-carta/worker-secrets/stored-secrets";
 import type { Bindings } from "../bindings.ts";
+import { API_WORKER_SECRET_NAMES } from "../stored-secret-names.ts";
 import type { ConnectedServiceStatusReport } from "../meetings/sfu/realtime-status.ts";
 
 /** A name the environment carries, or does not. */
@@ -110,6 +113,11 @@ export type FeatureState = "working" | "not-set-up" | "fault";
 export interface RequirementPresence {
   name: RequirementName;
   present: boolean;
+  /**
+   * Where a present secret's value came from: the account's Secrets Store, or this Worker's own
+   * secret. Null for a name that is not a secret (a binding, a variable) or that is absent.
+   */
+  source: "secrets-store" | "worker" | null;
 }
 
 export interface FeatureStatusReport {
@@ -137,8 +145,23 @@ function presenceOf(
   environment: Partial<Record<RequirementName, unknown>>,
   alternatives: readonly (readonly RequirementName[])[],
 ): RequirementPresence[][] {
+  const secretNames: readonly string[] = API_WORKER_SECRET_NAMES;
+  const sources = secretSourcesOf(environment, secretNames);
   return alternatives.map((names) =>
-    names.map((name) => ({ name, present: isPresent(environment[name]) })),
+    names.map((name) => {
+      const present = isPresent(environment[name]);
+      const source = sources[name];
+      return {
+        name,
+        present,
+        source:
+          present && secretNames.includes(name)
+            ? source === "secrets-store"
+              ? "secrets-store"
+              : "worker"
+            : null,
+      };
+    }),
   );
 }
 
