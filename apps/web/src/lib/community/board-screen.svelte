@@ -30,6 +30,10 @@
   import CommunityTopBar from "./community-top-bar.svelte";
   import PostRow from "./post-row.svelte";
   import { communityStatusKey } from "./community-status.ts";
+  import { boardPath } from "./board-paths.ts";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/problem.ts";
+  import { page } from "$app/state";
 
   export interface KnownIssueSummary {
     readonly title: string;
@@ -46,7 +50,13 @@
     selectedArea = $bindable(null),
     sort = $bindable("trending"),
     search = $bindable(""),
+    statusFilter = $bindable("open"),
+    signInUrl = null,
+    failure = null,
     onCompose,
+    onVote,
+    onSignOut,
+    onRetry,
   }: {
     kind?: PostKind;
     posts: readonly BoardPostView[];
@@ -57,7 +67,15 @@
     selectedArea?: string | null;
     sort?: SortOrder;
     search?: string;
+    /** open | all | completed | not-on-the-roadmap; the page turns it into statuses. */
+    statusFilter?: string;
+    signInUrl?: string | null;
+    /** Why the list could not be read, shown in place of it. */
+    failure?: Failure | null;
     onCompose?: () => void;
+    onVote?: (post: BoardPostView) => void;
+    onSignOut?: () => void;
+    onRetry?: () => void;
   } = $props();
 
   const areaCounts = $derived(kind === "request" ? summary.requestsByArea : summary.questionsByArea);
@@ -68,11 +86,15 @@
     { value: "completed", label: "Completed" },
     { value: "not-on-the-roadmap", label: "Not on the Roadmap" },
   ];
-  let statusFilter = $state("open");
 </script>
 
 <div class="flex min-h-screen flex-col bg-surface-sunken text-text-default">
-  <CommunityTopBar current={kind === "request" ? "requests" : "questions"} {viewerDisplayName} />
+  <CommunityTopBar
+    current={kind === "request" ? "requests" : "questions"}
+    {viewerDisplayName}
+    {signInUrl}
+    {onSignOut}
+  />
   <main class="flex flex-col gap-24 px-32 py-24">
     <p class="flex items-center gap-8 text-xs text-text-muted">
       <EyeOff class="size-16" aria-hidden="true" />
@@ -146,7 +168,9 @@
             <Input bind:value={search} placeholder={kind === "request" ? "Search requests" : "Search questions"} />
           </label>
         </div>
-        {#if posts.length === 0}
+        {#if failure !== null}
+          <FailureNotice {failure} subject="The board" {onRetry} />
+        {:else if posts.length === 0}
           <div class="rounded-lg border border-border-default bg-surface-default px-24 py-40 text-center">
             <p class="text-md font-semibold">Nothing here yet</p>
             <p class="text-sm text-text-muted">
@@ -156,7 +180,7 @@
         {:else}
           <ul class="rounded-lg border border-border-default bg-surface-default">
             {#each posts as post (post.number)}
-              <PostRow {post} />
+              <PostRow {post} onVote={onVote === undefined ? undefined : () => onVote(post)} />
             {/each}
           </ul>
           <p class="text-xs text-text-subtle">Showing {posts.length} of {total}.</p>
@@ -173,7 +197,7 @@
               <span class="text-sm font-semibold tabular-nums">{summary.roadmap[column]}</span>
             </div>
           {/each}
-          <a href="#roadmap" class="flex items-center justify-between pt-4 text-sm font-semibold text-text-link">
+          <a href={boardPath("/roadmap", page.url.hostname)} class="flex items-center justify-between pt-4 text-sm font-semibold text-text-link">
             Open the Roadmap <ArrowRight class="size-16" aria-hidden="true" />
           </a>
           <p class="text-xs text-text-subtle">No target dates. Cards can move backwards.</p>
