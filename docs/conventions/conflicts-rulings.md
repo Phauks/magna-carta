@@ -284,3 +284,18 @@ beneath them. Rows here supersede R1 where they say so.
   the print button."** The check page's second tab reads History (amends C1) and carries no
   introductory line. Filing a check with no matter moved from the Details section to an **Assign to
   Matter** button in the header, beside Print Report, which opens the matter field in a popover.
+- **2026-11-13, Trevor: "i think trigram overlap will likely be weak noise, so you should be able to
+  disable it?"** A check carries a `trigramMatching` choice (Advanced Settings, "Trigram matching",
+  on by default). Off skips the Directory's trigram channel at the balanced band only; the
+  over-inclusive band always runs it, so it stays a strict superset of balanced. The run records the
+  choice as `inputs_json.matching.trigramMatching` (absent on older rows, read as on), and the report
+  says when it was off. Sorting trigram-only results by how much of the name overlaps was proposed
+  and not built: it needs the overlap stored on each hit.
+- **2026-11-13, Trevor, on the Directory's account of a check: "it should be better delineated into
+  sections, not just raw text, remove —", then, of the mockup's options, "Blocks, like B, but don't
+  allow multiple in the same row".** `describeCheck` returns keyed sections (heading, plain
+  sentences, `attention`) instead of a numbered list, the check read carries them as `report`, and the
+  Directory's Status row draws them as stacked blocks, one per row, with Not searched and any
+  incomplete part tinted. No reader-facing line carries a dash, and the unavailable reasons in
+  `packages/conflicts/src/sources.ts` became plain sentences. The printed report prints one section
+  per part.

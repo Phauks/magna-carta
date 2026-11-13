@@ -10,6 +10,7 @@ import {
   listBoard,
   moderate,
   readBoardSummary,
+  readModerationQueue,
   readPost,
   saveDisplayName,
   setStatus,
@@ -47,6 +48,7 @@ import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { z } from "zod";
 import type { Bindings } from "./bindings.ts";
+import { readKnownIssues, STATUS_PAGE_URL } from "./known-issues.ts";
 import { json, problem, type BoardProblemCode } from "./respond.ts";
 
 // The board's API. A write that has nothing to report answers 200 with an empty object rather than
@@ -258,6 +260,25 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
     if (number === null) return problem("post-not-found");
     return fromResult(
       await readPost(context.env.DB_CONTROL, number, context.var.viewer?.member),
+      (value) => value,
+    );
+  });
+
+  // What the public status page says is wrong right now, for the board's Known Issues.
+  application.get("/api/known-issues", async (context) =>
+    json({
+      issues: await readKnownIssues(context.env.STATUS_KV, nowInstant()),
+      statusPageUrl: STATUS_PAGE_URL,
+    }),
+  );
+
+  // The team's queue: everything held for review or hidden by reports, with what the reports say.
+  // A reader who is not on the team gets the same refusal whether signed in or not.
+  application.get("/api/moderation-queue", async (context) => {
+    const viewer = context.var.viewer;
+    if (viewer === null) return problem("not-team");
+    return fromResult(
+      await readModerationQueue(context.env.DB_CONTROL, viewer.member),
       (value) => value,
     );
   });

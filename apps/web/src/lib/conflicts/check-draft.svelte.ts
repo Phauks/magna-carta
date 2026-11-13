@@ -36,6 +36,7 @@ export class CheckDraft implements CheckDraftValues {
   searchRelationships = $state(OPENING_DRAFT.searchRelationships);
   searchOwnPeople = $state(OPENING_DRAFT.searchOwnPeople);
   nameMatching = $state<Strictness>(OPENING_DRAFT.nameMatching);
+  trigramMatching = $state(OPENING_DRAFT.trigramMatching);
   messaging = $state<MessagingChannel[]>([...OPENING_DRAFT.messaging]);
   tasks = $state<TaskMatterStatus[]>([...OPENING_DRAFT.tasks]);
   magnus = $state(OPENING_DRAFT.magnus);

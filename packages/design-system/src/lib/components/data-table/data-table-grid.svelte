@@ -399,6 +399,23 @@
   function rowDoubleClick(key: string): void {
     grid.activate(key);
   }
+  // The column the header menu speaks about: the one whose cell was right-clicked. Held by id and
+  // resolved against every column, not only the visible ones, so hiding it from the menu's own
+  // roster leaves the menu open on it.
+  let menuColumnId = $state<string | null>(null);
+  const menuColumn = $derived(menuColumnId === null ? undefined : grid.columnById(menuColumnId));
+  function headContextMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    const headCell =
+      event.target instanceof Element ? event.target.closest("th[data-grid-column]") : null;
+    const columnId = headCell?.getAttribute("data-grid-column") ?? null;
+    // A press between cells names no column, so nothing opens there.
+    if (columnId === null) {
+      event.preventDefault();
+      return;
+    }
+    menuColumnId = columnId;
+  }
   function rowContextMenu(event: MouseEvent, row: TRow): void {
     if (!onRowContextMenu) return;
     event.preventDefault();
@@ -506,28 +523,28 @@
     >
       <caption class="sr-only">{caption}</caption>
       <thead class="mc-table-header" bind:this={headElement}>
-        <tr class="mc-table-row">
-          {#each grid.visibleColumns as column (column.id)}
-            {@const pinned = pinnedAttributes(column.id)}
-            {@const width = grid.columnWidthOf(column.id)}
-            <!--
-              The header cell IS the menu's trigger region, so the cell is rendered through Bits'
-              delegation snippet: nothing may wrap a `<th>`. Only the colliding props go through the
-              trigger to be merged — the inline style (Bits adds its own) and the contextmenu handler,
-              which stops the event at the cell so a surface listening for a ROW's right-click over
-              the same region (the file manager) never re-targets its selection off a header.
-            -->
-            <ContextMenu.Root>
-              <ContextMenu.Trigger
-                style={[pinned.style, width === undefined ? undefined : `width: ${width}px`]
-                  .filter(Boolean)
-                  .join("; ") || undefined}
-                oncontextmenu={(event: MouseEvent) => event.stopPropagation()}
-              >
-                {#snippet child({ props })}
+        <!--
+          ONE menu for the whole header row, not one per cell. The menu speaks about the column whose
+          cell was right-clicked, and its Columns roster can hide that very column; a menu owned by the
+          cell would unmount with it and vanish mid-choice, when a reader is usually adding and
+          removing several columns in one go. Owned by the row, it stays open until Escape or a press
+          outside. The row is rendered through Bits' delegation snippet because nothing may wrap a
+          `<tr>`; its contextmenu handler records the column and stops the event at the header, so a
+          surface listening for a ROW's right-click over the same region (the file manager) never
+          re-targets its selection off a header.
+        -->
+        <ContextMenu.Root>
+          <ContextMenu.Trigger oncontextmenu={headContextMenu}>
+            {#snippet child({ props })}
+              <tr {...props} class="mc-table-row">
+                {#each grid.visibleColumns as column (column.id)}
+                  {@const pinned = pinnedAttributes(column.id)}
+                  {@const width = grid.columnWidthOf(column.id)}
                   <th
                     bind:this={headerCells[column.id]}
-                    {...props}
+                    style={[pinned.style, width === undefined ? undefined : `width: ${width}px`]
+                      .filter(Boolean)
+                      .join("; ") || undefined}
                     scope="col"
                     class="mc-table-head mc-table-grid-head"
                     data-grid-column={column.id}
@@ -604,12 +621,14 @@
                       ondragstart={(event) => event.preventDefault()}
                     ></span>
                   </th>
-                {/snippet}
-              </ContextMenu.Trigger>
-              <GridHeadMenu {grid} {column} {settings} />
-            </ContextMenu.Root>
-          {/each}
-        </tr>
+                {/each}
+              </tr>
+            {/snippet}
+          </ContextMenu.Trigger>
+          {#if menuColumn}
+            <GridHeadMenu {grid} column={menuColumn} {settings} />
+          {/if}
+        </ContextMenu.Root>
       </thead>
       <tbody class="mc-table-body">
         {#if loading}

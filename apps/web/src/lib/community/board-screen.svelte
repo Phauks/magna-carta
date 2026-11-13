@@ -212,6 +212,9 @@
                 <p class="text-xs text-text-subtle">{knownIssue.standing}</p>
               </div>
             </div>
+            <a href={boardPath("/known-issues", page.url.hostname)} class="flex items-center justify-between pt-4 text-sm font-semibold text-text-link">
+              All Known Issues <ArrowRight class="size-16" aria-hidden="true" />
+            </a>
           </section>
         {/if}
       </aside>
