@@ -41,6 +41,7 @@ const CRATES = [
   { crate: "noise-suppression-core", pkg: "noise-suppression" },
   { crate: "mls-core", pkg: "mls" },
   { crate: "pdf-compose-core", pkg: "pdf-compose" },
+  { crate: "disarm-core", pkg: "disarm" },
 ];
 
 function run(command, args) {
