@@ -42,6 +42,7 @@ function run(overrides: Partial<RunSummary> = {}): RunSummary {
     askedScope: {
       sources: ["party", "graph", "imputation"],
       strictness: "balanced",
+      trigramMatching: true,
       places: { messaging: [], tasks: [], magnus: false },
     },
     hitCount: null,
@@ -108,6 +109,7 @@ describe("the status section", () => {
     const askedScope = {
       sources: ["party"],
       strictness: "balanced",
+      trigramMatching: true,
       places: { messaging: [...asked.messaging], tasks: [...asked.tasks], magnus: true },
     };
     const waiting = statusPlaces(run({ askedScope }), null);
@@ -163,6 +165,7 @@ describe("the status section", () => {
     const askedScope = {
       sources: ["party"],
       strictness: "balanced",
+      trigramMatching: true,
       places: {
         messaging: [],
         tasks: [],

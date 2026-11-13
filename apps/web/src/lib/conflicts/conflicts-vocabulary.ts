@@ -344,6 +344,14 @@ export const STRICTNESS_VOCABULARY: Readonly<Record<Strictness, VocabularyEntry>
 export const NAME_MATCHING_LABEL = "Name matching";
 
 /**
+ * The box that turns off trigram matching: finding a name because it shares any three-letter piece
+ * with a party's. It is the noisiest way a name is found, so a person may leave it out at Standard;
+ * Widest always runs it, and the box says so on hover.
+ */
+export const TRIGRAM_MATCHING_LABEL = "Trigram matching";
+export const TRIGRAM_ALWAYS_ON = "Widest always uses trigram matching.";
+
+/**
  * The bands as a dropdown offers them: each with an example of a name it catches beside it, which is
  * the whole explanation a band needs (owner's direction, 2026-09-11 — "a band that says what it
  * catches by showing a name it catches needs no paragraph").

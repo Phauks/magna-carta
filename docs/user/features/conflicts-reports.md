@@ -112,6 +112,12 @@ names that sound alike** — Stephen and Steven, Smith and Smyth.
   included, under every encoder. It is a strict superset of Standard: widening can only add
   candidates, never hide one.
 
+Below it, **Trigram matching** also finds a name because it shares a three-letter piece with a
+party's name, which catches a misspelling such as "Jonhson" for "Johnson". It is the noisiest way a
+name is found, and a result found only this way is the weakest kind. It is on unless you clear it,
+and you can clear it only under Standard: Widest always uses it. A check run without it says so in
+its Details and in its report.
+
 **There is no limit to set.** A check follows every relationship your directory holds, as far as
 the chain goes, and there is no cap on how much it may look at or record. The platform keeps one
 ceiling of its own on a single search, far above any real corporate group; a run that reaches it

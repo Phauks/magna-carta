@@ -157,7 +157,10 @@ and never calls external services.
   name-role set is that over-inclusive is the one band a firm cannot narrow: it always searches every
   role, so whatever set is configured for balanced is a subset of it. A future channel may be enabled
   only at the wider band without breaking the invariant; one enabled at balanced and disabled higher
-  up would break it. The superset test in `test/matching.test.ts` and
+  up would break it. The one channel a person may turn off, trigram overlap (`trigramMatching` on
+  the scope request), is turned off at balanced only: `resolveScope` forces it on at over_inclusive
+  and `matchOptionsFor` ignores it there, and the check row records the choice under
+  `inputs_json.matching.trigramMatching`. The superset test in `test/matching.test.ts` and
   `test/matching-depth.test.ts` guard it against the directory's real corpus rather than a mock.
 - **Which NAME ROWS a check compared is a setting, and the row says which.** `strictness` is a preset
   name — a word whose meaning moves as channels are added — so it is no longer the only evidence of

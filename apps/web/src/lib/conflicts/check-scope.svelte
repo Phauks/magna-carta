@@ -33,6 +33,8 @@
     MESSAGING_OPTIONS,
     NAME_MATCHING_LABEL,
     NAME_MATCHING_OPTIONS,
+    TRIGRAM_ALWAYS_ON,
+    TRIGRAM_MATCHING_LABEL,
     SEARCH_LOCATIONS,
     TASK_STATUS_OPTIONS,
     FILE_STATUS_OPTIONS,
@@ -50,6 +52,9 @@
   } = $props();
 
   const fieldPrefix = $props.id();
+  // Over-inclusive runs every channel, so the trigram box reads on and cannot be cleared there:
+  // that band may never find less than balanced.
+  const overInclusive = $derived(draft.nameMatching === "over_inclusive");
 
   // Every place opens on its options: the reader sees what the check will search without a click.
   let openPlaces = $state<string[]>(SEARCH_LOCATIONS.map((entry) => entry.location));
@@ -192,6 +197,16 @@
         disabled={busy}
         onchange={(value) => (draft.nameMatching = value as Strictness)}
       />
+    </div>
+    <div class="flex items-center gap-8">
+      <Checkbox
+        id="{fieldPrefix}-trigram-matching"
+        checked={overInclusive || draft.trigramMatching}
+        onCheckedChange={(checked) => (draft.trigramMatching = checked === true)}
+        disabled={busy || overInclusive}
+        title={overInclusive ? TRIGRAM_ALWAYS_ON : undefined}
+      />
+      <Label for="{fieldPrefix}-trigram-matching">{TRIGRAM_MATCHING_LABEL}</Label>
     </div>
   </Tabs.Content>
 </Tabs.Root>

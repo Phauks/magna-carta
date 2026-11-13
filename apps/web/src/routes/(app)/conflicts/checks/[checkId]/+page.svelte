@@ -354,6 +354,10 @@
   const places = $derived(run === null ? [] : statusPlaces(run, record));
   const askedSources = $derived(new Set(run?.askedScope?.sources ?? []));
   const strictness = $derived(record?.check.strictness ?? run?.askedScope?.strictness ?? null);
+  /** Whether names were also found by trigram overlap: the record's word, or the request's while it runs. */
+  const trigramMatching = $derived(
+    record?.check.matching?.trigramMatching ?? run?.askedScope?.trigramMatching ?? null,
+  );
   const hits = $derived(record?.hits ?? []);
   const NO_SHEET = "The report exists once the run has finished.";
 
@@ -638,6 +642,11 @@
                   {#if strictness !== null}
                     <DefinitionList.Row term="Name Matching">
                       {strictnessVocabulary(strictness).label}
+                    </DefinitionList.Row>
+                  {/if}
+                  {#if trigramMatching !== null}
+                    <DefinitionList.Row term="Trigram Matching">
+                      {trigramMatching ? "On" : "Off"}
                     </DefinitionList.Row>
                   {/if}
                   <DefinitionList.Row term="Asked By">

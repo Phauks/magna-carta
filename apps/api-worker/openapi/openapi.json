@@ -22975,6 +22975,9 @@
               "over_inclusive"
             ]
           },
+          "trigramMatching": {
+            "type": "boolean"
+          },
           "places": {
             "type": "object",
             "properties": {
@@ -23473,6 +23476,9 @@
               "strictness": {
                 "type": "string"
               },
+              "trigramMatching": {
+                "type": "boolean"
+              },
               "places": {
                 "type": "object",
                 "properties": {
@@ -23528,6 +23534,7 @@
             "required": [
               "sources",
               "strictness",
+              "trigramMatching",
               "places"
             ]
           },
@@ -23733,12 +23740,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "trigramMatching": {
+            "type": "boolean"
           }
         },
         "required": [
           "nameKeys",
           "phoneticSchemes",
-          "nameRoles"
+          "nameRoles",
+          "trigramMatching"
         ]
       },
       "ConflictsTraversalRecord": {

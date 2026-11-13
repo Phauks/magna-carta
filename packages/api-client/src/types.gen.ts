@@ -5469,6 +5469,7 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
+    trigramMatching?: boolean;
     places?: {
         messaging: Array<'calls' | 'texts' | 'email'>;
         tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
@@ -5567,6 +5568,7 @@ export type ConflictsRunSummary = {
     askedScope: {
         sources: Array<string>;
         strictness: string;
+        trigramMatching: boolean;
         places: {
             messaging: Array<'calls' | 'texts' | 'email'>;
             tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
@@ -5616,6 +5618,7 @@ export type ConflictsMatchingRecord = {
     nameKeys: Array<string>;
     phoneticSchemes: Array<string>;
     nameRoles: Array<string> | null;
+    trigramMatching: boolean;
 } | null;
 
 export type ConflictsTraversalRecord = {
