@@ -61,6 +61,12 @@ change. A request the team will not take on says why, under **Why Not**.
 update. Check it before reporting a problem. A problem that involves your own firm's data belongs in a
 report from inside Magna Carta, which reaches the team privately, never on the board.
 
+## Changelog
+
+**Changelog** lists what changed in Magna Carta, newest first, written for the people who use it.
+Like the rest of the board, anyone can read it without signing in. The same page is at
+`changelog.magnacarta.esq`, a shorter address to share.
+
 ## For the Magna Carta team
 
 Members of the team see **Moderation** in the board's top bar. It lists every first contribution
