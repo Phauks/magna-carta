@@ -28,6 +28,7 @@ class FakeSealPort implements SealPort {
     this.lastRequest = request;
     const certificate: CertificateOfCompletion = {
       documentHashSha256: "a".repeat(64),
+      reference: "MC-AAAA-AAAA-AAAA",
       sealedAt: request.signingTime,
       signers: request.signers,
       ...(request.envelope !== undefined ? { envelope: request.envelope } : {}),

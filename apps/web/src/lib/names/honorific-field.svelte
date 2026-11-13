@@ -185,10 +185,11 @@
   <Combobox.Content>
     {#each matching as entry (entry)}
       <!-- A held entry reads as held and takes itself back off when chosen, so the list is both
-           the picker and the record of what the line carries. The row's TEXT says so; its `label`
-           stays the bare entry, because the primitive writes the chosen row's label into the field
-           and "(remove)" is a sentence about the row, not part of anybody's name. -->
-      <Combobox.Item value={rowValue(entry)} label={entry}>
+           the picker and the record of what the line carries. The row's TEXT says so. Its `label`
+           is the WHOLE LINE the pick leaves behind, because the primitive writes the chosen row's
+           label into the field: a bare entry there showed "Esq." alone after "Jr." then "Esq.",
+           while the record held, and the summary beside it read, "Jr., Esq.". -->
+      <Combobox.Item value={rowValue(entry)} label={lineWithPick(query, pending, entry)}>
         {isHeld(held, entry) ? `${entry} (remove)` : entry}
       </Combobox.Item>
     {/each}

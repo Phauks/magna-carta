@@ -397,6 +397,16 @@
     { "binding": "OCR_SERVICE", "service": "magna-carta-ocr" },
     { "binding": "SIGN_SERVICE", "service": "magna-carta-sign" },
     { "binding": "DISCOVERY_SERVICE", "service": "magna-carta-discovery" },
+    // The keyword search engine (apps/search-worker). This one line is what turns searching inside
+    // files on for the deployment: with it, resolveSearchIndexPort (src/search/search-engine.ts)
+    // returns the port over this binding in place of the deferred one, the index queue's parked
+    // documents are attempted again (the engine generation in src/search/engine-generation.ts
+    // changes), and a matter's search, the conflicts check and a discovery review set can ask the
+    // engine. A firm still reads nothing inside its files until its own switch is on (Settings,
+    // Search and Indexing). The worker is on the account: the owner confirmed it on 2026-11-13.
+    // Like every entry here, it must name a worker that exists or THIS worker's deploy fails
+    // (code 10143).
+    { "binding": "SEARCH_SERVICE", "service": "magna-carta-search" },
     // The three below exist ONLY for the aggregate version read (GET /api/v1/meta/versions): the
     // edit worker's real traffic flows the other way (its APP_WORKER binding), the status page
     // reads KV, and the web worker is assets-only. A service binding must name a worker that

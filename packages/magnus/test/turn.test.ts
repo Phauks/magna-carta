@@ -17,7 +17,15 @@ import {
 } from "../src/audit.ts";
 import { deleteConversation, startConversation } from "../src/conversation.ts";
 import { MAGNUS_TURN_MAX_BYTES, MEMBER_TURN_MAX_BYTES } from "../src/limits.ts";
-import { completeTurn, settleTurnFailure, submitTurn } from "../src/turn.ts";
+import {
+  TURN_REMOVE_GUARD,
+  completeTurn,
+  removeTurn,
+  settleTurnFailure,
+  submitTurn,
+  turnChangeRefusal,
+} from "../src/turn.ts";
+import type { TurnRow } from "../src/types.ts";
 
 const CONVERSATION = "magnusConversation_00000000000000000" as MagnusConversationId;
 const MAGNUS_TURN = "magnusTurn_000000000000000000000" as MagnusTurnId;
@@ -277,5 +285,85 @@ describe("starting and deleting a conversation", () => {
       statement.sql.startsWith("UPDATE magnus_conversation SET state = 'deleted'"),
     );
     expect(tombstone?.sql).toContain("title = NULL");
+  });
+});
+
+describe("changing a member's own message", () => {
+  const MEMBER_TURN = "magnusTurn_000000000000000000001" as MagnusTurnId;
+
+  function memberTurn(overrides: Partial<TurnRow> = {}): TurnRow {
+    return {
+      id: MEMBER_TURN,
+      conversationId: CONVERSATION,
+      sequence: 1,
+      speaker: "member",
+      content: "a question",
+      status: "complete",
+      failureLabel: null,
+      modelId: null,
+      snapshotId: null,
+      inputTokens: null,
+      outputTokens: null,
+      contextTruncated: false,
+      effort: null,
+      removedAt: null,
+      supersededAt: null,
+      replacesTurnId: null,
+      createdAt: "2026-08-06T00:00:00.000Z",
+      completedAt: "2026-08-06T00:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  it("refuses an answer, a turn already gone, and any change while an answer is pending", () => {
+    expect(turnChangeRefusal(memberTurn(), false)).toBeNull();
+    expect(turnChangeRefusal(memberTurn({ speaker: "magnus" }), false)).toBe("not-yours");
+    expect(turnChangeRefusal(memberTurn({ removedAt: "2026-08-06T01:00:00.000Z" }), false)).toBe(
+      "already-gone",
+    );
+    expect(turnChangeRefusal(memberTurn({ supersededAt: "2026-08-06T01:00:00.000Z" }), false)).toBe(
+      "already-gone",
+    );
+    expect(turnChangeRefusal(memberTurn(), true)).toBe("answer-pending");
+  });
+
+  it("an edit sets aside the message and everything after it, then records the new message naming it", () => {
+    const { database, recorded } = recordingDatabase();
+    const result = submitTurn(database, context(), {
+      conversationId: CONVERSATION,
+      content: "a better question",
+      nextSequence: 5,
+      disclosureVersion: 1,
+      replaces: { turnId: MEMBER_TURN, sequence: 1 },
+    });
+    expect(result.ok).toBe(true);
+    const supersede = recorded.find((statement) => statement.sql.includes("superseded_at = ?3"));
+    expect(supersede?.bindings).toEqual([CONVERSATION, 1, "2026-08-06T12:00:00.000Z"]);
+    // Setting aside comes first, so the new pair is never among the rows it sets aside.
+    expect(recorded.indexOf(supersede!)).toBe(0);
+    const inserts = recorded.filter((statement) =>
+      statement.sql.startsWith("INSERT INTO magnus_turn"),
+    );
+    expect(inserts[0]?.bindings).toContain(MEMBER_TURN);
+  });
+
+  it("a removal hides the pair without touching its words, guarded against a pair already gone", () => {
+    const { database, recorded } = recordingDatabase();
+    const effect = removeTurn(database, context(), {
+      conversationId: CONVERSATION,
+      memberTurnId: MEMBER_TURN,
+      magnusTurnId: MAGNUS_TURN,
+    });
+    const first = effect.statements[0];
+    expect(first !== undefined && "guard" in first ? first.guard : null).toBe(TURN_REMOVE_GUARD);
+    const update = recorded.find((statement) => statement.sql.startsWith("UPDATE magnus_turn"));
+    expect(update?.sql).toContain("SET removed_at = ?2");
+    expect(update?.sql).not.toContain("content");
+    expect(update?.bindings).toEqual([
+      CONVERSATION,
+      "2026-08-06T12:00:00.000Z",
+      MEMBER_TURN,
+      MAGNUS_TURN,
+    ]);
   });
 });

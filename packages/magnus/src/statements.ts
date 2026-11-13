@@ -78,6 +78,9 @@ interface TurnDatabaseRow {
   output_tokens: number | null;
   context_truncated: number;
   effort: string | null;
+  removed_at: string | null;
+  superseded_at: string | null;
+  replaces_turn_id: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -110,6 +113,9 @@ function toTurnRow(row: TurnDatabaseRow): TurnRow {
     outputTokens: row.output_tokens,
     contextTruncated: row.context_truncated === 1,
     effort: row.effort,
+    removedAt: row.removed_at,
+    supersededAt: row.superseded_at,
+    replacesTurnId: row.replaces_turn_id as MagnusTurnId | null,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
@@ -605,12 +611,14 @@ export interface InsertTurnRow {
   readonly status: TurnStatus;
   readonly createdAt: string;
   readonly completedAt: string | null;
+  // On a member turn made by an edit, the turn it replaces.
+  readonly replacesTurnId?: MagnusTurnId;
 }
 
 export function insertTurnStatement(database: SqlDatabase, row: InsertTurnRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MAGNUS_TURN_TABLE} (id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, created_at, completed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, NULL, NULL, NULL, ?7, ?8)`,
+      `INSERT INTO ${MAGNUS_TURN_TABLE} (id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, created_at, completed_at, replaces_turn_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, NULL, NULL, NULL, ?7, ?8, ?9)`,
     )
     .bind(
       row.id,
@@ -621,7 +629,45 @@ export function insertTurnStatement(database: SqlDatabase, row: InsertTurnRow): 
       row.status,
       row.createdAt,
       row.completedAt,
+      row.replacesTurnId ?? null,
     );
+}
+
+// Hides a member turn and its answer behind the removal marker. The text stays in the row: a
+// transcript is erased only with its whole conversation. Guarded so a turn already set aside by an
+// edit, or already removed, is left as it is.
+export function removeTurnPairStatement(
+  database: SqlDatabase,
+  options: {
+    readonly conversationId: MagnusConversationId;
+    readonly turnIds: readonly MagnusTurnId[];
+    readonly now: string;
+  },
+): SqlStatement {
+  const placeholders = options.turnIds.map((_, index) => `?${String(index + 3)}`).join(", ");
+  return database
+    .prepare(
+      `UPDATE ${MAGNUS_TURN_TABLE} SET removed_at = ?2 WHERE conversation_id = ?1 AND id IN (${placeholders}) AND removed_at IS NULL AND superseded_at IS NULL`,
+    )
+    .bind(options.conversationId, options.now, ...options.turnIds);
+}
+
+// Sets aside every turn from `fromSequence` on, which is what an edit does to the turns after the
+// message it rewrites. Kept on the record; no longer read by the model or shown by default.
+// fitness:unguarded-write — the row count cannot tell a refused edit from a done one: the rewritten message is matched whenever the route's read held, and when two edits race, the first one's new turns sit past the same sequence and are matched instead.
+export function supersedeTurnsFromStatement(
+  database: SqlDatabase,
+  options: {
+    readonly conversationId: MagnusConversationId;
+    readonly fromSequence: number;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MAGNUS_TURN_TABLE} SET superseded_at = ?3 WHERE conversation_id = ?1 AND sequence >= ?2 AND superseded_at IS NULL`,
+    )
+    .bind(options.conversationId, options.fromSequence, options.now);
 }
 
 export interface CompleteTurnOptions {
@@ -690,12 +736,43 @@ export async function readTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
     )
     .bind(id)
     .all<TurnDatabaseRow>();
   const row = results[0];
   return row === undefined ? undefined : toTurnRow(row);
+}
+
+// The turn at one place in a conversation: the answer that follows a member turn, when an edit or a
+// removal needs it.
+export async function readTurnAtSequence(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+  sequence: number,
+): Promise<TurnRow | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 AND sequence = ?2 LIMIT 1`,
+    )
+    .bind(conversationId, sequence)
+    .all<TurnDatabaseRow>();
+  const row = results[0];
+  return row === undefined ? undefined : toTurnRow(row);
+}
+
+// Whether an answer is still being written anywhere in the conversation.
+export async function hasPendingTurn(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+): Promise<boolean> {
+  const { results } = await database
+    .prepare(
+      `SELECT 1 AS found FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 AND status = 'pending' AND superseded_at IS NULL AND removed_at IS NULL LIMIT 1`,
+    )
+    .bind(conversationId)
+    .all<{ found: number }>();
+  return results.length > 0;
 }
 
 // The newest turn in a conversation, whatever its speaker — what a socket subscriber is told about
@@ -706,7 +783,7 @@ export async function readNewestTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
     )
     .bind(conversationId)
     .all<TurnDatabaseRow>();
@@ -727,7 +804,7 @@ export async function readRecentTurns(
   // could disagree.
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
     )
     .bind(conversationId, limit)
     .all<TurnDatabaseRow>();
@@ -747,7 +824,7 @@ export async function listTurns(
   bindings.push(options.limit ?? DEFAULT_PAGE_SIZE);
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
     .bind(...bindings)
     .all<TurnDatabaseRow>();

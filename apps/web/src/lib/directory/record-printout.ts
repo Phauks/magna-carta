@@ -116,7 +116,7 @@ function namesSection(names: readonly DirectoryNameEntry[]): TabularExportSectio
 function contactSection(points: DirectoryContactPoints): TabularExportSection {
   return {
     title: "Contact",
-    headers: ["Way to reach", "Kind", "Use", "Notes"],
+    headers: ["Way to reach", "Kind", "Type", "Notes"],
     rows: [
       ...points.emails.map((entry) => [
         entry.address,
@@ -137,7 +137,7 @@ function contactSection(points: DirectoryContactPoints): TabularExportSection {
 function addressSection(points: DirectoryContactPoints): TabularExportSection {
   return {
     title: "Addresses",
-    headers: ["Address", "Use", "Kind", "Notes"],
+    headers: ["Address", "Type", "Kind", "Notes"],
     rows: points.addresses.map((entry) => [
       addressLines(entry).join(", "),
       entry.addressUse === null ? GAP : addressUseLabel(entry.addressUse),

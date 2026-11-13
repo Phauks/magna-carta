@@ -54,5 +54,7 @@ makes no index decisions — the catalog, firm scoping, and every object key bel
   default node pool against a fake `{ fetch }` — no Miniflare, no Docker.
 - **The warm cron is off in `wrangler.jsonc`, and the handler is wired.** Re-arming it is one line; it
   stays off while no firm has indexing enabled, because a resident `standard-1` bills 4 GiB for nothing.
-- Nothing here is live until the app worker declares a `SEARCH_SERVICE` binding — see
-  [`docs/deploy-queue.md`](../../docs/deploy-queue.md).
+- The app worker declares the `SEARCH_SERVICE` binding since 2026-11-13, so this worker receives
+  real operations: the index queue's, a matter's search, the conflicts check and a discovery review
+  set. A firm's files reach it only once that firm turns indexing on. What is still to check after
+  that deploy is in [`docs/deploy-queue.md`](../../docs/deploy-queue.md).

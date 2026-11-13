@@ -15,6 +15,12 @@ be a second home for the same fact, so the generator drops them on purpose.
 
 - `src/postal-code.ts` — `validatePostalCode` / `postalCodeFormatFor` / `countriesWithPostalCodeFormat`
 - `src/administrative-areas.ts` — `administrativeAreasFor` / `administrativeAreaFor`
+- `src/us-postal-places.ts` — `usPostalPlaceFor`: the town and state a United States ZIP code
+  belongs to, so an address entered ZIP-first fills them in. It only fills blanks. Its table,
+  `src/data-us-postal-places.generated.ts`, is about 700 KB, so a consumer imports this module
+  LAZILY. Built by `scripts/build-us-postal-places.mts` from the GeoNames postal-code file
+  (Creative Commons Attribution 4.0, credited in the generated module); the script's header says how
+  to refresh it, and like the corpus the refresh is a deliberate act, never part of a build.
 - `src/types.ts` — the contract the two generated modules promise
 - `src/data-postal.generated.ts`, `src/data-administrative-areas.generated.ts` — **generated, never
   hand-edited**
@@ -26,8 +32,7 @@ be a second home for the same fact, so the generator drops them on purpose.
 - **Nothing is ever required.** Every function answers `ok`/empty for an absent value. A constraint
   says what a well-formed value looks like when one is given, never that one must be given. An
   address a firm holds half of is still the address it holds.
-- **A warning, never a gate.** A malformed postal code is reported beside the field and the record
-  saves. A code can match its country's pattern perfectly and reach nobody, and a new development can
+- **A warning, never a gate.** A malformed postal code marks the field and the record saves. A code can match its country's pattern perfectly and reach nobody, and a new development can
   carry a code no published pattern knows yet — the same reasoning as the owner's ruling that a
   failed address verification notifies and never blocks.
 - **"No rule" and "wrong" are different answers.** `no-pattern` is the honest outcome for the 70

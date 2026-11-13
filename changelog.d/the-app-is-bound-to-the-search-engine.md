@@ -1,0 +1,10 @@
+---
+category: Changed
+audience: public
+---
+
+**The app worker is bound to the keyword search engine.** `apps/api-worker/wrangler.jsonc` declares the `SEARCH_SERVICE` service binding to `magna-carta-search`, on the owner's confirmation of 2026-11-13 that the worker is on the account. No code path changed: `resolveSearchIndexPort` now returns the port over the binding in place of the deferred one, the engine generation changes (`index:none` to `index:search`) so the index queue attempts its parked documents again, and a matter's search, the conflicts check and a discovery review set can ask the engine. `searchServiceConnected` on `GET /api/v1/firm/search-settings` and `fileContents.serviceConnected` on `GET /api/v1/firm/search-status` read true. A firm's files are still indexed only after that firm turns indexing on. The test pool binds a stub for the service that refuses every operation, so a test reads the binding as present by default and passes an environment without it to reach the deferred port. **A conflicts check is given no way to the file index for a firm that has not turned file indexing on** (`apps/api-worker/src/conflicts/file-contents-searcher.ts`, now asynchronous): with the service bound, a searcher there would have had every matter answer that no file names the party, and the check would have recorded `files` as `searched` when no file had been read. It records `unavailable`, as it does on a deployment without the binding, and `unavailabilityReason` for `files` names both causes. The search worker's warm cron stays off. Not yet shown: a real file indexed and found by the deployed engine (`docs/deploy-queue.md`, _Search engine activation_).
+
+## Public
+
+**Searching inside files can now be turned on.** The platform's search service is connected. An Owner or Administrator can turn file indexing on under **Settings › Data & Platform › Search and Indexing**; after that, a matter's search also finds files by the words inside them and quotes the passage it matched. A conflicts check that asks for Files reads **Not searched** until then, and says why.

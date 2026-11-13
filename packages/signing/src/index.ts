@@ -14,13 +14,16 @@ export {
 export {
   assembleCertificateOfCompletion,
   certificateDefects,
+  certificateReference,
   renderCertificateOfCompletion,
   signerDisplayName,
   type CertificateDefect,
 } from "./certificate.ts";
 export {
   certificateSheet,
+  certificateSheetImages,
   type CertificateSheet,
+  type CertificateSheetOptions,
   type CertificateSheetBlock,
 } from "./certificate-sheet.ts";
 export type { ByteRange, PrepareSealOptions, PreparedSeal, SealEngine } from "./engine.ts";
@@ -44,6 +47,7 @@ export {
   type SignatureAdoption,
   type SignerAttribution,
   type SignerCompletion,
+  type SigningContact,
   type SigningEnvelope,
   type SigningEvent,
   type SigningEventKind,

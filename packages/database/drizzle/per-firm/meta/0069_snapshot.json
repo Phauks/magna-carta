@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "850cd69f-a9ff-4c28-980a-d642b32afe3e",
-  "prevId": "386aa13a-8dee-42d5-b494-7fd4f9d8f976",
+  "id": "5d747bbf-1eef-4987-8110-5e3bc2da3d22",
+  "prevId": "61fb851f-af7f-4d9c-a94e-8a40f333b79b",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -14504,6 +14504,27 @@
         },
         "effort": {
           "name": "effort",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "superseded_at": {
+          "name": "superseded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "replaces_turn_id": {
+          "name": "replaces_turn_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

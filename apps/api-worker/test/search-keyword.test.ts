@@ -87,8 +87,19 @@ describe("runKeywordSearch", () => {
   });
 
   it("falls back to the deferred engine when no search service is bound", async () => {
-    // The test pool binds no SEARCH_SERVICE, so resolveSearchIndexPort returns the deferred port: the
-    // catalog still resolves, then the query reports the engine is not yet reachable rather than crashing.
+    // A deployment without SEARCH_SERVICE resolves the deferred port: the catalog still resolves,
+    // then the query reports the engine is not yet reachable rather than crashing.
+    const result = await runKeywordSearch(
+      { ...env, SEARCH_SERVICE: undefined },
+      { firmId, corpus: CORPUS, text: "anything", limit: 10 },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
+  });
+
+  it("reports an engine fault when the bound service has no engine behind it", async () => {
+    // The test pool binds a search service that refuses every operation. A fault is what a caller
+    // must read, so a consumer retries and a reader is told the index could not be asked.
     const result = await runKeywordSearch(env, {
       firmId,
       corpus: CORPUS,
@@ -96,6 +107,6 @@ describe("runKeywordSearch", () => {
       limit: 10,
     });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("engine-not-implemented");
+    if (!result.ok) expect(result.reason).toBe("adapter-error");
   });
 });
