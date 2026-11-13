@@ -115,3 +115,17 @@ export class MeetingPersonalRoomRefusedError extends Error {
 export function refusePersonalRoom(code: MeetingPersonalRoomRefusalCode, message: string): never {
   throw new MeetingPersonalRoomRefusedError(code, message);
 }
+
+/**
+ * One member of the firm as the Firm Rooms list shows them: their room's link where they have set
+ * one up, and the session it has open with how many people are in it. A member with no room is a
+ * row with nulls, so the list can say "No room set up" rather than leave them out.
+ */
+export interface FirmRoomRow {
+  readonly user_id: UserId;
+  readonly display_name: string;
+  readonly link_code: string | null;
+  readonly medium: MeetingMedium | null;
+  readonly open_meeting_id: MeetingId | null;
+  readonly live_count: number;
+}

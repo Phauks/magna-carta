@@ -18,6 +18,7 @@ import {
   waitingCount,
 } from "./meeting-statements.ts";
 import type {
+  FirmRoomRow,
   MeetingPersonalRoomRow,
   PersonalRoomAtLink,
   PersonalRoomOpenSession,
@@ -377,4 +378,34 @@ export async function readVisibleMatter(
     .bind(matterId, ...visibility.bindings)
     .all<{ id: MatterId }>();
   return results[0];
+}
+
+/**
+ * EVERY ACTIVE MEMBER'S ROOM, for the Meetings page's Firm Rooms list: the member, their room's link
+ * code where they have one, and the session it has open with how many people are in the room.
+ *
+ * It reads no matter. A room's link is an address behind sign-in that any member may already be sent,
+ * and the open session is named only by its id and a count; what the session is ABOUT stays behind
+ * the meeting reads and their visibility predicate. Ordered by name, so the list reads like a
+ * directory.
+ */
+export async function listFirmRooms(database: SqlDatabase): Promise<FirmRoomRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT member.user_id AS user_id, member.display_name AS display_name, ` +
+        `${MEETING_PERSONAL_ROOM_TABLE}.link_code AS link_code, ` +
+        `${MEETING_PERSONAL_ROOM_TABLE}.medium AS medium, ` +
+        `open_session.id AS open_meeting_id, ` +
+        `CASE WHEN open_session.id IS NULL THEN 0 ELSE ${inTheRoomCount("open_session.id")} END AS live_count ` +
+        `FROM member ` +
+        `LEFT JOIN ${MEETING_PERSONAL_ROOM_TABLE} ` +
+        `ON ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id = member.user_id ` +
+        `LEFT JOIN ${MEETING_TABLE} AS open_session ` +
+        `ON open_session.personal_room_id = ${MEETING_PERSONAL_ROOM_TABLE}.id ` +
+        `AND open_session.status <> 'ended' ` +
+        `WHERE member.status = 'active' ` +
+        `ORDER BY member.display_name COLLATE NOCASE, member.user_id`,
+    )
+    .all<FirmRoomRow>();
+  return results;
 }

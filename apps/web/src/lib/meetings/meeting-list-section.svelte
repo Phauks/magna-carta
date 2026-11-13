@@ -115,7 +115,7 @@
     {#if address === null}
       {text}
     {:else}
-      <a href={address} class="underline underline-offset-2">Matter</a>
+      <a href={address} class="truncate underline underline-offset-2" title={text}>{text}</a>
     {/if}
   {:else if column.id === MEETING_COLUMN_IDENTIFIERS.actions}
     {#if over}

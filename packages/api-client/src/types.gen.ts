@@ -7266,6 +7266,20 @@ export type OpenPersonalRoomRequest = {
     matterId?: string | null;
 };
 
+export type FirmRoomsResponse = {
+    rooms: Array<FirmRoom>;
+};
+
+export type FirmRoom = {
+    userId: string;
+    name: string;
+    linkCode: string | null;
+    medium: 'video' | 'audio' | null;
+    openMeetingId: string | null;
+    inTheRoom: number;
+    isCaller: boolean;
+};
+
 export type PersonalRoomAtLink = {
     state: 'closed' | 'open';
     ownerDisplayName: string;
@@ -7304,6 +7318,7 @@ export type MeetingSummary = {
     eventKind: 'matter' | 'firm';
     eventId: string;
     matterId: string | null;
+    matterTitle: string | null;
     title: string;
     startsOn: string;
     startsAtTime: string | null;
@@ -7496,6 +7511,7 @@ export type MeetingPoll = {
     question: string;
     anonymous: boolean;
     maxChoices: number;
+    kind: 'one' | 'multiple' | 'ranking' | 'score';
     openedAt: string;
     closedAt: string | null;
     closedByUserId: string | null;
@@ -7509,6 +7525,7 @@ export type MeetingPollOption = {
     position: number;
     label: string;
     count: number;
+    averageRank: number | null;
 };
 
 export type OpenMeetingPollRequest = {
@@ -7516,6 +7533,7 @@ export type OpenMeetingPollRequest = {
     options: Array<string>;
     anonymous: boolean;
     maxChoices?: number;
+    kind?: 'one' | 'multiple' | 'ranking' | 'score';
 };
 
 export type MeetingPollPage = {
@@ -34775,6 +34793,43 @@ export type MeetingsOpenPersonalRoomResponses = {
 };
 
 export type MeetingsOpenPersonalRoomResponse = MeetingsOpenPersonalRoomResponses[keyof MeetingsOpenPersonalRoomResponses];
+
+export type MeetingsListFirmRoomsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/rooms';
+};
+
+export type MeetingsListFirmRoomsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsListFirmRoomsError = MeetingsListFirmRoomsErrors[keyof MeetingsListFirmRoomsErrors];
+
+export type MeetingsListFirmRoomsResponses = {
+    /**
+     * The firm's rooms
+     */
+    200: FirmRoomsResponse;
+};
+
+export type MeetingsListFirmRoomsResponse = MeetingsListFirmRoomsResponses[keyof MeetingsListFirmRoomsResponses];
 
 export type MeetingsReadRoomLinkData = {
     body?: never;
