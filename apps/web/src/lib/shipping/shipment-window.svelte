@@ -223,7 +223,7 @@
 
     {#if trackingFailed}
       <p class="text-sm text-text-muted">
-        The carrier did not answer. Nothing about the parcel has changed — only this question failed.
+        The carrier didn't respond. Nothing about the parcel changed.
       </p>
     {:else if tracking === null}
       <p class="text-sm text-text-muted">Check now to ask the carrier where this parcel is.</p>

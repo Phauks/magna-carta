@@ -55,8 +55,7 @@ export const TOO_MANY_ATTEMPTS = "Too many attempts. Wait a minute, then try aga
  * true: nothing was lost, and pressing the button again really does send a fresh one.
  */
 export const CONFIRMATION_MAIL_UNAVAILABLE =
-  "We could not send the confirmation email just now. Nothing was lost — try again in a moment, " +
-  "and if it keeps happening, contact support with the ID below.";
+  "We couldn't send the confirmation email. Nothing was lost. Try again in a moment, and if it keeps happening, contact support with the ID below.";
 
 /** The service could not be reached, or failed. Says nothing about what was typed. */
 export const JOINING_UNAVAILABLE =

@@ -205,7 +205,7 @@
         failure = stated(
           created.failure,
           "The deadline could not be recorded.",
-          "Nothing answered. The deadline was not recorded, so pressing again records it once.",
+          "Couldn't connect. The deadline wasn't saved. Try again.",
         );
         return "refused";
       }
@@ -233,7 +233,7 @@
     failure = stated(
       marked.failure,
       "The new deadline was recorded, but the one it replaces could not be marked superseded. It still stands.",
-      "Nothing answered. The new deadline was recorded; the one it replaces still stands, so pressing again marks it once.",
+      "Couldn't connect. The new deadline was saved, but the old one wasn't marked as replaced. Try again.",
     );
     return "refused";
   }

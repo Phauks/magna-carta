@@ -278,7 +278,7 @@
           ? `The fee was not saved. The server answered ${String(outcome.problem.status)}.${
               outcome.problem.detail === undefined ? "" : ` ${outcome.problem.detail}`
             }`
-          : "Nothing answered. The fee was not saved and the record is unchanged.";
+          : "Couldn't connect. The fee wasn't saved.";
       return;
     }
     onSaved();

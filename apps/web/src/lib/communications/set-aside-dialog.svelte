@@ -74,7 +74,7 @@
     failure = stated(
       outcome.failure,
       "It could not be set aside.",
-      "Nothing answered. It is still in the queue.",
+      "Couldn't connect. It's still waiting to send.",
     );
     return "refused";
   }

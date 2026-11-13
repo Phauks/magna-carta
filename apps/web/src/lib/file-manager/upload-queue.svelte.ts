@@ -169,15 +169,12 @@ function realDependencies(): UploadQueueDependencies {
  * their connection for a fault that is not on their side of it.
  */
 const STORAGE_UNREACHABLE =
-  "The firm's storage did not answer, so this file was not sent and nothing was saved. These " +
-  "bytes go from this browser straight to storage rather than through the rest of the " +
-  "application, which is answering normally — so the fault is on that route, not with the file " +
-  "or with the matter. Try again; if it keeps happening, the storage is refusing writes from " +
-  "this site. An administrator can open the version chip at the top right: its Database section " +
-  "runs the upload readiness check, which names the thing that is not in place.";
+  "Couldn't reach the firm's storage, so this file wasn't uploaded and nothing was saved. Try " +
+  "again. If it keeps failing, an administrator can run the upload check in the Database section " +
+  "of the version menu, top right.";
 
 /** The short line for a byte write that got no answer: the class of fault, and where it sits. */
-const STORAGE_UNREACHABLE_NATURE = "The firm's storage did not answer";
+const STORAGE_UNREACHABLE_NATURE = "Couldn't reach the firm's storage";
 
 /**
  * What a failed upload says about itself, in two lengths. `failure` is the NATURE of the fault in
@@ -212,8 +209,8 @@ export function uploadFailure(outcome: UploadOutcome): UploadFailure {
     }
     const where = UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase();
     return {
-      failure: `Nothing answered while ${where}`,
-      reason: `Nothing answered while ${where}.`,
+      failure: `Couldn't connect while ${where}`,
+      reason: `Couldn't connect while ${where}.`,
     };
   }
   return { failure: "", reason: "" };
@@ -514,8 +511,7 @@ export class UploadBatch {
     // and finds no file thinks something was lost, when it is a scan engine warming up.
     if (outcome.kind === "settling") {
       item.reason =
-        "Sent and recorded. The safety check is still running — the file appears on the matter " +
-        "as soon as it finishes, usually within a minute.";
+        "Uploaded. The safety check is still running, and the file appears on the matter when it finishes, usually within a minute.";
     }
     item.stage = "settled";
   }

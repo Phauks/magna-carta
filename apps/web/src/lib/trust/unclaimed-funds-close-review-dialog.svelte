@@ -159,7 +159,7 @@
     failure = stated(
       result.failure,
       "The round was not closed, so the file is still open. No money moved either way.",
-      "Nothing answered, so the round was not closed. The file is still open and no money moved.",
+      "Couldn't connect. The round is still open and no money moved.",
     );
     return "refused";
   }

@@ -227,7 +227,7 @@
     matchFailure = stated(
       outcome.failure,
       "No match was recorded, and both sides still stand unaccounted for.",
-      "Nothing answered, so no match was recorded. Retrying sends this same assertion rather than recording it twice.",
+      "Couldn't connect. No match was recorded, and trying again won't record it twice.",
     );
   }
 

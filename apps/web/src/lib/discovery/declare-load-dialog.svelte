@@ -150,7 +150,7 @@
     failure = stated(
       outcome.failure,
       "The load could not be declared.",
-      "Nothing answered. Nothing was declared, so pressing again declares one load.",
+      "Couldn't connect. No load was declared. Try again.",
     );
     return "refused";
   }
@@ -234,9 +234,7 @@
           bind:value={declaredCount}
         />
         <p class="text-text-muted text-sm">
-          What you believe is coming. It is never used to correct what actually arrives — the two
-          numbers are reported side by side, and a disagreement between them is a finding rather
-          than an error.
+          What you expect to receive. It's shown beside what actually arrives, and any difference is flagged.
         </p>
       </div>
 

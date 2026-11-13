@@ -114,7 +114,7 @@
       actionFailure = stated(
         outcome.failure,
         "Your picture was not changed.",
-        "Nothing answered, so nothing changed; choosing the file again tries once more.",
+        "Couldn't connect. Nothing changed. Choose the file again to retry.",
       );
       return;
     }

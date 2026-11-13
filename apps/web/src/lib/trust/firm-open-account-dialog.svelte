@@ -127,7 +127,7 @@
     failure = stated(
       outcome.failure,
       "No account was opened.",
-      "Nothing answered, so no account was opened. Retrying sends this same submission rather than opening a second account.",
+      "Couldn't connect. No account was opened, and trying again won't open a second one.",
     );
     return "refused";
   }

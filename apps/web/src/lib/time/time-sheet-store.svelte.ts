@@ -425,7 +425,7 @@ export class TimeSheetStore {
         saveFailure:
           outcome.kind === "problem"
             ? `Not saved. The server answered ${String(outcome.problem.status)}. The record is unchanged.`
-            : "Nothing answered. The change was not saved and the record is unchanged.",
+            : "Couldn't connect. The change wasn't saved.",
       });
       return false;
     }

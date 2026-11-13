@@ -176,9 +176,7 @@
                one device and finds no way to should learn why, and that the one control still on
                the screen does something they can rely on. -->
           <p class="text-xs text-text-muted">
-            This device could not be identified among the sessions below, so individual sign-out is
-            unavailable — ending one might end the session you are reading on. Sign out everywhere
-            else still works, and never ends this session.
+            This device couldn't be matched to a session below, so you can't sign out sessions one at a time. Sign Out Everywhere Else still works and keeps you signed in here.
           </p>
         {/if}
 

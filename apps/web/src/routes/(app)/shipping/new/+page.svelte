@@ -194,7 +194,7 @@
       const quoted = await rateShipment(shipmentId);
       if (quoted.error !== undefined || quoted.data === undefined) {
         refusal =
-          "Rates could not be fetched. The draft has been kept — the postage account may not be connected.";
+          "Couldn't get rates. The draft was kept. The postage account may not be connected.";
         return;
       }
       remoteShipmentId = quoted.data.remoteShipmentId;
