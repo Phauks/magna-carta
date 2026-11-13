@@ -301,6 +301,9 @@ export interface MatchingRecord {
   // list that happens to name them all, because a firm that adds a role later is covered by the first
   // and not by the second.
   readonly nameRoles: readonly string[] | null;
+  // Whether names were also compared by trigram overlap. A row written before the choice existed
+  // ran it, so an absent key reads true.
+  readonly trigramMatching: boolean;
 }
 
 export interface CheckInputs {
@@ -364,6 +367,7 @@ function parseMatchingRecord(value: unknown): MatchingRecord | null {
     // An absent key and a stored null both mean every role, which is what an over-inclusive run
     // records. Only an actual array narrows.
     nameRoles: Array.isArray(storedRoles) ? stringArray(storedRoles) : null,
+    trigramMatching: record["trigramMatching"] !== false,
   };
 }
 

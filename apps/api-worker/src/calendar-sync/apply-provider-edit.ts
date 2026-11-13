@@ -2,6 +2,10 @@ import { assertPermission } from "@magna-carta/access-control/registry";
 import { CalendarValidationError } from "@magna-carta/calendar/validation";
 import { updateMatterEvent } from "@magna-carta/calendar/event-service";
 import { updateFirmEvent } from "@magna-carta/calendar/firm-event-service";
+import {
+  changeFirmEventOccurrence,
+  changeMatterEventOccurrence,
+} from "@magna-carta/calendar/series-service";
 import type { SyncCopyReading } from "@magna-carta/calendar/sync-issue-statements";
 import type { OutboundDesired } from "@magna-carta/calendar/sync-outbound";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
@@ -28,6 +32,10 @@ import type { ProviderEditDecision } from "./provider-changes.ts";
 //     wrote, so an edit to it says nothing about the event and the copy is simply put back.
 //   - A series' first day is never moved from a copy. Where a provider's series begins after a
 //     drag is not something its documentation settles, so that one edit stays a question.
+//
+// ONE DAY OF A SERIES changed on its own is carried as that day's own change: the series keeps its
+// rule and the day gets a row, which is what "this event only" does in the event's own window.
+// The day may move to another date, because it is the day that moved and not the series.
 //
 // A deadline never reaches here, and neither does a copy that was deleted: removing something
 // from your own calendar is not cancelling a hearing.
@@ -61,10 +69,13 @@ export function patchForProviderEdit(
   copy: OutboundDesired,
   sent: SyncCopyReading,
   found: SyncCopyReading,
+  // Present when the two readings are of one day of a series and not of the series itself.
+  occurrenceOn?: string,
 ): EventPatch | undefined {
   const patch: EventPatch = {};
   if (!sameWhen(sent, found)) {
-    const series = copy.event.repeats !== undefined && copy.event.repeats !== null;
+    const series =
+      occurrenceOn === undefined && copy.event.repeats !== undefined && copy.event.repeats !== null;
     if (series && (sent.startsOn !== found.startsOn || sent.endsOn !== found.endsOn)) {
       return undefined;
     }
@@ -94,11 +105,12 @@ export function providerEditApplier(
   copy: OutboundDesired,
   sent: SyncCopyReading,
   found: SyncCopyReading,
+  occurrenceOn?: string,
 ) => Promise<ProviderEditDecision> {
   let mayManage: Promise<boolean> | undefined;
-  return async (copy, sent, found) => {
+  return async (copy, sent, found, occurrenceOn) => {
     if (copy.localKind === "deadline") return "put-back";
-    const patch = patchForProviderEdit(copy, sent, found);
+    const patch = patchForProviderEdit(copy, sent, found, occurrenceOn);
     if (patch === undefined) return "ask";
     if (Object.keys(patch).length === 0) return "put-back";
 
@@ -115,10 +127,29 @@ export function providerEditApplier(
       visibility: visibleMatterPredicate(),
     };
     try {
+      const change = { kind: "update", fields: patch } as const;
       const { effect } =
         copy.localKind === "matter_event"
-          ? await updateMatterEvent(input.database, copy.localId as MatterEventId, patch, options)
-          : await updateFirmEvent(input.database, copy.localId as FirmEventId, patch, options);
+          ? occurrenceOn === undefined
+            ? await updateMatterEvent(input.database, copy.localId as MatterEventId, patch, options)
+            : await changeMatterEventOccurrence(
+                input.database,
+                copy.localId as MatterEventId,
+                occurrenceOn,
+                "this",
+                change,
+                options,
+              )
+          : occurrenceOn === undefined
+            ? await updateFirmEvent(input.database, copy.localId as FirmEventId, patch, options)
+            : await changeFirmEventOccurrence(
+                input.database,
+                copy.localId as FirmEventId,
+                occurrenceOn,
+                "this",
+                change,
+                options,
+              );
       await commitEffectBatch(
         input.database,
         {
@@ -132,7 +163,11 @@ export function providerEditApplier(
               subjectId: copy.localId,
               actorUserId: input.memberUserId,
               clock: options.clock,
-              metadata: { provider: "microsoft", localKind: copy.localKind },
+              metadata: {
+                provider: "microsoft",
+                localKind: copy.localKind,
+                ...(occurrenceOn === undefined ? {} : { occurrenceOn }),
+              },
             }),
           ],
         },

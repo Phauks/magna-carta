@@ -64,16 +64,17 @@ function writeCalls(file: string, source: string): WriteCall[] {
   return calls;
 }
 
-// Three other things in this codebase are spelled `.put(` and none of them writes an object into a
+// Four other things in this codebase are spelled `.put(` and none of them writes an object into a
 // bucket. Each is excluded by what it is, never by where it lives, so the scan stays fail-closed: a
 // receiver this list does not recognize is treated as a bucket and must stamp.
 //
 //   a Durable Object's own transactional storage — `ctx.storage.put("state", …)`, coordinator state;
 //   a key-value namespace — `env.STATUS_KV.put(…)`, the status snapshot;
+//   the Cache API — `cache.put(request, response)`, an edge-cache entry that expires on its own;
 //   an HTTP route registration — `app.put("/api/…", handler)`, whose first argument is a path.
 function isNotABucketWrite(call: WriteCall, source: string): boolean {
   const receiver = source.slice(Math.max(0, call.index - 40), call.index).trimEnd();
-  if (/(^|[.\s(])[\w$]*(storage|KV)$/i.test(receiver)) return true;
+  if (/(^|[.\s(])[\w$]*(storage|KV|cache)$/i.test(receiver)) return true;
   return /^\.put\(\s*["'`]\//.test(call.text);
 }
 

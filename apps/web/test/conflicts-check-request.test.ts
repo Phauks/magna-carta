@@ -126,11 +126,27 @@ describe("nothing limits the search", () => {
       "searchRelationships",
       "searchOwnPeople",
       "nameMatching",
+      "trigramMatching",
       "messaging",
       "tasks",
       "magnus",
       "files",
     ]);
+  });
+
+  it("sends trigram matching off only when a balanced check turns it off", () => {
+    expect(composeCheck(draft({ trigramMatching: false }), surface()).request?.scope).toMatchObject(
+      {
+        strictness: "balanced",
+        trigramMatching: false,
+      },
+    );
+    // Over-inclusive always runs it, so the request does not carry a choice the server ignores.
+    const overInclusive = composeCheck(
+      draft({ nameMatching: "over_inclusive", trigramMatching: false }),
+      surface(),
+    ).request?.scope;
+    expect(overInclusive).not.toHaveProperty("trigramMatching");
   });
 
   it("asks for only the messaging channels, task and file statuses left on", () => {

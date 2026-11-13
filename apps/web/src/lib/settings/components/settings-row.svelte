@@ -53,6 +53,7 @@
     value,
     onRequestChange,
     control,
+    choiceRow,
   }: {
     definition: SettingDefinition;
     /** Draft posture: edits stage into this page draft. */
@@ -68,6 +69,12 @@
      * the shared grid, label, and description, so one-off rows never re-implement the anatomy.
      */
     control?: Snippet;
+    /**
+     * How each option of a `select` row draws itself in the open list, where the label alone is
+     * not the whole choice (the Font Family row sets each face in itself). The field keeps the
+     * plain label at rest.
+     */
+    choiceRow?: Snippet<[ChoiceOption]>;
   } = $props();
 
   const controlId = $derived(`settings-${definition.id}`);
@@ -214,6 +221,7 @@
         options={choiceOptions}
         inputId={controlId}
         label={definition.label}
+        row={choiceRow}
         bind:value={() => String(currentValue()), (next) => applyNext(next)}
       />
     {:else if definition.kind === "switch"}

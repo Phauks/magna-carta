@@ -28,6 +28,7 @@ export const AskedScope = z
   .object({
     sources: z.array(z.string()),
     strictness: z.string(),
+    trigramMatching: z.boolean(),
     places: PlacesRequest,
   })
   .nullable();
