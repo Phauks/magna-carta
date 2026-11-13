@@ -171,13 +171,13 @@ export function carryFacts(
   } else if (from === "fee" && to === "time") {
     amountCarriesAs("The amount is held as the target amount");
     loses.push(
-      "Time needs hours and a rate, which a flat fee doesn't have. It opens as a draft that can't be billed until you add them.",
+      "Time needs hours and a rate, which a flat fee doesn't have. It opens as an incomplete draft that can't be billed until you add them.",
     );
   } else if (from === "cost" && to === "time") {
     amountCarriesAs("The amount is held as the target amount");
     loses.push("The payee and the expense code do not carry");
     loses.push(
-      "Time needs hours and a rate. It opens as a draft that can't be billed until you add them.",
+      "Time needs hours and a rate. It opens as an incomplete draft that can't be billed until you add them.",
     );
   } else if (from === "fee" && to === "cost") {
     amountCarriesAs("The amount carries exactly");

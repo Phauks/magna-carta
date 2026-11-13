@@ -132,7 +132,7 @@ describe("one cost's printed sheet", () => {
   it("does not pretend a cost billed before the reference existed has one", () => {
     expect(
       fieldValue(costEntrySheet(cost({ status: "billed", invoiceId: null }), context), "Invoice"),
-    ).toContain("not recorded");
+    ).toContain("isn't linked");
   });
 
   it("carries the Description the client reads, whole", () => {
