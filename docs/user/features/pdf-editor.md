@@ -1,7 +1,7 @@
 # PDF Editor
 
 Use the PDF Editor to change a PDF that is on a matter. Nothing you rely on is overwritten:
-redacting, numbering, watermarking, protecting, extracting and splitting save new files beside the original, and arranging the pages
+redacting, numbering, watermarking, protecting, extracting, splitting and signing save new files beside the original, and arranging the pages
 saves a new version, with the version before it kept in the file's history.
 
 To open it, open a PDF from the matter's documents and choose **Edit PDF**. Choose **Read** to go
@@ -132,3 +132,33 @@ what they say. If it finds hidden text, redact it first: a password does not rem
 
 The protected copy is saved beside the original, named with **(Protected)** at the end. The
 original is not protected.
+
+## Signature
+
+Send a document to be signed, and follow it until everyone has signed.
+
+**Signature Fields.** Add the people who sign. Type a name and email for someone outside the firm,
+or pick a colleague under **Firm Member**. Each signer gets a colour.
+
+1. Choose a signer in the list to place fields for them.
+2. Pick a field above the page: **Signature**, **Initials**, **Date Signed**, **Full Name**,
+   **Text** or **Checkbox**.
+3. Click the page where it goes, or drag to draw it at the size you want. Click a field to change
+   its kind, give it to another signer, make it optional, or remove it.
+
+For each outside signer, choose how they prove who they are: **Emailed Link** (anyone who opens the
+email can sign) or **Link and Email Code** (they also enter a one-time code sent by email).
+Colleagues sign while signed in to Magna Carta.
+
+**Review and Send.** Choose whether people sign **In Order** or **All at Once**, write the email's
+subject and message, choose the last day it can be signed and how often reminders go out, then
+choose **Send for Signature**. If something is missing, such as a signer with no signature field,
+the request is not sent and you are told what to fix. **Save Draft** keeps the request to finish
+later.
+
+The document sent is the file's current version. Its fingerprint is recorded when it is sent.
+
+**Following a request.** After sending, the tab shows who has signed, who is next, and everything
+that has happened and when. **Send Reminder** emails whoever is waiting now. **Cancel Request**
+stops the links working; signatures already given stay on the record. When everyone has signed,
+the signed copy and its Certificate of Completion are saved beside the original.

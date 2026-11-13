@@ -712,8 +712,10 @@
 - id: documents.esignature.signing-flow
   name: Signing flow & adoption UI
   scope: Client-side field placement, signing UI, signature adoption (type/draw/upload).
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-11-13-signing-flow-design.md
+  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel). The signer's page, adoption and sealing on completion are next.
 
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion
@@ -727,8 +729,8 @@
 - id: documents.esignature.attribution
   name: Attribution assurance tiers
   scope: Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the signer-side checks arrive with the signer's page. SMS codes, ID checks and portal sign-in are not offered.
 
 - id: documents.esignature.vendor-port
   name: Vendor adapter seam

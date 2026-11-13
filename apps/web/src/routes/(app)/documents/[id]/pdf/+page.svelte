@@ -14,6 +14,7 @@
   import FileText from "@lucide/svelte/icons/file-text";
   import Hash from "@lucide/svelte/icons/hash";
   import Layers from "@lucide/svelte/icons/layers";
+  import Signature from "@lucide/svelte/icons/signature";
   import Lock from "@lucide/svelte/icons/lock";
   import Stamp from "@lucide/svelte/icons/stamp";
   import Button from "@magna-carta/design-system/button";
@@ -28,6 +29,7 @@
   import PagesTool from "$lib/pdf-editor/pages-tool.svelte";
   import RedactTool from "$lib/pdf-editor/redact-tool.svelte";
   import SecureTool from "$lib/pdf-editor/secure-tool.svelte";
+  import SigningTool from "$lib/pdf-editor/signing-tool.svelte";
   import WatermarkTool from "$lib/pdf-editor/watermark-tool.svelte";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { matterFilesBack } from "$lib/screen/screen-header.ts";
@@ -98,6 +100,10 @@
           <Lock class="size-16" aria-hidden="true" />
           Secure
         </Tabs.Trigger>
+        <Tabs.Trigger value="signature">
+          <Signature class="size-16" aria-hidden="true" />
+          Signature
+        </Tabs.Trigger>
       </Tabs.List>
     </Tabs.Root>
 
@@ -116,6 +122,8 @@
           <WatermarkTool {file} />
         {:else if tool === "secure"}
           <SecureTool {file} />
+        {:else if tool === "signature"}
+          <SigningTool {file} />
         {/if}
       {/key}
     </FullHeightSection>
