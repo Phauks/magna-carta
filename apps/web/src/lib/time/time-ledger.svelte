@@ -344,7 +344,7 @@
           targets,
           (id) => approveTimeEntry(fetch, id, writeKey()),
           targets.length === 1 ? "The entry" : "One of the entries",
-          `Approved ${String(targets.length)} ${targets.length === 1 ? "entry" : "entries"}. ${targets.length === 1 ? "It is" : "They are"} billable on the next invoice.`,
+          `Approved ${String(targets.length)} ${targets.length === 1 ? "entry" : "entries"}. ${targets.length === 1 ? "It is" : "They are"} billable on the next bill.`,
         );
         return;
       case "kickBack":
@@ -352,8 +352,7 @@
         // requires one. Rather than inventing a sentence nobody wrote, the act says what stands in
         // its way. It is unreachable while the review vocabulary is absent.
         actionRefusal =
-          "Kick Back is not wired here yet: the route requires a written reason, and the design " +
-          "settled that the reason is optional. The entry is unchanged.";
+          "Kick Back isn't available here yet. The entry is unchanged.";
         return;
       case "void": {
         const outcome = await voidTimeEntry(fetch, first.id, writeKey());

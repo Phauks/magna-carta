@@ -55,8 +55,7 @@ export function payeeText(cost: CostSummary): string {
  * capture rather than joined from a row somebody may later remove.
  */
 export const GONE_PAYEE_NOTE =
-  "The directory entry behind this payee was deleted, and the listing serves no name for it. " +
-  "Recording the name on the cost at capture, as time does for timekeepers, is an open gap.";
+  "The payee's directory entry was deleted, so its name can't be shown.";
 
 /** The two words the billing decision wears. Absorbing is a decision, so it is kept visible. */
 export function billingLabel(billable: boolean): string {

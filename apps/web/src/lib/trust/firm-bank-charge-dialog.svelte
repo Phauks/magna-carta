@@ -180,7 +180,7 @@
 
       <LabelledField
         label="Description"
-        hint="What the institution charged for. It is the line the ledger entry reads."
+        hint="What the bank charged for. This becomes the ledger entry's description."
         error={fieldRefusal(serverProblem, "description")}
       >
         {#snippet children({ props })}

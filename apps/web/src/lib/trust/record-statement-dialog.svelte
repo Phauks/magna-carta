@@ -249,7 +249,7 @@
 
       <LabelledField
         label="Statement Reference"
-        hint="What the bank calls this statement, where it names one."
+        hint="The statement's name or number at the bank, if it has one."
         error={fieldRefusal(problem, "statementReference")}
       >
         {#snippet children({ props })}

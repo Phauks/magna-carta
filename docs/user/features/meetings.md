@@ -276,8 +276,12 @@ also checks for anything new.
 Each poll is a card. Where you may choose one answer the options are a set of round buttons; where
 you may choose several they are tick boxes, and the card says how many you may pick. **Answer**
 sends your choice and stays unavailable until what you have picked is something the poll will take.
+A **ranking** lists every option with arrows to move each one up or down; put them in order, best at
+the top, and press **Answer**. A **score** asks for one number on its scale, such as 1 to 5.
 **An answer cannot be changed**: once it is sent, the card turns into the result, one bar per option
-with how many chose it, and a line such as "12 of 30 answered". A poll a host has closed shows its
+with how many chose it, and a line such as "12 of 30 answered". A ranking's result lists the options
+in the order the room put them, each with its average place; a score's result gives the average,
+such as "Average 3.8 out of 5", above how many gave each number. A poll a host has closed shows its
 result to everybody.
 
 **"Answers are not shown with names"** at the top of a poll means exactly that: nothing in the
@@ -285,8 +289,11 @@ product, including what the host sees, says who chose what. It does not hide tha
 The card says it before you answer, so you know what you are answering into.
 
 **Asking the room (hosts).** Whoever is running the meeting sees **New Poll** at the top of the same
-panel: the question, between two and ten answers (add and remove them as you go), whether to show
-names with answers, and how many answers each person may choose. **Open Poll** puts it in front of the
+panel: the question, the **Poll Type**, between two and ten answers (add and remove them as you go),
+and whether to show names with answers. The poll types are **One** (each person picks one answer),
+**Multiple** (each person picks up to the number you choose), **Ranking** (each person puts every
+answer in order) and **Score** (each person gives a number on a scale of 1 to 3, 1 to 5 or 1 to 10,
+so you do not type answers). **Open Poll** puts it in front of the
 room at once, and your card shows the result, moving as people answer. A poll another host opened is
 a question to you as much as to anybody: you answer it first, the number on **Polls** counts it, and
 you see its result once you have answered. Several polls can be open together. **Close

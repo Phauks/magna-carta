@@ -34,6 +34,21 @@
     cursor: default;
     color: var(--mc-text-muted);
   }
+  /*
+   * A provider's name under its offers, where its terms require one: set apart from the offers by a
+   * rule above it, on one line, in the muted text colour at the smallest size the terms allow.
+   */
+  .mc-address-fields-attribution {
+    border-block-start: var(--mc-border-width-default) solid var(--mc-border-default);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    white-space: nowrap;
+  }
+  .mc-address-fields-attribution[data-disabled] {
+    cursor: default;
+  }
   /* Trying again is the one enabled sentence, so it reads as the thing to press. */
   .mc-address-fields-retry {
     color: var(--mc-text-default);

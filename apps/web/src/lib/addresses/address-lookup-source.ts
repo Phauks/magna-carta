@@ -90,7 +90,12 @@ export function addressLookup(
     async suggest(country: string, query: string, near?: string): Promise<AddressLookupAnswer> {
       const body = await ports.suggest(country, query, regionCodeOf(near));
       if (body.outcome === "suggestions") {
-        return { kind: "offers", offers: body.suggestions.map(offerFrom) };
+        return {
+          kind: "offers",
+          offers: body.suggestions.map(offerFrom),
+          // The provider's name, where its terms require the list to show it.
+          ...(body.attribution === undefined ? {} : { attribution: body.attribution }),
+        };
       }
       return { kind: body.outcome };
     },

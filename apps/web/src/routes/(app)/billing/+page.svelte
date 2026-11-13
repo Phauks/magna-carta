@@ -306,7 +306,7 @@
           ? 'font-semibold text-status-danger-subtle-foreground'
           : ''}"
         title={late > 0
-          ? "Overdue is worked out from the date at the moment of asking; it is never a stored flag."
+          ? "Overdue is calculated from today's date."
           : undefined}
       >
         {formatDate(row.summary.dueDate)}{late > 0 ? ` · ${late} days` : ""}
@@ -444,8 +444,7 @@
            strip above is the figure that does not have this caveat, which is exactly why it is
            read from the server rather than added up here. -->
       <p class="text-xs text-text-muted">
-        Showing the {rows.length} most recent bills. The column totals cover only what is loaded; the
-        outstanding figure above covers the firm's whole receivable.
+        Showing the {rows.length} most recent bills. Column totals cover only these; the outstanding figure above covers all bills.
       </p>
     {/if}
   {/if}

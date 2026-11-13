@@ -60,6 +60,16 @@ describe("the board's headers", () => {
   });
 });
 
+describe("the changelog's own address", () => {
+  it("lets its pages be listed and keeps its API unlisted", async () => {
+    const page = await SELF.fetch("https://changelog.magnacarta.esq/");
+    expect(page.headers.get("X-Robots-Tag")).toBeNull();
+    expect(page.headers.get("Referrer-Policy")).toBe("no-referrer");
+    const api = await SELF.fetch("https://changelog.magnacarta.esq/api/summary");
+    expect(api.headers.get("X-Robots-Tag")).toContain("noindex");
+  });
+});
+
 describe("reading", () => {
   it("serves the board to anyone, signed out", async () => {
     const response = await SELF.fetch(`${ORIGIN}/api/board?kind=request`);

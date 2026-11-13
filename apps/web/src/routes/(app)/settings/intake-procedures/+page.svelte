@@ -96,7 +96,7 @@
 
   const stepVocabulary = $derived(intakeStepKindVocabulary(stepKind));
   const matterTypeChoices = $derived([
-    { value: EVERY_KIND, label: "Every kind of matter" },
+    { value: EVERY_KIND, label: "All matter types" },
     ...matterTypes.filter((type) => type.active).map((type) => ({ value: type.id, label: type.name })),
   ]);
   const stepKindChoices = INTAKE_STEP_KIND_VOCABULARY.map((entry) => ({
@@ -162,7 +162,7 @@
   }
 
   function matterTypeName(matterTypeId: string | null): string {
-    if (matterTypeId === null) return "Every kind of matter";
+    if (matterTypeId === null) return "All matter types";
     return matterTypes.find((type) => type.id === matterTypeId)?.name ?? "A matter type";
   }
 
@@ -190,7 +190,7 @@
   // The description is the sample vocabulary's sentence; a procedure's name and the kind it binds
   // are the firm's own kind of words, which it does not carry.
   const PROCEDURE_FIXTURE = [
-    { name: "New client, litigation", binds: "Every kind of matter", description: SAMPLE_SENTENCE },
+    { name: "New client, litigation", binds: "All matter types", description: SAMPLE_SENTENCE },
     { name: "Estate planning engagement", binds: "Estate planning", description: SAMPLE_SENTENCE },
   ];
 </script>
@@ -211,12 +211,7 @@
     <Alert.Root variant="info">
       <Alert.Title>A Procedure Holds The Door</Alert.Title>
       <Alert.Description>
-        A consultation of the kind a procedure binds does not open while a required step is
-        unanswered. Each step is answered by whoever holds the fact: the conflicts record, the fee
-        arrangement, a document produced onto the matter, the trust ledger, or a member recording
-        that they did it. A member who may waive a step can open the matter without it, under their
-        name and with the reason. Changing a procedure reaches every consultation of its kind at
-        once. Magna Carta ships no procedures of its own.
+        A consultation can't open while a required step is unanswered. Each step is answered by its source: the conflicts check, the fee agreement, a document on the matter, the trust ledger, or a staff member confirming it was done. Staff with permission can waive a step, with a reason under their name.
       </Alert.Description>
     </Alert.Root>
 
@@ -324,9 +319,7 @@
       {/snippet}
       {#snippet emptyState()}
         <EmptyState title="No procedures yet">
-          A procedure is your own list of what a kind of matter must clear before you take it on: the
-          conflicts check, the fee agreement, the engagement letter, the retainer, the questions the
-          client has to answer. Write one here and every consultation of that kind is held to it.
+          A procedure lists what a type of matter needs before you take it on, such as a conflicts check, fee agreement, engagement letter, retainer or client questions. Every consultation of that type must complete it.
         </EmptyState>
       {/snippet}
       {#snippet fixture()}
@@ -439,7 +432,7 @@
                             <Button
                               variant="ghost"
                               disabled={saving}
-                              title="Retire this step. It stops being asked; records that answered it are kept."
+                              title="Retire this step. It won't be asked again; past answers are kept."
                               onclick={() =>
                                 runWrite(
                                   () => retireIntakeProcedureStep(fetch, step.id, newWriteKey()),

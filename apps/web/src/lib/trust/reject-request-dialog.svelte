@@ -50,7 +50,7 @@
   const refusal = $derived.by((): string | undefined => {
     if (request === null) return "No request is open.";
     if (reason.trim() === "") {
-      return "A reason is required. It is what the member who proposed this reads.";
+      return "A reason is required. The person who proposed this will see it.";
     }
     return undefined;
   });

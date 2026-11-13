@@ -55,10 +55,7 @@ export function billFigures(
       identifier: "unbilled",
       label: "unbilled",
       amountMinor: unbilled.timeAmountMinor + unbilled.costAmountMinor,
-      caption:
-        `Time and costs no draft holds and no invoice has billed: ` +
-        `${String(unbilled.timeEntryCount)} ${timeWord} · ${context.money(unbilled.timeAmountMinor)}, ` +
-        `${String(unbilled.costEntryCount)} ${costWord} · ${context.money(unbilled.costAmountMinor)}.`,
+      caption: `Time and costs not yet on a bill: ${String(unbilled.timeEntryCount)} ${timeWord} · ${context.money(unbilled.timeAmountMinor)}, ${String(unbilled.costEntryCount)} ${costWord} · ${context.money(unbilled.costAmountMinor)}.`,
     });
   }
 

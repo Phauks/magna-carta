@@ -85,7 +85,7 @@
    * share a line behind three different separators across these panels.
    */
   const subtitle = $derived<RecordSubject>({
-    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+    reference: { kind: "Bill", number: row?.summary.invoiceNumber ?? null },
   });
 
   const refusal = $derived.by((): string | undefined => {
@@ -176,8 +176,7 @@
         <Label for="{fieldPrefix}-recipient">Recipient</Label>
         <Input id="{fieldPrefix}-recipient" disabled={busy} bind:value={recipient} />
         <p class="text-xs text-text-muted">
-          Who received it, in the firm's own words: the address it was posted to, the mailbox it was
-          emailed to, or the person it was handed to.
+          Who received it: the postal address, the email address, or the person it was handed to.
         </p>
       </div>
 
@@ -205,16 +204,13 @@
           <Label for="{fieldPrefix}-reference">Carrier Reference</Label>
           <Input id="{fieldPrefix}-reference" disabled={busy} bind:value={externalReference} />
           <p class="text-xs text-text-muted">
-            The handle of whatever carried it, where something did: a tracking number, a gateway
-            submission reference, the message id of a mail sent elsewhere.
+            A tracking number or other reference, if there is one.
           </p>
         </div>
       </div>
 
       <p class="text-xs text-text-subtle">
-        Each attempt is its own permanent record: a bill sent twice has two, and a returned letter
-        followed by a successful re-send reads as exactly that. It is shown beside the decision to
-        take fees from trust; it gates nothing.
+        Each attempt is recorded separately, so a bill sent twice has two records. Deliveries are shown when taking fees from trust but don't block it.
       </p>
     </div>
   {/snippet}

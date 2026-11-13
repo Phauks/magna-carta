@@ -12,6 +12,7 @@ import type {
 import { MEETING_ATTENDANCE_TABLE } from "./meeting-statements.ts";
 import type {
   MeetingPollAttributedAnswer,
+  MeetingPollKind,
   MeetingPollOptionTally,
   MeetingPollRow,
   MeetingPollTally,
@@ -38,6 +39,7 @@ const POLL_COLUMNS = [
   "question",
   "anonymous",
   "max_choices",
+  "kind",
   "opened_at",
   "closed_at",
   "closed_by_user_id",
@@ -147,7 +149,12 @@ export async function readPollTallies(
         `${MEETING_POLL_OPTION_TABLE}.position, ${MEETING_POLL_OPTION_TABLE}.label, ` +
         `(SELECT COUNT(*) FROM ${MEETING_POLL_ANSWER_TABLE} ` +
         `WHERE ${MEETING_POLL_ANSWER_TABLE}.poll_id = ${MEETING_POLL_OPTION_TABLE}.poll_id ` +
-        `AND ${MEETING_POLL_ANSWER_TABLE}.option_id = ${MEETING_POLL_OPTION_TABLE}.id) AS count ` +
+        `AND ${MEETING_POLL_ANSWER_TABLE}.option_id = ${MEETING_POLL_OPTION_TABLE}.id) AS count, ` +
+        // The average place on a ranking, over the same index; NULL on every other kind, whose
+        // answer rows carry no place.
+        `(SELECT AVG(${MEETING_POLL_ANSWER_TABLE}.rank) FROM ${MEETING_POLL_ANSWER_TABLE} ` +
+        `WHERE ${MEETING_POLL_ANSWER_TABLE}.poll_id = ${MEETING_POLL_OPTION_TABLE}.poll_id ` +
+        `AND ${MEETING_POLL_ANSWER_TABLE}.option_id = ${MEETING_POLL_OPTION_TABLE}.id) AS average_rank ` +
         `FROM ${MEETING_POLL_OPTION_TABLE} ` +
         `WHERE ${MEETING_POLL_OPTION_TABLE}.poll_id IN (${placeholders(pollIds.length)}) ` +
         `ORDER BY ${MEETING_POLL_OPTION_TABLE}.poll_id ASC, ${MEETING_POLL_OPTION_TABLE}.position ASC`,
@@ -159,6 +166,7 @@ export async function readPollTallies(
       readonly position: number;
       readonly label: string;
       readonly count: number;
+      readonly average_rank: number | null;
     }>();
   const { results: respondentRows } = await database
     .prepare(
@@ -171,7 +179,13 @@ export async function readPollTallies(
   const optionsByPoll = new Map<MeetingPollId, MeetingPollOptionTally[]>();
   for (const row of optionRows) {
     const list = optionsByPoll.get(row.poll_id) ?? [];
-    list.push({ optionId: row.id, position: row.position, label: row.label, count: row.count });
+    list.push({
+      optionId: row.id,
+      position: row.position,
+      label: row.label,
+      count: row.count,
+      averageRank: row.average_rank,
+    });
     optionsByPoll.set(row.poll_id, list);
   }
   const respondentsByPoll = new Map(respondentRows.map((row) => [row.poll_id, row.respondents]));
@@ -315,6 +329,7 @@ export interface InsertMeetingPollInput {
   readonly question: string;
   readonly anonymous: boolean;
   readonly maxChoices: number;
+  readonly kind: MeetingPollKind;
   readonly now: string;
 }
 
@@ -329,8 +344,8 @@ export function insertMeetingPollStatement(
   return database
     .prepare(
       `INSERT INTO ${MEETING_POLL_TABLE} (id, meeting_id, asked_by_user_id, question, anonymous, ` +
-        `max_choices, opened_at, closed_at, closed_by_user_id, breakout_id, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, NULL, NULL, ?7, ?7)`,
+        `max_choices, kind, opened_at, closed_at, closed_by_user_id, breakout_id, created_at, ` +
+        `updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?8, ?7, NULL, NULL, NULL, ?7, ?7)`,
     )
     .bind(
       input.id,
@@ -340,6 +355,7 @@ export function insertMeetingPollStatement(
       input.anonymous ? 1 : 0,
       input.maxChoices,
       input.now,
+      input.kind,
     );
 }
 
@@ -429,14 +445,16 @@ export function insertAttributedMemberAnswerStatement(
     readonly pollId: MeetingPollId;
     readonly optionId: MeetingPollOptionId;
     readonly attendanceId: MeetingAttendanceId;
+    /** The option's place on a ranking, 1 first; null on every other kind. */
+    readonly rank: number | null;
   },
 ): SqlStatement {
   return database
     .prepare(
       `INSERT INTO ${MEETING_POLL_ANSWER_TABLE} (id, poll_id, option_id, participant_kind, ` +
-        `participant_id) VALUES (?1, ?2, ?3, 'member', ?4)`,
+        `participant_id, rank) VALUES (?1, ?2, ?3, 'member', ?4, ?5)`,
     )
-    .bind(input.id, input.pollId, input.optionId, input.attendanceId);
+    .bind(input.id, input.pollId, input.optionId, input.attendanceId, input.rank);
 }
 
 // WHAT SOMEBODY CHOSE, on a poll that does not show names: the option and NOTHING ELSE. Both halves
@@ -448,12 +466,15 @@ export function insertAnonymousAnswerStatement(
     readonly id: MeetingPollAnswerId;
     readonly pollId: MeetingPollId;
     readonly optionId: MeetingPollOptionId;
+    /** The option's place on a ranking, 1 first; null on every other kind. A place says nothing
+     * about who gave it, so an anonymous ranking stays anonymous. */
+    readonly rank: number | null;
   },
 ): SqlStatement {
   return database
     .prepare(
       `INSERT INTO ${MEETING_POLL_ANSWER_TABLE} (id, poll_id, option_id, participant_kind, ` +
-        `participant_id) VALUES (?1, ?2, ?3, NULL, NULL)`,
+        `participant_id, rank) VALUES (?1, ?2, ?3, NULL, NULL, ?4)`,
     )
-    .bind(input.id, input.pollId, input.optionId);
+    .bind(input.id, input.pollId, input.optionId, input.rank);
 }

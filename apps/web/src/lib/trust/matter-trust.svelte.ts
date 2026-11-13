@@ -203,8 +203,7 @@ export class MatterTrust {
       this.pendingRefusal = null;
     } else {
       this.pendingRequests = [];
-      this.pendingRefusal =
-        "The payments waiting on somebody's decision could not be read for this account.";
+      this.pendingRefusal = "Payments waiting for a decision couldn't be loaded for this account.";
     }
   }
 }
