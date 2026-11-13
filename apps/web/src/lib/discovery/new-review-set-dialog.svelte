@@ -124,7 +124,7 @@
     failure = stated(
       outcome.failure,
       "The review set could not be created.",
-      "Nothing answered. Nothing was created, so pressing again creates one review set.",
+      "Couldn't connect. The review set wasn't created. Try again.",
     );
     return "refused";
   }
@@ -188,8 +188,7 @@
         <Label for="new-review-set-name">Name</Label>
         <Input id="new-review-set-name" disabled={busy} bind:value={name} />
         <p class="text-text-muted text-sm">
-          What this corpus is, in the words the firm would use in correspondence — the plaintiff's
-          March production, the firm's own collection for the second request.
+          A name the firm would use in a letter, such as "plaintiff's March production".
         </p>
       </div>
 

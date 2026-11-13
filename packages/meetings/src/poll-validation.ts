@@ -1,4 +1,5 @@
 import {
+  type MeetingPollKind,
   MAX_MEETING_POLL_OPTIONS,
   MAX_MEETING_POLL_OPTION_LENGTH,
   MAX_MEETING_POLL_QUESTION_LENGTH,
@@ -29,7 +30,7 @@ export type MeetingPollValidationCode =
   | "meeting-poll-invalid";
 
 /** Which part of a poll body failed, named for the caller's own field. */
-export type MeetingPollInvalidField = "question" | "options" | "maxChoices" | "optionIds";
+export type MeetingPollInvalidField = "question" | "options" | "maxChoices" | "optionIds" | "kind";
 
 export class MeetingPollValidationError extends Error {
   constructor(
@@ -67,7 +68,13 @@ export function assertPollBody(input: {
   readonly question: string;
   readonly options: readonly string[];
   readonly maxChoices: number;
-}): { question: string; options: readonly string[]; maxChoices: number } {
+  readonly kind: MeetingPollKind;
+}): {
+  question: string;
+  options: readonly string[];
+  maxChoices: number;
+  kind: MeetingPollKind;
+} {
   const question = input.question.trim();
   if (question.length === 0) invalid("question", "a poll has to ask something");
   if (question.length > MAX_MEETING_POLL_QUESTION_LENGTH) {
@@ -106,7 +113,21 @@ export function assertPollBody(input: {
   ) {
     invalid("maxChoices", "a participant chooses at least one option and no more than there are");
   }
-  return { question, options, maxChoices: input.maxChoices };
+  // What each kind asks of the rest of the body. A ranking puts EVERY option in order, so it names
+  // them all; a single pick names one; a score's options are its scale, the points "1" upward.
+  if (input.kind === "one" && input.maxChoices !== 1) {
+    invalid("maxChoices", "a poll that picks one lets a participant choose one option");
+  }
+  if (input.kind === "ranking" && input.maxChoices !== options.length) {
+    invalid("maxChoices", "a ranking puts every option in order");
+  }
+  if (input.kind === "score") {
+    if (input.maxChoices !== 1) invalid("maxChoices", "a score gives one point on the scale");
+    if (options.some((option, index) => option !== String(index + 1))) {
+      invalid("options", "a score's options are the points of its scale, from 1 upward");
+    }
+  }
+  return { question, options, maxChoices: input.maxChoices, kind: input.kind };
 }
 
 /**
@@ -118,9 +139,17 @@ export function assertPollBody(input: {
  */
 export function assertAnswerChoices(
   optionIds: readonly string[],
-  poll: { readonly maxChoices: number; readonly optionIds: ReadonlySet<string> },
+  poll: {
+    readonly maxChoices: number;
+    readonly optionIds: ReadonlySet<string>;
+    readonly kind?: MeetingPollKind;
+  },
 ): readonly string[] {
   if (optionIds.length === 0) invalid("optionIds", "an answer chooses at least one option");
+  // A ranking's answer is every option, in the order the participant put them.
+  if (poll.kind === "ranking" && optionIds.length !== poll.optionIds.size) {
+    invalid("optionIds", "a ranking puts every option in order");
+  }
   if (new Set(optionIds).size !== optionIds.length) {
     invalid("optionIds", "an answer names each option once");
   }

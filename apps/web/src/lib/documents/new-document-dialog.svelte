@@ -102,8 +102,8 @@
   );
 
   const OUTPUT_FORMAT_ITEMS: readonly { value: AssemblyOutputFormat; label: string }[] = [
-    { value: "docx", label: "Word document — still editable" },
-    { value: "pdf", label: "PDF — ready to sign" },
+    { value: "docx", label: "Word document, still editable" },
+    { value: "pdf", label: "PDF, ready to sign" },
   ];
 
   /*
@@ -394,7 +394,7 @@
     {#if outcome !== null && !landed}
       {#if outcome.kind === "transport"}
         <Alert.Root variant="danger">
-          <Alert.Title>Nothing answered.</Alert.Title>
+          <Alert.Title>Couldn't connect.</Alert.Title>
           <Alert.Description>
             The request did not reach the server. Check the connection and try again.
           </Alert.Description>

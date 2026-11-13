@@ -138,8 +138,7 @@
         failure = stated(
           outcome.failure,
           "The documents could not be added to the load.",
-          "Nothing answered. Whatever had already been added is still on the load; asking again " +
-            "continues from there rather than adding anything twice.",
+          "Couldn't connect. Anything already added is still on the load, and trying again picks up where it stopped.",
         );
         return "refused";
       }
@@ -151,8 +150,7 @@
     }
     failure = stated(
       { problem: null, request: `POST /api/v1/loads/${loadId}/internal-selection`, failedAt: new Date() },
-      "The load is part-filled: it did not finish in the turns allowed. Nothing is lost — opening " +
-        "this again continues from where it stopped.",
+      "The load is partly filled because it didn't finish in time. Nothing is lost. Open it again to continue.",
     );
     return "refused";
   }

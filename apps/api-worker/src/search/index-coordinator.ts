@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { Bindings } from "../bindings.ts";
 import {
   SEARCH_INDEX_MAXIMUM_ATTEMPTS_PER_GENERATION,
@@ -27,7 +27,7 @@ const UNKNOWN: SearchIndexJobState = {
   engineGeneration: "",
 };
 
-export class SearchIndexJob extends DurableObject<Bindings> implements SearchIndexCoordinator {
+export class SearchIndexJob extends StoredSecretsDurableObject implements SearchIndexCoordinator {
   async start(message: SearchIndexMessage): Promise<SearchIndexStartOutcome> {
     const existing = (await this.ctx.storage.get<SearchIndexJobState>("state")) ?? null;
     // An already-indexed job is done: a re-enqueue of the same version is a no-op, which is what makes

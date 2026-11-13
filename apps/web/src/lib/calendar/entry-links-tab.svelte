@@ -213,7 +213,7 @@
     relateFailure = stated(
       outcome.failure,
       "The settings were not related.",
-      "Nothing answered, so nothing was related; pressing again tries once.",
+      "Couldn't connect. Nothing was linked. Try again.",
     );
     return "refused";
   }

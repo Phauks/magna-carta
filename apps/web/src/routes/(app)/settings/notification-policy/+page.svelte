@@ -101,7 +101,7 @@
     writeFailure = stated(
       outcome.failure,
       `${subject} was not changed.`,
-      "Nothing answered, so nothing changed; choosing again tries once more.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
   }
 
@@ -252,8 +252,7 @@
 
 <SettingsScrollRegion>
   <SettingsDescription>
-    What the firm insists its members hear, and what it merely suggests. Each member still sets
-    their own preferences under My Settings.
+    What staff must be notified about, and what's only suggested. Each person still sets their own preferences in My Settings.
   </SettingsDescription>
 
   {#if writeFailure !== null}
@@ -297,8 +296,7 @@
       <DataTable.GridFooter {grid} />
     {/if}
     <SettingsPlateNote>
-      Trust and Security always reach every member in app, whatever this page says: a firm cannot
-      be in a position where nobody was told.
+      Trust and Security notifications always reach every member in the app, so someone is always told.
     </SettingsPlateNote>
   </SettingsPlate>
 

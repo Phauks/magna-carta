@@ -189,7 +189,11 @@ const EVENT_COLUMNS =
   "COALESCE(matter_event.starts_on, firm_event.starts_on) AS starts_on, " +
   "COALESCE(matter_event.starts_at_time, firm_event.starts_at_time) AS starts_at_time, " +
   "COALESCE(matter_event.ends_at_time, firm_event.ends_at_time) AS ends_at_time, " +
-  "COALESCE(matter_event.time_zone, firm_event.time_zone) AS time_zone";
+  "COALESCE(matter_event.time_zone, firm_event.time_zone) AS time_zone, " +
+  // The matter's title, so a list can say where a meeting was filed in words rather than a link.
+  // Every read that selects these columns has already passed the event's visibility gate, so a
+  // title is only ever read for a matter the reader may see.
+  "(SELECT matter.title FROM matter WHERE matter.id = matter_event.matter_id) AS matter_title";
 
 const EVENT_JOIN =
   `LEFT JOIN matter_event ON matter_event.id = ${MEETING_TABLE}.matter_event_id ` +
@@ -203,7 +207,8 @@ const EVENT_JOIN =
 // screen should count as present. Members and guests alike — a guest on a tile is somebody present.
 const LIVE_COUNT_COLUMN = `${inTheRoomCount(`${MEETING_TABLE}.id`)} AS live_count`;
 
-type MeetingSummaryColumns = MeetingRow & MeetingEventRow & { readonly live_count: number };
+type MeetingSummaryColumns = MeetingRow &
+  MeetingEventRow & { readonly live_count: number; readonly matter_title: string | null };
 
 function toSummary(row: MeetingSummaryColumns): MeetingSummary {
   return {
@@ -212,6 +217,7 @@ function toSummary(row: MeetingSummaryColumns): MeetingSummary {
     medium: row.medium,
     eventId: row.event_id,
     matterId: row.matter_id,
+    matterTitle: row.matter_title,
     title: row.title,
     startsOn: row.starts_on,
     startsAtTime: row.starts_at_time,

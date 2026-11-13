@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import {
   MEETING_PROTOCOL_VERSION,
   NORMAL_CLOSE_CODE,
@@ -225,7 +225,7 @@ function attachmentFromRequest(request: Request): MeetingSocketAttachment | null
   };
 }
 
-export class MeetingRoom extends DurableObject<Bindings> {
+export class MeetingRoom extends StoredSecretsDurableObject {
   /**
    * What every room module is given. Built per call rather than held as a field, for the same
    * reason nothing else is held: class properties do not survive hibernation, and a two-field

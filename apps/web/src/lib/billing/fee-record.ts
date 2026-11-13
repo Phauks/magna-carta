@@ -103,7 +103,7 @@ export function billingLabel(billable: boolean): string {
 /** What the disposition MEANS, on the hover. Meanings never print; they are read on demand. */
 export function billingSentence(billable: boolean): string {
   return billable
-    ? "Billable: it lands on the next draft invoice for this matter."
+    ? "Billable. It goes on the next draft bill for this matter."
     : "Non-billable: recorded on the file, never charged to the client.";
 }
 

@@ -323,7 +323,7 @@
     physicalFileFailure = stated(
       outcome.failure,
       "Where the file is kept was not recorded.",
-      "Nothing answered. The matter's paper file is unchanged.",
+      "Couldn't connect. The paper file is unchanged.",
     );
   }
 
@@ -347,7 +347,7 @@
     destructionFailure = stated(
       outcome.failure,
       "The destruction date was not recorded.",
-      "Nothing answered. The matter's paper file is unchanged.",
+      "Couldn't connect. The paper file is unchanged.",
     );
   }
 
@@ -373,7 +373,7 @@
     numberFailure = stated(
       outcome.failure,
       "The number was not set.",
-      "Nothing answered. The matter's number is unchanged.",
+      "Couldn't connect. The matter number is unchanged.",
     );
   }
 

@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../bindings.ts";
 import {
@@ -31,7 +31,7 @@ export interface StartInput extends TimerBinding {
   readonly abandonedThresholdMinutes: number;
 }
 
-export class LiveTimerDurableObject extends DurableObject<Bindings> {
+export class LiveTimerDurableObject extends StoredSecretsDurableObject {
   private async load(): Promise<TimerState | null> {
     return (await this.ctx.storage.get<TimerState>(STATE_KEY)) ?? null;
   }

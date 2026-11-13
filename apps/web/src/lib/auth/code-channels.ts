@@ -38,7 +38,7 @@ const SHAPES: Record<CodeChannel, CodeChannelShape> = {
     length: VERIFICATION_CODE_LENGTH,
     charset: "numeric",
     origin: "From your authenticator app",
-    rejection: `That code didn't verify. Authenticator codes change every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds — enter the current one.`,
+    rejection: `That code didn't work. Authenticator codes change every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds, so enter the current one.`,
     resendable: false,
   },
   call: {

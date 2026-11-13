@@ -135,7 +135,7 @@
     failure = stated(
       outcome.failure,
       "Nothing was paid in: this matter's trust ledger is unchanged.",
-      "Nothing answered, so nothing was paid in. The ledger is unchanged.",
+      "Couldn't connect. Nothing was paid in.",
     );
     return "refused";
   }
@@ -241,7 +241,7 @@
 
       <LabelledField
         label="Purpose"
-        hint="Why the money was received. It is the line the ledger entry reads."
+        hint="Why the money was received. This becomes the ledger entry's description."
         error={fieldRefusal(serverProblem, "purpose")}
       >
         {#snippet children({ props })}

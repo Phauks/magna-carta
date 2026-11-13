@@ -2,6 +2,7 @@ import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/v
 import composeWasmModule from "@magna-carta/pdf-compose/src/pkg/pdf_compose_core_bg.wasm";
 import pdfWasmModule from "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm";
 import { decodeSealRequest, encodeSealResponse } from "@magna-carta/signing";
+import { resolveStoredSecrets } from "@magna-carta/worker-secrets/stored-secrets";
 
 import { resolvePlatformIdentity, type SignWorkerEnv } from "./platform-identity.ts";
 import { performSeal } from "./seal-service.ts";
@@ -31,7 +32,11 @@ export default {
       return json({ error: "not-found" }, 404);
     }
 
-    const identity = await resolvePlatformIdentity(env);
+    // The seal key and certificate may be bound from the account's Secrets Store
+    // (SECRETS_STORE_PLATFORM_SEAL_KEY / SECRETS_STORE_PLATFORM_SEAL_CERT) or set on this Worker.
+    const identity = await resolvePlatformIdentity(
+      await resolveStoredSecrets(env, ["PLATFORM_SEAL_KEY", "PLATFORM_SEAL_CERT"]),
+    );
     if (identity === null) {
       // Deferred activation: the platform-seal secrets are not set yet.
       return json({ error: "seal-not-configured" }, 503);

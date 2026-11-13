@@ -328,9 +328,7 @@
     emptyTitle="No Calls Or Texts Yet"
   >
     {#snippet emptyBody()}
-      A record of a call or a text is what the firm said, to whom, and when — the part of a case's
-      history that otherwise lives only in somebody's memory of the phone call. Recording the first
-      one, with New Message at the top of the screen, starts the log.
+      No calls or texts on this matter yet.
     {/snippet}
     {#snippet emptyActions()}
       {#if createRefusal === undefined}

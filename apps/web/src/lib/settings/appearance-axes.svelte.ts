@@ -124,7 +124,7 @@ export const THEME_DEFINITION: SettingDefinition = {
   id: "theme.theme",
   sectionId: "theme",
   label: "Theme",
-  description: "Six curated themes, each in light and dark; the firm's brand choice.",
+  description: "Six themes, each in light and dark.",
   kind: "select",
   options: [
     { value: "chancery", label: "Chancery — ink & gold (flagship)" },
@@ -178,7 +178,7 @@ export const DENSITY_DEFINITION: SettingDefinition = {
   kind: "select",
   options: [
     { value: "comfortable", label: "Comfortable" },
-    { value: "compact", label: "Compact — tighter rows and controls" },
+    { value: "compact", label: "Compact: tighter rows and controls" },
   ],
   defaultValue: "comfortable",
   sensitivity: "open",
@@ -188,12 +188,12 @@ export const MOTION_DEFINITION: SettingDefinition = {
   id: "accessibility.motion",
   sectionId: "accessibility",
   label: "Motion",
-  description: "How much the interface moves — full, quieter, or none.",
+  description: "How much the interface moves: full, reduced or none.",
   kind: "select",
   options: [
     { value: "full", label: "Full" },
-    { value: "reduced", label: "Reduced — shorter, quieter" },
-    { value: "off", label: "Off — instant" },
+    { value: "reduced", label: "Reduced: shorter, quieter" },
+    { value: "off", label: "Off: instant" },
     { value: "system", label: "Match my system" },
   ],
   defaultValue: "system",
@@ -225,8 +225,7 @@ export const TYPEFACE_DEFINITION: SettingDefinition = {
   id: "text.font-family",
   sectionId: "text",
   label: "Font Family",
-  description:
-    "The reading typeface across the interface. Page titles and the firm's mark keep their own faces.",
+  description: "The typeface used across the app. Page titles and the firm's logo keep their own.",
   kind: "select",
   // The face's name alone (owner-directed, 2026-11-13): the Text page draws each option IN its
   // own face, so the face shows what it is and a line describing it is noise.

@@ -196,7 +196,7 @@ export function authorizedByTitle(movement: TrustMovementRecord): string {
  * deliberately empty, and the hover says why, the way a cost's unserved cell does.
  */
 export const NO_AMOUNT_ON_THIS_SIDE =
-  "This movement went the other way, so it carries no amount on this side of the ledger.";
+  "This movement went the other way, so it has no amount on this side of the ledger.";
 
 /**
  * What both Trust surfaces say where the roster read stopped short of the firm's whole record.
@@ -206,7 +206,7 @@ export const NO_AMOUNT_ON_THIS_SIDE =
  * and two sentences for one fact is how a reader learns the two screens are two products.
  */
 export const ROSTER_CAPPED_WARNING =
-  "The roster stopped short of the end, so these are some of the firm's trust accounts rather than all of them.";
+  "Not all of the firm's trust accounts could be loaded, so this list is incomplete.";
 
 /**
  * What the notices band says about payments nobody has decided yet.

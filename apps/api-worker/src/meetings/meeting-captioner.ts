@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import type { FirmId, MeetingId } from "@magna-carta/identifiers/types";
 import type { CaptionResult, CaptionStream, InferencePort } from "@magna-carta/inference/port";
@@ -207,7 +207,7 @@ function newNonce(): string {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export class MeetingCaptioner extends DurableObject<Bindings> {
+export class MeetingCaptioner extends StoredSecretsDurableObject {
   private identity: StoredIdentity | null = null;
   private meter: CaptionMeter = NO_METER;
   private readonly sessions = new Map<string, CaptionSession>();
@@ -223,6 +223,7 @@ export class MeetingCaptioner extends DurableObject<Bindings> {
     // opened for them are not, and go on sending audio to an address nobody is listening at — so they
     // are closed before anything else is delivered. Only handles were stored, never a word.
     void ctx.blockConcurrencyWhile(async () => {
+      await this.storedSecretsReady;
       this.identity = (await ctx.storage.get<StoredIdentity>(IDENTITY_KEY)) ?? null;
       this.meter = (await ctx.storage.get<CaptionMeter>(METER_KEY)) ?? NO_METER;
       const orphaned = (await ctx.storage.get<Record<string, string>>(ADAPTERS_KEY)) ?? {};

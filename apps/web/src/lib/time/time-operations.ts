@@ -551,7 +551,7 @@ export function draftRefusal(input: {
 }): string | null {
   const minutes = parseDurationText(input.durationText);
   if (minutes === null || minutes <= 0) return "Enter the time worked";
-  if (input.description.trim() === "") return "Enter the Description: every entry states its work";
+  if (input.description.trim() === "") return "Enter a description.";
   return null;
 }
 

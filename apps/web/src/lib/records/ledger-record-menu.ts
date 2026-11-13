@@ -306,10 +306,7 @@ export function ledgerRecordMenu(
       ...(target.status === "draft"
         ? oneRecordGesture(count, "A draft is deleted one at a time.")
         : {
-            disabledReason:
-              `Only a draft is deleted. This ${lower} has been submitted or billed, so it is a ` +
-              "record somebody may be asked to account for — withdraw it with Void instead, and it " +
-              "stays on the ledger.",
+            disabledReason: `Only a draft can be deleted. This ${lower} has been submitted or billed, so void it instead to keep it on record.`,
           }),
     };
   }

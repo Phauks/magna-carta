@@ -97,8 +97,7 @@
       {list.loadingMore ? "Loading" : "Load more costs"}
     </Button>
     <p class="text-xs text-text-muted">
-      Showing the {(costs ?? []).length} most recently incurred. The figures below cover only
-      what is loaded, so they are not the matter's whole cost record until every page is read.
+      Showing the {(costs ?? []).length} most recently incurred. The totals below cover only these until you load more.
     </p>
   </div>
 {/snippet}
@@ -125,9 +124,7 @@
     <Alert.Root variant="info">
       <Alert.Title>This is a sample matter.</Alert.Title>
       <Alert.Description>
-        It exists so the matter screens stay reviewable at a stable address; there is no firm record
-        behind it, so it holds no costs and nothing can be recorded against it. Open one of the
-        firm's own matters to use this surface.
+        This is a sample matter for previewing screens. It has no costs. Open one of the firm's matters to use it.
       </Alert.Description>
     </Alert.Root>
   </section>

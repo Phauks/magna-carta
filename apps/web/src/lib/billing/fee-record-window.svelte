@@ -205,7 +205,7 @@
   }
 
   const BILLING_CHOICES = [
-    { value: "billable", label: "Billable, next invoice" },
+    { value: "billable", label: "Billable, next bill" },
     { value: "nonbillable", label: "Non-billable" },
   ] as const;
 
@@ -278,7 +278,7 @@
           ? `The fee was not saved. The server answered ${String(outcome.problem.status)}.${
               outcome.problem.detail === undefined ? "" : ` ${outcome.problem.detail}`
             }`
-          : "Nothing answered. The fee was not saved and the record is unchanged.";
+          : "Couldn't connect. The fee wasn't saved.";
       return;
     }
     onSaved();
@@ -299,7 +299,7 @@
   });
 
   const editRefusal = $derived.by((): string | undefined => {
-    if (fee === null) return "A new fee is written in its fields; there is nothing to read yet.";
+    if (fee === null) return "A new fee has no history yet.";
     if (fee.status !== "draft") return statusEntry(feeStatusKey(fee.status)).meaning;
     const verdict = canWorkDraft(fee);
     return verdict.allowed ? undefined : verdict.reason;
@@ -543,7 +543,7 @@
     {#if fee === null}
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
-        <span>Not on a bill yet. A draft invoice claims it from the Billing tab.</span>
+        <span>Not on a bill yet. Add it to a draft bill from the Billing tab.</span>
       </p>
     {:else}
       <div>
@@ -559,18 +559,16 @@
         <span>
           {#if fee.status === "billed"}
             {#if fee.invoiceId === null}
-              Billed. Which bill took it up is not recorded on this fee, so there is nothing to open
-              from here.
+              Billed. The bill isn't linked to this fee.
             {:else}
               Billed. <a class="underline underline-offset-2" href={billHref(fee.matterId, fee.invoiceId)}
-                >Open the bill this fee is charged on</a
-              >. A record on a finalized bill is evidence; the correction is a credit note beside it.
+                >Open the bill this fee is on</a
+              >. To correct a finalized bill, add a credit note.
             {/if}
           {:else if fee.status === "void"}
             Withdrawn. A void fee stays on the record and counts toward nothing.
           {:else}
-            Not on a bill yet. A draft invoice claims it from the Billing tab, exactly as it claims
-            a cost, and it prints its own line on the bill.
+            Not on a bill yet. Add it to a draft bill from the Billing tab, where it prints as its own line.
           {/if}
         </span>
       </p>

@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import { commitEffectBatch, type EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
@@ -378,7 +378,7 @@ function frameSamplesOf(track: RecorderTrack): number {
   return track.lastFrameSamples > 0 ? track.lastFrameSamples : DEFAULT_FRAME_SAMPLES;
 }
 
-export class MeetingRecorder extends DurableObject<Bindings> {
+export class MeetingRecorder extends StoredSecretsDurableObject {
   // NON-HIBERNATING, so the instance is the working set: these live exactly as long as the sockets
   // that feed them, and storage holds the metadata a restart or a sweep would need if they did not.
   private recording: StoredRecorderRecording | null = null;
@@ -409,6 +409,7 @@ export class MeetingRecorder extends DurableObject<Bindings> {
     // its socket as though it had just dropped: redialled, it resumes on the wall clock; not, it is
     // lost on the ordinary loss path.
     void ctx.blockConcurrencyWhile(async () => {
+      await this.storedSecretsReady;
       this.recording = (await ctx.storage.get<StoredRecorderRecording>(RECORDING_KEY)) ?? null;
       const stored = await ctx.storage.list<RecorderTrack>({ prefix: TRACK_PREFIX });
       const now = Date.now();

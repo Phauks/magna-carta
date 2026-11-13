@@ -28,7 +28,7 @@
    *
    * THE FOOT OF THE RAIL IS THE UTILITY TRAY — a compact icon cluster of the things that are
    * ABOUT the app rather than places in the firm's work. It has two ends (owner-directed): the
-   * rail's own controls at the inline start (Settings, then Customize), and the two transfer
+   * rail's own controls at the inline start (Settings, Customize, then System Status), and the two transfer
    * registers (Downloads and Uploads) leaning to the inline end. Downloads and Uploads live here
    * rather than in the My Desk group because they run alongside whatever is on screen, often
    * both at once; they lean away from the rail's controls because they are the two things in the
@@ -55,6 +55,7 @@
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import * as TopBar from "@magna-carta/design-system/top-bar";
   import { isPaletteChord } from "@magna-carta/design-system/internal/platform";
+  import Activity from "@lucide/svelte/icons/activity";
   import Check from "@lucide/svelte/icons/check";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
@@ -210,6 +211,9 @@
       }
     }
   });
+
+  const SYSTEM_STATUS_HREF = "/settings/system-status";
+  const onSystemStatus = $derived(page.url.pathname.startsWith(SYSTEM_STATUS_HREF));
 
   function toggleCustomize(): void {
     customizing = !customizing;
@@ -578,6 +582,19 @@
           </Tooltip.Trigger>
           <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
         </Tooltip.Root>
+        <!-- System Status sits with the rail's own controls (owner-directed): it is about the
+             app rather than a place in the firm's work, and it is the full page behind the
+             build chip, one press away instead of three menus deep in Settings. -->
+        <a
+          href={SYSTEM_STATUS_HREF}
+          class="mc-sidebar-control-button relative"
+          title="System Status"
+          aria-label="System Status"
+          aria-current={onSystemStatus ? "page" : undefined}
+          data-active={onSystemStatus ? "true" : undefined}
+        >
+          <Activity class="mc-sidebar-icon" aria-hidden="true" />
+        </a>
         <!-- One element, so the collapsed rail's "everything past the first icon goes" rule
              takes the pair away and brings it back whole. -->
         <div class="mc-sidebar-controls-trailing">

@@ -146,8 +146,7 @@
     {#if addressQuery.trim() === ""}
       <p class="text-sm text-text-muted">
         {#if sectionLabel === null}
-          Search everything on this matter — files, parties, notes and what the firm holds in
-          custody.
+          Search this matter's files, parties, notes and items in custody.
         {:else}
           Searching {sectionLabel} on this matter.
         {/if}

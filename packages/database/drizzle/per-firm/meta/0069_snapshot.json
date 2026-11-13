@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "dfb47dd3-deb1-4032-9a71-448f7d495b73",
+  "id": "c4149ddc-ae0a-4640-81f0-1d2e1868ceda",
   "prevId": "2b15559c-e580-4511-94c0-04f760157a3c",
   "tables": {
     "account_balance": {
@@ -14065,161 +14065,6 @@
         }
       }
     },
-    "magnus_artifact": {
-      "name": "magnus_artifact",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "conversation_id": {
-          "name": "conversation_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "magnus_artifact_conversation_index": {
-          "name": "magnus_artifact_conversation_index",
-          "columns": [
-            "conversation_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "magnus_artifact_conversation_id_magnus_conversation_id_fk": {
-          "name": "magnus_artifact_conversation_id_magnus_conversation_id_fk",
-          "tableFrom": "magnus_artifact",
-          "tableTo": "magnus_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "magnus_artifact_version": {
-      "name": "magnus_artifact_version",
-      "columns": {
-        "artifact_id": {
-          "name": "artifact_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "version_number": {
-          "name": "version_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "written_by_turn_id": {
-          "name": "written_by_turn_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "member_user_id": {
-          "name": "member_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "restored_from_version": {
-          "name": "restored_from_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "magnus_artifact_version_artifact_id_magnus_artifact_id_fk": {
-          "name": "magnus_artifact_version_artifact_id_magnus_artifact_id_fk",
-          "tableFrom": "magnus_artifact_version",
-          "tableTo": "magnus_artifact",
-          "columnsFrom": [
-            "artifact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "magnus_artifact_version_artifact_id_version_number_pk": {
-          "columns": [
-            "artifact_id",
-            "version_number"
-          ],
-          "name": "magnus_artifact_version_artifact_id_version_number_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "magnus_conversation": {
       "name": "magnus_conversation",
       "columns": {
@@ -14391,71 +14236,6 @@
         "magnus_conversation_attachment_text_status_check": {
           "name": "magnus_conversation_attachment_text_status_check",
           "value": "\"magnus_conversation_attachment\".\"text_status\" IN ('pending', 'sent', 'cut', 'unreadable')"
-        }
-      }
-    },
-    "magnus_conversation_permission": {
-      "name": "magnus_conversation_permission",
-      "columns": {
-        "conversation_id": {
-          "name": "conversation_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "permission": {
-          "name": "permission",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "granted_by": {
-          "name": "granted_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "granted_at": {
-          "name": "granted_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "magnus_conversation_permission_conversation_id_magnus_conversation_id_fk": {
-          "name": "magnus_conversation_permission_conversation_id_magnus_conversation_id_fk",
-          "tableFrom": "magnus_conversation_permission",
-          "tableTo": "magnus_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "magnus_conversation_permission_conversation_id_permission_pk": {
-          "columns": [
-            "conversation_id",
-            "permission"
-          ],
-          "name": "magnus_conversation_permission_conversation_id_permission_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "magnus_conversation_permission_check": {
-          "name": "magnus_conversation_permission_check",
-          "value": "\"magnus_conversation_permission\".\"permission\" IN ('own-matter-conversations')"
         }
       }
     },
@@ -21661,6 +21441,14 @@
           "autoincrement": false,
           "default": 1
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'one'"
+        },
         "opened_at": {
           "name": "opened_at",
           "type": "text",
@@ -21767,6 +21555,10 @@
           "name": "meeting_poll_max_choices_check",
           "value": "\"meeting_poll\".\"max_choices\" BETWEEN 1 AND 10"
         },
+        "meeting_poll_kind_check": {
+          "name": "meeting_poll_kind_check",
+          "value": "\"meeting_poll\".\"kind\" IN ('one', 'multiple', 'ranking', 'score')"
+        },
         "meeting_poll_question_length_check": {
           "name": "meeting_poll_question_length_check",
           "value": "length(\"meeting_poll\".\"question\") > 0 AND length(\"meeting_poll\".\"question\") <= 500"
@@ -21811,6 +21603,13 @@
         "participant_id": {
           "name": "participant_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -21862,6 +21661,10 @@
         "meeting_poll_answer_participant_shape_check": {
           "name": "meeting_poll_answer_participant_shape_check",
           "value": "(\"meeting_poll_answer\".\"participant_kind\" IS NULL AND \"meeting_poll_answer\".\"participant_id\" IS NULL)\n        OR (\"meeting_poll_answer\".\"participant_kind\" IS NOT NULL AND \"meeting_poll_answer\".\"participant_id\" IS NOT NULL)"
+        },
+        "meeting_poll_answer_rank_check": {
+          "name": "meeting_poll_answer_rank_check",
+          "value": "\"meeting_poll_answer\".\"rank\" IS NULL OR \"meeting_poll_answer\".\"rank\" BETWEEN 1 AND 10"
         },
         "meeting_poll_answer_participant_kind_check": {
           "name": "meeting_poll_answer_participant_kind_check",

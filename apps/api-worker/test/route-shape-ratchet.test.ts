@@ -123,7 +123,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "notifications/notifications.ts": { lines: 623, shapes: 1 },
   "platform/meta-database-health.ts": { lines: 536, shapes: 9 },
   // Raised by one line when the address engine joined the versions it reports.
-  "platform/meta-versions.ts": { lines: 317, shapes: 5 },
   "platform/platform-status.ts": { lines: 407, shapes: 6 },
   "session/me.ts": { lines: 300, shapes: 6 },
   // Raised from 605 lines when the sub-role rules (a sub-role needs its parent, one per parent) landed.

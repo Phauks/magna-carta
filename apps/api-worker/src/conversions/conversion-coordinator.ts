@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import {
@@ -33,7 +33,7 @@ const UNKNOWN: ConversionJobState = {
   reason: "unknown job",
 };
 
-export class ConversionJob extends DurableObject<Bindings> implements ConversionCoordinator {
+export class ConversionJob extends StoredSecretsDurableObject implements ConversionCoordinator {
   // Constructed per call: class properties do not survive hibernation, and this holds no state of its
   // own — it reads the job state back from storage and the subscriber's context off the socket.
   private progress(): JobProgressSockets<Awaited<ReturnType<typeof resolveConversionProgress>>> {

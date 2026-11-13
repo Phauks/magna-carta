@@ -217,7 +217,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   }
 
   const BILLING_CHOICES = [
-    { value: "billable", label: "Billable, next invoice" },
+    { value: "billable", label: "Billable, next bill" },
     { value: "absorbed", label: "Absorbed by the firm" },
   ] as const;
 
@@ -267,7 +267,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   });
 
   const editRefusal = $derived.by((): string | undefined => {
-    if (entry === null) return "A new cost is written in its fields; there is nothing to read yet.";
+    if (entry === null) return "A new cost has no history yet.";
     if (entry.status !== "draft") return statusEntry(costStatusKey(entry.status)).meaning;
     const verdict = canWorkDraft(entry);
     return verdict.allowed ? undefined : verdict.reason;
@@ -374,7 +374,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
           ? `The cost was not saved. The server answered ${String(outcome.problem.status)}.${
               outcome.problem.detail === undefined ? "" : ` ${outcome.problem.detail}`
             }`
-          : "Nothing answered. The cost was not saved and the record is unchanged.";
+          : "Couldn't connect. The cost wasn't saved.";
       return;
     }
     onSaved();
@@ -673,8 +673,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
           {:else if entry.status === "void"}
             Withdrawn. A void cost stays on the record and counts toward nothing.
           {:else}
-            Not on a bill yet. Billable costs flow onto a draft invoice in the Billing section, one
-            line per cost.
+            Not on a bill yet. Billable costs are added to a draft bill in the Billing section, one line each.
           {/if}
         </span>
       </div>

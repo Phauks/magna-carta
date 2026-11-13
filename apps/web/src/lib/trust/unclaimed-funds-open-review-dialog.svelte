@@ -105,7 +105,7 @@
     failure = stated(
       outcome.failure,
       "No file was opened. This ledger is unchanged, and no money moved.",
-      "Nothing answered, so no file was opened. This ledger is unchanged, and no money moved.",
+      "Couldn't connect. No file was opened and no money moved.",
     );
     return "refused";
   }
