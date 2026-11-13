@@ -715,7 +715,7 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-11-13-signing-flow-design.md
-  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel). The signer's page, adoption and sealing on completion are next.
+  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. Sealing on completion, scheduled reminders and expiry, and in-app signing for firm members are next.
 
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion
@@ -731,7 +731,7 @@
   scope: Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
   status: partial
   surface: screen
-  evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the signer-side checks arrive with the signer's page. SMS codes, ID checks and portal sign-in are not offered.
+  evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the emailed link and the emailed six-digit code are checked on the signer lane (apps/api-worker/src/signing/signer-service.ts). Signing in to the firm is chosen but not yet signable. SMS codes, ID checks and portal sign-in are not offered.
 
 - id: documents.esignature.vendor-port
   name: Vendor adapter seam

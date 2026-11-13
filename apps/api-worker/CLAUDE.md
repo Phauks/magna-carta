@@ -158,6 +158,16 @@ Worker.
   or sits anywhere but `surface: "app"` / `resource: "firm"`, and a guest credential presented to any
   other route is answered the reserved 404 before a session is looked for. The routes are
   `src/http/routes/communications/meetings-guest.ts`; the credential format is `meetings/guest-token.ts`.
+- **An outside signer has a lane of its own, built the way the guest lane is.** A route declaring
+  `signerLane: "link"` is admitted by the signed link in the `x-signing-link` header INSTEAD of the
+  session, member-active and permission steps; the handler reads the firm, request and signer through
+  `requireChokepointSignerGrant`, and a signing link sent to any other route is answered 404. The
+  link carries a secret derived from `AUTH_SECRET`, the signer, and the secret's version
+  (`src/signing/signer-link.ts`), so a reminder re-mails the same link; the row stores only its
+  SHA-256 and the version, and bumping the version kills every older link. The token, the secret and
+  an access code are never logged, counted, echoed or written to an activity line, and the address
+  and browser on every act are read from the request, never from the body. The routes are
+  `src/http/routes/documents/signers.ts`.
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
 - **Every object written into a firm's bucket carries its dimensions.** Build them with

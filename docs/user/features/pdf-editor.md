@@ -160,5 +160,20 @@ The document sent is the file's current version. Its fingerprint is recorded whe
 
 **Following a request.** After sending, the tab shows who has signed, who is next, and everything
 that has happened and when. **Send Reminder** emails whoever is waiting now. **Cancel Request**
-stops the links working; signatures already given stay on the record. When everyone has signed,
-the signed copy and its Certificate of Completion are saved beside the original.
+stops the links working; signatures already given stay on the record. Saving the signed copy and
+its Certificate of Completion beside the original when everyone has signed is coming next.
+
+**What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
+link opens a page with your firm's name, the document's title and your message. If you chose
+**Link and Email Code**, they first ask for a code by email and enter it. They then read and agree
+to sign electronically, and the document opens with their own fields marked on it. **Next Field**
+takes them to the next thing to fill in. On the first signature or initials field they adopt their
+signature by typing their name, drawing it, or uploading a picture of it, and tick that it is as
+binding as signing by hand. **Finish** records their signature and sends the link to whoever signs
+next. **Decline to Sign** ends the request for everyone and tells you why, if they say.
+
+A reminder sends the same link again, so an earlier email still works. A link stops working when the
+request is cancelled, declined or past its last day, and the page says which.
+
+Colleagues you add as signers cannot sign inside Magna Carta yet, so a request with a colleague as
+a signer waits at their turn until that arrives.
