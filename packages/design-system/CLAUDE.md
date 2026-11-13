@@ -67,7 +67,9 @@ properties; off-token values are machine-rejected.
   somebody quotes. Asserted at the call sites by `pnpm run lint:modal-headers`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
   the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
-  Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
+  Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only).
+  A trigger with no words, a "..." or any icon-only button, never opens on hover (owner ruling
+  2026-11-13); the Trigger checks its own text at the moment of the hover
 - `src/lib/components/conversation/` — `Conversation`, the transcript surface the assistant is read
   through. It is a RECORD, not a chat window: no bubbles, no avatars, no coloured alignment, no
   motion. A turn is a speaker label over a body, hairline-separated, and the two speakers are told

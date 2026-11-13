@@ -30975,6 +30975,70 @@
           "timeZone"
         ]
       },
+      "FirmRoomsResponse": {
+        "type": "object",
+        "properties": {
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FirmRoom"
+            }
+          }
+        },
+        "required": [
+          "rooms"
+        ]
+      },
+      "FirmRoom": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "linkCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "medium": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "video",
+              "audio",
+              null
+            ]
+          },
+          "openMeetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inTheRoom": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isCaller": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "linkCode",
+          "medium",
+          "openMeetingId",
+          "inTheRoom",
+          "isCaller"
+        ]
+      },
       "PersonalRoomAtLink": {
         "type": "object",
         "properties": {
@@ -31126,6 +31190,12 @@
               "null"
             ]
           },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
           },
@@ -31220,6 +31290,7 @@
           "eventKind",
           "eventId",
           "matterId",
+          "matterTitle",
           "title",
           "startsOn",
           "startsAtTime",
@@ -102396,6 +102467,80 @@
           },
           "422": {
             "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/rooms": {
+      "get": {
+        "description": "Every active member's personal room, by name: its link where the member has set one up, and how many people are in the session it has open. Names no matter: what a session is about stays behind the meeting reads.",
+        "operationId": "meetings.listFirmRooms",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listFirmRooms",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's rooms",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmRoomsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission this route needs",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The room, link, meeting or matter is not one the member can reach",
             "content": {
               "application/problem+json": {
                 "schema": {
