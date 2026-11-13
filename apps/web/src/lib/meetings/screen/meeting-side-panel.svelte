@@ -62,7 +62,7 @@
 {/snippet}
 
 <aside
-  class="flex h-full min-h-0 flex-col gap-12 rounded-lg border border-border-default bg-surface-raised p-12"
+  class="flex h-full min-h-0 flex-col gap-12 rounded-lg border border-border-strong bg-surface-raised p-12 shadow-elevation"
   aria-label="Meeting side panel"
 >
   <Tabs.Root

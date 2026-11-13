@@ -23,12 +23,14 @@
   import { page } from "$app/state";
   import FailureScreen from "./failure-screen.svelte";
   import ReportDialog from "./report-dialog.svelte";
-  import { CRASH_MESSAGE, noteCrash, PAGE_CRASH_STEPS } from "./crash.ts";
+  import { CRASH_MESSAGE, crashSignature, noteCrash, PAGE_CRASH_STEPS } from "./crash.ts";
   import { routeFailure } from "./route-failure.ts";
 
   let { children }: { children: Snippet } = $props();
 
   let errorId = $state<string | null>(null);
+  /** What was thrown and where, shown beside the Error ID (crash.ts says what it may carry). */
+  let cause = $state<string | null>(null);
   let reportOpen = $state(false);
 
   // The record the root +error.svelte builds from `page`, with the status SvelteKit itself gives a
@@ -36,7 +38,10 @@
   const failure = $derived(
     routeFailure({
       status: 500,
-      error: errorId === null ? null : { message: CRASH_MESSAGE, errorId },
+      error:
+        errorId === null
+          ? null
+          : { message: CRASH_MESSAGE, errorId, ...(cause === null ? {} : { cause }) },
       url: page.url,
     }),
   );
@@ -53,6 +58,7 @@
 <svelte:boundary
   onerror={(error) => {
     errorId = noteCrash(error, page.url.pathname);
+    cause = crashSignature(error);
   }}
 >
   {@render children()}
