@@ -15,8 +15,8 @@ the firm-scoped read result as injected parameters.
   record, not a firm preference).
 - The catalog (`src/catalog.ts`) is the curated source of truth: every entry carries `zdrEligible` /
   `noTrainingEligible` / `verifiedOn` and a pinned `snapshotId`. Validated at module load — a malformed
-  entry, or a non-ZDR reasoning entry, fails loud at import. `claude-fable-5` is excluded (it mandates
-  retention; non-ZDR). `PLATFORM_EMBEDDING_MODEL_ID` is the one place to confirm the embedding model
+  entry, or a non-ZDR reasoning entry, fails loud at import. The Fable line (`claude-fable-5`, `claude-fable-5-1`, and any successor) is
+  excluded: it mandates retention, so it can never be ZDR. `PLATFORM_EMBEDDING_MODEL_ID` is the one place to confirm the embedding model
   against the live Vectorize index version before merge.
 - **A model id is a perishable fact, and this package is where that is admitted.** Providers ship
   successors and retire predecessors on their own schedule and tell this repository nothing, so every

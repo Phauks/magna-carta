@@ -13,7 +13,6 @@
     ]
   },
   "permissions": {
-    "additionalDirectories": ["C:/dev/magna-carta-worktrees/"],
     "allow": [
       "Bash(git status:*)",
       "Bash(git log:*)",
@@ -89,7 +88,7 @@
       "EnterWorktree",
       "ExitWorktree",
       "mcp__github",
-      "mcp__Claude_Code_Remote"
+      "mcp__claude-code-remote"
     ],
     "deny": [
       "Bash(git push origin main:*)",

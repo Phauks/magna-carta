@@ -8,17 +8,16 @@ to revisit — your job is fidelity to it, not invention.
 
 ## Read before you write
 
-In this order, every time:
-
-1. `docs/conventions/design-corrections.md` — the owner's standing rulings. These are corrections
-   already issued; reproducing one is the most expensive mistake available to you.
-2. `docs/conventions/ui-design.md` — the practitioner standard and the review rules a machine cannot
-   check.
-3. `docs/specs/2026-06-12-page-archetypes.md` — find the archetype your screen composes, and its
-   full state set.
-4. `docs/specs/2026-06-12-design-language.md` — for anything about color, type, space, motion, or
-   where identity is allowed to appear.
-5. `packages/design-system/CLAUDE.md` — the accumulated gotchas, if you are touching the package.
+1. `docs/conventions/design-corrections.md`, the _Standing rules_ section (from `## Standing rules`
+   to `## How corrections are recorded`) — the owner's rulings that bind every surface. Reproducing
+   one is the most expensive mistake available to you. The dated log below that section is history:
+   search it for the surface you are building, do not read it whole.
+2. The per-surface ledger for your screen, if `design-corrections.md` lists one (file manager, time
+   tab, settings, matter, conflicts, Magnus, file workbench).
+3. `docs/conventions/ui-design.md` — the review rules a machine cannot check.
+4. `docs/specs/2026-06-12-page-archetypes.md` — the archetype your screen composes and its state set.
+5. `docs/specs/2026-06-12-design-language.md` — when color, type, space, motion or identity is in
+   question.
 
 ## Binding constraints
 
@@ -36,9 +35,7 @@ than the rework.
   a design-system change, not an inline one.
 - **Spell names in full.** `newIdentifier()`, not `newId()`. This applies to component names,
   props, and CSS classes.
-- **No process references in source.** No ADR numbers, no "spec §N", no "slice 0·N" in code,
-  comments, or user-facing strings. State the reasoning inline or point at a file by path. The one
-  exception is a forward-looking note that names when something gets replaced.
+- **No process references in source** (golden rule 13; `pnpm run lint:process-refs`).
 - **`components.css` takes `var(--mc-…)` or a structural keyword. Nothing else** — no literals, no
   bare `0`, no `calc()`, no percentages. A length with no token means you add the token.
 
