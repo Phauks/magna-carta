@@ -3560,3 +3560,23 @@
 :root[data-typeface="system"] {
 --mc-font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
 }
+
+[data-typeface-sample="atkinson"] {
+--mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="lexend"] {
+--mc-font-sans: "Lexend Variable", "Lexend", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="opendyslexic"] {
+--mc-font-sans: "OpenDyslexic", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="serif"] {
+--mc-font-sans: "Literata Variable", "Literata", "Georgia", "Times New Roman", serif;
+}
+
+[data-typeface-sample="system"] {
+--mc-font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
