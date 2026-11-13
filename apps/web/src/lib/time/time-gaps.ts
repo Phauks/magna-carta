@@ -33,7 +33,7 @@ export const TIME_LEDGER_GAPS = {
     waitsOn: "the non-billable category being served on the listing",
   },
   invoice: {
-    field: "Invoice",
+    field: "Bill",
     waitsOn: "the invoice's own number and dates being served beside its identifier",
   },
   billingDisposition: {

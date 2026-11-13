@@ -193,7 +193,7 @@ export function customRangeOutcome(from: string, to: string): CustomRangeOutcome
   if (from > to) {
     return {
       kind: "refused",
-      reason: "The start is after the end, so the range is not applied until it reads forwards.",
+      reason: "The start is after the end, so the range isn't applied.",
     };
   }
   return { kind: "applied", scope: { from, to, label: spanLabel(from, to) } };

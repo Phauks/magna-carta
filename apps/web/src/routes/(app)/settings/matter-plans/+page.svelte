@@ -436,8 +436,7 @@
                           </div>
                         </div>
                         <p class="text-xs text-text-muted">
-                          The role is matched against each matter's own team when the plan is offered.
-                          Where nobody holds it, the step arrives unassigned and says so.
+                          The role is matched to each matter's team when the plan is offered. If no one has the role, the task is unassigned.
                         </p>
                         <div class="flex justify-end gap-8">
                           <Button

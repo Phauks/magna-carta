@@ -41,7 +41,7 @@
     args: {
       heading: "Write Off a Balance",
       subtitle: {
-        reference: { kind: "Invoice", number: "2026-0147" },
+        reference: { kind: "Bill", number: "2026-0147" },
         facts: ["this matter still owes $4,120.00"],
       },
       commitLabel: "Write It Off",

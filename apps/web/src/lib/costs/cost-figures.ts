@@ -55,13 +55,13 @@ export function footerFigures(
       identifier: "unbilled",
       label: "unbilled",
       amountMinor: sumAmountMinor(billable.filter((cost) => cost.status !== "billed")),
-      caption: `Billable costs not yet on a finalized invoice${inView}. A draft bill claims them in the Billing section.`,
+      caption: `Billable costs not yet on a finalized bill${inView}. Add them to a draft bill in the Billing section.`,
     },
     {
       identifier: "billed",
       label: "billed",
       amountMinor: sumAmountMinor(billable.filter((cost) => cost.status === "billed")),
-      caption: `Costs a finalized invoice has taken up${inView}.`,
+      caption: `Costs on a finalized bill${inView}.`,
     },
     {
       identifier: "absorbed",

@@ -245,7 +245,7 @@ describe("the matter of an entry the firm already holds", () => {
 
     expect(store.rowByKey("entry-1")?.matterId).toBe("matter-1");
     expect(recorder.writes).toEqual([]);
-    expect(announcements.join(" ")).toContain("has to be on a matter");
+    expect(announcements.join(" ")).toContain("must be on a matter");
   });
 });
 
@@ -278,8 +278,8 @@ describe("striking an entry", () => {
     // Both halves. Saying only the first would leave a reader believing the void is permanent,
     // which it stopped being when the entry gained a way back to draft.
     const said = announcements.join(" ");
-    expect(said).toContain("Undo does not reach it");
-    expect(said).toContain("restore it from the ledger or the record window");
+    expect(said).toContain("Undo can't reverse this");
+    expect(said).toContain("restore it from the ledger or the entry window");
   });
 
   it("does offer a step for a row nothing was ever written for, and puts it back", async () => {

@@ -58,8 +58,8 @@ export function postureSentence(
   currency: string,
 ): string {
   const clause = version.requireAuthorizedApprover
-    ? "whoever releases it must hold the authority"
-    : "whoever releases it need not hold the authority";
+    ? "the person who releases it must have the authority"
+    : "the person who releases it doesn't need the authority";
   return `${postureRuleClause(version, currency)}; ${clause}.`;
 }
 

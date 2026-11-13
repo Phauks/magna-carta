@@ -330,7 +330,7 @@ describe("what a proposal that did not release says", () => {
 
   it("still says what happens next where the server named nobody", () => {
     expect(proposalPendingSentence([])).toBe(
-      "Proposed. Waiting on a member who holds the authority to release client money.",
+      "Proposed. Waiting for someone with authority to release client money.",
     );
   });
 });

@@ -68,7 +68,7 @@
    * share a line behind three different separators across these panels.
    */
   const subtitle = $derived<RecordSubject>({
-    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+    reference: { kind: "Bill", number: row?.summary.invoiceNumber ?? null },
     facts: [`this matter still owes ${money(ceiling)}`],
   });
 
@@ -76,7 +76,7 @@
     if (row === null) return "No bill is open.";
     if (reading.kind === "empty") return "Say how much the firm is giving up.";
     if (reading.kind === "refused") return reading.reason;
-    if (reason.trim() === "") return "A reason is required. It is what the books are read against.";
+    if (reason.trim() === "") return "A reason is required.";
     return undefined;
   });
 
@@ -125,9 +125,7 @@
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
-          A write-off says the charge was right and the money is not coming: a different fact from a
-          credit note, kept separate on the firm's books. It cannot exceed what is still owed; money
-          already collected is refunded or credited instead.
+          A write-off means the charge was correct but won't be paid. It's recorded separately from a credit note and can't exceed what is still owed. To return money already collected, refund or credit it instead.
         </span>
       </p>
 

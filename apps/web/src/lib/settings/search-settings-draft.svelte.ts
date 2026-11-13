@@ -30,7 +30,7 @@ export const FILE_CONTENTS_INDEXED_DEFINITION: SettingDefinition = {
   plateLabel: "File Contents",
   label: "Search Inside Files",
   description:
-    "Reads the words inside the firm's files and keeps an index of them in the firm's own storage, so a matter's search finds a file by what it says and not only by its name. A search still shows a file only to somebody who could already open it.",
+    "Reads the words inside the firm's files so a matter search can find a file by its contents, not just its name. Search results only show files a person can already open.",
   kind: "switch",
   defaultValue: false,
   sensitivity: "open",

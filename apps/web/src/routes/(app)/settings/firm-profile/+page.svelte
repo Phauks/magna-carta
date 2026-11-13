@@ -66,7 +66,7 @@
   const trimmed = $derived(draft.trim());
   const changed = $derived(committed !== null && trimmed !== committed);
   const refusal = $derived.by((): string | undefined => {
-    if (trimmed === "") return "A firm needs a name: it is what a client reads on every document.";
+    if (trimmed === "") return "A firm needs a name. Clients see it on every document.";
     if (trimmed.length > MAX_FIRM_DISPLAY_NAME_LENGTH) {
       return `At most ${MAX_FIRM_DISPLAY_NAME_LENGTH} characters.`;
     }
@@ -113,8 +113,7 @@
 
 <SettingsScrollRegion>
     <SettingsDescription>
-      Who the firm is: the name its clients read on every invoice, in the portal, and on every
-      generated document.
+      The firm's name and details, as clients see them on bills, in the portal and on documents.
     </SettingsDescription>
 
     {#if failure !== null}
@@ -135,7 +134,7 @@
       >
         {#snippet failure()}
           <p class="py-12 text-sm text-text-muted">
-            The firm's name could not be read, so it is not shown rather than guessed at.
+            The firm's name couldn't be loaded.
           </p>
         {/snippet}
         {#snippet fixture()}
