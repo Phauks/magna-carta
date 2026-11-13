@@ -43,6 +43,7 @@
   import MeetingAttendancePanel from "$lib/meetings/meeting-attendance-panel.svelte";
   import RecordingList from "$lib/meetings/screen/recording-list.svelte";
   import MyRoomCard from "$lib/meetings/my-room-card.svelte";
+  import FirmRoomsCard from "$lib/meetings/firm-rooms-card.svelte";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import type { MeetingScope, MeetingSectionState } from "$lib/meetings/meeting-list.ts";
   import type { MeetingSummary } from "@magna-carta/api-client";
@@ -173,8 +174,15 @@
       />
     {/snippet}
   </ScreenHeader>
-  {#if canHost && configured}
-    <MyRoomCard />
+  {#if configured}
+    <!-- The member's own room beside everybody else's: side by side where the screen is wide,
+         stacked where it is not. -->
+    <div class="grid items-start gap-24 lg:grid-cols-2">
+      {#if canHost}
+        <MyRoomCard />
+      {/if}
+      <FirmRoomsCard />
+    </div>
   {/if}
   <MeetingsScreen
     {sections}

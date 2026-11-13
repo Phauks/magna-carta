@@ -936,6 +936,7 @@ const SUMMARY = {
   recordingConfigured: true,
   captionsAvailable: false,
   personalRoomSession: false,
+  matterTitle: null,
   encrypted: false,
 };
 

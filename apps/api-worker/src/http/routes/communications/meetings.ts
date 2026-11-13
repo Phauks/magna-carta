@@ -195,6 +195,8 @@ const MeetingSummaryResponse = z
     // Null on a firm event, which belongs to no matter — the reason both permission keys bind the
     // firm rather than a matter.
     matterId: z.string().nullable(),
+    // The matter's title, so a list says where a meeting was filed in words. Null on a firm event.
+    matterTitle: z.string().nullable(),
     // The event's own facts, resolved by the read rather than copied onto the meeting. A second copy
     // would be a second answer to a question the event already answers.
     title: z.string(),

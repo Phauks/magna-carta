@@ -13,18 +13,21 @@
    * GETTING A NEW LINK ASKS FIRST, because the old address stops working at once and anybody who
    * was sent it is turned away.
    *
+   * THE SETTINGS LIVE BEHIND "...", beside the card's title. They are changed once and rarely, so
+   * the card's face is kept for what a member does every day: copy the link and go in.
+   *
    * THE CARD IS A HOST'S. Having a room is `meetings:host`; the page draws this only where the
    * session holds it, and the server refuses it otherwise.
    */
   import Copy from "@lucide/svelte/icons/copy";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Video from "@lucide/svelte/icons/video";
   import { createQuery } from "@tanstack/svelte-query";
   import { meetingsReadPersonalRoomOptions } from "@magna-carta/api-client";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
-  import Button from "@magna-carta/design-system/button";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as Card from "@magna-carta/design-system/card";
-  import Label from "@magna-carta/design-system/label";
-  import Switch from "@magna-carta/design-system/switch";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import { toast } from "@magna-carta/design-system/toast";
   import { reserveMeetingTab } from "./meeting-tab.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -128,7 +131,38 @@
 
 <Card.Root>
   <Card.Header>
-    <Card.Title>My Room</Card.Title>
+    <div class="flex items-start justify-between gap-8">
+      <Card.Title>My Room</Card.Title>
+      {#if room !== null}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class={buttonClasses({ variant: "ghost", size: "icon-sm" })}
+            aria-label="My Room settings"
+            disabled={busy}
+          >
+            <Ellipsis class="size-16" aria-hidden="true" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end">
+            <DropdownMenu.CheckboxItem
+              checked={room.lobby === "on"}
+              closeOnSelect={false}
+              onCheckedChange={(on) => void change({ lobby: on === true ? "on" : "off" })}
+            >
+              {MEETING_LOBBY_LABEL}
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.CheckboxItem
+              checked={room.medium === "audio"}
+              closeOnSelect={false}
+              onCheckedChange={(on) => void change({ medium: on === true ? "audio" : "video" })}
+            >
+              Open as an audio call
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.Separator />
+            <DropdownMenu.Item onSelect={() => (replacing = true)}>Get a New Link</DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      {/if}
+    </div>
     <Card.Description>
       A standing link colleagues can use whenever you are in. Each time you open it, the meeting is
       put on your calendar, and you can move it onto a matter during the meeting or after it.
@@ -151,27 +185,6 @@
           Copy Link
         </Button>
       </div>
-      <div class="flex flex-col gap-8">
-        <div class="flex items-center justify-between gap-16">
-          <Label for="my-room-lobby">{MEETING_LOBBY_LABEL}</Label>
-          <Switch
-            id="my-room-lobby"
-            disabled={busy}
-            checked={room.lobby === "on"}
-            onCheckedChange={(checked: boolean) => void change({ lobby: checked ? "on" : "off" })}
-          />
-        </div>
-        <div class="flex items-center justify-between gap-16">
-          <Label for="my-room-audio">Open as an audio call</Label>
-          <Switch
-            id="my-room-audio"
-            disabled={busy}
-            checked={room.medium === "audio"}
-            onCheckedChange={(checked: boolean) =>
-              void change({ medium: checked ? "audio" : "video" })}
-          />
-        </div>
-      </div>
     {/if}
     {#if writeFailure !== null}
       {@render refusal(writeFailure)}
@@ -183,7 +196,6 @@
         <Video aria-hidden="true" />
         {room.openMeetingId === null ? "Open My Room" : "Go to My Room"}
       </Button>
-      <Button variant="ghost" onclick={() => (replacing = true)} disabled={busy}>Get a New Link</Button>
     </Card.Footer>
   {/if}
 </Card.Root>
