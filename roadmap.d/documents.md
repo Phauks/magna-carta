@@ -730,6 +730,7 @@
   name: Attribution assurance tiers
   scope: Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
   status: partial
+  surface: screen
   evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the signer-side checks arrive with the signer's page. SMS codes, ID checks and portal sign-in are not offered.
 
 - id: documents.esignature.vendor-port
