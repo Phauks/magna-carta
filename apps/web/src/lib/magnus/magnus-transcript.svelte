@@ -44,6 +44,8 @@
   import type { ConversationSession } from "./conversation-session.svelte.ts";
   import MarkedText from "$lib/search/marked-text.svelte";
   import { findMarks, shownTurns } from "./conversation-find.ts";
+  import { versionsWrittenBy } from "./artifact-text.ts";
+  import FileText from "@lucide/svelte/icons/file-text";
   import { turnFailureSentence, type MagnusTurn } from "./magnus-api.ts";
 
   let {
@@ -52,6 +54,7 @@
     onRemove,
     find = "",
     currentMatchId = null,
+    onOpenDocument,
   }: {
     session: ConversationSession;
     /** Words being found in this conversation, already trimmed; marked wherever they stand. */
@@ -62,6 +65,8 @@
     onEdit?: (turn: MagnusTurn) => void;
     /** Ask to remove one of the reader's own messages and its answer. */
     onRemove?: (turn: MagnusTurn) => void;
+    /** Open a document an answer wrote, at the version it wrote, in the pane. */
+    onOpenDocument?: (artifactId: string, versionNumber: number) => void;
   } = $props();
 
   /*
@@ -194,6 +199,29 @@
                   marks={findMarks(turn.content, find)}
                 />{:else}{turn.content}{/if}</Conversation.TurnBody
             >
+          {/if}
+          {#if live && turn.speaker === "magnus" && turn.removedAt === null}
+            <!-- A document the answer wrote is kept beside the conversation with its versions, so
+                 the answer carries a card for it rather than its whole text. -->
+            {#each versionsWrittenBy(session.artifacts, turn.id) as written (written.artifact.id)}
+              <button
+                type="button"
+                class="flex w-full max-w-md items-center gap-12 rounded-md border border-border bg-surface px-12 py-8 text-left hover:bg-surface-subtle"
+                onclick={() => onOpenDocument?.(written.artifact.id, written.version.versionNumber)}
+              >
+                <FileText class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
+                <span class="flex min-w-0 flex-1 flex-col gap-2">
+                  <span class="truncate text-sm font-semibold">{written.artifact.title}</span>
+                  <span class="text-xs text-text-muted">
+                    Version {written.version.versionNumber} of {written.artifact.versions.length}{written
+                      .version.note !== null
+                      ? ` · ${written.version.note}`
+                      : ""}
+                  </span>
+                </span>
+                <span class="text-sm font-medium text-text-muted">Open</span>
+              </button>
+            {/each}
           {/if}
           {#if turn.status === "pending"}
             {#if session.answerIsSlow}

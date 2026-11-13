@@ -78,3 +78,11 @@ describe("finding words in a conversation", () => {
     expect(steppedMatch(0, 0, 1)).toBe(0);
   });
 });
+
+describe("the order a transcript shows", () => {
+  it("follows the sequence, so an answer sharing its question's timestamp never shows above it", () => {
+    const answer = turn("b", "magnus", "the answer", { sequence: 1 });
+    const question = turn("a", "member", "the question", { sequence: 0 });
+    expect(shownTurns([answer, question]).map((shown) => shown.id)).toEqual(["a", "b"]);
+  });
+});

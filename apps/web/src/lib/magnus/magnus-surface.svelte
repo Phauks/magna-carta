@@ -59,6 +59,10 @@
   import { page } from "$app/state";
   import { replaceState } from "$app/navigation";
   import MagnusComposer from "./magnus-composer.svelte";
+  import MagnusPane, { type PaneTab } from "./magnus-pane.svelte";
+  import PanelRight from "@lucide/svelte/icons/panel-right";
+  import Button from "@magna-carta/design-system/button";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
   import MagnusDisclosure from "./magnus-disclosure.svelte";
   import MagnusRail from "./magnus-rail.svelte";
   import MagnusTranscript from "./magnus-transcript.svelte";
@@ -574,7 +578,22 @@
     if (open === findConversation) return;
     findConversation = open;
     closeFind();
+    openDocument = null;
   });
+
+  /*
+   * The pane beside the conversation (magnus-pane.svelte): open or closed, which tab, and the
+   * document open in it. It stays open across conversations, as a member's own layout; the document
+   * does not, because it belongs to the conversation it was opened from.
+   */
+  let paneOpen = $state(false);
+  let paneTab = $state<PaneTab>("context");
+  let openDocument = $state<{ artifactId: string; versionNumber: number } | null>(null);
+
+  function openDocumentInPane(artifactId: string, versionNumber: number): void {
+    openDocument = { artifactId, versionNumber };
+    paneOpen = true;
+  }
 
   /* Opening another conversation, or a read that no longer holds the message, ends the edit. */
   $effect(() => {
@@ -709,6 +728,7 @@
     bind:composerElement
     onMatter={openMatterId !== null}
     attachments={session.attachments}
+    readsEarlierConversations={session.permissions.includes("own-matter-conversations")}
     model={availability?.model}
     models={availability?.models ?? []}
     bind:choice={modelChoice}
@@ -760,6 +780,25 @@
         </p>
       {/if}
     </div>
+    <div class="flex items-center gap-4">
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
+          <Button
+            {...props}
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Context, permissions and artifacts"
+            aria-pressed={paneOpen}
+            disabled={selected === null}
+            onclick={() => (paneOpen = !paneOpen)}
+          >
+            <PanelRight class="size-16" aria-hidden="true" />
+          </Button>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content side="bottom">{paneOpen ? "Hide the pane" : "Show the pane"}</Tooltip.Content>
+    </Tooltip.Root>
     <ConversationMenu
       conversationId={selected?.id ?? null}
       disabled={session.sending}
@@ -778,6 +817,7 @@
       onDownload={() => void downloadTranscript()}
       onDelete={() => (deletingConversation = selected)}
     />
+    </div>
   </div>
 {/snippet}
 
@@ -789,7 +829,7 @@
 {/snippet}
 
 {#snippet conversationDetail()}
-  <Conversation.Root class="min-h-0 flex-1">
+  <Conversation.Root class="min-h-0 min-w-0 flex-1">
     {#if selectedId !== null}
       {@render conversationHeadRow()}
       {#if findOpen}
@@ -809,6 +849,7 @@
         onRemove={(turn) => (removingTurn = turn)}
         find={findWords}
         {currentMatchId}
+        onOpenDocument={openDocumentInPane}
       />
     {:else}
       <!-- TWO ABSENCES, TWO SETS OF WORDS. Nothing on the record is the member never having asked
@@ -951,7 +992,25 @@
       {#if rail === "switcher"}
         {@render switcher(rows ?? [])}
       {/if}
-      {@render conversationDetail()}
+      <div class="flex min-h-0 flex-1 flex-col md:flex-row">
+        {@render conversationDetail()}
+        {#if paneOpen && selected !== null}
+          <MagnusPane
+            {session}
+            fetchImpl={fetch}
+            bind:tab={paneTab}
+            bind:openDocument
+            memberName={author.name}
+            readerIsAuthor={author.readerIsAuthor}
+            matterLine={matterLineFor(selected.matterId)}
+            {attachRefusal}
+            {detachingFileId}
+            onAttach={() => (attachingTo = selected)}
+            onDetach={(fileId) => void removeAttachment(fileId)}
+            onClose={() => (paneOpen = false)}
+          />
+        {/if}
+      </div>
     {/if}
   </LoadingRegion>
 {/snippet}

@@ -145,6 +145,15 @@ describe("what the composer says about what leaves the platform", () => {
     expect(line).toContain("does not let Magnus read the matter");
   });
 
+  it("says so when the conversation also reads the author's other conversations on the matter", () => {
+    const line = composerDisclosureLine({
+      onMatter: true,
+      attachmentCount: 0,
+      readsEarlierConversations: true,
+    });
+    expect(line).toContain("your own other conversations on this matter");
+  });
+
   it("names the model that answers, and says when the firm's choice is gone", () => {
     expect(answeringModelLine({ modelId: "anthropic/model", zeroDataRetention: true })).toBe(
       "Answered by anthropic/model, which keeps nothing that is sent to it.",

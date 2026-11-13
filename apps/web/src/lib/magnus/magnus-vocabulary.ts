@@ -76,6 +76,8 @@ export function formatKilobytes(bytes: number): string {
 export function composerDisclosureLine(options: {
   readonly onMatter: boolean;
   readonly attachmentCount: number;
+  /** True when the author turned on reading their own other conversations on the matter. */
+  readonly readsEarlierConversations?: boolean;
 }): string {
   const reads =
     options.attachmentCount === 0
@@ -84,7 +86,11 @@ export function composerDisclosureLine(options: {
         ? "Magnus reads what you type in this conversation and the text of the one file attached to it."
         : `Magnus reads what you type in this conversation and the text of the ${String(options.attachmentCount)} files attached to it.`;
   if (!options.onMatter) return reads;
-  return `${reads} Keeping the conversation on this matter's file does not let Magnus read the matter: not its other documents, not its calendar, not its parties.`;
+  const earlier =
+    options.readsEarlierConversations === true
+      ? " It also reads the latest messages of your own other conversations on this matter, as set in the pane."
+      : "";
+  return `${reads}${earlier} Keeping the conversation on this matter's file does not let Magnus read the matter: not its other documents, not its calendar, not its parties.`;
 }
 
 /** Which model answers, as the composer states it beside the disclosure line. */

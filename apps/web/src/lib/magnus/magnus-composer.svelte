@@ -45,6 +45,7 @@
     composerElement = $bindable(null),
     onMatter,
     attachments,
+    readsEarlierConversations = false,
     model,
     models = [],
     choice = $bindable(null),
@@ -66,6 +67,8 @@
     /** True inside a matter, where the disclosure line owes one more sentence. */
     onMatter: boolean;
     attachments: readonly MagnusAttachment[];
+    /** True when this conversation also reads the author's other conversations on the matter. */
+    readsEarlierConversations?: boolean;
     /** Which model answers; undefined before the read lands, null where the firm's choice is gone. */
     model: MagnusAnsweringModel | null | undefined;
     /** Every model the member may choose; empty where the server offered none. */
@@ -108,7 +111,11 @@
 <Conversation.Composer>
   <!-- One flowing line, not stacked sentences: what the assistant reads, and which model reads it. -->
   <p class="text-sm text-text-muted">
-    {composerDisclosureLine({ onMatter, attachmentCount: attachments.length })}
+    {composerDisclosureLine({
+      onMatter,
+      attachmentCount: attachments.length,
+      readsEarlierConversations,
+    })}
     {#if modelLine !== ""}
       {modelLine}
     {/if}

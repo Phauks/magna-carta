@@ -7,7 +7,8 @@
    * the message leaves the platform for an outside model provider; the assistant sees what they
    * type in that conversation, the text of the files they attach to it and, where they turn it on,
    * their own other conversations on the same matter, and nothing else; it
-   * can do nothing but answer; and the transcript is kept as a firm record. Then the sentence an
+   * can do nothing but answer and write drafts kept in the conversation; and the transcript, with
+   * those drafts, is kept as a firm record. Then the sentence an
    * administrator does not need told and the person typing does:
    * the assistant can be wrong, its output is not legal advice, and verifying anything they rely on
    * is theirs. None of the five may be softened, and the last one may not be dropped.
@@ -47,12 +48,12 @@
       body: "It reads the messages in the conversation you are in, and the readable text of any file you attach to it from the matter's own files. If you turn it on for a conversation kept on a matter, it also reads your own other conversations on that matter, never a colleague's. Nothing else: no other documents, no calendar, no directory. Keeping a conversation on a matter's file does not, by itself, let it read the matter.",
     },
     {
-      heading: "Magnus can only answer",
-      body: "It cannot create, edit, file, send, or delete anything in the firm's records. Whatever it suggests, you do.",
+      heading: "Magnus can only answer and draft",
+      body: "It answers, and when you ask for a draft it writes it as a document kept in the conversation, with every version. It cannot file, send, or delete anything, or change the firm's records. Whatever it suggests, you do.",
     },
     {
       heading: "Transcripts are kept as firm records",
-      body: "What you ask and what it answers stay on the firm's record, readable by you and by anyone the firm has given permission to read them. They are never visible to clients.",
+      body: "What you ask, what it answers and the documents it writes stay on the firm's record, readable by you and by anyone the firm has given permission to read them. They are never visible to clients.",
     },
     {
       heading: "Magnus can be wrong",
