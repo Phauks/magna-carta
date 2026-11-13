@@ -131,7 +131,7 @@ Detail belongs to each slice. This table fixes the targets so slices do not drif
 2. **Staging store and the first reader** (built, section 11). The reader is for delimited text, because LEAP's CSV reports are the files the owner can produce without LEAP's help.
 3. **Directory**: people, organizations and contact details are built (section 13). Duplicate handling is not.
 4. **Matters and parties**, with the matter-type and role lookups (built, section 14).
-5. **Rehearsal report**, once there are two record kinds to count.
+5. **Rehearsal report**, once there are two record kinds to count. The pass and its per-file report are built (section 15); storing a report and showing it are not.
 6. **Documents and emails.**
 7. **Money**: the per-matter money handling, view-only history and opening balances, the transfer-only path for live entries, the trust gate.
 8. **Matter details, custody, dates and tasks, precedents.**
@@ -258,3 +258,23 @@ Its audit events are `matter.transferred` and `matter.party_transferred`, so the
 **For the cutover runbook.** New matters draw their numbers from the firm's counter, and a draw that lands on a transferred number steps past it, but only a few times before it gives up. Before the firm opens its first new matter, the numbering scheme's counter must be set above the highest transferred number of the same shape.
 
 **Not in this slice.** The matter's office, its staff beyond the responsible member, the paper file's retention date, and matter details (custom fields) are not mapped. Party roles are taken from the rules as written and are not checked against the firm's catalogue of roles. Consultations and intakes are not transferred: every transferred matter is one the firm took on.
+
+## 15. The fifth slice: the pass over a file, and its report
+
+Built 2026-11-13. One module, `transfer-pass.ts`.
+
+**A pass is where the reader, the mapping rules and a loader meet.** `runTransferPass` takes the rows a reader yields, a run, and a plan for one kind of record: the kind its rows are linked under, the key column, the mapping rules and the loader. Every row is keyed, mapped and loaded, and what happened to it is counted. `personPassPlan`, `organizationPassPlan` and `matterPassPlan` build the plan for each kind the transfer carries.
+
+**The report accounts for every row.** Rows read always equal the records created, plus the rows whose record had already arrived, plus the rows rejected, plus the rows waiting. That equation is the "counts in and out" of section 4, and the tests assert it.
+
+- **Rejected**: a row that made no record and will not unless the file or the rules change. Each carries its row number, its line in the file, and one reason from a fixed vocabulary: a mapping rejection, a loader's refusal, an empty key, or a key an earlier row of the same file already used.
+- **Waiting**: a matter whose client or party has not arrived, with the keys that are missing. A later pass over the same file finishes these.
+- **Findings**: values left out of records that were made, each with its column. A finding is reported by the pass that made the record and not repeated by later passes, which leave the record alone.
+- **Sample**: the first five and the last five records the pass created, for a person to open and compare with the source by eye (section 12). Counts agreeing says every row arrived; only reading a record says it is right.
+- **Columns missing**: when the file lacks the key column or a column the rules name, no row is read and the report says which.
+
+**The report holds no client's details.** It carries positions, column names, fixed reasons, source keys and identifiers, and no other value from the file, so it can be stored and shown as it is. A test writes a report out and checks that no name or address from the file appears in it.
+
+**A fault stops the pass; an outcome does not.** An error a loader did not expect is thrown at the row it happened on. Nothing is lost: every row before it is linked, and the next pass carries on from there.
+
+**Not in this slice.** A report is returned to the caller and not stored. Nothing reads a file's bytes from object storage or records its row count; that, the upload route and the operator's screens are the next slice, and they are where a report is kept and shown, where the rejected rows are offered as a file in the source's own shape, and where a run's reports are added up. Money totals beside the source's own arrive with the money slice.

@@ -17,6 +17,7 @@
 - `src/directory-transfer.ts` — `transferPerson` and `transferOrganization`: read the link, and when there is none write the record and its link in one commit
 - `src/matter-mapping.ts` — the mapping rules for matters: `mapMatterRow` and `matterColumnsMissingFrom`. The client and parties stay as source keys in the draft
 - `src/matter-transfer.ts` — `transferMatter`: read the link, resolve the client and parties to live Directory records, and write the matter, its parties and its link in one commit
+- `src/transfer-pass.ts` — `runTransferPass`: one pass over one file for one kind of record, returning a `TransferPassReport`. `personPassPlan`, `organizationPassPlan` and `matterPassPlan` build the plan for each kind
 
 ## Local conventions
 
@@ -36,6 +37,8 @@
 - **A record waits for the records it names.** A matter whose client or party has no live Directory record is not written; the outcome lists what is missing. Because a second run never updates, a record written without a reference would never get it back.
 - **A transferred record announces nothing.** `composeTransferredMatter` returns no outbox messages, so no conflicts check or notification follows an arrival. Do not add one to a loader: telling the product about transferred records belongs to accepting a run.
 - **A reference is a source key and is not trimmed.** `valueOf` trims a field; a column that holds another record's key is read exactly, because it must equal the key that record was linked under.
+- **A report accounts for every row and holds no value from the file.** `rowsRead` equals created plus already linked plus rejected plus waiting. A report carries positions, column names, fixed reasons, source keys and identifiers only, so it can be stored and shown. A new outcome is a new count or list in the report, never a row that is silently skipped.
+- **A new kind of record gets a plan.** `TransferPassPlan` is the whole contract between a pass and a kind: its key column, its mapping function and its loader. Add a `...PassPlan` builder beside the others.
 - **A new reader adds its format to `SOURCE_FILE_FORMATS`.** A file registered under a format nothing reads is refused before the database is asked.
 
 ## Invariants that apply here
@@ -48,7 +51,7 @@
 ## Dependencies & contracts
 
 - Depends on `@magna-carta/data-access` for the `SqlDatabase` / `SqlStatement` surface, on `@magna-carta/identifiers` for its identifier types, on `@magna-carta/directory` for the compose functions and input types a transferred person or organization is written with, on `@magna-carta/matters` for `composeTransferredMatter`, and on `@magna-carta/civil-time` to turn a file's day into a stored instant.
-- Nothing in the product calls it yet. The upload route and the pass that reads a file and drives the mapping rules and the loader are its first callers.
+- Nothing in the product calls it yet. The upload route, and the job that reads a file from object storage and hands its rows to `runTransferPass`, are its first callers.
 
 ## Gotchas
 
