@@ -261,22 +261,25 @@
   name="APostalCodeThatDoesNotLookRight"
   template={mistyped_}
   play={async ({ canvas, step }) => {
-    await step("The note is said beside the box, naming an example rather than a pattern", () => {
+    await step("The note is the box's description, naming an example rather than a pattern", () => {
       expect(canvas.getByLabelText("ZIP Code")).toHaveAccessibleDescription(/95014/);
     });
 
-    // The whole claim of this prop. A code can match its country's published format perfectly and
-    // still reach nobody, and a new development can carry one no published format knows yet, so the
-    // box is never marked invalid and nothing here can stop a commit.
-    await step("It is a note and NOT a refusal: the box is never marked invalid", () => {
-      expect(canvas.getByLabelText("ZIP Code")).not.toHaveAttribute("aria-invalid");
+    // A field in error turns red and prints nothing under itself: the sentence lives only in the
+    // box's description and hover text. It is still a mark and not a refusal. A code can match its
+    // country's published format perfectly and reach nobody, so nothing here can stop a commit.
+    await step("The box is marked red and no line of text appears under it", () => {
+      const box = canvas.getByLabelText("ZIP Code");
+      expect(box).toHaveAttribute("aria-invalid", "true");
+      expect(canvas.getByText(/95014/)).toHaveClass("sr-only");
     });
 
-    await step("Correcting it takes the note away", async () => {
+    await step("Correcting it takes the mark and the note away", async () => {
       await userEvent.type(canvas.getByLabelText("ZIP Code"), "4");
-      await waitFor(() =>
-        expect(canvas.getByLabelText("ZIP Code")).not.toHaveAccessibleDescription(/95014/),
-      );
+      await waitFor(() => {
+        expect(canvas.getByLabelText("ZIP Code")).not.toHaveAccessibleDescription(/95014/);
+        expect(canvas.getByLabelText("ZIP Code")).not.toHaveAttribute("aria-invalid", "true");
+      });
     });
   }}
 />
