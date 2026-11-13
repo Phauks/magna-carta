@@ -1,16 +1,23 @@
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { guarded, type EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { MagnusConversationId, MagnusTurnId } from "@magna-carta/identifiers/types";
 import {
   turnCompletedAudit,
   turnFailedAudit,
+  turnRemovedAudit,
   turnSubmittedAudit,
   type MagnusWriteContext,
 } from "./audit.ts";
 import { exceedsMagnusTurnCap, exceedsMemberTurnCap } from "./limits.ts";
-import { completeTurnStatement, failTurnStatement, insertTurnStatement } from "./statements.ts";
-import type { TurnFailureLabel } from "./types.ts";
+import {
+  completeTurnStatement,
+  failTurnStatement,
+  insertTurnStatement,
+  removeTurnPairStatement,
+  supersedeTurnsFromStatement,
+} from "./statements.ts";
+import type { TurnFailureLabel, TurnRow } from "./types.ts";
 
 // Turn composition. A submission writes a PAIR of rows in one batch — the member's message, already
 // complete, and the Magnus turn it is waiting on, pending — because the pending row is the thing the
@@ -36,6 +43,10 @@ export interface SubmitTurnInput {
   // catalog. Absent, the answer comes from the firm's model at that model's own default effort. Both
   // are labels, not content, so they ride the outbox payload to the consumer.
   readonly choice?: { readonly modelId: string; readonly effort: string | null };
+  // Present when this submission EDITS an earlier member turn: that turn and every turn after it are
+  // set aside (kept on the record, no longer read by the model), and the new pair is appended naming
+  // the turn it replaces. Editing re-asks from that point rather than rewriting history in place.
+  readonly replaces?: { readonly turnId: MagnusTurnId; readonly sequence: number };
 }
 
 export type SubmitTurnResult =
@@ -64,6 +75,15 @@ export function submitTurn(
     magnusTurnId,
     effect: {
       statements: [
+        ...(input.replaces === undefined
+          ? []
+          : [
+              supersedeTurnsFromStatement(database, {
+                conversationId: input.conversationId,
+                fromSequence: input.replaces.sequence,
+                now,
+              }),
+            ]),
         insertTurnStatement(database, {
           id: memberTurnId,
           conversationId: input.conversationId,
@@ -73,6 +93,7 @@ export function submitTurn(
           status: "complete",
           createdAt: now,
           completedAt: now,
+          ...(input.replaces !== undefined && { replacesTurnId: input.replaces.turnId }),
         }),
         insertTurnStatement(database, {
           id: magnusTurnId,
@@ -89,6 +110,7 @@ export function submitTurn(
           memberTurnId,
           magnusTurnId,
           disclosureVersion: input.disclosureVersion,
+          ...(input.replaces !== undefined && { replacesTurnId: input.replaces.turnId }),
         }),
       ],
       outboxMessages: [
@@ -198,6 +220,60 @@ export function settleTurnFailure(
         failureLabel: input.failureLabel,
         modelId: input.modelId,
       }),
+    ],
+    outboxMessages: [],
+  };
+}
+
+// The label a removal's batch is refused under when the pair was set aside or removed between the
+// route's read and the commit; the route answers it as "already-gone".
+export const TURN_REMOVE_GUARD = "magnus.turn.remove";
+
+// Why a member turn cannot be edited or removed, as a closed label the route maps to a refusal.
+export type TurnChangeRefusal =
+  // Not a member's message: an answer is removed with its question, never on its own.
+  | "not-yours"
+  // Already removed, or already set aside by an earlier edit.
+  | "already-gone"
+  // An answer is still being written somewhere in the conversation; changing the record under it
+  // would leave that answer built on a question that no longer stands.
+  | "answer-pending";
+
+// Whether a member turn may be edited or removed. The caller has already established that the member
+// owns the conversation: only its author asks in it, so every member turn in it is theirs.
+export function turnChangeRefusal(turn: TurnRow, anyPending: boolean): TurnChangeRefusal | null {
+  if (turn.speaker !== "member") return "not-yours";
+  if (turn.removedAt !== null || turn.supersededAt !== null) return "already-gone";
+  if (anyPending) return "answer-pending";
+  return null;
+}
+
+// Removes a member turn and the answer that follows it. Both stay on the record behind a marker,
+// because a transcript is work product and is erased only with its whole conversation; neither is
+// read by the model again.
+export function removeTurn(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: {
+    readonly conversationId: MagnusConversationId;
+    readonly memberTurnId: MagnusTurnId;
+    // The Magnus turn answering it, when there is one.
+    readonly magnusTurnId: MagnusTurnId | null;
+  },
+): EffectWrite {
+  const turnIds =
+    input.magnusTurnId === null ? [input.memberTurnId] : [input.memberTurnId, input.magnusTurnId];
+  return {
+    statements: [
+      guarded(
+        removeTurnPairStatement(database, {
+          conversationId: input.conversationId,
+          turnIds,
+          now: context.clock.now(),
+        }),
+        TURN_REMOVE_GUARD,
+      ),
+      turnRemovedAudit(database, context, input),
     ],
     outboxMessages: [],
   };

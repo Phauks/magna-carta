@@ -23,6 +23,8 @@ export const UNNAMED_MEMBER = "A Member";
 export interface ConversationAuthor {
   /** The name a member turn is labelled with. */
   readonly name: string;
+  /** True when the signed-in member started the conversation, so its messages are theirs to change. */
+  readonly readerIsAuthor: boolean;
 }
 
 /**
@@ -55,6 +57,9 @@ export function conversationAuthor(authorId: () => string | null): ConversationA
   return {
     get name() {
       return name;
+    },
+    get readerIsAuthor() {
+      return authorIsReader;
     },
   };
 }

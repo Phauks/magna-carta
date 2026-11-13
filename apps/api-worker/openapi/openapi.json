@@ -35794,6 +35794,24 @@
               "null"
             ]
           },
+          "removedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supersededAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "replacesTurnId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -35815,6 +35833,9 @@
           "snapshotId",
           "contextTruncated",
           "effort",
+          "removedAt",
+          "supersededAt",
+          "replacesTurnId",
           "createdAt",
           "completedAt"
         ]
@@ -36081,6 +36102,28 @@
         "required": [
           "folderId",
           "pinned"
+        ]
+      },
+      "MagnusRemovedTurn": {
+        "type": "object",
+        "properties": {
+          "memberTurnId": {
+            "type": "string"
+          },
+          "magnusTurnId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "removedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "memberTurnId",
+          "magnusTurnId",
+          "removedAt"
         ]
       },
       "ReviewSetAccessList": {
@@ -114916,6 +114959,262 @@
           },
           "409": {
             "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Edits one of the caller's messages and asks again from that point. The message and every turn after it are set aside, kept on the record but no longer sent to the model, and the edit is recorded as a new message naming the one it replaces, with a pending answer. It passes the same checks as a new message: the size cap, the model choice and the firm's daily allowance.",
+        "operationId": "magnus.editTurn",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.editTurn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusTurn_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "turnId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusSubmitTurnRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The edit was recorded and an answer is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusSubmitTurnResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The message cannot be changed now: it is an answer rather than a member's message, it was already removed or replaced, or an answer is still being written in the conversation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The message exceeds the per-turn size limit, or names a model or effort it cannot",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The firm's daily allowance is spent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Removes one of the caller's messages and the answer to it from the conversation. Both are kept on the record and shown behind a marker, never sent to the model again, and erased only when the whole conversation is deleted.",
+        "operationId": "magnus.removeTurn",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.removeTurn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "The message and its answer stay on the record, but nothing puts them back into the conversation or in front of the model; asking the question again is a new message."
+        },
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusTurn_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "turnId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The message and its answer were removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusRemovedTurn"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The message cannot be changed now: it is an answer rather than a member's message, it was already removed or replaced, or an answer is still being written in the conversation",
             "content": {
               "application/problem+json": {
                 "schema": {
