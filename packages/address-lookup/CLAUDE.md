@@ -3,8 +3,8 @@
 The **address autocomplete port and its engines**: the port a surface asks "what addresses match what
 this person has typed" through, the deferred implementation that answers honestly while no engine is
 provisioned, the self-hosted adapter over the platform's own US index, the Smarty adapter for every
-other country, and the routed port that composes them by country. Pure package — no runtime
-dependencies, no `env`, no UI; each adapter's transport is injected, and the Worker decides which port
+other country, and the routed port that composes them by country, plus the API contract shapes of the two lookup routes.
+Pure package — no `env`, no UI; each adapter's transport is injected, and the Worker decides which port
 a request gets.
 
 **Why a port with no engine behind it.** A surface written against `deferredAddressLookupPort()`
@@ -25,6 +25,8 @@ same reason.
   `/suggestions` and `/units`, translating the engine's corpus vocabulary into a record's parts
 - `src/routed.ts` — `routedAddressLookupPort({ byCountry, otherwise })`: one port over several, with the
   minting engine's name prefixed to every identifier so `resolve` can route
+- `src/contract.ts` — the request and response bodies of `/api/v1/address-lookup/*`, as plain zod
+  named with `.meta({ id })`; the route module in `apps/api-worker` declares only the routes
 - `src/opaque-handle.ts` — the base64url JSON identifier both adapters mint and decode
 - `src/country-alpha-three.ts` — alpha-2 to alpha-3, because the international service alone asks for
   the longer code
@@ -54,7 +56,8 @@ same reason.
 
 ## Dependencies & contracts
 
-- No runtime dependencies. `@magna-carta/address-formats` is a DEV dependency only, for the test that
+- One runtime dependency, `zod`, for `src/contract.ts`; the port and the adapters import nothing.
+  `@magna-carta/address-formats` is a DEV dependency only, for the test that
   holds the alpha-3 table against every country the address form publishes a format for.
 - The postal-code and administrative-area **constraints** are a different package with a different
   job — `@magna-carta/address-formats`, which needs no engine and ships today. Lookup offers
