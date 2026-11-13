@@ -971,7 +971,7 @@ value back, and `ROOT_KEK` in particular is unrecoverable if lost (§3).
 ### Which secret is read where
 
 The list each Worker looks for is in code: `API_WORKER_SECRET_NAMES` in
-`apps/api-worker/src/stored-secrets.ts`, `COMMUNITY_WORKER_SECRET_NAMES` in
+`apps/api-worker/src/stored-secret-names.ts`, `COMMUNITY_WORKER_SECRET_NAMES` in
 `apps/community-worker/src/bindings.ts`, and the names passed to `resolveStoredSecrets` in
 `apps/sign-worker/src/index.ts`, `apps/bundle-worker/src/index.ts` and
 `apps/scan-worker/src/index.ts`. Of those, only `COMMUNITY_HANDOFF_SECRET` is read by two Workers

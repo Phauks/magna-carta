@@ -1365,11 +1365,23 @@
                   },
                   "present": {
                     "type": "boolean"
+                  },
+                  "source": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "secrets-store",
+                      "worker",
+                      null
+                    ]
                   }
                 },
                 "required": [
                   "name",
-                  "present"
+                  "present",
+                  "source"
                 ]
               }
             }

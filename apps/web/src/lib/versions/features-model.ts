@@ -24,6 +24,12 @@ export interface FeatureStatus {
 export interface RequirementPresence {
   readonly name: string;
   readonly present: boolean;
+  /**
+   * Where a present secret came from: the account's Secrets Store or the Worker's own secret. Null
+   * for a binding or a plain setting, and for anything absent. Optional so an older API's answer,
+   * which had no source, still reads.
+   */
+  readonly source?: "secrets-store" | "worker" | null;
 }
 
 export interface FeatureRequirements {
@@ -410,6 +416,36 @@ export function missingRequirements(requirements: FeatureRequirements | undefine
   return missingPerAlternative.reduce((closest, candidate) =>
     candidate.length < closest.length ? candidate : closest,
   );
+}
+
+/**
+ * Where the secrets of a set-up feature come from, read off the first alternative that is complete
+ * (the one the feature is running on). Names with no secret source, such as a binding, are left out.
+ */
+export function secretSources(requirements: FeatureRequirements | undefined): {
+  store: string[];
+  worker: string[];
+} {
+  const complete = requirements?.alternatives.find((alternative) =>
+    alternative.every((requirement) => requirement.present),
+  );
+  const named = (source: "secrets-store" | "worker"): string[] =>
+    (complete ?? [])
+      .filter((requirement) => requirement.source === source)
+      .map((requirement) => requirement.name);
+  return { store: named("secrets-store"), worker: named("worker") };
+}
+
+/** One line saying where a feature's secrets come from, or null when it reads none. */
+export function describeSecretSources(
+  requirements: FeatureRequirements | undefined,
+): string | null {
+  const { store, worker } = secretSources(requirements);
+  const parts = [
+    ...(store.length > 0 ? [`From the Secrets Store: ${store.join(", ")}`] : []),
+    ...(worker.length > 0 ? [`On the Worker: ${worker.join(", ")}`] : []),
+  ];
+  return parts.length === 0 ? null : parts.join(" · ");
 }
 
 /*

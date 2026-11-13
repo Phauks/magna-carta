@@ -3,9 +3,11 @@
  * The feature roster's reading of the environment: a feature is set up when every name in one of
  * its alternatives is present, a present name is a binding or a non-empty string, a feature whose
  * Worker or outside service fails its probe is a fault rather than "not set up", and the operator's
- * report carries presence only — never a value.
+ * report carries presence and, for a secret, where it came from — never a value.
  */
+import { resolveStoredSecrets } from "@magna-carta/worker-secrets/stored-secrets";
 import { describe, expect, it } from "vitest";
+import { API_WORKER_SECRET_NAMES } from "../src/stored-secret-names.ts";
 import {
   FEATURE_ROSTER,
   featureRequirements,
@@ -87,7 +89,30 @@ describe("featureRequirements", () => {
   it("carries each name and whether it is present, and never the value", () => {
     const report = featureRequirements({ TELNYX_API_KEY: "a-real-looking-secret" });
     const caller = report.find((feature) => feature.id === "callerLookup");
-    expect(caller?.alternatives).toEqual([[{ name: "TELNYX_API_KEY", present: true }]]);
+    expect(caller?.alternatives).toEqual([
+      [{ name: "TELNYX_API_KEY", present: true, source: "worker" }],
+    ]);
     expect(JSON.stringify(report)).not.toContain("a-real-looking-secret");
+  });
+
+  it("says a secret came from the Secrets Store when the entry resolved it from there", async () => {
+    const resolved = await resolveStoredSecrets(
+      { SECRETS_STORE_TELNYX_API_KEY: { get: async () => "a-stored-secret" } },
+      API_WORKER_SECRET_NAMES,
+    );
+    const report = featureRequirements(resolved);
+    const caller = report.find((feature) => feature.id === "callerLookup");
+    expect(caller?.alternatives).toEqual([
+      [{ name: "TELNYX_API_KEY", present: true, source: "secrets-store" }],
+    ]);
+    expect(JSON.stringify(report)).not.toContain("a-stored-secret");
+  });
+
+  it("gives an absent secret no source", () => {
+    const report = featureRequirements({});
+    const caller = report.find((feature) => feature.id === "callerLookup");
+    expect(caller?.alternatives).toEqual([
+      [{ name: "TELNYX_API_KEY", present: false, source: null }],
+    ]);
   });
 });
