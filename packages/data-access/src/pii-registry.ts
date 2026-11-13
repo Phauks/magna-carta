@@ -184,6 +184,20 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
   },
+  // A document Magnus wrote, and its versions: free text like a turn, and erased the same way, with
+  // the whole conversation.
+  {
+    table: "magnus_artifact",
+    subjectKey: "conversation_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation; its name is free text Magnus wrote about the member's work",
+  },
+  {
+    table: "magnus_artifact_version",
+    subjectKey: "artifact_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation's documents; the text is the residue class the conversation-level delete is the instrument for",
+  },
   { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
   // A connection a member made to their OWN account at a provider (their calendar). principal_ref is
   // the member's user id on such a row and account_label is their sign-in address there, so the row
@@ -255,6 +269,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "conversation_id",
     action: "hard-delete",
     note: "deleted with its parent conversation; a reference to a file, holding nothing of it",
+  },
+  // A permission turned on for a conversation names who turned it on, and goes with the
+  // conversation it belongs to.
+  {
+    table: "magnus_conversation_permission",
+    subjectKey: "conversation_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation; granted_by is the conversation's own author",
   },
   // A member's own folders and where they keep each conversation. Both arrange that member's list and
   // nothing else: no other member reads them and the firm relies on neither, so they go with the

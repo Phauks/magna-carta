@@ -296,7 +296,7 @@
                       disabled={saving || list.statuses.length <= 1}
                       aria-label={`Remove ${status.name}`}
                       title={list.statuses.length <= 1
-                        ? "A list keeps at least one status"
+                        ? "A list needs at least one status."
                         : `Remove ${status.name}. A status a task is on cannot be removed.`}
                       onclick={() => void write(() => removeTaskListStatus(fetch, status.id), "The status was not removed.")}
                     >

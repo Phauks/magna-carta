@@ -93,7 +93,7 @@ export const MODEL_CHOICE_DEFINITION_BASE: Omit<SettingDefinition, "options"> = 
   plateLabel: MODEL_PLATE,
   label: "Model",
   description:
-    "Which model answers. The platform's current model moves forward as better ones are verified; a model you choose stays chosen until you choose again.",
+    "Which model answers. Magna Carta's default moves to newer models as they're checked; a model you choose stays until you change it.",
   kind: "select",
   defaultValue: PLATFORM_MODEL_CHOICE,
   sensitivity: "open",
@@ -188,8 +188,8 @@ export class AiSettingsDraft extends SettingsDraft {
           value: PLATFORM_MODEL_CHOICE,
           label:
             platform === undefined
-              ? "The platform's current model"
-              : `The platform's current model (${platform.displayName})`,
+              ? "Magna Carta's default model"
+              : `Magna Carta's default model (${platform.displayName})`,
         },
         ...settings.models.map((choice) => ({
           value: choice.modelId,

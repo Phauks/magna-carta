@@ -144,8 +144,7 @@
       <Alert.Root variant="success">
         <Alert.Title>Unlocked</Alert.Title>
         <Alert.Description>
-          {unlocked.filename} opened with the password you gave it. Save the unprotected copy below;
-          your original file on the workbench is unchanged.
+          {unlocked.filename} opened with the password you gave. Save the unlocked copy below; your original file is unchanged.
         </Alert.Description>
         <div class="mt-8 flex items-center gap-8">
           <Button variant="primary" size="sm" onclick={handleDownload} disabled={saving}>
@@ -191,9 +190,7 @@
     <div class="flex flex-col gap-8 border-t border-border-default pt-24">
       <SectionHeading>Recover a Password You Have Lost</SectionHeading>
       <p class="max-w-prose text-sm text-text-muted">
-        Searches a large list of likely passwords and common variations. This can take anywhere from
-        moments to hours; the search runs in the background on its own screen, which you can leave
-        and come back to.
+        Tries a large list of likely passwords and variations. This can take from moments to hours. It runs in the background on its own screen, so you can leave and come back.
       </p>
       <div>
         <Button variant="secondary" size="sm" disabled={!attested || recovering} onclick={handleRecover}>

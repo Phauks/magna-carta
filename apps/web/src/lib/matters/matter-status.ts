@@ -94,7 +94,7 @@ export function isCreatableMatterStatus(status: MatterStatus): boolean {
  * work to pause. Stated as its own sentence, not a Soon, because nothing is coming.
  */
 export const HOLD_AT_CREATION_REASON =
-  "A matter is put on hold from its status window once it is active. A hold pauses work, so nothing can start in it.";
+  "An active matter is put on hold from its status window. While on hold, no work can start on it.";
 
 /** What creating a matter already closed waits on, as a noun phrase the Soon affordance completes. */
 export const CLOSED_AT_CREATION_DEPENDENCY =

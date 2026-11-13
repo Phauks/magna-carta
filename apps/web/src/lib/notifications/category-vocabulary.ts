@@ -72,18 +72,18 @@ const CATEGORY_LABELS: Readonly<Record<NotificationCategory, string>> = Object.f
  * rather than what the subsystem is, because the question being asked is "what will I stop seeing".
  */
 const CATEGORY_DESCRIPTIONS: Readonly<Record<NotificationCategory, string>> = Object.freeze({
-  deadlines: "Court and rule deadlines coming due, and deadlines somebody satisfied or vacated.",
+  deadlines: "Court and rule deadlines coming due, and deadlines met or vacated.",
   calendar: "Hearings and settings put in the diary, moved, or cancelled.",
-  tasks: "Work put in your name, and work of yours somebody completed or reopened.",
+  tasks: "Work assigned to you, and your work that someone completed or reopened.",
   trust: "Client money in and out, holds placed and released, and what a reconciliation found.",
   billing: "Invoices drafted, finalized and delivered, and the money that came back against them.",
-  documents: "Files filed to your matters, versions cut, and check-outs somebody has not returned.",
+  documents: "Files added to your matters, new versions, and check-outs not returned.",
   custody: "Originals the firm holds moving in or out, and holds placed on them.",
   email: "Mail captured to a matter, and mail that arrived for one nobody has filed yet.",
-  conflicts: "Checks that surfaced a hit, and hits somebody adjudicated.",
+  conflicts: "Conflicts checks with hits, and hits that were answered.",
   jobs: "Long-running work you started finishing: a conversion, a bundle, an export, a report.",
   security: "Sign-ins, support access, and changes to what people in the firm may do.",
-  system: "The platform itself: maintenance, degraded service, and what it could not complete.",
+  system: "Magna Carta itself: maintenance, outages, and work it couldn't finish.",
 });
 
 /** A category's name, or the raw key for one this build does not carry — never nothing. */

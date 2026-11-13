@@ -347,7 +347,7 @@
    */
   const refusal = $derived.by((): string | undefined => {
     if (opened) {
-      return "The matter is open. Close this window; the rest are staffed from the matter itself.";
+      return "The matter is open. Close this window and staff the rest from the matter.";
     }
     return blockedOn ?? undefined;
   });

@@ -229,8 +229,7 @@
 
   {#if isSample}
     <EmptyState title="No Parties On A Sample Matter">
-      This is one of the sample matters the interface is reviewed against. It has no firm behind it,
-      so there are no parties to read.
+      This is a sample matter for previewing screens. It has no parties.
     </EmptyState>
   {:else}
     <!-- A form is never full-width: the tab keeps a readable measure on the matter's canvas. -->

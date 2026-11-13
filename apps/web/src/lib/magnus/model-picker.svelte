@@ -14,8 +14,7 @@
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import Sparkles from "@lucide/svelte/icons/sparkles";
-  import type { MagnusAnsweringModel, MagnusModelChoice } from "./magnus-api.ts";
+    import type { MagnusAnsweringModel, MagnusModelChoice } from "./magnus-api.ts";
   import { effortLabel, modelControlLabel } from "./magnus-vocabulary.ts";
 
   let {
@@ -38,6 +37,11 @@
   const effort = $derived(choice?.effort ?? shown.defaultEffort);
   const label = $derived(modelControlLabel(shown, effort));
 
+  /* The composer's row is short, so the control drops the maker's name the menu still shows. */
+  function shortName(displayName: string): string {
+    return displayName.replace(/^Claude /, "");
+  }
+
   function chooseModel(modelId: string): void {
     const next = models.find((model) => model.modelId === modelId);
     if (next === undefined) return;
@@ -56,8 +60,8 @@
     aria-label="Model and effort: {label}"
     {disabled}
   >
-    <Sparkles class="size-16" aria-hidden="true" />
-    {label}
+    {shortName(shown.displayName)}
+    {#if effort !== null}<span class="text-text-muted">&middot; {effortLabel(effort)}</span>{/if}
     <ChevronDown class="size-16" aria-hidden="true" />
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="start" style="min-inline-size: var(--mc-size-popover)">

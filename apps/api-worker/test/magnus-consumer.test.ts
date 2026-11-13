@@ -20,6 +20,8 @@ import {
   setFileCurrentVersionStatement,
 } from "@magna-carta/file-manager/file-statements";
 import { attachConversationFile, startConversation } from "@magna-carta/magnus/conversation";
+import { listArtifacts, readArtifactVersionContent } from "@magna-carta/magnus/artifact";
+import { setConversationPermission } from "@magna-carta/magnus/permissions";
 import { magnusEnabledDefinition } from "@magna-carta/magnus/settings";
 import { listAttachments, readTurn } from "@magna-carta/magnus/statements";
 import { completeTurn, submitTurn } from "@magna-carta/magnus/turn";
@@ -323,6 +325,126 @@ describe("the assistant queue consumer", () => {
     const [attachment] = await listAttachments(firmDatabase, started.conversationId);
     expect(attachment?.textStatus).toBe("sent");
     expect(attachment?.textBytes).toBe(fileText.length);
+  });
+
+  it("reads the author's earlier conversation on the matter only once they turn that on", async () => {
+    const matterId = newIdentifier("matter");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Earlier Test', 'open', ?3, ?2, ?2)",
+      )
+      .bind(matterId, clock.now(), USER)
+      .run();
+    const context = { clock, actorUserId: USER };
+
+    // An earlier conversation of the author's on the same matter, answered.
+    const earlier = startConversation(firmDatabase, context, {
+      title: "Lease review",
+      createdBy: USER,
+      matterId,
+    });
+    await commitEffectBatch(firmDatabase, earlier.effect, { now: clock.now });
+    const earlierQuestion = submitTurn(firmDatabase, context, {
+      conversationId: earlier.conversationId,
+      content: "the landlord waived the late fee in March",
+      nextSequence: 0,
+      disclosureVersion: 3,
+    });
+    if (!earlierQuestion.ok) throw new Error("submission refused");
+    await commitEffectBatch(firmDatabase, earlierQuestion.effect, { now: clock.now });
+
+    async function ask(conversationId: MagnusConversationId, sequence: number, content: string) {
+      const submission = submitTurn(firmDatabase, context, {
+        conversationId,
+        content,
+        nextSequence: sequence,
+        disclosureVersion: 3,
+      });
+      if (!submission.ok) throw new Error("submission refused");
+      await commitEffectBatch(firmDatabase, submission.effect, { now: clock.now });
+      await handleMagnusTurnJob(consumerEnv(), {
+        firmId,
+        conversationId,
+        magnusTurnId: submission.magnusTurnId,
+        outboxId: newIdentifier("outbox"),
+      });
+      return readTurn(firmDatabase, submission.magnusTurnId);
+    }
+
+    const current = startConversation(firmDatabase, context, {
+      title: null,
+      createdBy: USER,
+      matterId,
+    });
+    await commitEffectBatch(firmDatabase, current.effect, { now: clock.now });
+
+    // Off by default: the earlier conversation does not reach the model.
+    const before = await ask(current.conversationId, 0, "was the late fee waived");
+    expect(before?.content).not.toContain("landlord waived");
+
+    await commitEffectBatch(
+      firmDatabase,
+      setConversationPermission(firmDatabase, context, {
+        conversationId: current.conversationId,
+        permission: "own-matter-conversations",
+        granted: true,
+        memberId: USER,
+      }),
+      { now: clock.now },
+    );
+    const after = await ask(current.conversationId, 2, "and now");
+    expect(after?.content).toContain(
+      "--- Your earlier conversation on this matter: Lease review ---",
+    );
+    expect(after?.content).toContain("Member: the landlord waived the late fee in March");
+  });
+
+  it("keeps a document Magnus wrote as a version, and the same title again as the next one", async () => {
+    // The stub echoes the member's message, so a member message holding a document block stands in
+    // for an answer that wrote one.
+    const first = await submitOneTurn(
+      'A draft:\n<document title="Demand Letter">\nPay now.\n</document>',
+    );
+    await handleMagnusTurnJob(consumerEnv(), first);
+    const answer = await readTurn(firmDatabase, first.magnusTurnId as MagnusTurnId);
+    expect(answer?.status).toBe("complete");
+    expect(answer?.content).not.toContain("<document");
+    expect(answer?.content).not.toContain("Pay now.");
+
+    const conversationId = first.conversationId as MagnusConversationId;
+    const [written] = await listArtifacts(firmDatabase, conversationId);
+    expect(written?.title).toBe("Demand Letter");
+    expect(written?.versions.map((version) => version.versionNumber)).toEqual([1]);
+    expect(written?.versions[0]?.writtenByTurnId).toBe(first.magnusTurnId);
+    expect(written?.versions[0]?.memberUserId).toBe(USER);
+
+    const context = { clock, actorUserId: USER };
+    const revision = submitTurn(firmDatabase, context, {
+      conversationId,
+      content: '<document title="demand letter" note="firmer">\nPay within 7 days.\n</document>',
+      nextSequence: 2,
+      disclosureVersion: 3,
+    });
+    if (!revision.ok) throw new Error("submission refused");
+    await commitEffectBatch(firmDatabase, revision.effect, { now: clock.now });
+    await handleMagnusTurnJob(consumerEnv(), {
+      firmId,
+      conversationId,
+      magnusTurnId: revision.magnusTurnId,
+      outboxId: newIdentifier("outbox"),
+    });
+    // The revision was asked with the document as it stood in front of the model.
+    const second = await readTurn(firmDatabase, revision.magnusTurnId);
+    expect(second?.content).toContain(
+      "--- Document in this conversation: Demand Letter (version 1) ---",
+    );
+
+    const [revised] = await listArtifacts(firmDatabase, conversationId);
+    expect(revised?.versions.map((version) => version.versionNumber)).toEqual([1, 2]);
+    expect(revised?.versions[1]?.note).toBe("firmer");
+    expect(await readArtifactVersionContent(firmDatabase, revised!.id, 2)).toBe(
+      "Pay within 7 days.",
+    );
   });
 
   it("a redelivery neither re-calls the port nor double-meters", async () => {

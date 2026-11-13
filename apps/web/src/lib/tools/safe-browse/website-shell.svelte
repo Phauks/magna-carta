@@ -273,9 +273,7 @@
           Live
         </Button>
         <p id={modeDescriptionIdentifier} class="sr-only">
-          Static opens each address in a fresh isolated browser and shows a picture of it. Live
-          streams one isolated browser you can click, scroll and type into, keeping its cookies as
-          you follow a link through its steps.
+          Static opens each address in a fresh secure browser and shows a picture of it. Live gives you one secure browser to click, scroll and type in, keeping its cookies as you go.
         </p>
       </div>
       <Label for={addressInputIdentifier} class="sr-only">Web address to view</Label>

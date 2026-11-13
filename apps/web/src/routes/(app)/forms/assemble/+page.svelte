@@ -203,7 +203,7 @@
 
 <div class="flex max-w-3xl flex-col gap-24">
   <Alert.Root variant="info">
-    <Alert.Title>This surface runs on sample data.</Alert.Title>
+    <Alert.Title>This page uses sample data.</Alert.Title>
     <Alert.Description>
       The templates, merge fields, and suggestions below are invented examples, not your firm's.
       Nothing here reads or writes a matter.
@@ -277,8 +277,7 @@
     <Alert.Root variant="success">
       <Alert.Title>Collected {submittedFieldCount} values.</Alert.Title>
       <Alert.Description>
-        There is no assembly service to send them to yet, so nothing was filed. This is where the
-        assembly job starts once the automation API is in place.
+        Assembly isn't available yet, so nothing was created.
       </Alert.Description>
     </Alert.Root>
   {/if}
