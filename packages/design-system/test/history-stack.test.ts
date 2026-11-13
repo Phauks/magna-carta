@@ -245,8 +245,7 @@ describe("what an act the stack cannot reach says", () => {
         repair: "restore it from the ledger or the record window.",
       }),
     ).toBe(
-      "The entry was voided. It stays on the record and counts toward nothing. Undo does not " +
-        "reach it: restore it from the ledger or the record window.",
+      "The entry was voided. It stays on record but doesn't count. Undo can't reverse this; restore it from the ledger or the entry window.",
     );
   });
 

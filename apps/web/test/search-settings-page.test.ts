@@ -234,14 +234,14 @@ describe("the page, read by a firm Owner", () => {
     const row = rowText();
     expect(row).toContain("Search Inside Files");
     expect(row).toContain("Reads the words inside the firm's files");
-    expect(row).toContain("in the firm's own storage");
-    expect(row).toContain("only to somebody who could already open it");
+    expect(row).toContain("by its contents, not just its name");
+    expect(row).toContain("only show files a person can already open");
   });
 
   it("says the search service is not connected, beneath the switch, only while it is not", async () => {
     await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], FRESH_FIRM);
-    expect(noteBeneathRow()).toContain("search service is not connected yet");
-    expect(noteBeneathRow()).toContain("still found by name");
+    expect(noteBeneathRow()).toContain("File content search isn't connected yet");
+    expect(noteBeneathRow()).toContain("still be found by name");
     remount();
 
     // On, and still no service: the page must not let "on" read as "searchable".
@@ -249,14 +249,14 @@ describe("the page, read by a firm Owner", () => {
       fileContentsIndexed: true,
       searchServiceConnected: false,
     });
-    expect(noteBeneathRow()).toContain("search service is not connected yet");
+    expect(noteBeneathRow()).toContain("File content search isn't connected yet");
     remount();
 
     await mountAs([MANAGE_SEARCH_SETTINGS_PERMISSION], {
       fileContentsIndexed: false,
       searchServiceConnected: true,
     });
-    expect(target.textContent).not.toContain("search service is not connected");
+    expect(target.textContent).not.toContain("File content search isn't connected");
   });
 
   it("says existing files are read over days once indexing is on and the service is there", async () => {
@@ -264,8 +264,8 @@ describe("the page, read by a firm Owner", () => {
       fileContentsIndexed: true,
       searchServiceConnected: true,
     });
-    expect(noteBeneathRow()).toContain("read as it arrives");
-    expect(noteBeneathRow()).toContain("over the following days");
+    expect(noteBeneathRow()).toContain("read as they arrive");
+    expect(noteBeneathRow()).toContain("over the next few days");
   });
 
   it("sends exactly the staged change when the Owner saves", async () => {
@@ -324,8 +324,8 @@ describe("what the indexes hold, beneath the setting", () => {
       target.querySelector(`#settings-row-${CSS.escape("search.status.file-contents")}`)
         ?.nextElementSibling?.textContent,
     );
-    expect(note).toContain("up to 1,000 started each day");
-    expect(note).toContain("such as a scanned page");
+    expect(note).toContain("up to 1,000 a day");
+    expect(note).toContain("such as scanned pages");
   });
 
   it("lists every indexed place with what it holds, who reads it and what is matched there", async () => {
@@ -341,7 +341,7 @@ describe("what the indexes hold, beneath the setting", () => {
     expect(rows).toContain("Inside Files");
     expect(rows).toContain("12,128");
     expect(words(target.textContent)).toContain(
-      "A discovery review set is searched only from inside that set",
+      "Review sets are searched only from inside the set",
     );
   });
 

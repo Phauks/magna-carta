@@ -2,9 +2,13 @@
   /*
    * Select.Item — one selectable option. Behaviour + a11y (role="option", aria-selected, keyboard
    * highlight, typeahead match, disabled) come from Bits; the look is the mc-select-item recipe keyed
-   * off `data-highlighted` (hover/keyboard) and `data-disabled`. The wrapper renders a leading
-   * indicator box that shows the Lucide Check (deep-imported) when the item is selected — the same
-   * idiom as the Checkbox / DropdownMenu.CheckboxItem.
+   * off `data-highlighted` (hover/keyboard), `data-selected` and `data-disabled`.
+   *
+   * The tick for the chosen row sits at the row's END, not its start. A leading tick box indented
+   * every option by a gutter that only one row ever filled, so the options never lined up with the
+   * field's own text above them; at the end the text starts where the field's text starts, and the
+   * one chosen row carries its mark where the eye finishes reading it. The trailing box is always
+   * there, empty on every other row, so a long label wraps the same whether or not it is chosen.
    *
    * `value` is the required form value; `label` is the string Bits displays in the trigger's Value
    * and matches for typeahead. The two differ by design, so the row text comes from `label` by
@@ -34,11 +38,13 @@
   {...restProps}
 >
   {#snippet children({ selected })}
+    <span class="mc-select-item-text">
+      {#if rowContent}{@render rowContent()}{:else}{label}{/if}
+    </span>
     <span class="mc-select-item-indicator">
       {#if selected}
         <Check class="mc-select-item-indicator-icon" aria-hidden="true" />
       {/if}
     </span>
-    {#if rowContent}{@render rowContent()}{:else}{label}{/if}
   {/snippet}
 </SelectPrimitive.Item>

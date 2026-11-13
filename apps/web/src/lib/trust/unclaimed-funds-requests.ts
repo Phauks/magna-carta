@@ -194,7 +194,7 @@ export function readTrustUnclaimedFundsClosure(
     return {
       kind: "refused",
       reason:
-        "Choose the trust movement that paid the owner. Closing attaches a payment that already posted; it moves nothing.",
+        "Choose the trust payment that paid the owner. Closing links a payment that already posted; it doesn't move money.",
     };
   }
   return {

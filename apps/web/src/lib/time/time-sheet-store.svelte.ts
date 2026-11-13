@@ -224,9 +224,7 @@ export class TimeSheetStore {
       // its codes, its attachments and its whole history. Taking it OFF a matter is the one thing
       // a move cannot do — the record has to be somewhere — so that is refused rather than sent.
       if (matterId === null) {
-        this.#context.announce(
-          "An entry on the firm's record has to be on a matter. Move it to another one rather than taking it off this one.",
-        );
+        this.#context.announce("Time must be on a matter. Move it to another matter instead.");
         return;
       }
       void this.#refile(key, row.entryIdentifier, matterId);
@@ -279,7 +277,7 @@ export class TimeSheetStore {
       currency: outcome.value.currency,
     });
     this.#context.announce(
-      "The entry moved. Its number, its note and its files came with it; the rate and the rounding were re-read on the matter it moved to.",
+      "The entry moved with its number, note and files. Its rate and rounding now follow the new matter.",
     );
     this.#context.onChanged();
   }
@@ -533,7 +531,7 @@ export class TimeSheetStore {
     this.#voidedIdentifiers.add(row.entryIdentifier);
     this.#patchRow(key, { status: "void" });
     this.#context.announce(
-      "The entry was voided. It stays on the record and counts toward nothing. Undo does not reach it: restore it from the ledger or the record window.",
+      "The entry was voided. It stays on record but doesn't count. Undo can't reverse this; restore it from the ledger or the entry window.",
     );
     this.#context.onChanged();
   }

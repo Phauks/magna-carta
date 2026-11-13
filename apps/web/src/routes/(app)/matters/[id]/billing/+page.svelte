@@ -56,7 +56,7 @@
     refusal: isSample
       ? SAMPLE_MATTER_REFUSAL
       : rows !== null && billing.clientEntityId === null
-        ? "This matter's party record names no client, so there is nobody to bill."
+        ? "This matter has no client, so there's no one to bill."
       : ledger === null
         ? "The ledger is not on screen, so nothing can be recorded from it."
         : undefined,
@@ -103,9 +103,7 @@
      above the counts strip on a register that is complete. -->
 {#snippet beneath()}
   <p class="text-xs text-text-muted">
-    This matter has more bills than are read here: the register is showing the {(rows ?? []).length}
-    most recent, and the figures beneath it cover only those. Reading the whole history is a
-    further page this section does not ask for yet.
+    Showing the {(rows ?? []).length} most recent bills. The totals below cover only these.
   </p>
 {/snippet}
 
@@ -115,8 +113,7 @@
     scale="screen"
     subject="Billing"
     fallback={failure.whenSilent}
-    reassurance="The record itself is unaffected: nothing was changed by this failure, and the
-      agreement and every finalized bill are still on the firm's record."
+    reassurance="Nothing was changed. The agreement and finalized bills are still on record."
     onRetry={() => (reloadToken += 1)}
     onReport={() => (reportOpen = true)}
   />
@@ -130,9 +127,7 @@
     <Alert.Root variant="info">
       <Alert.Title>This is a sample matter.</Alert.Title>
       <Alert.Description>
-        It exists so the matter screens stay reviewable at a stable address; there is no firm record
-        behind it, so it has no fee agreement and no bills, and nothing can be billed against it.
-        Open one of the firm's own matters to use this surface.
+        This is a sample matter for previewing screens. It has no agreement or bills. Open one of the firm's matters to use it.
       </Alert.Description>
     </Alert.Root>
   </section>

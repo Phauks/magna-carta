@@ -203,8 +203,7 @@
     {#snippet emptyState()}
       <div class="flex flex-col gap-12 py-12">
         <EmptyState title="No brand images yet">
-          The firm's primary mark is what every office's letterhead prints until an office sets a
-          logo of its own.
+          The firm's main logo prints on every office's letterhead unless the office sets its own.
         </EmptyState>
         {#if canEdit}
           <div class="flex justify-end">
@@ -343,7 +342,7 @@
     <p class="text-sm">
       Documents already produced keep the mark they were produced with.
       {#if removing?.role === "primary"}
-        Every office whose letterhead printed this mark prints none until another primary is set.
+        Offices that printed this logo will print none until another main logo is set.
       {/if}
     </p>
   {/snippet}

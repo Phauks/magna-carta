@@ -83,7 +83,7 @@ describe("the fee ledger's columns", () => {
     // eventually rides, the kind of line it becomes, or the entries it was drawn from — there are
     // none.
     const labels = COLUMNS.map((column) => column.label);
-    expect(labels).not.toContain("Invoice");
+    expect(labels).not.toContain("Bill");
     expect(labels).not.toContain("Kind");
     expect(labels).not.toContain("Agreement");
     expect(labels).not.toContain("Drawn From");

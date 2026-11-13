@@ -109,7 +109,7 @@ export const OPENING_MOVES_NO_MONEY =
 
 /** What the observation IS: what the reader saw, kept as they saw it. */
 export const OBSERVATION_MEANING =
-  "The ledger as this read served it. It is stored with the file as what the reviewer acted on; the ledger itself may move afterwards.";
+  "The ledger as shown when the reviewer acted. It's saved with the file, even if the ledger changes later.";
 
 // ---- reaching the owner ----------------------------------------------------------------------------
 
@@ -145,7 +145,7 @@ export function contactChannelLabel(channel: TrustContactChannel): string {
 export function contactChannelMeaning(channel: TrustContactChannel): string | undefined {
   switch (channel) {
     case "certified_mail":
-      return "Mail the carrier records the delivery of, which is what most states ask for.";
+      return "Mail with tracked delivery, which most states require.";
     case "record_review":
       return "Looking through what the firm already holds for an address or a number. It reaches nobody, so it needs none.";
     default:
@@ -198,7 +198,7 @@ export function contactOutcomeMeaning(outcome: TrustContactOutcome): string | un
     case "undeliverable":
       return "It did not reach anywhere: the address or the number is no longer good.";
     case "wrong_contact":
-      return "Somebody answered and it was not the owner.";
+      return "Someone answered, but it wasn't the owner.";
     default:
       return undefined;
   }
@@ -218,11 +218,10 @@ export const CONTACT_USED_LABEL = "Contact Used";
 
 /** What that field wants, and the one channel that needs none. */
 export const CONTACT_USED_HINT =
-  "The address or the number the attempt actually used. A review of the firm's own records reaches nobody, so it is the one channel that needs none.";
+  "The address or number used. A search of the firm's own records needs none.";
 
 /** What a failed read of the file says, in the one line the window has room for. */
-export const REVIEW_UNREADABLE =
-  "This file could not be read, so what it holds is not shown. The file itself is unaffected.";
+export const REVIEW_UNREADABLE = "This file couldn't be loaded. The file itself is unchanged.";
 
 // ---- ending a round --------------------------------------------------------------------------------
 
@@ -276,7 +275,7 @@ export const TRUST_MOVEMENT_LABEL = "Trust Movement";
 
 /** What that field is asking for, and what closing does not do. */
 export const TRUST_MOVEMENT_HINT =
-  "The payment out that already posted through the ordinary authorized path. Closing the file attaches that movement to it and moves nothing itself.";
+  "The payment out that already posted through the normal approval process. Closing the file links that payment; it doesn't move money.";
 
 /** Why the field stands refused on the other three outcomes rather than disappearing. */
 export const TRUST_MOVEMENT_NOT_ASKED =
@@ -287,7 +286,7 @@ export const TRUST_MOVEMENT_LEDGER_READING = "Reading this matter's trust ledger
 
 /** Why it is refused where the ledger answered and holds no payment out to attach. */
 export const TRUST_MOVEMENT_NONE_TO_ATTACH =
-  "This matter's trust ledger holds no payment out in this account, so there is none to attach. Post the distribution on the ordinary authorized path first.";
+  "This matter's trust ledger has no payment out from this account to link. Post the distribution through the normal approval process first.";
 
 /** Why it is refused where the ledger could not be read at all. */
 export const TRUST_MOVEMENT_LEDGER_UNREADABLE =
@@ -302,7 +301,7 @@ export const ATTACHED_MOVEMENT_NOT_ON_LEDGER = "Not on this matter's ledger as r
 
 /** Why that is a fact about the record rather than a failed read, on the hover. */
 export const ATTACHED_MOVEMENT_NOT_ON_LEDGER_MEANING =
-  "The file names a payment that this matter's ledger in this account does not carry. The payment stays on the firm's record; what cannot be stated here is its day, its payee and its amount.";
+  "The file refers to a payment this matter's ledger doesn't have for this account. Its date, payee and amount can't be shown here.";
 
 /** What the row says while the ledger that names the payment is still being read. */
 export const ATTACHED_MOVEMENT_READING = "Reading this matter's trust ledger.";

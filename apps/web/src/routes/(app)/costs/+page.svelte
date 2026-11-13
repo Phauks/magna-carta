@@ -337,8 +337,7 @@
          below is still true, and only the way to record a new one goes quiet. -->
     <Alert.Root variant="warning">
       <Alert.Description>
-        {firmMatters.failure} Recording a new cost from here waits on them; a matter's own Costs section
-        is unaffected.
+        {firmMatters.failure} You can't record a new cost here until they load. A matter's own Costs section still works.
       </Alert.Description>
     </Alert.Root>
   {/if}
@@ -378,8 +377,7 @@
       <!-- The figures cover what is loaded, and the record is not fully loaded. Saying so is the
            difference between a running subtotal and a number somebody reconciles from. -->
       <p class="text-xs text-text-muted">
-        Showing the {costs.length} most recent costs. The figures cover only what is loaded, so they
-        are not the whole total until every page is read.
+        Showing the {costs.length} most recent costs. Totals cover only these until you load more.
       </p>
     {/if}
   {/if}

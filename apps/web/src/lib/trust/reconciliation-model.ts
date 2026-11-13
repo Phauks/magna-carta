@@ -291,10 +291,7 @@ export function closeReading(
   const verdict = proof.balanced
     ? "This period balances."
     : "This period does not balance, and closing records that it did not tie out.";
-  const sentence =
-    `${verdict} ${counts} Closing freezes the proof as it stands now and writes nothing else: ` +
-    "no entry is moved, no match is made, and a correction afterwards is a new reconciliation " +
-    "that supersedes this one.";
+  const sentence = `${verdict} ${counts} Closing locks the reconciliation as it is now. Nothing else changes. To correct it later, start a new reconciliation.`;
   if (reconciliation.status === "closed") {
     return { refusal: "This reconciliation is already closed.", sentence };
   }

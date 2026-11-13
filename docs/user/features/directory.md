@@ -114,9 +114,10 @@ A record answers the questions the firm keeps an answer to:
   apartment or suite you had already typed. A building with several units is offered once, with how
   many addresses it holds, and choosing it lists the units. Addresses in the state you have already
   chosen — or, before you choose one, the state your office is in — are offered first; the rest of
-  the country is still offered. In the United States the suggestions come from public address records
-  published by states, counties and cities, so a very new street, or the unit number in some
-  buildings, may not be there yet. The offers are only a shortcut: what you type is what is kept,
+  the country is still offered. Depending on how your platform is set up, the suggestions come either
+  from Google Maps, which then shows its name under the list, or, in the United States, from public
+  address records published by states, counties and cities, where a very new street, or the unit
+  number in some buildings, may not be there yet. The offers are only a shortcut: what you type is what is kept,
   whether or not you choose one. If a postal code does not look like one for
   the chosen country, its box turns red (hover over it to read why) and the address saves anyway,
   and the state or province box offers the country's list without refusing a name that is not on

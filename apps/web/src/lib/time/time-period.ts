@@ -41,8 +41,8 @@ export function periodFigureReading(
       value: hours(totals.recordedMinutes),
       caption:
         totals.voidCount === 0
-          ? "Every hour on the record for this period, billable and not."
-          : `Every hour on the record for this period, billable and not. ${String(totals.voidCount)} voided ${totals.voidCount === 1 ? "entry counts" : "entries count"} toward nothing.`,
+          ? "All hours recorded this period, billable and not."
+          : `All hours recorded this period, billable and not. ${String(totals.voidCount)} voided ${totals.voidCount === 1 ? "entry is" : "entries are"} not counted.`,
     },
     {
       identifier: "billable",
@@ -54,19 +54,19 @@ export function periodFigureReading(
       identifier: "non-billable",
       label: "non-billable",
       value: hours(totals.nonBillableMinutes),
-      caption: "The hours recorded as the firm's own. Real work; nobody is charged for it.",
+      caption: "Hours recorded as firm time. Real work that no client is charged for.",
     },
     {
       identifier: "unbilled",
       label: "unbilled",
       value: money(totals.unbilledAmountMinor),
-      caption: "Billable value no finalized invoice has taken up yet.",
+      caption: "Billable value not yet on a finalized bill.",
     },
     {
       identifier: "billed",
       label: "billed",
       value: money(totals.billedAmountMinor),
-      caption: "Billable value a finalized invoice has taken up.",
+      caption: "Billable value on a finalized bill.",
     },
   ];
 }

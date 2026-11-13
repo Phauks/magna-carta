@@ -17,7 +17,7 @@
    * The masthead carries no History trigger: this page has no ledger section — what it shows is
    * reported, not changed by a member, and an always-empty trail would state something untrue about
    * where its history lives (the platform's deploy log). The posture badge is overridden to
-   * "Reported by the platform" for the same honesty: nothing here is managed, it is observed.
+   * "Reported by Magna Carta" for the same honesty: nothing here is managed, it is observed.
    */
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
@@ -32,7 +32,7 @@
   sectionId="system-status"
   title="System Status"
   posture="readOnly"
-  badgeLabel="Reported by the platform"
+  badgeLabel="Reported by Magna Carta"
   showHistory={false}
 />
 

@@ -40,6 +40,8 @@
     addressLookupRequestFor,
     groupAside,
     groupHeading,
+    ADDRESS_OFFER_ATTRIBUTION_TEXT,
+    type AddressOfferAttribution,
     type AddressLookup,
     type AddressLookupAnswer,
     type AddressLookupResolution,
@@ -54,6 +56,7 @@
    */
   const NOTE_ROW_VALUE = "mc-address-fields:note";
   const RETRY_ROW_VALUE = "mc-address-fields:retry";
+  const ATTRIBUTION_ROW_VALUE = "mc-address-fields:attribution";
 
   let {
     text,
@@ -89,6 +92,8 @@
 
   let status = $state<Status>("idle");
   let offers = $state<readonly AddressOffer[]>([]);
+  /** Whose data the offers on show are, when the provider's terms require the list to say so. */
+  let attribution = $state<AddressOfferAttribution | undefined>(undefined);
   /** The group whose addresses the list is showing, or null for the answer to what was typed. */
   let openedGroup = $state<AddressOffer | null>(null);
   let open = $state(false);
@@ -125,6 +130,7 @@
     chosen = "";
     if (answer.kind === "offers") {
       offers = answer.offers;
+      attribution = answer.attribution;
       status = "offers";
       open = true;
       return;
@@ -269,7 +275,9 @@
 
   async function pick(picked: string | string[]): Promise<void> {
     const identifier = Array.isArray(picked) ? (picked[0] ?? "") : picked;
-    if (identifier === "" || identifier === NOTE_ROW_VALUE) return;
+    if (identifier === "" || identifier === NOTE_ROW_VALUE || identifier === ATTRIBUTION_ROW_VALUE) {
+      return;
+    }
     if (identifier === RETRY_ROW_VALUE) {
       tryAgain();
       return;
@@ -374,6 +382,18 @@
       {#each offers as offer (offer.identifier)}
         {@render offerRow(offer)}
       {/each}
+      {#if attribution !== undefined}
+        <!-- The provider's name, inside the list that shows its offers, as its terms require: a row
+             nobody can pick, never translated. -->
+        <Combobox.Item
+          value={ATTRIBUTION_ROW_VALUE}
+          label=""
+          disabled
+          class="mc-address-fields-attribution"
+        >
+          <span translate="no">{ADDRESS_OFFER_ATTRIBUTION_TEXT[attribution]}</span>
+        </Combobox.Item>
+      {/if}
     {/if}
   </Combobox.Content>
 </Combobox.Root>

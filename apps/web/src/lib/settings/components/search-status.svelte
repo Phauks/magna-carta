@@ -174,9 +174,7 @@
   {#if fileContentsStanding(read) === "index-partly-indexed"}
     <!-- Beneath the row it explains: why the figure is short, and why it may stay short. -->
     <SettingsPlateNote>
-      Files the firm already held are read in the background, up to
-      {formatNumber(read.fileContents.dailyCatchUpLimit)} started each day. A file with no words
-      that can be read, such as a scanned page, stays not indexed.
+      Files the firm already had are read in the background, up to {formatNumber(read.fileContents.dailyCatchUpLimit)} a day. Files with no readable text, such as scanned pages, can't be searched by their contents.
     </SettingsPlateNote>
   {/if}
   <SettingsRow definition={SEARCH_BY_MEANING_DEFINITION}>
@@ -272,9 +270,7 @@
     />
     <DataTable.GridFooter {grid} />
     <SettingsPlateNote>
-      A discovery review set is searched only from inside that set, by the people with access to
-      it, so it is not counted here. Names and numbers, such as a file's name or an invoice
-      number, are matched where they are kept and need no index.
+      Review sets are searched only from inside the set, so they aren't counted here. Names and numbers, such as file names and bill numbers, are always searchable.
     </SettingsPlateNote>
   </SettingsPlate>
 {/if}

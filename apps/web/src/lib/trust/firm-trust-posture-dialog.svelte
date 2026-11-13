@@ -208,9 +208,7 @@
         <div class="flex min-w-0 flex-col gap-4">
           <Label for="{fieldPrefix}-authority">Require the authority capability</Label>
           <p class="mc-form-description">
-            Whoever releases client money must hold trust:authorize. Independent of the answer
-            above: a firm can ask for a second person who is anybody, or for one qualified person
-            and nobody else.
+            The person who releases client money must have trust authority. Separately, a firm can require a second person, or one qualified person only.
           </p>
         </div>
         <Switch
@@ -222,8 +220,7 @@
 
       <p class="mc-form-description">{preview}</p>
       <p class="mc-form-description">
-        A new version governs requests raised after it is written. Requests already waiting were
-        proposed under the version in force at the time and keep it.
+        A new version applies to requests made after it's saved. Requests already waiting keep the version they were made under.
       </p>
     </div>
   {/snippet}
