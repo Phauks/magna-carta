@@ -31,6 +31,8 @@
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import LifeBuoy from "@lucide/svelte/icons/life-buoy";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/problem.ts";
   import {
     detectConfidentialDetail,
     FINDING_LABELS,
@@ -51,6 +53,7 @@
     body = $bindable(""),
     noticeDismissed = $bindable(false),
     displayName = $bindable(""),
+    failure = null,
     onRenameDisplayName,
     onPost,
     onSendToSupport,
@@ -63,6 +66,8 @@
     noticeDismissed?: boolean;
     /** The name this post will carry: the account's display name, which may be a pseudonym. Never the firm. */
     displayName?: string;
+    /** Why the last attempt to post did not go through. */
+    failure?: Failure | null;
     /** Saves a new account display name. Resolves to a refusal sentence, or null when saved. */
     onRenameDisplayName?: (name: string) => Promise<string | null>;
     onPost?: () => Promise<ActionOutcome>;
@@ -128,6 +133,9 @@
   onCommit={onPost ?? (async () => "refused")}
 >
   {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice {failure} subject="The post" />
+    {/if}
     {#if !noticeDismissed}
       <Alert.Root variant="warning">
         <p>
@@ -243,12 +251,14 @@
           </Button>
         </div>
       {/if}
+      {#if onSendToSupport !== undefined}
       <div>
         <Button variant="secondary" size="sm" onclick={onSendToSupport} disabled={busy}>
           <LifeBuoy class="size-16" aria-hidden="true" />
           Send to Support Instead
         </Button>
       </div>
+      {/if}
     </div>
   {/snippet}
 </ActionDialog>

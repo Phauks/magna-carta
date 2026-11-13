@@ -44,7 +44,7 @@ registered there; this file states what they mean for the code, not where they w
   always ending on the newest member turn, reporting whether it truncated
 - `src/statements.ts` — the SQL builders and bounded reads for the three tables; every read is
   `LIMIT`ed and every list read is cursor-paginated
-- `src/audit.ts` — the audit builders (sixteen, counted by `test/purity.test.ts`) and the shared
+- `src/audit.ts` — the audit builders (seventeen, counted by `test/purity.test.ts`) and the shared
   write context
 - `src/shelf.ts` — a member's own folders (`magnus_folder`) and where they keep each conversation
   (`magnus_conversation_shelf`: its folder, null for General, and when they pinned it). Both are
@@ -115,7 +115,12 @@ registered there; this file states what they mean for the code, not where they w
 - **Retention is not optional.** There is no per-conversation off-the-record mode, and there will not
   be one: the question "why was that one off the record" is worse than any answer. Deletion is the
   erasure instrument for the free text inside turns — which no structured registry can reach column by
-  column — and it is deletion of the whole conversation, not a per-turn redaction.
+  column — and it is deletion of the whole conversation, not a per-turn redaction. So a member's
+  edit or removal of their own message (`turn.ts`) never touches a turn's text: an edit stamps
+  `superseded_at` on the message and every turn after it, a removal stamps `removed_at` on the
+  message and its answer, and the window (`window.ts`) leaves both out of what the model reads. The
+  route withholds a removed turn's text from its author, who took it back, and still serves it to a
+  supervisory read.
 
 ## Dependencies & contracts
 

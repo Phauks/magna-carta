@@ -320,12 +320,12 @@
       {#if draft.kind !== "address"}
         {@const chosenUse = draft.use}
         <div style="width: 8rem">
-          <LabelledField label="Use">
+          <LabelledField label="Type">
             {#snippet children({ props })}
               <ChoicePicker
                 options={useItems}
                 inputId={props.id}
-                label="Use"
+                label="Type"
                 disabled={!canEdit}
                 bind:value={
                   () => chosenUse, (chosen) => patch({ use: chosen as DirectoryContactUse })

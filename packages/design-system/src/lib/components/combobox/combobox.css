@@ -34,6 +34,11 @@
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }
+  /* Invalid: the same danger edge the Input takes; see input.css. */
+  .mc-combobox-input-wrapper:has([aria-invalid="true"]),
+  .mc-combobox-input-wrapper:has([aria-invalid="true"]):focus-within {
+    border-color: var(--mc-status-danger);
+  }
   .mc-combobox-input {
     padding-inline: var(--mc-space-12);
     background-color: transparent;

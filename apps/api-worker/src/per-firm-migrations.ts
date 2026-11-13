@@ -77,6 +77,8 @@ import versionPlayableCopySql from "@magna-carta/database/drizzle/per-firm/20261
 import meetingPersonalRoomSql from "@magna-carta/database/drizzle/per-firm/20261113T001452_meeting-personal-room.sql";
 import magnusFoldersAndPinsSql from "@magna-carta/database/drizzle/per-firm/20261113T210918_magnus-folders-and-pins.sql";
 import magnusTurnEffortSql from "@magna-carta/database/drizzle/per-firm/20261113T210918_magnus-turn-effort.sql";
+import magnusTurnEditsSql from "@magna-carta/database/drizzle/per-firm/20261113T212409_magnus-turn-edits.sql";
+import fileThePlayableCopySql from "@magna-carta/database/drizzle/per-firm/20261113T215937_file-the-playable-copy.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -156,6 +158,8 @@ export function perFirmMigrations(): Migration[] {
     "20261113T001452_meeting-personal-room": meetingPersonalRoomSql,
     "20261113T210918_magnus-folders-and-pins": magnusFoldersAndPinsSql,
     "20261113T210918_magnus-turn-effort": magnusTurnEffortSql,
+    "20261113T212409_magnus-turn-edits": magnusTurnEditsSql,
+    "20261113T215937_file-the-playable-copy": fileThePlayableCopySql,
   });
 }
 

@@ -1386,9 +1386,9 @@
     {/snippet}
 
     {#if unconfigured}
-      <EmptyState title="Meetings Are Not Turned On">
-        Meetings have not been turned on for this firm, so a room cannot be opened here. An
-        administrator is who puts that right.
+      <EmptyState title="Meetings Are Not Connected">
+        The video service that carries meetings is not connected to this site yet, so a room cannot
+        be opened here.
         {#snippet actions()}
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         {/snippet}

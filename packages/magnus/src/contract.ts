@@ -44,6 +44,13 @@ export const TurnDetail = z
     contextTruncated: z.boolean(),
     // The effort the answer was asked for (low, medium, high, xhigh or max), or null where none was.
     effort: z.string().nullable(),
+    // When the author removed this message and its answer. The text is kept on the record and
+    // withheld from the author, who took it back; a supervisor's read still shows it.
+    removedAt: z.string().nullable(),
+    // When an edit of an earlier message set this turn aside. It stays readable as the earlier version.
+    supersededAt: z.string().nullable(),
+    // On a message made by an edit, the message it replaces.
+    replacesTurnId: z.string().nullable(),
     createdAt: z.string(),
     completedAt: z.string().nullable(),
   })
@@ -132,3 +139,24 @@ export const SubmitTurnRequest = z
     effort: z.string().optional(),
   })
   .meta({ id: "MagnusSubmitTurnRequest" });
+
+// What asking (or asking again, by editing a message) returns: the pair just written, the answer
+// pending.
+export const SubmittedTurn = z
+  .object({
+    conversationId: z.string(),
+    memberTurnId: z.string(),
+    magnusTurnId: z.string(),
+    status: z.literal("pending"),
+  })
+  .meta({ id: "MagnusSubmitTurnResponse" });
+
+// What removing a message returns: the message removed, the answer removed with it (null when it had
+// none), and when.
+export const RemovedTurn = z
+  .object({
+    memberTurnId: z.string(),
+    magnusTurnId: z.string().nullable(),
+    removedAt: z.string(),
+  })
+  .meta({ id: "MagnusRemovedTurn" });

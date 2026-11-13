@@ -167,14 +167,14 @@ they still need to look better, so their styling is expected to change.
 
 ### The conversation
 
-| #    | Ruling                                                                                                                                                                                                                                   | Status  |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| R2.1 | **Members on the right, Magnus on the left.** Several members can work in one conversation, so who asked what is attributed on every turn; Magnus answers on the left. Supersedes "no alignment carrying meaning" for this surface only. | settled |
-| R2.2 | **Real names, never "You".** A member's turn carries their name and initials; the reader's own turns are named the same way.                                                                                                             | settled |
-| R2.3 | **Magnus wears the product's M.** The blackletter letter of the brand mark, gold on the chrome ink, is its mark in the conversation.                                                                                                     | settled |
-| R2.4 | **Copy on every message**, members' and Magnus's alike.                                                                                                                                                                                  | settled |
-| R2.5 | **Edit and delete one's own message.** Editing re-asks from that point; deleting leaves a marker that something was removed.                                                                                                             | open    |
-| R2.6 | **Search within a conversation and within an artifact.**                                                                                                                                                                                 | open    |
+| #    | Ruling                                                                                                                                                                                                                                            | Status  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| R2.1 | **Members on the right, Magnus on the left.** Several members can work in one conversation, so who asked what is attributed on every turn; Magnus answers on the left. Supersedes "no alignment carrying meaning" for this surface only.          | settled |
+| R2.2 | **Real names, never "You".** A member's turn carries their name and initials; the reader's own turns are named the same way.                                                                                                                      | settled |
+| R2.3 | **Magnus wears the product's M.** The blackletter letter of the brand mark, gold on the chrome ink, is its mark in the conversation.                                                                                                              | settled |
+| R2.4 | **Copy on every message**, members' and Magnus's alike.                                                                                                                                                                                           | settled |
+| R2.5 | **Edit and delete one's own message.** Editing re-asks from that point; deleting leaves a marker that something was removed. Built as hide-but-keep: neither act erases, because a transcript is erased only whole (`packages/magnus/CLAUDE.md`). | settled |
+| R2.6 | **Search within a conversation and within an artifact.** Within a conversation: built as Find in Conversation in the conversation's menu, stepping between matching messages. Within an artifact: waits for artifacts.                            | open    |
 
 ### Citations
 

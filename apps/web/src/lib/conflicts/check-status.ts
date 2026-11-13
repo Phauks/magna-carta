@@ -185,13 +185,16 @@ function recordsPlace(
         found === undefined ? [] : [`${resultCountText(found)} found so far across these places`],
     };
   }
-  // Files is asked of the file index, which a check records as not searched when it could not be
-  // reached: that reads as not searched, never as searched and empty.
+  // Files is asked of the file index, which a check records as not searched when the firm does not
+  // index its files or the index could not be reached: that reads as not searched, never as
+  // searched and empty. The record does not say which of the two it was, so the line names both.
   if (location === "files" && record?.check.scope[FILES_SOURCE] === "unavailable") {
     return {
       state: "not-searched",
       summary: "Not searched",
-      lines: ["The file index is not connected yet, so no file's text was read."],
+      lines: [
+        "No file's text was read. File indexing is not turned on for this firm, or the file index could not be reached. An administrator turns it on in Settings, under Search and Indexing.",
+      ],
     };
   }
   const hits = record?.hits.filter((hit) => locationOfHit(hit) === location).length ?? 0;

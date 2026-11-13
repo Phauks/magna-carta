@@ -1,8 +1,8 @@
 #!/bin/bash
 # Make the git-ignored Rust->WASM artefacts available so the quality gate (pnpm check),
 # the pre-push hook, and any worker/pdf test can run in a Claude Code on the web session.
-# The three packages packages/{pdf,decryption,email}/src/pkg are built from
-# crates/{pdf-core,decryption-core,email-core}; they are never committed, so a fresh remote
+# The packages packages/{pdf,decryption,email,seven-zip}/src/pkg are built from
+# crates/{pdf-core,decryption-core,email-core,seven-zip-core}; they are never committed, so a fresh remote
 # container has to build them once. The container is cached after this hook, so later sessions
 # start from a snapshot that already carries the artefacts and this becomes a fast no-op.
 set -euo pipefail
@@ -31,3 +31,9 @@ log "building WASM artefacts…"
 node tooling/bootstrap/index.mjs >&2
 
 log "WASM artefacts ready."
+
+# A cold `tsc -b` peaks near the container's default Node heap (about 2 GB), so give every later
+# command in the session a larger one. CLAUDE_ENV_FILE is how a SessionStart hook sets the environment.
+if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  echo 'export NODE_OPTIONS="--max-old-space-size=8192 ${NODE_OPTIONS:-}"' >> "$CLAUDE_ENV_FILE"
+fi

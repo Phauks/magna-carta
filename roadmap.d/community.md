@@ -18,7 +18,7 @@
   status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: Posting, voting (distinct-firm ranking, counts below five withheld), comments, the status pipeline with decline reasons, duplicates, accepted answers and the roadmap-by-status counts are built in packages/community/src/board-service.ts and tested against the control-plane schema, and served by apps/community-worker under /api/; the screens are built in the developer console and not yet wired to it.
+  evidence: Posting, voting (distinct-firm ranking, counts below five withheld), comments, the status pipeline with decline reasons, duplicates, accepted answers and the roadmap-by-status counts are built in packages/community/src/board-service.ts and tested against the control-plane schema, served by apps/community-worker under /api/, and drawn by the live screens under apps/web/src/routes/community-board/ (rerouted from the community host by apps/web/src/hooks.ts).
   audience: public
   public-name: Feature requests and voting
   public-summary: Ask for what your firm needs, vote on what other firms have asked for, and see what we decided and why.

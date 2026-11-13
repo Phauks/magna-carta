@@ -36,7 +36,7 @@
    * NOTHING ABOUT A CONVERSATION IS LOGGED HERE. Not a console line, not a diagnostics record: a
    * failure reports what the server said about the request, never what anybody typed.
    */
-  import type { Snippet } from "svelte";
+  import { tick, type Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -47,6 +47,8 @@
   import Briefcase from "@lucide/svelte/icons/briefcase";
   import AttachFileDialog from "./attach-file-dialog.svelte";
   import ConversationDeleteDialog from "./conversation-delete-dialog.svelte";
+  import ConversationFindBar from "./conversation-find-bar.svelte";
+  import { findQuery, matchingTurnIds, shownTurns, steppedMatch } from "./conversation-find.ts";
   import ConversationMenu from "./conversation-menu.svelte";
   import ConversationName from "./conversation-name.svelte";
   import { conversationAuthor } from "./conversation-author.svelte.ts";
@@ -62,6 +64,7 @@
   import MagnusTranscript from "./magnus-transcript.svelte";
   import MagnusUnavailable from "./magnus-unavailable.svelte";
   import MoveConversationDialog from "./move-conversation-dialog.svelte";
+  import TurnRemoveDialog from "./turn-remove-dialog.svelte";
   import { ConversationSession } from "./conversation-session.svelte.ts";
   import { ConversationShelf } from "./conversation-shelf.svelte.ts";
   import { MatterCitations } from "./matter-citations.svelte.ts";
@@ -78,6 +81,7 @@
     type MagnusAvailability,
     type MagnusConversation,
     type MagnusModelChoice,
+    type MagnusTurn,
   } from "./magnus-api.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -190,6 +194,10 @@
   let composingNew = $state(false);
   let deletingConversation = $state<MagnusConversation | null>(null);
   let movingConversation = $state<MagnusConversation | null>(null);
+  /** The member's own message being rewritten in the composer, or null when asking afresh. */
+  let editingTurn = $state<MagnusTurn | null>(null);
+  /** The member's own message the remove dialog is asking about. */
+  let removingTurn = $state<MagnusTurn | null>(null);
   let attachingTo = $state<MagnusConversation | null>(null);
   let detachingFileId = $state<string | null>(null);
   let composerElement = $state<HTMLTextAreaElement | null>(null);
@@ -502,6 +510,80 @@
     else select(value);
   }
 
+  /*
+   * Editing puts the message back in the composer and says so there. The draft the member had is
+   * set aside for the edit, because the composer holds one message at a time; cancelling clears it.
+   */
+  function startEditing(turn: MagnusTurn): void {
+    if (turn.content === null) return;
+    editingTurn = turn;
+    draft = turn.content;
+    composerElement?.focus();
+  }
+
+  function cancelEditing(): void {
+    editingTurn = null;
+    draft = "";
+  }
+
+  /*
+   * Finding words in the open conversation. The bar steps between the messages that hold them, and
+   * opening it reads every earlier page first, so a find is never silently a find over the part
+   * that happens to be on screen.
+   */
+  let findOpen = $state(false);
+  let findText = $state("");
+  let findIndex = $state(0);
+  let findReading = $state(false);
+  let findBar = $state<ReturnType<typeof ConversationFindBar> | null>(null);
+  const findWords = $derived(findOpen ? findQuery(findText) : "");
+  const findMatches = $derived(matchingTurnIds(shownTurns(session.turns ?? []), findWords));
+  const findCurrent = $derived(Math.min(findIndex, Math.max(findMatches.length - 1, 0)));
+  const currentMatchId = $derived(findMatches[findCurrent] ?? null);
+  /** The longest run of earlier pages a find reads before it settles for what it has. */
+  const FIND_EARLIER_PAGES = 40;
+
+  async function openFind(): Promise<void> {
+    findOpen = true;
+    await tick();
+    findBar?.focus();
+    if (findReading) return;
+    findReading = true;
+    for (let page = 0; page < FIND_EARLIER_PAGES && session.earlierCursor !== null; page++) {
+      await session.loadEarlier();
+      if (session.failure !== null) break;
+    }
+    findReading = false;
+  }
+
+  function closeFind(): void {
+    findOpen = false;
+    findText = "";
+    findIndex = 0;
+  }
+
+  function setFindText(next: string): void {
+    findText = next;
+    findIndex = 0;
+  }
+
+  /* Another conversation is another record: a find never carries over to it. */
+  let findConversation: string | null = null;
+  $effect(() => {
+    const open = selectedId;
+    if (open === findConversation) return;
+    findConversation = open;
+    closeFind();
+  });
+
+  /* Opening another conversation, or a read that no longer holds the message, ends the edit. */
+  $effect(() => {
+    const editing = editingTurn;
+    if (editing !== null && !(session.turns ?? []).some((turn) => turn.id === editing.id)) {
+      editingTurn = null;
+    }
+  });
+
   async function send(): Promise<void> {
     const message = draft.trim();
     if (message === "" || sendRefused) return;
@@ -522,9 +604,13 @@
       selectedId = outcome.value.id;
       composingNew = false;
     }
-    const sent = await session.send(message, modelChoice);
+    const sent =
+      editingTurn === null
+        ? await session.send(message, modelChoice)
+        : await session.edit(editingTurn.id, message, modelChoice);
     if (!sent) return;
     draft = "";
+    editingTurn = null;
     void loadConversations();
     void refreshAvailability();
   }
@@ -626,6 +712,8 @@
     model={availability?.model}
     models={availability?.models ?? []}
     bind:choice={modelChoice}
+    editing={editingTurn !== null}
+    onCancelEdit={cancelEditing}
     sending={session.sending || starting}
     {sendRefused}
     {allowanceSpent}
@@ -685,6 +773,7 @@
         : null}
       onShelve={(next) => void shelveSelected(next)}
       onRename={() => conversationName?.rename()}
+      onFind={() => void openFind()}
       onMove={() => (movingConversation = selected)}
       onDownload={() => void downloadTranscript()}
       onDelete={() => (deletingConversation = selected)}
@@ -703,7 +792,24 @@
   <Conversation.Root class="min-h-0 flex-1">
     {#if selectedId !== null}
       {@render conversationHeadRow()}
-      <MagnusTranscript {session} />
+      {#if findOpen}
+        <ConversationFindBar
+          bind:this={findBar}
+          bind:value={() => findText, setFindText}
+          matchCount={findMatches.length}
+          current={findCurrent}
+          reading={findReading}
+          onStep={(step) => (findIndex = steppedMatch(findCurrent, findMatches.length, step))}
+          onClose={closeFind}
+        />
+      {/if}
+      <MagnusTranscript
+        {session}
+        onEdit={startEditing}
+        onRemove={(turn) => (removingTurn = turn)}
+        find={findWords}
+        {currentMatchId}
+      />
     {:else}
       <!-- TWO ABSENCES, TWO SETS OF WORDS. Nothing on the record is the member never having asked
            anything, which is what the screen's own empty copy is for. A fresh composer while
@@ -928,6 +1034,17 @@
   }
   conversation={deletingConversation}
   onDeleted={conversationDeleted}
+/>
+
+<TurnRemoveDialog
+  bind:open={
+    () => removingTurn !== null,
+    (open: boolean) => {
+      if (!open) removingTurn = null;
+    }
+  }
+  {session}
+  turn={removingTurn}
 />
 
 <MoveConversationDialog

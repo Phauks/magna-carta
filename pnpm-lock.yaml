@@ -598,6 +598,9 @@ importers:
 
   apps/community-worker:
     dependencies:
+      '@magna-carta/build-identity':
+        specifier: workspace:*
+        version: link:../../packages/build-identity
       '@magna-carta/community':
         specifier: workspace:*
         version: link:../../packages/community

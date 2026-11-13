@@ -1257,6 +1257,12 @@ export const fileVersion = sqliteTable(
     playableCopySizeBytes: integer("playable_copy_size_bytes"),
     playableCopyReason: text("playable_copy_reason"),
     playableCopyRequestedAt: text("playable_copy_requested_at"),
+    // Where the copy was FILED: the MP4 is saved into the matter as a file of its own, in the same
+    // folder as the original, so a member can open, share and export it like any other document. Set
+    // with `ready`; the two key and size columns above stay null for a filed copy and hold only the
+    // copies made before copies were filed. A pointer rather than a constraint: the copy is a file a
+    // member may delete, and then the original simply owes a new copy when somebody asks again.
+    playableCopyFileId: text("playable_copy_file_id").$type<FileId>(),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
@@ -10110,6 +10116,16 @@ export const magnusTurn = sqliteTable(
     // thought. Null on a member turn, on a failed turn, and where no effort was sent (a model that
     // takes none answers at its own default).
     effort: text("effort"),
+    // When the author removed this member turn and its answer from the conversation. The text is
+    // KEPT: a transcript is work product, erased only when the whole conversation is deleted, so a
+    // removal hides the pair from the reader and from the model behind a marker that says so.
+    removedAt: text("removed_at"),
+    // When an edit of an earlier member turn set this turn aside. Editing re-asks from that point:
+    // the edited turn and every turn after it are superseded, kept on the record, and no longer sent
+    // to the model; the edit is appended as a new member turn naming the one it replaces.
+    supersededAt: text("superseded_at"),
+    // On a member turn made by an edit, the turn it replaces. Null otherwise.
+    replacesTurnId: text("replaces_turn_id").$type<MagnusTurnId>(),
     createdAt: text("created_at").notNull(),
     completedAt: text("completed_at"),
   },

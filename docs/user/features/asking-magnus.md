@@ -77,8 +77,9 @@ Inside the firm, **the transcript is a firm record**, like any other work you do
 - You can read your own. Somebody with the right permission — usually the firm's owner — can read
   everybody's; that is a supervision permission, not something every colleague has.
 - **Clients never see it.** No conversation reaches the client portal.
-- You can delete a conversation. That removes it and everything in it. It is the only way to remove
-  what was typed, so deleting is whole conversations rather than single messages.
+- You can delete a conversation. That removes it and everything in it. It is the only way to erase
+  what was typed. Editing or removing a single message (below) takes it out of the conversation but
+  does not erase it.
 
 If a matter is subject to a legal hold or a retention rule, the conversations kept on it are covered
 by the same rule as the rest of that file.
@@ -94,6 +95,32 @@ clipboard.
 The open conversation's name sits at the top with the matter it is kept on in small print beneath
 it, or "Not kept on a matter". Inside a matter's own Magnus section the matter is already named at
 the top of the page, so that line is left out.
+
+## Editing or Removing Your Own Message
+
+Under each message you sent there are two more buttons beside the copy button. They are there only
+in a conversation you started, and only when Magnus is not in the middle of an answer.
+
+- **Edit and Ask Again** (the pencil) puts your message back in the box so you can change it. Press
+  **Send Edit** and Magnus answers the new version. Your old message and everything after it leave
+  the conversation, and the new message is marked **Edited**. Press **Cancel Edit** to leave it as
+  it was.
+- **Remove** (the bin) takes your message and Magnus's answer to it out of the conversation. A note
+  shows where they were, and Magnus does not read them again when it answers your later questions.
+
+Neither one erases anything. The words stay on the firm's record, where a colleague allowed to read
+every conversation can still see them, until the whole conversation is deleted.
+
+## Finding Words in a Conversation
+
+To find something said earlier in the open conversation, open its **More** menu (the three dots
+beside its name) and choose **Find in Conversation**. Type the words in the box that appears under
+the name. Every place they appear is marked, whatever their capitals, and the box says how many
+messages hold them, such as "2 of 5 messages".
+
+Press **Enter** or the down arrow to go to the next message that matches, and **Shift+Enter** or the
+up arrow to go back. Press **Escape** or the close button when you are done. The find covers the
+whole conversation, including earlier messages that were not yet on screen.
 
 ## While You Wait
 
