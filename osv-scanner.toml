@@ -4,8 +4,8 @@
 # each carries a cause. The `ignoreUntil` on the tracked-remediation set is a forcing function — when it
 # lapses the advisory re-surfaces and fails the gate, so acceptance cannot silently become permanent.
 #
-# NO ENTRY IS ACCEPTED TODAY, WHICH IS THE INTENDED STATE. An entry belongs here
-# only when an advisory would otherwise FAIL the gate — that is, a remaining HIGH or CRITICAL
+# ONE ENTRY IS ACCEPTED TODAY (libcrux-kem, at the end of this file); none is the intended state.
+# An entry belongs here only when an advisory would otherwise FAIL the gate — that is, a remaining HIGH or CRITICAL
 # (CVSS >= 7.0) with no remediation available. An advisory the gate already passes needs no entry, and
 # adding one would be actively harmful: it would hide a finding that is currently visible in the scan
 # output for the next person who reads it.
@@ -79,3 +79,13 @@
 # Workers test pool became @cloudflare/vitest-plugin. The upstream vite 8.0.16 was in the tree only
 # because pnpm auto-installed it for `vite` peers the override alias could not satisfy; the root
 # package.json now declares the alias, so no upstream Vite resolves at all.
+
+# Accepted 2026-11-13 by the owner. libcrux-kem 0.0.9 is in crates/Cargo.lock only as an optional,
+# never-enabled backend of hpke-rs 0.7, which OpenMLS's RustCrypto provider (crates/mls-core) uses
+# with its `rustcrypto` backend. `cargo tree --workspace --all-features --target all -i libcrux-kem`
+# prints nothing: the crate is never compiled. The fix (0.0.10) needs hpke-rs 0.8, and no
+# openmls_rust_crypto release yet requires above hpke ^0.7, so no upgrade reaches it.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0331"
+ignoreUntil = 2027-02-13
+reason = "libcrux-kem 0.0.9 panic decoding short hybrid keys. Lockfile-only: an optional hpke-rs 0.7 backend that nothing enables, so it is never compiled (cargo tree -i libcrux-kem is empty with all features). No remediation reachable: hpke-rs-libcrux 0.7.0 pins =0.0.9 and every openmls_rust_crypto release requires hpke ^0.7. Revisit when openmls_rust_crypto moves to hpke-rs 0.8, then drop this entry."
