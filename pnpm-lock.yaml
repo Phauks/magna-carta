@@ -2907,6 +2907,9 @@ importers:
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../directory
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
@@ -2914,6 +2917,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/encryption':
+        specifier: workspace:*
+        version: link:../encryption
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

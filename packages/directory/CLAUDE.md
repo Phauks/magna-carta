@@ -119,7 +119,7 @@
 
 - Depends on: `@magna-carta/data-access` (effect batches, `composeProtectedWrite`/`readProtected`/`blindIndexValue`, `protectedField` registry, the list envelopes the contract uses), `@magna-carta/database` (per-firm schema), `@magna-carta/identifiers`, `@magna-carta/civil-time` (the civil-date pattern), `zod` (the contract module only), `words/double-metaphone` (pinned).
 - Pure and synchronous per operation: produces statements for the caller to run via the data-access layer; holds no D1 binding and performs no I/O of its own.
-- The worker routes (`apps/api-worker/src/http/routes/directory/directory.ts`) are the only callers of `runDirectoryEffect` — they own threading `env`, the actor, and the crypto context.
+- The worker routes (`apps/api-worker/src/http/routes/directory/directory.ts`) call `runDirectoryEffect` and own threading `env`, the actor, and the crypto context. The one other caller is `@magna-carta/record-transfer` (`src/directory-transfer.ts`), which commits a transferred record together with its source link: it takes the statements from `composePersonRecord` and `composeCreateOrganization`, the same ones `createPersonRecord` and `createOrganization` commit, so a transferred record is stored exactly as a typed one is. Change how a person or an organization is stored inside those compose functions and both paths follow.
 
 ## Gotchas
 

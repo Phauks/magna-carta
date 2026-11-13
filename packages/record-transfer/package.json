@@ -10,17 +10,21 @@
     "./source-record-link-statements": "./src/source-record-link-statements.ts",
     "./source-file": "./src/source-file.ts",
     "./transfer-source-file-statements": "./src/transfer-source-file-statements.ts",
-    "./delimited-text-reader": "./src/delimited-text-reader.ts"
+    "./delimited-text-reader": "./src/delimited-text-reader.ts",
+    "./directory-mapping": "./src/directory-mapping.ts",
+    "./directory-transfer": "./src/directory-transfer.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
     "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/encryption": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-orm": "catalog:",
