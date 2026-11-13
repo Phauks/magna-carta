@@ -57,6 +57,19 @@
         }
         if (typeface === "atkinson") delete root.dataset.typeface;
         else root.dataset.typeface = typeface;
+        // The text size: without it a person who chose Larger watches the whole boot at the
+        // browser's base size and then every line grow when the application mounts.
+        var textSize = localStorage.getItem("magna-carta.textSize");
+        if (
+          textSize !== "smaller" &&
+          textSize !== "large" &&
+          textSize !== "larger" &&
+          textSize !== "largest"
+        ) {
+          textSize = "default";
+        }
+        if (textSize === "default") delete root.dataset.textSize;
+        else root.dataset.textSize = textSize;
       })();
     </script>
     %sveltekit.head%

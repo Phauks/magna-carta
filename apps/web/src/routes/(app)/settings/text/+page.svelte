@@ -2,47 +2,34 @@
   /*
    * Settings · Text — how interface text reads, under Appearance in the user band. A BESPOKE
    * page composing the standard parts (settings-masthead, settings-scroll-region,
-   * settings-plate, settings-row):
+   * settings-plate, settings-row). Both rows are instant-apply axes through the shared
+   * appearance-axes machinery ($lib/settings/appearance-axes.svelte.ts); each change appends to
+   * this page's own ledger, and Restore re-applies. The no-FOUC boot script applies both before
+   * first paint.
    *
-   * - Font Family is LIVE: the typeface axis, an instant-apply choice through the shared
-   *   appearance-axes machinery ($lib/settings/appearance-axes.svelte.ts). It sets data-typeface on
-   *   <html>, the token overlays re-point --mc-font-sans, and every surface that reads the reading
-   *   face follows — no reload. The no-FOUC boot script applies the persisted face before first
-   *   paint. Each change appends to this page's own ledger, and Restore re-applies.
-   * - Text Size is still an honest Soon seam — it becomes a real axis when the type system grows a
-   *   text-scale overlay (the base size the interface renders at). It carries the real control,
-   *   disabled, with the Soon badge and the line saying what it waits on: these controls announce
-   *   a coming choice, not a current value. Until then a browser's own text-size setting already
-   *   scales the whole interface, because every type size is in rem.
+   * - Font Family sets data-typeface on <html>; the token overlays re-point --mc-font-sans, and
+   *   every surface that reads the reading face follows with no reload. Each option in the open
+   *   list is SET IN ITS OWN FACE: its row carries data-typeface-sample, which re-points
+   *   --mc-font-sans for that row alone (the sample blocks in
+   *   @magna-carta/design-tokens), so the list shows the faces rather than describing them.
+   * - Text Size sets data-text-size on <html>; the document base sets the root font size from it,
+   *   and every rem type size follows.
    */
-  import Badge from "@magna-carta/design-system/badge";
   import {
     appearanceRestoreAction,
     instantForAxis,
+    TEXT_SIZE_AXIS,
+    TEXT_SIZE_DEFINITION,
     TYPEFACE_AXIS,
     TYPEFACE_DEFINITION,
   } from "$lib/settings/appearance-axes.svelte.ts";
-  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
-  import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
-  const restoreAction = appearanceRestoreAction([TYPEFACE_AXIS]);
-
-  // Page-local seam definition: rendering through SettingsRow keeps the shared table grid.
-  const TEXT_SIZE_DEFINITION: SettingDefinition = {
-    id: "text.text-size",
-    sectionId: "text",
-    label: "Text Size",
-    description:
-      "The base size interface text renders at. Arrives with the type system's text-scale overlay.",
-    kind: "select",
-    defaultValue: "",
-    sensitivity: "open",
-  };
+  const restoreAction = appearanceRestoreAction([TYPEFACE_AXIS, TEXT_SIZE_AXIS]);
 </script>
 
 <svelte:head>
@@ -57,19 +44,12 @@
   </SettingsDescription>
 
   <SettingsPlate heading="Type">
-    <SettingsRow definition={TYPEFACE_DEFINITION} instant={instantForAxis(TYPEFACE_AXIS)} />
-
-    <SettingsRow definition={TEXT_SIZE_DEFINITION}>
-      {#snippet control()}
-        <Badge variant="neutral">Soon</Badge>
-        <ChoicePicker
-          options={[]}
-          inputId="settings-{TEXT_SIZE_DEFINITION.id}"
-          label={TEXT_SIZE_DEFINITION.label}
-          disabled
-          title="Arrives with the type system's text-scale overlay."
-        />
+    <SettingsRow definition={TYPEFACE_DEFINITION} instant={instantForAxis(TYPEFACE_AXIS)}>
+      {#snippet choiceRow(option)}
+        <span class="font-sans" data-typeface-sample={option.value}>{option.label}</span>
       {/snippet}
     </SettingsRow>
+
+    <SettingsRow definition={TEXT_SIZE_DEFINITION} instant={instantForAxis(TEXT_SIZE_AXIS)} />
   </SettingsPlate>
 </SettingsScrollRegion>

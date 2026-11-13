@@ -23,6 +23,7 @@ import {
   MOTION_STORAGE_KEY,
   SCROLL_EDGE_HINTS_STORAGE_KEY,
   THEME_STORAGE_KEY,
+  TEXT_SIZE_STORAGE_KEY,
   TYPEFACE_STORAGE_KEY,
 } from "../src/lib/internal/theme-preference.ts";
 
@@ -71,6 +72,14 @@ describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts",
 
   it("writes the same data-typeface attribute the token overlays key on", () => {
     expect(appHtml).toContain("root.dataset.typeface");
+  });
+
+  it("reads the same text-size storage key", () => {
+    expect(appHtml).toContain(`"${TEXT_SIZE_STORAGE_KEY}"`);
+  });
+
+  it("writes the same data-text-size attribute the document base keys on", () => {
+    expect(appHtml).toContain("root.dataset.textSize");
   });
 
   /*
