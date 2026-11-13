@@ -47,8 +47,8 @@
     type AddressDraft,
     type ContactRow,
   } from "../contact-draft.ts";
-  import type { DirectoryAddressType, DirectoryAddressUse } from "../directory-api.ts";
-  import { ADDRESS_TYPES, ADDRESS_USES } from "../directory-vocabulary.ts";
+  import type { DirectoryAddressUse } from "../directory-api.ts";
+  import { ADDRESS_USES } from "../directory-vocabulary.ts";
   import { phoneCountries } from "../phone-entry.ts";
   import SectionHeading from "./section-heading.svelte";
 
@@ -79,7 +79,6 @@
 
   // The two closed choices this section asks, as the product's one typed picker takes them.
   const useOptions = ADDRESS_USES.map((entry) => ({ value: entry.value, label: entry.label }));
-  const typeOptions = ADDRESS_TYPES.map((entry) => ({ value: entry.value, label: entry.label }));
 
   // The country list is the phone field's, which is every country the number formatter knows —
   // one list, so a record's address and its number never offer different sets of countries.
@@ -98,6 +97,11 @@
 
   let draft = $state<AddressDraft>(blank());
   let correcting = $state<ContactRow | null>(null);
+  /**
+   * Whether the entry form is open. It starts closed, as an Add Address button, and closes again
+   * once the address is added (owner ruling 2026-11-13: "just make an add ... button, at which point the fields would populate. this reduces clutter"). A correction opens it too.
+   */
+  let adding = $state(false);
 
   const correctable = $derived(onEdit !== undefined && onChange !== undefined);
   const refusal = $derived(contactDraftRefusal(draft));
@@ -120,7 +124,29 @@
     country: draft.country,
   });
 
+  /*
+   * A ZIP code typed first fills in the town and the state (owner request 2026-11-13). Only blanks
+   * are filled, so nothing somebody typed is overwritten; the table loads the first time it is
+   * needed, because most screens that show an address never use it.
+   */
+  async function fillFromPostalCode(next: AddressParts): Promise<void> {
+    if ((next.country ?? "US") !== "US") return;
+    if ((next.city ?? "").trim() !== "" && (next.region ?? "").trim() !== "") return;
+    const { usPostalPlaceFor } = await import("@magna-carta/address-formats/us-postal-places");
+    const place = usPostalPlaceFor(next.postal ?? "");
+    // The draft may have moved on while the table loaded: fill only what is still blank, and only
+    // while the code that asked is still the one in the box.
+    if (place === null || draft.postal !== (next.postal ?? "")) return;
+    draft = {
+      ...draft,
+      city: draft.city.trim() === "" ? place.city : draft.city,
+      region: draft.region.trim() === "" ? place.region : draft.region,
+    };
+  }
+
   function takeParts(next: AddressParts): void {
+    const postalChanged = (next.postal ?? "") !== draft.postal;
+    if (postalChanged) void fillFromPostalCode(next);
     draft = {
       ...draft,
       recipient: next.recipient ?? "",
@@ -144,6 +170,7 @@
 
   function abandonCorrection(): void {
     correcting = null;
+    adding = false;
     draft = blank();
   }
 
@@ -156,6 +183,7 @@
     }
     onAdd(draft);
     draft = blank();
+    adding = false;
   }
 </script>
 
@@ -260,6 +288,14 @@
     </ul>
   {/if}
 
+  {#if !adding && correcting === null}
+    <div>
+      <Button variant="secondary" size="sm" disabled={!canEdit} onclick={() => (adding = true)}>
+        <Plus class="size-16" aria-hidden="true" />
+        Add Address
+      </Button>
+    </div>
+  {:else}
   <div class="flex flex-col gap-12">
     <AddressFields
       bind:value={() => parts, takeParts}
@@ -270,17 +306,17 @@
       disabled={!canEdit}
     />
 
-    <!-- What the firm DOES with the address, beneath the address itself. The type is here rather
-         than left to a default because personal service turns on it: a post office box cannot be
-         served, and an affidavit that says otherwise is a problem. -->
+    <!-- What the address is for, beneath the address itself. Whether it is a physical place or a
+         mailing address is not asked here (owner ruling 2026-11-13): a new address is recorded as a
+         physical place, and a correction keeps whatever the address already held. -->
     <div class="flex flex-wrap items-end gap-8">
       <div style="width: 10rem">
-        <LabelledField label="Use">
+        <LabelledField label="Type">
           {#snippet children({ props })}
             <ChoicePicker
               options={useOptions}
               inputId={props.id}
-              label="Use"
+              label="Type"
               disabled={!canEdit}
               bind:value={
                 () => draft.use, (chosen) => (draft = { ...draft, use: chosen as DirectoryAddressUse })
@@ -289,37 +325,19 @@
           {/snippet}
         </LabelledField>
       </div>
-      <div style="width: 12rem">
-        <LabelledField label="Type">
-          {#snippet children({ props })}
-            <ChoicePicker
-              options={typeOptions}
-              inputId={props.id}
-              label="Type"
-              disabled={!canEdit}
-              bind:value={
-                () => draft.type, (chosen) => (draft = { ...draft, type: chosen as DirectoryAddressType })
-              }
-            />
-          {/snippet}
-        </LabelledField>
-      </div>
-      {#if correcting !== null}
-        <Button
-          variant="ghost"
-          size="icon"
-          class="ms-auto"
-          title="Leave it as it is"
-          aria-label="Leave this address as it is"
-          onclick={abandonCorrection}
-        >
-          <X class="size-16" aria-hidden="true" />
-        </Button>
-      {/if}
+      <Button
+        variant="ghost"
+        size="icon"
+        class="ms-auto"
+        title={correcting === null ? "Cancel" : "Leave it as it is"}
+        aria-label={correcting === null ? "Cancel adding an address" : "Leave this address as it is"}
+        onclick={abandonCorrection}
+      >
+        <X class="size-16" aria-hidden="true" />
+      </Button>
       <Button
         variant="secondary"
         size="icon"
-        class={correcting === null ? "ms-auto" : undefined}
         disabled={!canEdit || refusal !== null}
         title={editDisabledReason ?? refusal ?? (correcting === null ? "Add" : "Save the correction")}
         aria-label={correcting === null ? "Add this address" : "Save this correction"}
@@ -333,4 +351,5 @@
       </Button>
     </div>
   </div>
+  {/if}
 </section>
