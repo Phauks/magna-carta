@@ -1256,6 +1256,12 @@ export const fileVersion = sqliteTable(
     playableCopySizeBytes: integer("playable_copy_size_bytes"),
     playableCopyReason: text("playable_copy_reason"),
     playableCopyRequestedAt: text("playable_copy_requested_at"),
+    // Where the copy was FILED: the MP4 is saved into the matter as a file of its own, in the same
+    // folder as the original, so a member can open, share and export it like any other document. Set
+    // with `ready`; the two key and size columns above stay null for a filed copy and hold only the
+    // copies made before copies were filed. A pointer rather than a constraint: the copy is a file a
+    // member may delete, and then the original simply owes a new copy when somebody asks again.
+    playableCopyFileId: text("playable_copy_file_id").$type<FileId>(),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),

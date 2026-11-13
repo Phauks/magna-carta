@@ -74,7 +74,7 @@ async function seedVideo(
 async function row(versionId: FileVersionId) {
   const { results } = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
     .prepare(
-      "SELECT playable_copy_state, playable_copy_r2_key, playable_copy_size_bytes, playable_copy_reason, playable_copy_requested_at FROM file_version WHERE id = ?1",
+      "SELECT playable_copy_state, playable_copy_r2_key, playable_copy_size_bytes, playable_copy_reason, playable_copy_requested_at, playable_copy_file_id FROM file_version WHERE id = ?1",
     )
     .bind(versionId)
     .all<{
@@ -83,6 +83,7 @@ async function row(versionId: FileVersionId) {
       playable_copy_size_bytes: number | null;
       playable_copy_reason: string | null;
       playable_copy_requested_at: string | null;
+      playable_copy_file_id: string | null;
     }>();
   return results[0];
 }
@@ -120,6 +121,7 @@ function produce(versionId: FileVersionId, convert: Fetcher) {
     firmId,
     bucketName: "R2",
     versionId,
+    requestedBy: ownerUserId,
   };
   return producePlayableCopy(
     { ...env, CONVERT: convert } as unknown as Bindings,
@@ -196,8 +198,8 @@ describe("the playable copy routes", () => {
 });
 
 describe("the playable copy producer", () => {
-  it("streams the original to the engine, writes the copy beside it, stamps it and records it", async () => {
-    const { fileId, versionId, r2Key } = await seedVideo("video/x-matroska");
+  it("streams the original to the engine, files the copy beside it in the matter, and records it", async () => {
+    const { fileId, versionId } = await seedVideo("video/x-matroska");
     await markPending(versionId);
     const engine = fakeEngine(
       () =>
@@ -214,9 +216,10 @@ describe("the playable copy producer", () => {
 
     expect(outcome).toEqual({
       kind: "ready",
-      r2Key: `${r2Key}.playable.mp4`,
+      fileId: expect.stringMatching(/^file_/),
       sizeBytes: CONVERTED.byteLength,
     });
+    if (outcome.kind !== "ready") throw new Error("expected a filed copy");
     expect(engine.seen[0]?.headers).toMatchObject({
       "x-engine-id": "transcode",
       "x-source-format": "mkv",
@@ -224,21 +227,60 @@ describe("the playable copy producer", () => {
       "x-recipe": "mp4-h264-aac-faststart",
     });
     expect(engine.seen[0]?.body).toBe(new TextDecoder().decode(ORIGINAL));
-    const copy = await env.R2.get(`${r2Key}.playable.mp4`);
+
+    // The copy is a file of its own on the same matter, in the original's folder, named for it,
+    // uploaded by whoever asked, with its bytes at its own version's key and stamped with the matter.
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const { results } = await firmDatabase
+      .prepare(
+        // fitness:allow-no-status — the copy's version is read whatever the ingest has made of it so far
+        "SELECT f.matter_id, f.folder_id, f.name, v.r2_key, v.uploaded_by FROM file f JOIN file_version v ON v.file_id = f.id WHERE f.id = ?1",
+      )
+      .bind(outcome.fileId)
+      .all<{
+        matter_id: string;
+        folder_id: string | null;
+        name: string;
+        r2_key: string;
+        uploaded_by: string | null;
+      }>();
+    const filed = results[0];
+    expect(filed).toMatchObject({
+      matter_id: matterId,
+      folder_id: null,
+      name: "deposition (converted).mp4",
+      uploaded_by: ownerUserId,
+    });
+    const copy = await env.R2.get(filed?.r2_key ?? "");
     expect(await copy?.text()).toBe(new TextDecoder().decode(CONVERTED));
-    expect(copy?.customMetadata?.object_class).toBe("playable-copy");
     expect(copy?.customMetadata?.matter).toBe(matterId);
     expect(await row(versionId)).toMatchObject({
       playable_copy_state: "ready",
-      playable_copy_r2_key: `${r2Key}.playable.mp4`,
+      playable_copy_r2_key: null,
       playable_copy_size_bytes: CONVERTED.byteLength,
+      playable_copy_file_id: outcome.fileId,
     });
 
-    // The status route now reports it ready; a request hands it out rather than remaking it.
+    // The status route now names the file; a request hands it out rather than remaking it.
     const status = await call(fileId, "GET");
-    expect(await status.json()).toMatchObject({ state: "ready", sizeBytes: CONVERTED.byteLength });
+    expect(await status.json()).toMatchObject({
+      state: "ready",
+      fileId: outcome.fileId,
+      streamUrl: null,
+      sizeBytes: CONVERTED.byteLength,
+    });
     const asked = await call(fileId, "POST");
     expect(asked.status).toBe(200);
+
+    // A member deletes the copy: the original owes a new one, and the next request starts it.
+    await firmDatabase
+      .prepare("UPDATE file SET deleted_at = ?2 WHERE id = ?1")
+      .bind(outcome.fileId, ISO)
+      .run();
+    expect(await (await call(fileId, "GET")).json()).toMatchObject({ state: "none", fileId: null });
+    const again = await call(fileId, "POST");
+    expect(again.status).toBe(202);
+    expect(await again.json()).toMatchObject({ state: "pending", fileId: null });
   });
 
   it("records the engine's refusal as unavailable, with its reason", async () => {

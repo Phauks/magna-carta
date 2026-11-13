@@ -295,6 +295,9 @@ for at `POST /api/v1/files/{id}/playable-copy` (`routes/files/playable-copy.ts`)
 `CONVERSION` queue as a `PlayableCopyMessage` (it carries `kind`, which a `ConversionMessage` never
 does), and `background/conversions/playable-copy-consumer.ts` pipes the R2 body into the convert
 worker and the engine's answer into a length-bound put (the engine always sends a Content-Length).
+The copy is FILED: it is reserved as a new file in the original's folder (`initiateUpload`), written
+to that version's key, completed and handed to the ingest like any server-written document, and the
+original's version records the file in `playable_copy_file_id`.
 Its state lives on the version's own row (`packages/file-manager/src/playable-copy.ts`), not in a
 `ConversionJob`, so it has no coordinator and no alarm: a fault throws and the queue retries, and a
 request left pending past its stale window may be asked for again. One queue invocation is cut off at
