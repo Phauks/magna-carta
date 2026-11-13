@@ -7,7 +7,12 @@
  * is a mapping over plain values, pinned here without a browser.
  */
 import { describe, expect, it } from "vitest";
-import type { CheckWithHits, HitDetail, RunSummary } from "../src/lib/conflicts/conflicts-api.ts";
+import type {
+  CheckWithHits,
+  HitDetail,
+  ReportSection,
+  RunSummary,
+} from "../src/lib/conflicts/conflicts-api.ts";
 import {
   placeSettingsText,
   statusCaption,
@@ -69,8 +74,12 @@ function hit(overrides: Partial<HitDetail> = {}): HitDetail {
   };
 }
 
-function record(hits: HitDetail[], statement: string[]): CheckWithHits {
-  return { check: {} as CheckWithHits["check"], statement, hits };
+function section(key: ReportSection["key"], ...lines: string[]): ReportSection {
+  return { key, heading: key, lines, attention: false };
+}
+
+function record(hits: HitDetail[], report: ReportSection[]): CheckWithHits {
+  return { check: {} as CheckWithHits["check"], report, hits };
 }
 
 describe("the status section", () => {
@@ -92,15 +101,19 @@ describe("the status section", () => {
     expect(places.slice(1).every((place) => place.state === "not-searched")).toBe(true);
   });
 
-  it("keeps the rows once the run settles, now holding the engine's own sentences", () => {
-    const statement = ["Searched the Directory.", "0 results."];
+  it("keeps the rows once the run settles, the Directory now holding the engine's own sections", () => {
+    const report = [
+      section("searched", "Searched the Directory."),
+      section("results", "0 results."),
+    ];
     const places = statusPlaces(
       run({ status: "completed", stage: null, hitCount: 0 }),
-      record([], statement),
+      record([], report),
     );
     expect(places[0]?.state).toBe("done");
     expect(places[0]?.summary).toBe("0 results");
-    expect(places[0]?.lines).toEqual(statement);
+    expect(places[0]?.sections).toEqual(report);
+    expect(places[0]?.lines).toEqual([]);
     expect(statusCaption(places)).toBe("1 of 1 location finished, 4 not searched");
   });
 
@@ -127,12 +140,12 @@ describe("the status section", () => {
     expect(searching[2]?.state).toBe("searching");
     expect(searching[0]?.lines.some((line) => line.startsWith("Searching calls"))).toBe(false);
 
-    const statement = [
-      "Party — name and identifier similarity.",
-      "Messaging — calls and email, filed or not, searched.",
-      "Tasks — titles and descriptions of tasks on open matters, searched.",
-      "Magnus — every conversation, including those saved to General, searched.",
-      "2 results surfaced for review (tier 1: 1, tier 2: 1).",
+    const report = [
+      section("names", "Names compared."),
+      section("messaging", "Calls and email, filed on a matter or not, searched."),
+      section("tasks", "Titles and descriptions of tasks on open matters, searched."),
+      section("magnus", "Every conversation, including those saved to General, searched."),
+      section("results", "2 results surfaced for review (tier 1: 1, tier 2: 1)."),
     ];
     const call = hit({
       id: "call",
@@ -147,13 +160,13 @@ describe("the status section", () => {
     });
     const done = statusPlaces(
       run({ askedScope, status: "completed", stage: null, hitCount: 2 }),
-      record([hit(), call], statement),
+      record([hit(), call], report),
     );
-    expect(done[0]?.lines).toEqual([statement[0], statement[4]]);
+    expect(done[0]?.sections).toEqual([report[0], report[4]]);
     expect(done[0]?.summary).toBe("1 result");
-    expect(done[2]?.lines).toEqual([statement[1]]);
+    expect(done[2]?.lines).toEqual(report[1]?.lines);
     expect(done[2]?.summary).toBe("1 result");
-    expect(done[3]?.lines).toEqual([statement[2]]);
+    expect(done[3]?.lines).toEqual(report[2]?.lines);
     expect(done[4]?.summary).toBe("0 results");
     expect(statusCaption(done)).toBe("4 of 4 locations finished, 1 not searched");
     expect(placeSettingsText("messaging", askedScope.places)).toBe("Calls, Email");
@@ -174,8 +187,11 @@ describe("the status section", () => {
       },
     };
     expect(placeSettingsText("files", askedScope.places)).toBe("Open, Archived");
-    const statement = [
-      "Files — the text of files on open matters, plus deleted files on every matter across 3 of 3 matters, searched.",
+    const report = [
+      section(
+        "files",
+        "The text of files on open matters, plus files deleted from any matter across 3 of 3 matters, searched.",
+      ),
     ];
     const file = hit({
       sourceClass: "content",
@@ -192,18 +208,18 @@ describe("the status section", () => {
       run({ askedScope, status: "completed", stage: null, hitCount: 1 }),
       {
         check: { scope: { files: "searched" } } as unknown as CheckWithHits["check"],
-        statement,
+        report,
         hits: [file],
       },
     );
     expect(searched[1]?.state).toBe("done");
     expect(searched[1]?.summary).toBe("1 result");
-    expect(searched[1]?.lines).toEqual(statement);
+    expect(searched[1]?.lines).toEqual(report[0]?.lines);
     const dormant = statusPlaces(
       run({ askedScope, status: "completed", stage: null, hitCount: 0 }),
       {
         check: { scope: { files: "unavailable" } } as unknown as CheckWithHits["check"],
-        statement: [],
+        report: [],
         hits: [],
       },
     );

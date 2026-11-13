@@ -35,8 +35,10 @@ takes you to its screen, where the search runs in front of you.
   the parties, one per line, then the settings (what each location searched, how names were
   compared, who asked, and the matter it is filed on, or No Matter).
   **Status** has a row for each location with what it is doing while the run is under way, and what
-  it did once it finishes; open a row to read its log. A location that cannot be searched yet reads
-  Not searched. **Results** is what the search turned up (see below).
+  it did once it finishes; open a row to read its log. Once the run finishes, the Directory row opens
+  onto blocks, one per row: when and by whom it searched, names and identifiers, relationships, Firm
+  Employees, what was not searched and why (tinted, so a gap stands out), and the results. The
+  printed report has the same parts. A location that cannot be searched yet reads Not searched. **Results** is what the search turned up (see below).
 - **History** lists every run of the check with when it started, how long it took, who asked, how
   many results it found and how it ended. Click a run's name to show its report on the Report tab. **Run Again** searches again
   with the same parties and settings, as a further run under the same number.

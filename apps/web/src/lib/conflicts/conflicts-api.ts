@@ -377,11 +377,33 @@ export interface CheckDetail {
   createdAt: string;
 }
 
+/**
+ * One part of the platform's account of a search: who searched and when, one part of the Directory
+ * search, one place beyond it, what was not searched, or what surfaced. `attention` marks a part
+ * saying the search was narrower than asked or stopped short.
+ */
+export interface ReportSection {
+  key:
+    | "searched"
+    | "names"
+    | "relationships"
+    | "employees"
+    | "messaging"
+    | "tasks"
+    | "magnus"
+    | "files"
+    | "not_searched"
+    | "results";
+  heading: string;
+  lines: string[];
+  attention: boolean;
+}
+
 /** A completed run's record: the search's own account, its recorded scope, and every hit. */
 export interface CheckWithHits {
   check: CheckDetail;
-  /** The platform's account of its own search, one sentence per line, in reading order. */
-  statement: string[];
+  /** The platform's account of its own search, as sections in reading order. */
+  report: ReportSection[];
   hits: HitDetail[];
 }
 

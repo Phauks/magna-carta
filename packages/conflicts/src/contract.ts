@@ -6,6 +6,7 @@ import {
   MESSAGING_CHANNELS,
   TASK_MATTER_STATUSES,
 } from "./content-search.ts";
+import { REPORT_SECTION_KEYS } from "./report-text.ts";
 
 // The conflicts wire shapes that live with the domain rather than inside a route module. A route
 // imports them and the OpenAPI document reads them exactly as written here.
@@ -14,6 +15,19 @@ import {
 // running check can say what it is searching before it has a record. The record's own scope says
 // what actually ran once the firm's floor has been applied. Null on a run whose stored request
 // cannot be read.
+// The reader-facing account of one run, as sections in reading order (report-text.ts). Every line is a
+// fact about the search itself. A search that surfaced nothing ends "0 results.", which reports that
+// the search ended and says nothing about the matter. `attention` marks a section saying the search
+// was narrower than asked or stopped short.
+export const CheckReport = z.array(
+  z.object({
+    key: z.enum(REPORT_SECTION_KEYS),
+    heading: z.string(),
+    lines: z.array(z.string()),
+    attention: z.boolean(),
+  }),
+);
+
 // The firm's own records a check is asked to search beyond the Directory. An empty list, or false,
 // is a place not asked for.
 export const PlacesRequest = z.object({

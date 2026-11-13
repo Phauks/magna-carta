@@ -5612,7 +5612,12 @@ export type ConflictsRunProgress = {
 
 export type ConflictsCheckRecord = {
     check: ConflictsCheckDetail;
-    statement: Array<string>;
+    report: Array<{
+        key: 'searched' | 'names' | 'relationships' | 'employees' | 'messaging' | 'tasks' | 'magnus' | 'files' | 'not_searched' | 'results';
+        heading: string;
+        lines: Array<string>;
+        attention: boolean;
+    }>;
     hits: Array<ConflictsHitDetail>;
 } | null;
 
