@@ -14,7 +14,7 @@ import {
   SIGNING_EVENT_LABEL,
   signerDisplayName,
 } from "./certificate.ts";
-import type { CertificateOfCompletion, SigningContact } from "./esign.ts";
+import type { CertificateOfCompletion, SignerCompletion, SigningContact } from "./esign.ts";
 
 interface SheetField {
   readonly label: string;
@@ -73,11 +73,30 @@ export function certificateSheetImages(): Uint8Array[] {
   return [brandLockupPng()];
 }
 
-/** Who to ask about the document, on one line: the name, then each way to reach them. */
-function contactLine(contact: SigningContact): string {
-  const ways = [contact.email, contact.phone].filter((way) => way !== undefined);
-  const reach = ways.length === 0 ? "" : ` at ${ways.join(" or ")}`;
-  return `Questions about this document? Contact ${contact.name}${reach}.`;
+/** What the sheet is told that the record does not hold. */
+export interface CertificateSheetOptions {
+  /**
+   * Who answers for the certificate itself, as distinct from the document: the platform's own
+   * support contact. Without one the sheet names the platform and gives no address.
+   */
+  readonly issuerContact?: SigningContact;
+}
+
+/** The platform's name, where no issuer contact says otherwise. */
+const ISSUER_NAME = "Magna Carta";
+
+/** A contact as one row of the questions table: what it answers for, then how to reach it. */
+function contactRow(about: string, contact: SigningContact): string[] {
+  return [about, contact.name, contact.email ?? "", contact.phone ?? ""];
+}
+
+/** The signature blocks a signer completed: one, the signing act itself, where none is counted. */
+function signatureCount(signer: SignerCompletion): number {
+  return signer.intent.signatureCount ?? 1;
+}
+
+function initialCount(signer: SignerCompletion): number {
+  return signer.intent.initialCount ?? 0;
 }
 
 /** The hash in two rows of 32, so it fits a column and still reads as one value. */
@@ -92,9 +111,17 @@ function clock(instant: string): string {
   return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
-function stamp(instant: string): string {
+/**
+ * An instant as two rows, `Label: Date` and `Label: Time`. One that does not read as an instant is
+ * a single row holding what was recorded.
+ */
+function instantFields(label: string, instant: string): SheetField[] {
   const read = clock(instant);
-  return read === instant ? instant : `${read} UTC`;
+  if (read === instant) return [{ label, value: instant }];
+  return [
+    { label: `${label}: Date`, value: read.slice(0, 10) },
+    { label: `${label}: Time`, value: `${read.slice(11)} UTC` },
+  ];
 }
 
 function createdOn(instant: string): CertificateSheet["created"] {
@@ -111,11 +138,17 @@ function createdOn(instant: string): CertificateSheet["created"] {
 }
 
 /**
- * Lay a Certificate of Completion out as a sheet: what was signed, who signed it and how each was
- * identified, then the audit log. Deterministic for a given certificate.
+ * Lay a Certificate of Completion out as a sheet: what was signed and by whom on the first page,
+ * each signer in full on the next, then the audit log. Deterministic for a given certificate.
  */
-export function certificateSheet(certificate: CertificateOfCompletion): CertificateSheet {
+export function certificateSheet(
+  certificate: CertificateOfCompletion,
+  options: CertificateSheetOptions = {},
+): CertificateSheet {
   const envelope = certificate.envelope;
+  const signers = certificate.signers;
+  const total = (count: (signer: SignerCompletion) => number) =>
+    String(signers.reduce((sum, signer) => sum + count(signer), 0));
 
   const summary: SheetField[] = [{ label: "Reference", value: certificate.reference }];
   if (envelope !== undefined) {
@@ -124,37 +157,68 @@ export function certificateSheet(certificate: CertificateOfCompletion): Certific
       summary.push({ label: "Pages", value: String(envelope.pageCount) });
     }
     if (envelope.sender !== undefined) {
-      summary.push({ label: "Sent By", value: envelope.sender.name });
+      summary.push({ label: "Sender: Name", value: envelope.sender.name });
       if (envelope.sender.email !== undefined) {
-        summary.push({ label: "Sender Email", value: envelope.sender.email });
+        summary.push({ label: "Sender: Email", value: envelope.sender.email });
       }
     }
     if (envelope.createdAt !== undefined) {
-      summary.push({ label: "Created", value: stamp(envelope.createdAt) });
+      summary.push(...instantFields("Created", envelope.createdAt));
     }
   }
   summary.push(
     { label: "Status", value: "Completed" },
-    { label: "Signers", value: String(certificate.signers.length) },
-    { label: "Sealed", value: stamp(certificate.sealedAt) },
+    ...instantFields("Sealed", certificate.sealedAt),
+    { label: "Signers", value: String(signers.length) },
+    { label: "Signatures", value: total(signatureCount) },
+    { label: "Initials", value: total(initialCount) },
     { label: "Document Hash (SHA-256)", value: hashRows(certificate.documentHashSha256) },
-    { label: "Times", value: "Coordinated Universal Time (UTC)" },
+    { label: "Time Zone", value: "Coordinated Universal Time (UTC)" },
   );
 
+  const documentContact = envelope?.contact ?? envelope?.sender;
   const blocks: CertificateSheetBlock[] = [
     { type: "image", image: 0, width: LOCKUP_WIDTH },
-    { type: "space", height: 10 },
     { type: "title", text: "Certificate of Completion" },
     { type: "rule" },
     { type: "fields", fields: summary },
+    { type: "heading", level: 1, text: "Signers" },
+    {
+      type: "table",
+      columns: [
+        { heading: "Name", weight: 20 },
+        { heading: "Email", weight: 28 },
+        { heading: "Signed (UTC)", weight: 22 },
+        { heading: "Signatures", weight: 15 },
+        { heading: "Initials", weight: 15 },
+      ],
+      rows: signers.map((signer) => [
+        signerDisplayName(signer),
+        signer.intent.name === undefined ? "" : (signer.intent.email ?? ""),
+        clock(signer.intent.affirmedAt),
+        String(signatureCount(signer)),
+        String(initialCount(signer)),
+      ]),
+    },
+    { type: "heading", level: 1, text: "Questions" },
+    {
+      type: "table",
+      columns: [
+        { heading: "About", weight: 20 },
+        { heading: "Contact", weight: 28 },
+        { heading: "Email", weight: 30 },
+        { heading: "Phone", weight: 22 },
+      ],
+      rows: [
+        ...(documentContact === undefined ? [] : [contactRow("The Document", documentContact)]),
+        contactRow("This Certificate", options.issuerContact ?? { name: ISSUER_NAME }),
+      ],
+    },
+    { type: "pageBreak" },
+    { type: "heading", level: 1, text: "Signer Details" },
   ];
-  const contact = envelope?.contact ?? envelope?.sender;
-  if (contact !== undefined) {
-    blocks.push({ type: "rule" }, { type: "paragraph", text: contactLine(contact) });
-  }
-  blocks.push({ type: "pageBreak" }, { type: "heading", level: 1, text: "Signers" });
 
-  for (const signer of certificate.signers) {
+  for (const signer of signers) {
     const fields: SheetField[] = [];
     if (signer.intent.email !== undefined && signer.intent.name !== undefined) {
       fields.push({ label: "Email", value: signer.intent.email });
@@ -164,12 +228,12 @@ export function certificateSheet(certificate: CertificateOfCompletion): Certific
       fields.push({ label: "Identity Proof", value: signer.attribution.proofReference });
     }
     fields.push(
-      {
-        label: "Agreed to Sign Electronically",
-        value: `${stamp(signer.consent.consentedAt)} (disclosure ${signer.consent.disclosureVersion})`,
-      },
+      ...instantFields("Consent", signer.consent.consentedAt),
+      { label: "Consent: Disclosure", value: signer.consent.disclosureVersion },
       { label: "Signature", value: ADOPTION_LABEL[signer.intent.adoption] },
-      { label: "Signed", value: stamp(signer.intent.affirmedAt) },
+      ...instantFields("Signed", signer.intent.affirmedAt),
+      { label: "Signatures", value: String(signatureCount(signer)) },
+      { label: "Initials", value: String(initialCount(signer)) },
     );
     if (signer.attribution.observedIp !== undefined) {
       fields.push({ label: "IP Address", value: signer.attribution.observedIp });

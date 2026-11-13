@@ -44,6 +44,13 @@ export interface SigningIntent {
   /** The address the request was sent to. */
   readonly email?: string;
   readonly adoption: SignatureAdoption;
+  /**
+   * How many signature blocks this signer completed in the document. Absent, the certificate
+   * counts one: the signing act this record is.
+   */
+  readonly signatureCount?: number;
+  /** How many initial blocks this signer completed. Absent, the certificate counts none. */
+  readonly initialCount?: number;
   /** When intent was affirmed, ISO 8601 (server-observed). */
   readonly affirmedAt: string;
 }

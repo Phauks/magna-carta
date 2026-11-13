@@ -16,6 +16,8 @@ function certificate() {
           name: "Alice Example",
           email: "alice@example.test",
           adoption: "drawn",
+          signatureCount: 2,
+          initialCount: 5,
           affirmedAt: "2026-07-18T12:00:00Z",
         },
         consent: { disclosureVersion: "v1", consentedAt: "2026-07-18T11:59:00Z" },
@@ -45,22 +47,31 @@ describe("certificateSheet", () => {
     const value = (label: string) => fields.find((field) => field.label === label)?.value;
 
     expect(sheet.blocks[0]).toEqual({ type: "image", image: 0, width: 130 });
-    expect(sheet.blocks[2]).toEqual({ type: "title", text: "Certificate of Completion" });
+    expect(sheet.blocks[1]).toEqual({ type: "title", text: "Certificate of Completion" });
     // A number a person can read out, never the request's internal identifier.
     expect(value("Reference")).toBe("MC-0123-4567-89AB");
     expect(JSON.stringify(sheet)).not.toContain("env_0001");
     expect(JSON.stringify(sheet)).not.toContain("sgn_1");
     expect(value("Document")).toBe("Engagement letter.pdf");
     expect(value("Pages")).toBe("3");
-    expect(value("Sent By")).toBe("Bob Sender");
-    expect(value("Sender Email")).toBe("bob@example.test");
-    expect(value("Times")).toBe("Coordinated Universal Time (UTC)");
+    expect(value("Sender: Name")).toBe("Bob Sender");
+    expect(value("Sender: Email")).toBe("bob@example.test");
+    expect(value("Time Zone")).toBe("Coordinated Universal Time (UTC)");
+    expect(value("Created: Date")).toBe("2026-07-18");
+    expect(value("Created: Time")).toBe("11:49:00 UTC");
+    expect(value("Signed: Date")).toBe("2026-07-18");
+    expect(value("Signed: Time")).toBe("12:00:00 UTC");
+    expect(value("Signers")).toBe("1");
+    expect(value("Signatures")).toBe("2");
+    expect(value("Initials")).toBe("5");
     expect(value("Document Hash (SHA-256)")?.replace(" ", "")).toBe(HASH);
     expect(value("Email")).toBe("alice@example.test");
     expect(value("Identified By")).toBe("Email/SMS one-time access code");
     expect(value("Identity Proof")).toBe("code_42");
-    expect(value("Sealed")).toBe("2026-07-18 12:00:01 UTC");
-    expect(value("Agreed to Sign Electronically")).toBe("2026-07-18 11:59:00 UTC (disclosure v1)");
+    expect(value("Sealed: Date")).toBe("2026-07-18");
+    expect(value("Sealed: Time")).toBe("12:00:01 UTC");
+    expect(value("Consent: Time")).toBe("11:59:00 UTC");
+    expect(value("Consent: Disclosure")).toBe("v1");
     expect(value("IP Address")).toBe("198.51.100.7");
     expect(value("Browser")).toBe("ExampleBrowser/1.0");
     expect(sheet.footer).toEqual({
@@ -78,8 +89,40 @@ describe("certificateSheet", () => {
     });
   });
 
+  it("summarizes every signer on the first page, with the blocks each completed", () => {
+    const blocks = certificateSheet(certificate()).blocks;
+    const firstPage = blocks.slice(
+      0,
+      blocks.findIndex((block) => block.type === "pageBreak"),
+    );
+    const table = firstPage.find((block) => block.type === "table");
+    expect(table?.type === "table" ? table.columns.map((column) => column.heading) : []).toEqual([
+      "Name",
+      "Email",
+      "Signed (UTC)",
+      "Signatures",
+      "Initials",
+    ]);
+    expect(table?.type === "table" ? table.rows : []).toEqual([
+      ["Alice Example", "alice@example.test", "2026-07-18 12:00:00", "2", "5"],
+    ]);
+  });
+
+  it("counts one signature and no initials for a signer whose blocks were not counted", () => {
+    const record = certificate();
+    const [first] = record.signers;
+    if (first === undefined) throw new Error("the fixture has a signer");
+    const { signatureCount: _signatures, initialCount: _initials, ...intent } = first.intent;
+    const sheet = certificateSheet({ ...record, signers: [{ ...first, intent }] });
+    const fields = sheet.blocks.flatMap((block) => (block.type === "fields" ? block.fields : []));
+    expect(fields.find((field) => field.label === "Signatures")?.value).toBe("1");
+    expect(fields.find((field) => field.label === "Initials")?.value).toBe("0");
+  });
+
   it("lists the audit log one row to a step, oldest first", () => {
-    const table = certificateSheet(certificate()).blocks.find((block) => block.type === "table");
+    const table = certificateSheet(certificate()).blocks.findLast(
+      (block) => block.type === "table",
+    );
     expect(table?.type === "table" ? table.rows : []).toEqual([
       ["2026-07-18 11:50:00", "Sent for Signature", "Bob Sender", "", ""],
       [
@@ -94,30 +137,39 @@ describe("certificateSheet", () => {
     ]);
   });
 
-  it("starts the signers and the audit log each on a page of their own", () => {
+  it("starts the signer details and the audit log each on a page of their own", () => {
     const blocks = certificateSheet(certificate()).blocks;
     const before = (text: string) =>
       blocks[blocks.findIndex((block) => block.type === "heading" && block.text === text) - 1];
-    expect(before("Signers")).toEqual({ type: "pageBreak" });
+    expect(before("Signer Details")).toEqual({ type: "pageBreak" });
     expect(before("Audit Log")).toEqual({ type: "pageBreak" });
   });
 
-  it("says who to ask about the document: the named contact, else the sender", () => {
-    const paragraphs = (sheet: ReturnType<typeof certificateSheet>) =>
-      sheet.blocks.flatMap((block) => (block.type === "paragraph" ? [block.text] : []));
-    expect(paragraphs(certificateSheet(certificate()))).toEqual([
-      "Questions about this document? Contact Bob Sender at bob@example.test.",
+  it("says who to ask: the firm about the document, the platform about the certificate", () => {
+    const questions = (sheet: ReturnType<typeof certificateSheet>) => {
+      const table = sheet.blocks.find(
+        (block) => block.type === "table" && block.columns[0]?.heading === "About",
+      );
+      return table?.type === "table" ? table.rows : [];
+    };
+    // With no firm contact the sender answers for the document, and the platform is named.
+    expect(questions(certificateSheet(certificate()))).toEqual([
+      ["The Document", "Bob Sender", "bob@example.test", ""],
+      ["This Certificate", "Magna Carta", "", ""],
     ]);
-    const record = certificate();
-    const named = certificateSheet({
-      ...record,
-      envelope: {
-        id: "env_0001",
-        contact: { name: "Example Law Firm", email: "office@example.test", phone: "555-0100" },
+    const named = certificateSheet(
+      {
+        ...certificate(),
+        envelope: {
+          id: "env_0001",
+          contact: { name: "Example Law Firm", email: "office@example.test", phone: "555-0100" },
+        },
       },
-    });
-    expect(paragraphs(named)).toEqual([
-      "Questions about this document? Contact Example Law Firm at office@example.test or 555-0100.",
+      { issuerContact: { name: "Magna Carta", email: "help@example.test" } },
+    );
+    expect(questions(named)).toEqual([
+      ["The Document", "Example Law Firm", "office@example.test", "555-0100"],
+      ["This Certificate", "Magna Carta", "help@example.test", ""],
     ]);
   });
 

@@ -52,6 +52,7 @@ export async function performSeal(
   request: SealRequest,
   identity: PlatformIdentity,
   engines: SealEngines,
+  certificateSupportEmail?: string,
 ): Promise<SealResponse> {
   const engine = createSealEngine(engines.pdf);
   const signingTime = new Date(request.signingTime);
@@ -74,7 +75,15 @@ export async function performSeal(
   });
 
   await ensureComposerReady(engines.compose);
-  const sheet = await composeDocument(certificateSheet(certificate), certificateSheetImages());
+  const sheet = await composeDocument(
+    certificateSheet(
+      certificate,
+      certificateSupportEmail === undefined
+        ? {}
+        : { issuerContact: { name: "Magna Carta", email: certificateSupportEmail } },
+    ),
+    certificateSheetImages(),
+  );
   const sealedSheet = await sealDocument({
     pdf: sheet.pdf,
     engine,

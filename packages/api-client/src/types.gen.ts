@@ -2968,6 +2968,8 @@ export type DocumentSealResponse = {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -20551,6 +20553,8 @@ export type EsignSealData = {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };

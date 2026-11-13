@@ -23,6 +23,7 @@ export {
   certificateSheet,
   certificateSheetImages,
   type CertificateSheet,
+  type CertificateSheetOptions,
   type CertificateSheetBlock,
 } from "./certificate-sheet.ts";
 export type { ByteRange, PrepareSealOptions, PreparedSeal, SealEngine } from "./engine.ts";

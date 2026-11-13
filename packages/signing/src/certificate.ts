@@ -211,6 +211,8 @@ export function renderCertificateOfCompletion(certificate: CertificateOfCompleti
       lines.push(`  Identity proof: ${signer.attribution.proofReference}`);
     }
     lines.push(`  Signature adopted: ${signer.intent.adoption}`);
+    lines.push(`  Signatures: ${signer.intent.signatureCount ?? 1}`);
+    lines.push(`  Initials: ${signer.intent.initialCount ?? 0}`);
     lines.push(`  Intent affirmed: ${signer.intent.affirmedAt}`);
     lines.push(
       `  Consent to transact electronically: ${signer.consent.consentedAt}` +
