@@ -28,6 +28,11 @@ import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
+import {
+  ConnectedServiceStatus,
+  type ConnectedServiceStatusReport,
+  probeRealtimeService,
+} from "../../../meetings/sfu/realtime-status.ts";
 
 /**
  * Every dedicated worker in the fleet, in display order (alphabetical by deployed name). `service`
@@ -83,6 +88,8 @@ const MetaVersionsResponse = z
       buildTime: z.string().nullable(),
     }),
     services: z.array(ServiceVersion),
+    // The outside services the deployment depends on, which run no build of ours to report.
+    connectedServices: z.array(ConnectedServiceStatus),
     observedAt: z.string(),
   })
   .openapi("MetaVersionsResponse");
@@ -104,17 +111,23 @@ async function probeService(
   fetcher: Fetcher | undefined,
   timeoutMilliseconds: number,
 ): Promise<ServiceVersionReport> {
-  const absent = { commit: null, commitTime: null, buildTime: null };
-  if (fetcher === undefined) {
-    // Never asked, so there is nothing to time. A zero here would read as an instant answer.
-    return {
-      id: entry.id,
-      service: entry.service,
-      state: "unbound",
-      ...absent,
-      latencyMilliseconds: null,
-    };
-  }
+  const row = (
+    state: ServiceVersionReport["state"],
+    latencyMilliseconds: number | null,
+    version: Pick<ServiceVersionReport, "commit" | "commitTime" | "buildTime"> = {
+      commit: null,
+      commitTime: null,
+      buildTime: null,
+    },
+  ): ServiceVersionReport => ({
+    id: entry.id,
+    service: entry.service,
+    state,
+    ...version,
+    latencyMilliseconds,
+  });
+  // Never asked, so there is nothing to time. A zero here would read as an instant answer.
+  if (fetcher === undefined) return row("unbound", null);
   // Timed around the WHOLE exchange, the body read included: a worker that answers its headers
   // promptly and then takes a second to produce a body is slow to the caller, and the caller is
   // what this row reports on.
@@ -127,25 +140,9 @@ async function probeService(
       method: "GET",
       signal: AbortSignal.timeout(timeoutMilliseconds),
     });
-    if (response.status === 404) {
-      // Deployed and answering, but from a build older than the version route.
-      return {
-        id: entry.id,
-        service: entry.service,
-        state: "unreported",
-        ...absent,
-        latencyMilliseconds: elapsed(),
-      };
-    }
-    if (!response.ok) {
-      return {
-        id: entry.id,
-        service: entry.service,
-        state: "unreachable",
-        ...absent,
-        latencyMilliseconds: elapsed(),
-      };
-    }
+    // A 404 is a worker deployed and answering, but from a build older than the version route.
+    if (response.status === 404) return row("unreported", elapsed());
+    if (!response.ok) return row("unreachable", elapsed());
     // A 200 whose body is not the version shape is a worker ANSWERING from a build that does not
     // carry the route — the assets-only web worker's index.html fallback is the standing example —
     // so it reads as unreported (the same fact the 404 states), never as a transport fault.
@@ -153,49 +150,23 @@ async function probeService(
     try {
       body = await response.json();
     } catch {
-      return {
-        id: entry.id,
-        service: entry.service,
-        state: "unreported",
-        ...absent,
-        latencyMilliseconds: elapsed(),
-      };
+      return row("unreported", elapsed());
     }
     const parsed = RemoteVersion.safeParse(body);
-    if (!parsed.success) {
-      return {
-        id: entry.id,
-        service: entry.service,
-        state: "unreported",
-        ...absent,
-        latencyMilliseconds: elapsed(),
-      };
-    }
-    return {
-      id: entry.id,
-      service: entry.service,
-      state: "reported",
-      ...parsed.data,
-      latencyMilliseconds: elapsed(),
-    };
+    return parsed.success ? row("reported", elapsed(), parsed.data) : row("unreported", elapsed());
   } catch {
     // Network failure, timeout, a placeholder worker — all one honest answer. It still carries what
     // it cost: a timeout is the slowest answer there is, and saying so distinguishes a worker that
     // ran out of time from one that refused immediately.
-    return {
-      id: entry.id,
-      service: entry.service,
-      state: "unreachable",
-      ...absent,
-      latencyMilliseconds: elapsed(),
-    };
+    return row("unreachable", elapsed());
   }
 }
 
 /** The slice of the environment the probes read: just the rostered service bindings. */
 export type ServiceVersionBindings = Partial<
   Record<(typeof SERVICE_VERSION_ROSTER)[number]["binding"], Fetcher>
->;
+> &
+  Partial<Pick<Bindings, "REALTIME_SFU_APP_ID" | "REALTIME_SFU_APP_SECRET">>;
 
 /** Probe every rostered service binding in parallel, each under its own short timeout. */
 export async function collectServiceVersions(
@@ -216,6 +187,7 @@ let cachedServiceVersions: {
   observedAt: string;
   freshUntilEpochMilliseconds: number;
   services: ServiceVersionReport[];
+  connectedServices: ConnectedServiceStatusReport[];
 } | null = null;
 
 /** Test seam: drop the per-isolate cache so a test starts from a cold read. */
@@ -226,7 +198,11 @@ export function resetServiceVersionsCache(): void {
 export async function readServiceVersionsThroughCache(
   env: ServiceVersionBindings,
   options: { forceFresh?: boolean } = {},
-): Promise<{ observedAt: string; services: ServiceVersionReport[] }> {
+): Promise<{
+  observedAt: string;
+  services: ServiceVersionReport[];
+  connectedServices: ConnectedServiceStatusReport[];
+}> {
   const now = Date.now();
   if (
     options.forceFresh !== true &&
@@ -237,11 +213,15 @@ export async function readServiceVersionsThroughCache(
   }
   // A forced read still WRITES the cache: the probe it just paid for is the freshest observation
   // there is, so the next cached read serves it rather than an older one.
-  const services = await collectServiceVersions(env);
+  const [services, realtime] = await Promise.all([
+    collectServiceVersions(env),
+    probeRealtimeService(env, PROBE_TIMEOUT_MILLISECONDS),
+  ]);
   cachedServiceVersions = {
     observedAt: new Date(now).toISOString(),
     freshUntilEpochMilliseconds: now + CACHE_TIME_TO_LIVE_MILLISECONDS,
     services,
+    connectedServices: [realtime],
   };
   return cachedServiceVersions;
 }
@@ -280,6 +260,8 @@ export const metaVersionsRoute = defineOpenAPIRoute(metaVersionsMeta, {
     "time, and build time, plus the same identity for every dedicated sibling worker in the " +
     "fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not " +
     "reachable, or too old to answer is reported as exactly that, never as an invented version. " +
+    "connectedServices says whether each outside service the deployment depends on (Cloudflare " +
+    "Realtime, which carries meetings) is configured and accepting it. " +
     "The service list is briefly cached; observedAt says when the services were actually probed.",
   responses: {
     200: {
@@ -311,9 +293,12 @@ export function registerMetaVersionsRoute(
     { ...metaVersionsRoute, middleware: chokepointMiddleware(chokepoint, metaVersionsRoute) },
     async (c) => {
       const { fresh } = c.req.valid("query");
-      const { observedAt, services } = await readServiceVersionsThroughCache(c.env, {
-        forceFresh: fresh === "true",
-      });
+      const { observedAt, services, connectedServices } = await readServiceVersionsThroughCache(
+        c.env,
+        {
+          forceFresh: fresh === "true",
+        },
+      );
       return c.json(
         {
           api: {
@@ -322,6 +307,7 @@ export function registerMetaVersionsRoute(
             buildTime: BUILD_IDENTITY.buildTime,
           },
           services,
+          connectedServices,
           observedAt,
         },
         200,

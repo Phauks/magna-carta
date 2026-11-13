@@ -361,3 +361,26 @@ describe("the roster rail", () => {
     expect(target.textContent).toContain("No Results");
   });
 });
+
+describe("what a tile carries from its model", () => {
+  it("draws a raised hand beside the name and a thrown reaction on the tile", () => {
+    instance = mount(Gallery, {
+      target,
+      props: {
+        tiles: [
+          tile(2, { handRaised: true, reactions: [{ key: "attendance_2:0", name: "heart" }] }),
+          tile(3),
+        ],
+        page: 0,
+        pages: 1,
+        roomSize: 2,
+      },
+    });
+    flushSync();
+
+    // Both used to stop at the grid, which never handed them to the tile: a hand went up and a
+    // reaction was thrown, and nothing on the screen moved.
+    expect(target.querySelectorAll('[aria-label="Hand raised"]')).toHaveLength(1);
+    expect(target.querySelectorAll(".mc-reaction-rise")).toHaveLength(1);
+  });
+});

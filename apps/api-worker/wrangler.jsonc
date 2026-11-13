@@ -73,8 +73,11 @@
   // .dev.vars) because it is a hostname, not a credential. In production this becomes
   // files.magnacartausercontent.com — the SAME dedicated content domain the editor uses (a separate
   // registrable domain from the app, so served bytes never carry an app cookie); the app worker takes a
-  // `files.magnacartausercontent.com/*` route, more specific than the editor's wildcard. The placeholder
-  // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
+  // `files.magnacartausercontent.com/*` zone route, more specific than the editor's wildcard, which is
+  // dashboard state like the app's own path families (docs/conventions/operations.md). The placeholder
+  // value lets the Miniflare test pool exercise the host branch. The app pages allowed to read the
+  // bytes are found from APP_BASE_URL below, not from this host's parent, because the two hosts sit on
+  // different domains. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
   // R2_BUCKET_NAME names the bucket bound below as R2. An R2Bucket handle carries no name, so this is
