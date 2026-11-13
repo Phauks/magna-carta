@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { EffectStatement } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
@@ -102,7 +102,7 @@ const EMPTY_STATE: DocumentSessionState = {
 // metadata), which survives the editing container sleeping or being reaped, so a lock or working state
 // is never lost. It also owns the idle-reap alarm: a dead co-editing session is freed (file.edit_state
 // -> idle) without a human or the container having to notice.
-export class DocumentSession extends DurableObject<Bindings> {
+export class DocumentSession extends StoredSecretsDurableObject {
   private async load(): Promise<DocumentSessionState> {
     // Over the empty state, so a record persisted before a field existed reads that field as empty
     // rather than undefined: `opens` was added after sessions were already live.

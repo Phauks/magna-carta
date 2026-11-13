@@ -1,5 +1,6 @@
 import { getContainer } from "@cloudflare/containers";
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
+import { resolveStoredSecrets } from "@magna-carta/worker-secrets/stored-secrets";
 import { BundleContainer } from "./bundle-container.ts";
 import { forwardBuild } from "./forward-build.ts";
 import { handleBundleR2 } from "./outbound-r2.ts";
@@ -55,7 +56,8 @@ export default {
     if (request.method === "POST" && url.pathname === "/self-test") {
       if (
         !(await selfTestAuthorized(
-          env.BUNDLE_SELF_TEST_KEY,
+          // May be bound from the account's Secrets Store (SECRETS_STORE_BUNDLE_SELF_TEST_KEY).
+          (await resolveStoredSecrets(env, ["BUNDLE_SELF_TEST_KEY"])).BUNDLE_SELF_TEST_KEY,
           request.headers.get("x-self-test-key"),
         ))
       ) {

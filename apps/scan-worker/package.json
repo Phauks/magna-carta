@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@cloudflare/containers": "catalog:",
-    "@magna-carta/build-identity": "workspace:*"
+    "@magna-carta/build-identity": "workspace:*",
+    "@magna-carta/worker-secrets": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

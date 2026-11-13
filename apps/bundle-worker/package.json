@@ -13,7 +13,8 @@
   "dependencies": {
     "@cloudflare/containers": "catalog:",
     "@magna-carta/build-identity": "workspace:*",
-    "@magna-carta/object-dimensions": "workspace:*"
+    "@magna-carta/object-dimensions": "workspace:*",
+    "@magna-carta/worker-secrets": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "catalog:",

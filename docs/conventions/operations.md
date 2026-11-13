@@ -88,6 +88,8 @@ The forward/CC capture path terminates on the `apps/email-worker` Cloudflare Ema
 
 ## 3. Deploy secrets (the `secrets.required` gate)
 
+Any secret below may instead live in the account's Secrets Store and be bound into the Worker; §23 says how one moves and in what order.
+
 `wrangler.jsonc` lists `secrets.required` (currently seven names), so a deploy **fails loudly** with a missing-secret list rather than letting routes 500 at runtime — or, worse, run the development adapters against real firms. Set each once per environment — Dashboard → the Worker → **Settings → Variables and Secrets**, or `wrangler secret put <NAME>` (paste the value at the prompt; keep it out of shell history and chat transcripts). `wrangler secret list` confirms the registered names.
 
 | Secret                                                            | What it is                                                                                                                                                                                                                                                                                                          | How to produce it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Rotatable?                                                                                             |
@@ -951,3 +953,54 @@ reads all of it). Do them in this order:
 6. **A firm switches it on.** Its Owner or Admin turns recording (and, separately, summaries and
    captions) on under Settings › Practice › Meetings. Summaries also need the firm's AI processing
    switched on.
+
+## 23. Secrets Store — the account's one home for the platform's secrets
+
+Cloudflare Secrets Store (open beta) keeps secrets at the account level and binds them into any
+Worker; a per-Worker secret (§3) lives on one Worker only. Every Worker that reads a secret accepts
+it from either place: `packages/worker-secrets` resolves a store binding named
+`SECRETS_STORE_<NAME>` into the plain `<NAME>` string at the Worker's entry and falls back to the
+per-Worker secret. With no store binding the code behaves exactly as before. Limits that matter
+here: 100 secrets per account, one store per account, a value of at most 65,536 bytes, and a value
+that cannot be viewed again once saved
+([Secrets Store docs](https://developers.cloudflare.com/secrets-store/)).
+
+**Keep a master copy of every value in the owner's password manager.** The store will not show a
+value back, and `ROOT_KEK` in particular is unrecoverable if lost (§3).
+
+### Which secret is read where
+
+The list each Worker looks for is in code: `API_WORKER_SECRET_NAMES` in
+`apps/api-worker/src/stored-secrets.ts`, `COMMUNITY_WORKER_SECRET_NAMES` in
+`apps/community-worker/src/bindings.ts`, and the names passed to `resolveStoredSecrets` in
+`apps/sign-worker/src/index.ts`, `apps/bundle-worker/src/index.ts` and
+`apps/scan-worker/src/index.ts`. Of those, only `COMMUNITY_HANDOFF_SECRET` is read by two Workers
+(`magna-carta` and `magna-carta-community`); every other secret belongs to one. Which ones are set in
+the account is live state: the System Status page reports each as present or absent.
+
+### Moving a secret into the store
+
+The order matters, because a binding added in the dashboard does not survive the next deploy (a
+deploy replaces the Worker's bindings with the ones in its `wrangler.jsonc`) and two bindings cannot
+share a name.
+
+1. **Once per account:** give the Workers Builds API token **Account · Secrets Store · Edit** (My
+   Profile → API Tokens; each Worker's Settings → Build names its token). A deploy whose
+   `wrangler.jsonc` carries a store binding fails with an authorization error without it, and the
+   default build token does not carry it
+   ([Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)).
+2. **Create the secret in the store** (Secrets Store → Create secret, scope _Workers_), named exactly
+   as the code names it (`AUTH_SECRET`, not a new name), with the same value the Worker has today.
+3. **Commit the binding** in each Worker's `wrangler.jsonc` that reads it, under
+   `secrets_store_secrets`: `{ "binding": "SECRETS_STORE_<NAME>", "store_id": "<the store's id>",
+   "secret_name": "<NAME>" }`. The store id is not a secret. Merging deploys it; the per-Worker copy
+   is still there, so nothing is ever without its value.
+4. **Check the System Status page** reports the secret as coming from the Secrets Store.
+5. **Delete the per-Worker copy** (the Worker → Settings → Variables and Secrets). For a name in
+   `secrets.required` (§3), first remove it from that list in the same kind of change as step 3, or
+   the next deploy refuses to run for want of a secret that now lives in the store.
+
+**Rotating** a stored secret is one edit in the store; every Worker bound to it reads the new value
+within five minutes, because each isolate keeps a value that long (`packages/worker-secrets`).
+`packages/worker-secrets/*` also belongs in the Build Watch Paths of every dedicated Worker that
+imports it (§12), so a change to the resolver rebuilds them.

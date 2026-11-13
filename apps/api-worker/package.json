@@ -82,6 +82,7 @@
     "@magna-carta/timekeeping": "workspace:*",
     "@magna-carta/trust": "workspace:*",
     "@magna-carta/whois": "workspace:*",
+    "@magna-carta/worker-secrets": "workspace:*",
     "aws4fetch": "catalog:",
     "better-auth": "catalog:",
     "client-zip": "catalog:",
