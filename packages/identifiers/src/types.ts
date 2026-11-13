@@ -212,6 +212,7 @@ export type MatterEstateId = Identifier<"matterEstate">;
 export type MagnusConversationId = Identifier<"magnusConversation">;
 export type MagnusTurnId = Identifier<"magnusTurn">;
 export type MagnusFolderId = Identifier<"magnusFolder">;
+export type MagnusArtifactId = Identifier<"magnusArtifact">;
 export type ReviewSetId = Identifier<"reviewSet">;
 export type RecordCustodianId = Identifier<"recordCustodian">;
 export type DiscoveryLoadId = Identifier<"discoveryLoad">;

@@ -71,9 +71,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "communications/shipping.ts": { lines: 1390, shapes: 26 },
   "custody/custody.ts": { lines: 3145, shapes: 65 },
   "developer/dev-seed.ts": { lines: 516, shapes: 0 },
-  // Address lookup arrived with its request and offer shapes inline, written before this ledger
-  // existed; they belong in a contract module.
-  "directory/address-lookup.ts": { lines: 369, shapes: 13 },
   // Raised when the conflicts branch (subject parties on the run and check summaries) landed after
   // the ratchet; the two new shapes belong in packages/conflicts/src/contract.ts.
   "directory/conflicts.ts": { lines: 1905, shapes: 42 },

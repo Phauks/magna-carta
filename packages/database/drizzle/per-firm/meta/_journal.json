@@ -491,6 +491,13 @@
       "when": 1794612296276,
       "tag": "20261113T232456_meeting-poll-kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1794608865267,
+      "tag": "20261113T233830_magnus-pane-permissions-and-artifacts",
+      "breakpoints": true
     }
   ]
 }
