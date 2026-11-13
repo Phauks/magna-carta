@@ -31,7 +31,7 @@
     meetingsGetForEventOptions,
     meetingsGetForFirmEventOptions,
   } from "@magna-carta/api-client";
-  import { goto } from "$app/navigation";
+  import { openMeetingTab, reserveMeetingTab } from "./meeting-tab.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
@@ -121,15 +121,18 @@
     // Inside the press, before anything is awaited: the room this opens may be recorded, and the
     // tone that says so plays on a device only a press can wake on Safari (see `enter` below).
     pageRecordingSounds.unlock();
+    // The meeting's own tab, reserved now while the press still lets a page open one.
+    const tab = reserveMeetingTab();
     starting = medium;
     lastAttempt = medium;
     startFailure = null;
     const outcome = await startMeeting(eventKind, eventId, medium, holdArrivals ? "on" : "off");
     starting = null;
     if (outcome.kind === "ok") {
-      await goto(`/meetings/${outcome.value.id}`);
+      tab.open(outcome.value.id);
       return;
     }
+    tab.cancel();
     startFailure = outcome.failure;
   }
 
@@ -144,7 +147,7 @@
    */
   function enter(meetingId: string): void {
     pageRecordingSounds.unlock();
-    void goto(`/meetings/${meetingId}`);
+    openMeetingTab(meetingId);
   }
 
   /** What the running room is called, which is what its Join control has to say. */
