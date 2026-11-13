@@ -1,0 +1,5 @@
+# getrandom 0.3 picks its browser backend only when this configuration flag is set, and wasm-pack runs
+# cargo from the crate directory, so this applies to `wasm-pack build crates/mls-core` and to nothing
+# else in the workspace. Without it the WebAssembly build fails at compile time rather than at runtime.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", 'getrandom_backend="wasm_js"']

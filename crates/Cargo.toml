@@ -16,6 +16,7 @@ members = [
   "seven-zip-core",
   "segmentation-core",
   "noise-suppression-core",
+  "mls-core",
 ]
 
 [workspace.package]

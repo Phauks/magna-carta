@@ -152,6 +152,12 @@ order the features need them.
    until it is re-provisioned. Nothing is added by hand, because provisioning replaces a bucket's whole
    rule set and would delete a hand-added rule.
 6. **Per firm:** an Owner switches `meetings.recordingEnabled` on.
+7. **End-to-end encryption, once tried in real browsers.** New meetings open in the clear until
+   `MEETINGS_END_TO_END_ENCRYPTION` is set to `on` (a `wrangler.jsonc` var on `magna-carta`, not a
+   secret). Before setting it, join one meeting from Chrome, Safari and Firefox against the live
+   Realtime application and confirm each sees and hears the others: the experiments in
+   `docs/specs/2026-11-09-meetings-end-to-end-encryption-design.md` name what to check. Meetings
+   already open keep what they were opened with.
 
 ## Reconcile the production branch across the fleet — check before acting, and expect it to be done
 

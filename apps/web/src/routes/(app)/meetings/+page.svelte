@@ -42,6 +42,8 @@
   import MeetingsScreen from "$lib/meetings/meetings-screen.svelte";
   import MeetingAttendancePanel from "$lib/meetings/meeting-attendance-panel.svelte";
   import RecordingList from "$lib/meetings/screen/recording-list.svelte";
+  import MyRoomCard from "$lib/meetings/my-room-card.svelte";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import type { MeetingScope, MeetingSectionState } from "$lib/meetings/meeting-list.ts";
   import type { MeetingSummary } from "@magna-carta/api-client";
 
@@ -118,6 +120,15 @@
    * own scopes — so the upcoming list is refetched rather than patched. Nothing is assumed about
    * where the new row sorts.
    */
+  /*
+   * MY ROOM IS A HOST'S, so the card is drawn only where the session may host. The server refuses
+   * the room to anybody else; drawing the card for them would offer a control that is always refused.
+   */
+  $effect(() => {
+    void sessionPermissions.load(fetch);
+  });
+  const canHost = $derived(sessionPermissions.holds("meetings:host"));
+
   function scheduled(): void {
     void upcoming.refetch();
   }
@@ -162,6 +173,9 @@
       />
     {/snippet}
   </ScreenHeader>
+  {#if canHost && configured}
+    <MyRoomCard />
+  {/if}
   <MeetingsScreen
     {sections}
     {configured}

@@ -99,6 +99,40 @@ meeting and would rather not go looking for the event it belongs to. It has thre
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
 matter, the row links back to it.
 
+## Your own room
+
+If you can host meetings, the Meetings page shows a **My Room** card. Your room is a link that stays
+the same, so a colleague can keep it and use it whenever you are in, without anybody putting a
+meeting on the calendar first.
+
+- **Set Up My Room** makes your room the first time. Nothing is made until you press it.
+- **Copy Link** copies your room's address to send to a colleague.
+- **Open My Room** starts a meeting in your room and takes you into it. The meeting is put on your
+  calendar as an event in your name, starting now. If your room is already open, the button reads
+  **Go to My Room** and takes you back in.
+- **Hold arrivals in a lobby** is on to begin with, so you let each person in yourself. Turn it off
+  to let colleagues straight in.
+- **Open as an audio call** starts your room's meetings without video.
+- **Get a New Link** gives your room a new address. The old one stops working at once, so anybody
+  you sent it to will need the new one.
+
+A colleague who follows your link before you have opened the room is told you are not in yet. The
+page checks again every few seconds, and **Join** appears as soon as you open it. Joining puts the
+meeting on their calendar too.
+
+When everybody has left, the meeting ends by itself the next time you open your room, and its
+calendar entry is closed at the time the last person left.
+
+### Moving a meeting onto a matter
+
+A meeting in your room starts on your own calendar because, when it opens, nobody has said what it
+is about. Once they have, press **Move to a Matter** in the meeting's header, during the meeting or
+after it, and choose the matter. The calendar entry moves onto the matter with everybody on it, the
+meeting keeps its address so nobody in the room is disturbed, and from then on it can be recorded
+like any other meeting on a matter. A meeting cannot be moved back, or moved a second time.
+
+The room's owner, or anybody hosting that meeting, can move it.
+
 ## While you are in the meeting
 
 Everybody in the room has a tile of their own, with your own picture pinned so you can see what you
@@ -467,9 +501,16 @@ A client call, a settlement conference, a hearing with an expert: most of the me
 include somebody who is not at your firm. You can send any of them a link to the meeting, and it brings
 them to the meeting's door rather than into the room.
 
-**A guest is somebody already on the event.** The link goes to a person or an organization in the
-Directory who is listed on the event, at the e-mail address the Directory holds for them. You do not
-type an address anywhere, which means the meeting's record always names somebody your firm knows.
+**A guest is usually somebody already on the event.** The link goes to a person or an organization in
+the Directory who is listed on the event, at the e-mail address the Directory holds for them.
+
+**Somebody who is not on the list** can be invited by name and e-mail address. At the bottom of the
+Guests panel, under **Invite somebody by e-mail**, type their name and address and press **Invite**.
+If somebody in the Directory already has that address, the invitation goes to them, under the name the
+Directory holds. If nobody does, a person is added to the Directory with that name and address and
+marked as needing review, so somebody at your firm can later keep, merge or discard the entry. Either
+way they are added to the event and sent the same e-mail as anybody else, and the meeting's record
+names somebody your firm can see in the Directory and in a conflicts check.
 
 1. Open the meeting's event, or the meeting itself, and press **Guests**. It is there for anybody who
    may start meetings, once a meeting has been opened on the event.
@@ -776,16 +817,18 @@ room.
 
 ## What is not built yet
 
-- **Inviting somebody who is not in the Directory.** A link is sent to a person or an organization
-  in the Directory who is on the event. Somebody recorded on the event by name only, such as a judge,
-  shows a disabled **Invite** and an **Add to Directory** marked as coming soon; until it arrives, add
-  them in the Directory and put that record on the event in their place.
+- **Reviewing people added from a meeting.** A guest invited by an address nobody in the Directory
+  holds is added there marked as needing review, but the Directory does not yet list those entries
+  for review. Somebody recorded on the event by name only, such as a judge, still shows a disabled
+  **Invite**; invite them by name and address instead.
 - **Captions on screen, and translation.** A recording gets a transcript and a summary once it is on
   the matter, but captions are not yet shown while the meeting runs, and the transcript is in the
   language that was spoken and is not translated. Video is never recorded.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
-- **Meetings that belong to no event.** Every meeting starts from something on the calendar. If you
-  want an unscheduled meeting, record the event first and start the meeting on it.
+- **Meetings that belong to no event.** Every meeting starts from something on the calendar. For an
+  unscheduled meeting, open your own room: it puts the event on your calendar for you.
+- **A standing room link for people outside the firm.** Your room's link works for colleagues signed
+  in to the firm. A guest from outside is still invited to a particular meeting.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
 - **A gallery of ready-made backgrounds.** **Image** uses a picture you choose from your own

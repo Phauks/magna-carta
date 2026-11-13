@@ -1,4 +1,5 @@
 import { captionParticipantGone } from "./room-captions.ts";
+import { groupParticipantGone } from "./room-group.ts";
 import {
   closedFrame,
   layeredFrame,
@@ -643,6 +644,9 @@ export async function releaseParticipant(room: RoomContext, attendanceId: string
   // the call answers `absent` to whoever is waiting on it, and an act already under way finds the
   // opening abandoned when it comes to write and closes what it put into the session.
   const unrecorded = abandonOpening(room, attendanceId);
+  // Their request to join an encrypted meeting's group goes whether or not a record was left, and a
+  // group they were the last connected member of is handed on.
+  await groupParticipantGone(room, attendanceId);
   if (!removed) {
     // No roster entry to remove — the grace sweep, or an earlier act, took it — but a session the
     // service opened for this stay and no record names is still being billed. It is closed either
