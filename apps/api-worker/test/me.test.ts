@@ -159,6 +159,8 @@ describe("GET /api/v1/me", () => {
         "emails:manageLinks",
         "emails:read",
         "esign:seal",
+        "esign:send",
+        "esign:sign",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",

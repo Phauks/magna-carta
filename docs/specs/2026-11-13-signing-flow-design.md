@@ -60,7 +60,8 @@ signing_signer
   adoption ('typed' | 'drawn' | 'uploaded'), signature_object_key, initials_object_key  -- images in R2
 
 signing_field
-  id, request_id, signer_id, kind, page, rect_left, rect_bottom, rect_right, rect_top, required
+  id, request_id, signer_id, kind, page, required,
+  rect_left_e2, rect_bottom_e2, rect_right_e2, rect_top_e2   -- hundredths of a point; no column here is a float
   value_text (text/checkbox answers only; signatures are images in R2)
 
 signing_event                              -- append-only; the certificate's audit log

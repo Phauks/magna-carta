@@ -141,6 +141,8 @@ export const PERMISSIONS = [
   // E-signature — the platform seal (PAdES) applied to a document, and the ESIGN/UETA signing act
   // around it. The seal runs in the dedicated sign worker that alone holds the platform signing key.
   "esign:seal", // apply the platform seal / signature to a PDF, producing a tamper-evident sealed record
+  "esign:send", // prepare a document for signature, send it, remind, correct and cancel the request
+  "esign:sign", // sign a document the firm sent to you as a firm member
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
   "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
   "tools:fileTypeVerifier", // identify a file's true content type and flag/repair an extension mismatch
