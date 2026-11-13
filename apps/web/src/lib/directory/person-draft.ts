@@ -251,14 +251,16 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
   if (name !== "") lines.push({ label: "Name", value: name, mark: "name" });
   for (const other of filledOtherNames(draft)) {
     const otherName = displayName(other);
-    if (otherName !== "") lines.push({ label: nameRoleLabel(other.nameRole), value: otherName, mark: "other-name" });
+    if (otherName !== "")
+      lines.push({ label: nameRoleLabel(other.nameRole), value: otherName, mark: "other-name" });
   }
   // Ways to reach them first and addresses after, because that is the order of the sections.
   const reach = draft.contacts.filter((contact) => contact.kind !== "address");
   const addresses = draft.contacts.filter((contact) => contact.kind === "address");
   for (const contact of [...reach, ...addresses]) {
     const row = contactRowFromDraft(contact, contact.id);
-    if (row.value !== "") lines.push({ label: contactKindLabel(contact.kind), value: row.value, mark: contact.kind });
+    if (row.value !== "")
+      lines.push({ label: contactKindLabel(contact.kind), value: row.value, mark: contact.kind });
   }
   if (draft.pronouns !== null) {
     lines.push({
@@ -267,8 +269,10 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
       mark: "pronouns",
     });
   }
-  if (draft.dateOfBirth !== "") lines.push({ label: "Born", value: formatDate(draft.dateOfBirth), mark: "born" });
-  if (draft.dateOfDeath !== "") lines.push({ label: "Died", value: formatDate(draft.dateOfDeath), mark: "died" });
+  if (draft.dateOfBirth !== "")
+    lines.push({ label: "Born", value: formatDate(draft.dateOfBirth), mark: "born" });
+  if (draft.dateOfDeath !== "")
+    lines.push({ label: "Died", value: formatDate(draft.dateOfDeath), mark: "died" });
   if (draft.identifiers.length > 0) {
     lines.push({
       label: "Identifiers",

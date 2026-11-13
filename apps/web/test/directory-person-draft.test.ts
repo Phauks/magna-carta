@@ -83,7 +83,11 @@ describe("the draft knows what it holds", () => {
       { label: "Name", value: "Dr. Margaret Okafor Ph.D., Esq.", mark: "name" },
       { label: "Maiden", value: "Margaret Adeyemi", mark: "other-name" },
       { label: "Email", value: "m.okafor@example.com", mark: "email" },
-      { label: "Telephone", value: contactRowFromDraft(draft.contacts[1]!, "c2").value, mark: "telephone" },
+      {
+        label: "Telephone",
+        value: contactRowFromDraft(draft.contacts[1]!, "c2").value,
+        mark: "telephone",
+      },
       { label: "Pronouns", value: "she / her / hers", mark: "pronouns" },
       { label: "Born", value: formatDate("1978-03-14"), mark: "born" },
       { label: "Identifiers", value: "1 sealed", mark: "identifier" },
