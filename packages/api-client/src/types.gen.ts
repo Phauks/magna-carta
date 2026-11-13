@@ -372,6 +372,8 @@ export type MetaVersionsResponse = {
     };
     services: Array<ServiceVersion>;
     connectedServices: Array<ConnectedServiceStatus>;
+    features: Array<FeatureStatus>;
+    featureRequirements: Array<FeatureRequirements> | null;
     observedAt: string;
 };
 
@@ -389,6 +391,19 @@ export type ConnectedServiceStatus = {
     id: 'realtime';
     state: 'connected' | 'not-configured' | 'refused' | 'unreachable';
     latencyMilliseconds: number | null;
+};
+
+export type FeatureStatus = {
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    state: 'working' | 'not-set-up' | 'fault';
+};
+
+export type FeatureRequirements = {
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    alternatives: Array<Array<{
+        name: string;
+        present: boolean;
+    }>>;
 };
 
 export type DatabaseHealthResponse = {
@@ -503,6 +518,27 @@ export type SetComponentOverride = {
 
 export type ClearComponentOverride = {
     componentId: string;
+};
+
+export type RecentErrorsResponse = {
+    state: 'read' | 'not-configured' | 'refused' | 'unreachable';
+    windowStart: string | null;
+    windowEnd: string | null;
+    total: number | null;
+    truncated: boolean;
+    groups: Array<RecentErrorGroup>;
+};
+
+export type RecentErrorGroup = {
+    latestErrorId: string | null;
+    service: string | null;
+    eventName: string;
+    where: string | null;
+    errorName: string | null;
+    messageHead: string | null;
+    count: number;
+    firstSeen: string;
+    lastSeen: string;
 };
 
 export type ReportIncidentResponse = {
@@ -11355,6 +11391,39 @@ export type PlatformStatusClearComponentOverrideResponses = {
 };
 
 export type PlatformStatusClearComponentOverrideResponse = PlatformStatusClearComponentOverrideResponses[keyof PlatformStatusClearComponentOverrideResponses];
+
+export type PlatformRecentErrorsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/recent-errors';
+};
+
+export type PlatformRecentErrorsErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformRecentErrorsError = PlatformRecentErrorsErrors[keyof PlatformRecentErrorsErrors];
+
+export type PlatformRecentErrorsResponses = {
+    /**
+     * The recent failures, or why they could not be read
+     */
+    200: RecentErrorsResponse;
+};
+
+export type PlatformRecentErrorsResponse = PlatformRecentErrorsResponses[keyof PlatformRecentErrorsResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;

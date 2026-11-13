@@ -627,7 +627,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     // The firm's two AI consent gates and the assistant's daily ceiling. Under Data & Platform
     // rather than Practice because it is a statement about where this firm's content may go, not
-    // about how the firm runs its work — the neighbours are Beta Access and Versions, the other
+    // about how the firm runs its work — the neighbours are Beta Access and System Status, the other
     // two sections about the platform underneath rather than the practice on top.
     //
     // Server-backed from the start on the Reports page's pattern: the draft reads and writes
@@ -666,10 +666,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
-    id: "versions",
-    label: "Versions",
-    href: "/settings/versions",
+    id: "system-status",
+    label: "System Status",
+    href: "/settings/system-status",
     group: "data-platform",
+    // What is running and what works: the deployment's builds, every feature it can switch on, the
+    // fleet, this firm's records, and for a platform operator the setup steps and recent errors.
     // Platform diagnostics about the firm's deployment, readable by every member — firm scope
     // places it under "Firm settings", and readOnly (not "draft") states the truth: there is
     // nothing to stage or commit on this page.
