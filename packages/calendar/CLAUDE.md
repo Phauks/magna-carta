@@ -50,7 +50,7 @@ ADR-0059, ADR-0068, ADR-0051.)
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and
   horizon caps
-- `src/time-zone.ts` — **the only calendar arithmetic in the package**: a civil date plus an optional
+- `@magna-carta/civil-time/time-zone` (`packages/civil-time/src/time-zone.ts`) — **the only calendar arithmetic the package uses**: a civil date plus an optional
   wall-clock time, read in a named zone, as a UTC instant
 - `src/overdue.ts` — the read-time comparison, and nothing else
 - `src/settings.ts` — the firm's calendar settings over the per-firm setting table: the day the

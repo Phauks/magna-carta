@@ -1,5 +1,5 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import type { FileId, FileVersionId, MatterId } from "@magna-carta/identifiers/types";
+import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { FILE_TABLE, FILE_VERSION_TABLE } from "./file-statements.ts";
 
 // A copy of a video version that every browser plays.
@@ -13,9 +13,14 @@ import { FILE_TABLE, FILE_VERSION_TABLE } from "./file-statements.ts";
 // record that copy; this module is the one home for what they mean, the key the copy lives at, and
 // which versions the engine can take at all.
 //
-// The copy is made from one version and belongs to it. A new version of the file is a new recording
-// and gets its own copy only when somebody asks; the old copy stays with the old version and goes
-// wherever that version's bytes go (file-service.ts, the purge point).
+// The copy is FILED: it is saved into the matter as a file of its own, in the original's folder and
+// named for it (`playableCopyFileName`), so it can be opened, shared and exported like any other
+// document, and it goes through the same ingest gate as an upload. The original's version points at
+// it (`playable_copy_file_id`). A new version of the original is a new recording and gets its own
+// copy only when somebody asks; a copy a member deleted is owed again on the next request.
+//
+// Copies made before copies were filed live beside the version's own bytes at `playableCopyKey`
+// and are still served from there; nothing new is written to that key.
 
 /** Where a version's playable copy stands. Null on the row means nobody has asked for one. */
 export type PlayableCopyState = "pending" | "ready" | "unavailable";
@@ -65,6 +70,17 @@ export function playableCopyKey(versionR2Key: string): string {
 }
 
 /**
+ * What the filed copy is called: the original's name with its extension replaced, marked as the
+ * converted copy so the two never read as the same document in a folder listing. "Interview.mov"
+ * is filed as "Interview (converted).mp4".
+ */
+export function playableCopyFileName(originalName: string): string {
+  const dot = originalName.lastIndexOf(".");
+  const stem = (dot > 0 ? originalName.slice(0, dot) : originalName).trim();
+  return `${stem === "" ? "Recording" : stem} (converted).mp4`;
+}
+
+/**
  * How long a request may stay `pending` before another request is allowed to ask again. The engine
  * runs inside a queue consumer, whose invocation is cut off after fifteen minutes, and the queue
  * retries a failed conversion three times; a request still pending well past that died on the way
@@ -74,6 +90,9 @@ export const PLAYABLE_COPY_STALE_AFTER_MILLISECONDS = 90 * 60 * 1000;
 
 export interface PlayableCopyFacts {
   readonly playableCopyState: PlayableCopyState | null;
+  // The filed copy, and whether a member has since deleted it.
+  readonly playableCopyFileId: FileId | null;
+  readonly playableCopyFileDeleted: boolean;
   readonly playableCopyR2Key: string | null;
   readonly playableCopySizeBytes: number | null;
   readonly playableCopyReason: PlayableCopyUnavailableReason | null;
@@ -84,6 +103,9 @@ export interface VersionForPlayableCopy extends PlayableCopyFacts {
   readonly id: FileVersionId;
   readonly fileId: FileId;
   readonly matterId: MatterId;
+  // Where the original sits and what it is called: the filed copy goes beside it, named for it.
+  readonly folderId: FolderId | null;
+  readonly fileName: string;
   readonly r2Key: string;
   readonly sizeBytes: number | null;
   readonly sniffedContentType: string | null;
@@ -111,8 +133,14 @@ export function decidePlayableCopyRequest(
   nowMilliseconds: number,
 ): PlayableCopyRequestDecision {
   if (version.scanVerdict === "flagged") return { kind: "not-a-candidate", why: "flagged" };
-  if (version.playableCopyState === "ready" && version.playableCopyR2Key !== null) {
-    return { kind: "ready" };
+  if (version.playableCopyState === "ready") {
+    if (version.playableCopyFileId !== null && !version.playableCopyFileDeleted) {
+      return { kind: "ready" };
+    }
+    if (version.playableCopyFileId === null && version.playableCopyR2Key !== null) {
+      return { kind: "ready" };
+    }
+    // Filed and since deleted: the original owes a new copy, decided below like a first request.
   }
   if (version.playableCopyState === "unavailable") {
     return { kind: "unavailable", reason: version.playableCopyReason ?? "unsupported" };
@@ -142,7 +170,7 @@ export function markVersionPlayableCopyPendingStatement(
   return database
     .prepare(
       // fitness:allow-no-status — the requesting route read this version as clean a moment ago and addresses it by id
-      `UPDATE ${FILE_VERSION_TABLE} SET playable_copy_state = 'pending', playable_copy_r2_key = NULL, playable_copy_size_bytes = NULL, playable_copy_reason = NULL, playable_copy_requested_at = ?2 WHERE id = ?1`,
+      `UPDATE ${FILE_VERSION_TABLE} SET playable_copy_state = 'pending', playable_copy_r2_key = NULL, playable_copy_size_bytes = NULL, playable_copy_reason = NULL, playable_copy_file_id = NULL, playable_copy_requested_at = ?2 WHERE id = ?1`,
     )
     .bind(versionId, requestedAt);
 }
@@ -151,7 +179,8 @@ export type RecordPlayableCopyRow =
   | {
       readonly versionId: FileVersionId;
       readonly state: "ready";
-      readonly r2Key: string;
+      // The file the copy was filed as.
+      readonly fileId: FileId;
       readonly sizeBytes: number;
     }
   | {
@@ -168,21 +197,25 @@ export function recordVersionPlayableCopyStatement(
   return database
     .prepare(
       // fitness:allow-no-status — the copy's row is addressed by id, whatever its status has become
-      `UPDATE ${FILE_VERSION_TABLE} SET playable_copy_state = ?2, playable_copy_r2_key = ?3, playable_copy_size_bytes = ?4, playable_copy_reason = ?5 WHERE id = ?1`,
+      `UPDATE ${FILE_VERSION_TABLE} SET playable_copy_state = ?2, playable_copy_r2_key = NULL, playable_copy_size_bytes = ?3, playable_copy_reason = ?4, playable_copy_file_id = ?5 WHERE id = ?1`,
     )
     .bind(
       row.versionId,
       row.state,
-      row.state === "ready" ? row.r2Key : null,
       row.state === "ready" ? row.sizeBytes : null,
       row.state === "unavailable" ? row.reason : null,
+      row.state === "ready" ? row.fileId : null,
     );
 }
 
 const VERSION_COLUMNS =
-  `v.id, v.file_id, f.matter_id, v.r2_key, v.size_bytes, v.sniffed_content_type, v.storage_encoding, v.scan_verdict, ` +
+  `v.id, v.file_id, f.matter_id, f.folder_id, f.name AS file_name, v.r2_key, v.size_bytes, v.sniffed_content_type, v.storage_encoding, v.scan_verdict, ` +
   `v.playable_copy_state, v.playable_copy_r2_key, v.playable_copy_size_bytes, v.playable_copy_reason, ` +
-  `v.playable_copy_requested_at`;
+  `v.playable_copy_requested_at, v.playable_copy_file_id, ` +
+  `CASE WHEN v.playable_copy_file_id IS NOT NULL AND (c.id IS NULL OR c.deleted_at IS NOT NULL) THEN 1 ELSE 0 END AS playable_copy_file_deleted`;
+
+// The filed copy, joined so a copy a member deleted reads as gone.
+const COPY_JOIN = `LEFT JOIN ${FILE_TABLE} c ON c.id = v.playable_copy_file_id`;
 
 // One version by id, filtered to `clean`: a withdrawn or quarantined version is not served and gets
 // no copy. The producer reads this; it does not care whether the version is still the current one,
@@ -193,7 +226,7 @@ export function selectVersionForPlayableCopyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT ${VERSION_COLUMNS} FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id WHERE v.id = ?1 AND v.status = 'clean'`,
+      `SELECT ${VERSION_COLUMNS} FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ${COPY_JOIN} WHERE v.id = ?1 AND v.status = 'clean'`,
     )
     .bind(versionId);
 }
@@ -206,7 +239,7 @@ export function selectCurrentVersionForPlayableCopyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT ${VERSION_COLUMNS} FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+      `SELECT ${VERSION_COLUMNS} FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id ${COPY_JOIN} WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
     )
     .bind(fileId);
 }
@@ -215,6 +248,8 @@ interface VersionRow {
   id: FileVersionId;
   file_id: FileId;
   matter_id: MatterId;
+  folder_id: FolderId | null;
+  file_name: string;
   r2_key: string;
   size_bytes: number | null;
   sniffed_content_type: string | null;
@@ -225,6 +260,8 @@ interface VersionRow {
   playable_copy_size_bytes: number | null;
   playable_copy_reason: PlayableCopyUnavailableReason | null;
   playable_copy_requested_at: string | null;
+  playable_copy_file_id: FileId | null;
+  playable_copy_file_deleted: number;
 }
 
 async function firstVersion(statement: SqlStatement): Promise<VersionForPlayableCopy | undefined> {
@@ -235,6 +272,8 @@ async function firstVersion(statement: SqlStatement): Promise<VersionForPlayable
     id: row.id,
     fileId: row.file_id,
     matterId: row.matter_id,
+    folderId: row.folder_id,
+    fileName: row.file_name,
     r2Key: row.r2_key,
     sizeBytes: row.size_bytes,
     sniffedContentType: row.sniffed_content_type,
@@ -245,6 +284,8 @@ async function firstVersion(statement: SqlStatement): Promise<VersionForPlayable
     playableCopySizeBytes: row.playable_copy_size_bytes,
     playableCopyReason: row.playable_copy_reason,
     playableCopyRequestedAt: row.playable_copy_requested_at,
+    playableCopyFileId: row.playable_copy_file_id,
+    playableCopyFileDeleted: row.playable_copy_file_deleted === 1,
   };
 }
 

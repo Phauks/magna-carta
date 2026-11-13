@@ -15,7 +15,7 @@ planner is handed a database for, no clock, no binding.
 
 **Spec:** [`docs/specs/2026-08-05-billing-design.md`](../../docs/specs/2026-08-05-billing-design.md)
 (_Numbering_). (ADR-0079; the register is
-`docs/decisions/pending/every-number-the-firm-issues-is-drawn-from-one-register.md`.)
+`docs/decisions/0480-every-number-the-firm-issues-is-drawn-from-one-register.md`.)
 
 ## Key files / entry points
 
@@ -110,7 +110,7 @@ planner is handed a database for, no clock, no binding.
   `@magna-carta/conflicts` (check numbers), `@magna-carta/custodian` (custody packet numbers),
   `@magna-carta/billing` (invoice numbers), `@magna-carta/timekeeping` (time entry numbers, drawn a
   block at a time), `@magna-carta/communications` (call and text numbers), and the API worker's
-  `routes/firm/numbering.ts` (the settings surface over the register). Every one of them draws through
+  `apps/api-worker/src/http/routes/firm/numbering.ts` (the settings surface over the register). Every one of them draws through
   `planSchemeDraw` and none of them renders a number itself. A change here RIPPLES to all of them —
   re-run every one of their suites, never just one. Custodian's is the sharpest test of a change: a custody number is
   printed on a physical label and read out over the phone, so a rendered-shape change there is not a

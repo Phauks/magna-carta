@@ -418,7 +418,7 @@ answering. The summary writes nothing, because opening the link is a read.
 
 `recording-types.ts` / `recording-statements.ts` / `recording-service.ts` are the recording's trio,
 `settings.ts` holds its four firm switches (all default off — recording, captions, summaries — and the
-track ceiling, written only by the Worker's `routes/meeting-settings.ts`), and `pcm-frame.ts` is the hand-written reader of the routing service's three-field
+track ceiling, written only by the Worker's `apps/api-worker/src/http/routes/communications/meeting-settings.ts`), and `pcm-frame.ts` is the hand-written reader of the routing service's three-field
 envelope plus the mono fold, the silence and the sequence-gap arithmetic. `pcm-mix.ts` is the compose
 step's mixer — tracks at their own offsets, summed in 32 bits and clamped ONCE, a window at a time so
 memory never grows with the recording — and `wav.ts` the 44-byte canonical header for mono 48 kHz
@@ -623,7 +623,7 @@ and no other path.
 ## A live caption is the same words heard a moment earlier, and nothing here keeps one
 
 `caption-sessions.ts` is the whole of what this package holds for live captions: arithmetic and nothing
-else — no statement, no table, no row. The Worker's `meeting-captioner.ts` and `room/room-captions.ts`
+else — no statement, no table, no row. The Worker's `apps/api-worker/src/meetings/meeting-captioner.ts` and `apps/api-worker/src/meetings/room/room-captions.ts`
 drive it; the design and its amendments (A81 onward) are in the recording spec.
 
 Three rules travel with it.

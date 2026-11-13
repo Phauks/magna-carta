@@ -3,21 +3,39 @@
  * is addressed. Pure, so the words are tested once and every surface that offers a recording reads
  * the same ones.
  */
-import type { PreviewGrant } from "$lib/file-manager/matter-file-api.ts";
+import type { PlayableCopyStatus, PreviewGrant } from "$lib/file-manager/matter-file-api.ts";
 
 /** Why a recording is offered as a download instead of playing. */
 export type CannotPlayCause = Pick<PreviewGrant, "verdict" | "reason"> | "browser-refused";
 
-export const CANNOT_PLAY_TITLE = "This Recording Cannot Play in the Browser";
+export const CANNOT_PLAY_TITLE = "Unreadable Media File";
+
+/**
+ * Whether converting to MP4 could help: the converter reads MP4, QuickTime and Matroska, and only
+ * a refusal about the recording's own encoding is one a copy can cure. A recording that will not
+ * stream for any other reason (archive storage, the site's streaming not set up) would make a copy
+ * that will not stream either.
+ */
+export function offersConversion(cause: CannotPlayCause, contentType: string | null): boolean {
+  if (!CONVERTIBLE_TYPES.has(contentType ?? "")) return false;
+  if (cause === "browser-refused") return true;
+  return cause.reason === "verdict";
+}
+
+const CONVERTIBLE_TYPES = new Set([
+  "video/mp4",
+  "video/x-m4v",
+  "video/quicktime",
+  "video/x-matroska",
+]);
 
 /** The sentence under the title: what is true about this recording, then what to do. */
-export function cannotPlaySentence(cause: CannotPlayCause): string {
-  const remedy = "Download it to watch it in a video application.";
+export function cannotPlaySentence(cause: CannotPlayCause, convertible = false): string {
+  const remedy = convertible
+    ? "Convert it to MP4 to watch it here, or download it to watch it in a video application."
+    : "Download it to watch it in a video application.";
   if (cause === "browser-refused") {
-    return (
-      `This browser cannot decode its picture or sound. Video recorded in HEVC, as many phones ` +
-      `record it, plays in Safari, in Edge and in Chrome on most newer computers. ${remedy}`
-    );
+    return `This browser cannot decode its picture or sound. ${remedy}`;
   }
   switch (cause.reason) {
     case "verdict":
@@ -33,6 +51,35 @@ export function cannotPlaySentence(cause: CannotPlayCause): string {
       return `Streaming is not set up on this site yet. ${remedy}`;
     default:
       return `It is not stored in a form that can be streamed. ${remedy}`;
+  }
+}
+
+/** What the page says about the MP4 copy once one has been asked for, or null when there is none. */
+export function conversionSentence(status: PlayableCopyStatus): string | null {
+  switch (status.state) {
+    case "pending":
+      return (
+        "Converting to MP4. A long recording takes a few minutes. You can leave this page: the " +
+        "MP4 is saved beside the original when it is done."
+      );
+    case "ready":
+      return "The MP4 is saved beside the original in the same folder.";
+    case "unavailable":
+      switch (status.reason) {
+        case "malformed":
+          return "It could not be converted: the file looks damaged, or is not what its type says.";
+        case "too-large":
+          return "It could not be converted: it is larger than two gigabytes or longer than six hours.";
+        case "source-missing":
+          return "It could not be converted: the original's contents could not be found.";
+        default:
+          return (
+            "It could not be converted: its picture or sound is in a format the converter does not " +
+            "read yet, such as ProRes, MPEG-2 or Windows Media."
+          );
+      }
+    default:
+      return null;
   }
 }
 

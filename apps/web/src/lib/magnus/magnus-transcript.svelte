@@ -42,14 +42,22 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { conversationAuthor } from "./conversation-author.svelte.ts";
   import type { ConversationSession } from "./conversation-session.svelte.ts";
+  import MarkedText from "$lib/search/marked-text.svelte";
+  import { findMarks, shownTurns } from "./conversation-find.ts";
   import { turnFailureSentence, type MagnusTurn } from "./magnus-api.ts";
 
   let {
     session,
     onEdit,
     onRemove,
+    find = "",
+    currentMatchId = null,
   }: {
     session: ConversationSession;
+    /** Words being found in this conversation, already trimmed; marked wherever they stand. */
+    find?: string;
+    /** The message the find has stepped to, brought into view. */
+    currentMatchId?: string | null;
     /** Start editing one of the reader's own messages. */
     onEdit?: (turn: MagnusTurn) => void;
     /** Ask to remove one of the reader's own messages and its answer. */
@@ -60,13 +68,17 @@
    * What the transcript shows: every turn except those an edit set aside, and except a removed
    * answer whose words the reader is not shown (its question's marker stands for both).
    */
-  const turns = $derived(
-    session.turns?.filter(
-      (turn) =>
-        turn.supersededAt === null &&
-        !(turn.speaker === "magnus" && turn.removedAt !== null && turn.content === null),
-    ) ?? null,
-  );
+  const turns = $derived(session.turns === null ? null : shownTurns(session.turns));
+
+  /*
+   * Bring the message a find stepped to into view. Only the live transcript stamps a turn's id (the
+   * loading fixture's turns carry none), and an id names one turn, so the document is searched.
+   */
+  $effect(() => {
+    if (currentMatchId === null || turns === null) return;
+    const target = document.querySelector(`[data-turn-id="${CSS.escape(currentMatchId)}"]`);
+    target?.scrollIntoView({ block: "center" });
+  });
   /** Nothing in the conversation is being answered, so a message may be changed. */
   const settled = $derived((turns ?? []).every((turn) => turn.status !== "pending"));
 
@@ -146,7 +158,11 @@
     {#each shown as turn, index (turn.id)}
       {@const failureSentence = turnFailureSentence(turn)}
       {@const name = live ? speakerName(turn) : turn.speaker === "member" ? samplePerson(index).name : "Magnus"}
-      <Conversation.Turn speaker={turn.speaker} state={turnState(turn)}>
+      <Conversation.Turn
+        speaker={turn.speaker}
+        state={turnState(turn)}
+        data-turn-id={live ? turn.id : undefined}
+      >
         <Conversation.TurnMark>
           {live ? speakerMark(turn) : turn.speaker === "member" ? personInitials(name) : "M"}
         </Conversation.TurnMark>
@@ -171,7 +187,13 @@
             </Conversation.TurnNote>
           {/if}
           {#if turn.content !== null}
-            <Conversation.TurnBody>{turn.content}</Conversation.TurnBody>
+            <!-- No whitespace inside the body: it keeps the author's line breaks, so any would show. -->
+            <Conversation.TurnBody
+              >{#if live && find !== ""}<MarkedText
+                  text={turn.content}
+                  marks={findMarks(turn.content, find)}
+                />{:else}{turn.content}{/if}</Conversation.TurnBody
+            >
           {/if}
           {#if turn.status === "pending"}
             {#if session.answerIsSlow}
