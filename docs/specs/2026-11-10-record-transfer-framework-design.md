@@ -278,3 +278,36 @@ Built 2026-11-13. One module, `transfer-pass.ts`.
 **A fault stops the pass; an outcome does not.** An error a loader did not expect is thrown at the row it happened on. Nothing is lost: every row before it is linked, and the next pass carries on from there.
 
 **Not in this slice.** A report is returned to the caller and not stored. Nothing reads a file's bytes from object storage or records its row count; that, the upload route and the operator's screens are the next slice, and they are where a report is kept and shown, where the rejected rows are offered as a file in the source's own shape, and where a run's reports are added up. Money totals beside the source's own arrive with the money slice.
+
+## 16. Where the Clio lessons stand, and what they give beyond LEAP
+
+Written 2026-11-13, when the owner asked that the lessons of section 12 be taken into the import and migration process and into what the product can do later. Section 12 says what was adopted. This section says how much of each is built, and what the same work makes possible after the firm's own migration is over.
+
+**Built so far.**
+
+| Lesson                                          | Where it is built                                                                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Records are joined by source key, never by name | The link table (section 5); a matter finds its client through the link (section 14)       |
+| Nothing is created silently to make a row fit   | A matter waits, unwritten, for a party that has not arrived (section 14)                  |
+| A date's order is stated, never guessed         | The mapping rules for people and for matters (sections 13 and 14)                         |
+| A transferred record sends nothing outward      | A transferred matter writes no outbox message (section 14)                                |
+| Every rejected row is reported with its reason  | The pass report: row, line and a fixed reason (section 15)                                |
+| Review is by sample                             | The first and last five records a pass created (section 15)                               |
+| A second, later run is safe                     | Every loader reads the link first; a second pass writes nothing for a record that arrived |
+
+**Adopted and still owed**, in the order they should be built.
+
+1. **Accepting a run.** The step that ends a transfer's quiet period: it requests the conflicts checks and announcements that the loaders withheld. Until it exists, transferred matters are in the conflicts corpus as rows but no check has been asked for them.
+2. **Removing a run that was not accepted.** Every link names its run, so "everything this run created" is already a query. The operation that deletes those records, in reverse dependency order, is not written.
+3. **Rejected rows as a file.** The pass report has the row numbers. Offering those rows back in the file's own shape, with the reason as a first column, needs the file read again from object storage, so it arrives with the upload route.
+4. **The top-up run.** Bringing across what changed at the source after the main run, so the freeze is hours. It needs a rule for updating a linked record that somebody here may also have changed, which is a decision for the owner: the source wins, the record here wins, or the difference is listed for a person.
+5. **Duplicate candidates in the report**, from the Directory's existing duplicate search, before cutover.
+6. **The source's own trust and banking reports filed as documents**, with the money slice.
+
+**What this gives beyond the firm's own migration.** Nothing in the framework names LEAP: the source system is a slug on a run, and the columns are stated by whoever runs it. Each of these follows from that, and none needs a new design, only the screens and the missing steps above.
+
+- **Onboarding a firm from any system.** Clio publishes templates and runs a migrations team because arriving is the hardest part of changing systems. A firm leaving Clio, PracticePanther or a spreadsheet can be received by the same passes, with a saved set of mapping rules per source. A set of rules for Clio's own export format is the cheapest second source, because Clio documents its columns.
+- **Ordinary bulk import.** A firm that already runs on Magna Carta and is handed a spreadsheet of two hundred contacts, or takes over another practice's files, uses the same route. A transfer run is the unit either way.
+- **A stated record of where every record came from.** The link answers "which file and row did this client come from" for as long as the firm keeps the record, which is what a regulator or a successor firm asks.
+- **Leaving cleanly.** Clio tells departing firms to export reports and keep them. A firm that can see that its records arrived whole can also expect to take them out whole; the same vocabulary of kinds and keys is the natural shape for an export, and an export that the product's own import can read back is the test that it is complete.
+- **A standing feed from another system.** A top-up run repeated on a schedule is a one-way sync. A firm that keeps one system for a time (an accounting package, a court's portal) could be fed from it by the same mechanism, once item 4 is decided.
