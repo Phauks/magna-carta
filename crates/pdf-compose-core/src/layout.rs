@@ -48,6 +48,15 @@ pub(crate) enum Mark {
         height: f32,
         ink: Ink,
     },
+    /// A filled rectangle whose two top corners are rounded: the bar across the top of a card.
+    Bar {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        radius: f32,
+        ink: Ink,
+    },
     /// The outline of a rectangle with rounded corners.
     Frame {
         x: f32,
@@ -361,23 +370,43 @@ struct ColumnPlan {
     ink: Ink,
 }
 
-/// The space between a card's frame and what it holds.
-const CARD_PADDING: f32 = 10.0;
-const CARD_RADIUS: f32 = 6.0;
+/// How far text stands in from a card's frame: the cell padding of a row inside one, and the
+/// inset of a paragraph or a picture.
+const CARD_INSET: f32 = 9.0;
+/// The space above and below a card's title in its bar.
+const CARD_TITLE_PADDING: f32 = 6.0;
+/// The space between the bar or the frame and a paragraph or picture, which has no padding of
+/// its own as a row has.
+const CARD_LOOSE_PADDING: f32 = 6.0;
 const CARD_GAP: f32 = 12.0;
+/// The white the frame keeps under the last row, so a shaded row never reaches its rounded
+/// corners.
+const CARD_FOOT: f32 = 3.0;
+const CARD_RADIUS: f32 = 4.0;
+/// The title is set in white on a bar of the accent colour.
 const CARD_TITLE: TextStyle = TextStyle {
-    size: 11.5,
-    line_height: 15.0,
-    ink: Ink::Accent { fallback: 0 },
+    size: 11.0,
+    line_height: 14.0,
+    ink: Ink::Gray(255),
 };
-const CARD_EDGE: Ink = Ink::Gray(196);
+const CARD_BAR: Ink = Ink::Accent { fallback: 70 };
+/// The frame is a pale hairline: it gathers what the card holds without boxing it in.
+const CARD_EDGE: Ink = Ink::Gray(200);
+/// Column headings in a card are quiet: gray, with a hairline under them and no shade.
+const CARD_HEADING_INK: Ink = Ink::Gray(95);
+const CARD_ROW_RULE: Ink = Ink::Gray(226);
 
 /// A card whose frame is not drawn yet.
 struct OpenCard {
-    /// The page as it was before the card narrowed it.
-    outer: PageSetup,
     /// Where the frame starts on the current page.
     top: f32,
+    /// Whether the last thing in the card was a paragraph or a picture, which stands off
+    /// whatever is above it and needs space under it before the frame closes. Rows bring
+    /// their own padding and follow one another with none between.
+    loose: bool,
+    /// Whether a rule is owed above the next thing in the card. A row's rule is drawn when
+    /// something follows it, so the last row never doubles the frame beneath it.
+    rule_due: bool,
 }
 
 struct Flow<'a, 'f> {
@@ -425,32 +454,62 @@ impl Flow<'_, '_> {
         self.pages.push(LaidPage::default());
         self.cursor = self.top();
         self.trailing_gap = 0.0;
+        let top = self.top();
         if let Some(card) = self.card.as_mut() {
-            card.top = card.outer.margin_top;
+            card.top = top;
+            card.loose = false;
+            card.rule_due = false;
         }
         Ok(())
     }
 
-    /// Draw the open card's frame on the current page, from where it started to just under
-    /// the last thing drawn in it.
+    /// How far text stands in from the edge of the content: nothing on the open page, the
+    /// card's inset inside one.
+    fn inset(&self) -> f32 {
+        if self.card.is_some() {
+            CARD_INSET
+        } else {
+            0.0
+        }
+    }
+
+    /// The space at each side of a cell's text.
+    fn cell_padding_horizontal(&self) -> f32 {
+        if self.card.is_some() {
+            CARD_INSET
+        } else {
+            CELL_PADDING_HORIZONTAL
+        }
+    }
+
+    /// Where the open card's frame closes: under the last thing drawn in it.
+    fn card_bottom(&self) -> Option<f32> {
+        let card = self.card.as_ref()?;
+        let loose = if card.loose {
+            CARD_LOOSE_PADDING
+        } else {
+            CARD_FOOT
+        };
+        Some((self.cursor - self.trailing_gap + loose).min(self.bottom()))
+    }
+
+    /// Draw the open card's frame on the current page.
     fn frame_card(&mut self) {
-        let Some(card) = self.card.as_ref() else {
+        let (Some(card), Some(bottom)) = (self.card.as_ref(), self.card_bottom()) else {
             return;
         };
-        let outer = card.outer;
         let top = card.top;
-        let foot = outer.height - outer.margin_bottom;
-        let bottom = (self.cursor - self.trailing_gap + CARD_PADDING).min(foot);
-        if bottom - top > 2.0 * CARD_PADDING {
+        if bottom - top > 1.0 {
+            let (x, width) = (self.left(), self.page.content_width());
             // Pushed directly: `mark` would forget the trailing gap the caller still needs.
             if let Some(page) = self.pages.last_mut() {
                 page.marks.push(Mark::Frame {
-                    x: outer.margin_left,
+                    x,
                     y: top,
-                    width: outer.content_width(),
+                    width,
                     height: bottom - top,
                     radius: CARD_RADIUS,
-                    thickness: 0.75,
+                    thickness: 0.6,
                     ink: CARD_EDGE,
                 });
             }
@@ -460,45 +519,68 @@ impl Flow<'_, '_> {
     fn open_card(&mut self, title: Option<&str>) -> Result<(), ComposeError> {
         self.close_card();
         self.gap(CARD_GAP);
-        // A card starts where its title and a few rows of what it holds will fit.
-        self.ensure(2.0 * CARD_PADDING + CARD_TITLE.line_height + 3.0 * CELL.line_height)?;
-        let outer = self.page;
+        // A card starts where its title bar and a few rows of what it holds will fit.
+        self.ensure(2.0 * CARD_TITLE_PADDING + CARD_TITLE.line_height + 3.0 * CELL.line_height)?;
         let top = self.cursor;
-        self.page.margin_left += CARD_PADDING;
-        self.page.margin_right += CARD_PADDING;
-        self.page.margin_top += CARD_PADDING;
-        self.page.margin_bottom += CARD_PADDING;
-        self.card = Some(OpenCard { outer, top });
-        self.cursor = top + CARD_PADDING;
+        self.card = Some(OpenCard {
+            top,
+            loose: false,
+            rule_due: false,
+        });
         self.trailing_gap = 0.0;
         if let Some(title) = title.filter(|title| !title.trim().is_empty()) {
+            let (x, width) = (self.left(), self.page.content_width());
             let lines = break_lines(
                 self.measurer,
                 &plain(Face::Bold, title),
                 CARD_TITLE.size,
-                self.page.content_width(),
+                width - 2.0 * CARD_INSET,
             );
-            self.flow_lines(&lines, Alignment::Start, CARD_TITLE)?;
-            let y = self.cursor + 5.0;
-            self.mark(Mark::Rule {
-                x0: outer.margin_left,
-                x1: outer.width - outer.margin_right,
-                y,
-                thickness: 0.5,
-                ink: CARD_EDGE,
+            let height = lines.len() as f32 * CARD_TITLE.line_height + 2.0 * CARD_TITLE_PADDING;
+            self.mark(Mark::Bar {
+                x,
+                y: top,
+                width,
+                height,
+                radius: CARD_RADIUS,
+                ink: CARD_BAR,
             });
-            self.cursor = y + 6.0;
+            self.cursor = top + CARD_TITLE_PADDING;
+            self.flow_lines(&lines, Alignment::Start, CARD_TITLE)?;
+            self.cursor = top + height;
         }
         Ok(())
     }
 
     fn close_card(&mut self) {
         self.frame_card();
-        if let Some(card) = self.card.take() {
-            let foot = card.outer.height - card.outer.margin_bottom;
-            self.cursor = (self.cursor - self.trailing_gap + CARD_PADDING).min(foot);
-            self.page = card.outer;
+        if let Some(bottom) = self.card_bottom() {
+            self.cursor = bottom;
             self.trailing_gap = 0.0;
+        }
+        self.card = None;
+    }
+
+    /// Called before a paragraph, a heading or a picture: inside a card these stand off the
+    /// bar above them and the frame below, where a row brings its own padding.
+    fn loose_block(&mut self) {
+        self.card_rule();
+        if let Some(card) = self.card.as_mut() {
+            if !card.loose {
+                card.loose = true;
+                self.cursor += CARD_LOOSE_PADDING;
+            }
+        }
+    }
+
+    /// Draw the rule a card owes between its last row and whatever comes next.
+    fn card_rule(&mut self) {
+        let due = self
+            .card
+            .as_mut()
+            .is_some_and(|card| std::mem::take(&mut card.rule_due));
+        if due {
+            self.row_rule(CARD_ROW_RULE, 0.5);
         }
     }
 
@@ -573,7 +655,8 @@ impl Flow<'_, '_> {
         alignment: Alignment,
         style: TextStyle,
     ) -> Result<(), ComposeError> {
-        let (x, width) = (self.left(), self.page.content_width());
+        let inset = self.inset();
+        let (x, width) = (self.left() + inset, self.page.content_width() - 2.0 * inset);
         for line in lines {
             self.ensure(style.line_height)?;
             let line_top = self.cursor;
@@ -588,9 +671,10 @@ impl Flow<'_, '_> {
             self.measurer,
             &plain(Face::Bold, text),
             style.size,
-            self.page.content_width(),
+            self.page.content_width() - 2.0 * self.inset(),
         );
         self.gap(HEADING_GAP_BEFORE);
+        self.loose_block();
         // A heading is kept with the start of what it heads: stranding it alone at the foot
         // of a page reads as a heading over nothing.
         let height = lines.len() as f32 * style.line_height;
@@ -607,7 +691,9 @@ impl Flow<'_, '_> {
             .map(|span| (Face::of(span.bold, span.italic), span.text.clone()))
             .collect();
         let style = if paragraph.small { CAPTION } else { BODY };
-        let lines = break_lines(self.measurer, &spans, style.size, self.page.content_width());
+        let width = self.page.content_width() - 2.0 * self.inset();
+        let lines = break_lines(self.measurer, &spans, style.size, width);
+        self.loose_block();
         self.flow_lines(&lines, paragraph.alignment, style)?;
         self.gap(if paragraph.small {
             SMALL_PARAGRAPH_GAP
@@ -640,7 +726,9 @@ impl Flow<'_, '_> {
         alignment: Alignment,
         caption: Option<&str>,
     ) -> Result<(), ComposeError> {
-        let content_width = self.page.content_width();
+        let inset = self.inset();
+        let content_width = self.page.content_width() - 2.0 * inset;
+        self.loose_block();
         let caption_lines = match caption {
             Some(caption) if !caption.trim().is_empty() => break_lines(
                 self.measurer,
@@ -666,9 +754,9 @@ impl Flow<'_, '_> {
         let height = width * aspect;
         self.ensure(height + caption_height)?;
         let x = match alignment {
-            Alignment::Start => self.left(),
-            Alignment::Center => self.left() + (content_width - width) / 2.0,
-            Alignment::End => self.left() + content_width - width,
+            Alignment::Start => self.left() + inset,
+            Alignment::Center => self.left() + inset + (content_width - width) / 2.0,
+            Alignment::End => self.left() + inset + content_width - width,
         };
         let y = self.cursor;
         self.mark(Mark::Image {
@@ -694,6 +782,7 @@ impl Flow<'_, '_> {
         cells: &[String],
         bold: bool,
     ) -> Vec<Vec<Line>> {
+        let padding = self.cell_padding_horizontal();
         columns
             .iter()
             .enumerate()
@@ -707,7 +796,7 @@ impl Flow<'_, '_> {
                     self.measurer,
                     &plain(face, text),
                     CELL.size,
-                    (column.width - 2.0 * CELL_PADDING_HORIZONTAL).max(1.0),
+                    (column.width - 2.0 * padding).max(1.0),
                 )
             })
             .collect()
@@ -720,9 +809,10 @@ impl Flow<'_, '_> {
         row: &[Vec<Line>],
         first: usize,
         count: usize,
-        shade: Option<Ink>,
+        (shade, ink): (Option<Ink>, Option<Ink>),
     ) {
         let top = self.cursor;
+        let padding_horizontal = self.cell_padding_horizontal();
         let height = count as f32 * CELL.line_height + 2.0 * self.cell_padding_vertical;
         if let Some(ink) = shade {
             let (x, width) = (self.left(), self.page.content_width());
@@ -738,13 +828,13 @@ impl Flow<'_, '_> {
             for (offset, line) in lines.iter().skip(first).take(count).enumerate() {
                 let line_top = top + self.cell_padding_vertical + offset as f32 * CELL.line_height;
                 let style = TextStyle {
-                    ink: column.ink,
+                    ink: ink.unwrap_or(column.ink),
                     ..CELL
                 };
                 self.draw_line(
                     line,
-                    column.x + CELL_PADDING_HORIZONTAL,
-                    column.width - 2.0 * CELL_PADDING_HORIZONTAL,
+                    column.x + padding_horizontal,
+                    column.width - 2.0 * padding_horizontal,
                     column.alignment,
                     style,
                     line_top,
@@ -779,6 +869,23 @@ impl Flow<'_, '_> {
         rows: &[Vec<String>],
         lines: RowLines,
     ) -> Result<(), ComposeError> {
+        // Inside a card every row is ruled off from the next, a list of fields included, and
+        // the heading row is paler than the card's title bar above it.
+        let in_card = self.card.is_some();
+        let lines = if in_card && lines == RowLines::None {
+            RowLines::Ruled
+        } else {
+            lines
+        };
+        let (heading_inks, heading_rule, row_rule) = if in_card {
+            ((None, Some(CARD_HEADING_INK)), CARD_EDGE, CARD_ROW_RULE)
+        } else {
+            (
+                (Some(HEADING_SHADE), None),
+                Ink::Accent { fallback: 110 },
+                Ink::Gray(205),
+            )
+        };
         let heading_row = heading.map(|cells| self.break_row(columns, cells, true));
         let padding = self.cell_padding_vertical;
         let row_height = |lines: usize| lines as f32 * CELL.line_height + 2.0 * padding;
@@ -799,10 +906,11 @@ impl Flow<'_, '_> {
             let mut first = 0;
             while first < total {
                 if heading_due {
+                    self.card_rule();
                     if let Some(heading_row) = heading_row.as_deref() {
                         let count = line_count(heading_row);
-                        self.draw_row_slice(columns, heading_row, 0, count, Some(HEADING_SHADE));
-                        self.row_rule(Ink::Accent { fallback: 110 }, 0.75);
+                        self.draw_row_slice(columns, heading_row, 0, count, heading_inks);
+                        self.row_rule(heading_rule, 0.75);
                     }
                     heading_due = false;
                 }
@@ -823,28 +931,38 @@ impl Flow<'_, '_> {
                 // At least one line always goes down, so a page too short for any line still
                 // makes progress instead of looping.
                 let count = fitting.clamp(1, left);
-                self.draw_row_slice(columns, &row, first, count, shade);
+                if first == 0 {
+                    self.card_rule();
+                }
+                self.draw_row_slice(columns, &row, first, count, (shade, None));
                 first += count;
                 if first < total {
                     self.new_page()?;
                     heading_due = heading_row.is_some();
                 }
             }
-            if lines == RowLines::Ruled {
-                self.row_rule(Ink::Gray(205), 0.5);
+            match self.card.as_mut() {
+                Some(card) => card.rule_due = true,
+                None if lines == RowLines::Ruled => self.row_rule(row_rule, 0.5),
+                None => {}
             }
         }
-        if lines == RowLines::Banded && !rows.is_empty() {
+        if lines == RowLines::Banded && !rows.is_empty() && !in_card {
             // Bands have no edge of their own, so the table is closed with one rule.
-            self.row_rule(Ink::Gray(205), 0.5);
+            self.row_rule(row_rule, 0.5);
         }
         if heading_due {
             // A table with a heading and no rows still shows its heading.
             if let Some(heading_row) = heading_row.as_deref() {
                 let count = line_count(heading_row);
-                self.draw_row_slice(columns, heading_row, 0, count, Some(HEADING_SHADE));
-                self.row_rule(Ink::Accent { fallback: 110 }, 0.75);
+                self.draw_row_slice(columns, heading_row, 0, count, heading_inks);
+                self.row_rule(heading_rule, 0.75);
             }
+        }
+        if let Some(card) = self.card.as_mut() {
+            // Rows in a card follow one another with nothing between: the rules part them.
+            card.loose = false;
+            return Ok(());
         }
         self.gap(BLOCK_GAP);
         Ok(())
@@ -891,6 +1009,7 @@ impl Flow<'_, '_> {
     /// asks are scaled to fit.
     fn column_widths(&mut self, table: &Table) -> Vec<f32> {
         let content_width = self.page.content_width();
+        let padding = self.cell_padding_horizontal();
         let weights: Vec<Option<f32>> = table
             .columns
             .iter()
@@ -915,8 +1034,7 @@ impl Flow<'_, '_> {
                             }
                         }
                     }
-                    (widest + 2.0 * CELL_PADDING_HORIZONTAL)
-                        .clamp(MINIMUM_COLUMN_WIDTH, content_width / 2.0)
+                    (widest + 2.0 * padding).clamp(MINIMUM_COLUMN_WIDTH, content_width / 2.0)
                 })
                 .collect()
         };
@@ -938,12 +1056,12 @@ impl Flow<'_, '_> {
                     .width(Face::Bold, CELL.size, &clean(&field.label)),
             );
         }
-        (widest + 2.0 * CELL_PADDING_HORIZONTAL + 8.0).clamp(MINIMUM_COLUMN_WIDTH, limit)
+        (widest + 2.0 * self.cell_padding_horizontal() + 8.0).clamp(MINIMUM_COLUMN_WIDTH, limit)
     }
 
     /// A label column and a value column filling `[x, x + width]`.
     fn field_columns(&mut self, fields: &[Field], x: f32, width: f32) -> [ColumnPlan; 2] {
-        let label_width = self.label_width(fields, width * 0.38);
+        let label_width = self.label_width(fields, width * 0.45);
         [
             ColumnPlan {
                 x,
@@ -1402,12 +1520,22 @@ mod tests {
         let (_, second_top, _, _) = drawn[1];
         assert_eq!(first_top, page.margin_top);
         assert!((second_top - (first_top + first_height) - CARD_GAP).abs() < 0.01);
-        // Text sits inside the padding on both sides.
+        // Text stands in from the frame, the title sits in a bar that fills the card's width,
+        // and each row of fields is ruled off from the next.
+        let mut bars = 0;
+        let mut rules = 0;
         for mark in &pages[0].marks {
-            if let Mark::Text { x, .. } = mark {
-                assert!(*x >= page.margin_left + CARD_PADDING);
+            match mark {
+                Mark::Text { x, .. } => assert!(*x >= page.margin_left + CARD_INSET),
+                Mark::Bar { x, width, ink, .. } if *ink == CARD_BAR => {
+                    assert_eq!((*x, *width), (page.margin_left, page.content_width()));
+                    bars += 1;
+                }
+                Mark::Rule { ink, .. } if *ink == CARD_ROW_RULE => rules += 1,
+                _ => {}
             }
         }
+        assert_eq!((bars, rules), (1, 3));
     }
 
     #[test]
@@ -1436,5 +1564,35 @@ mod tests {
         assert!(closed <= foot + 0.01 && closed > foot - 2.0 * CELL.line_height);
         assert_eq!(second[0].1, page.margin_top);
         assert!(second[0].3 < first[0].3);
+    }
+
+    #[test]
+    fn a_paragraph_in_a_card_stands_off_the_bar_and_the_frame() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let document = ComposedDocument {
+            blocks: vec![
+                Block::CardStart {
+                    title: Some("Contact".to_string()),
+                },
+                Block::Paragraph(Paragraph {
+                    spans: vec![crate::model::Span::plain("Whitfield Law Group".to_string())],
+                    small: true,
+                    ..Paragraph::default()
+                }),
+                Block::CardEnd,
+            ],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&document, &[], &mut measurer).unwrap();
+        let (_, top, _, height) = frames(&pages[0])[0];
+        let bar = CARD_TITLE.line_height + 2.0 * CARD_TITLE_PADDING;
+        let expected = bar + 2.0 * CARD_LOOSE_PADDING + CAPTION.line_height;
+        assert_eq!(CARD_FOOT, 3.0);
+        assert!(
+            (height - expected).abs() < 0.01,
+            "{height} against {expected}"
+        );
+        assert_eq!(top, document.page.margin_top);
     }
 }

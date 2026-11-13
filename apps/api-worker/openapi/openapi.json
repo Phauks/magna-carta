@@ -13024,6 +13024,9 @@
                         },
                         "proofReference": {
                           "type": "string"
+                        },
+                        "codeDestination": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -68775,11 +68778,21 @@
                             },
                             "proofReference": {
                               "type": "string"
+                            },
+                            "codeDestination": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 320
                             }
                           },
                           "required": [
                             "level"
                           ]
+                        },
+                        "signatureImageBase64": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 350000
                         }
                       },
                       "required": [

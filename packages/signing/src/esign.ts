@@ -77,6 +77,11 @@ export interface SignerAttribution {
   readonly location?: string;
   /** The identity channel proof reference (portal session id, access-code delivery id, etc.). */
   readonly proofReference?: string;
+  /**
+   * Where a one-time access code was sent: the email address or the telephone number. The code
+   * itself is a secret and is never recorded; that one was used, and where it went, is the proof.
+   */
+  readonly codeDestination?: string;
 }
 
 /** A completed signer's authoritative record — one entry in the Certificate of Completion. */

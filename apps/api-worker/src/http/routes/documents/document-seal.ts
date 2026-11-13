@@ -172,8 +172,23 @@ export function registerDocumentSealRoutes(
           ...(signer.attribution.proofReference !== undefined
             ? { proofReference: signer.attribution.proofReference }
             : {}),
+          ...(signer.attribution.codeDestination !== undefined
+            ? { codeDestination: signer.attribution.codeDestination }
+            : {}),
         },
       }));
+      // A signature picture that is not base64 is left off the certificate; it is decoration on
+      // a record whose proof is elsewhere, and never a reason to refuse the seal.
+      const signatureImages = signers.flatMap((signer) => {
+        if (signer.signatureImageBase64 === undefined) return [];
+        try {
+          return [
+            { signerId: signer.intent.signerId, image: decodeBase64(signer.signatureImageBase64) },
+          ];
+        } catch {
+          return [];
+        }
+      });
 
       // The certificate's reference is the identifier of the audit row this seal is logged under,
       // so the sheet a firm files and the firm's own audit trail name the same record.
@@ -187,6 +202,7 @@ export function registerDocumentSealRoutes(
           id: auditLogId,
           ...(documentTitle !== undefined ? { title: documentTitle } : {}),
         },
+        ...(signatureImages.length > 0 ? { signatureImages } : {}),
       };
 
       const sealPort = sealPortOverride ?? resolveSealPort(c.env.SIGN_SERVICE);

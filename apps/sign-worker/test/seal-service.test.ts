@@ -213,6 +213,42 @@ describe("sign worker — platform seal on workerd", () => {
     expect(printed).toContain("Springfield, Illinois, US");
   });
 
+  it("prints a signer's signature on their record, and seals without one it cannot read", async () => {
+    // A one-pixel PNG stands in for the picture a signer drew.
+    const drawn = fromBase64(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    );
+    const lines = async (image: Uint8Array) => {
+      const response = await performSeal(
+        {
+          ...sealRequest(),
+          signers: [
+            {
+              intent: { ...signer.intent, name: "Alice Example", email: "alice@example.test" },
+              consent: signer.consent,
+              attribution: { level: "access-code", codeDestination: "alice@example.test" },
+            },
+          ],
+          signatureImages: [{ signerId: signer.intent.signerId, image }],
+        },
+        { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+        engines,
+      );
+      expect(await verifySealedCms(response.certificatePdf, material.certificate)).toBe(true);
+      return (await extractPdfText(response.certificatePdf)).pages.flatMap((page) =>
+        page.lines.map((line) => line.text.trim()),
+      );
+    };
+    const signed = await lines(drawn);
+    // The record's last line of text is the caption the picture sits under.
+    expect(signed).toContain("Signature");
+    expect(signed.join("\n")).toContain("Code Sent To");
+    // Bytes that are no picture leave the signature off; the certificate is still issued.
+    const unread = await lines(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    expect(unread).not.toContain("Signature");
+    expect(unread.join("\n")).toContain("Alice Example");
+  });
+
   it("holds the summary, eight signers and the contacts on the certificate's first page", async () => {
     const names = ["Ada", "Ben", "Cleo", "Dev", "Esme", "Finn", "Gwen", "Hugo"];
     const response = await performSeal(

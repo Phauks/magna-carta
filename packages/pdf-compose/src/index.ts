@@ -98,8 +98,10 @@ export type ComposeBlock =
       readonly twoUp?: boolean;
     }
   /**
-   * Opens a card: a rounded frame around the blocks up to the next `cardEnd`, with an optional
-   * title inside it over a rule. A card carries on over a page break and cards do not nest.
+   * Opens a card: a pale, gently rounded frame around the blocks up to the next `cardEnd`, with
+   * an optional title in a bar in the accent colour across its top. Rows inside a card run from
+   * edge to edge and are ruled off from one another. A card carries on over a page break and
+   * cards do not nest.
    */
   | { readonly type: "cardStart"; readonly title?: string }
   | { readonly type: "cardEnd" }

@@ -15,6 +15,7 @@ import {
   signerDisplayName,
 } from "./certificate.ts";
 import type { CertificateOfCompletion, SignerCompletion, SigningContact } from "./esign.ts";
+import type { SignatureImage } from "./port.ts";
 
 interface SheetField {
   readonly label: string;
@@ -45,8 +46,9 @@ export type CertificateSheetBlock =
       readonly type: "table";
       readonly columns: readonly { readonly heading: string; readonly weight: number }[];
       readonly rows: readonly (readonly string[])[];
-      readonly banded: true;
-    };
+    }
+  /** A picture named by its position in the list passed to the composer beside the sheet. */
+  | { readonly type: "image"; readonly image: number; readonly width: number };
 
 /** A document the PDF composer accepts as it stands. */
 export interface CertificateSheet {
@@ -92,10 +94,14 @@ export interface CertificateSheet {
 const ACCENT = [98, 72, 0] as const;
 
 /**
- * The pictures the sheet names by position: the lockup its letterhead draws. Passed to the composer beside the sheet.
+ * The pictures the sheet names by position: the lockup its letterhead draws, then each signer's
+ * signature in the order given. Passed to the composer beside the sheet, with the same signatures
+ * the sheet was laid out with.
  */
-export function certificateSheetImages(): Uint8Array[] {
-  return [brandLockupPng()];
+export function certificateSheetImages(
+  signatureImages: readonly SignatureImage[] = [],
+): Uint8Array[] {
+  return [brandLockupPng(), ...signatureImages.map((signature) => signature.image)];
 }
 
 /**
@@ -131,6 +137,32 @@ export interface CertificateSheetOptions {
    * pages are filled for the height and width the paper has.
    */
   readonly paper?: CertificatePaper;
+  /**
+   * The signers' signatures as pictures, each printed on its signer's record. A signer without
+   * one is recorded by how they adopted their signature alone.
+   */
+  readonly signatureImages?: readonly SignatureImage[];
+}
+
+/**
+ * How large a signature is printed, in points: as tall as three lines of the record, and no wider
+ * than a signature line. A long name signed small and a short one signed large then print at the
+ * same height.
+ */
+const SIGNATURE_HEIGHT = 36;
+const SIGNATURE_WIDTH = 200;
+
+/**
+ * The width to print a signature at. A PNG says its size in its first chunk, and that gives the
+ * width its height allows; any other picture is printed at the width of a short signature.
+ */
+function signatureWidth(image: Uint8Array): number {
+  const isPng = image.length >= 24 && image[0] === 0x89 && image[1] === 0x50;
+  if (!isPng) return SIGNATURE_WIDTH / 2;
+  const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
+  const [width, height] = [view.getUint32(16), view.getUint32(20)];
+  if (width === 0 || height === 0) return SIGNATURE_WIDTH / 2;
+  return Math.min(SIGNATURE_WIDTH, Math.round((SIGNATURE_HEIGHT * width) / height));
 }
 
 /** The platform's name, where no issuer contact says otherwise. */
@@ -150,9 +182,8 @@ const PAGE_MARGIN_TOP = PAGE_EDGE + 60;
 /** The bottom margin: the edge, then the room the composer's footer takes below the content. */
 const PAGE_MARGIN_BOTTOM = PAGE_EDGE + 28;
 
-/** The composer's card: the space inside its frame on each side, and what its title takes. */
-const CARD_PADDING = 10;
-const CARD_TITLE_HEIGHT = 26;
+/** What the composer's card takes above what it holds: the bar its title sits in. */
+const CARD_TITLE_HEIGHT = 27;
 
 /**
  * How many signers' full records one page holds. A record is never run across two pages: a reader
@@ -177,7 +208,7 @@ const AUDIT_COLUMNS = [
  */
 function auditRowsHeight(paper: CertificatePaper): number {
   const content = PAPER_SIZE[paper].height - PAGE_MARGIN_TOP - PAGE_MARGIN_BOTTOM;
-  return content - 2 * CARD_PADDING - CARD_TITLE_HEIGHT - (ROW_LINE_HEIGHT + ROW_PADDING) - 20;
+  return content - CARD_TITLE_HEIGHT - (ROW_LINE_HEIGHT + ROW_PADDING) - 20;
 }
 
 /** The composer's compact row: a line of cell text, and the space above and below a row. */
@@ -211,7 +242,7 @@ function estimatedLines(row: readonly string[], width: number): number {
  */
 function auditPages(rows: readonly string[][], paper: CertificatePaper): string[][][] {
   const pages: string[][][] = [[]];
-  const width = PAPER_SIZE[paper].width - 2 * PAGE_EDGE - 2 * CARD_PADDING;
+  const width = PAPER_SIZE[paper].width - 2 * PAGE_EDGE;
   const room = auditRowsHeight(paper);
   let used = 0;
   for (const row of rows) {
@@ -327,8 +358,8 @@ export function certificateSheet(
     { label: "Status", value: "Completed" },
     ...instantFields("Sealed", certificate.sealedAt),
     { label: "Signers", value: String(signers.length) },
-    { label: "Signatures", value: total(signatureCount) },
-    { label: "Initials", value: total(initialCount) },
+    { label: "Total Signatures", value: total(signatureCount) },
+    { label: "Total Initials", value: total(initialCount) },
   );
 
   // What was signed. One document today; the section is where a second would be listed.
@@ -346,7 +377,7 @@ export function certificateSheet(
   const documentContact = envelope?.contact ?? envelope?.sender;
   const paper = options.paper ?? "letter";
   const blocks: CertificateSheetBlock[] = [
-    { type: "cardStart", title: "Summary" },
+    { type: "cardStart", title: "Request Details" },
     { type: "fields", fields: summary, twoUp: true },
     { type: "cardEnd" },
     { type: "cardStart", title: "Documents" },
@@ -356,11 +387,11 @@ export function certificateSheet(
     {
       type: "table",
       columns: [
-        { heading: "Name", weight: 26 },
-        { heading: "Email", weight: 33 },
+        { heading: "Name", weight: 24 },
+        { heading: "Email", weight: 31 },
         { heading: "Signed (UTC)", weight: 20 },
-        { heading: "Signatures", weight: 12 },
-        { heading: "Initials", weight: 9 },
+        { heading: "Signatures", weight: 14 },
+        { heading: "Initials", weight: 11 },
       ],
       rows: signers.map((signer) => [
         signerDisplayName(signer),
@@ -369,7 +400,6 @@ export function certificateSheet(
         String(signatureCount(signer)),
         String(initialCount(signer)),
       ]),
-      banded: true,
     },
     { type: "cardEnd" },
     { type: "cardStart", title: "Contact" },
@@ -378,6 +408,13 @@ export function certificateSheet(
     { type: "cardEnd" },
   ];
 
+  // Where each signer's signature sits in the pictures passed beside the sheet: after the lockup.
+  const signatures = new Map(
+    (options.signatureImages ?? []).map((signature, index) => [
+      signature.signerId,
+      { image: index + 1, width: signatureWidth(signature.image) },
+    ]),
+  );
   const detailPages = Math.ceil(signers.length / SIGNERS_PER_PAGE);
   for (const [index, signer] of signers.entries()) {
     if (index % SIGNERS_PER_PAGE === 0) {
@@ -398,29 +435,44 @@ export function certificateSheet(
     if (signer.attribution.proofReference !== undefined) {
       fields.push({ label: "Identity Proof", value: signer.attribution.proofReference });
     }
+    if (signer.attribution.codeDestination !== undefined) {
+      fields.push({ label: "Code Sent To", value: signer.attribution.codeDestination });
+    }
     fields.push(
       ...instantFields("Consent", signer.consent.consentedAt),
       { label: "Consent: Disclosure", value: signer.consent.disclosureVersion },
-      { label: "Signature", value: ADOPTION_LABEL[signer.intent.adoption] },
+      { label: "Signature Type", value: ADOPTION_LABEL[signer.intent.adoption] },
       ...instantFields("Signed", signer.intent.affirmedAt),
       { label: "Signatures", value: String(signatureCount(signer)) },
       { label: "Initials", value: String(initialCount(signer)) },
     );
+    // Where the signing act was observed from. These are the long values, set the full width.
+    const observed: SheetField[] = [];
     if (signer.attribution.observedIp !== undefined) {
-      fields.push({ label: "IP Address", value: signer.attribution.observedIp });
+      observed.push({ label: "IP Address", value: signer.attribution.observedIp });
     }
     if (signer.attribution.location !== undefined) {
-      fields.push({ label: "Location (by IP Address)", value: signer.attribution.location });
+      observed.push({ label: "Location (by IP Address)", value: signer.attribution.location });
     }
     if (signer.attribution.userAgent !== undefined) {
-      fields.push({ label: "Browser", value: signer.attribution.userAgent });
+      observed.push({ label: "Browser", value: signer.attribution.userAgent });
     }
-    // Each signer is a card of their own, which is what parts the two who share a page.
+    // Each signer is a card of their own, which is what parts the two who share a page. The
+    // short facts are set in two columns; where they signed from takes the full width;
+    // the signature, where there is a picture of it, closes the record.
     blocks.push(
       { type: "cardStart", title: signerDisplayName(signer) },
-      { type: "fields", fields },
-      { type: "cardEnd" },
+      { type: "fields", fields, twoUp: true },
     );
+    if (observed.length > 0) blocks.push({ type: "fields", fields: observed });
+    const signature = signatures.get(signer.intent.signerId);
+    if (signature !== undefined) {
+      blocks.push(
+        { type: "paragraph", small: true, spans: [{ text: "Signature", bold: true }] },
+        { type: "image", image: signature.image, width: signature.width },
+      );
+    }
+    blocks.push({ type: "cardEnd" });
   }
 
   const logPages = auditPages(
@@ -437,7 +489,7 @@ export function certificateSheet(
     blocks.push(
       { type: "pageBreak" },
       { type: "cardStart", title: pageHeading("Audit Log", page, logPages.length) },
-      { type: "table", columns: AUDIT_COLUMNS, rows, banded: true },
+      { type: "table", columns: AUDIT_COLUMNS, rows },
       { type: "cardEnd" },
     );
   }

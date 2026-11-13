@@ -59,7 +59,7 @@ describe("certificateSheet", () => {
     expect(certificateSheet(certificate(), { typeface: "liberationSans" }).typeface).toBe(
       "liberationSans",
     );
-    expect(sheet.blocks[0]).toEqual({ type: "cardStart", title: "Summary" });
+    expect(sheet.blocks[0]).toEqual({ type: "cardStart", title: "Request Details" });
     // A number a person can read out, never the request's internal identifier.
     expect(sheet.letterhead.detail).toMatch(/^MC(-[0-9A-F]{4}){3}$/);
     expect(JSON.stringify(sheet)).not.toContain("env_0001");
@@ -75,8 +75,8 @@ describe("certificateSheet", () => {
     expect(value("Signed: Date")).toBe("2026-07-18");
     expect(value("Signed: Time")).toBe("12:00:00 UTC");
     expect(value("Signers")).toBe("1");
-    expect(value("Signatures")).toBe("2");
-    expect(value("Initials")).toBe("5");
+    expect(value("Total Signatures")).toBe("2");
+    expect(value("Total Initials")).toBe("5");
     // Two lines of 32 characters, each in eight groups of four.
     const printedHash = value("Hash (SHA-256)") ?? "";
     expect(printedHash.replaceAll(/\s/g, "")).toBe(HASH);
@@ -89,6 +89,9 @@ describe("certificateSheet", () => {
     expect(value("Email")).toBe("alice@example.test");
     expect(value("Identified By")).toBe("Email/SMS one-time access code");
     expect(value("Identity Proof")).toBe("code_42");
+    expect(value("Signature Type")).toBe("Drawn");
+    // Where a code went is printed only when the signing flow says.
+    expect(value("Code Sent To")).toBeUndefined();
     expect(value("Sealed: Date")).toBe("2026-07-18");
     expect(value("Sealed: Time")).toBe("12:00:01 UTC");
     expect(value("Consent: Time")).toBe("11:59:00 UTC");
@@ -146,7 +149,7 @@ describe("certificateSheet", () => {
     const blocks = certificateSheet(certificate()).blocks;
     // Each section of the first page is a card with its name as the title.
     const cards = blocks.flatMap((block) => (block.type === "cardStart" ? [block.title] : []));
-    expect(cards.slice(0, 4)).toEqual(["Summary", "Documents", "Signers", "Contact"]);
+    expect(cards.slice(0, 4)).toEqual(["Request Details", "Documents", "Signers", "Contact"]);
     expect(blocks.filter((block) => block.type === "cardEnd")).toHaveLength(cards.length);
     const documents =
       blocks[
@@ -232,10 +235,10 @@ describe("certificateSheet", () => {
       { heading: "Signer Details (2 of 3)", signers: ["Signer 3", "Signer 4"], rows: 0 },
       { heading: "Signer Details (3 of 3)", signers: ["Signer 5"], rows: 0 },
       // A page takes as many rows as their expected height allows: 34 short ones, or fewer long.
-      { heading: "Audit Log (1 of 4)", signers: [], rows: 34 },
-      { heading: "Audit Log (2 of 4)", signers: [], rows: 34 },
+      { heading: "Audit Log (1 of 4)", signers: [], rows: 35 },
+      { heading: "Audit Log (2 of 4)", signers: [], rows: 35 },
       { heading: "Audit Log (3 of 4)", signers: [], rows: 24 },
-      { heading: "Audit Log (4 of 4)", signers: [], rows: 8 },
+      { heading: "Audit Log (4 of 4)", signers: [], rows: 6 },
     ]);
   });
 
@@ -251,8 +254,8 @@ describe("certificateSheet", () => {
       const log = tables[1];
       return log?.type === "table" ? log.rows.length : 0;
     };
-    expect(firstLogPage("letter")).toBe(34);
-    expect(firstLogPage("a4")).toBe(37);
+    expect(firstLogPage("letter")).toBe(35);
+    expect(firstLogPage("a4")).toBe(38);
   });
 
   it("says who to ask: the firm about the document, the platform about the certificate", () => {
@@ -283,6 +286,54 @@ describe("certificateSheet", () => {
       "Document: Example Law Firm, office@example.test, 555-0100",
       "Certificate of Completion: Magna Carta, help@example.test",
     ]);
+  });
+
+  it("says where a one-time code was sent, and never the code", () => {
+    const base = certificate();
+    const [first] = base.signers;
+    if (first === undefined) throw new Error("the fixture has a signer");
+    const sheet = certificateSheet({
+      ...base,
+      signers: [
+        { ...first, attribution: { ...first.attribution, codeDestination: "(702) 555-0120" } },
+      ],
+    });
+    const fields = sheet.blocks.flatMap((block) => (block.type === "fields" ? block.fields : []));
+    expect(fields.find((field) => field.label === "Code Sent To")?.value).toBe("(702) 555-0120");
+  });
+
+  it("closes a signer's record with their signature, at one height whatever its size", () => {
+    // The start of a PNG that says it is 600 by 200: the sheet reads no more of it than that.
+    const png = (width: number, height: number) => {
+      const bytes = new Uint8Array(24);
+      bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      new DataView(bytes.buffer).setUint32(16, width);
+      new DataView(bytes.buffer).setUint32(20, height);
+      return bytes;
+    };
+    const signatureImages = [{ signerId: "sgn_1", image: png(600, 200) }];
+    const record = (images: typeof signatureImages) => {
+      const blocks = certificateSheet(certificate(), { signatureImages: images }).blocks;
+      const start = blocks.findIndex(
+        (block) => block.type === "cardStart" && block.title === "Alice Example",
+      );
+      const end = blocks.findIndex((block, index) => index > start && block.type === "cardEnd");
+      return blocks.slice(start, end);
+    };
+    // The picture is the second in the list the composer is given, after the lockup.
+    expect(record(signatureImages).at(-1)).toEqual({ type: "image", image: 1, width: 108 });
+    expect(certificateSheetImages(signatureImages)).toHaveLength(2);
+    // A very wide signature is held to the length of a signature line.
+    expect(record([{ signerId: "sgn_1", image: png(4000, 200) }]).at(-1)).toMatchObject({
+      width: 200,
+    });
+    // Another signer's picture, or none, leaves the record as fields alone.
+    expect(
+      record([{ signerId: "sgn_other", image: png(600, 200) }]).some(
+        (block) => block.type === "image",
+      ),
+    ).toBe(false);
+    expect(record([]).some((block) => block.type === "image")).toBe(false);
   });
 
   it("carries the lockup as a picture the composer can read", () => {

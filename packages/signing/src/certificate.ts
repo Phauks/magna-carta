@@ -213,6 +213,9 @@ export function renderCertificateOfCompletion(certificate: CertificateOfCompleti
     if (signer.attribution.proofReference !== undefined) {
       lines.push(`  Identity proof: ${signer.attribution.proofReference}`);
     }
+    if (signer.attribution.codeDestination !== undefined) {
+      lines.push(`  Code sent to: ${signer.attribution.codeDestination}`);
+    }
     lines.push(`  Signature adopted: ${signer.intent.adoption}`);
     lines.push(`  Signatures: ${signer.intent.signatureCount ?? 1}`);
     lines.push(`  Initials: ${signer.intent.initialCount ?? 0}`);

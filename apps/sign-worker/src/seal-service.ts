@@ -4,6 +4,7 @@ import {
   assembleCertificateOfCompletion,
   certificateSheet,
   certificateSheetImages,
+  type CertificateSheetOptions,
   renderCertificateOfCompletion,
   sealDocument,
   type SealRequest,
@@ -79,17 +80,28 @@ export async function performSeal(
     certificateSupportEmail === undefined
       ? {}
       : { issuerContact: { name: "Magna Carta", email: certificateSupportEmail } };
-  let sheet = await composeDocument(
-    certificateSheet(certificate, issuer),
-    certificateSheetImages(),
-  );
-  if (sheet.missingCharacters.length > 0) {
-    // A name in a script the certificate's own typeface cannot draw would print as empty boxes.
-    // Liberation Sans draws Greek and Cyrillic as well, so the sheet is set again in that.
-    sheet = await composeDocument(
-      certificateSheet(certificate, { ...issuer, typeface: "liberationSans" }),
-      certificateSheetImages(),
+  // The sheet is composed with the signers' signatures where it can be. A signature that is not
+  // a readable picture is left off (the record of how it was adopted stays), and a name in a
+  // script the certificate's own typeface cannot draw sets the sheet in Liberation Sans, which
+  // draws Greek and Cyrillic as well.
+  const composeSheet = async (options: CertificateSheetOptions) =>
+    composeDocument(
+      certificateSheet(certificate, options),
+      certificateSheetImages(options.signatureImages),
     );
+  const composeReadable = async (options: CertificateSheetOptions) => {
+    const first = await composeSheet(options);
+    return first.missingCharacters.length > 0
+      ? composeSheet({ ...options, typeface: "liberationSans" })
+      : first;
+  };
+  let sheet: Awaited<ReturnType<typeof composeSheet>>;
+  const signatureImages = request.signatureImages ?? [];
+  try {
+    sheet = await composeReadable({ ...issuer, signatureImages });
+  } catch (error) {
+    if (signatureImages.length === 0) throw error;
+    sheet = await composeReadable(issuer);
   }
   const sealedSheet = await sealDocument({
     pdf: sheet.pdf,

@@ -41,6 +41,18 @@ export interface SealRequest {
    * certificate's audit log. Each signer's consent and signature and the seal need not be repeated.
    */
   readonly events?: readonly SigningEvent[];
+  /**
+   * Each signer's signature as they adopted it, a PNG or JPEG, printed on their record in the
+   * certificate's PDF. They stay out of the certificate record, which is plain data. A picture
+   * that cannot be read is left off the sheet; it never stops the seal.
+   */
+  readonly signatureImages?: readonly SignatureImage[];
+}
+
+/** One signer's signature as a picture. */
+export interface SignatureImage {
+  readonly signerId: string;
+  readonly image: Uint8Array;
 }
 
 /** The sealed result. */
@@ -77,6 +89,7 @@ interface WireSealRequest {
   seal?: SealMetadata;
   envelope?: SigningEnvelope;
   events?: readonly SigningEvent[];
+  signatureImages?: readonly { signerId: string; image: string }[];
 }
 
 interface WireSealResponse {
@@ -95,6 +108,10 @@ export function encodeSealRequest(request: SealRequest): string {
     seal: request.seal,
     envelope: request.envelope,
     events: request.events,
+    signatureImages: request.signatureImages?.map((signature) => ({
+      signerId: signature.signerId,
+      image: toBase64(signature.image),
+    })),
   };
   return JSON.stringify(wire);
 }
@@ -108,6 +125,14 @@ export function decodeSealRequest(json: string): SealRequest {
     seal: wire.seal,
     ...(wire.envelope !== undefined ? { envelope: wire.envelope } : {}),
     ...(wire.events !== undefined ? { events: wire.events } : {}),
+    ...(wire.signatureImages !== undefined
+      ? {
+          signatureImages: wire.signatureImages.map((signature) => ({
+            signerId: signature.signerId,
+            image: fromBase64(signature.image),
+          })),
+        }
+      : {}),
   };
 }
 

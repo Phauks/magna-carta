@@ -43,7 +43,13 @@ const SignerCompletionInput = z.object({
     // observedIp is server-observed, never client-self-reported (see @magna-carta/signing/esign):
     // any value the client sends is ignored and overwritten with the connecting IP in the handler.
     proofReference: z.string().optional(),
+    // Where a one-time access code was sent (an email address or a telephone number). Never the
+    // code itself.
+    codeDestination: z.string().min(1).max(320).optional(),
   }),
+  // The signer's signature as they adopted it, a PNG or JPEG, printed on their record in the
+  // certificate. About 256 KiB of picture at most; a typed signature needs none.
+  signatureImageBase64: z.string().min(1).max(350_000).optional(),
 });
 
 export const DocumentSealRequest = z.object({
@@ -80,6 +86,7 @@ const SignerCompletionOutput = z.object({
     userAgent: z.string().optional(),
     location: z.string().optional(),
     proofReference: z.string().optional(),
+    codeDestination: z.string().optional(),
   }),
 });
 

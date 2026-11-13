@@ -3031,6 +3031,7 @@ export type DocumentSealResponse = {
                 userAgent?: string;
                 location?: string;
                 proofReference?: string;
+                codeDestination?: string;
             };
         }>;
         envelope?: {
@@ -20747,7 +20748,9 @@ export type EsignSealData = {
             attribution: {
                 level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
                 proofReference?: string;
+                codeDestination?: string;
             };
+            signatureImageBase64?: string;
         }>;
         documentTitle?: string;
         seal?: {
