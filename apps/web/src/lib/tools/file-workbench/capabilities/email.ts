@@ -15,7 +15,7 @@ export const emailCapability: CapabilityModule = {
   timing: "on-arrival",
   scope: "single",
   description: "Inspect an email file's headers, routing, and attachments.",
-  awaiting: "the message parser reaching this surface",
+  awaiting: "email message reading",
   applies(file) {
     return isEmail(file)
       ? APPLIES

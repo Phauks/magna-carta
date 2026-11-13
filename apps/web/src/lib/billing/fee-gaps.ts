@@ -22,39 +22,35 @@ export interface FeeLedgerGap {
 export const FEE_LEDGER_GAPS = {
   entryNumber: {
     field: "Entry Number",
-    waitsOn: "a matter-scoped entry number on the fee record",
+    waitsOn: "entry numbers on fees",
   },
   attachments: {
     field: "Attachments",
-    waitsOn: "a fee's attached files being served, with an attach and a detach route",
+    waitsOn: "attached files on fees",
   },
   attachmentPicker: {
     field: "Attach File",
-    waitsOn: "a picker that reaches the matter's own documents and points a record at one",
+    waitsOn: "picking a matter's documents",
   },
   history: {
     field: "History",
-    waitsOn: "an endpoint that serves a fee's recorded events",
+    waitsOn: "fee history",
   },
   memo: {
     field: "Internal Memo",
-    waitsOn:
-      "a read that shows what the memo already holds, so editing it cannot silently overwrite a " +
-      "note the writer never saw — the column and the contract field are both there",
+    waitsOn: "editing memos safely",
   },
   reclassify: {
     field: "Move to Another Ledger",
-    waitsOn:
-      "a cross-ledger move route that writes both tables in one transaction, keeps the entry " +
-      "number, records the move, and refuses anything claimed, billed or past draft",
+    waitsOn: "moving entries between ledgers",
   },
   matterMove: {
     field: "Matter",
-    waitsOn: "a route that refiles a draft onto another matter, which is a write to both ledgers",
+    waitsOn: "moving a draft to another matter",
   },
   reviewGate: {
     field: "Review",
-    waitsOn: "the firm's review setting being served",
+    waitsOn: "the firm's review setting",
   },
 } as const satisfies Readonly<Record<string, FeeLedgerGap>>;
 
@@ -69,7 +65,7 @@ export type FeeLedgerGapName = keyof typeof FEE_LEDGER_GAPS;
  */
 export function gapCellTitle(name: FeeLedgerGapName): string {
   const gap = FEE_LEDGER_GAPS[name];
-  return `${gap.field} is not served yet. Waiting on ${gap.waitsOn}.`;
+  return `Not built yet: ${gap.waitsOn}.`;
 }
 
 /** What a control waits on, as the noun phrase the Soon composition takes. */

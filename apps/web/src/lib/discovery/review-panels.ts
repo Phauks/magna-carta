@@ -114,7 +114,7 @@ export function reviewPanels(components: {
       answers: "How this document was coded, such as responsive, privileged or confidential.",
       permission: "discovery:review",
       stage: "soon",
-      waitsOn: "the coding surface",
+      waitsOn: "coding",
     },
     {
       id: "privilege",
@@ -132,7 +132,7 @@ export function reviewPanels(components: {
       answers: "What is drawn over on this document, and why.",
       permission: "discovery:review",
       stage: "soon",
-      waitsOn: "redaction in review",
+      waitsOn: "redaction",
     },
     {
       id: "near-duplicates",
@@ -141,7 +141,7 @@ export function reviewPanels(components: {
       answers: "Documents that are nearly the same as this one. They're shown, never hidden.",
       permission: READ_DISCOVERY_PERMISSION,
       stage: "soon",
-      waitsOn: "clustering over the fingerprints every document already carries",
+      waitsOn: "near-duplicate detection",
     },
     {
       id: "history",
@@ -150,7 +150,7 @@ export function reviewPanels(components: {
       answers: "Every coding decision on this document, by whom, and when.",
       permission: READ_DISCOVERY_PERMISSION,
       stage: "soon",
-      waitsOn: "the coding surface",
+      waitsOn: "coding",
     },
   ];
 }

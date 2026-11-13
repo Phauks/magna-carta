@@ -67,7 +67,7 @@
   <div class="flex flex-col gap-8">
     <SectionHeading>Convert To</SectionHeading>
     {#if targets.length > 0}
-      <SoonAffordance reason="the conversion container" reasonPlacement="line">
+      <SoonAffordance reason="file conversion" reasonPlacement="line">
         {#snippet control(soon)}
           <div class="flex flex-wrap gap-8">
             {#each targets as format (format.id)}

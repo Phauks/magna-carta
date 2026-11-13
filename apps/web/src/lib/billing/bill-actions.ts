@@ -90,20 +90,14 @@ export interface BillActionContext {
 
 /** What each not-yet-served act waits on, as the noun phrase the Soon composition completes. */
 export const BILL_DEPENDENCIES = {
-  payment:
-    "the payments slice, whose first step is the manually recorded receipt — a cheque, wire, cash " +
-    "or terminal payment",
-  print: "the invoice artifact: the render model is served, but no renderer consumes it yet",
-  ledes: "the LEDES export path and the guideline validation that goes with it",
-  adjustment:
-    "the revised billing model — a finalized bill with nothing applied becomes adjustable with a " +
-    "recorded revision, which the accepted finalized-is-immutable decision has to be revised for " +
-    "before the line-edit and revision routes exist",
-  applications:
-    "a read of what has been applied to a bill, which the invoice detail does not carry yet",
-  claims: "a read of the claims a draft is holding, which the invoice detail does not carry yet",
+  payment: "recording payments",
+  print: "printing bills",
+  ledes: "LEDES export",
+  adjustment: "bill adjustments",
+  applications: "showing payments applied to a bill",
+  claims: "showing the work a draft bill holds",
   history: "an endpoint that serves an invoice's recorded events",
-  reminders: "the billing automations slice, where reminder schedules and payment plans live",
+  reminders: "payment reminders and plans",
 } as const;
 
 function lacks(context: BillActionContext, capability: string): boolean {

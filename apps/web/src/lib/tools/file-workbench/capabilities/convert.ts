@@ -20,7 +20,7 @@ export const convertCapability: CapabilityModule = {
   timing: "on-request",
   scope: "selection",
   description: "Convert a file from one format to another.",
-  awaiting: "the conversion container",
+  awaiting: "file conversion",
   applies(file) {
     const targets = conversionTargetsFor(detectedLabelOf(file));
     return targets.length > 0
