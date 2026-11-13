@@ -100,7 +100,7 @@ describe("featureRequirements", () => {
       { SECRETS_STORE_TELNYX_API_KEY: { get: async () => "a-stored-secret" } },
       API_WORKER_SECRET_NAMES,
     );
-    const report = featureRequirements(resolved);
+    const report = featureRequirements(resolved as Record<string, unknown>);
     const caller = report.find((feature) => feature.id === "callerLookup");
     expect(caller?.alternatives).toEqual([
       [{ name: "TELNYX_API_KEY", present: true, source: "secrets-store" }],
