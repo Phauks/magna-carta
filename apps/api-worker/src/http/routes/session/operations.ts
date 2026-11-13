@@ -4,6 +4,7 @@
 export const OPERATIONS: readonly string[] = [
   "invitations.issue",
   "invitations.redeem",
+  "me.communityHandoff",
   "me.get",
   "me.name",
   "me.photo",

@@ -12,7 +12,8 @@
     "./sql-database": "./src/sql-database.ts",
     "./board-statements": "./src/board-statements.ts",
     "./board-service": "./src/board-service.ts",
-    "./contract": "./src/contract.ts"
+    "./contract": "./src/contract.ts",
+    "./session": "./src/session.ts"
   },
   "scripts": {
     "test": "vp test run"

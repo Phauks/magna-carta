@@ -183,6 +183,7 @@ describe("problem-type URI registry", () => {
         "guest-link-exhausted",
         "guest-not-invitable",
         "playable-copy-not-a-candidate",
+        "community-sign-in-not-configured",
         "discovery-access-list-would-be-empty",
         "discovery-ceiling-exceeded",
         "discovery-coding-act-not-undoable",
