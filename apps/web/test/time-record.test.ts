@@ -190,10 +190,7 @@ describe("the gaps the surface is honest about", () => {
   });
 
   it("says the same two things on a cell that the Soon affordance says on a control", () => {
-    expect(gapCellTitle("nonBillableCategory")).toBe(
-      "Non-billable Category is not recorded yet. Waiting on the non-billable category being " +
-        "served on the listing.",
-    );
+    expect(gapCellTitle("nonBillableCategory")).toBe("Not built yet: the non-billable category.");
   });
 
   /*

@@ -13,7 +13,7 @@
   const { Story } = defineMeta({
     title: "Actions/SoonAffordance",
     component: SoonAffordance,
-    args: { reason: "the archive-extraction engine", reasonPlacement: "hover" },
+    args: { reason: "archive extraction", reasonPlacement: "hover" },
     argTypes: { reasonPlacement: { control: "select", options: ["hover", "line"] } },
     parameters: { controls: { include: ["reason", "reasonPlacement"] } },
   });
@@ -46,9 +46,9 @@
 
     await step("The dependency is the control's description, whether or not it is drawn", () => {
       expect(control).toHaveAccessibleDescription(
-        "Not built yet. Waiting on the archive-extraction engine.",
+        "Not built yet: archive extraction.",
       );
-      expect(control).toHaveAttribute("title", "Not built yet. Waiting on the archive-extraction engine.");
+      expect(control).toHaveAttribute("title", "Not built yet: archive extraction.");
     });
   }}
 />
@@ -59,7 +59,7 @@
   {template}
   play={async ({ canvas, step }) => {
     await step("The sentence is drawn beneath the control", () => {
-      expect(canvas.getByText("Not built yet. Waiting on the archive-extraction engine.")).toBeVisible();
+      expect(canvas.getByText("Not built yet: archive extraction.")).toBeVisible();
     });
   }}
 />

@@ -101,7 +101,7 @@ describe("the ledger's columns", () => {
       expect(isUnservedColumn(id)).toBe(true);
       const title = unservedCellTitle(id);
       expect(title).toContain("not recorded yet");
-      expect(title).toContain("Waiting on");
+      expect(title).toContain("Not built yet: ");
     }
     expect(isUnservedColumn(TIME_COLUMN_IDENTIFIERS.hours)).toBe(false);
     expect(unservedCellTitle(TIME_COLUMN_IDENTIFIERS.hours)).toBe("");

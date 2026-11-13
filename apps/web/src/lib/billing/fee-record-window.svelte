@@ -533,8 +533,7 @@
   <EventRail
     events={[]}
     label="This fee's history"
-    emptyMessage="Not built yet. Waiting on {gapReason('history')}. Entered as a draft, with the date
-      and the person, is the first event this rail will carry."
+    emptyMessage="Not built yet: {gapReason('history')}."
   />
 {/snippet}
 
