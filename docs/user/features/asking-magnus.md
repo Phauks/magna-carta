@@ -128,11 +128,31 @@ itself:
 
 - **Copy Link** and **Open in New Tab** give a link that opens this conversation directly. Anyone who
   follows it still needs to be allowed to read the conversation.
+- **Pin** puts the conversation at the top of your list, under Pinned. **Unpin** takes it off.
 - **Rename** puts the name into a field where it stands.
+- **Move to a Folder** puts it in one of your folders, or back in General.
 - **Save to a Different Matter** moves it, as described below.
 - **Download Transcript** saves the whole conversation as a Markdown file: who asked, when, and
   every message, oldest first, including the earlier messages that are not on screen yet.
 - **Delete** removes it after you confirm.
+
+## Folders and Pinned Conversations
+
+Your list of conversations in the Magnus workspace is in sections, and each one folds: press a
+section's name to open or close it.
+
+- **Pinned** comes first and holds what you have pinned. A pinned conversation also stays in its
+  own folder, so you find it in both places.
+- **Your folders** come next, closed until you open one. Make a folder with **Add Folder** at the top
+  of the list. The three dots beside a folder's name rename it or remove it.
+- **General** comes last and holds every conversation that is in no folder. A new conversation
+  starts in General.
+
+Removing a folder moves its conversations back to General; it deletes no conversation. Folders and
+pins are yours alone: nobody else sees them, and putting a conversation in a folder does not change
+who can read it. The matter it is kept on decides that, as described below.
+
+When you search, the list shows every conversation that matches in one list, wherever you keep it.
 
 ## Keeping a Conversation on a Matter
 
@@ -145,8 +165,20 @@ matter. A closed matter cannot take a conversation; reopen it first or choose an
 
 ## Which Model Answers
 
-The line above the message box names the model that answers your questions, which is the model your
-firm chose in its AI settings. Every model the firm can choose keeps nothing that is sent to it.
+The line above the message box names the model that answers your questions. It starts as the model
+your firm chose in its AI settings, marked **Firm's Model** in the list.
+
+To use a different model for your next question, press the model control beside **Attach a File**,
+which shows the model and effort in use, such as "Claude Opus 5.5, Medium". Choose a model, and then
+an effort:
+
+- **Low** and **Medium** answer sooner and cost the firm less.
+- **High**, **Extra High** and **Max** let the model think longer before it answers, which helps with
+  harder questions and takes longer.
+
+The level marked **Default** is the one the model uses when you do not choose. Your choice stays in
+place for the questions that follow until you change it or leave the page. You can choose only from
+the models your firm could choose, and every one of them keeps nothing that is sent to it.
 
 ## If Magnus Is Not There
 

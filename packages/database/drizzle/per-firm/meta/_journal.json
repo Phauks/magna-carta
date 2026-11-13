@@ -456,6 +456,20 @@
       "when": 1794275055847,
       "tag": "20261113T001452_meeting-personal-room",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "6",
+      "when": 1794298767966,
+      "tag": "20261113T210918_magnus-folders-and-pins",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "6",
+      "when": 1794513676302,
+      "tag": "20261113T210918_magnus-turn-effort",
+      "breakpoints": true
     }
   ]
 }
