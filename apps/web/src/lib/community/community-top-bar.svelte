@@ -13,13 +13,14 @@
   import CircleHelp from "@lucide/svelte/icons/circle-help";
   import Columns3 from "@lucide/svelte/icons/columns-3";
   import Newspaper from "@lucide/svelte/icons/newspaper";
+  import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import { displayInitials } from "@magna-carta/community/display";
   import { page } from "$app/state";
   import { boardPath } from "./board-paths.ts";
   import * as Alert from "@magna-carta/design-system/alert";
   import { optionalBoardSession } from "./board-session.svelte.ts";
 
-  export type CommunityPlace = "requests" | "questions" | "roadmap" | "known-issues";
+  export type CommunityPlace = "requests" | "questions" | "roadmap" | "known-issues" | "moderation";
 
   let {
     current,
@@ -42,6 +43,8 @@
     page.url.searchParams.get("sign-in") === "expired" && board?.session?.signedIn !== true,
   );
   const readOnly = $derived(board?.session?.boardState === "read-only");
+  // The team's queue is a place only the team has; everyone else never sees the link.
+  const isTeam = $derived(board?.session?.profile?.isTeam === true);
 
   const PLACES = [
     { place: "requests", label: "Requests", icon: Lightbulb, path: "/" },
@@ -75,6 +78,16 @@
         <Newspaper class="size-16" aria-hidden="true" />
         Changelog
       </a>
+      {#if isTeam}
+        <a
+          href={boardPath("/moderation", page.url.hostname)}
+          aria-current={current === "moderation" ? "page" : undefined}
+          class="flex items-center gap-8 rounded-md px-12 py-4 text-sm font-medium text-text-muted hover:bg-surface-sunken hover:text-text-default aria-[current=page]:bg-surface-selected aria-[current=page]:text-text-default"
+        >
+          <ShieldCheck class="size-16" aria-hidden="true" />
+          Moderation
+        </a>
+      {/if}
     </nav>
     <div class="ml-auto flex items-center gap-12">
       {#if viewerDisplayName === null}
