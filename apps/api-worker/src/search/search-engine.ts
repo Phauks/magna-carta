@@ -163,10 +163,11 @@ function serviceBindingPort(
   };
 }
 
-// The deferred port for when the search worker's service binding is absent (every test environment, and
-// prod until that worker is deployed + bound): every operation is engine-not-implemented. The catalog
-// still functions — a query resolves the live splits and then reports the engine is not yet reachable,
-// rather than crashing — exactly as the conversion subsystem is wired-but-dormant.
+// The deferred port for a deployment whose search worker binding is absent: every operation is
+// engine-not-implemented. The catalog still functions — a query resolves the live splits and then
+// reports the engine is not yet reachable, rather than crashing — exactly as the conversion subsystem
+// is wired-but-dormant. A deployment that binds the worker never resolves this port, so a worker that
+// is bound and not answering reads as adapter-error, which a consumer retries.
 const deferredPort: SearchIndexPort = {
   index: () => Promise.resolve(searchEngineNotImplemented()),
   remove: () => Promise.resolve(searchEngineNotImplemented()),

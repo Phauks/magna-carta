@@ -144,6 +144,7 @@ describe("problem-type URI registry", () => {
         "magnus-acknowledgement-required",
         "magnus-turn-too-large",
         "magnus-daily-ceiling-reached",
+        "magnus-turn-unchangeable",
         "meeting-not-found",
         "meeting-ended",
         "meeting-in-progress",

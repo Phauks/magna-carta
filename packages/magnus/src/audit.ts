@@ -36,6 +36,7 @@ export const MAGNUS_EVENTS = {
   folderRenamed: "magnus.folder_renamed",
   folderDeleted: "magnus.folder_deleted",
   conversationShelved: "magnus.conversation_shelved",
+  turnRemoved: "magnus.turn_removed",
 } as const;
 
 // What every Magnus write needs from its caller: the clock and the acting member (this package reads
@@ -86,12 +87,33 @@ export function turnSubmittedAudit(
     readonly memberTurnId: MagnusTurnId;
     readonly magnusTurnId: MagnusTurnId;
     readonly disclosureVersion: number;
+    // The member turn an edit replaces, when this submission is an edit. The audit row names the turn,
+    // never what either version said.
+    readonly replacesTurnId?: MagnusTurnId;
   },
 ): SqlStatement {
   return auditStatement(database, context, MAGNUS_EVENTS.turnSubmitted, input.conversationId, {
     memberTurnId: input.memberTurnId,
     magnusTurnId: input.magnusTurnId,
     disclosureVersion: input.disclosureVersion,
+    ...(input.replacesTurnId !== undefined && { replacesTurnId: input.replacesTurnId }),
+  });
+}
+
+// The author removed one of their messages and its answer. The pair is hidden, not erased (the text
+// stays on the record until the whole conversation is deleted), and this row says which pair and who.
+export function turnRemovedAudit(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: {
+    readonly conversationId: MagnusConversationId;
+    readonly memberTurnId: MagnusTurnId;
+    readonly magnusTurnId: MagnusTurnId | null;
+  },
+): SqlStatement {
+  return auditStatement(database, context, MAGNUS_EVENTS.turnRemoved, input.conversationId, {
+    memberTurnId: input.memberTurnId,
+    magnusTurnId: input.magnusTurnId,
   });
 }
 

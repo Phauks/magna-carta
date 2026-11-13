@@ -62,6 +62,7 @@
   import MagnusTranscript from "./magnus-transcript.svelte";
   import MagnusUnavailable from "./magnus-unavailable.svelte";
   import MoveConversationDialog from "./move-conversation-dialog.svelte";
+  import TurnRemoveDialog from "./turn-remove-dialog.svelte";
   import { ConversationSession } from "./conversation-session.svelte.ts";
   import { ConversationShelf } from "./conversation-shelf.svelte.ts";
   import { MatterCitations } from "./matter-citations.svelte.ts";
@@ -78,6 +79,7 @@
     type MagnusAvailability,
     type MagnusConversation,
     type MagnusModelChoice,
+    type MagnusTurn,
   } from "./magnus-api.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -190,6 +192,10 @@
   let composingNew = $state(false);
   let deletingConversation = $state<MagnusConversation | null>(null);
   let movingConversation = $state<MagnusConversation | null>(null);
+  /** The member's own message being rewritten in the composer, or null when asking afresh. */
+  let editingTurn = $state<MagnusTurn | null>(null);
+  /** The member's own message the remove dialog is asking about. */
+  let removingTurn = $state<MagnusTurn | null>(null);
   let attachingTo = $state<MagnusConversation | null>(null);
   let detachingFileId = $state<string | null>(null);
   let composerElement = $state<HTMLTextAreaElement | null>(null);
@@ -502,6 +508,30 @@
     else select(value);
   }
 
+  /*
+   * Editing puts the message back in the composer and says so there. The draft the member had is
+   * set aside for the edit, because the composer holds one message at a time; cancelling clears it.
+   */
+  function startEditing(turn: MagnusTurn): void {
+    if (turn.content === null) return;
+    editingTurn = turn;
+    draft = turn.content;
+    composerElement?.focus();
+  }
+
+  function cancelEditing(): void {
+    editingTurn = null;
+    draft = "";
+  }
+
+  /* Opening another conversation, or a read that no longer holds the message, ends the edit. */
+  $effect(() => {
+    const editing = editingTurn;
+    if (editing !== null && !(session.turns ?? []).some((turn) => turn.id === editing.id)) {
+      editingTurn = null;
+    }
+  });
+
   async function send(): Promise<void> {
     const message = draft.trim();
     if (message === "" || sendRefused) return;
@@ -522,9 +552,13 @@
       selectedId = outcome.value.id;
       composingNew = false;
     }
-    const sent = await session.send(message, modelChoice);
+    const sent =
+      editingTurn === null
+        ? await session.send(message, modelChoice)
+        : await session.edit(editingTurn.id, message, modelChoice);
     if (!sent) return;
     draft = "";
+    editingTurn = null;
     void loadConversations();
     void refreshAvailability();
   }
@@ -626,6 +660,8 @@
     model={availability?.model}
     models={availability?.models ?? []}
     bind:choice={modelChoice}
+    editing={editingTurn !== null}
+    onCancelEdit={cancelEditing}
     sending={session.sending || starting}
     {sendRefused}
     {allowanceSpent}
@@ -703,7 +739,7 @@
   <Conversation.Root class="min-h-0 flex-1">
     {#if selectedId !== null}
       {@render conversationHeadRow()}
-      <MagnusTranscript {session} />
+      <MagnusTranscript {session} onEdit={startEditing} onRemove={(turn) => (removingTurn = turn)} />
     {:else}
       <!-- TWO ABSENCES, TWO SETS OF WORDS. Nothing on the record is the member never having asked
            anything, which is what the screen's own empty copy is for. A fresh composer while
@@ -928,6 +964,17 @@
   }
   conversation={deletingConversation}
   onDeleted={conversationDeleted}
+/>
+
+<TurnRemoveDialog
+  bind:open={
+    () => removingTurn !== null,
+    (open: boolean) => {
+      if (!open) removingTurn = null;
+    }
+  }
+  {session}
+  turn={removingTurn}
 />
 
 <MoveConversationDialog
