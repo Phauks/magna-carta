@@ -15,6 +15,183 @@ behind it.
 
 Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 
+## 2026-11-13
+
+### Added
+
+- **Turn on recording, summaries and captions for your firm's meetings.** A new page in **Settings**,
+  under **Practice › Meetings**, is where a firm's owners and administrators decide whether meetings
+  can be recorded, whether recorded meetings are summarized, whether live captions may be shown, and
+  how many people one recording hears at once (up to eleven, as many voices as the recorder can hold in
+  memory). Every switch starts off. Each one says what it does: a recording is announced to everybody
+  in the meeting and its audio is added to the matter, and a summary also needs the firm's AI processing,
+  with a link to **AI and the Assistant** saying whether that is on. Where the platform's recording
+  service is not set up yet, the page says so beneath the recording switch, because no meeting can start
+  a recording until it is.
+- **Record a meeting, and everybody is told.** Where your firm has turned recording on, a member who may
+  record can press Record in a meeting on a matter. Everybody in the room — guests included — is told the
+  moment it starts, and anybody who joins while it runs is told as they arrive; the firm keeps a record
+  of who was told and when. Stopping it is announced the same way.
+- **Redact a PDF on a matter.** Open a PDF, choose **Edit PDF**, and drag boxes over what should be withheld, or redact a whole page. Give each one a reason, then apply them all at once. Magna Carta removes what is under each box, checks that it is gone, and saves a redacted copy beside the original, which stays as it was. It can also save a redaction log listing each page and reason.
+- **Rebuild a search index that has fallen behind.** If **Settings › Data & Platform › Search and Indexing** shows Records as Behind, a **Rebuild** line appears beneath it. Click **Rebuild** and the records are read again in the background within a few minutes. Nothing your firm holds is changed. The page shows when the rebuild was asked for until it has finished.
+- **A recorded meeting now has a written transcript beside its audio.** Once a recording is filed, its
+  transcript is made from each participant's own microphone, so every line is attributed to the person who
+  said it, guests included, and it says plainly where somebody could not be heard. The transcript is filed
+  on the matter next to the recording as a captions file any media player can show. A transcript that cannot be finished is marked as failed with a reference you can
+  give to support; the recording itself is never affected.
+- **A recorded meeting is filed on the matter as one audio file.** When a recording stops, everybody's
+  audio is mixed into a single WAV file and filed among the matter's documents, named after the meeting and
+  the time it started, and checked like any other upload before it can be opened. A recording that cannot
+  be finished is marked as failed with a reference you can give to support. Recording stays switched off
+  until your firm turns it on.
+- **Read a recorded meeting's summary.** Once a recording's transcript is ready, the Recordings list
+  shows where its summary stands, and a ready one opens right there: a short account of the meeting,
+  marked as the platform's characterization rather than a record of what was said, and the action items
+  people agreed to, each with who it belongs to and when it is due. **Create Task** shows you the task
+  and who it will be assigned to before anything is made, and lets you leave the owner's name off; the
+  item then links to the task on the matter. When a summary was not written, it says why: summaries
+  switched off, AI processing not switched on for the firm, or nothing said. Somebody who can host
+  meetings can write a summary again with **Re-run**; tasks already made are kept.
+- **Read a recorded meeting's transcript.** The Recordings list now shows where each recording's
+  transcript stands, and a ready one opens right there: every line under the name of the person who
+  said it, at its place in the recording, with a highlighted line wherever somebody could not be heard
+  saying whose audio is missing and for how long. **Open Document** opens the transcript's captions
+  file on the matter, and a transcript that could not be made shows the Error ID to give support. When
+  that captions file has been moved to the trash or is held by the safety check, the transcript says
+  it is withheld and why.
+- **About Magna Carta now opens.** Choose About Magna Carta under Websites in your profile menu to see which version you are running, when it was released, who and where you are signed in, and your browser. Copy Version Details puts all of that on your clipboard for a support request, and the same window links to the Changelog, the full version report, service status and Report an Issue.
+- **See who is calling.** When you type a phone number into a call or text record, Magna Carta now tells you what it knows about it: any contact in your directory who has that number, with a button to put them on the record, and the state or province the area code belongs to. Once your firm turns it on, a **Look Up Caller ID** button asks the telephone network for the name and line type behind the number. Each lookup costs a fraction of a cent, so it only runs when you press it, and the answer is kept so nobody at the firm pays for the same number twice.
+- **Conflicts checks can now look through the text of your firm's files.** Files is on by default in New Check, with Consultations, Open, Closed and Archived (deleted files your firm still keeps). A result found in a file says it was found in a File and which matter it is on. Until your firm's file search is switched on, Files reads Not searched on the check, with the reason.
+- **Conflicts checks now look through your firm's calls, texts, email, tasks and Magnus conversations as well as the Directory.** Each is on by default in New Check and can be turned off. A result found there says whether it was a call, text, email, task or Magnus conversation, which matter it is filed on, and when it happened, with a link to the matter. An email's body and your files are not searched yet.
+- **A person or organization in the Directory can have a picture.** Press the circle beside the name at the top of a record to add a photograph or a logo, then drag and zoom it until it sits inside the ring. Only the square you choose is saved. Pressing the picture again lets you change it, view it full size or remove it. New Person has an Add Photo button too, and a downloaded contact card now carries the picture.
+- **Legal Citations.** Paste a link to a statute, regulation or opinion, or a rough citation such as
+  "347 us 483", and the details are read for you; anything you type overrides them. You get the full
+  citation, the short form and the "Id." form in your court's format (Uniform System, Nevada or
+  California), each ready to copy with its italics.
+- Each Magnus conversation has a menu (the three dots beside its name). From it you can copy a link
+  that opens that conversation directly, open it in a new tab, rename it, save it to a different
+  matter, download the whole conversation as a file, or delete it.
+- You can now edit a question you asked Magnus and ask again, or remove a question and its answer from
+  the conversation. Removed messages stay on your firm's record until the whole conversation is
+  deleted.
+- You can now find words inside a Magnus conversation: choose Find in Conversation from its menu.
+- You can now organize your Magnus conversations into folders and pin the ones you return to. Pinned
+  conversations stay at the top of the list, and folders fold away when you do not need them.
+- When you ask Magnus a question, you can now choose which model answers and how much effort it puts
+  in. Your firm's model is still the default.
+- **Blur your background or stand in front of a picture in meetings.** Open **Effects** in a meeting and choose **None**, **Blur** or **Image**. **Image** asks for a picture from your computer the first time and remembers it on that computer. The picture never leaves your browser: everyone else sees you in front of it, and nobody receives the file. This now works in any up-to-date browser, not only where the camera offers its own blur.
+- **Invite a meeting guest by e-mail.** In a meeting's **Guests** panel you can now type a name and an
+  e-mail address to invite somebody who is not on the list. If they are already in your Directory, the
+  invitation goes to them; if not, they are added there for somebody to review.
+- **Your own meeting room.** If you host meetings, the Meetings page now has a **My Room** card: a
+  link that stays the same, so colleagues can join you whenever you are in without anybody scheduling
+  a meeting first. Opening the room puts the meeting on your calendar, and **Move to a Matter** puts it
+  on the right matter during the meeting or afterwards.
+- **Stronger noise removal in meetings.** Under **Effects**, a new **Stronger noise removal** switch
+  runs a noise filter on your own computer that takes out fans, typing and street noise more thoroughly
+  than your browser does. It is off until you turn it on, uses a little more of your computer's power,
+  and if it ever stops working your browser's own noise reduction takes over again.
+- **Notifications can be grouped.** The list is grouped by day to begin with, newest day first, under
+  headings such as Today and Yesterday, each with a count. **Group By** at the top of the list groups
+  it by category, priority, matter or read state instead, or not at all. When you show your dismissed
+  notifications, they sit under their own Dismissed heading at the end.
+- **Rearrange the pages of a PDF.** In the PDF Editor's Pages tab, drag pages into a new order, turn them, or delete them, then save the result as a new version of the file. The version before it stays in the file's history. You can also save some of the pages as a new file, or split a document into several files at the pages you choose.
+- **Say what happened on a call.** When you record a call, the new Activity choice says whether it was answered, transferred, a message taken or spam (or, for a call you made, connected, a voicemail left or no answer). You can also type the name the caller gave as their Caller ID.
+
+**Taking a message puts it on your colleague's task list.** Choose Message Taken, pick who it is for, what they asked for, by when and whether it is urgent. Saving the call gives them a task such as "Call back Maria Lopez" and a notification.
+
+**Spam calls warn you next time.** Mark a call as spam and say what kind; it is filed away without reaching the queue, and the next call from that number shows a Likely Spam warning with how many times the firm has marked it.
+
+- **Tasks can repeat.** Turn on **Repeats** in a task to make it come round again, every day, week, month or year. Choose whether the next one appears when you complete this one, or on its own start date even if this one is still open. Only the current one sits in your list, and the next arrives with its checklist unticked and the same people on it.
+- **Repeating events show on every day they fall on.** A weekly status conference now appears on each
+  of its Tuesdays, not only the first. Changing or cancelling one asks whether you mean this event only,
+  this and all later events, or all events in the series, and the repeat form now names the day the last
+  one falls on.
+- **Search every matter at once.** Type in the search box at the top of the window and choose **Search Every Matter For**. The Search page finds matters and people by name, and notes, time entries, costs, calls and file names on every matter you can see. Each result names its matter and opens there. The page also lists what it did not search and why.
+- **Settings › Search and Indexing now shows what is indexed.** Under the Search Inside Files setting you can see whether your firm's records and files are fully indexed, how many files have had their words read, and a list of every place a search reads, with its counts. **Count Again** refreshes the figures.
+- **Search only your own matters, or one client's.** The Search page has a new **Search In** row under the search box: **Everything I Can See**, **My Matters**, **One Client** or **One Matter**. My Matters and One Client search fewer matters, so an older note or time entry on them is found even when the firm has thousands of newer records with the same word. One Matter opens that matter's own search, which also reads the words inside its files.
+- **Tasks can be shown as a board.** Choose **Board** at the top of the Tasks list to see one list's tasks as cards in a column for each status. Drag a card to move it along, or onto **Mark Complete** to finish it. While you carry a card, the columns it cannot move to next fade, so you can see where it can go.
+- **Comments on tasks.** A task's window now has a **Comments** tab for talking about the work. Type **@** to name a colleague and they are told; the people assigned to the task and watching it are told too. You can change or delete your own comments.
+- **Watchers and teams now hear about their tasks.** Watching a task now works like being copied on a letter. You are told when you are added, and again when the task is marked complete or reopened, changes status, is given to different people or has its due date moved. Assigning a task to a team tells everybody on that team.
+- **Watch videos without downloading them.** Open a video on a matter's files and it plays in a new tab;
+  select it and it plays in the details panel too. Step a frame at a time, jump ten seconds, change the
+  speed, and copy a link that opens the video at the exact moment you are on. A video your browser
+  cannot play, such as the format many phones record in, says so and offers the download.
+
+### Changed
+
+- **More detail about where a number is from.** The line under a typed phone number now names the town the number was issued in, not only the state or province, and shows the current time there, so you can tell at a glance whether it is a sensible hour to call back.
+- **The Changelog now shows every change, with where it landed in the app.** Each change is tagged with the parts of Magna Carta it touched, so you can filter to Matters, Billing or any other area and see when it last changed. Filter by kind of change or to only what members see, search the notes, and fold entries away to read titles only.
+- A conflicts check's list of runs is now called History. To file a check that has no matter, press **Assign to Matter** at the top of the check, next to Print.
+- **Conflicts checks find names in calls, texts, tasks and Magnus conversations faster, and regardless of accents.** José Ortega now also finds "Jose Ortega". A name is matched as whole words, so it is never found inside a longer word. If one name appears in more than 200 records of one place, the first 200 are kept and the report says so.
+- **The conflicts check is easier to run and to read.** New Check asks only for the parties and shows each place it searches with what it covers there. A check's page has Report and Runs tabs; the report is split into Details, Status and Results, each of which you can fold away. Each result says how strong the match is, what matched and how it was reached, and you can filter results and record a review from the result itself. A running check can be cancelled from its Running badge.
+- **The New Person form has more room.** The name, contact and address fields are wider, so a row such as an email address with its use fits on one line. The "May already be in the directory" list beside it is a little narrower.
+- **More videos play without downloading.** Videos recorded on phones in HEVC, and MKV files, now play
+  in the browser wherever your browser can decode them, which includes Safari, Edge and Chrome on most
+  newer computers. If yours cannot, the player says so and offers the download.
+- Magnus conversations are easier to follow. Questions sit on the right under the asker's name and
+  initials, Magnus answers on the left beside its gold M, every message shows when it was sent and has
+  a copy button, and the matter a conversation is kept on is named in small print under its title.
+- **Choosing when an event happens is quicker.** Starts and Ends on the calendar's event form are now
+  one field each, holding the day and the time together. Press the arrow at the end of the field to
+  pick a day from the month and a time from the list beside it, or type straight into the field. Any
+  minute works, not only quarter hours. The end date now starts out the same as the start date, and
+  picking a start time sets the end an hour later, so a one-day meeting takes one answer. **All day**
+  is the first choice in the Starts list of times.
+- **Entering a person is quicker and calmer.** Typing a United States ZIP code first now fills in the city and the state. Fields with a mistake turn red instead of printing a message that pushes the form around; hover over one to read what is wrong. A person's other names (a maiden name, an alias) open with every name field, prefixes and suffixes included, through an Add Other Name button, and addresses, identifiers and organizations each start as an Add button so the form shows only what you use. Several prefixes or suffixes now all show in the box as you pick them. The country is the last line of an address and starts as the United States, and a contact's or address's "Use" is now called "Type".
+- **A cleaner player, screenshots, and sound files that play.** Videos now fill the page with the
+  controls over the picture, out of the way while you watch. The settings cog holds the speed, the
+  link to the current moment, and a new Save Screenshot. Voicemails, interviews and other sound files
+  now play in the browser too.
+- **Recording a call starts with the phone number.** Press Call or Text and Incoming or Outgoing, type the number, and write your notes straight underneath while you are still on the line. When it happened is filled in as now; press Change if it was earlier.
+
+**The window looks the number up for you.** The new Identification side shows who the number belongs to and their open matters, with a search when there are many, and File Here puts the call on the right one. The History side lists every earlier call and text with that number.
+
+**A second call no longer means losing the first.** Press Another Call to write down a new one; every call you are recording is listed down the left of the window, and saving one leaves the rest. Start An Intake is now in the More menu at the top right, and it only saves the call you are on.
+
+- **Searching a matter now matches whole words in notes, time, costs, calendar and messaging.** Type several words and a record is found when it contains all of them, wherever they fall. The last word you type can be the start of a word, quotation marks find an exact phrase, and capital letters and accents no longer matter. A fragment from the middle of a word no longer matches in those sections. File names, party names, custody numbers, invoice numbers and telephone numbers are still found by any part of them.
+- **Screenshots and converted videos are saved to the matter.** A screenshot from a video is now saved
+  in the same folder as the video, and it carries the recording, the moment, the matter and who took
+  it inside the picture. A video your browser cannot play now offers Convert to MP4, which saves a copy
+  every browser plays beside the original.
+- **Search highlights the words it found.** In a matter's search and on the Search page, each result now highlights the words that matched, and a long note or time narrative is shown at the lines where your words are instead of from its first line. A word found by its beginning is highlighted whole: type "ease" and "easement" is marked.
+- **Favorites are now saved from the page menu.** The star beside each page's title has moved into the menu next to it: choose Add to Favorites there, and on a page you have already saved the same entry shows a gold star and reads Remove from Favorites. Everything you had saved is still in your sidebar.
+- **Comments beside the task.** A task's comments now sit in their own column on the right of the task window, always in view, instead of on a tab.
+- **Tasks has a new list and a new task window.** Each task list has its own coloured statuses: press a task's status to move it, or to mark it complete. Start dates, due dates and priority change right in the list, and a past due date shows in red. Tasks can have sub-tasks, several assignees (including teams), watchers, a checklist, links and a location with a Join button for meeting links. Me Mode narrows the list to the tasks assigned to you, the ones you are watching, or both. View lets you show one or two lines per task, choose the row size and hide columns, and Group By groups the list by list, status, due date, person or matter. People who manage task plans can set up lists, statuses and teams under Task Settings. Every field in a task's window is edited in place, without an Edit button.
+- **Searching inside files can now be turned on.** The platform's search service is connected. An Owner or Administrator can turn file indexing on under **Settings › Data & Platform › Search and Indexing**; after that, a matter's search also finds files by the words inside them and quotes the passage it matched. A conflicts check that asks for Files reads **Not searched** until then, and says why.
+- **A dropdown you can type in now opens its list when you click or tap the box.** You no longer have to aim for the small arrows. Tabbing into the field still leaves it closed.
+
+### Fixed
+
+- **Meeting recordings are more dependable.** Somebody whose connection drops for a moment is heard at
+  the right point in the recording. Long recordings are filed instead of failing, and a recording opens
+  from the meeting only once its file has been checked. If a recording was filed without somebody's audio,
+  the list says so and gives a reference for support.
+- **Anonymous polls keep your choice private in one more place.** When you answer a poll that does not
+  show names, nothing the system keeps to handle a repeated tap can be used to work out what you chose.
+
+**Live counts in polls and the question queue no longer jump backwards** when several people answer
+or upvote at the same moment.
+
+**Rejoining a meeting while your camera was still connecting works first time**, rather than showing
+a connection error until you tried again.
+
+**The question queue is steadier.** A question that has been taken back can no longer be upvoted,
+two questions asked at the same instant both appear, and pressing upvote repeatedly can no longer
+slow the app down for your colleagues.
+
+- **Checkboxes and radio buttons on a PDF form template work after the template is cleaned.** Uploading a fillable form clears whatever the last person typed into it. That cleaning also removed the drawings of the ticked and unticked boxes, so a box you ticked could come out unticked on the finished document. The boxes are now kept and reset to empty.
+
+**Long PDFs are searchable in full where the built-in reader handles them.** That reader stopped at 100 pages and reported the document as unsafe. It now reads documents of up to 50,000 pages.
+
+**Numbers with repeated narrow digits are found by search.** A year such as 2011 could be indexed as "201 1" in documents set in Helvetica or Arial, so searching for it missed the page. Word spacing is now measured the way the document itself spaces its letters.
+
+- **Long scanned documents are now searchable.** A scanned PDF of more than 100 pages used to be skipped entirely, so none of its pages could be found by search. It is now read from the first page to the last, up to 50,000 pages.
+- **Screen readers and voice control now say the words a control shows.** A folder in the file tree
+  is named with its file count, a small calendar's month heading starts with the month it shows, and
+  the Error ID on a failure message reads the ID and what pressing it does, so you can say what you see.
+- **A group in the sidebar, such as Internet, opens and closes again while the sidebar is collapsed to icons.**
+
 ## 2026-11-09
 
 ### Added

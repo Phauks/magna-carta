@@ -3562,7 +3562,7 @@ generalizes to:
   only ever say what they are granting, not what they are not granting. Simpler permission windows."**
   One design-system window: what is being allowed, who is asking, the list of grants. No "will not"
   list. Generalizes: **a request tells the reader what they are agreeing to and stops.** Decision:
-  `docs/decisions/pending/a-permission-request-states-only-what-it-grants.md`.
+  `docs/decisions/0508-a-permission-request-states-only-what-it-grants.md`.
 - **Email matching "could be bad or dangerous" if wrong, and needs "a good long conversation".** No
   mailbox is connected until that design is settled. Not a visual ruling; recorded so a later build
   does not fold email into the calendar pages.
