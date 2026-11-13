@@ -17,6 +17,8 @@ same reason.
 
 - `src/port.ts` — `AddressLookupPort`, its inputs and typed outcomes, the smart constructors, and
   `deferredAddressLookupPort()`
+- `src/google.ts` — `googleAddressLookupPort(apiKey, fetch)`: Places API (New) Autocomplete and Place
+  Details, every country
 - `src/smarty.ts` — `smartyAddressLookupPort(credentials, fetch)`: US Autocomplete Pro for the United
   States, International Autocomplete everywhere else
 - `src/self-hosted.ts` — `selfHostedAddressLookupPort(binding)`: the port over `apps/address-worker`'s
@@ -97,6 +99,22 @@ same reason.
 - **International is two steps, and only the second is charged.** A search returns lines of text and
   identifiers; the parts arrive when somebody chooses one. That is why an international suggestion's
   `parts` holds only the country.
+
+## The Google adapter
+
+- **A trial, chosen against the storage rule above, on the owner's word (2026-11-13).** Google lets a
+  customer keep only its place ID. The adapter returns parts like any other, and the record keeps
+  them; whoever makes Google permanent settles the terms first (runbook, operations section 19a).
+- **The key rides in a header and the query in a body**, so neither is in a URL. A failure carries a
+  fixed sentence and at most the status code.
+- **The field mask is the price.** `DETAILS_FIELD_MASK` names only Essentials-tier fields; one field
+  from a higher tier moves every Place Details call to that tier.
+- **No groups, no `near`.** Google offers a building as one address and biases by the caller's IP,
+  which for a Worker is the edge nearest the person typing. Every offer is `kind: "address"`.
+- **A 404 from Place Details is `expired`**, and a handle whose place ID is not Google's alphabet is
+  refused before any request, so a forged identifier cannot steer the request path.
+- **Attribution is the route's, not the adapter's.** The Worker marks Google's answers
+  `attribution: "google-maps"` and the address field shows the name.
 
 ## The self-hosted adapter
 

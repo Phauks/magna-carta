@@ -116,7 +116,18 @@ const AddressLocation = z
 
 const SuggestionsResponse = z
   .discriminatedUnion("outcome", [
-    z.object({ outcome: z.literal("suggestions"), suggestions: z.array(AddressSuggestion) }),
+    z.object({
+      outcome: z.literal("suggestions"),
+      suggestions: z.array(AddressSuggestion),
+      attribution: z
+        .enum(["google-maps"])
+        .optional()
+        .openapi({
+          description:
+            "Whose data the offers are, when its terms require the list to say so. `google-maps`: " +
+            "the list shows the words Google Maps in the same container as the offers.",
+        }),
+    }),
     z.object({ outcome: z.literal("no-coverage") }),
     z.object({ outcome: z.literal("unavailable") }),
   ])
@@ -303,7 +314,12 @@ export function registerAddressLookupRoutes(
       if (answer.ok) {
         count("suggestions");
         return c.json(
-          { outcome: "suggestions" as const, suggestions: answer.suggestions.map(toContract) },
+          {
+            outcome: "suggestions" as const,
+            suggestions: answer.suggestions.map(toContract),
+            // Google's terms require its content shown without a Google map to carry its name.
+            ...(engine === "google" && { attribution: "google-maps" as const }),
+          },
           200,
         );
       }

@@ -69,7 +69,7 @@
     }
     failure = stated(
       outcome.failure,
-      "Nothing was taken back: the request is still waiting on a decision.",
+      "Nothing was withdrawn. The request is still waiting for a decision.",
       "Couldn't connect. Nothing was taken back, and the request is still waiting for a decision.",
     );
     return "refused";
@@ -101,7 +101,7 @@
   {#snippet fields({ busy })}
     <LabelledField
       label="Reason"
-      hint="Optional. It is recorded beside the withdrawal, and nobody is waiting on it."
+      hint="Optional. Saved with the withdrawal."
       error={fieldRefusal(failure?.failure.problem ?? null, "reason")}
     >
       {#snippet children({ props })}

@@ -271,9 +271,7 @@
   {#if openIssues.length > 0}
     <SettingsPlate heading="Different in Outlook">
       <SettingsDescription>
-        These are not the same in Outlook as in Magna Carta: you changed or deleted the copy there,
-        or Outlook would not take the event. Magna Carta's calendar was not changed. Put Back writes
-        the event to Outlook again as Magna Carta has it. Leave It keeps Outlook as it is.
+        This event doesn't match between Outlook and Magna Carta, because it was changed or deleted in Outlook, or Outlook rejected it. Magna Carta's calendar wasn't changed. Put Back copies the Magna Carta version to Outlook again. Leave It keeps Outlook as it is.
       </SettingsDescription>
       {#if answerRefusal !== null}
         <Alert.Root variant="danger">
@@ -299,8 +297,7 @@
     >
       {#snippet failure()}
         <p class="py-12 text-sm text-text-muted">
-          Your calendar sync settings could not be read, so they are not stated rather than guessed
-          at.
+          Your calendar sync settings couldn't be loaded.
         </p>
       {/snippet}
 
@@ -350,9 +347,7 @@
   {#if account !== null && shownChoices.length > 0}
     <SettingsPlate heading="From Outlook to Magna Carta">
       <SettingsDescription>
-        Events you make in an Outlook calendar switched on below appear on your Magna Carta
-        calendar, under My Outlook Calendar. Only you see them. Nothing is changed in Outlook, and
-        they are not added to any matter.
+        Events from the Outlook calendars you turn on below appear on your Magna Carta calendar under My Outlook Calendar. Only you see them. Nothing changes in Outlook, and they aren't added to any matter.
       </SettingsDescription>
       {#if shownRefusal !== null}
         <Alert.Root variant="danger">

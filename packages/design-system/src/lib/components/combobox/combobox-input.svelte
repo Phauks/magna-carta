@@ -1,8 +1,9 @@
 <script lang="ts">
   /*
    * Combobox.Input — the editable field that filters the list (role="combobox"). Wrapped with a
-   * trailing Trigger button (a ChevronsUpDown, Lucide deep-imported) that toggles the listbox, both
-   * inside one bordered control that shows the single focus shape on :focus-within. The input is
+   * trailing Trigger button that toggles the listbox, both inside one bordered control that shows
+   * the single focus shape on :focus-within. The chevron is the Select trigger's ChevronDown (Lucide,
+   * deep-imported), so the two kinds of choice field look alike side by side. The input is
    * borderless and fills the row. bits sets no aria-controls on the combobox input, so we point it at
    * the shared Content listbox id (from context).
    *
@@ -21,7 +22,7 @@
    * there is only one of them.
    */
   import { Combobox as ComboboxPrimitive } from "bits-ui";
-  import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { getContext } from "svelte";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { placeholderOf } from "../../formatters/placeholder.ts";
@@ -95,7 +96,7 @@
   />
   {#if browsable}
     <ComboboxPrimitive.Trigger class="mc-combobox-trigger" aria-label="Toggle options">
-      <ChevronsUpDown class="mc-combobox-trigger-icon" aria-hidden="true" />
+      <ChevronDown class="mc-combobox-trigger-icon" aria-hidden="true" />
     </ComboboxPrimitive.Trigger>
   {/if}
 </div>

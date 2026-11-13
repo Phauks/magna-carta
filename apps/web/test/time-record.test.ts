@@ -70,9 +70,7 @@ describe("what stops a save, before the button is pressed", () => {
   });
 
   it("insists on the description, which is the line the client reads", () => {
-    expect(draftRefusal({ durationText: "1:30", description: "   " })).toBe(
-      "Enter the Description: every entry states its work",
-    );
+    expect(draftRefusal({ durationText: "1:30", description: "   " })).toBe("Enter a description.");
   });
 
   it("lets a complete draft through", () => {

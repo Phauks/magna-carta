@@ -191,7 +191,7 @@
           onAdd={addRecipient}
           onRemove={removeRecipient}
           inputId={props.id}
-          placeholder="Search colleagues…"
+          placeholder="Search staff…"
         />
       {/snippet}
     </LabelledField>

@@ -150,7 +150,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText } from "$lib/records/wo
         </Button>
         <Button
           disabled={sending}
-          title="Approve: the cost becomes billable on the next invoice"
+          title="Approve: the cost becomes billable on the next bill"
           onclick={() => void approve()}
         >
           <Stamp class="size-16" aria-hidden="true" />

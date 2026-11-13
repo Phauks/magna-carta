@@ -22958,6 +22958,13 @@
                 "items": {
                   "$ref": "#/components/schemas/AddressSuggestion"
                 }
+              },
+              "attribution": {
+                "type": "string",
+                "enum": [
+                  "google-maps"
+                ],
+                "description": "Whose data the offers are, when its terms require the list to say so. `google-maps`: the list shows the words Google Maps in the same container as the offers."
               }
             },
             "required": [
@@ -32152,6 +32159,15 @@
           "maxChoices": {
             "type": "integer"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "one",
+              "multiple",
+              "ranking",
+              "score"
+            ]
+          },
           "openedAt": {
             "type": "string"
           },
@@ -32187,6 +32203,7 @@
           "question",
           "anonymous",
           "maxChoices",
+          "kind",
           "openedAt",
           "closedAt",
           "closedByUserId",
@@ -32209,13 +32226,20 @@
           },
           "count": {
             "type": "integer"
+          },
+          "averageRank": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
           "optionId",
           "position",
           "label",
-          "count"
+          "count",
+          "averageRank"
         ]
       },
       "OpenMeetingPollRequest": {
@@ -32239,6 +32263,15 @@
           "maxChoices": {
             "type": "integer",
             "default": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "one",
+              "multiple",
+              "ranking",
+              "score"
+            ]
           }
         },
         "required": [

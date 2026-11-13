@@ -154,7 +154,7 @@ export function deliveryStateWord(row: InvoiceRow): string {
   const state = row.detail?.delivery;
   if (state === undefined) return "Not read";
   if (state.delivered) return "Delivered";
-  if (state.attemptCount > 0) return "Every attempt failed";
+  if (state.attemptCount > 0) return "All attempts failed";
   return row.summary.status === "final" ? "None recorded" : "Not deliverable yet";
 }
 
@@ -166,7 +166,7 @@ export interface DeliveryReading {
 }
 
 const PLATFORM_SENDS_NOTHING =
-  "The platform records deliveries the firm made; it does not send bills.";
+  "Magna Carta records deliveries the firm made. It doesn't send bills.";
 
 export function deliveryReading(
   row: InvoiceRow,
@@ -227,20 +227,11 @@ export function invoiceReference(row: InvoiceRow): string {
 export function billLockLine(row: InvoiceRow): string {
   switch (row.summary.status) {
     case "final":
-      return (
-        "This bill is an evidentiary record. It is never edited or un-finalized: a correction is a " +
-        "credit note recorded beside it, and money already collected comes back as a client credit."
-      );
+      return "A finalized bill can't be edited or un-finalized. To correct it, add a credit note. Money already collected is returned as a client credit.";
     case "draft":
-      return (
-        "A draft is a working document. Nothing has been asserted to anybody, no number is drawn, " +
-        "and no work is locked until it is finalized."
-      );
+      return "A draft can still change. It has no number and no work is locked until it's finalized.";
     default:
-      return (
-        "This draft was voided. Its work returned to unbilled. Only a draft can be voided: a " +
-        "finalized bill is corrected by a credit note, never erased."
-      );
+      return "This draft was voided and its work is unbilled again. To correct a finalized bill, add a credit note instead.";
   }
 }
 
