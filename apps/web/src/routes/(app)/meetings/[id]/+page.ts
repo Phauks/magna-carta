@@ -7,6 +7,9 @@
  *
  * The JOIN is not warmed and must not be: it is a write that opens an attendance row, and a hover
  * over a link is not somebody arriving in a room.
+ *
+ * `shell: "none"`: the room opens in a tab of its own (`$lib/meetings/meeting-tab.ts`) and has the
+ * whole window, with no rail and no top bar, the way the document editor does.
  */
 import { meetingsGetOptions } from "@magna-carta/api-client";
 import { warm } from "$lib/api/screen-data.ts";
@@ -14,4 +17,5 @@ import type { PageLoad } from "./$types";
 
 export const load: PageLoad = ({ params }) => {
   warm(meetingsGetOptions({ path: { meetingId: params.id } }));
+  return { shell: "none" as const };
 };
