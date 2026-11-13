@@ -228,6 +228,27 @@ describe("generateConversation on the gateway port", () => {
     expect(calls[1]?.input).toMatchObject({ system: SYSTEM_PROMPT, max_tokens: 4096 });
   });
 
+  it("sends a third-party provider the effort only when the caller names one, and Cloudflare never", async () => {
+    const { ai, calls } = fakeAi({ response: "ok", usage: {} });
+    const port = createGatewayInferencePort({ ai, env: "production" });
+    const base = {
+      modelId: "anthropic/claude-opus-5-5",
+      firmId: FIRM,
+      systemPrompt: SYSTEM_PROMPT,
+      messages: MESSAGES,
+    };
+    await port.generateConversation(base);
+    await port.generateConversation({ ...base, effort: "xhigh" });
+    await port.generateConversation({
+      ...base,
+      modelId: PLATFORM_ON_CLOUDFLARE_REASONING_MODEL_ID,
+      effort: "high",
+    });
+    expect(calls[0]?.input).not.toHaveProperty("output_config");
+    expect(calls[1]?.input).toMatchObject({ output_config: { effort: "xhigh" } });
+    expect(calls[2]?.input).not.toHaveProperty("output_config");
+  });
+
   it("refuses a non-eligible model BEFORE dispatch, and the binding is never called", async () => {
     const { ai, calls } = fakeAi({ response: "should never be produced" });
     const port = createGatewayInferencePort({ ai, env: "production" });

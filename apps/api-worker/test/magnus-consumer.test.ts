@@ -123,6 +123,34 @@ describe("the assistant queue consumer", () => {
     expect(turn?.outputTokens ?? 0).toBeGreaterThan(0);
   });
 
+  it("answers with the model and effort the member chose, and records both on the answer", async () => {
+    const job = await submitOneTurn("which deadline governs");
+    await handleMagnusTurnJob(consumerEnv(), {
+      ...job,
+      modelId: "anthropic/claude-sonnet-5-5",
+      effort: "xhigh",
+    });
+
+    const turn = await readTurn(firmDatabase, job.magnusTurnId as MagnusTurnId);
+    expect(turn?.status).toBe("complete");
+    expect(turn?.modelId).toBe("anthropic/claude-sonnet-5-5");
+    expect(turn?.effort).toBe("xhigh");
+  });
+
+  it("answers a choice the catalog no longer offers with the firm's model at its default effort", async () => {
+    const job = await submitOneTurn("and the earlier one");
+    await handleMagnusTurnJob(consumerEnv(), {
+      ...job,
+      modelId: "anthropic/claude-retired-model",
+      effort: "max",
+    });
+
+    const turn = await readTurn(firmDatabase, job.magnusTurnId as MagnusTurnId);
+    expect(turn?.status).toBe("complete");
+    expect(turn?.modelId).toBe("anthropic/claude-opus-5-5");
+    expect(turn?.effort).toBe("medium");
+  });
+
   it("meters exactly the usage the response reported", async () => {
     const before = await readTokenUsage(firmDatabase);
     const beforeTotal = before.reduce((sum, row) => sum + row.inputTokens, 0);
@@ -167,6 +195,7 @@ describe("the assistant queue consumer", () => {
         inputTokens: 1,
         outputTokens: 1,
         contextTruncated: false,
+        effort: null,
       });
       if (!completion.ok) throw new Error("completion refused");
       await commitEffectBatch(firmDatabase, completion.effect, { now: clock.now });
