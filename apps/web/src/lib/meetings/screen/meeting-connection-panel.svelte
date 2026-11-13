@@ -117,7 +117,12 @@
     <Tooltip.Content side="top">Connection</Tooltip.Content>
   </Tooltip.Root>
 
-  <Popover.Content class="flex flex-col gap-16" style="inline-size: var(--mc-size-popover)">
+  <!-- WIDE AND SHORT. Two columns, this browser's own numbers on the left and the room on the right,
+       each scrolling on its own, so the panel never runs off the top of a laptop screen. -->
+  <Popover.Content
+    class="flex flex-col gap-16"
+    style="inline-size: min(var(--mc-size-record-pane), calc(100vw - var(--mc-size-modal-gutter) * 2)); max-block-size: min(var(--bits-floating-available-height), 70vh)"
+  >
     <div class="flex flex-col gap-4">
       <h2 class="text-sm font-medium">Connection Details</h2>
       <p class="text-xs text-text-muted">
@@ -126,6 +131,8 @@
       </p>
     </div>
 
+    <div class="grid min-h-0 grid-cols-1 gap-24 sm:grid-cols-2">
+    <div class="mc-scrollbar flex min-h-0 flex-col gap-16 overflow-y-auto">
     <DefinitionList.Root>
       <DefinitionList.Row term="Quality">
         <span class="flex items-center gap-8">
@@ -162,6 +169,19 @@
       </DefinitionList.Row>
     </DefinitionList.Root>
 
+
+
+    {#if onCopy !== undefined}
+      <!-- For a stutter that has already passed: the copy covers the last few minutes, frame by
+           frame, so it still holds what the reader saw. Numbers only, never a name. -->
+      <Button variant="secondary" onclick={onCopy}>
+        <ClipboardCopy class="size-16" aria-hidden="true" />
+        Copy Diagnostics
+      </Button>
+    {/if}
+    </div>
+
+    <div class="mc-scrollbar flex min-h-0 flex-col gap-16 overflow-y-auto">
     <!-- The people, not the tiles: a colleague whose voice is being pulled while their
          picture is not is still somebody whose connection can be answered for. -->
     <ul class="flex flex-col gap-8">
@@ -183,20 +203,13 @@
       {/each}
     </ul>
 
-    {#if onCopy !== undefined}
-      <!-- For a stutter that has already passed: the copy covers the last few minutes, frame by
-           frame, so it still holds what the reader saw. Numbers only, never a name. -->
-      <Button variant="secondary" onclick={onCopy}>
-        <ClipboardCopy class="size-16" aria-hidden="true" />
-        Copy Diagnostics
-      </Button>
-    {/if}
-
     <EventRail
       events={shown}
       label="What has happened on this connection"
       emptyMessage="Nothing has happened on this connection yet."
       note="The last few moments only, kept in this tab while it is open."
     />
+    </div>
+    </div>
   </Popover.Content>
 </Popover.Root>
