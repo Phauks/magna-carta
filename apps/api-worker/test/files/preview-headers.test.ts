@@ -1,7 +1,7 @@
 // @node-runtime — reaches no Workers runtime API; see vitest.node-runtime.ts.
 import { describe, expect, it } from "vitest";
 import { buildSafeDeliveryHeaders } from "../../src/files/preview-headers.ts";
-import { readerOriginFor } from "../../src/files/preview-serve.ts";
+import { appHostFor, readerOriginFor } from "../../src/files/preview-serve.ts";
 
 describe("buildSafeDeliveryHeaders", () => {
   it("stamps the exact safe-delivery header set", () => {
@@ -56,19 +56,38 @@ describe("buildSafeDeliveryHeaders", () => {
 });
 
 describe("readerOriginFor", () => {
-  it("names an app page under the files host's parent", () => {
-    expect(readerOriginFor("https://smith-law.example.com", "files.example.com")).toBe(
-      "https://smith-law.example.com",
+  const files = "files.magnacartausercontent.com";
+  const app = "magnacarta.esq";
+
+  it("names the app's own page and a branded firm subdomain of it", () => {
+    expect(readerOriginFor("https://magnacarta.esq", app, files)).toBe("https://magnacarta.esq");
+    expect(readerOriginFor("https://smith-law.magnacarta.esq", app, files)).toBe(
+      "https://smith-law.magnacarta.esq",
     );
   });
 
   it("names nothing for another site, plain http, the files host, a lookalike or no origin", () => {
-    expect(readerOriginFor("https://evil.test", "files.example.com")).toBeNull();
-    expect(readerOriginFor("http://smith-law.example.com", "files.example.com")).toBeNull();
-    expect(readerOriginFor("https://files.example.com", "files.example.com")).toBeNull();
-    expect(readerOriginFor("https://notexample.com", "files.example.com")).toBeNull();
-    expect(readerOriginFor("https://example.com.evil.test", "files.example.com")).toBeNull();
-    expect(readerOriginFor("null", "files.example.com")).toBeNull();
-    expect(readerOriginFor(null, "files.example.com")).toBeNull();
+    expect(readerOriginFor("https://evil.test", app, files)).toBeNull();
+    expect(readerOriginFor("http://magnacarta.esq", app, files)).toBeNull();
+    expect(readerOriginFor("https://files.magnacartausercontent.com", app, files)).toBeNull();
+    expect(readerOriginFor("https://doc1.magnacartausercontent.com", app, files)).toBeNull();
+    expect(readerOriginFor("https://notmagnacarta.esq", app, files)).toBeNull();
+    expect(readerOriginFor("https://magnacarta.esq.evil.test", app, files)).toBeNull();
+    expect(readerOriginFor("null", app, files)).toBeNull();
+    expect(readerOriginFor(null, app, files)).toBeNull();
+  });
+
+  it("names nothing when the app's own address is unknown", () => {
+    expect(readerOriginFor("https://magnacarta.esq", null, files)).toBeNull();
+  });
+});
+
+describe("appHostFor", () => {
+  it("reads the host of an https app address, and nothing else", () => {
+    expect(appHostFor("https://magnacarta.esq")).toBe("magnacarta.esq");
+    expect(appHostFor("https://magnacarta.esq/")).toBe("magnacarta.esq");
+    expect(appHostFor("http://localhost:8787")).toBeNull();
+    expect(appHostFor("not an address")).toBeNull();
+    expect(appHostFor(undefined)).toBeNull();
   });
 });

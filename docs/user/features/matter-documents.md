@@ -455,8 +455,11 @@ cog opens the settings:
 - **Speed**, from half speed up to double.
 - **Copy Link at**, which copies an address that opens the recording at the moment shown, so you
   can send a colleague straight to the part of a deposition you mean.
-- **Save Screenshot**, which saves the frame on screen as a picture, named for the video and the
-  moment.
+- **Save Screenshot**, which saves the frame on screen as a picture in the same folder as the video,
+  named for the video and the moment (for example _Interview at 0-12-41.png_). The picture also
+  carries, inside the file, which recording and version it came from, the moment, the matter, who
+  took it and when, so anyone it is later shared or exported to can see where it came from. Saving
+  one needs permission to upload files to the matter.
 - **Download**, in the details panel's player.
 
 With the player selected, the keyboard does the same: **K** plays and pauses, **J** and **L** jump
@@ -468,16 +471,22 @@ the screenshot or full screen.
 
 Videos in MP4, MOV, WebM and MKV files play when the browser you are using can decode them. Video
 recorded in HEVC, as many phones record it, plays in Safari, in Edge and in Chrome on most newer
-computers; Firefox and older computers may not play it. If your browser cannot play a video, the
-player says so and offers the download instead, so you can watch it in a video application or
-open it in another browser.
+computers; Firefox and older computers may not play it.
 
-A few formats no browser decodes, such as ProRes video, older Windows Media and MPEG-2 files, and
-Dolby Digital sound. Magna Carta reads how each video is encoded the first time anyone opens it, and
-one of these says so straight away and offers the download. The file is stored either way, and
-nothing about it is changed by trying.
+If a video will not play, the page says **Unreadable Media File** and why. For an MP4, MOV or MKV
+file it also offers **Convert to MP4**: Magna Carta makes a copy every browser plays and saves it as
+a new file beside the original, in the same folder, named for it (for example _Interview
+(converted).mp4_). A long recording takes a few minutes; you can leave the page, and the copy turns
+up in the folder when it is done. **Open the MP4** then takes you to it. Converting needs permission
+to upload files to the matter.
 
-A recording is read-only here. Nothing you do in the player changes it or adds a version.
+A few formats can be neither played nor converted yet, such as ProRes video, older Windows Media and
+MPEG-2 files, and Dolby Digital sound. Magna Carta reads how each video is encoded the first time
+anyone opens it; for one of these, a conversion says it cannot read the file, and the download is the
+way to watch it. The original is stored either way, and nothing about it is changed by trying.
+
+A recording is read-only here. Nothing you do in the player changes it or adds a version; a
+screenshot or a converted copy is always a new file beside it.
 
 ## Editing in the browser
 

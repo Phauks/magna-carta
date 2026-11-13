@@ -2574,6 +2574,7 @@ export type FileHistoryItem = {
 export type PlayableCopyStatus = {
     versionId: string;
     state: 'none' | 'pending' | 'ready' | 'unavailable';
+    fileId: string | null;
     reason: 'unsupported' | 'malformed' | 'too-large' | 'source-missing' | null;
     streamUrl: string | null;
     contentType: 'video/mp4';

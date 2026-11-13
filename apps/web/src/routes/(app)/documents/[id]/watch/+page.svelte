@@ -10,9 +10,15 @@
    * browser is the last word, though: if it refuses an address the server allowed, the page says so
    * in the same words and offers the same download, rather than leaving a black box with a spinner.
    *
+   * When neither will play it, the page says "Unreadable Media File" and, where a copy can cure it,
+   * offers Convert to MP4: the copy is saved as a file of its own beside the original
+   * ($lib/documents/unreadable-media-notice.svelte).
+   *
    * A moment is an address. "Copy Link at 0:12:41" copies this page's address with `?t=761`, and
-   * opening that address starts the player at that second. A still of a frame is saved through the
-   * app's one save path, named for the recording and the moment.
+   * opening that address starts the player at that second. A still of a frame is FILED into the
+   * matter beside the recording, named for the recording and the moment and carrying its provenance
+   * inside the PNG ($lib/documents/recording-still.ts), so whoever exports it later knows where it
+   * came from.
    *
    * Sound alone opens here too: the player draws it as a panel of controls, set at a reading width
    * rather than stretched over the whole canvas a picture would take.
@@ -20,7 +26,7 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
-  import * as Alert from "@magna-carta/design-system/alert";
+  import { meGetOptions } from "@magna-carta/api-client";
   import Button from "@magna-carta/design-system/button";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import * as Masthead from "@magna-carta/design-system/masthead";
@@ -34,15 +40,16 @@
     formatDocumentTimestamp,
   } from "$lib/documents/document-presentation.ts";
   import { viewerKindOf } from "$lib/documents/editable-documents.ts";
+  import { queryClient, SESSION_STABLE } from "$lib/api/screen-data.ts";
+  import { uploadDocument } from "$lib/documents/create-document.ts";
+  import { pngWithText, stillTextEntries } from "$lib/documents/recording-still.ts";
+  import UnreadableMediaNotice from "$lib/documents/unreadable-media-notice.svelte";
   import {
-    CANNOT_PLAY_TITLE,
-    cannotPlaySentence,
     momentHref,
     screenshotFileName,
     startSecondOf,
     type CannotPlayCause,
   } from "$lib/documents/video-playback.ts";
-  import { saveToTarget } from "$lib/export/save-target.ts";
   import {
     fileDownloadUrl,
     readPreviewGrant,
@@ -103,14 +110,56 @@
     }
   }
 
+  /** Who is taking the still, from the session the shell already holds; null if it cannot say. */
+  async function memberName(): Promise<string | null> {
+    try {
+      const me = await queryClient.ensureQueryData({ ...meGetOptions(), staleTime: SESSION_STABLE });
+      return me.user.name;
+    } catch {
+      return null;
+    }
+  }
+
+  let filing = $state(false);
+
   async function saveScreenshot(image: Blob | null, seconds: number): Promise<void> {
     if (file === null) return;
     if (image === null) {
       toast.error("This browser would not hand back the frame. Try again once the video has loaded.");
       return;
     }
-    await saveToTarget(image, screenshotFileName(file.name, seconds), "image/png");
-    toast.success("Screenshot saved.");
+    if (filing) return;
+    filing = true;
+    try {
+      const png = pngWithText(
+        new Uint8Array(await image.arrayBuffer()),
+        stillTextEntries({
+          recordingName: file.name,
+          versionNumber: file.versionNumber,
+          seconds,
+          matterTitle: data.matter?.title ?? null,
+          takenBy: await memberName(),
+          takenAt: new Date().toISOString(),
+        }),
+      );
+      const outcome = await uploadDocument({
+        fetchImpl: fetch,
+        matterId: file.matterId,
+        folderId: file.folderId,
+        file: new File([png], screenshotFileName(file.name, seconds), { type: "image/png" }),
+      });
+      if (outcome.kind === "created" || outcome.kind === "still-settling") {
+        toast.success("Screenshot saved beside the recording.");
+      } else if (outcome.kind === "rejected") {
+        toast.error("The screenshot was refused by the file check, so it was not saved.");
+      } else if (outcome.kind === "problem" && outcome.problem.status === 403) {
+        toast.error("Saving a screenshot needs permission to upload files to this matter.");
+      } else {
+        toast.error("The screenshot could not be saved. Try again in a moment.");
+      }
+    } finally {
+      filing = false;
+    }
   }
 
   onMount(() => {
@@ -179,11 +228,12 @@
 
         {#if cannotPlay !== null}
           <div class="p-24">
-            <Alert.Root variant="info">
-              <Alert.Title>{CANNOT_PLAY_TITLE}</Alert.Title>
-              <Alert.Description>{cannotPlaySentence(cannotPlay)}</Alert.Description>
-              {@render downloadAction(file.id)}
-            </Alert.Root>
+            <UnreadableMediaNotice
+              fileId={file.id}
+              contentType={file.sniffedContentType}
+              cause={cannotPlay}
+              showDownload={false}
+            />
           </div>
         {:else if grant?.streamUrl !== undefined}
           {#if media === "audio"}

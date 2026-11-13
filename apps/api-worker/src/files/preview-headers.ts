@@ -5,13 +5,13 @@
 // hit downloads) — kept verbatim, never relaxed to inline. The Content-Type is the SERVER-sniffed
 // type, never the attacker-controlled declared type, and never an octet-stream fallback.
 // Access-Control-Allow-Origin is sent only to one of the app's own pages (readerOrigin, chosen by the
-// serve route from the same parent domain frame-ancestors names) and never as a wildcard: the player
+// serve route from the app's own host, the same set frame-ancestors names) and never as a wildcard: the player
 // loads the recording with crossorigin="anonymous" so it can draw a frame into a canvas and read it
 // back (a screenshot, a hover thumbnail), which a browser refuses for an un-granted cross-origin
 // picture. Granting the app's own origin adds no reach: the token in the address already lets that
 // page download the same bytes. A request from anywhere else gets no grant, and the media element
 // still plays without one when it asks without crossorigin. frameAncestors is the CSP frame-ancestors source — the app origins allowed to embed a
-// rendition. It is a WILDCARD over the parent domain (every branded per-firm app subdomain), not a
+// rendition. It names the app's host and a WILDCARD over it (every branded per-firm app subdomain), not a
 // single fixed app host, because firms get per-firm subdomains. The embedding origin is never the
 // authorization gate (the signed, firm-scoped token names one object), so widening it cannot cross
 // tenants. Reasoning home: docs/conventions/security.md (untrusted file handling).
