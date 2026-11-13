@@ -70,6 +70,13 @@ The sign Worker composes the Certificate of Completion with it.
   (`fonts/LICENSE.txt`), metric-compatible with Arial, covering Latin, Greek and Cyrillic. The
   `bundled-fonts` feature compiles it in (about 1.6 MB); a caller with its own fonts turns it off and
   passes `FontFamily::new`.
+- A second bundled family, Atkinson Hyperlegible Next (SIL Open Font License 1.1,
+  `fonts/AtkinsonHyperlegibleNext-LICENSE.txt`, about 0.3 MB), is the application's reading
+  typeface. It draws Latin only. A document names its family with `typeface`
+  (`FontFamily::bundled_as`); a caller that asks for Atkinson reads `missing_characters` and composes
+  again in Liberation Sans when a name is in Greek or Cyrillic.
+- `Table.banded` shades the heading row and every second row and drops the rule under each row, for
+  a long table read across wide rows. The default keeps the ruled table.
 
 ## Gotchas
 

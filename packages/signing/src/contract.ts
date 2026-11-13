@@ -78,6 +78,7 @@ const SignerCompletionOutput = z.object({
     level: AttributionLevel,
     observedIp: z.string().optional(),
     userAgent: z.string().optional(),
+    location: z.string().optional(),
     proofReference: z.string().optional(),
   }),
 });

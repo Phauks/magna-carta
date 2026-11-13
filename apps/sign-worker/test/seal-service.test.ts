@@ -189,6 +189,30 @@ describe("sign worker — platform seal on workerd", () => {
     expect(printed.replaceAll(" ", "")).toContain(response.documentHashSha256.slice(0, 32));
   });
 
+  it("prints a name its own typeface cannot draw by setting the sheet in the wider family", async () => {
+    // The certificate's typeface draws Latin only; a Greek name must still be readable on it.
+    const greek = "\u0391\u03bb\u03ad\u03be\u03b7\u03c2 \u03a0\u03b1\u03c0\u03ac\u03c2";
+    const response = await performSeal(
+      {
+        ...sealRequest(),
+        signers: [
+          {
+            intent: { ...signer.intent, name: greek, email: "alexis@example.test" },
+            consent: signer.consent,
+            attribution: { level: "access-code", location: "Springfield, Illinois, US" },
+          },
+        ],
+      },
+      { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+      engines,
+    );
+    const printed = (await extractPdfText(response.certificatePdf)).pages
+      .flatMap((page) => page.lines.map((line) => line.text))
+      .join("\n");
+    expect(printed).toContain(greek);
+    expect(printed).toContain("Springfield, Illinois, US");
+  });
+
   it("holds the summary, eight signers and the contacts on the certificate's first page", async () => {
     const names = ["Ada", "Ben", "Cleo", "Dev", "Esme", "Finn", "Gwen", "Hugo"];
     const response = await performSeal(

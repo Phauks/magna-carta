@@ -26,6 +26,7 @@ interface SheetField {
 /** The blocks the sheet uses, a subset of the composer's own. */
 export type CertificateSheetBlock =
   | { readonly type: "pageBreak" }
+  | { readonly type: "rule" }
   | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
   | { readonly type: "paragraph"; readonly text: string }
   | {
@@ -38,6 +39,7 @@ export type CertificateSheetBlock =
       readonly type: "table";
       readonly columns: readonly { readonly heading: string; readonly weight: number }[];
       readonly rows: readonly (readonly string[])[];
+      readonly banded: true;
     };
 
 /** A document the PDF composer accepts as it stands. */
@@ -63,7 +65,14 @@ export interface CertificateSheet {
   /** Rows set closer together, so the first page holds the summary, eight signers and the contacts. */
   readonly compact: true;
   /** What heads every page: the lockup, the certificate's name and its reference. */
-  readonly letterhead: { readonly image: number; readonly title: string; readonly detail: string };
+  readonly letterhead: {
+    readonly image: number;
+    readonly title: string;
+    readonly label: string;
+    readonly detail: string;
+  };
+  /** The family the sheet is set in. */
+  readonly typeface: CertificateTypeface;
   readonly footer: { readonly center: string };
   readonly blocks: readonly CertificateSheetBlock[];
 }
@@ -81,6 +90,12 @@ export function certificateSheetImages(): Uint8Array[] {
   return [brandLockupPng()];
 }
 
+/**
+ * The families the composer carries. Atkinson Hyperlegible, the application's own reading face,
+ * draws Latin only; Liberation Sans also draws Greek and Cyrillic.
+ */
+export type CertificateTypeface = "atkinsonHyperlegible" | "liberationSans";
+
 /** What the sheet is told that the record does not hold. */
 export interface CertificateSheetOptions {
   /**
@@ -88,6 +103,12 @@ export interface CertificateSheetOptions {
    * support contact. Without one the sheet names the platform and gives no address.
    */
   readonly issuerContact?: SigningContact;
+  /**
+   * The family to set the sheet in: Atkinson Hyperlegible unless told otherwise. The service that
+   * composes it asks for Liberation Sans when a name on the certificate is in a script Atkinson
+   * cannot draw.
+   */
+  readonly typeface?: CertificateTypeface;
 }
 
 /** The platform's name, where no issuer contact says otherwise. */
@@ -256,12 +277,9 @@ export function certificateSheet(
   const total = (count: (signer: SignerCompletion) => number) =>
     String(signers.reduce((sum, signer) => sum + count(signer), 0));
 
-  const summary: SheetField[] = [{ label: "Reference", value: certificate.reference }];
+  // The reference is in the letterhead of every page, so the summary does not repeat it.
+  const summary: SheetField[] = [];
   if (envelope !== undefined) {
-    if (envelope.title !== undefined) summary.push({ label: "Document", value: envelope.title });
-    if (envelope.pageCount !== undefined) {
-      summary.push({ label: "Pages", value: String(envelope.pageCount) });
-    }
     if (envelope.sender !== undefined) {
       summary.push({ label: "Sender: Name", value: envelope.sender.name });
       if (envelope.sender.email !== undefined) {
@@ -278,18 +296,26 @@ export function certificateSheet(
     { label: "Signers", value: String(signers.length) },
     { label: "Signatures", value: total(signatureCount) },
     { label: "Initials", value: total(initialCount) },
-    {
-      label: "Document Hash (SHA-256)",
-      value: hashRows(certificate.documentHashSha256),
-      grid: true,
-    },
-    { label: "Time Zone", value: "Coordinated Universal Time (UTC)" },
   );
+
+  // What was signed. One document today; the section is where a second would be listed.
+  const signed: SheetField[] = [];
+  if (envelope?.title !== undefined) signed.push({ label: "Document", value: envelope.title });
+  if (envelope?.pageCount !== undefined) {
+    signed.push({ label: "Pages", value: String(envelope.pageCount) });
+  }
+  signed.push({
+    label: "Hash (SHA-256)",
+    value: hashRows(certificate.documentHashSha256),
+    grid: true,
+  });
 
   const documentContact = envelope?.contact ?? envelope?.sender;
   const blocks: CertificateSheetBlock[] = [
     { type: "heading", level: 1, text: "Summary" },
     { type: "fields", fields: summary },
+    { type: "heading", level: 1, text: "Documents" },
+    { type: "fields", fields: signed },
     { type: "heading", level: 1, text: "Signers" },
     {
       type: "table",
@@ -307,6 +333,7 @@ export function certificateSheet(
         String(signatureCount(signer)),
         String(initialCount(signer)),
       ]),
+      banded: true,
     },
     { type: "heading", level: 2, text: "Contact" },
     ...(documentContact === undefined ? [] : [contactLine("Document", documentContact)]),
@@ -324,6 +351,9 @@ export function certificateSheet(
           text: pageHeading("Signer Details", index / SIGNERS_PER_PAGE, detailPages),
         },
       );
+    } else {
+      // A line between the signers who share a page.
+      blocks.push({ type: "rule" });
     }
     const fields: SheetField[] = [];
     if (signer.intent.email !== undefined && signer.intent.name !== undefined) {
@@ -343,6 +373,9 @@ export function certificateSheet(
     );
     if (signer.attribution.observedIp !== undefined) {
       fields.push({ label: "IP Address", value: signer.attribution.observedIp });
+    }
+    if (signer.attribution.location !== undefined) {
+      fields.push({ label: "Location (by IP Address)", value: signer.attribution.location });
     }
     if (signer.attribution.userAgent !== undefined) {
       fields.push({ label: "Browser", value: signer.attribution.userAgent });
@@ -366,7 +399,7 @@ export function certificateSheet(
     blocks.push(
       { type: "pageBreak" },
       { type: "heading", level: 1, text: pageHeading("Audit Log", page, logPages.length) },
-      { type: "table", columns: AUDIT_COLUMNS, rows },
+      { type: "table", columns: AUDIT_COLUMNS, rows, banded: true },
     );
   }
 
@@ -387,9 +420,11 @@ export function certificateSheet(
     },
     accent: ACCENT,
     compact: true,
+    typeface: options.typeface ?? "atkinsonHyperlegible",
     letterhead: {
       image: 0,
       title: "Certificate of Completion",
+      label: "Reference",
       detail: certificate.reference,
     },
     footer: { center: "Page {page} of {pages}" },

@@ -70,6 +70,11 @@ export interface SignerAttribution {
   readonly observedIp?: string;
   /** The browser or device the signing act was observed from (the request's own header). */
   readonly userAgent?: string;
+  /**
+   * Roughly where the signing act was observed from, as the network places `observedIp`: a city,
+   * a region and a country. It locates an address, not a person, and is printed as such.
+   */
+  readonly location?: string;
   /** The identity channel proof reference (portal session id, access-code delivery id, etc.). */
   readonly proofReference?: string;
 }

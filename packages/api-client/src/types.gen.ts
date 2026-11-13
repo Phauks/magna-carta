@@ -2993,6 +2993,7 @@ export type DocumentSealResponse = {
                 level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
                 observedIp?: string;
                 userAgent?: string;
+                location?: string;
                 proofReference?: string;
             };
         }>;

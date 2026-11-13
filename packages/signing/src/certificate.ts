@@ -44,7 +44,7 @@ export const SIGNING_EVENT_LABEL: Record<SigningEventKind, string> = {
   reminded: "Reminder Sent",
   viewed: "Viewed",
   "identity-verified": "Identity Verified",
-  consented: "Agreed to Sign Electronically",
+  consented: "Agreed to E-Sign",
   signed: "Signed",
   declined: "Declined",
   reassigned: "Reassigned",
@@ -203,6 +203,9 @@ export function renderCertificateOfCompletion(certificate: CertificateOfCompleti
     lines.push(`  Attribution: ${ATTRIBUTION_LABEL[signer.attribution.level]}`);
     if (signer.attribution.observedIp !== undefined) {
       lines.push(`  Observed IP: ${signer.attribution.observedIp}`);
+    }
+    if (signer.attribution.location !== undefined) {
+      lines.push(`  Location (by IP address): ${signer.attribution.location}`);
     }
     if (signer.attribution.userAgent !== undefined) {
       lines.push(`  Browser: ${signer.attribution.userAgent}`);

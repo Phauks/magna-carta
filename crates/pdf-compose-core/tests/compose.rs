@@ -11,7 +11,7 @@ use image::codecs::jpeg::JpegEncoder;
 use image::{ImageEncoder, ImageFormat, Rgb, RgbImage, Rgba, RgbaImage};
 use pdf_compose_core::{
     compose, Alignment, Block, Column, ComposeError, ComposedDocument, Field, FontFamily,
-    ImageBlock, PageSetup, Paragraph, RunningLine, Span, Table, Timestamp,
+    ImageBlock, PageSetup, Paragraph, RunningLine, Span, Table, Timestamp, Typeface,
 };
 use pdf_core::Document;
 
@@ -178,6 +178,7 @@ fn a_table_repeats_its_heading_on_every_page_and_loses_no_row() {
                 },
             ],
             rows,
+            banded: false,
         })]),
         &FontFamily::bundled(),
     )
@@ -215,6 +216,7 @@ fn a_cell_longer_than_a_page_is_split_and_not_dropped() {
                 },
             ],
             rows: vec![vec!["A".to_string(), long]],
+            banded: false,
         })]),
         &FontFamily::bundled(),
     )
@@ -622,4 +624,72 @@ fn a_json_document_that_is_wrong_is_refused_without_quoting_it() {
         pdf_compose_core::compose_json("not json", &[], &fonts).unwrap_err(),
         ComposeError::InvalidDocument { .. }
     ));
+}
+
+/// How many pixels of the first page are a light grey: a shaded band, not ink and not paper.
+fn shaded_pixels(pdf: &[u8]) -> usize {
+    let page = Document::load(pdf.to_vec())
+        .unwrap()
+        .render_page(0, 72.0, false)
+        .unwrap();
+    page.data
+        .chunks_exact(4)
+        .filter(|pixel| pixel[3] > 200 && (225..=250).contains(&pixel[0]) && pixel[0] == pixel[1])
+        .count()
+}
+
+#[test]
+fn a_banded_table_shades_its_heading_and_alternate_rows() {
+    let json = |banded: bool| {
+        let row = r#"["2026-03-01", "Signed", "Maria Rivera"]"#;
+        format!(
+            r#"{{ "blocks": [{{ "type": "table", "banded": {banded},
+                "columns": [{{ "heading": "Time" }}, {{ "heading": "Event" }}, {{ "heading": "By" }}],
+                "rows": [{}] }}] }}"#,
+            [row; 12].join(",")
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let ruled = pdf_compose_core::compose_json(&json(false), &[], &fonts).unwrap();
+    let banded = pdf_compose_core::compose_json(&json(true), &[], &fonts).unwrap();
+    assert!(
+        shaded_pixels(&banded.pdf) > shaded_pixels(&ruled.pdf) + 5_000,
+        "{} against {}",
+        shaded_pixels(&banded.pdf),
+        shaded_pixels(&ruled.pdf)
+    );
+    // Shading changes how a row is told from the next, not what the table says.
+    assert_eq!(page_texts(&ruled.pdf), page_texts(&banded.pdf));
+}
+
+#[test]
+fn the_named_typeface_is_the_family_the_library_bundles_for_it() {
+    let paragraph = |text: &str| {
+        document(vec![Block::Paragraph(Paragraph {
+            spans: vec![Span {
+                text: text.to_string(),
+                ..Span::default()
+            }],
+            ..Paragraph::default()
+        })])
+    };
+    let atkinson = FontFamily::bundled_as(Typeface::AtkinsonHyperlegible);
+    let liberation = FontFamily::bundled_as(Typeface::LiberationSans);
+    let latin = paragraph("Zo\u{eb} O\u{2019}Brien signed 0O1lI");
+    let first = compose(&latin, &atkinson).unwrap();
+    let second = compose(&latin, &liberation).unwrap();
+    assert!(first.missing_characters.is_empty());
+    assert_eq!(page_texts(&first.pdf), page_texts(&second.pdf));
+    assert_ne!(first.pdf, second.pdf);
+    // Atkinson Hyperlegible draws Latin only: a caller sees which letters it lacks and can
+    // compose again in the wider family.
+    let greek = paragraph("\u{391}\u{3bb}\u{3ad}\u{3be}\u{3b7}\u{3c2}");
+    assert!(!compose(&greek, &atkinson)
+        .unwrap()
+        .missing_characters
+        .is_empty());
+    assert!(compose(&greek, &liberation)
+        .unwrap()
+        .missing_characters
+        .is_empty());
 }

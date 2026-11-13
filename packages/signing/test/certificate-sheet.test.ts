@@ -24,6 +24,7 @@ function certificate() {
         attribution: {
           level: "access-code",
           observedIp: "198.51.100.7",
+          location: "Springfield, Illinois, US",
           userAgent: "ExampleBrowser/1.0",
           proofReference: "code_42",
         },
@@ -50,18 +51,25 @@ describe("certificateSheet", () => {
     expect(sheet.letterhead).toEqual({
       image: 0,
       title: "Certificate of Completion",
+      label: "Reference",
       detail: "MC-0123-4567-89AB",
     });
+    // Set in the application's reading typeface.
+    expect(sheet.typeface).toBe("atkinsonHyperlegible");
+    expect(certificateSheet(certificate(), { typeface: "liberationSans" }).typeface).toBe(
+      "liberationSans",
+    );
     expect(sheet.blocks[0]).toEqual({ type: "heading", level: 1, text: "Summary" });
     // A number a person can read out, never the request's internal identifier.
-    expect(value("Reference")).toBe("MC-0123-4567-89AB");
+    expect(sheet.letterhead.detail).toMatch(/^MC(-[0-9A-F]{4}){3}$/);
     expect(JSON.stringify(sheet)).not.toContain("env_0001");
     expect(JSON.stringify(sheet)).not.toContain("sgn_1");
     expect(value("Document")).toBe("Engagement letter.pdf");
     expect(value("Pages")).toBe("3");
     expect(value("Sender: Name")).toBe("Bob Sender");
     expect(value("Sender: Email")).toBe("bob@example.test");
-    expect(value("Time Zone")).toBe("Coordinated Universal Time (UTC)");
+    // Every time on the sheet names its zone, so the summary has no line for one.
+    expect(value("Time Zone")).toBeUndefined();
     expect(value("Created: Date")).toBe("2026-07-18");
     expect(value("Created: Time")).toBe("11:49:00 UTC");
     expect(value("Signed: Date")).toBe("2026-07-18");
@@ -70,7 +78,7 @@ describe("certificateSheet", () => {
     expect(value("Signatures")).toBe("2");
     expect(value("Initials")).toBe("5");
     // Two lines of 32 characters, each in eight groups of four.
-    const printedHash = value("Document Hash (SHA-256)") ?? "";
+    const printedHash = value("Hash (SHA-256)") ?? "";
     expect(printedHash.replaceAll(/\s/g, "")).toBe(HASH);
     expect(
       printedHash.split("\n").map((line) => line.split(" ").map((group) => group.length)),
@@ -86,6 +94,7 @@ describe("certificateSheet", () => {
     expect(value("Consent: Time")).toBe("11:59:00 UTC");
     expect(value("Consent: Disclosure")).toBe("v1");
     expect(value("IP Address")).toBe("198.51.100.7");
+    expect(value("Location (by IP Address)")).toBe("Springfield, Illinois, US");
     expect(value("Browser")).toBe("ExampleBrowser/1.0");
     expect(sheet.footer).toEqual({ center: "Page {page} of {pages}" });
     expect(sheet.accent).toEqual([98, 72, 0]);
@@ -121,6 +130,21 @@ describe("certificateSheet", () => {
     ]);
   });
 
+  it("lists what was signed in a section of its own, between the summary and the signers", () => {
+    const blocks = certificateSheet(certificate()).blocks;
+    const headings = blocks.flatMap((block) =>
+      block.type === "heading" && block.level === 1 ? [block.text] : [],
+    );
+    expect(headings.slice(0, 3)).toEqual(["Summary", "Documents", "Signers"]);
+    const documents =
+      blocks[
+        blocks.findIndex((block) => block.type === "heading" && block.text === "Documents") + 1
+      ];
+    expect(
+      documents?.type === "fields" ? documents.fields.map((field) => field.label) : [],
+    ).toEqual(["Document", "Pages", "Hash (SHA-256)"]);
+  });
+
   it("counts one signature and no initials for a signer whose blocks were not counted", () => {
     const record = certificate();
     const [first] = record.signers;
@@ -138,13 +162,7 @@ describe("certificateSheet", () => {
     );
     expect(table?.type === "table" ? table.rows : []).toEqual([
       ["2026-07-18 11:50:00", "Sent for Signature", "Bob Sender", "", ""],
-      [
-        "2026-07-18 11:59:00",
-        "Agreed to Sign Electronically",
-        "Alice Example",
-        "198.51.100.7",
-        "Disclosure v1",
-      ],
+      ["2026-07-18 11:59:00", "Agreed to E-Sign", "Alice Example", "198.51.100.7", "Disclosure v1"],
       ["2026-07-18 12:00:00", "Signed", "Alice Example", "198.51.100.7", "Signature drawn"],
       ["2026-07-18 12:00:01", "Sealed", "System", "", "Platform certificate"],
     ]);
@@ -189,6 +207,8 @@ describe("certificateSheet", () => {
         if (page !== undefined) page.rows += block.rows.length;
       }
     }
+    // A line parts the two signers of a page; a signer alone on a page has none.
+    expect(sheet.blocks.filter((block) => block.type === "rule")).toHaveLength(2);
     expect(pages).toEqual([
       { heading: "Signer Details (1 of 3)", signers: ["Signer 1", "Signer 2"], rows: 0 },
       { heading: "Signer Details (2 of 3)", signers: ["Signer 3", "Signer 4"], rows: 0 },

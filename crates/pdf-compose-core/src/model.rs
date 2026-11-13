@@ -15,6 +15,9 @@ pub struct ComposedDocument {
     /// the same input always yields the same bytes.
     pub created: Option<Timestamp>,
     pub page: PageSetup,
+    /// Which of the library's own families the document is set in, where the caller leaves
+    /// the choice to the library ([`FontFamily::bundled_as`](crate::FontFamily::bundled_as)).
+    pub typeface: Typeface,
     /// The colour the title, the first two levels of heading and every rule are drawn in.
     /// `None` leaves the document in black and gray.
     pub accent: Option<Rgb>,
@@ -28,6 +31,18 @@ pub struct ComposedDocument {
     /// Drawn in the bottom margin of every page.
     pub footer: Option<RunningLine>,
     pub blocks: Vec<Block>,
+}
+
+/// The families compiled into the library.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Typeface {
+    /// Liberation Sans: Latin, Greek and Cyrillic, metric-compatible with Arial.
+    #[default]
+    LiberationSans,
+    /// Atkinson Hyperlegible Next: drawn so that similar letters and digits are hard to
+    /// confuse. Latin only, so a caller that may print another script checks
+    /// `missing_characters` and composes again in Liberation Sans.
+    AtkinsonHyperlegible,
 }
 
 /// A colour, each part from 0 to 255.
@@ -116,6 +131,9 @@ pub struct Letterhead {
     /// The encoded picture, drawn 24 points tall. `None` leaves the left side empty.
     pub image: Option<Vec<u8>>,
     pub title: String,
+    /// What the detail is, set small and gray before it: "Reference".
+    pub label: String,
+    /// The line under the title, set bold: the document's own number.
     pub detail: String,
 }
 
@@ -222,6 +240,9 @@ pub struct Table {
     /// One entry per row, one string per column. A short row is padded with empty cells and a
     /// long one is cut to the column count.
     pub rows: Vec<Vec<String>>,
+    /// Shade every other row in place of ruling between rows: easier to follow across a wide
+    /// table of many short rows.
+    pub banded: bool,
 }
 
 /// A labelled value, the unit of a record sheet.

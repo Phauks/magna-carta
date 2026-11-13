@@ -328,6 +328,20 @@ fn plain(face: Face, text: &str) -> Vec<(Face, String)> {
     vec![(face, text.to_string())]
 }
 
+/// How the rows of a row-based block are told apart.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RowLines {
+    /// Nothing between rows: a list of fields.
+    None,
+    /// A thin rule under every row.
+    Ruled,
+    /// Every other row shaded, and one rule under the last.
+    Banded,
+}
+
+const HEADING_SHADE: Ink = Ink::Gray(236);
+const BAND_SHADE: Ink = Ink::Gray(246);
+
 /// One column of a row-based block (a table, or a list of fields).
 struct ColumnPlan {
     x: f32,
@@ -592,18 +606,18 @@ impl Flow<'_, '_> {
         row: &[Vec<Line>],
         first: usize,
         count: usize,
-        shaded: bool,
+        shade: Option<Ink>,
     ) {
         let top = self.cursor;
         let height = count as f32 * CELL.line_height + 2.0 * self.cell_padding_vertical;
-        if shaded {
+        if let Some(ink) = shade {
             let (x, width) = (self.left(), self.page.content_width());
             self.mark(Mark::Fill {
                 x,
                 y: top,
                 width,
                 height,
-                ink: Ink::Gray(236),
+                ink,
             });
         }
         for (column, lines) in columns.iter().zip(row) {
@@ -649,7 +663,7 @@ impl Flow<'_, '_> {
         columns: &[ColumnPlan],
         heading: Option<&[String]>,
         rows: &[Vec<String>],
-        ruled: bool,
+        lines: RowLines,
     ) -> Result<(), ComposeError> {
         let heading_row = heading.map(|cells| self.break_row(columns, cells, true));
         let padding = self.cell_padding_vertical;
@@ -664,7 +678,8 @@ impl Flow<'_, '_> {
         // The heading is kept with at least one line of the first row.
         self.ensure(heading_height + row_height(1))?;
         let mut heading_due = heading_row.is_some();
-        for cells in rows {
+        for (number, cells) in rows.iter().enumerate() {
+            let shade = (lines == RowLines::Banded && number % 2 == 1).then_some(BAND_SHADE);
             let row = self.break_row(columns, cells, false);
             let total = line_count(&row);
             let mut first = 0;
@@ -672,7 +687,7 @@ impl Flow<'_, '_> {
                 if heading_due {
                     if let Some(heading_row) = heading_row.as_deref() {
                         let count = line_count(heading_row);
-                        self.draw_row_slice(columns, heading_row, 0, count, true);
+                        self.draw_row_slice(columns, heading_row, 0, count, Some(HEADING_SHADE));
                         self.row_rule(Ink::Accent { fallback: 110 }, 0.75);
                     }
                     heading_due = false;
@@ -694,22 +709,26 @@ impl Flow<'_, '_> {
                 // At least one line always goes down, so a page too short for any line still
                 // makes progress instead of looping.
                 let count = fitting.clamp(1, left);
-                self.draw_row_slice(columns, &row, first, count, false);
+                self.draw_row_slice(columns, &row, first, count, shade);
                 first += count;
                 if first < total {
                     self.new_page()?;
                     heading_due = heading_row.is_some();
                 }
             }
-            if ruled {
+            if lines == RowLines::Ruled {
                 self.row_rule(Ink::Gray(205), 0.5);
             }
+        }
+        if lines == RowLines::Banded && !rows.is_empty() {
+            // Bands have no edge of their own, so the table is closed with one rule.
+            self.row_rule(Ink::Gray(205), 0.5);
         }
         if heading_due {
             // A table with a heading and no rows still shows its heading.
             if let Some(heading_row) = heading_row.as_deref() {
                 let count = line_count(heading_row);
-                self.draw_row_slice(columns, heading_row, 0, count, true);
+                self.draw_row_slice(columns, heading_row, 0, count, Some(HEADING_SHADE));
                 self.row_rule(Ink::Accent { fallback: 110 }, 0.75);
             }
         }
@@ -744,7 +763,12 @@ impl Flow<'_, '_> {
             .iter()
             .any(|heading| !heading.trim().is_empty())
             .then_some(headings.as_slice());
-        self.rows(&columns, heading, &table.rows, true)
+        let lines = if table.banded {
+            RowLines::Banded
+        } else {
+            RowLines::Ruled
+        };
+        self.rows(&columns, heading, &table.rows, lines)
     }
 
     /// Column widths that fill the content width. With a weight on every column the widths
@@ -833,7 +857,7 @@ impl Flow<'_, '_> {
                 vec![field.label.clone(), value]
             })
             .collect();
-        self.rows(&columns, None, &rows, false)
+        self.rows(&columns, None, &rows, RowLines::None)
     }
 }
 
@@ -888,7 +912,8 @@ const LETTERHEAD_FOOTER: TextStyle = TextStyle {
 const LETTERHEAD_BAR: f32 = 5.0;
 const LETTERHEAD_PICTURE_HEIGHT: f32 = 24.0;
 const LETTERHEAD_TITLE_SIZE: f32 = 12.0;
-const LETTERHEAD_DETAIL_SIZE: f32 = 9.5;
+const LETTERHEAD_DETAIL_SIZE: f32 = 10.5;
+const LETTERHEAD_LABEL_SIZE: f32 = 8.5;
 /// The band ends this far above the content.
 const LETTERHEAD_CLEARANCE: f32 = 12.0;
 
@@ -924,36 +949,53 @@ fn letterhead_marks(
             height: LETTERHEAD_PICTURE_HEIGHT,
         });
     }
+    // The title, then under it the detail in bold with its label small and gray before it.
+    // Each is set against the right margin, so `pen` walks leftwards.
     let lines = [
         (
             &letterhead.title,
             Face::Bold,
             LETTERHEAD_TITLE_SIZE,
             Ink::Accent { fallback: 0 },
-            picture_top + 10.0,
+            picture_top + 9.0,
+            false,
         ),
         (
             &letterhead.detail,
-            Face::Regular,
+            Face::Bold,
             LETTERHEAD_DETAIL_SIZE,
-            Ink::Gray(70),
+            Ink::Gray(30),
             picture_top + 23.0,
+            false,
+        ),
+        (
+            &letterhead.label,
+            Face::Regular,
+            LETTERHEAD_LABEL_SIZE,
+            Ink::Gray(110),
+            picture_top + 23.0,
+            true,
         ),
     ];
-    for (text, face, size, ink, baseline) in lines {
+    let mut pen = right;
+    for (text, face, size, ink, baseline, beside_previous) in lines {
+        if !beside_previous {
+            pen = right;
+        }
         let text = clean(text).replace('\n', " ");
         if text.trim().is_empty() {
             continue;
         }
         let width = measurer.width(face, size, &text);
         marks.push(Mark::Text {
-            x: right - width,
+            x: pen - width,
             baseline,
             face,
             size,
             ink,
             text,
         });
+        pen -= width + 6.0;
     }
     marks.push(Mark::Rule {
         x0: left,

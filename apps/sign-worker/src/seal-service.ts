@@ -75,15 +75,22 @@ export async function performSeal(
   });
 
   await ensureComposerReady(engines.compose);
-  const sheet = await composeDocument(
-    certificateSheet(
-      certificate,
-      certificateSupportEmail === undefined
-        ? {}
-        : { issuerContact: { name: "Magna Carta", email: certificateSupportEmail } },
-    ),
+  const issuer =
+    certificateSupportEmail === undefined
+      ? {}
+      : { issuerContact: { name: "Magna Carta", email: certificateSupportEmail } };
+  let sheet = await composeDocument(
+    certificateSheet(certificate, issuer),
     certificateSheetImages(),
   );
+  if (sheet.missingCharacters.length > 0) {
+    // A name in a script the certificate's own typeface cannot draw would print as empty boxes.
+    // Liberation Sans draws Greek and Cyrillic as well, so the sheet is set again in that.
+    sheet = await composeDocument(
+      certificateSheet(certificate, { ...issuer, typeface: "liberationSans" }),
+      certificateSheetImages(),
+    );
+  }
   const sealedSheet = await sealDocument({
     pdf: sheet.pdf,
     engine,

@@ -103,6 +103,8 @@ describe("POST /api/v1/documents/seal", () => {
           "User-Agent": "SealRouteTest/1.0",
         },
         body: sealBody(),
+        // What the network says about the connecting address, as the edge attaches it.
+        cf: { city: "Springfield", region: "Illinois", country: "US" },
       },
       env,
     );
@@ -124,6 +126,7 @@ describe("POST /api/v1/documents/seal", () => {
     expect(port.lastRequest?.signingTime).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(port.lastRequest?.signers[0]?.attribution.observedIp).toBe("203.0.113.7");
     expect(port.lastRequest?.signers[0]?.attribution.userAgent).toBe("SealRouteTest/1.0");
+    expect(port.lastRequest?.signers[0]?.attribution.location).toBe("Springfield, Illinois, US");
     expect(port.lastRequest?.signers[0]?.intent.name).toBe("Seal Signer");
 
     // The certificate comes back as a PDF too, and names the document and a reference.

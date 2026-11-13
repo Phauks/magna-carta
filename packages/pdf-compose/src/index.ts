@@ -80,6 +80,8 @@ export type ComposeBlock =
       readonly type: "table";
       readonly columns: readonly ComposeColumn[];
       readonly rows: readonly (readonly string[])[];
+      /** Shade every other row in place of ruling between rows. */
+      readonly banded?: boolean;
     }
   | {
       readonly type: "fields";
@@ -115,6 +117,12 @@ export interface ComposeDocument {
   };
   readonly page?: ComposePage;
   /**
+   * Which of the engine's own families the document is set in. Liberation Sans, the default,
+   * covers Latin, Greek and Cyrillic. Atkinson Hyperlegible covers Latin only: check
+   * `missingCharacters` and compose again in Liberation Sans when it is not empty.
+   */
+  readonly typeface?: "liberationSans" | "atkinsonHyperlegible";
+  /**
    * The colour of the title, the first two levels of heading and every rule, as red, green and
    * blue from 0 to 255. Omitted, the document is black and gray.
    */
@@ -134,6 +142,9 @@ export interface ComposeDocument {
     /** The picture's position in the `images` list passed beside the document. */
     readonly image?: number;
     readonly title?: string;
+    /** What the detail is, set small and gray before it: "Reference". */
+    readonly label?: string;
+    /** The line under the title, set bold: the document's own number. */
     readonly detail?: string;
   };
   readonly header?: ComposeRunningLine;
@@ -145,7 +156,7 @@ export interface ComposedPdf {
   readonly pdf: Uint8Array;
   readonly pageCount: number;
   /**
-   * Every character the bundled fonts could not draw (they cover Latin, Greek and Cyrillic). Each
+   * Every character the document's typeface could not draw. Each
    * was drawn as an empty box, so a caller that cannot accept one checks that this is empty.
    */
   readonly missingCharacters: readonly string[];

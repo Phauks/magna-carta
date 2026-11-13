@@ -155,6 +155,12 @@ export function registerDocumentSealRoutes(
       const signingTime = new Date().toISOString();
       const observedIp = c.req.header("CF-Connecting-IP");
       const userAgent = c.req.header("User-Agent");
+      // Where the network places the connecting address: absent in local runtimes, and never a
+      // client's own claim.
+      const edge = c.req.raw.cf;
+      const location = [edge?.city, edge?.region, edge?.country]
+        .filter((part): part is string => typeof part === "string" && part !== "")
+        .join(", ");
       const attributedSigners: SignerCompletion[] = signers.map((signer) => ({
         intent: signer.intent,
         consent: signer.consent,
@@ -162,6 +168,7 @@ export function registerDocumentSealRoutes(
           level: signer.attribution.level,
           ...(observedIp !== undefined ? { observedIp } : {}),
           ...(userAgent !== undefined ? { userAgent } : {}),
+          ...(location !== "" ? { location } : {}),
           ...(signer.attribution.proofReference !== undefined
             ? { proofReference: signer.attribution.proofReference }
             : {}),

@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::model::{
     Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
-    Paragraph, Rgb, RunningLine, Span, Table, Timestamp,
+    Paragraph, Rgb, RunningLine, Span, Table, Timestamp, Typeface,
 };
 use crate::{compose, ComposeError, ComposeOutput, FontFamily};
 
@@ -25,6 +25,8 @@ struct WireDocument {
     created: Option<WireTimestamp>,
     #[serde(default)]
     page: WirePage,
+    #[serde(default)]
+    typeface: WireTypeface,
     /// Red, green and blue, each from 0 to 255.
     accent: Option<[u8; 3]>,
     /// Rows of tables and field lists set closer together.
@@ -76,6 +78,14 @@ struct WirePage {
     margin_left: Option<f32>,
 }
 
+#[derive(Deserialize, Default, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+enum WireTypeface {
+    #[default]
+    LiberationSans,
+    AtkinsonHyperlegible,
+}
+
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct WireLetterhead {
@@ -83,6 +93,8 @@ struct WireLetterhead {
     image: Option<usize>,
     #[serde(default)]
     title: String,
+    #[serde(default)]
+    label: String,
     #[serde(default)]
     detail: String,
 }
@@ -176,6 +188,8 @@ enum WireBlock {
         columns: Vec<WireColumn>,
         #[serde(default)]
         rows: Vec<Vec<String>>,
+        #[serde(default)]
+        banded: bool,
     },
     Fields {
         fields: Vec<WireField>,
@@ -272,7 +286,12 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                     caption,
                 })
             }
-            WireBlock::Table { columns, rows } => Block::Table(Table {
+            WireBlock::Table {
+                columns,
+                rows,
+                banded,
+            } => Block::Table(Table {
+                banded,
                 columns: columns
                     .into_iter()
                     .map(|column| Column {
@@ -311,6 +330,7 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                 ),
             },
             title: letterhead.title,
+            label: letterhead.label,
             detail: letterhead.detail,
         }),
     };
@@ -328,6 +348,10 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             second: created.second,
         }),
         page,
+        typeface: match wire.typeface {
+            WireTypeface::LiberationSans => Typeface::LiberationSans,
+            WireTypeface::AtkinsonHyperlegible => Typeface::AtkinsonHyperlegible,
+        },
         accent: wire
             .accent
             .map(|[red, green, blue]| Rgb { red, green, blue }),
