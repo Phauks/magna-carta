@@ -15,11 +15,22 @@ pub struct ComposedDocument {
     /// the same input always yields the same bytes.
     pub created: Option<Timestamp>,
     pub page: PageSetup,
+    /// The colour the title, the first two levels of heading and every rule are drawn in.
+    /// `None` leaves the document in black and gray.
+    pub accent: Option<Rgb>,
     /// Drawn in the top margin of every page.
     pub header: Option<RunningLine>,
     /// Drawn in the bottom margin of every page.
     pub footer: Option<RunningLine>,
     pub blocks: Vec<Block>,
+}
+
+/// A colour, each part from 0 to 255.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rgb {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
 }
 
 /// A calendar instant in Coordinated Universal Time.

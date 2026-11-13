@@ -12642,6 +12642,9 @@
               "documentHashSha256": {
                 "type": "string"
               },
+              "reference": {
+                "type": "string"
+              },
               "sealedAt": {
                 "type": "string"
               },
@@ -12756,6 +12759,23 @@
                       "name"
                     ]
                   },
+                  "contact": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
                   "createdAt": {
                     "type": "string"
                   }
@@ -12812,6 +12832,7 @@
             },
             "required": [
               "documentHashSha256",
+              "reference",
               "sealedAt",
               "signers"
             ]

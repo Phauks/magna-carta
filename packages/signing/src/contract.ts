@@ -96,6 +96,8 @@ export const DocumentSealResponse = z
     // The assembled Certificate of Completion (structured), plus its plain-text and PDF forms.
     certificate: z.object({
       documentHashSha256: z.string(),
+      // The certificate's number as a person reads it, such as MC-B996-78C5-5ADD.
+      reference: z.string(),
       sealedAt: z.string(),
       signers: z.array(SignerCompletionOutput),
       // What was sealed: the reference this seal is logged under, the title and the page count.
@@ -105,6 +107,13 @@ export const DocumentSealResponse = z
           title: z.string().optional(),
           pageCount: z.number().int().optional(),
           sender: z.object({ name: z.string(), email: z.string().optional() }).optional(),
+          contact: z
+            .object({
+              name: z.string(),
+              email: z.string().optional(),
+              phone: z.string().optional(),
+            })
+            .optional(),
           createdAt: z.string().optional(),
         })
         .optional(),

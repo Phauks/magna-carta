@@ -104,6 +104,11 @@ export interface ComposeDocument {
     readonly second?: number;
   };
   readonly page?: ComposePage;
+  /**
+   * The colour of the title, the first two levels of heading and every rule, as red, green and
+   * blue from 0 to 255. Omitted, the document is black and gray.
+   */
+  readonly accent?: readonly [number, number, number];
   readonly header?: ComposeRunningLine;
   readonly footer?: ComposeRunningLine;
   readonly blocks: readonly ComposeBlock[];

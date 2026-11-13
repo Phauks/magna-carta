@@ -2,10 +2,11 @@
 
 **Purpose.** Makes a new PDF from content: a title, headings, paragraphs with bold and italic,
 pictures, tables whose heading row repeats on every page, labelled fields, rules, spacing and page
-breaks, with a header and footer line on each page. [`pdf-core`](../pdf-core) works on PDFs that
+breaks, with a header and footer line on each page and an optional accent colour for the title,
+headings and rules. [`pdf-core`](../pdf-core) works on PDFs that
 already exist; this crate is the only place a PDF is written from nothing. Native `rlib`, and a
 WebAssembly module shipped through [`@magna-carta/pdf-compose`](../../packages/pdf-compose/CLAUDE.md).
-Nothing in the product calls either yet.
+The sign Worker composes the Certificate of Completion with it.
 
 ## Key files / entry points
 
@@ -32,6 +33,9 @@ Nothing in the product calls either yet.
   character count or a different shaper drifts off the right margin.
 - **A field added to the model is added in three places:** `model.rs`, `wire.rs`, and the types in
   `packages/pdf-compose/src/index.ts`. The JSON form refuses unknown fields, so a miss fails a test.
+- **Colour is one accent, chosen by the document.** A mark is drawn in an `Ink`: a gray, or the
+  accent with a gray to fall back on. Layout never names a colour, so a document with no accent
+  holds none and one layout serves both.
 - **The output is deterministic.** No clock is read: the creation time is the caller's
   `ComposedDocument::created`. The same model and fonts give the same bytes, and a test holds that.
 

@@ -3,6 +3,7 @@ import { composeDocument, ensureReady as ensureComposerReady } from "@magna-cart
 import {
   assembleCertificateOfCompletion,
   certificateSheet,
+  certificateSheetImages,
   renderCertificateOfCompletion,
   sealDocument,
   type SealRequest,
@@ -73,7 +74,7 @@ export async function performSeal(
   });
 
   await ensureComposerReady(engines.compose);
-  const sheet = await composeDocument(certificateSheet(certificate));
+  const sheet = await composeDocument(certificateSheet(certificate), certificateSheetImages());
   const sealedSheet = await sealDocument({
     pdf: sheet.pdf,
     engine,

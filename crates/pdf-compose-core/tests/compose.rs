@@ -486,6 +486,47 @@ fn the_json_form_composes_the_same_document_as_the_model() {
     );
 }
 
+/// How many pixels of the first page are clearly red.
+fn red_pixels(pdf: &[u8]) -> usize {
+    let page = Document::load(pdf.to_vec())
+        .unwrap()
+        .render_page(0, 72.0, false)
+        .unwrap();
+    page.data
+        .chunks_exact(4)
+        .filter(|pixel| pixel[3] > 200 && pixel[0] > 150 && pixel[1] < 80 && pixel[2] < 80)
+        .count()
+}
+
+#[test]
+fn an_accent_colours_the_title_headings_and_rules_and_nothing_without_one() {
+    let json = |accent: &str| {
+        format!(
+            r#"{{ {accent} "blocks": [
+                {{ "type": "title", "text": "Certificate" }},
+                {{ "type": "rule" }},
+                {{ "type": "heading", "text": "Signers" }},
+                {{ "type": "paragraph", "text": "Body text stays black." }}
+            ] }}"#
+        )
+    };
+    let plain = pdf_compose_core::compose_json(&json(""), &[], &FontFamily::bundled()).unwrap();
+    let coloured = pdf_compose_core::compose_json(
+        &json(r#""accent": [200, 20, 20],"#),
+        &[],
+        &FontFamily::bundled(),
+    )
+    .unwrap();
+    assert_eq!(red_pixels(&plain.pdf), 0);
+    assert!(
+        red_pixels(&coloured.pdf) > 300,
+        "{}",
+        red_pixels(&coloured.pdf)
+    );
+    // The colour changes no position: both documents read the same.
+    assert_eq!(page_texts(&plain.pdf), page_texts(&coloured.pdf));
+}
+
 #[test]
 fn a_json_document_that_is_wrong_is_refused_without_quoting_it() {
     let fonts = FontFamily::bundled();

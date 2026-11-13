@@ -10,6 +10,7 @@ import {
   SIGNING_EVENT_KINDS,
   type AttributionLevel,
   type CertificateOfCompletion,
+  type SignatureAdoption,
   type SignerCompletion,
   type SigningEnvelope,
   type SigningEvent,
@@ -25,21 +26,38 @@ export const ATTRIBUTION_LABEL: Record<AttributionLevel, string> = {
   "email-link": "Tokenized email link (possession)",
 };
 
+/**
+ * The certificate's number as a person reads it: `MC-` and the first twelve characters of the
+ * document hash in three groups. An internal identifier is long and means nothing read aloud; this
+ * one is short, is the same for the same sealed bytes, and leads back to the record by the hash.
+ */
+export function certificateReference(documentHashSha256: string): string {
+  const head = documentHashSha256.slice(0, 12).toUpperCase();
+  return `MC-${head.slice(0, 4)}-${head.slice(4, 8)}-${head.slice(8, 12)}`;
+}
+
 /** What each step of the audit log is called on the certificate. */
 export const SIGNING_EVENT_LABEL: Record<SigningEventKind, string> = {
-  created: "Request created",
-  sent: "Sent for signature",
+  created: "Request Created",
+  sent: "Sent for Signature",
   delivered: "Delivered",
-  reminded: "Reminder sent",
+  reminded: "Reminder Sent",
   viewed: "Viewed",
-  "identity-verified": "Identity verified",
-  consented: "Agreed to sign electronically",
+  "identity-verified": "Identity Verified",
+  consented: "Agreed to Sign Electronically",
   signed: "Signed",
   declined: "Declined",
   reassigned: "Reassigned",
   voided: "Voided",
   completed: "Completed",
-  sealed: "Sealed with the platform certificate",
+  sealed: "Sealed",
+};
+
+/** How a signer made their signature, as the certificate says it. */
+export const ADOPTION_LABEL: Record<SignatureAdoption, string> = {
+  typed: "Typed",
+  drawn: "Drawn",
+  uploaded: "Uploaded image",
 };
 
 /** How the assembled certificate is malformed, if it is. */
@@ -87,11 +105,11 @@ function auditLog(input: {
         kind: "signed",
         at: signer.intent.affirmedAt,
         ...observed,
-        detail: `Signature ${signer.intent.adoption}`,
+        detail: `Signature ${ADOPTION_LABEL[signer.intent.adoption].toLowerCase()}`,
       },
     );
   }
-  derived.push({ kind: "sealed", at: input.sealedAt });
+  derived.push({ kind: "sealed", at: input.sealedAt, detail: "Platform certificate" });
 
   const seen = new Set(input.events.map((event) => `${event.kind}|${event.at}|${event.actor}`));
   const all = [
@@ -138,6 +156,7 @@ export function assembleCertificateOfCompletion(input: {
 }): CertificateOfCompletion {
   const certificate: CertificateOfCompletion = {
     documentHashSha256: input.documentHashSha256.toLowerCase(),
+    reference: certificateReference(input.documentHashSha256),
     sealedAt: input.sealedAt,
     signers: input.signers,
     ...(input.envelope !== undefined ? { envelope: input.envelope } : {}),
@@ -163,13 +182,14 @@ export function renderCertificateOfCompletion(certificate: CertificateOfCompleti
   const lines: string[] = [
     "CERTIFICATE OF COMPLETION",
     "",
+    `Reference: ${certificate.reference}`,
     `Document hash (SHA-256): ${certificate.documentHashSha256}`,
     `Sealed at: ${certificate.sealedAt}`,
     `Signers: ${certificate.signers.length}`,
   ];
   const envelope = certificate.envelope;
   if (envelope !== undefined) {
-    lines.push(`Reference: ${envelope.id}`);
+    lines.push(`Record: ${envelope.id}`);
     if (envelope.title !== undefined) lines.push(`Document: ${envelope.title}`);
     if (envelope.pageCount !== undefined) lines.push(`Pages: ${envelope.pageCount}`);
     if (envelope.sender !== undefined) lines.push(`Sent by: ${partyLine(envelope.sender)}`);

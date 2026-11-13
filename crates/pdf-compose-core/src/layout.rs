@@ -10,6 +10,16 @@ use crate::model::{
 };
 use crate::ComposeError;
 
+/// What a mark is drawn in: a shade of gray, or the document's accent colour where it has one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Ink {
+    /// 0 is black and 255 is white.
+    Gray(u8),
+    /// The document's accent colour. A document with none draws this mark in `fallback` gray,
+    /// so one layout serves both.
+    Accent { fallback: u8 },
+}
+
 /// One thing drawn on a page.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Mark {
@@ -18,7 +28,7 @@ pub(crate) enum Mark {
         baseline: f32,
         face: Face,
         size: f32,
-        gray: u8,
+        ink: Ink,
         text: String,
     },
     /// A horizontal line.
@@ -27,7 +37,7 @@ pub(crate) enum Mark {
         x1: f32,
         y: f32,
         thickness: f32,
-        gray: u8,
+        ink: Ink,
     },
     /// A filled rectangle.
     Fill {
@@ -35,7 +45,7 @@ pub(crate) enum Mark {
         y: f32,
         width: f32,
         height: f32,
-        gray: u8,
+        ink: Ink,
     },
     /// The document's `index`-th image block.
     Image {
@@ -69,48 +79,48 @@ pub(crate) const MAXIMUM_PAGES: usize = 5_000;
 struct TextStyle {
     size: f32,
     line_height: f32,
-    gray: u8,
+    ink: Ink,
 }
 
 const BODY: TextStyle = TextStyle {
     size: 10.5,
     line_height: 15.0,
-    gray: 0,
+    ink: Ink::Gray(0),
 };
 const TITLE: TextStyle = TextStyle {
     size: 20.0,
     line_height: 26.0,
-    gray: 0,
+    ink: Ink::Accent { fallback: 0 },
 };
 const HEADING_ONE: TextStyle = TextStyle {
     size: 15.0,
     line_height: 20.0,
-    gray: 0,
+    ink: Ink::Accent { fallback: 0 },
 };
 const HEADING_TWO: TextStyle = TextStyle {
     size: 12.5,
     line_height: 17.0,
-    gray: 0,
+    ink: Ink::Accent { fallback: 0 },
 };
 const HEADING_THREE: TextStyle = TextStyle {
     size: 10.5,
     line_height: 15.0,
-    gray: 0,
+    ink: Ink::Gray(0),
 };
 const CAPTION: TextStyle = TextStyle {
     size: 9.0,
     line_height: 12.5,
-    gray: 90,
+    ink: Ink::Gray(90),
 };
 const CELL: TextStyle = TextStyle {
     size: 9.5,
     line_height: 13.0,
-    gray: 0,
+    ink: Ink::Gray(0),
 };
 const RUNNING: TextStyle = TextStyle {
     size: 8.5,
     line_height: 11.0,
-    gray: 110,
+    ink: Ink::Gray(110),
 };
 
 const PARAGRAPH_GAP: f32 = 7.0;
@@ -288,7 +298,7 @@ struct ColumnPlan {
     width: f32,
     alignment: Alignment,
     face: Face,
-    gray: u8,
+    ink: Ink,
 }
 
 struct Flow<'a, 'f> {
@@ -382,7 +392,7 @@ impl Flow<'_, '_> {
                     baseline,
                     face: piece.face,
                     size: style.size,
-                    gray: style.gray,
+                    ink: style.ink,
                     text: piece.text.clone(),
                 });
             }
@@ -444,8 +454,8 @@ impl Flow<'_, '_> {
             x0,
             x1,
             y,
-            thickness: 0.75,
-            gray: 150,
+            thickness: 1.0,
+            ink: Ink::Accent { fallback: 150 },
         });
         self.cursor += BLOCK_GAP;
         Ok(())
@@ -547,14 +557,14 @@ impl Flow<'_, '_> {
                 y: top,
                 width,
                 height,
-                gray: 236,
+                ink: Ink::Gray(236),
             });
         }
         for (column, lines) in columns.iter().zip(row) {
             for (offset, line) in lines.iter().skip(first).take(count).enumerate() {
                 let line_top = top + CELL_PADDING_VERTICAL + offset as f32 * CELL.line_height;
                 let style = TextStyle {
-                    gray: column.gray,
+                    ink: column.ink,
                     ..CELL
                 };
                 self.draw_line(
@@ -570,7 +580,7 @@ impl Flow<'_, '_> {
         self.cursor = top + height;
     }
 
-    fn row_rule(&mut self, gray: u8, thickness: f32) {
+    fn row_rule(&mut self, ink: Ink, thickness: f32) {
         let (x0, x1, y) = (
             self.left(),
             self.left() + self.page.content_width(),
@@ -581,7 +591,7 @@ impl Flow<'_, '_> {
             x1,
             y,
             thickness,
-            gray,
+            ink,
         });
     }
 
@@ -617,7 +627,7 @@ impl Flow<'_, '_> {
                     if let Some(heading_row) = heading_row.as_deref() {
                         let count = line_count(heading_row);
                         self.draw_row_slice(columns, heading_row, 0, count, true);
-                        self.row_rule(110, 0.75);
+                        self.row_rule(Ink::Accent { fallback: 110 }, 0.75);
                     }
                     heading_due = false;
                 }
@@ -645,7 +655,7 @@ impl Flow<'_, '_> {
                 }
             }
             if ruled {
-                self.row_rule(205, 0.5);
+                self.row_rule(Ink::Gray(205), 0.5);
             }
         }
         if heading_due {
@@ -653,7 +663,7 @@ impl Flow<'_, '_> {
             if let Some(heading_row) = heading_row.as_deref() {
                 let count = line_count(heading_row);
                 self.draw_row_slice(columns, heading_row, 0, count, true);
-                self.row_rule(110, 0.75);
+                self.row_rule(Ink::Accent { fallback: 110 }, 0.75);
             }
         }
         self.gap(BLOCK_GAP);
@@ -676,7 +686,7 @@ impl Flow<'_, '_> {
                     width: *width,
                     alignment: column.alignment,
                     face: Face::Regular,
-                    gray: 0,
+                    ink: Ink::Gray(0),
                 };
                 x += *width;
                 plan
@@ -755,14 +765,14 @@ impl Flow<'_, '_> {
                 width: label_width,
                 alignment: Alignment::Start,
                 face: Face::Bold,
-                gray: 70,
+                ink: Ink::Gray(70),
             },
             ColumnPlan {
                 x: self.left() + label_width,
                 width: content_width - label_width,
                 alignment: Alignment::Start,
                 face: Face::Regular,
-                gray: 0,
+                ink: Ink::Gray(0),
             },
         ];
         let rows: Vec<Vec<String>> = fields
@@ -808,7 +818,7 @@ fn running_line(
             baseline,
             face: Face::Regular,
             size: RUNNING.size,
-            gray: RUNNING.gray,
+            ink: RUNNING.ink,
             text,
         });
     }

@@ -2961,6 +2961,7 @@ export type DocumentSealResponse = {
     documentHashSha256: string;
     certificate: {
         documentHashSha256: string;
+        reference: string;
         sealedAt: string;
         signers: Array<{
             intent: {
@@ -2988,6 +2989,11 @@ export type DocumentSealResponse = {
             sender?: {
                 name: string;
                 email?: string;
+            };
+            contact?: {
+                name: string;
+                email?: string;
+                phone?: string;
             };
             createdAt?: string;
         };

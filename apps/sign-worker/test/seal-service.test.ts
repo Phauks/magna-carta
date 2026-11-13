@@ -180,10 +180,12 @@ describe("sign worker — platform seal on workerd", () => {
       .flatMap((page) => page.lines.map((line) => line.text))
       .join("\n");
     expect(printed).toContain("Certificate of Completion");
-    expect(printed).toContain("env_0001");
+    expect(printed).toContain(response.certificate.reference);
+    expect(response.certificate.reference).toMatch(/^MC-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/);
+    expect(printed).not.toContain("env_0001");
     expect(printed).toContain("Alice Example");
     expect(printed).toContain("198.51.100.7");
-    expect(printed).toContain("Sent for signature");
+    expect(printed).toContain("Sent for Signature");
     expect(printed).toContain(response.documentHashSha256.slice(0, 32));
   });
 
