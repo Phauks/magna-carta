@@ -21,7 +21,6 @@
   import type { DirectoryNameRole } from "../directory-api.ts";
   import { appendableNameRoles } from "../directory-vocabulary.ts";
   import { blankOtherName, type OtherNameDraft, type PersonNameDraft } from "../person-draft.ts";
-  import SectionHeading from "./section-heading.svelte";
 
   let {
     name = $bindable(),
@@ -91,12 +90,10 @@
   {#each otherNames as other (other.id)}
     {@const roleLabelId = `${identity}-role-${other.id}`}
     <div class="flex flex-col gap-12 border-t border-border-default pt-16">
-      <div class="flex items-end gap-8">
-        <div class="flex min-w-0 flex-auto flex-col gap-4">
-          <SectionHeading label="Other Name" />
-        </div>
+      <!-- The kind's own label names the block, so the block needs no heading of its own. -->
+      <div class="flex items-end justify-between gap-8">
         <div class="flex flex-col gap-8" style="width: 12rem">
-          <Label id={roleLabelId}>Kind</Label>
+          <Label id={roleLabelId}>Other Name</Label>
           <Select.Root
             type="single"
             items={roleItems}

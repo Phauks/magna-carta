@@ -44,7 +44,6 @@
     type IdentifierDraft,
     type IdentifierRow,
   } from "../identifier-draft.ts";
-  import SectionHeading from "./section-heading.svelte";
 
   let {
     rows,
@@ -120,8 +119,6 @@
 </script>
 
 <section class="flex flex-col gap-12">
-  <SectionHeading label="Sealed Identifiers" count={rows.length} />
-
   <ul class="flex flex-col">
     {#each rows as row (row.id)}
       {@const shown = shownValue?.(row) ?? null}

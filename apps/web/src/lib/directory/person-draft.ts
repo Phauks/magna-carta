@@ -9,7 +9,7 @@
  */
 import type { DirectoryEdgeType, DirectoryNameRole, PronounSet } from "./directory-api.ts";
 import type { CreateDirectoryPersonRequest } from "./directory-api.ts";
-import type { ContactDraft } from "./contact-draft.ts";
+import type { ContactDraft, ContactKind } from "./contact-draft.ts";
 import { contactKindLabel, contactRequestsFrom, contactRowFromDraft } from "./contact-draft.ts";
 import { EDGE_TYPES, nameRoleLabel } from "./directory-vocabulary.ts";
 import { formatDate } from "@magna-carta/design-system/formatters";
@@ -220,7 +220,20 @@ function displayName(name: PersonNameDraft): string {
 export interface PersonSummaryLine {
   readonly label: string;
   readonly value: string;
+  /** What kind of fact the line is, so the read-back can mark it: a glyph per kind, not per label. */
+  readonly mark: PersonSummaryMark;
 }
+
+/** The kinds of fact the read-back marks apart. */
+export type PersonSummaryMark =
+  | "name"
+  | "other-name"
+  | ContactKind
+  | "pronouns"
+  | "born"
+  | "died"
+  | "identifier"
+  | "organization";
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -235,36 +248,39 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
    */
   const lines: PersonSummaryLine[] = [];
   const name = displayName(draft.name);
-  if (name !== "") lines.push({ label: "Name", value: name });
+  if (name !== "") lines.push({ label: "Name", value: name, mark: "name" });
   for (const other of filledOtherNames(draft)) {
     const otherName = displayName(other);
-    if (otherName !== "") lines.push({ label: nameRoleLabel(other.nameRole), value: otherName });
+    if (otherName !== "") lines.push({ label: nameRoleLabel(other.nameRole), value: otherName, mark: "other-name" });
   }
   // Ways to reach them first and addresses after, because that is the order of the sections.
   const reach = draft.contacts.filter((contact) => contact.kind !== "address");
   const addresses = draft.contacts.filter((contact) => contact.kind === "address");
   for (const contact of [...reach, ...addresses]) {
     const row = contactRowFromDraft(contact, contact.id);
-    if (row.value !== "") lines.push({ label: contactKindLabel(contact.kind), value: row.value });
+    if (row.value !== "") lines.push({ label: contactKindLabel(contact.kind), value: row.value, mark: contact.kind });
   }
   if (draft.pronouns !== null) {
     lines.push({
       label: "Pronouns",
       value: `${draft.pronouns.subject} / ${draft.pronouns.object} / ${draft.pronouns.possessivePronoun}`,
+      mark: "pronouns",
     });
   }
-  if (draft.dateOfBirth !== "") lines.push({ label: "Born", value: formatDate(draft.dateOfBirth) });
-  if (draft.dateOfDeath !== "") lines.push({ label: "Died", value: formatDate(draft.dateOfDeath) });
+  if (draft.dateOfBirth !== "") lines.push({ label: "Born", value: formatDate(draft.dateOfBirth), mark: "born" });
+  if (draft.dateOfDeath !== "") lines.push({ label: "Died", value: formatDate(draft.dateOfDeath), mark: "died" });
   if (draft.identifiers.length > 0) {
     lines.push({
       label: "Identifiers",
       value: plural(draft.identifiers.length, "sealed", "sealed"),
+      mark: "identifier",
     });
   }
   for (const organization of draft.organizations) {
     lines.push({
       label: organization.role.trim() === "" ? "Organization" : organization.role.trim(),
       value: organization.organizationName,
+      mark: "organization",
     });
   }
   return lines;
