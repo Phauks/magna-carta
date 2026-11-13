@@ -37,6 +37,10 @@ These bind now. The integration shape, rationale, and build findings live in **A
 - **Platform-admin key comparison is constant-time.** `X-Platform-Admin-Key` is compared via SHA-256-folded `timingSafeEqual` (`apps/api-worker/src/constant-time.ts`) so neither content nor length leaks through timing; the secret guard itself is a named seam until a real platform-admin principal model exists (ADR-0073).
 - **Dead-lettered outbox rows are revived by the requeue statement.** The relay marks a row `status='failed'` (dead-letter) terminally after max attempts — nothing re-dispatches it automatically. Recovery is an operator action: `requeueDeadLetteredMessageStatement` (`@magna-carta/data-access/outbox-statements`) flips a failed row back to `pending` (attempts reset) so the next sweep retries it. The guarded UPDATE only ever revives a genuinely failed row. A self-service admin surface is a later slice.
 
+## A public repository
+
+The repository is public (since 2026-11-13; licence: all rights reserved). Everything committed, including history, branch names, pull-request text and fixtures, is readable by anyone. Never commit a secret, a personal email address, a home or office IP address, or real client data; fixtures use invented names and reserved example domains. A secret that reaches a commit is rotated, not just removed, because history keeps it.
+
 ## Supply chain — what may enter the tree, and on what terms
 
 Four gates, none of which needs a third-party service: the firm keeps its own dependency metadata on

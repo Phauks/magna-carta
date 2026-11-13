@@ -36,7 +36,7 @@ note said before it was edited, and nothing is left behind when one is deleted b
 carrying identifiers. A note is therefore weaker evidence of what the firm knew and when than the
 first model made it. That trade was put to the owner with the scenarios spelled out and reaffirmed;
 the superseded reasoning is kept in
-`docs/decisions/pending/a-note-is-corrected-by-revision-and-retracted-never-deleted.md` rather than
+`docs/decisions/0342-a-note-is-corrected-by-revision-and-retracted-never-deleted.md` rather than
 deleted, because the position was really taken.
 
 ## Invariants that apply here

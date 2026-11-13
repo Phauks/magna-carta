@@ -11,7 +11,9 @@ product, whether it honors rulings already issued, and whether it is actually fi
 
 ## Read first
 
-1. `docs/conventions/design-corrections.md` — the owner's standing rulings. **Check every one.** A
+1. `docs/conventions/design-corrections.md`, the _Standing rules_ section — the owner's rulings
+   for every surface, plus the per-surface ledger it links for this screen, if any. Check each rule
+   that applies to what was built; search the dated log below the section for this surface. A
    correction the owner already issued, reappearing in new work, is your highest-severity finding.
 2. `docs/specs/2026-06-12-design-language.md` — personality, color, type, space, motion, and where
    identity is permitted.
