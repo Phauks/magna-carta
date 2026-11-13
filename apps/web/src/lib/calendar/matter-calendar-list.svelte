@@ -333,8 +333,7 @@
         {overdue === 1 ? "One Deadline Is Past Due" : `${overdue} Deadlines Are Past Due`}
       </Alert.Title>
       <Alert.Description>
-        Past due is worked out against each deadline's own time zone, at the moment this page was
-        read. A deadline that has been met is marked satisfied and stops counting here.
+        Past due uses each deadline's own time zone. A deadline marked as met no longer counts here.
       </Alert.Description>
     </Alert.Root>
   {/if}

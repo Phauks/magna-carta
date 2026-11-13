@@ -88,7 +88,7 @@ export function emptyGroupLine(skipped: SearchSkipReason | null, sourceKey?: str
     case "not-indexed":
       // The firm's own choice, so it is said as one and not as a fault, with where it is made:
       // the Search and Indexing settings page is the one place that writes it.
-      return "Searching the text inside files is turned off for this firm. An administrator can turn it on in Settings, under Search and Indexing.";
+      return "Searching inside files is turned off for this firm. An administrator can turn it on in Settings, under Search and Indexing.";
     case null:
       return "No matches";
   }

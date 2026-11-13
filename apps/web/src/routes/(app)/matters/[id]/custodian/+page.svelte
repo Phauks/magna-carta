@@ -121,8 +121,7 @@
     <Alert.Root variant="info">
       <Alert.Title>No Custody Register On A Sample Matter</Alert.Title>
       <Alert.Description>
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so there is no register to read.
+        This is a sample matter for previewing screens. It has no items in custody.
       </Alert.Description>
     </Alert.Root>
   {:else}
@@ -135,9 +134,7 @@
       emptyTitle="Nothing In Custody For This Matter"
     >
       {#snippet emptyBody()}
-        Physical originals a firm holds are anchored to the person they belong to, not to a file, so
-        most of what the firm holds for this client will not be linked here. The firm's whole
-        register answers the question either way.
+        Physical originals are linked to the person they belong to, not to a matter, so most of what the firm holds for this client won't appear here. Check the firm's full register.
       {/snippet}
     </PacketRegister>
   {/if}

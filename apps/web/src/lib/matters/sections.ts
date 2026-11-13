@@ -351,9 +351,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: ["matterEvent", "matterDeadline"],
     label: "Calendar",
     stage: "alpha",
-    description:
-      "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
-      "person, read in its own time zone, and reports when it has passed.",
+    description: "Hearings, depositions and deadlines on this matter, each in its own time zone.",
     searchSource: "calendar",
     // An event and a deadline are two kinds, so the control reads "New" and the menu names them.
     createNoun: CREATE_SEVERAL_KINDS,

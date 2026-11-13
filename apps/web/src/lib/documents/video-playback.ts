@@ -58,10 +58,7 @@ export function cannotPlaySentence(cause: CannotPlayCause, convertible = false):
 export function conversionSentence(status: PlayableCopyStatus): string | null {
   switch (status.state) {
     case "pending":
-      return (
-        "Converting to MP4. A long recording takes a few minutes. You can leave this page: the " +
-        "MP4 is saved beside the original when it is done."
-      );
+      return "Converting to MP4. Long recordings take a few minutes. You can leave this page; the MP4 is saved beside the original when it's done.";
     case "ready":
       return "The MP4 is saved beside the original in the same folder.";
     case "unavailable":
@@ -73,10 +70,7 @@ export function conversionSentence(status: PlayableCopyStatus): string | null {
         case "source-missing":
           return "It could not be converted: the original's contents could not be found.";
         default:
-          return (
-            "It could not be converted: its picture or sound is in a format the converter does not " +
-            "read yet, such as ProRes, MPEG-2 or Windows Media."
-          );
+          return "It couldn't be converted because its video or audio format isn't supported yet, such as ProRes, MPEG-2 or Windows Media.";
       }
     default:
       return null;

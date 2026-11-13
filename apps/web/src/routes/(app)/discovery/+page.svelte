@@ -179,7 +179,7 @@
       bind:reread={rereadRegister}
       onOpen={(reviewSetId) => void goto(`/discovery/review-sets/${reviewSetId}`)}
       onRows={(rows) => void nameMatters(rows)}
-      caption="Every review set you can reach"
+      caption="All review sets you can access"
       emptyTitle="Nothing Is Open To You Yet"
     >
       {#snippet emptyBody()}

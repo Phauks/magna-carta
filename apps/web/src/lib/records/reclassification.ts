@@ -194,14 +194,10 @@ export function carryFacts(
 export function keptNumberNote(entryNumber: string | null): string {
   return entryNumber === null
     ? "The entry number is kept, and the move is recorded on the record's history."
-    : `The entry number stays ${entryNumber}; the move is recorded on its history.`;
+    : `The entry number stays ${entryNumber}; the move is recorded in its history.`;
 }
 
 /** The hover a moved record's number carries, wherever that number appears. */
 export function movedNumberTitle(fromRecordName: string): string {
-  return (
-    `Kept from this record's time on the ${fromRecordName} ledger, so its shape records where it ` +
-    "was first written down rather than what it is now. A reference that changes is a reference " +
-    "that lies."
-  );
+  return `Kept from when this was on the ${fromRecordName} ledger, so the number shows where it was first recorded. Numbers never change once given.`;
 }

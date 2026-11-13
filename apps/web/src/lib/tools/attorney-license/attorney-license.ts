@@ -104,9 +104,7 @@ const ENCRYPTED_ENTRY: ConnectionEntry = {
 const UNENCRYPTED_ENTRY: ConnectionEntry = {
   label: CONNECTION_UNENCRYPTED,
   meaning:
-    "This state publishes its register over plain HTTP. The lawyer you search for there, and what " +
-    "comes back, can be read by anything on the network between you and the register. It is still " +
-    "the authority on that lawyer's standing.",
+    "This state's lawyer register uses an insecure connection, so your search and its results could be seen by others on the network. It's still the official record of the lawyer's standing.",
 };
 
 /** How a row's register is served, and what that means. */

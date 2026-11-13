@@ -39,7 +39,7 @@ export const SCAN_TIER_DEFINITION: SettingDefinition = {
   sectionId: FILE_SAFETY_SECTION_ID,
   plateLabel: "What Is Scanned",
   label: SCAN_DEPTH_LABEL,
-  description: "How much of the engine's rule set an upload is checked against.",
+  description: "How many malware rules each upload is checked against.",
   kind: "select",
   // The option is its word and nothing else (owner ruling): what a depth MEANS is said beneath the
   // engine that runs it, revealed by the choice — scanTierMeaning below — never welded into the
@@ -72,9 +72,9 @@ export function scanTierMeaning(tier: ScanTier): string {
     case "core":
       return "The high-confidence rules that catch known malware.";
     case "extended":
-      return "Core, plus the broader threat rules: thousands more high-confidence malware rules, and heuristic suspicious-pattern rules that count only at or above the suspicion threshold.";
+      return "Core, plus thousands more high-confidence malware rules and suspicious-pattern rules above the threshold.";
     case "full":
-      return "Every rule the engine carries, including the noisiest.";
+      return "Every rule, including the noisiest.";
   }
 }
 
@@ -106,7 +106,7 @@ export function scanTierRulesDefinition(tier: ScanTier): SettingDefinition {
 
 /** What the rule-family list waits on, said beside its Soon mark. */
 export const SCAN_TIER_RULES_SOON_LINE =
-  "The rule families at each depth are listed here once the engine reports them.";
+  "The rule groups for each level appear here once the scanner reports them.";
 
 /** The engraved row for the engine itself: what every upload is scanned by, as it reports itself. */
 export const SCAN_ENGINE_DEFINITION: SettingDefinition = {
@@ -114,7 +114,7 @@ export const SCAN_ENGINE_DEFINITION: SettingDefinition = {
   sectionId: FILE_SAFETY_SECTION_ID,
   plateLabel: "What Is Scanned",
   label: "Scan Engine",
-  description: "The engine every upload is scanned by, as it reports itself.",
+  description: "The scanner that checks every upload, and its version.",
   kind: "text",
   defaultValue: "",
   sensitivity: "open",

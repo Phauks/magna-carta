@@ -66,7 +66,7 @@
 
   {#if attempted && summary.ready && warnings.length === 0}
     <Alert.Root variant="success">
-      <Alert.Title>Every field this template needs has a value.</Alert.Title>
+      <Alert.Title>All fields in this template have a value.</Alert.Title>
     </Alert.Root>
   {/if}
 </div>
