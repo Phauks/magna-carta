@@ -174,7 +174,7 @@ they still need to look better, so their styling is expected to change.
 | R2.3 | **Magnus wears the product's M.** The blackletter letter of the brand mark, gold on the chrome ink, is its mark in the conversation.                                                                                                              | settled |
 | R2.4 | **Copy on every message**, members' and Magnus's alike.                                                                                                                                                                                           | settled |
 | R2.5 | **Edit and delete one's own message.** Editing re-asks from that point; deleting leaves a marker that something was removed. Built as hide-but-keep: neither act erases, because a transcript is erased only whole (`packages/magnus/CLAUDE.md`). | settled |
-| R2.6 | **Search within a conversation and within an artifact.**                                                                                                                                                                                          | open    |
+| R2.6 | **Search within a conversation and within an artifact.** Within a conversation: built as Find in Conversation in the conversation's menu, stepping between matching messages. Within an artifact: waits for artifacts.                            | open    |
 
 ### Citations
 
