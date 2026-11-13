@@ -6,7 +6,7 @@ use krilla::geom::{PathBuilder, Point, Rect, Size, Transform};
 use krilla::image::Image;
 use krilla::metadata::{DateTime, Metadata};
 use krilla::page::PageSettings;
-use krilla::paint::Fill;
+use krilla::paint::{Fill, Stroke};
 use krilla::surface::Surface;
 use krilla::text::{Font, TextDirection};
 use krilla::{Data, Document};
@@ -83,6 +83,55 @@ fn fill_rectangle(
     if let Some(path) = builder.finish() {
         surface.set_fill(paint);
         surface.draw_path(&path);
+    }
+}
+
+/// Stroke the outline of a rectangle whose corners are quarter circles of `radius`.
+fn stroke_rounded_rectangle(
+    surface: &mut Surface,
+    (x, y, width, height): (f32, f32, f32, f32),
+    radius: f32,
+    thickness: f32,
+    paint: Option<Fill>,
+) {
+    let Some(paint) = paint else {
+        return;
+    };
+    if width <= 0.0 || height <= 0.0 {
+        return;
+    }
+    let radius = radius.clamp(0.0, width.min(height) / 2.0);
+    // The distance from a corner's end to its control point that makes a cubic curve follow a
+    // quarter circle.
+    let handle = radius * 0.447_715_25;
+    let (right, bottom) = (x + width, y + height);
+    let mut builder = PathBuilder::new();
+    builder.move_to(x + radius, y);
+    builder.line_to(right - radius, y);
+    builder.cubic_to(right - handle, y, right, y + handle, right, y + radius);
+    builder.line_to(right, bottom - radius);
+    builder.cubic_to(
+        right,
+        bottom - handle,
+        right - handle,
+        bottom,
+        right - radius,
+        bottom,
+    );
+    builder.line_to(x + radius, bottom);
+    builder.cubic_to(x + handle, bottom, x, bottom - handle, x, bottom - radius);
+    builder.line_to(x, y + radius);
+    builder.cubic_to(x, y + handle, x + handle, y, x + radius, y);
+    builder.close();
+    if let Some(path) = builder.finish() {
+        surface.set_fill(None);
+        surface.set_stroke(Some(Stroke {
+            paint: paint.paint,
+            width: thickness,
+            ..Stroke::default()
+        }));
+        surface.draw_path(&path);
+        surface.set_stroke(None);
     }
 }
 
@@ -207,6 +256,21 @@ pub(crate) fn render(
                     height,
                     ink,
                 } => fill_rectangle(&mut surface, *x, *y, *width, *height, fill(*ink, accent)),
+                Mark::Frame {
+                    x,
+                    y,
+                    width,
+                    height,
+                    radius,
+                    thickness,
+                    ink,
+                } => stroke_rounded_rectangle(
+                    &mut surface,
+                    (*x, *y, *width, *height),
+                    *radius,
+                    *thickness,
+                    fill(*ink, accent),
+                ),
                 Mark::Image {
                     index,
                     x,

@@ -693,3 +693,81 @@ fn the_named_typeface_is_the_family_the_library_bundles_for_it() {
         .missing_characters
         .is_empty());
 }
+
+#[test]
+fn a_card_frames_its_blocks_and_carries_on_over_a_page_break() {
+    let json = |open: &str, close: &str, rows: usize| {
+        let row = r#"["2026-03-01", "Signed", "Maria Rivera"]"#;
+        format!(
+            r#"{{ "blocks": [{open}
+                {{ "type": "table",
+                  "columns": [{{ "heading": "Time" }}, {{ "heading": "Event" }}, {{ "heading": "By" }}],
+                  "rows": [{}] }}{close}] }}"#,
+            vec![row; rows].join(",")
+        )
+    };
+    let (open, close) = (
+        r#"{ "type": "cardStart", "title": "Audit Log" },"#,
+        r#", { "type": "cardEnd" }"#,
+    );
+    let fonts = FontFamily::bundled();
+    let bare = pdf_compose_core::compose_json(&json("", "", 6), &[], &fonts).unwrap();
+    let carded = pdf_compose_core::compose_json(&json(open, close, 6), &[], &fonts).unwrap();
+    assert!(page_texts(&carded.pdf)[0].contains("Audit Log"));
+    // The frame's left edge runs down the margin for the height of the card; without a card
+    // only the table's shaded heading reaches it. The page is 612 pixels wide at 72 to the inch
+    // and its margin is 72.
+    let edge = |pdf: &[u8]| {
+        let page = Document::load(pdf.to_vec())
+            .unwrap()
+            .render_page(0, 72.0, false)
+            .unwrap();
+        page.data
+            .chunks_exact(4)
+            .enumerate()
+            .filter(|(index, pixel)| {
+                (70..75).contains(&(index % 612)) && pixel[3] > 200 && pixel[0] < 250
+            })
+            .count()
+    };
+    assert!(
+        edge(&carded.pdf) > edge(&bare.pdf) + 100,
+        "{} against {}",
+        edge(&carded.pdf),
+        edge(&bare.pdf)
+    );
+    // The frame does not hold a long table to one page, and a card never closed is closed.
+    let long = pdf_compose_core::compose_json(&json(open, "", 120), &[], &fonts).unwrap();
+    let pages = page_texts(&long.pdf);
+    assert!(pages.len() >= 2, "{}", pages.len());
+    assert_eq!(pages.join("\n").matches("Maria Rivera").count(), 120);
+    assert_eq!(pages.join("\n").matches("Audit Log").count(), 1);
+}
+
+#[test]
+fn fields_set_two_up_take_half_the_rows_and_read_down_each_column() {
+    let json = |two_up: bool| {
+        let fields: Vec<String> = (1..=60)
+            .map(|number| format!(r#"{{ "label": "Label {number}", "value": "Value {number}" }}"#))
+            .collect();
+        format!(
+            r#"{{ "blocks": [{{ "type": "fields", "twoUp": {two_up}, "fields": [{}] }}] }}"#,
+            fields.join(",")
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let single = pdf_compose_core::compose_json(&json(false), &[], &fonts).unwrap();
+    let double = pdf_compose_core::compose_json(&json(true), &[], &fonts).unwrap();
+    assert_eq!(page_texts(&single.pdf).len(), 2);
+    let pages = page_texts(&double.pdf);
+    assert_eq!(pages.len(), 1);
+    for number in 1..=60 {
+        assert!(pages[0].contains(&format!("Value {number}")), "{number}");
+    }
+    // The first row holds the first field and the one that opens the second column.
+    let first_row = pages[0].lines().next().unwrap_or_default();
+    assert!(
+        first_row.contains("Value 1") && first_row.contains("Value 31"),
+        "{first_row}"
+    );
+}

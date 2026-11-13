@@ -59,7 +59,7 @@ describe("certificateSheet", () => {
     expect(certificateSheet(certificate(), { typeface: "liberationSans" }).typeface).toBe(
       "liberationSans",
     );
-    expect(sheet.blocks[0]).toEqual({ type: "heading", level: 1, text: "Summary" });
+    expect(sheet.blocks[0]).toEqual({ type: "cardStart", title: "Summary" });
     // A number a person can read out, never the request's internal identifier.
     expect(sheet.letterhead.detail).toMatch(/^MC(-[0-9A-F]{4}){3}$/);
     expect(JSON.stringify(sheet)).not.toContain("env_0001");
@@ -100,7 +100,19 @@ describe("certificateSheet", () => {
     expect(sheet.accent).toEqual([98, 72, 0]);
     // Close rows are what let the first page hold eight signers under the letterhead.
     expect(sheet.compact).toBe(true);
-    expect(sheet.page).toEqual({ paper: "letter", marginTop: 92, marginBottom: 54 });
+    // Half an inch from every edge of the paper: the sides, the letterhead's bar (which takes
+    // 60 points above the content) and the page number (28 below it).
+    expect(sheet.page).toEqual({
+      paper: "letter",
+      marginTop: 96,
+      marginRight: 36,
+      marginBottom: 64,
+      marginLeft: 36,
+    });
+    expect(certificateSheet(certificate(), { paper: "a4" }).page).toEqual({
+      ...sheet.page,
+      paper: "a4",
+    });
     expect(sheet.created).toEqual({
       year: 2026,
       month: 7,
@@ -132,13 +144,13 @@ describe("certificateSheet", () => {
 
   it("lists what was signed in a section of its own, between the summary and the signers", () => {
     const blocks = certificateSheet(certificate()).blocks;
-    const headings = blocks.flatMap((block) =>
-      block.type === "heading" && block.level === 1 ? [block.text] : [],
-    );
-    expect(headings.slice(0, 3)).toEqual(["Summary", "Documents", "Signers"]);
+    // Each section of the first page is a card with its name as the title.
+    const cards = blocks.flatMap((block) => (block.type === "cardStart" ? [block.title] : []));
+    expect(cards.slice(0, 4)).toEqual(["Summary", "Documents", "Signers", "Contact"]);
+    expect(blocks.filter((block) => block.type === "cardEnd")).toHaveLength(cards.length);
     const documents =
       blocks[
-        blocks.findIndex((block) => block.type === "heading" && block.text === "Documents") + 1
+        blocks.findIndex((block) => block.type === "cardStart" && block.title === "Documents") + 1
       ];
     expect(
       documents?.type === "fields" ? documents.fields.map((field) => field.label) : [],
@@ -171,7 +183,13 @@ describe("certificateSheet", () => {
   it("starts the signer details and the audit log each on a page of their own", () => {
     const blocks = certificateSheet(certificate()).blocks;
     const before = (text: string) =>
-      blocks[blocks.findIndex((block) => block.type === "heading" && block.text === text) - 1];
+      blocks[
+        blocks.findIndex(
+          (block) =>
+            (block.type === "heading" && block.text === text) ||
+            (block.type === "cardStart" && block.title === text),
+        ) - 1
+      ];
     expect(before("Signer Details")).toEqual({ type: "pageBreak" });
     expect(before("Audit Log")).toEqual({ type: "pageBreak" });
   });
@@ -194,21 +212,21 @@ describe("certificateSheet", () => {
       })),
     });
 
-    // Each section page: a page break, its heading, then what the page holds.
+    // Each section page: a page break, its heading or titled card, then what the page holds.
     const pages: { heading: string; signers: string[]; rows: number }[] = [];
     for (const [index, block] of sheet.blocks.entries()) {
-      if (block.type === "heading" && block.level === 1 && index > 0) {
-        if (sheet.blocks[index - 1]?.type !== "pageBreak") continue;
+      const opensPage = sheet.blocks[index - 1]?.type === "pageBreak";
+      if (block.type === "heading" && opensPage) {
         pages.push({ heading: block.text, signers: [], rows: 0 });
-      } else if (block.type === "heading" && block.level === 2) {
-        pages.at(-1)?.signers.push(block.text);
+      } else if (block.type === "cardStart" && opensPage) {
+        pages.push({ heading: block.title ?? "", signers: [], rows: 0 });
+      } else if (block.type === "cardStart" && pages.length > 0) {
+        pages.at(-1)?.signers.push(block.title ?? "");
       } else if (block.type === "table" && pages.length > 0) {
         const page = pages.at(-1);
         if (page !== undefined) page.rows += block.rows.length;
       }
     }
-    // A line parts the two signers of a page; a signer alone on a page has none.
-    expect(sheet.blocks.filter((block) => block.type === "rule")).toHaveLength(2);
     expect(pages).toEqual([
       { heading: "Signer Details (1 of 3)", signers: ["Signer 1", "Signer 2"], rows: 0 },
       { heading: "Signer Details (2 of 3)", signers: ["Signer 3", "Signer 4"], rows: 0 },
@@ -221,6 +239,22 @@ describe("certificateSheet", () => {
     ]);
   });
 
+  it("fills an A4 page of the audit log further than a Letter page, which is shorter", () => {
+    const events = Array.from({ length: 60 }, () => ({
+      kind: "viewed" as const,
+      at: "2026-07-18T11:58:00Z",
+    }));
+    const firstLogPage = (paper: "letter" | "a4") => {
+      const tables = certificateSheet({ ...certificate(), events }, { paper }).blocks.filter(
+        (block) => block.type === "table",
+      );
+      const log = tables[1];
+      return log?.type === "table" ? log.rows.length : 0;
+    };
+    expect(firstLogPage("letter")).toBe(34);
+    expect(firstLogPage("a4")).toBe(37);
+  });
+
   it("says who to ask: the firm about the document, the platform about the certificate", () => {
     const contact = (sheet: ReturnType<typeof certificateSheet>) =>
       sheet.blocks.flatMap((block) =>
@@ -230,7 +264,7 @@ describe("certificateSheet", () => {
       );
     // With no firm contact the sender answers for the document, and the platform is named.
     const plain = certificateSheet(certificate());
-    expect(plain.blocks).toContainEqual({ type: "heading", level: 2, text: "Contact" });
+    expect(plain.blocks).toContainEqual({ type: "cardStart", title: "Contact" });
     expect(contact(plain)).toEqual([
       "Document: Bob Sender, bob@example.test",
       "Certificate of Completion: Magna Carta",

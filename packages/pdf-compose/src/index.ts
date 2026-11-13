@@ -94,7 +94,15 @@ export type ComposeBlock =
          */
         readonly grid?: boolean;
       }[];
+      /** Two columns side by side, read down the first and then down the second. */
+      readonly twoUp?: boolean;
     }
+  /**
+   * Opens a card: a rounded frame around the blocks up to the next `cardEnd`, with an optional
+   * title inside it over a rule. A card carries on over a page break and cards do not nest.
+   */
+  | { readonly type: "cardStart"; readonly title?: string }
+  | { readonly type: "cardEnd" }
   | { readonly type: "rule" }
   | { readonly type: "space"; readonly height: number }
   | { readonly type: "pageBreak" };

@@ -43,6 +43,15 @@ The sign Worker composes the Certificate of Completion with it.
   `letterhead` band are marks pushed onto each finished page, drawn in the margins, so they never
   move the content; the caller sizes the top margin for the band. The letterhead's picture takes the
   position after the last image block in the list layout and render both read.
+- **A card is a pair of marker blocks, not a container.** `CardStart` narrows the page by the
+  card's padding and `CardEnd` restores it and draws the frame (`Mark::Frame`, the one stroked
+  mark), so every block lays out inside a card with the code it already has and pictures keep their
+  positions in the image list. A card that reaches the foot of a page is framed there and opened
+  again on the next. `Flow::trailing_gap` is what lets the frame close at its own padding under
+  the last block: `gap` adds to it and `mark` clears it, so push a frame onto the page directly.
+- **Under a letterhead the footer is measured from the content**, `Letterhead::FOOTER_HEIGHT`
+  below it, as the band above is `Letterhead::HEIGHT`. A caller sets the top and bottom margins to
+  those plus one distance from the paper's edge and the bar and the page number land that far in.
 - **A grid is asked for by the model, never by the text.** `Field::grid` sets a value's words in
   columns of one width. Layout marks such a cell with a control character that `clean` strips from
   anything a caller supplies.

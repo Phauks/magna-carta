@@ -48,6 +48,16 @@ pub(crate) enum Mark {
         height: f32,
         ink: Ink,
     },
+    /// The outline of a rectangle with rounded corners.
+    Frame {
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        radius: f32,
+        thickness: f32,
+        ink: Ink,
+    },
     /// The document's `index`-th image block.
     Image {
         index: usize,
@@ -351,7 +361,30 @@ struct ColumnPlan {
     ink: Ink,
 }
 
+/// The space between a card's frame and what it holds.
+const CARD_PADDING: f32 = 10.0;
+const CARD_RADIUS: f32 = 6.0;
+const CARD_GAP: f32 = 12.0;
+const CARD_TITLE: TextStyle = TextStyle {
+    size: 11.5,
+    line_height: 15.0,
+    ink: Ink::Accent { fallback: 0 },
+};
+const CARD_EDGE: Ink = Ink::Gray(196);
+
+/// A card whose frame is not drawn yet.
+struct OpenCard {
+    /// The page as it was before the card narrowed it.
+    outer: PageSetup,
+    /// Where the frame starts on the current page.
+    top: f32,
+}
+
 struct Flow<'a, 'f> {
+    card: Option<OpenCard>,
+    /// The gap most recently added below a block, with nothing drawn since: what a card takes
+    /// back so its frame closes at its own padding under the last block.
+    trailing_gap: f32,
     page: PageSetup,
     measurer: &'a mut Measurer<'f>,
     pages: Vec<LaidPage>,
@@ -386,9 +419,87 @@ impl Flow<'_, '_> {
         if self.pages.len() >= MAXIMUM_PAGES {
             return Err(ComposeError::TooLong);
         }
+        // A card that runs off the page is closed at its foot and opened again at the top
+        // of the next, without its title.
+        self.frame_card();
         self.pages.push(LaidPage::default());
         self.cursor = self.top();
+        self.trailing_gap = 0.0;
+        if let Some(card) = self.card.as_mut() {
+            card.top = card.outer.margin_top;
+        }
         Ok(())
+    }
+
+    /// Draw the open card's frame on the current page, from where it started to just under
+    /// the last thing drawn in it.
+    fn frame_card(&mut self) {
+        let Some(card) = self.card.as_ref() else {
+            return;
+        };
+        let outer = card.outer;
+        let top = card.top;
+        let foot = outer.height - outer.margin_bottom;
+        let bottom = (self.cursor - self.trailing_gap + CARD_PADDING).min(foot);
+        if bottom - top > 2.0 * CARD_PADDING {
+            // Pushed directly: `mark` would forget the trailing gap the caller still needs.
+            if let Some(page) = self.pages.last_mut() {
+                page.marks.push(Mark::Frame {
+                    x: outer.margin_left,
+                    y: top,
+                    width: outer.content_width(),
+                    height: bottom - top,
+                    radius: CARD_RADIUS,
+                    thickness: 0.75,
+                    ink: CARD_EDGE,
+                });
+            }
+        }
+    }
+
+    fn open_card(&mut self, title: Option<&str>) -> Result<(), ComposeError> {
+        self.close_card();
+        self.gap(CARD_GAP);
+        // A card starts where its title and a few rows of what it holds will fit.
+        self.ensure(2.0 * CARD_PADDING + CARD_TITLE.line_height + 3.0 * CELL.line_height)?;
+        let outer = self.page;
+        let top = self.cursor;
+        self.page.margin_left += CARD_PADDING;
+        self.page.margin_right += CARD_PADDING;
+        self.page.margin_top += CARD_PADDING;
+        self.page.margin_bottom += CARD_PADDING;
+        self.card = Some(OpenCard { outer, top });
+        self.cursor = top + CARD_PADDING;
+        self.trailing_gap = 0.0;
+        if let Some(title) = title.filter(|title| !title.trim().is_empty()) {
+            let lines = break_lines(
+                self.measurer,
+                &plain(Face::Bold, title),
+                CARD_TITLE.size,
+                self.page.content_width(),
+            );
+            self.flow_lines(&lines, Alignment::Start, CARD_TITLE)?;
+            let y = self.cursor + 5.0;
+            self.mark(Mark::Rule {
+                x0: outer.margin_left,
+                x1: outer.width - outer.margin_right,
+                y,
+                thickness: 0.5,
+                ink: CARD_EDGE,
+            });
+            self.cursor = y + 6.0;
+        }
+        Ok(())
+    }
+
+    fn close_card(&mut self) {
+        self.frame_card();
+        if let Some(card) = self.card.take() {
+            let foot = card.outer.height - card.outer.margin_bottom;
+            self.cursor = (self.cursor - self.trailing_gap + CARD_PADDING).min(foot);
+            self.page = card.outer;
+            self.trailing_gap = 0.0;
+        }
     }
 
     /// Start a new page unless `height` fits on this one. A block taller than a whole page
@@ -401,6 +512,7 @@ impl Flow<'_, '_> {
     }
 
     fn mark(&mut self, mark: Mark) {
+        self.trailing_gap = 0.0;
         if let Some(page) = self.pages.last_mut() {
             page.marks.push(mark);
         }
@@ -410,7 +522,9 @@ impl Flow<'_, '_> {
     /// first block down.
     fn gap(&mut self, height: f32) {
         if !self.at_top() {
-            self.cursor = (self.cursor + height).min(self.bottom());
+            let next = (self.cursor + height).min(self.bottom());
+            self.trailing_gap += next - self.cursor;
+            self.cursor = next;
         }
     }
 
@@ -815,50 +929,84 @@ impl Flow<'_, '_> {
         asks.iter().map(|ask| ask * scale).collect()
     }
 
-    fn fields(&mut self, fields: &[Field]) -> Result<(), ComposeError> {
-        if fields.is_empty() {
-            return Ok(());
-        }
-        let content_width = self.page.content_width();
-        let mut label_width = 0.0f32;
+    /// The widest label of `fields`, as the width of a label column no wider than `limit`.
+    fn label_width(&mut self, fields: &[Field], limit: f32) -> f32 {
+        let mut widest = 0.0f32;
         for field in fields {
-            label_width = label_width.max(self.measurer.width(
-                Face::Bold,
-                CELL.size,
-                &clean(&field.label),
-            ));
+            widest = widest.max(
+                self.measurer
+                    .width(Face::Bold, CELL.size, &clean(&field.label)),
+            );
         }
-        let label_width = (label_width + 2.0 * CELL_PADDING_HORIZONTAL + 8.0)
-            .clamp(MINIMUM_COLUMN_WIDTH, content_width * 0.38);
-        let columns = [
+        (widest + 2.0 * CELL_PADDING_HORIZONTAL + 8.0).clamp(MINIMUM_COLUMN_WIDTH, limit)
+    }
+
+    /// A label column and a value column filling `[x, x + width]`.
+    fn field_columns(&mut self, fields: &[Field], x: f32, width: f32) -> [ColumnPlan; 2] {
+        let label_width = self.label_width(fields, width * 0.38);
+        [
             ColumnPlan {
-                x: self.left(),
+                x,
                 width: label_width,
                 alignment: Alignment::Start,
                 face: Face::Bold,
                 ink: Ink::Gray(70),
             },
             ColumnPlan {
-                x: self.left() + label_width,
-                width: content_width - label_width,
+                x: x + label_width,
+                width: width - label_width,
                 alignment: Alignment::Start,
                 face: Face::Regular,
                 ink: Ink::Gray(0),
             },
-        ];
-        let rows: Vec<Vec<String>> = fields
-            .iter()
-            .map(|field| {
-                let value = if field.grid {
-                    format!("{GRID_MARK}{}", field.value)
-                } else {
-                    field.value.clone()
-                };
-                vec![field.label.clone(), value]
-            })
-            .collect();
+        ]
+    }
+
+    fn fields(&mut self, fields: &[Field]) -> Result<(), ComposeError> {
+        if fields.is_empty() {
+            return Ok(());
+        }
+        let columns = self.field_columns(fields, self.left(), self.page.content_width());
+        let rows: Vec<Vec<String>> = fields.iter().map(field_cells).collect();
         self.rows(&columns, None, &rows, RowLines::None)
     }
+
+    /// Fields in two columns, read down the first and then down the second. Each half has a
+    /// label column sized to its own labels.
+    fn fields_two_up(&mut self, fields: &[Field]) -> Result<(), ComposeError> {
+        if fields.len() < 2 {
+            return self.fields(fields);
+        }
+        let (first, second) = fields.split_at(fields.len().div_ceil(2));
+        let half = self.page.content_width() / 2.0;
+        let left = self.field_columns(first, self.left(), half);
+        let right = self.field_columns(second, self.left() + half, half);
+        let rows: Vec<Vec<String>> = first
+            .iter()
+            .enumerate()
+            .map(|(index, field)| {
+                let mut cells = field_cells(field);
+                match second.get(index) {
+                    Some(beside) => cells.extend(field_cells(beside)),
+                    None => cells.extend([String::new(), String::new()]),
+                }
+                cells
+            })
+            .collect();
+        let [a, b] = left;
+        let [c, d] = right;
+        self.rows(&[a, b, c, d], None, &rows, RowLines::None)
+    }
+}
+
+/// A field as its row's two cells.
+fn field_cells(field: &Field) -> Vec<String> {
+    let value = if field.grid {
+        format!("{GRID_MARK}{}", field.value)
+    } else {
+        field.value.clone()
+    };
+    vec![field.label.clone(), value]
 }
 
 fn running_line(
@@ -1036,6 +1184,8 @@ pub(crate) fn lay_out(
     }
 
     let mut flow = Flow {
+        card: None,
+        trailing_gap: 0.0,
         page,
         measurer,
         pages: Vec::new(),
@@ -1085,6 +1235,7 @@ pub(crate) fn lay_out(
             }
             Block::Table(table) => flow.table(table)?,
             Block::Fields(fields) => flow.fields(fields)?,
+            Block::FieldsTwoUp(fields) => flow.fields_two_up(fields)?,
             Block::Rule => flow.rule()?,
             Block::Space(height) => {
                 if height.is_finite() && *height > 0.0 {
@@ -1094,8 +1245,11 @@ pub(crate) fn lay_out(
                 }
             }
             Block::PageBreak => flow.new_page()?,
+            Block::CardStart { title } => flow.open_card(title.as_deref())?,
+            Block::CardEnd => flow.close_card(),
         }
     }
+    flow.close_card();
 
     // The letterhead's picture follows the image blocks in `images`.
     let letterhead_picture = document
@@ -1133,7 +1287,13 @@ pub(crate) fn lay_out(
             } else {
                 RUNNING
             };
-            let baseline = page.height - page.margin_bottom / 2.0 + style.size / 2.0;
+            // Under a letterhead the footer is a band of its own, measured from the content
+            // as the letterhead is: a rule one clearance below it, then the line.
+            let baseline = if document.letterhead.is_some() {
+                page.height - page.margin_bottom + Letterhead::FOOTER_HEIGHT
+            } else {
+                page.height - page.margin_bottom / 2.0 + style.size / 2.0
+            };
             if document.letterhead.is_some() {
                 laid.marks.push(Mark::Rule {
                     x0: page.margin_left,

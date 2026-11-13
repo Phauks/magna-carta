@@ -26,7 +26,8 @@ interface SheetField {
 /** The blocks the sheet uses, a subset of the composer's own. */
 export type CertificateSheetBlock =
   | { readonly type: "pageBreak" }
-  | { readonly type: "rule" }
+  | { readonly type: "cardStart"; readonly title?: string }
+  | { readonly type: "cardEnd" }
   | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
   | { readonly type: "paragraph"; readonly text: string }
   | {
@@ -34,7 +35,12 @@ export type CertificateSheetBlock =
       readonly spans: readonly { readonly text: string; readonly bold?: boolean }[];
       readonly small: true;
     }
-  | { readonly type: "fields"; readonly fields: readonly SheetField[] }
+  | {
+      readonly type: "fields";
+      readonly fields: readonly SheetField[];
+      /** Two columns side by side, read down the first and then the second. */
+      readonly twoUp?: true;
+    }
   | {
       readonly type: "table";
       readonly columns: readonly { readonly heading: string; readonly weight: number }[];
@@ -56,9 +62,11 @@ export interface CertificateSheet {
     readonly second: number;
   };
   readonly page: {
-    readonly paper: "letter";
+    readonly paper: CertificatePaper;
     readonly marginTop: number;
+    readonly marginRight: number;
     readonly marginBottom: number;
+    readonly marginLeft: number;
   };
   /** The colour of the title, the headings and the rules: red, green and blue. */
   readonly accent: readonly [number, number, number];
@@ -96,6 +104,15 @@ export function certificateSheetImages(): Uint8Array[] {
  */
 export type CertificateTypeface = "atkinsonHyperlegible" | "liberationSans";
 
+/** The paper the sheet is laid out for: US Letter unless told otherwise. */
+export type CertificatePaper = "letter" | "a4";
+
+/** Each paper's width and height in points, as the composer has them. */
+const PAPER_SIZE: Record<CertificatePaper, { width: number; height: number }> = {
+  letter: { width: 612, height: 792 },
+  a4: { width: 595.28, height: 841.89 },
+};
+
 /** What the sheet is told that the record does not hold. */
 export interface CertificateSheetOptions {
   /**
@@ -109,23 +126,33 @@ export interface CertificateSheetOptions {
    * cannot draw.
    */
   readonly typeface?: CertificateTypeface;
+  /**
+   * The paper to lay the sheet out for. The margins are the same on either; the audit log's
+   * pages are filled for the height and width the paper has.
+   */
+  readonly paper?: CertificatePaper;
 }
 
 /** The platform's name, where no issuer contact says otherwise. */
 const ISSUER_NAME = "Magna Carta";
 
 /**
- * The page's top margin, in points: the room the composer's letterhead takes and half an inch of
- * paper above it that a desktop printer can reach.
+ * How far every edge of the printed sheet stays from the edge of the paper, in points: half an
+ * inch on all four sides. The letterhead's bar starts there, the page number sits there, and the
+ * cards run from one side margin to the other. Half an inch is inside what a desktop printer
+ * reaches on Letter and on A4.
  */
-const PAGE_MARGIN_TOP = 92;
+const PAGE_EDGE = 36;
 
-/**
- * The page's bottom margin, in points: three quarters of an inch. The composer's own inch leaves
- * the first page short of eight signers, and a certificate that runs its summary onto a second
- * sheet is one a reader has to staple.
- */
-const PAGE_MARGIN_BOTTOM = 54;
+/** The top margin: the edge, then the room the composer's letterhead takes above the content. */
+const PAGE_MARGIN_TOP = PAGE_EDGE + 60;
+
+/** The bottom margin: the edge, then the room the composer's footer takes below the content. */
+const PAGE_MARGIN_BOTTOM = PAGE_EDGE + 28;
+
+/** The composer's card: the space inside its frame on each side, and what its title takes. */
+const CARD_PADDING = 10;
+const CARD_TITLE_HEIGHT = 26;
 
 /**
  * How many signers' full records one page holds. A record is never run across two pages: a reader
@@ -137,37 +164,41 @@ const SIGNERS_PER_PAGE = 2;
 /** The audit log's columns. The weights share the page's width out of a hundred. */
 const AUDIT_COLUMNS = [
   { heading: "Time (UTC)", weight: 21 },
-  { heading: "Event", weight: 20 },
-  { heading: "By", weight: 19 },
-  { heading: "IP Address", weight: 16 },
-  { heading: "Details", weight: 24 },
+  { heading: "Event", weight: 18 },
+  { heading: "By", weight: 24 },
+  { heading: "IP Address", weight: 15 },
+  { heading: "Details", weight: 22 },
 ] as const;
 
 /**
- * The room one page gives the audit log's rows, in points: a letter page inside the sheet's
- * margins, less the section heading and the table's own heading row, less a margin for the
- * estimate below being an estimate.
+ * The room one page gives the audit log's rows, in points: the paper inside the sheet's margins,
+ * less the card around the table and its title, less the table's own heading row, less a margin
+ * for the estimate below being an estimate.
  */
-const AUDIT_ROWS_HEIGHT = 552;
+function auditRowsHeight(paper: CertificatePaper): number {
+  const content = PAPER_SIZE[paper].height - PAGE_MARGIN_TOP - PAGE_MARGIN_BOTTOM;
+  return content - 2 * CARD_PADDING - CARD_TITLE_HEIGHT - (ROW_LINE_HEIGHT + ROW_PADDING) - 20;
+}
 
 /** The composer's compact row: a line of cell text, and the space above and below a row. */
 const ROW_LINE_HEIGHT = 13;
 const ROW_PADDING = 3;
 
 /**
- * How many characters of cell text fit a column one percent of the page wide. The composer
- * measures real glyphs; this sheet cannot, so it assumes text a little wider than it usually is.
- * The time column is left out of the estimate because an instant is sized to fit it.
+ * How many characters of cell text fit a column one percent of the table wide, for each point of
+ * the table's width. The composer measures real glyphs; this sheet cannot, so it assumes text a
+ * little wider than it usually is. The time column is left out of the estimate because an instant
+ * is sized to fit it.
  */
-const CHARACTERS_PER_WEIGHT = 0.92;
+const CHARACTERS_PER_WEIGHT_POINT = 0.92 / 468;
 
-/** The lines a row is expected to take: its most-wrapped cell. */
-function estimatedLines(row: readonly string[]): number {
+/** The lines a row is expected to take in a table `width` points wide: its most-wrapped cell. */
+function estimatedLines(row: readonly string[], width: number): number {
   let lines = 1;
   for (const [index, cell] of row.entries()) {
     const column = AUDIT_COLUMNS[index];
     if (index === 0 || column === undefined) continue;
-    const capacity = Math.floor(column.weight * CHARACTERS_PER_WEIGHT);
+    const capacity = Math.max(1, Math.floor(column.weight * CHARACTERS_PER_WEIGHT_POINT * width));
     lines = Math.max(lines, Math.ceil(cell.length / capacity));
   }
   return lines;
@@ -178,13 +209,15 @@ function estimatedLines(row: readonly string[]): number {
  * take, so a log of short rows runs well down the page and one of long rows still breaks where the
  * next heading can be printed above what follows.
  */
-function auditPages(rows: readonly string[][]): string[][][] {
+function auditPages(rows: readonly string[][], paper: CertificatePaper): string[][][] {
   const pages: string[][][] = [[]];
+  const width = PAPER_SIZE[paper].width - 2 * PAGE_EDGE - 2 * CARD_PADDING;
+  const room = auditRowsHeight(paper);
   let used = 0;
   for (const row of rows) {
-    const height = estimatedLines(row) * ROW_LINE_HEIGHT + ROW_PADDING;
+    const height = estimatedLines(row, width) * ROW_LINE_HEIGHT + ROW_PADDING;
     const page = pages.at(-1);
-    if (page === undefined || (used + height > AUDIT_ROWS_HEIGHT && page.length > 0)) {
+    if (page === undefined || (used + height > room && page.length > 0)) {
       pages.push([row]);
       used = height;
     } else {
@@ -311,20 +344,23 @@ export function certificateSheet(
   });
 
   const documentContact = envelope?.contact ?? envelope?.sender;
+  const paper = options.paper ?? "letter";
   const blocks: CertificateSheetBlock[] = [
-    { type: "heading", level: 1, text: "Summary" },
-    { type: "fields", fields: summary },
-    { type: "heading", level: 1, text: "Documents" },
+    { type: "cardStart", title: "Summary" },
+    { type: "fields", fields: summary, twoUp: true },
+    { type: "cardEnd" },
+    { type: "cardStart", title: "Documents" },
     { type: "fields", fields: signed },
-    { type: "heading", level: 1, text: "Signers" },
+    { type: "cardEnd" },
+    { type: "cardStart", title: "Signers" },
     {
       type: "table",
       columns: [
-        { heading: "Name", weight: 21 },
-        { heading: "Email", weight: 34 },
-        { heading: "Signed (UTC)", weight: 22 },
-        { heading: "Signatures", weight: 13 },
-        { heading: "Initials", weight: 10 },
+        { heading: "Name", weight: 26 },
+        { heading: "Email", weight: 33 },
+        { heading: "Signed (UTC)", weight: 20 },
+        { heading: "Signatures", weight: 12 },
+        { heading: "Initials", weight: 9 },
       ],
       rows: signers.map((signer) => [
         signerDisplayName(signer),
@@ -335,9 +371,11 @@ export function certificateSheet(
       ]),
       banded: true,
     },
-    { type: "heading", level: 2, text: "Contact" },
+    { type: "cardEnd" },
+    { type: "cardStart", title: "Contact" },
     ...(documentContact === undefined ? [] : [contactLine("Document", documentContact)]),
     contactLine("Certificate of Completion", options.issuerContact ?? { name: ISSUER_NAME }),
+    { type: "cardEnd" },
   ];
 
   const detailPages = Math.ceil(signers.length / SIGNERS_PER_PAGE);
@@ -351,9 +389,6 @@ export function certificateSheet(
           text: pageHeading("Signer Details", index / SIGNERS_PER_PAGE, detailPages),
         },
       );
-    } else {
-      // A line between the signers who share a page.
-      blocks.push({ type: "rule" });
     }
     const fields: SheetField[] = [];
     if (signer.intent.email !== undefined && signer.intent.name !== undefined) {
@@ -380,9 +415,11 @@ export function certificateSheet(
     if (signer.attribution.userAgent !== undefined) {
       fields.push({ label: "Browser", value: signer.attribution.userAgent });
     }
+    // Each signer is a card of their own, which is what parts the two who share a page.
     blocks.push(
-      { type: "heading", level: 2, text: signerDisplayName(signer) },
+      { type: "cardStart", title: signerDisplayName(signer) },
       { type: "fields", fields },
+      { type: "cardEnd" },
     );
   }
 
@@ -394,12 +431,14 @@ export function certificateSheet(
       event.observedIp ?? "",
       event.detail ?? "",
     ]),
+    paper,
   );
   for (const [page, rows] of logPages.entries()) {
     blocks.push(
       { type: "pageBreak" },
-      { type: "heading", level: 1, text: pageHeading("Audit Log", page, logPages.length) },
+      { type: "cardStart", title: pageHeading("Audit Log", page, logPages.length) },
       { type: "table", columns: AUDIT_COLUMNS, rows, banded: true },
+      { type: "cardEnd" },
     );
   }
 
@@ -414,9 +453,11 @@ export function certificateSheet(
       ? { created: createdOn(certificate.sealedAt) }
       : {}),
     page: {
-      paper: "letter",
+      paper,
       marginTop: PAGE_MARGIN_TOP,
+      marginRight: PAGE_EDGE,
       marginBottom: PAGE_MARGIN_BOTTOM,
+      marginLeft: PAGE_EDGE,
     },
     accent: ACCENT,
     compact: true,

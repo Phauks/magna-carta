@@ -193,12 +193,20 @@ enum WireBlock {
     },
     Fields {
         fields: Vec<WireField>,
+        /// Set the fields in two columns side by side, read down the first and then the second.
+        #[serde(default)]
+        two_up: bool,
     },
     Rule,
     Space {
         height: f32,
     },
     PageBreak,
+    /// Opens a rounded frame around the blocks up to the next `cardEnd`.
+    CardStart {
+        title: Option<String>,
+    },
+    CardEnd,
 }
 
 fn first_level() -> u8 {
@@ -302,19 +310,26 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                     .collect(),
                 rows,
             }),
-            WireBlock::Fields { fields } => Block::Fields(
-                fields
+            WireBlock::Fields { fields, two_up } => {
+                let fields = fields
                     .into_iter()
                     .map(|field| Field {
                         label: field.label,
                         value: field.value,
                         grid: field.grid,
                     })
-                    .collect(),
-            ),
+                    .collect();
+                if two_up {
+                    Block::FieldsTwoUp(fields)
+                } else {
+                    Block::Fields(fields)
+                }
+            }
             WireBlock::Rule => Block::Rule,
             WireBlock::Space { height } => Block::Space(height),
             WireBlock::PageBreak => Block::PageBreak,
+            WireBlock::CardStart { title } => Block::CardStart { title },
+            WireBlock::CardEnd => Block::CardEnd,
         });
     }
     let letterhead = match wire.letterhead {

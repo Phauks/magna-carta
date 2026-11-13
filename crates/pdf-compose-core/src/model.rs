@@ -125,7 +125,8 @@ impl Default for PageSetup {
 /// the left (a logo), and at the right a title over a line of detail, with a thin rule
 /// beneath. It is drawn in the top margin and ends 12 points above the content, so the page
 /// needs a top margin of at least [`Letterhead::HEIGHT`] plus whatever the printer cannot
-/// reach. With a letterhead the footer is set a little larger under a rule of its own.
+/// reach. With a letterhead the footer is set a little larger under a rule of its own, at
+/// [`Letterhead::FOOTER_HEIGHT`] below the content.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Letterhead {
     /// The encoded picture, drawn 24 points tall. `None` leaves the left side empty.
@@ -140,6 +141,10 @@ pub struct Letterhead {
 impl Letterhead {
     /// The room the band takes above the content, in points.
     pub const HEIGHT: f32 = 60.0;
+    /// How far below the content the footer line's baseline sits when a letterhead is drawn:
+    /// a rule 11.5 points under the content, then the line. A bottom margin of this plus the
+    /// distance kept from the paper's edge puts the footer where the caller wants it.
+    pub const FOOTER_HEIGHT: f32 = 28.0;
 }
 
 /// One line repeated on every page, in three slots. `{page}` is replaced with the page's
@@ -269,10 +274,22 @@ pub enum Block {
     Table(Table),
     /// Labels down the left and their values beside them.
     Fields(Vec<Field>),
+    /// Labelled fields set in two columns side by side, read down the first and then down
+    /// the second, for a list of short values that would otherwise leave half the page empty.
+    FieldsTwoUp(Vec<Field>),
     /// A thin horizontal line across the page.
     Rule,
     /// Empty vertical space, in points.
     Space(f32),
     /// Everything after this starts on a new page.
     PageBreak,
+    /// Opens a card: a rounded frame around the blocks up to the next `CardEnd`, with an
+    /// optional title set inside it over a rule. A card that reaches the foot of a page is
+    /// closed there and opened again on the next; one still open at the end of the document
+    /// is closed. Cards do not nest: a second `CardStart` closes the first.
+    CardStart {
+        title: Option<String>,
+    },
+    /// Closes the open card. Without one it does nothing.
+    CardEnd,
 }
