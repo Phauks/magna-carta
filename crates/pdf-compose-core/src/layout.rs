@@ -1348,4 +1348,93 @@ mod tests {
             .all(|width| *width == widths[0] && *width > wide));
         assert_eq!(lines[0].pieces[1].text, "dddd");
     }
+
+    fn frames(page: &LaidPage) -> Vec<(f32, f32, f32, f32)> {
+        page.marks
+            .iter()
+            .filter_map(|mark| match mark {
+                Mark::Frame {
+                    x,
+                    y,
+                    width,
+                    height,
+                    ..
+                } => Some((*x, *y, *width, *height)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn field(number: usize) -> Field {
+        Field {
+            label: format!("Label {number}"),
+            value: format!("Value {number}"),
+            grid: false,
+        }
+    }
+
+    #[test]
+    fn a_card_is_framed_from_margin_to_margin_around_what_it_holds() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let document = ComposedDocument {
+            blocks: vec![
+                Block::CardStart {
+                    title: Some("Summary".to_string()),
+                },
+                Block::Fields((1..=3).map(field).collect()),
+                Block::CardEnd,
+                Block::CardStart { title: None },
+                Block::Fields((4..=5).map(field).collect()),
+            ],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&document, &[], &mut measurer).unwrap();
+        let page = document.page;
+        let drawn = frames(&pages[0]);
+        // Two frames: the second card was never closed, and is closed with the document.
+        assert_eq!(drawn.len(), 2);
+        for (x, _, width, _) in &drawn {
+            assert_eq!(*x, page.margin_left);
+            assert_eq!(*width, page.content_width());
+        }
+        let (_, first_top, _, first_height) = drawn[0];
+        let (_, second_top, _, _) = drawn[1];
+        assert_eq!(first_top, page.margin_top);
+        assert!((second_top - (first_top + first_height) - CARD_GAP).abs() < 0.01);
+        // Text sits inside the padding on both sides.
+        for mark in &pages[0].marks {
+            if let Mark::Text { x, .. } = mark {
+                assert!(*x >= page.margin_left + CARD_PADDING);
+            }
+        }
+    }
+
+    #[test]
+    fn a_card_that_runs_off_a_page_is_framed_on_each_page_it_reaches() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let document = ComposedDocument {
+            blocks: vec![
+                Block::CardStart {
+                    title: Some("Audit Log".to_string()),
+                },
+                Block::Fields((1..=60).map(field).collect()),
+                Block::CardEnd,
+            ],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&document, &[], &mut measurer).unwrap();
+        let page = document.page;
+        assert_eq!(pages.len(), 2);
+        let (first, second) = (frames(&pages[0]), frames(&pages[1]));
+        assert_eq!((first.len(), second.len()), (1, 1));
+        // The first closes under the last row the page took, within a row of its foot and never
+        // past it; the second starts at the top of the next.
+        let foot = page.height - page.margin_bottom;
+        let closed = first[0].1 + first[0].3;
+        assert!(closed <= foot + 0.01 && closed > foot - 2.0 * CELL.line_height);
+        assert_eq!(second[0].1, page.margin_top);
+        assert!(second[0].3 < first[0].3);
+    }
 }
