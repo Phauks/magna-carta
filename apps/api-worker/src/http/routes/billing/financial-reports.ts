@@ -308,7 +308,10 @@ const realizationRoute = defineOpenAPIRoute(
 );
 
 // A refusal's status is what it means, so the mapping lives in one place for every financial report.
-function reportingRefusal(c: Context, error: ReportingValidationError): ProblemResponse<422> {
+export function reportingRefusal(
+  c: Context,
+  error: ReportingValidationError,
+): ProblemResponse<422> {
   if (error.code === "reporting-breakdown-truncated") {
     return problemJson(c, {
       type: "report-period-too-large",

@@ -15,6 +15,7 @@
     "./time-entry-validation": "./src/time-entry-validation.ts",
     "./rate-validation": "./src/rate-validation.ts",
     "./time-entry-statements": "./src/time-entry-statements.ts",
+    "./productivity-statements": "./src/productivity-statements.ts",
     "./time-entry-service": "./src/time-entry-service.ts",
     "./utbms-catalog": "./src/utbms-catalog.ts",
     "./utbms-statements": "./src/utbms-statements.ts",

@@ -12,7 +12,8 @@
     "./trust-compliance/types": "./src/trust-compliance/types.ts",
     "./financial/accounts-receivable-aging": "./src/financial/accounts-receivable-aging.ts",
     "./financial/work-in-progress": "./src/financial/work-in-progress.ts",
-    "./financial/realization": "./src/financial/realization.ts"
+    "./financial/realization": "./src/financial/realization.ts",
+    "./productivity/timekeeper-productivity": "./src/productivity/timekeeper-productivity.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -24,6 +25,7 @@
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/money": "workspace:*",
+    "@magna-carta/timekeeping": "workspace:*",
     "@magna-carta/trust": "workspace:*"
   },
   "devDependencies": {

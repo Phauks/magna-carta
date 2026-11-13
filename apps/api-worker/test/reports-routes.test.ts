@@ -415,3 +415,34 @@ describe("GET /api/v1/reports/realization", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("GET /api/v1/reports/timekeeper-productivity", () => {
+  const url = (query: string) =>
+    `https://example.com/api/v1/reports/timekeeper-productivity?${query}`;
+
+  it("answers the Owner with minutes recorded, live", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as { reproducible: boolean };
+    expect(report.reproducible).toBe(false);
+  });
+
+  it("does not accept a knowledge instant it could not honor", async () => {
+    const response = await SELF.fetch(
+      url("periodStart=2026-07-01&periodEnd=2026-07-31&knownAsOf=2026-08-01T00%3A00%3A00.000Z"),
+      { headers: { cookie: ownerCookie } },
+    );
+    // The parameter is not part of the contract; an unknown query key is ignored by the schema,
+    // and the answer stays live rather than pretending to be taken as at the instant.
+    expect(((await response.json()) as { reproducible: boolean }).reproducible).toBe(false);
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

@@ -1762,6 +1762,73 @@ export type RealizationReport = {
     }>;
 };
 
+export type TimekeeperProductivityReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+        totalMinutes: number;
+        billableShareBasisPoints: number | null;
+    };
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        matterCount: number;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    nonBillableCategories: Array<{
+        categoryId: string | null;
+        categoryName: string | null;
+        minutes: number;
+    }>;
+    taskCodes: Array<{
+        code: string | null;
+        label: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -15285,6 +15352,51 @@ export type ReportsRealizationResponses = {
 };
 
 export type ReportsRealizationResponse = ReportsRealizationResponses[keyof ReportsRealizationResponses];
+
+export type ReportsTimekeeperProductivityData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/timekeeper-productivity';
+};
+
+export type ReportsTimekeeperProductivityErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsTimekeeperProductivityError = ReportsTimekeeperProductivityErrors[keyof ReportsTimekeeperProductivityErrors];
+
+export type ReportsTimekeeperProductivityResponses = {
+    /**
+     * The time recorded in this period
+     */
+    200: TimekeeperProductivityReport;
+};
+
+export type ReportsTimekeeperProductivityResponse = ReportsTimekeeperProductivityResponses[keyof ReportsTimekeeperProductivityResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
