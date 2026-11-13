@@ -1332,6 +1332,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "disarm-core"
+version = "0.0.0"
+dependencies = [
+ "cfb 0.16.0",
+ "flate2",
+ "image",
+ "js-sys",
+ "lopdf",
+ "magna-carta-engine-host",
+ "pdf-core",
+ "quick-xml",
+ "wasm-bindgen",
+ "zip",
+]
+
+[[package]]
 name = "discovery-core"
 version = "0.0.0"
 dependencies = [

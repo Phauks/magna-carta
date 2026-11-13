@@ -166,7 +166,7 @@ describe("databaseHealthRows", () => {
     const statuses = [missing.status, noRole.status, noPermissions.status, unread.status];
     expect(new Set(statuses).size).toBe(4);
     // And each says what to do about ITS situation, not the generic one.
-    expect(missing.detail).toContain("has not reached the firm's database");
+    expect(missing.detail).toContain("hasn't finished setting up");
     expect(noRole.detail).toContain("administrator");
     expect(noPermissions.detail).toContain("Attorney");
   });
@@ -230,7 +230,7 @@ describe("describeProvisioningBacklog", () => {
       provisioning: { state: "read", pending: 1, deadLettered: 1 },
     });
     expect(backlog?.reading).toBe("fault");
-    expect(backlog?.sentence).toContain("will not retry");
+    expect(backlog?.sentence).toContain("won't retry");
   });
 
   it("says nothing when the backlog could not be read", () => {

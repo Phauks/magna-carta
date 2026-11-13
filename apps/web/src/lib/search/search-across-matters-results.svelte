@@ -210,8 +210,7 @@
         <Alert.Root variant="info">
           <Alert.Title>Showing The Most Recent Matches</Alert.Title>
           <Alert.Description>
-            These words are in more records than one search reads, so the results below are the
-            most recent records with them and not every one. Add a word to narrow the search.
+            These words appear in too many records to search at once, so only the most recent matches are shown. Add a word to narrow the search.
           </Alert.Description>
         </Alert.Root>
       {/if}

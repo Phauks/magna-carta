@@ -28,7 +28,7 @@ export const WORKSPACE_ENTRIES: readonly WorkspaceEntry[] = [
   {
     slug: "documents",
     label: "Documents",
-    holds: "The corpus itself, narrowed however you ask.",
+    holds: "All documents in the review set, narrowed however you choose.",
   },
   {
     slug: "loads",

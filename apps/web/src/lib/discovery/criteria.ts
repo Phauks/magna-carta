@@ -251,7 +251,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
   {
     key: "keyword",
     label: "Keyword",
-    describes: "Words inside the document's text, rather than its name.",
+    describes: "Words inside the document, not its name.",
     stage: "soon",
     shape: { kind: "text" },
     waitsOn: "the search engine being deployed",
@@ -260,9 +260,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
   {
     key: "dates",
     label: "Date range",
-    describes:
-      "When the document is dated. Documents with no date are not in any range, so narrowing by " +
-      "date sets them aside rather than ordering them last.",
+    describes: "The document's date. Documents with no date are left out when you narrow by date.",
     stage: "soon",
     shape: { kind: "date-range" },
     waitsOn: "the document list gaining a date filter",

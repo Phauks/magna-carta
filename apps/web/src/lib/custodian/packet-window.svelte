@@ -393,8 +393,7 @@
                whoever recorded each movement because the roster could not be read, not because the
                ledger recorded nobody. -->
           <p class="text-xs text-text-muted">
-            {firmRoster.failure} The history reads without the names of whoever recorded each movement
-            until it can.
+            {firmRoster.failure} The history shows without who recorded each movement until it loads.
           </p>
         {/if}
       </div>
@@ -429,9 +428,7 @@
 {#snippet contentsTab()}
   {#if packet === null || packet.items.length === 0}
     <EmptyState title="Nothing Described Yet" actions={describeItemButton}>
-      A packet can be logged before anyone opens it, and this one has no contents recorded. What is
-      inside is described item by item, which is how the register answers whether the firm holds an
-      original will for somebody.
+      No contents recorded yet. Describe what's inside item by item, so the register can show whether the firm holds a person's original will.
     </EmptyState>
   {:else}
     <div class="flex flex-col gap-12">
@@ -497,8 +494,7 @@
 {#snippet holdsTab()}
   {#if packet === null || packet.holds.length === 0}
     <EmptyState title="No Holds Recorded">
-      A hold forbids this property leaving the firm's custody or ceasing to exist. It deliberately
-      does not stop it being moved, because a held original still has to be movable somewhere safer.
+      A hold stops this item from leaving the firm's custody or being destroyed. It can still be moved somewhere safer.
     </EmptyState>
   {:else}
     <div class="flex flex-col gap-12">
@@ -530,8 +526,7 @@
 {#snippet scansTab()}
   {#if packet === null || packet.scans.length === 0}
     <EmptyState title="No Scanned Copies" actions={fileCopyButton}>
-      A scan is an ordinary document filed on a matter, linked here. It is never a substitute for the
-      original, and its existence changes nothing about what may be done with what the firm holds.
+      A scan is an ordinary document on a matter, linked here. It never replaces the original and doesn't change what can be done with it.
     </EmptyState>
   {:else}
     <div class="flex flex-col gap-8">

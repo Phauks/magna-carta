@@ -10,4 +10,9 @@
 //
 // Version 2: what Magnus can SEE changed. A member can attach a matter's files to a conversation, and
 // the readable text of those files is sent with the question. Nothing else is read.
-export const MAGNUS_DISCLOSURE_VERSION = 2;
+//
+// Version 3: what Magnus can SEE and DO changed, with the conversation's pane. A member can let one
+// conversation kept on a matter read their own other conversations on that matter (off until they
+// turn it on, and never a colleague's), and Magnus can write a draft as a document kept in the
+// conversation with its versions (artifact.ts). It still files, sends and changes nothing.
+export const MAGNUS_DISCLOSURE_VERSION = 3;

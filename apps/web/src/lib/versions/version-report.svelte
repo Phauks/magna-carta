@@ -1653,7 +1653,7 @@
             loadingLabel={READ_IN_FLIGHT_NOTICE}
           >
             {#if panelFeatures.length === 0}
-              <p class="text-xs text-text-muted">Every feature is working.</p>
+              <p class="text-xs text-text-muted">All features are working.</p>
             {:else}
               <div class="flex flex-col">
                 {#each panelFeatures as feature (feature.id)}

@@ -190,8 +190,7 @@
 
   {#if isSample}
     <EmptyState title="A sample matter has no intake">
-      This matter is one of the in-repo samples and has no firm behind it, so there is no procedure
-      to hold it to.
+      This is a sample matter for previewing screens. It has no intake procedure.
     </EmptyState>
   {:else}
     <!-- A failed first read settles to the notice with Retry; a failed re-read after a write keeps
@@ -217,8 +216,7 @@
       {/snippet}
       {#snippet emptyState()}
         <EmptyState title="No procedure binds this kind of matter">
-          The firm's intake procedures are written under Settings. A procedure bound to this matter's
-          kind, or to every kind, would list its steps here.
+          Intake procedures are set up under Settings. A procedure for this type of matter, or for all types, would list its steps here.
         </EmptyState>
       {/snippet}
       {#snippet fixture()}

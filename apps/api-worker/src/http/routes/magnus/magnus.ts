@@ -31,6 +31,7 @@ import {
 } from "@magna-carta/magnus/conversation";
 import {
   Availability,
+  ConversationPermissionName,
   ConversationSummary,
   SubmitTurnRequest,
   SubmittedTurn,
@@ -43,6 +44,7 @@ import {
   MEMBER_TURN_MAX_BYTES,
   exceedsMemberTurnCap,
 } from "@magna-carta/magnus/limits";
+import { listConversationPermissions } from "@magna-carta/magnus/permissions";
 import { magnusDailyTurnCeilingDefinition } from "@magna-carta/magnus/settings";
 import { readShelf } from "@magna-carta/magnus/shelf";
 import {
@@ -284,6 +286,8 @@ const getConversationRoute = defineOpenAPIRoute(readMeta("getConversation"), {
               conversation: ConversationSummary,
               turns: paginated(TurnDetail),
               attachments: z.array(ConversationAttachment),
+              // What Magnus may read beyond the conversation, as its author set it.
+              permissions: z.array(ConversationPermissionName),
             })
             .openapi("MagnusConversationDetail"),
         },
@@ -783,13 +787,14 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         );
       }
 
-      const [turns, attachments, shelf] = await Promise.all([
+      const [turns, attachments, shelf, permissions] = await Promise.all([
         listTurns(firm.firmDatabase, conversationId, {
           ...(decodeCursor(cursor) !== undefined && { cursor: decodeCursor(cursor) }),
           limit: DEFAULT_PAGE_SIZE + 1,
         }),
         listAttachmentsWithFiles(firm.firmDatabase, conversationId),
         readShelf(firm.firmDatabase, conversationId, userId),
+        listConversationPermissions(firm.firmDatabase, conversationId),
       ]);
       const page = turns.slice(0, DEFAULT_PAGE_SIZE);
       const last = page[page.length - 1];
@@ -797,6 +802,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
         {
           conversation: conversationBody(conversation, shelf),
           attachments: attachments.map(attachmentBody),
+          permissions: [...permissions],
           turns: {
             data: page.map((turn) => turnBody(turn, conversation.createdBy === userId)),
             nextCursor:

@@ -76,7 +76,7 @@ export function containerParentOptions(
   return [
     ...containers,
     ...unrootedOffices,
-    { value: STANDS_ALONE, label: "On its own (a bank, an offsite store)" },
+    { value: STANDS_ALONE, label: "Standalone (such as a bank or offsite storage)" },
   ];
 }
 

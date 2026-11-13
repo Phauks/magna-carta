@@ -269,9 +269,7 @@
 
   {#snippet fields()}
     <p class="text-sm">
-      Archiving withdraws the template from the catalogue: nothing new is built from it, and it is
-      not offered to any matter. Every document already built from it stays where it is, still
-      explained by it. Nothing is deleted.
+      Archiving removes the template from the catalog. Nothing new can be built from it, but documents already built from it are kept. Nothing is deleted.
     </p>
   {/snippet}
 </ActionDialog>

@@ -30,6 +30,10 @@ has no way to know, and it will answer from nothing.
 
 So if you want Magnus to work with something, put it in your message, or attach the file.
 
+One thing more, and only if you turn it on: in a conversation kept on a matter, you can let Magnus
+read your own other conversations on the same matter (see _The Pane Beside a Conversation_). It is
+off in every conversation until you turn it on there, and it never reads a colleague's conversation.
+
 ## Attaching a File
 
 Inside a conversation kept on a matter, **Attach a File** offers the matter's own files. Attaching
@@ -50,9 +54,10 @@ matter it was on.
 
 ## What Magnus Can Do
 
-It answers. That is all. It cannot open a matter, book time, file a document, send anything, or
-change a single record. Nothing it says is written anywhere except into the conversation you are
-reading.
+It answers, and when you ask for a draft it can write it as a document kept in the conversation (see
+_Documents Magnus Writes_). That is all. It cannot open a matter, book time, file a document, send
+anything, or change a single record. Nothing it writes goes anywhere except into the conversation you
+are reading.
 
 ## Magnus Can Be Wrong
 
@@ -64,7 +69,8 @@ is the same standard you would apply to a memo from someone whose work you have 
 The first time you open Magnus you are shown a short disclosure and asked to accept it. It says what
 is on this page: what leaves the platform, what Magnus can see, what it can do, that transcripts are
 kept, and that it can be wrong. You accept it once. If it changes in a way that matters, you are
-asked again: when Magnus gained the ability to read attached files, everybody was asked once more.
+asked again: when Magnus gained the ability to read attached files, everybody was asked once more,
+and again when it gained the pane, its documents and the switch for your other conversations.
 
 ## What Happens to What You Type
 
@@ -121,6 +127,44 @@ messages hold them, such as "2 of 5 messages".
 Press **Enter** or the down arrow to go to the next message that matches, and **Shift+Enter** or the
 up arrow to go back. Press **Escape** or the close button when you are done. The find covers the
 whole conversation, including earlier messages that were not yet on screen.
+
+## The Pane Beside a Conversation
+
+Press the pane button beside the conversation's **More** menu to open a pane at the side. It has
+three tabs:
+
+- **Context** lists what the conversation carries: the files attached to it, with what happened to
+  each on your last question, and the documents Magnus wrote in it. The paperclip attaches more
+  files, and **Remove** takes one off.
+- **Permissions** says what Magnus may read in this conversation. The attached files of the matter
+  are always on. **Your Other Conversations on This Matter** is off until you turn it on; when on,
+  each question also carries the latest messages of up to five of your most recent other
+  conversations on the same matter. Turning it on or off is recorded. It is not offered in a
+  conversation kept on no matter. Other sources, such as the firm's records or research services,
+  appear here only once Magnus can read them.
+- **Artifacts** lists the documents Magnus wrote. Choose one to open it.
+
+Press the close button, or the pane button again, to put the pane away.
+
+## Documents Magnus Writes
+
+Ask Magnus for a draft, such as a letter, a clause, a table or a timeline, and it writes it as a
+document rather than in the middle of its answer. The answer shows a card naming the document and its
+version; press **Open** to read it in the pane.
+
+To change a document, ask Magnus in the conversation ("make the tone firmer", "add the March
+hearing"). It writes the document again as its next version, and every earlier version is kept. In
+the pane you can:
+
+- step between versions with the arrows, or pick one from **Versions**;
+- turn on **Show Changes** to mark the paragraphs that differ from the version before;
+- find words in the version on screen;
+- **Copy** it, or **Download** it as Markdown or plain text;
+- on an earlier version, press **Restore This Version** to make it the newest again. Nothing is
+  overwritten: restoring adds a version, and the ones in between stay.
+
+A document belongs to its conversation. It is not filed on the matter, and it is deleted with the
+conversation. To keep it on the matter, download it and add it to the matter's files.
 
 ## While You Wait
 

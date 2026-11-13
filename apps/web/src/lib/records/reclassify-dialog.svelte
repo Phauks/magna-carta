@@ -65,7 +65,7 @@
 
   function chooseTitle(kind: LedgerKind): string {
     return kind === from
-      ? "This is where the record is now"
+      ? "Current location"
       : `Move it to the ${LEDGER_NAME[kind]} ledger`;
   }
 

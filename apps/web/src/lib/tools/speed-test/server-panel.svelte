@@ -56,8 +56,7 @@
     </p>
   {:else if probe.status === "forbidden"}
     <p class="text-sm text-text-muted">
-      Your account does not carry permission to run this check, so the round trip to Magna Carta
-      was not measured. Your connection is unaffected.
+      You don't have permission to run this check, so the connection to Magna Carta wasn't measured. Your connection is unaffected.
     </p>
   {:else if probe.status === "unreachable"}
     <p class="text-sm text-text-muted">
@@ -70,9 +69,7 @@
       <span class="ml-8">{formatMilliseconds(probe.medianRoundTripMs ?? undefined)}</span>
     </p>
     <p class="mt-4 text-xs text-text-muted">
-      Measured as a real authenticated request, median of {probe.successfulSamples} samples. A
-      healthy round trip here alongside poor bandwidth means the connection, not the platform, is
-      the constraint.
+      Measured with a real signed-in request, median of {probe.successfulSamples} samples. A good result here with poor bandwidth means your connection is the limit, not Magna Carta.
     </p>
   {/if}
 </div>
