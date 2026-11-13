@@ -29,6 +29,11 @@ import {
   type MagnusModelChoice,
   type MagnusTurn,
   type MagnusTurnProgress,
+  listArtifacts,
+  restoreArtifactVersion,
+  setConversationPermission,
+  type MagnusArtifact,
+  type MagnusConversationPermission,
 } from "./magnus-api.ts";
 import { LatestOnly, type ReadAttempt } from "../api/latest-only.ts";
 import type { ApiOutcome, Failure } from "$lib/api/request.ts";
@@ -59,6 +64,10 @@ export class ConversationSession {
    * answer with the list after the write.
    */
   attachments = $state<readonly MagnusAttachment[]>([]);
+  /** What Magnus may read beyond the conversation; every permission starts off. */
+  permissions = $state<readonly MagnusConversationPermission[]>([]);
+  /** The documents Magnus wrote here, with their versions; read again whenever an answer settles. */
+  artifacts = $state<readonly MagnusArtifact[]>([]);
   /** Non-null while the conversation has earlier turns than are on screen. */
   earlierCursor = $state<string | null>(null);
   /** The failed read, whole, so the Error ID and the remedy reach the screen from the record. */
@@ -112,6 +121,8 @@ export class ConversationSession {
     this.conversation = null;
     this.turns = null;
     this.attachments = [];
+    this.permissions = [];
+    this.artifacts = [];
     this.earlierCursor = null;
     this.failure = null;
     this.submitFailure = null;
@@ -139,6 +150,8 @@ export class ConversationSession {
     this.conversation = null;
     this.turns = [];
     this.attachments = [];
+    this.permissions = [];
+    this.artifacts = [];
     this.earlierCursor = null;
     this.failure = null;
     this.submitFailure = null;
@@ -154,6 +167,8 @@ export class ConversationSession {
     this.conversation = null;
     this.turns = null;
     this.attachments = [];
+    this.permissions = [];
+    this.artifacts = [];
     this.earlierCursor = null;
     this.failure = null;
     this.submitFailure = null;
@@ -286,9 +301,61 @@ export class ConversationSession {
     this.conversation = outcome.value.conversation;
     this.turns = outcome.value.turns.data.toReversed();
     this.attachments = outcome.value.attachments;
+    this.permissions = outcome.value.permissions ?? [];
     this.earlierCursor = outcome.value.turns.nextCursor;
     this.failure = null;
     this.#schedulePoll();
+    void this.#readArtifacts(conversationId, attempt);
+  }
+
+  /** Read the conversation's documents. A failure leaves the list as it was; the pane says nothing new. */
+  async #readArtifacts(conversationId: string, attempt: ReadAttempt): Promise<void> {
+    const outcome = await listArtifacts(this.#fetchImpl, conversationId);
+    if (!attempt.current || outcome.kind !== "ok") return;
+    this.artifacts = outcome.value.artifacts;
+  }
+
+  /** Turn one of Magnus's read permissions on or off for this conversation. */
+  async setPermission(
+    permission: MagnusConversationPermission,
+    granted: boolean,
+  ): Promise<ApiOutcome<unknown> | null> {
+    const conversationId = this.#conversationId;
+    if (conversationId === null) return null;
+    const outcome = await setConversationPermission(
+      this.#fetchImpl,
+      conversationId,
+      permission,
+      granted,
+      newWriteKey(),
+    );
+    if (outcome.kind === "ok" && this.#conversationId === conversationId) {
+      this.permissions = outcome.value.permissions;
+    }
+    return outcome;
+  }
+
+  /** Put an earlier version of a document back as its newest. */
+  async restoreVersion(
+    artifactId: string,
+    versionNumber: number,
+  ): Promise<ApiOutcome<unknown> | null> {
+    const conversationId = this.#conversationId;
+    if (conversationId === null) return null;
+    const outcome = await restoreArtifactVersion(
+      this.#fetchImpl,
+      conversationId,
+      artifactId,
+      versionNumber,
+      newWriteKey(),
+    );
+    if (outcome.kind === "ok" && this.#conversationId === conversationId) {
+      const restored = outcome.value;
+      this.artifacts = this.artifacts.map((artifact) =>
+        artifact.id === restored.id ? restored : artifact,
+      );
+    }
+    return outcome;
   }
 
   #schedulePoll(): void {
@@ -325,6 +392,8 @@ export class ConversationSession {
     }
     this.#consecutivePollFailures = 0;
     this.#absorbProgress(turnId, outcome.value);
+    // A settled answer may have written a document.
+    if (outcome.value.status === "complete") void this.#readArtifacts(conversationId, attempt);
     this.#schedulePoll();
   }
 

@@ -86,7 +86,7 @@
     {#if withheld}
       <Alert.Root variant="warning">
         <Alert.Title>This File Is Withheld While a Finding Is Open</Alert.Title>
-        <Alert.Description>The file manager's Safety tab carries the finding.</Alert.Description>
+        <Alert.Description>See the file's Safety tab for details.</Alert.Description>
       </Alert.Root>
     {:else if editorKind === null}
       <Alert.Root variant="info">

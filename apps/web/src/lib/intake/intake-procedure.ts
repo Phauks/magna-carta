@@ -49,8 +49,8 @@ export const INTAKE_STEP_KIND_VOCABULARY: readonly IntakeStepKindVocabulary[] = 
     kind: "conflicts-check",
     label: "Conflicts Check",
     description:
-      "A conflicts check has run at the firm's floor, every surfaced hit has a reviewer's answer, and no re-check is owed.",
-    answeredBy: "The matter's conflicts record. It cannot be recorded by hand; it can be waived.",
+      "A conflicts check has run at the firm's minimum, every hit has been answered, and no re-check is due.",
+    answeredBy: "The matter's conflicts record. It can't be entered by hand, but it can be waived.",
     reference: null,
     sectionSlug: "conflicts",
   },
@@ -178,12 +178,12 @@ export function intakeChecklistSummary(
   }
   if (checklist.matterStatus !== "intake") {
     return checklist.matterStatus === "consultation"
-      ? "The intake is complete; what follows is its record. The consultation opens from its status window."
-      : "The matter has opened; what follows is the record of its intake.";
+      ? "The intake is complete. Open the consultation from its status window."
+      : "The matter has opened. This is the record of its intake.";
   }
   const outstanding = checklist.outstandingRequired;
   if (outstanding === 0) {
-    return "Every required step is answered. Complete the intake from the desk or the status window.";
+    return "All required steps are answered. Complete the intake from the desk or the status window.";
   }
   return outstanding === 1
     ? "One required step is outstanding before the intake is complete."

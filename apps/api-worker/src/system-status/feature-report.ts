@@ -30,7 +30,17 @@ export const FeatureRequirements = z
   .object({
     id: z.enum(FEATURE_IDS),
     // Alternatives: the feature is set up when every name in at least one of them is present.
-    alternatives: z.array(z.array(z.object({ name: z.string(), present: z.boolean() }))),
+    // A present secret's source: the account's Secrets Store or this Worker's own secret. Null for
+    // a binding, a variable, or a name that is absent.
+    alternatives: z.array(
+      z.array(
+        z.object({
+          name: z.string(),
+          present: z.boolean(),
+          source: z.enum(["secrets-store", "worker"]).nullable(),
+        }),
+      ),
+    ),
   })
   .openapi("FeatureRequirements");
 

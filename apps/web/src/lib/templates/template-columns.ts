@@ -47,7 +47,7 @@ export function templateVocabulary(
 /** What the practice-area cell reads for a template bound to no matter type. */
 export const ANY_MATTER_TYPE = "Any matter type";
 /** What the office cell reads for a template bound to no Location. */
-export const EVERY_OFFICE = "Every office";
+export const EVERY_OFFICE = "All offices";
 
 /**
  * Where a template stands for somebody who wants to build from it.
@@ -80,8 +80,7 @@ const STANDING: Readonly<Record<TemplateStanding, StandingPresentation>> = {
     label: "Being checked",
     tone: "warning",
     meaning:
-      "The template's bytes have not cleared the scan yet, or were refused. Nothing can be built " +
-      "from it until a version is clean.",
+      "The template hasn't passed the safety check yet, or failed it. Nothing can be built from it until a version passes.",
   },
   archived: {
     label: "Archived",

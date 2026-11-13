@@ -78,7 +78,7 @@ const YEAR_COUNTER: readonly NumberSegment[] = [
 ];
 
 describe("numberingSchemeRefusal", () => {
-  it("accepts a scheme with exactly one counter and link-safe text", () => {
+  it("accepts a scheme with only one counter and link-safe text", () => {
     expect(numberingSchemeRefusal(YEAR_COUNTER)).toBeNull();
   });
 
@@ -90,7 +90,7 @@ describe("numberingSchemeRefusal", () => {
         { kind: "counter", padWidth: 4 },
         { kind: "counter", padWidth: 4 },
       ]),
-    ).toContain("exactly one counter");
+    ).toContain("only one counter");
   });
 
   it("refuses text that cannot stand in a link, and empty text", () => {
@@ -218,7 +218,7 @@ describe("a purpose's vocabulary", () => {
 describe("the editor's words", () => {
   it("says on a part's hover why a column holds no fact for it, and nothing where it does", () => {
     expect(numberSegmentCellRefusal("literal", "value")).toBeNull();
-    expect(numberSegmentCellRefusal("year", "value")).toMatch(/no text of its own/);
+    expect(numberSegmentCellRefusal("year", "value")).toMatch(/no fixed text/);
     expect(numberSegmentCellRefusal("counter", "format")).toBeNull();
     expect(numberSegmentCellRefusal("year", "format")).toBeNull();
     expect(numberSegmentCellRefusal("date_opened", "format")).toBeNull();
@@ -229,13 +229,13 @@ describe("the editor's words", () => {
     expect(numberSegmentCellRefusal("client_code", "scoping")).toBeNull();
     expect(numberSegmentCellRefusal("literal", "scoping")).toMatch(/cannot keep a separate count/);
     // Where the count's scope is the domain's, no part separates it, whatever the part is.
-    expect(numberSegmentCellRefusal("year", "scoping", "owner")).toMatch(/already keeps its own/);
+    expect(numberSegmentCellRefusal("year", "scoping", "owner")).toMatch(/already has its own/);
   });
 
   it("states the consequence of an unset scheme in the sequence's own terms, without an em dash", () => {
     expect(numberingNothingInForceSentence(MATTER)).toMatch(/cannot open/);
     expect(numberingNothingInForceSentence(CONFLICTS_CHECK)).toBe(
-      "Nothing of the firm's; the built-in sequence numbers conflicts checks until one is set.",
+      "None set. The built-in sequence numbers conflicts checks until one is.",
     );
     for (const record of [MATTER, CONFLICTS_CHECK]) {
       expect(numberingNothingInForceSentence(record)).not.toContain("—");
@@ -243,7 +243,7 @@ describe("the editor's words", () => {
     }
     expect(NUMBERING_FUTURE_ONLY_SENTENCE).toBe("Numbering Scheme only affects future generation.");
     expect(numberingSavedSentence(CONFLICTS_CHECK)).toBe(
-      "Saved. Conflicts checks numbered from now on draw their number from this scheme; numbers already drawn are unchanged.",
+      "Saved. Conflicts checks numbered from now on use this scheme; existing numbers don't change.",
     );
   });
 });

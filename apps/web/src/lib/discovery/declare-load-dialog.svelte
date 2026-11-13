@@ -102,7 +102,7 @@
     if (chosenReviewSetId === null) return "Say which review set this is going into.";
     if (!laneEntry.built) return laneEntry.describes;
     if (declaredNumber === null) {
-      return "Say how many documents are expected, as a whole number. It is what the manifest reconciles against.";
+      return "Enter the number of documents expected. It's checked against what arrives.";
     }
     if (transcriptScope === null) {
       return "Say whether the firm's own assistant transcripts are in scope. There is no default either way.";
@@ -247,8 +247,7 @@
           placeholder={placeholderOf("What it is")}
         />
         <p class="text-text-muted text-sm">
-          How this delivery is referred to in correspondence. It is what the manifest says the corpus
-          was drawn from.
+          How this delivery is referred to in correspondence.
         </p>
       </div>
 
@@ -300,10 +299,7 @@
           </div>
         </RadioGroup.Root>
         <p class="text-text-muted text-sm">
-          A transcript of what the firm asked its own assistant about this matter is the firm's work
-          product. Whether it belongs in a corpus the firm is about to certify the contents of is a
-          decision somebody makes on purpose, so there is no default in either direction and the
-          answer is recorded on the load.
+          Transcripts of the firm's questions to its assistant about this matter are work product. Decide whether to include them in this load; your answer is recorded.
         </p>
       </div>
     </div>

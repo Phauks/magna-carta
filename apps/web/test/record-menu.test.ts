@@ -279,7 +279,7 @@ describe("a verb that cannot run says why, and stays on screen", () => {
     const withFullFolder = [file({ name: "a" }), folder({ name: "Discovery", hasContents: true })];
     const menu = fileRecordMenu(withFullFolder, withFullFolder[0] as FileRecord, context());
     const reason = row(menu, "delete").disabledReason ?? "";
-    expect(reason).toContain("A folder with contents is deleted on its own");
+    expect(reason).toContain("Folders with contents are deleted one at a time");
     expect(reason).toContain("Discovery");
   });
 

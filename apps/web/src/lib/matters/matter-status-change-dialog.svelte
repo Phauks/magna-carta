@@ -496,7 +496,7 @@
              carries either way. -->
         <LabelledField
           label="Reason"
-          hint="Why the firm has stopped work on this matter, in a sentence. It prints beside the status; the account of it belongs on the matter's notes."
+          hint="Why the firm has stopped work on this matter, in one sentence. It shows beside the status; put the details in the matter's notes."
           error={holdReasonError ?? undefined}
         >
           {#snippet children({ props })}

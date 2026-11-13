@@ -12,6 +12,12 @@
  * answer built without the document it was asked about is a different answer. None of the four says
  * "something went wrong": each says what happened and what the member can do about it.
  */
+import {
+  formatInstantDate,
+  formatMonth,
+  formatTimeOfDay,
+  readInstant,
+} from "@magna-carta/design-system/formatters";
 import type { AttachmentTextStatus, ConversationSort, MagnusAttachment } from "./magnus-api.ts";
 
 /** How each order reads on the control, in the order the menu offers them. */
@@ -76,6 +82,8 @@ export function formatKilobytes(bytes: number): string {
 export function composerDisclosureLine(options: {
   readonly onMatter: boolean;
   readonly attachmentCount: number;
+  /** True when the author turned on reading their own other conversations on the matter. */
+  readonly readsEarlierConversations?: boolean;
 }): string {
   const reads =
     options.attachmentCount === 0
@@ -84,7 +92,11 @@ export function composerDisclosureLine(options: {
         ? "Magnus reads what you type in this conversation and the text of the one file attached to it."
         : `Magnus reads what you type in this conversation and the text of the ${String(options.attachmentCount)} files attached to it.`;
   if (!options.onMatter) return reads;
-  return `${reads} Keeping the conversation on this matter's file does not let Magnus read the matter: not its other documents, not its calendar, not its parties.`;
+  const earlier =
+    options.readsEarlierConversations === true
+      ? " It also reads the latest messages of your own other conversations on this matter, as set in the pane."
+      : "";
+  return `${reads}${earlier} Keeping the conversation on this matter's file does not let Magnus read the matter: not its other documents, not its calendar, not its parties.`;
 }
 
 /** Which model answers, as the composer states it beside the disclosure line. */
@@ -130,4 +142,50 @@ export function modelControlLabel(
   effort: string | null,
 ): string {
   return effort === null ? model.displayName : `${model.displayName}, ${effortLabel(effort)}`;
+}
+
+/*
+ * THE RAIL'S HEADINGS AND ROW LINES (the owner's board, round 2). Under the date order the
+ * conversations in no folder are grouped by when they started: Today, Earlier This Week, then one
+ * heading per month. The groups only label runs of rows the server already ordered; nothing here
+ * moves a row. Under the name order there is one heading, and under the matter order one per matter.
+ * The headings are calendar days in the reader's zone, never elapsed time.
+ */
+
+/** The calendar day an instant fell on where the reader is, as a comparable number. */
+function localDayNumber(date: Date): number {
+  return date.getFullYear() * 10_000 + (date.getMonth() + 1) * 100 + date.getDate();
+}
+
+/** The Monday that begins the reader's week for a day, as a comparable day number. */
+function weekStartNumber(date: Date): number {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const sinceMonday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - sinceMonday);
+  return localDayNumber(start);
+}
+
+/** The heading a conversation started at this instant falls under, read on the given day. */
+export function railDateGroup(startedAt: string, now: Date): string {
+  const date = readInstant(startedAt);
+  if (date === null) return startedAt;
+  const day = localDayNumber(date);
+  if (day === localDayNumber(now)) return "Today";
+  if (day >= weekStartNumber(now) && day < localDayNumber(now)) return "Earlier This Week";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return formatMonth(`${String(date.getFullYear())}-${month}-01`);
+}
+
+/** When a row's conversation started: the time of day for today, the date otherwise. */
+export function railRowWhen(startedAt: string, now: Date): string {
+  const date = readInstant(startedAt);
+  if (date === null) return startedAt;
+  return localDayNumber(date) === localDayNumber(now)
+    ? formatTimeOfDay(startedAt)
+    : formatInstantDate(startedAt);
+}
+
+/** The line under a row's name: the matter's number, or General, then when it started. */
+export function railRowLine(matterNumber: string | null, startedAt: string, now: Date): string {
+  return `${matterNumber ?? "General"} · ${railRowWhen(startedAt, now)}`;
 }

@@ -27,7 +27,7 @@ export const FILE_RETENTION_MINIMUM_YEARS_DEFINITION: SettingDefinition = {
   plateLabel: "Closed Matters",
   label: "Minimum Retention",
   description:
-    "The fewest years a closed matter's paper file is kept. Closing a matter asks for a destruction date no earlier than this; a later date, or none, is always allowed. 0 sets no minimum. Nothing is ever destroyed automatically.",
+    "The minimum number of years a closed matter's paper file is kept. Closing a matter asks for a destruction date no earlier than this. 0 means no minimum. Nothing is destroyed automatically.",
   kind: "number",
   minimum: 0,
   maximum: FILE_RETENTION_MINIMUM_YEARS_MAXIMUM,

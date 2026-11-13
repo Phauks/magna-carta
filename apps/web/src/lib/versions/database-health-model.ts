@@ -205,8 +205,7 @@ function membershipRow(value: DatabaseHealthValue): HealthRow {
         reading: "fault",
         status: "Not in the database yet",
         detail:
-          "Your account belongs to this firm, but its record has not reached the firm's database. " +
-          "Until it does, screens that check a permission will refuse.",
+          "Your account belongs to this firm but hasn't finished setting up. Until it does, some screens will deny access.",
       };
     case "inactive":
       return {
@@ -360,7 +359,7 @@ function fileStorageRow(value: DatabaseHealthValue): HealthRow {
     reading: "healthy",
     status: "Ready",
     detail:
-      "Files go from the browser straight to the firm's storage; the last upload readiness check found every precondition in place.",
+      "Files upload straight from the browser to the firm's storage. The last upload check passed.",
   };
 }
 
@@ -449,8 +448,8 @@ export function describeProvisioningBacklog(value: DatabaseHealthValue): {
       reading: "fault",
       sentence:
         provisioning.deadLettered === 1
-          ? "A member record for this firm failed to be written and will not retry on its own."
-          : `${String(provisioning.deadLettered)} member records for this firm failed to be written and will not retry on their own.`,
+          ? "A member record for this firm couldn't be saved and won't retry."
+          : `${String(provisioning.deadLettered)} member records for this firm couldn't be saved and won't retry.`,
     };
   }
   if (provisioning.pending > 0) {

@@ -133,8 +133,7 @@
   <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
     {#if !asked}
       <p class="text-sm text-text-muted">
-        Type a name, a number or a few words. To search the words inside a matter's files, open the
-        matter and use its own search.
+        Type a name, a number or a few words. To search inside a matter's files, open the matter and use its search.
       </p>
     {:else}
       <div class="flex flex-col gap-24 lg:flex-row lg:items-start">
@@ -184,8 +183,7 @@
                 {/each}
               </ul>
               <p class="px-12 text-xs text-text-muted">
-                A place marked In A Matter is searched with that matter's own search. A discovery
-                review set is searched only from inside the set, by the people on its access list.
+                Places marked In A Matter are searched from that matter. Review sets are searched only from inside the set, by people with access.
               </p>
             </div>
           {/if}

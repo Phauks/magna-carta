@@ -8,15 +8,29 @@ import type {
   FirmId,
   MagnusConversationId,
   MagnusTurnId,
+  UserId,
 } from "@magna-carta/identifiers/types";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { catalogEntryFor } from "@magna-carta/inference/catalog";
+import {
+  extractDocuments,
+  layOutCurrentDocuments,
+  readCurrentDocuments,
+  titleKey,
+  writeDocuments,
+} from "@magna-carta/magnus/artifact";
 import { MAGNUS_SYSTEM_PROMPT } from "@magna-carta/magnus/system-prompt";
 import {
   markAttachmentTextStatement,
+  readConversation,
   readRecentTurns,
   readTurn,
 } from "@magna-carta/magnus/statements";
 import { completeTurn, settleTurnFailure } from "@magna-carta/magnus/turn";
+import {
+  listConversationPermissions,
+  readEarlierConversations,
+} from "@magna-carta/magnus/permissions";
 import type { MagnusWriteContext } from "@magna-carta/magnus/audit";
 import type { AttachmentTextStatus, TurnFailureLabel } from "@magna-carta/magnus/types";
 import {
@@ -131,6 +145,33 @@ export interface MagnusConsumerPorts {
   readonly attachments?: AttachmentTextReader;
 }
 
+// The author's own other conversations on the same matter, when the author turned that permission on
+// for this conversation and the conversation is kept on a matter. Anything else reads nothing.
+async function readPermittedEarlierConversations(
+  firmDatabase: ReturnType<typeof firmDatabaseFor>,
+  conversationId: MagnusConversationId,
+) {
+  const permissions = await listConversationPermissions(firmDatabase, conversationId);
+  if (!permissions.includes("own-matter-conversations")) return [];
+  const conversation = await readConversation(firmDatabase, conversationId);
+  if (conversation === undefined || conversation.matterId === null) return [];
+  return readEarlierConversations(firmDatabase, {
+    matterId: conversation.matterId,
+    authorUserId: conversation.createdBy,
+    excludeConversationId: conversationId,
+  });
+}
+
+// The member a document is written for: the conversation's author, who is the one who asks in it.
+async function conversationAuthor(
+  firmDatabase: ReturnType<typeof firmDatabaseFor>,
+  conversationId: string,
+): Promise<UserId> {
+  const conversation = await readConversation(firmDatabase, conversationId as MagnusConversationId);
+  if (conversation === undefined) throw new Error("magnus conversation missing at settle");
+  return conversation.createdBy;
+}
+
 export async function handleMagnusTurnJob(
   env: Bindings,
   job: MagnusTurnJob,
@@ -175,9 +216,23 @@ export async function handleMagnusTurnJob(
   const readAttachments = await attachmentReader.readAll(
     job.conversationId as MagnusConversationId,
   );
+  // The author's own other conversations on the matter, only where the author turned that on for
+  // this conversation, and read fresh for this question like the files.
+  const earlierConversations = await readPermittedEarlierConversations(
+    firmDatabase,
+    job.conversationId as MagnusConversationId,
+  );
+  // The documents Magnus already wrote here, each at its latest version, so a revision starts from
+  // what the document is now (packages/magnus/src/artifact.ts).
+  const currentDocuments = await readCurrentDocuments(
+    firmDatabase,
+    job.conversationId as MagnusConversationId,
+  );
   const window = buildConversationWindow(priorTurns, {
     readWasCapped: priorTurns.length >= WINDOW_READ_LIMIT,
     attachments: windowAttachmentsFrom(readAttachments),
+    earlierConversations,
+    documents: layOutCurrentDocuments(currentDocuments),
   });
   if (window.messages.length === 0) {
     // Nothing to answer — the member turn this job refers to is gone (a deleted conversation racing
@@ -218,10 +273,27 @@ export async function handleMagnusTurnJob(
   const nowIso = new Date().toISOString();
   const context: MagnusWriteContext = { clock: { now: () => nowIso }, actorUserId: null };
 
+  // The documents in the answer are kept as versions of the conversation's documents; the answer
+  // keeps Magnus's own words, and the transcript shows a card for each document it wrote.
+  const extracted = extractDocuments(result.value.text);
+  const documentWrites =
+    extracted.documents.length === 0
+      ? []
+      : writeDocuments(firmDatabase, context, {
+          conversationId: job.conversationId as MagnusConversationId,
+          magnusTurnId: job.magnusTurnId as MagnusTurnId,
+          memberUserId: await conversationAuthor(firmDatabase, job.conversationId),
+          documents: extracted.documents,
+          existing: new Map(
+            currentDocuments.map((document) => [titleKey(document.title), document.id]),
+          ),
+          newArtifactId: () => newIdentifier("magnusArtifact"),
+        });
+
   const completion = completeTurn(firmDatabase, context, {
     conversationId: job.conversationId as MagnusConversationId,
     magnusTurnId: job.magnusTurnId as MagnusTurnId,
-    content: result.value.text,
+    content: extracted.prose,
     modelId,
     snapshotId: result.value.snapshotId,
     inputTokens: result.value.usage.inputTokens,
@@ -246,6 +318,7 @@ export async function handleMagnusTurnJob(
     {
       statements: [
         ...completion.effect.statements,
+        ...documentWrites,
         // What became of each attachment's text, recorded beside the answer it was sent with, so the
         // conversation can say per file whether the model saw it.
         ...attachmentStatuses(readAttachments, window.attachments).map((attachment) =>
