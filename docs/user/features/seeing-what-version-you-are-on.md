@@ -1,6 +1,32 @@
 # Seeing What Version You Are On
 
-The small chip at the top right of the screen always shows the version of Magna Carta you are running. Click it to see what version every part of the platform is on, and whether your firm's records are reachable from where you are sitting. The same report, with more room for its rows, is the **Versions** page under **Settings › Data & Platform**: the chip is the quick view, the page is the full one, and the two never disagree because they are one report.
+The small chip at the top right of the screen always shows the version of Magna Carta you are running. Click it to see what version is serving the app, which features are not working, and whether your firm's records are reachable from where you are sitting. The full report is the **System Status** page, opened from the pulse icon beside Customize at the foot of the sidebar, or from **Settings › Data & Platform** (the page that used to be called **Versions**; an old link still lands there). The chip is the quick view and the page is the full one. They never disagree, because they are one report read from the same places.
+
+## The System Status page
+
+The page answers "what works" before "what is running", because you use Outlook sync or address suggestions, not the services behind them.
+
+Four counts sit across the top:
+
+- **Features**: how many of the features this deployment can offer are working, and how many are not set up or not working.
+- **Deployment**: whether the page in your browser and the server are on the same build.
+- **Workers**: how many of the platform's services answered.
+- **Errors**: how many failures the platform logged in the last 24 hours. Only platform operators see this count.
+
+Under the counts, a tab answers each question:
+
+- **Features** lists every feature by area (Meetings and Calls, Calendar and Email, Files and Documents, Search and Lookups, AI, Platform) with one of three states. **Working** needs nothing. **Not set up** means nobody has turned the feature on for this deployment yet, which is a choice rather than a fault. **Not working** means it is turned on and its service is not answering, which is worth reporting.
+- **Deployment** shows the build each side is on and, when the page and the server differ, the changes that sit between them.
+- **Workers** lists every service under the name it is deployed as, and the outside services the platform connects to, as described below.
+- **This Firm** is the check on your firm's own records, described in [Checking your firm's database](#checking-your-firms-database).
+- **Recent Errors** lists the platform's failures over the last day, one row per kind of failure, with how many times it happened, when it was first and last seen, and the newest Error ID. Quote that Error ID to support and they can find the exact failure. This tab appears only for platform operators, because the rows cover every firm on the deployment.
+- **Feature Flags** lists the flags your firm's release channel switches on or off, and marks any that differ from their default.
+
+### For platform operators
+
+A platform operator sees more on the **Features** tab. A feature that is not set up names the settings it still needs and opens to a short list of steps that turn it on, with a link to the full steps in the deployment guide. A feature that is not working offers a link to the service in the hosting console. The page only ever says whether a setting is present. It never shows a setting's value to anyone.
+
+The **Recent Errors** tab needs one read-only token before it can show anything. Until it is set, the tab says **Not set up**, and **Recent errors** appears as a not-set-up row on the Features tab with the steps to add it.
 
 ## What it does
 
@@ -8,7 +34,11 @@ The chip itself shows the web application's build identifier: a short code that 
 
 Beside the identifier, the chip carries a badge naming the kind of build you are on — **Development**, or the name of a preview environment — whenever you are not on the live site. There is no badge on the live site: that is the ordinary case, and a badge that said so on every screen would be telling you nothing.
 
-Clicking the chip opens the version overlay. It lists every Magna Carta worker under the name it is deployed as (`magna-carta`, `magna-carta-web`, `magna-carta-scan`, `magna-carta-convert`, and so on), with the version each one reports about itself. `magna-carta-web` is the worker that serves the screen you are looking at, so its line is your page's version. The list is the whole fleet: a worker that is not deployed in your environment, or that cannot be reached right now, still appears and says so plainly. The overlay never invents a version, and it never omits a worker.
+## The chip
+
+Clicking the chip opens the version overlay. It is deliberately short: the build that is serving the app, any feature that is not working, and your firm's records. The **System Status** button at the bottom opens the full page.
+
+On the page, the **Workers** tab lists every Magna Carta worker under the name it is deployed as (`magna-carta`, `magna-carta-web`, `magna-carta-scan`, `magna-carta-convert`, and so on), with the version each one reports about itself. `magna-carta-web` is the worker that serves the screen you are looking at, so its line is your page's version. The list is the whole fleet: a worker that is not deployed in your environment, or that cannot be reached right now, still appears and says so plainly. The overlay never invents a version, and it never omits a worker.
 
 Each reporting entry shows its build identifier, when that build's change was made, when it was built, and how long it took to answer. A worker that is answering but taking a long time about it is marked **Slow** — it is still working, and it is the one thing here worth watching before it stops.
 
@@ -16,11 +46,11 @@ Worker names are links: opening one takes you to that worker in the platform's o
 
 The symbol at the end of the row of controls at the top opens the source the build on screen was made from. Like the worker links, it is there for the people who run the platform: the overlay answers every question about which version you are on without it.
 
-The overlay has two sections, **Deployment** and **Database**, each behind a caret beside its heading. Both open by default and the overlay remembers whichever way you leave them, on this browser. A shut heading still carries anything wrong beneath it, so folding a section can hide rows but never hides a fault — and if one of the overlay's own readings failed, it says so whether the section is folded or not.
+The overlay has three sections, **Deployment**, **Features** and **Database**, each behind a caret beside its heading. **Features** names only the features that are not working, as **Not available yet** or **Not working**, and says **Every feature is working.** when there are none. Both open by default and the overlay remembers whichever way you leave them, on this browser. A shut heading still carries anything wrong beneath it, so folding a section can hide rows but never hides a fault — and if one of the overlay's own readings failed, it says so whether the section is folded or not.
 
-Under **Deployment**, the two workers that serve the application's address lead the list. Everything beneath them is grouped under **Workers**, which folds away behind a caret of its own. If any of the folded workers came back without a version, the shut heading says how many.
+Under **Deployment**, the two workers that serve the application's address lead the list. The rest of the fleet is on the page's **Workers** tab.
 
-Under **Database**, the overlay checks the connection between your session and your firm's own records, and says what is standing between the two when something is — see [Checking your firm's database](#checking-your-firms-database) below.
+Under **Database** (the **This Firm** tab on the page), the overlay checks the connection between your session and your firm's own records, and says what is standing between the two when something is — see [Checking your firm's database](#checking-your-firms-database) below.
 
 A line headed **This page** appears when nothing else in the list can state your page's version — before you sign in, when the read fails, or when `magna-carta-web` itself does not answer. It comes from the page itself rather than from the network, so it is there exactly when the network is not.
 
@@ -28,7 +58,7 @@ A line headed **This page** appears when nothing else in the list can state your
 
 Choose **About Magna Carta** under **Websites** in your profile menu (or search for it) to open a short summary of the copy you are using: its version and release date, who you are signed in as and which firm, the kind of build, and your browser. **Copy Version Details** puts all of those on your clipboard as plain lines, ready to paste into a support request.
 
-The right side of the window links to the **Changelog**, the **Full version report** (the Versions page described above), **Service status** and **Report an issue**. Documentation and the legal pages are listed as **Soon** until they are published.
+The right side of the window links to the **Changelog**, **System Status** (the page described above), **Service status** and **Report an issue**. Documentation and the legal pages are listed as **Soon** until they are published.
 
 ## When a new version ships
 
@@ -52,7 +82,7 @@ The **Database** section of the version overlay is where that gets sorted out. I
 - **Schema** — whether your firm's database has caught up with the version of Magna Carta you are running. A firm's database updates itself the next time it is used, so **Behind** is a wait rather than a fault, and it explains a screen that is missing something a newer version added.
 - **Your membership** — whether your account has been written into the firm's records yet, which role or roles you hold, and how many things those roles permit. This is the row that explains a refusal.
 - **Control plane** — whether the platform's own records answered, and whether your firm's file storage has finished being set up.
-- **File storage** — which way an uploaded file travels (straight from your browser to the firm's storage, or through the application), and what the last upload readiness check found. **Not yet checked** is a fact rather than a fault: nobody has run the check. For an administrator the check runs when the panel opens, and a fourth section, **Upload readiness**, lists every check on its own line. **Not ready** names the first thing the check found missing — see [Checking that uploads can reach the firm's storage](../admin/upload-readiness.md).
+- **File storage** — which way an uploaded file travels (straight from your browser to the firm's storage, or through the application), and what the last upload readiness check found. **Not yet checked** is a fact rather than a fault: nobody has run the check. For an administrator the check runs when the System Status page opens, and the **This Firm** tab lists every check on its own line under **Upload readiness**. **Not ready** names the first thing the check found missing — see [Checking that uploads can reach the firm's storage](../admin/upload-readiness.md).
 
 When a member record for your firm is still being written, or could not be written, a **Provisioning** line appears beneath the four rows and says which. "Still being written" is a wait and usually clears within a few minutes; "will not retry on its own" means somebody at Magna Carta has to release it, and is worth quoting in a support request.
 
@@ -82,11 +112,11 @@ When the chip carries the amber dot, open it and press the amber reload symbol a
 
 **Shorten the list**
 
-Press the caret beside **Deployment** or **Database** to fold that whole section away, or the one beside **Workers** to keep just the two workers that serve the application's address. The overlay opens the same way next time, on this browser.
+Press the caret beside **Deployment**, **Features** or **Database** to fold that whole section away. The overlay opens the same way next time, on this browser.
 
 **Open the overlay without reaching for the mouse**
 
-Open the command menu (Ctrl+K, or Cmd+K on a Mac) and type "build" — or "version", or "commit". **Build Information** is in the results under **Diagnostics**.
+Open the command menu (Ctrl+K, or Cmd+K on a Mac) and type "build" — or "version", "commit" or "system status". **Build Information** is in the results under **Diagnostics**.
 
 **Find out why a screen is refusing you**
 

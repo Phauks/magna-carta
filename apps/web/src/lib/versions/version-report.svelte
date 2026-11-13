@@ -124,6 +124,44 @@
   import MessageSquareWarning from "@lucide/svelte/icons/message-square-warning";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import BookOpen from "@lucide/svelte/icons/book-open";
+  import * as Tabs from "@magna-carta/design-system/tabs";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import { untrack } from "svelte";
+  import {
+    FEATURES_SECTION_LABEL,
+    FEATURE_WORKERS,
+    countFeatures,
+    deployQueueUrl,
+    featureMemberStateLabel,
+    featureName,
+    featureSectionPills,
+    featureStateLabel,
+    featureStateReading,
+    featureSteps,
+    groupFeatures,
+    missingRequirements,
+    sortFeatures,
+    type FeatureStatus,
+  } from "$lib/versions/features-model.ts";
+  import {
+    RECENT_ERRORS_SECTION_LABEL,
+    describeErrorPlace,
+    describeRecentErrorsState,
+    errorKindLabel,
+    readRecentErrors,
+    recentErrorsTile,
+    type RecentErrorsValue,
+  } from "$lib/versions/recent-errors-model.ts";
+  import {
+    FEATURE_FLAGS_SECTION_LABEL,
+    featureFlagRows,
+    flagDiffersFromDefault,
+    flagStageLabel,
+    flagValueLabel,
+  } from "$lib/versions/feature-flags-model.ts";
+  import type { PullRequestLookup } from "$lib/versions/pull-request-lookup.ts";
   import { page, updated } from "$app/state";
   import { buildPanel } from "$lib/versions/build-panel.svelte.ts";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
@@ -252,6 +290,67 @@
   let readinessLoading = $state(false);
   const mayCheckReadiness = $derived(sessionPermissions.holds(CHECK_UPLOAD_READINESS_PERMISSION));
 
+  // THE PAGE AND THE PANEL SAY DIFFERENT AMOUNTS. The header panel is the quick view every member
+  // opens: what is running, which features are not working for them, whether their firm's records
+  // answer, and the way to System Status. The page carries the rest — the overview counts and one
+  // tab per question — and the panel's fleet, outside services and readiness check moved there.
+  const isPage = $derived(layout === "page");
+
+  // Every feature the deployment can switch on, from the same read as the Workers. The settings each
+  // needs arrive only for a platform operator, and their arrival is how this report knows it is
+  // talking to one: the operator's tab and the setup steps appear on that, and on nothing else.
+  const features = $derived<FeatureStatus[]>(value?.features ?? []);
+  const featureRequirementsList = $derived(value?.featureRequirements ?? null);
+  const isOperator = $derived(featureRequirementsList !== null);
+  const featureGroups = $derived(groupFeatures(features));
+  const featureCounts = $derived(countFeatures(features));
+  // The panel lists only what is not working; a list of every working feature is a page's job.
+  const panelFeatures = $derived(sortFeatures(features.filter((feature) => feature.state !== "working")));
+  let openSteps = $state<Record<string, boolean>>({});
+
+  // Recent errors: a platform operator's read, made only on the page and only once the versions
+  // read has said this is an operator — anyone else would be asking for a 403.
+  let errorsValue = $state<RecentErrorsValue | null>(null);
+  let errorsFailure = $state<PanelReadFailure | null>(null);
+  let errorsLoading = $state(false);
+
+  async function refreshErrors(): Promise<void> {
+    if (!isPage || !isOperator) return;
+    errorsLoading = true;
+    const outcome = await readRecentErrors(fetch);
+    errorsLoading = false;
+    if (outcome.kind === "ok") {
+      errorsValue = outcome.value;
+      errorsFailure = null;
+    } else if (outcome.kind === "problem") {
+      errorsFailure = { kind: "problem", problem: outcome.problem };
+    } else {
+      errorsFailure = { kind: "transport" };
+    }
+  }
+
+  $effect(() => {
+    if (open && isPage && isOperator) untrack(() => void refreshErrors());
+  });
+
+  // Which merge each deployed commit is. The ledger is large, so the page loads it on its own and
+  // the header chip, which is on every screen, never does.
+  let pullRequests = $state<PullRequestLookup | null>(null);
+  $effect(() => {
+    if (!isPage || untrack(() => pullRequests) !== null) return;
+    void import("$lib/versions/pull-request-lookup.ts").then((module) => {
+      pullRequests = module.createPullRequestLookup();
+    });
+  });
+
+  let tab = $state("features");
+
+  /** Where the full report lives: Settings, Data & Platform. */
+  const SYSTEM_STATUS_HREF = "/settings/system-status";
+
+  // The flags this firm's channel resolves to, from the session the page already holds.
+  const flagRows = $derived(featureFlagRows(sessionPermissions.session?.flags ?? null));
+
   // Sample words for the loading fixtures: an invented commit and its two timestamps, so a
   // fixture row's detail line is the width a real one is.
   const FIXTURE_COMMIT = "0f3a9c1";
@@ -336,7 +435,10 @@
   function refreshEverything(): void {
     void refresh({ fresh: true });
     void refreshHealth();
-    void refreshReadiness();
+    // The readiness check ACTS (it re-applies the bucket settings it verifies, and is audited), so
+    // it runs where its own section is shown: on the page, not behind the header chip.
+    if (isPage) void refreshReadiness();
+    void refreshErrors();
   }
 
   // Every open re-reads (the API's brief cache absorbs the cost of the aggregate; the health read
@@ -347,7 +449,7 @@
     if (!open || !readsAggregate) return;
     void refresh();
     void refreshHealth();
-    void refreshReadiness();
+    if (untrack(() => isPage)) void refreshReadiness();
     const ticker = setInterval(() => {
       nowEpochMilliseconds = Date.now();
     }, 5000);
@@ -460,6 +562,94 @@
   const readinessRows = $derived(
     readinessReport === null ? [] : uploadReadinessRows(readinessReport),
   );
+
+  const deployedPullRequests = $derived.by(() => {
+    if (value === null || pullRequests === null) return [];
+    const lookup = pullRequests;
+    const webCommit = webWorkerRow?.commit ?? null;
+    // Positive when the API trails the web build; negative when the web build trails the API.
+    const apart = lookup.mergesBetween(webCommit, value.api.commit);
+    return [
+      {
+        name: webWorkerRow?.service ?? PAGE_BUILD_ROW_NAME,
+        pullRequest: lookup.pullRequestFor(webCommit),
+        behind: apart === null ? null : -apart,
+      },
+      {
+        name: API_WORKER_UNIT_NAME,
+        pullRequest: lookup.pullRequestFor(value.api.commit),
+        behind: apart,
+      },
+    ];
+  });
+
+  type TileTone = "neutral" | "success" | "warning" | "danger";
+  const overviewTiles = $derived.by(() => {
+    const services = value?.services ?? [];
+    const answering = services.filter((service) => service.state === "reported").length;
+    const tiles: { tab: string; label: string; figure: string; detail: string; tone: TileTone }[] = [
+      {
+        tab: "features",
+        label: FEATURES_SECTION_LABEL,
+        figure:
+          value === null ? "—" : `${String(featureCounts.working)} of ${String(featureCounts.total)}`,
+        detail:
+          value === null
+            ? "Reading"
+            : featureCounts.fault > 0
+              ? `${String(featureCounts.fault)} not working, ${String(featureCounts.notSetUp)} not set up`
+              : `${String(featureCounts.notSetUp)} not set up`,
+        tone: featureCounts.fault > 0 ? "danger" : "neutral",
+      },
+      {
+        tab: "deployment",
+        label: DEPLOYMENT_SECTION_LABEL,
+        figure: syncState === null ? "—" : syncStateLabel(syncState),
+        detail: (() => {
+          const behind = deployedPullRequests.find((row) => row.behind !== null && row.behind > 0);
+          if (behind === undefined || behind.behind === null) {
+            return syncState === "in-sync" ? "One build serves the app" : "Two builds serve the app";
+          }
+          return `${behind.name} is ${String(behind.behind)} merge${behind.behind === 1 ? "" : "s"} behind`;
+        })(),
+        tone:
+          syncState === null ? "neutral" : syncStateBadgeVariant(syncState) === "warning" ? "warning" : syncState === "in-sync" ? "success" : "neutral",
+      },
+      {
+        tab: "workers",
+        label: FLEET_SECTION_LABEL,
+        figure: value === null ? "—" : `${String(answering)} of ${String(services.length)}`,
+        detail: "reporting a version",
+        tone: value !== null && answering < services.length ? "warning" : "neutral",
+      },
+    ];
+    if (isOperator) {
+      const errors = recentErrorsTile(errorsValue);
+      tiles.push({
+        tab: "errors",
+        label: "Errors, 24 Hours",
+        figure: errors.figure,
+        detail: errors.detail,
+        tone: errorsValue !== null && (errorsValue.total ?? 0) > 0 ? "danger" : "neutral",
+      });
+    }
+    return tiles;
+  });
+
+  function tileFigureClass(tone: TileTone): string {
+    switch (tone) {
+      case "danger":
+        return "text-status-danger";
+      case "warning":
+        return "text-status-warning";
+      case "success":
+        return "text-status-success";
+      default:
+        return "text-text-default";
+    }
+  }
+
+  const repositoryForGuides = $derived(repositoryUrl());
 
   // Where the diff between this tab's bundle and the one the deployment is publishing lives. Only
   // once the web row has reported a different commit — until then the update poll knows a newer
@@ -681,6 +871,441 @@
   </div>
 {/snippet}
 
+{#snippet featureRow(feature: FeatureStatus)}
+  <!-- One feature: its name, its state, and — for a platform operator — what it still needs and
+       the steps that turn it on. The steps open in place, under the row, because the reader is
+       deciding whether to act on THIS feature; a dialog would take the list they are working down
+       away from them. -->
+  {@const missing =
+    feature.state === "not-set-up"
+      ? missingRequirements(featureRequirementsList?.find((entry) => entry.id === feature.id))
+      : []}
+  {@const stepsOpen = openSteps[feature.id] === true}
+  {@const steps = featureSteps(feature.id)}
+  {@const guideUrl = deployQueueUrl(repositoryForGuides, feature.id)}
+  {@const worker = FEATURE_WORKERS[feature.id] ?? null}
+  <div class="flex flex-col {rowPadding}">
+    <div class="flex items-center justify-between gap-8">
+      <div class="flex min-w-0 flex-col">
+        <span class="text-sm text-text-default">{featureName(feature.id)}</span>
+        {#if isOperator && missing.length > 0}
+          <span class="font-mono text-xs break-all text-text-muted">Needs {missing.join(", ")}</span>
+        {:else if isOperator && feature.state === "fault" && worker !== null}
+          <span class="text-xs text-text-muted">Set up, and {worker} is not answering.</span>
+        {/if}
+      </div>
+      <div class="flex shrink-0 items-center gap-4">
+        {#if isOperator && feature.state === "fault" && worker !== null}
+          <Button
+            variant="ghost"
+            size="sm"
+            href={workerDashboardUrl(worker)}
+            {...opensBeside("external")}
+          >
+            Open in Cloudflare
+            <ExternalLink class="size-12" aria-hidden="true" />
+          </Button>
+        {:else if isOperator && feature.state === "not-set-up" && steps.length > 0}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={stepsOpen}
+            onclick={() => {
+              openSteps = { ...openSteps, [feature.id]: !stepsOpen };
+            }}
+          >
+            Steps
+            <ChevronRight
+              class="size-16 transition-transform duration-fast ease-standard motion-reduce:transition-none {stepsOpen
+                ? 'rotate-90'
+                : ''}"
+              aria-hidden="true"
+            />
+          </Button>
+        {/if}
+        <Badge variant={healthBadgeVariant(featureStateReading(feature.state))}
+          >{featureStateLabel(feature.state)}</Badge
+        >
+      </div>
+    </div>
+    {#if stepsOpen}
+      <div class="mt-8 flex flex-col gap-8 rounded-md bg-surface-sunken p-12">
+        <ol class="flex list-decimal flex-col gap-4 pl-20 text-sm text-text-default">
+          {#each steps as step (step)}
+            <li>{step}</li>
+          {/each}
+          <li>Press Refresh here. The row turns to Working once the settings are in place.</li>
+        </ol>
+        {#if guideUrl !== null}
+          <div>
+            <Button variant="secondary" size="sm" href={guideUrl} {...opensBeside("external")}>
+              <BookOpen class="size-16" aria-hidden="true" />
+              Full Steps in the Deploy Queue
+              <ExternalLink class="size-12" aria-hidden="true" />
+            </Button>
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet recentErrorsBlock()}
+  <!-- The deployment's failures over the last day, one row per kind, newest first. The Error ID is
+       the newest in the group and is copyable: it is the handle a log search starts from. -->
+  {#if errorsFailure !== null}
+    <div class="flex flex-col gap-4">
+      <p class="text-sm text-text-default">
+        {errorsFailure.kind === "problem"
+          ? "The recent errors read failed."
+          : "The API could not be reached."}
+      </p>
+      {#if errorsFailure.kind === "problem"}
+        <p class="text-xs text-text-muted">
+          Error ID: {errorsFailure.problem.errorId ?? "not yet assigned"} · status {errorsFailure
+            .problem.status}
+        </p>
+      {/if}
+      <div>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={errorsLoading}
+          onclick={() => void refreshErrors()}>Retry</Button
+        >
+      </div>
+    </div>
+  {/if}
+  {#if errorsValue === null}
+    {#if errorsFailure === null}
+      <p class="text-xs text-text-muted">Reading Workers Logs</p>
+    {/if}
+  {:else if errorsValue.state !== "read"}
+    {@const why = describeRecentErrorsState(errorsValue.state)}
+    <div class="flex items-center justify-between gap-8">
+      <p class="text-sm text-text-default">{why}</p>
+      {#if errorsValue.state === "not-configured"}
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={() => {
+            tab = "features";
+            openSteps = { ...openSteps, recentErrors: true };
+          }}>Steps</Button
+        >
+      {/if}
+    </div>
+  {:else if errorsValue.groups.length === 0}
+    <p class="text-sm text-text-default">No errors in the last 24 hours.</p>
+  {:else}
+    <div class="flex flex-col divide-y divide-border-default">
+      {#each errorsValue.groups as group (`${group.service}:${group.eventName}:${group.where}:${group.errorName}`)}
+        {@const copyKey = `error:${group.latestErrorId ?? group.lastSeen}`}
+        <div class="flex items-start justify-between gap-8 {rowPadding}">
+          <div class="flex min-w-0 flex-col">
+            <span class="text-sm text-text-default">
+              {group.errorName ?? "Error"}
+              <span class="text-text-muted">in {describeErrorPlace(group)}</span>
+            </span>
+            {#if group.messageHead !== null}
+              <span class="truncate text-xs text-text-muted">{group.messageHead}</span>
+            {/if}
+            <span class="text-xs text-text-muted">
+              <span class="font-mono">{group.service ?? "unknown Worker"}</span>
+              · {errorKindLabel(group.eventName)} · last seen {formatVersionTimestamp(group.lastSeen)}
+            </span>
+          </div>
+          <div class="flex shrink-0 items-center gap-4">
+            <Badge variant="danger">{group.count}×</Badge>
+            {#if group.latestErrorId !== null}
+              <Button
+                variant="ghost"
+                size="sm"
+                class="font-mono text-xs {copiedNow(copyKey) ? 'bg-action-secondary-hover' : ''}"
+                aria-label="Copy Error ID {group.latestErrorId}"
+                onclick={() => void copyValue(copyKey, group.latestErrorId ?? "")}
+              >
+                {group.latestErrorId}
+              </Button>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    </div>
+    {#if errorsValue.truncated}
+      <p class="text-xs text-text-muted">
+        Only the newest {errorsValue.total} events were read. Workers Logs holds more.
+      </p>
+    {/if}
+  {/if}
+{/snippet}
+
+{#snippet featureFlagsBlock()}
+  <!-- Every flag in the catalog and what this firm's release channel resolves it to. A flag that
+       resolves away from its default is the one somebody turned, so it says so. -->
+  {#if flagRows.length === 0}
+    <p class="text-sm text-text-default">No feature flags are defined.</p>
+  {:else}
+    <div class="flex flex-col divide-y divide-border-default">
+      {#each flagRows as flag (flag.key)}
+        {@const stage = flagStageLabel(flag.stage)}
+        <div class="flex items-start justify-between gap-8 {rowPadding}">
+          <div class="flex min-w-0 flex-col">
+            <span class="font-mono text-sm text-text-default">{flag.key}</span>
+            {#if flag.description !== null}
+              <span class="text-xs text-text-muted">{flag.description}</span>
+            {/if}
+          </div>
+          <div class="flex shrink-0 items-center gap-4">
+            {#if stage !== null}
+              <Badge variant="neutral">{stage}</Badge>
+            {/if}
+            <Badge variant={flagDiffersFromDefault(flag) ? "warning" : flag.value === true ? "success" : "neutral"}
+              >{flagValueLabel(flag.value)}</Badge
+            >
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet deploymentSectionBlock()}
+  <VersionPanelSection
+    foldable={!isPage}
+    label={DEPLOYMENT_SECTION_LABEL}
+    preference={PANEL_SECTION_FOLDS.deployment}
+    pills={deploymentPills}
+    loading={value === null}
+    refreshing={loading}
+    loadingLabel="Reading what the deployment is running"
+    onRetry={() => void refresh({ fresh: true })}
+  >
+    {#snippet fixture()}
+      {@render partFixture("fixture")}
+    {/snippet}
+    {#if value !== null}
+      {@render partRow({
+        rowKey: "api",
+        name: API_WORKER_UNIT_NAME,
+        isWorkerName: true,
+        state: "reported",
+        commit: isRealCommit(value.api.commit) ? value.api.commit : "dev",
+        commitTime: value.api.commitTime,
+        buildTime: value.api.buildTime,
+        linksToCommit: true,
+      })}
+      {#if value.services.length === 0}
+        <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
+      {:else if deploymentRows !== null}
+        <!-- The two Workers that serve the app's address, with the sync read that compares
+             them. The rest of the fleet is its own section below, not a fold within this
+             one. -->
+        <div class="flex flex-col">
+          {#each deploymentRows.front as service (service.id)}
+            {@render partRow({
+              rowKey: service.id,
+              name: service.service,
+              isWorkerName: true,
+              state: service.state,
+              commit: service.commit,
+              commitTime: service.commitTime,
+              buildTime: service.buildTime,
+              latencyMilliseconds: service.latencyMilliseconds,
+              linksToCommit: true,
+            })}
+          {/each}
+        </div>
+        {#if syncState !== null}
+          <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
+               API it serves, warning only when the web build is the one behind (the
+               actionable case), neutral for any other difference — the two Workers deploy
+               separately, so differing is a normal state, not a fault. -->
+          <div class="flex items-center gap-8">
+            <Badge variant={syncStateBadgeVariant(syncState)}
+              >{syncStateLabel(syncState)}</Badge
+            >
+          </div>
+        {/if}
+      {/if}
+    {/if}
+  </VersionPanelSection>
+{/snippet}
+
+{#snippet workersSectionBlock()}
+  <VersionPanelSection
+    foldable={!isPage}
+    label={FLEET_SECTION_LABEL}
+    preference={PANEL_SECTION_FOLDS.fleet}
+    pills={workersPills}
+    loading={value === null}
+    refreshing={loading}
+    loadingLabel="Reading which Workers are running"
+    onRetry={() => void refresh({ fresh: true })}
+  >
+    {#snippet fixture()}
+      {@render partFixture("fixture-worker")}
+    {/snippet}
+    {#if deploymentRows !== null}
+      <div class="flex flex-col">
+        {#each deploymentRows.rest as service (service.id)}
+          {@render partRow({
+            rowKey: service.id,
+            name: service.service,
+            isWorkerName: true,
+            state: service.state,
+            commit: service.commit,
+            commitTime: service.commitTime,
+            buildTime: service.buildTime,
+            latencyMilliseconds: service.latencyMilliseconds,
+          })}
+        {/each}
+      </div>
+    {/if}
+  </VersionPanelSection>
+{/snippet}
+
+{#snippet connectedSectionBlock()}
+  <VersionPanelSection
+    label={CONNECTED_SERVICES_SECTION_LABEL}
+    preference={PANEL_SECTION_FOLDS.connected}
+    pills={connectedPills}
+    loading={false}
+    refreshing={loading}
+    loadingLabel="Checking the outside services"
+    onRetry={() => void refresh({ fresh: true })}
+  >
+    {#snippet fixture()}
+      {@render healthRow({
+        name: "Cloudflare Realtime (meetings)",
+        reading: "healthy",
+        status: "Connected",
+        detail: "A meeting session opened just now.",
+      })}
+    {/snippet}
+    <div class="flex flex-col">
+      {#each connectedServices as service (service.id)}
+        {@render healthRow(connectedServiceRow(service))}
+      {/each}
+    </div>
+  </VersionPanelSection>
+{/snippet}
+
+{#snippet databaseSectionBlock()}
+  <VersionPanelSection
+    label={DATABASE_SECTION_LABEL}
+    preference={PANEL_SECTION_FOLDS.database}
+    pills={databasePills}
+    failure={healthFailure}
+    failureLead="The database health read failed."
+    retrying={healthLoading}
+    loading={healthValue === null && healthFailure === null}
+    refreshing={healthLoading}
+    loadingLabel="Reading whether this firm's database can be reached"
+    onRetry={() => void refreshHealth()}
+  >
+    {#snippet fixture()}
+      <!-- Two health rows over sample readings: the section's own shape, greyed. -->
+      <div class="flex flex-col">
+        {@render healthRow({
+          name: "Firm database",
+          reading: "healthy",
+          status: "Reachable",
+          detail: "The firm's own database answered.",
+        })}
+        {@render healthRow({
+          name: "Your membership",
+          reading: "healthy",
+          status: "Recorded",
+          detail: "This account is a member of the firm.",
+        })}
+      </div>
+    {/snippet}
+    {#if healthValue !== null}
+      <div class="flex flex-col">
+        {#each healthRows as row (row.id)}
+          {@render healthRow(row)}
+        {/each}
+      </div>
+      {#each schemaLineage as note (note.sentence)}
+        <!-- What the schema row cannot fit: a migration that arrived behind the ledger head, and
+             the restore point sitting in front of the last batch. Both come off the wire from the
+             firm database itself and were being dropped here; neither is a row, because a row
+             that is blank on every healthy firm teaches a reader to skip it. -->
+        <div class="flex items-center gap-8">
+          <Badge variant={healthBadgeVariant(note.reading)}>Lineage</Badge>
+          <p class="text-xs text-text-muted">{note.sentence}</p>
+        </div>
+      {/each}
+      {#if provisioningBacklog !== null}
+        <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
+             have all landed carries nothing here: "0 pending" is an info line with nothing
+             behind it, and this line exists to turn an unexplained refusal into a wait. -->
+        <div class="flex items-center gap-8">
+          <Badge variant={healthBadgeVariant(provisioningBacklog.reading)}>Provisioning</Badge>
+          <p class="text-xs text-text-muted">{provisioningBacklog.sentence}</p>
+        </div>
+      {/if}
+    {/if}
+  </VersionPanelSection>
+{/snippet}
+
+{#snippet readinessSectionBlock()}
+  <VersionPanelSection
+    label={UPLOAD_READINESS_SECTION_LABEL}
+    preference={PANEL_SECTION_FOLDS.readiness}
+    pills={readinessPills}
+    failure={readinessFailure}
+    failureLead="The upload readiness check did not run."
+    retrying={readinessLoading}
+    loading={readinessReport === null && readinessFailure === null}
+    refreshing={readinessLoading}
+    loadingLabel={READINESS_CHECK_IN_FLIGHT_NOTICE}
+    onRetry={() => void refreshReadiness()}
+  >
+    {#snippet fixture()}
+      <!-- Two check rows over sample readings: the section's own shape, greyed. -->
+      <div class="flex flex-col">
+        {@render healthRow({
+          name: "Storage bucket exists",
+          reading: "healthy",
+          status: "Holds",
+          detail: "The firm's bucket exists in the account.",
+        })}
+        {@render healthRow({
+          name: "The storage credential is honoured",
+          reading: "healthy",
+          status: "Holds",
+          detail: "The credential signs a request the bucket honours.",
+        })}
+      </div>
+    {/snippet}
+    {#if readinessReport !== null}
+      {@const report = readinessReport}
+      <div class="flex flex-col">
+        {#each readinessRows as row (row.id)}
+          {@render healthRow(row)}
+        {/each}
+      </div>
+      <!-- The verdict and the two deployment facts the rows are read against, in the
+           place the Database section keeps its provisioning line. -->
+      <div class="flex items-center gap-8">
+        <Badge variant={report.ready ? "success" : "danger"}>
+          {report.ready ? "Ready" : "Not ready"}
+        </Badge>
+        <p class="text-xs text-text-muted">
+          {report.uploadPath === "direct-to-storage"
+            ? "Files go from the browser straight to storage."
+            : "Files go through the application in this deployment."}
+          {#if report.bucketName !== null}
+            Bucket {report.bucketName}.
+          {/if}
+        </p>
+      </div>
+    {/if}
+  </VersionPanelSection>
+{/snippet}
+
 <!-- The report proper. In the panel this is the popover body the chip owns; on the Versions
      page it is the page itself. Same sections, same rows, same words either way. -->
 <div class="flex flex-col gap-8">
@@ -756,7 +1381,7 @@
             size="icon"
             class="shrink-0"
             aria-label="Refresh the panel"
-            disabled={loading || healthLoading || readinessLoading}
+            disabled={loading || healthLoading || readinessLoading || errorsLoading}
             onclick={refreshEverything}
           >
             <RefreshCw class="size-16" aria-hidden="true" />
@@ -885,260 +1510,172 @@
   {/if}
 
   {#if readsAggregate}
-    {#if value !== null || loading}
-      <Separator />
-      <!-- Deployment folds like the fleet below it. Shut, it wears the count of the parts it
-           hides and the sync read that is the section's whole point — collapsing this heading
-           takes the leading pair down with it, and a fault in the pair is the one most worth
-           seeing. -->
-      <VersionPanelSection
-        label={DEPLOYMENT_SECTION_LABEL}
-        preference={PANEL_SECTION_FOLDS.deployment}
-        pills={deploymentPills}
-        loading={value === null}
-        refreshing={loading}
-        loadingLabel="Reading what the deployment is running"
-        onRetry={() => void refresh({ fresh: true })}
-      >
-        {#snippet fixture()}
-          {@render partFixture("fixture")}
-        {/snippet}
-        {#if value !== null}
-          {@render partRow({
-            rowKey: "api",
-            name: API_WORKER_UNIT_NAME,
-            isWorkerName: true,
-            state: "reported",
-            commit: isRealCommit(value.api.commit) ? value.api.commit : "dev",
-            commitTime: value.api.commitTime,
-            buildTime: value.api.buildTime,
-            linksToCommit: true,
-          })}
-          {#if value.services.length === 0}
-            <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
-          {:else if deploymentRows !== null}
-            <!-- The two Workers that serve the app's address, with the sync read that compares
-                 them. The rest of the fleet is its own section below, not a fold within this
-                 one. -->
-            <div class="flex flex-col">
-              {#each deploymentRows.front as service (service.id)}
-                {@render partRow({
-                  rowKey: service.id,
-                  name: service.service,
-                  isWorkerName: true,
-                  state: service.state,
-                  commit: service.commit,
-                  commitTime: service.commitTime,
-                  buildTime: service.buildTime,
-                  latencyMilliseconds: service.latencyMilliseconds,
-                  linksToCommit: true,
-                })}
+    {#if isPage}
+      <!-- THE PAGE: four counts, then one tab per question. Each count is also the way to its own
+           tab, so the number that caught the eye is one press from the rows behind it. -->
+      <div class="grid grid-cols-2 gap-8 lg:grid-cols-4">
+        {#each overviewTiles as tile (tile.tab)}
+          <button
+            type="button"
+            class="flex flex-col gap-4 rounded-lg border border-border-default bg-surface-default p-12 text-left hover:bg-action-secondary-hover {tab ===
+            tile.tab
+              ? 'border-action-primary'
+              : ''}"
+            onclick={() => {
+              tab = tile.tab;
+            }}
+          >
+            <span class="text-xs font-medium text-text-muted">{tile.label}</span>
+            <span class="text-xl font-semibold {tileFigureClass(tile.tone)}">{tile.figure}</span>
+            <span class="text-xs text-text-muted">{tile.detail}</span>
+          </button>
+        {/each}
+      </div>
+      <Tabs.Root bind:value={tab}>
+        <Tabs.List>
+          <Tabs.Trigger value="features">{FEATURES_SECTION_LABEL}</Tabs.Trigger>
+          <Tabs.Trigger value="deployment">{DEPLOYMENT_SECTION_LABEL}</Tabs.Trigger>
+          <Tabs.Trigger value="workers">{FLEET_SECTION_LABEL}</Tabs.Trigger>
+          <Tabs.Trigger value="firm">This Firm</Tabs.Trigger>
+          {#if isOperator}
+            <Tabs.Trigger value="errors">{RECENT_ERRORS_SECTION_LABEL}</Tabs.Trigger>
+          {/if}
+          <Tabs.Trigger value="flags">{FEATURE_FLAGS_SECTION_LABEL}</Tabs.Trigger>
+        </Tabs.List>
+
+        <Tabs.Content value="features" class="flex flex-col gap-16 pt-16">
+          {#if value === null}
+            <p class="text-xs text-text-muted">{READ_IN_FLIGHT_NOTICE}</p>
+          {:else if features.length === 0}
+            <p class="text-xs text-text-muted">This deployment's API does not report features yet.</p>
+          {:else}
+            {#each featureGroups as group (group.id)}
+              <div class="flex flex-col">
+                <div class="flex items-center gap-8 border-b border-border-default pb-4">
+                  <FieldLabel as="span">{group.label}</FieldLabel>
+                  {#each featureSectionPills(group.features).slice(1) as pill (pill.label)}
+                    <Badge variant={pill.variant}>{pill.label}</Badge>
+                  {/each}
+                </div>
+                <div class="flex flex-col divide-y divide-border-default">
+                  {#each group.features as feature (feature.id)}
+                    {@render featureRow(feature)}
+                  {/each}
+                </div>
+              </div>
+            {/each}
+          {/if}
+        </Tabs.Content>
+
+        <Tabs.Content value="deployment" class="flex flex-col gap-8 pt-16">
+          {@render deploymentSectionBlock()}
+          {#if value !== null && pullRequests !== null}
+            <!-- Which merge each of the two is, from the ledger this build carries: a bare hash says
+                 nothing until somebody looks it up, and the title is what they were looking for. -->
+            <div class="flex flex-col divide-y divide-border-default">
+              {#each deployedPullRequests as deployed (deployed.name)}
+                <div class="flex items-center justify-between gap-8 {rowPadding}">
+                  <div class="flex min-w-0 flex-col">
+                    <span class="font-mono text-sm text-text-default">{deployed.name}</span>
+                    {#if deployed.pullRequest !== null}
+                      <a
+                        href={deployed.pullRequest.url}
+                        {...opensBeside("external")}
+                        class="truncate text-xs text-text-muted underline decoration-dotted underline-offset-2 hover:text-text-strong"
+                        >#{deployed.pullRequest.number} {deployed.pullRequest.title}</a
+                      >
+                    {:else}
+                      <span class="text-xs text-text-muted">Not in this build's list of merges</span>
+                    {/if}
+                  </div>
+                  {#if deployed.behind !== null && deployed.behind > 0}
+                    <Badge variant="warning"
+                      >{deployed.behind} merge{deployed.behind === 1 ? "" : "s"} behind</Badge
+                    >
+                  {/if}
+                </div>
               {/each}
             </div>
-            {#if syncState !== null}
-              <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
-                   API it serves, warning only when the web build is the one behind (the
-                   actionable case), neutral for any other difference — the two Workers deploy
-                   separately, so differing is a normal state, not a fault. -->
-              <div class="flex items-center gap-8">
-                <Badge variant={syncStateBadgeVariant(syncState)}
-                  >{syncStateLabel(syncState)}</Badge
-                >
+          {/if}
+        </Tabs.Content>
+
+        <Tabs.Content value="workers" class="flex flex-col gap-8 pt-16">
+          {#if deploymentRows === null || deploymentRows.rest.length > 0}
+            {@render workersSectionBlock()}
+          {/if}
+          {#if connectedServices.length > 0}
+            <Separator />
+            {@render connectedSectionBlock()}
+          {/if}
+        </Tabs.Content>
+
+        <Tabs.Content value="firm" class="flex flex-col gap-8 pt-16">
+          {@render databaseSectionBlock()}
+          {#if mayCheckReadiness}
+            <Separator />
+            {@render readinessSectionBlock()}
+          {/if}
+        </Tabs.Content>
+
+        {#if isOperator}
+          <Tabs.Content value="errors" class="flex flex-col gap-8 pt-16">
+            {@render recentErrorsBlock()}
+          </Tabs.Content>
+        {/if}
+
+        <Tabs.Content value="flags" class="flex flex-col gap-8 pt-16">
+          {@render featureFlagsBlock()}
+        </Tabs.Content>
+      </Tabs.Root>
+    {:else}
+      <!-- THE HEADER PANEL: the quick view. What is running, which features are not working for
+           this person, and whether their firm's records can be reached — and the way to the full
+           page. The fleet, the outside services and the readiness check are the page's. -->
+      {#if value !== null || loading}
+        <Separator />
+        {@render deploymentSectionBlock()}
+        {#if features.length > 0}
+          <Separator />
+          <VersionPanelSection
+            label={FEATURES_SECTION_LABEL}
+            preference={PANEL_SECTION_FOLDS.features}
+            pills={featureSectionPills(features)}
+            loading={false}
+            refreshing={loading}
+            loadingLabel={READ_IN_FLIGHT_NOTICE}
+          >
+            {#if panelFeatures.length === 0}
+              <p class="text-xs text-text-muted">Every feature is working.</p>
+            {:else}
+              <div class="flex flex-col">
+                {#each panelFeatures as feature (feature.id)}
+                  <div class="flex items-center justify-between gap-8 {rowPadding}">
+                    <span class="text-sm text-text-default">{featureName(feature.id)}</span>
+                    <Badge
+                      class="shrink-0"
+                      variant={healthBadgeVariant(featureStateReading(feature.state))}
+                      >{featureMemberStateLabel(feature.state)}</Badge
+                    >
+                  </div>
+                {/each}
               </div>
             {/if}
-          {/if}
-        {/if}
-      </VersionPanelSection>
-      {#if deploymentRows === null || deploymentRows.rest.length > 0}
-        <Separator />
-        <!-- WORKERS IS ITS OWN SUBJECT, not a drawer inside Deployment. Nesting it made the fleet
-             something a reader reached THROUGH the deployment, when in practice the two are asked
-             about separately: "what build is live" and "is anything not answering" are different
-             questions, and one of them was two folds deep. Shut, this heading counts only the
-             Workers it hides; the pair above it is on screen and speaks for itself. -->
-        <VersionPanelSection
-          label={FLEET_SECTION_LABEL}
-          preference={PANEL_SECTION_FOLDS.fleet}
-          pills={workersPills}
-          loading={value === null}
-          refreshing={loading}
-          loadingLabel="Reading which Workers are running"
-          onRetry={() => void refresh({ fresh: true })}
-        >
-          {#snippet fixture()}
-            {@render partFixture("fixture-worker")}
-          {/snippet}
-          {#if deploymentRows !== null}
-            <div class="flex flex-col">
-              {#each deploymentRows.rest as service (service.id)}
-                {@render partRow({
-                  rowKey: service.id,
-                  name: service.service,
-                  isWorkerName: true,
-                  state: service.state,
-                  commit: service.commit,
-                  commitTime: service.commitTime,
-                  buildTime: service.buildTime,
-                  latencyMilliseconds: service.latencyMilliseconds,
-                })}
-              {/each}
-            </div>
-          {/if}
-        </VersionPanelSection>
-      {/if}
-      {#if connectedServices.length > 0}
-        <Separator />
-        <!-- The outside services the deployment depends on, which run no build of ours and so are
-             not Workers rows: whether each is set up and accepting this deployment, read with the
-             Workers and refreshed with them. -->
-        <VersionPanelSection
-          label={CONNECTED_SERVICES_SECTION_LABEL}
-          preference={PANEL_SECTION_FOLDS.connected}
-          pills={connectedPills}
-          loading={false}
-          refreshing={loading}
-          loadingLabel="Checking the outside services"
-          onRetry={() => void refresh({ fresh: true })}
-        >
-          {#snippet fixture()}
-            {@render healthRow({
-              name: "Cloudflare Realtime (meetings)",
-              reading: "healthy",
-              status: "Connected",
-              detail: "A meeting session opened just now.",
-            })}
-          {/snippet}
-          <div class="flex flex-col">
-            {#each connectedServices as service (service.id)}
-              {@render healthRow(connectedServiceRow(service))}
-            {/each}
-          </div>
-        </VersionPanelSection>
-      {/if}
-    {/if}
-    <Separator />
-    <!-- The panel's second subject: whether this session can reach and use its firm's own data.
-         It folds on the same terms Deployment does, and a shut heading wears the worst reading in
-         the section, so the one state this whole section exists to surface — a membership that
-         has not landed, and every screen refusing because of it — survives being folded away. -->
-    <VersionPanelSection
-      label={DATABASE_SECTION_LABEL}
-      preference={PANEL_SECTION_FOLDS.database}
-      pills={databasePills}
-      failure={healthFailure}
-      failureLead="The database health read failed."
-      retrying={healthLoading}
-      loading={healthValue === null && healthFailure === null}
-      refreshing={healthLoading}
-      loadingLabel="Reading whether this firm's database can be reached"
-      onRetry={() => void refreshHealth()}
-    >
-      {#snippet fixture()}
-        <!-- Two health rows over sample readings: the section's own shape, greyed. -->
-        <div class="flex flex-col">
-          {@render healthRow({
-            name: "Firm database",
-            reading: "healthy",
-            status: "Reachable",
-            detail: "The firm's own database answered.",
-          })}
-          {@render healthRow({
-            name: "Your membership",
-            reading: "healthy",
-            status: "Recorded",
-            detail: "This account is a member of the firm.",
-          })}
-        </div>
-      {/snippet}
-      {#if healthValue !== null}
-        <div class="flex flex-col">
-          {#each healthRows as row (row.id)}
-            {@render healthRow(row)}
-          {/each}
-        </div>
-        {#each schemaLineage as note (note.sentence)}
-          <!-- What the schema row cannot fit: a migration that arrived behind the ledger head, and
-               the restore point sitting in front of the last batch. Both come off the wire from the
-               firm database itself and were being dropped here; neither is a row, because a row
-               that is blank on every healthy firm teaches a reader to skip it. -->
-          <div class="flex items-center gap-8">
-            <Badge variant={healthBadgeVariant(note.reading)}>Lineage</Badge>
-            <p class="text-xs text-text-muted">{note.sentence}</p>
-          </div>
-        {/each}
-        {#if provisioningBacklog !== null}
-          <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
-               have all landed carries nothing here: "0 pending" is an info line with nothing
-               behind it, and this line exists to turn an unexplained refusal into a wait. -->
-          <div class="flex items-center gap-8">
-            <Badge variant={healthBadgeVariant(provisioningBacklog.reading)}>Provisioning</Badge>
-            <p class="text-xs text-text-muted">{provisioningBacklog.sentence}</p>
-          </div>
+          </VersionPanelSection>
         {/if}
       {/if}
-    </VersionPanelSection>
-    {#if mayCheckReadiness}
       <Separator />
-      <!-- The panel's third subject, for a member who may act on it: whether a file chosen in
-           this browser can reach the firm's storage. The check ACTS — the bucket settings the
-           platform owns are re-applied as they are verified, and the run is audited — which is
-           why it is gated on the permission the file-safety settings ride and why everyone else
-           sees only the last run, on the File storage row above. Same heading, same fold, same
-           rows as Database, so the two read as one instrument; the panel's Copy takes the
-           report with everything else. -->
-      <VersionPanelSection
-        label={UPLOAD_READINESS_SECTION_LABEL}
-        preference={PANEL_SECTION_FOLDS.readiness}
-        pills={readinessPills}
-        failure={readinessFailure}
-        failureLead="The upload readiness check did not run."
-        retrying={readinessLoading}
-        loading={readinessReport === null && readinessFailure === null}
-        refreshing={readinessLoading}
-        loadingLabel={READINESS_CHECK_IN_FLIGHT_NOTICE}
-        onRetry={() => void refreshReadiness()}
-      >
-        {#snippet fixture()}
-          <!-- Two check rows over sample readings: the section's own shape, greyed. -->
-          <div class="flex flex-col">
-            {@render healthRow({
-              name: "Storage bucket exists",
-              reading: "healthy",
-              status: "Holds",
-              detail: "The firm's bucket exists in the account.",
-            })}
-            {@render healthRow({
-              name: "The storage credential is honoured",
-              reading: "healthy",
-              status: "Holds",
-              detail: "The credential signs a request the bucket honours.",
-            })}
-          </div>
-        {/snippet}
-        {#if readinessReport !== null}
-          {@const report = readinessReport}
-          <div class="flex flex-col">
-            {#each readinessRows as row (row.id)}
-              {@render healthRow(row)}
-            {/each}
-          </div>
-          <!-- The verdict and the two deployment facts the rows are read against, in the
-               place the Database section keeps its provisioning line. -->
-          <div class="flex items-center gap-8">
-            <Badge variant={report.ready ? "success" : "danger"}>
-              {report.ready ? "Ready" : "Not ready"}
-            </Badge>
-            <p class="text-xs text-text-muted">
-              {report.uploadPath === "direct-to-storage"
-                ? "Files go from the browser straight to storage."
-                : "Files go through the application in this deployment."}
-              {#if report.bucketName !== null}
-                Bucket {report.bucketName}.
-              {/if}
-            </p>
-          </div>
-        {/if}
-      </VersionPanelSection>
+      {@render databaseSectionBlock()}
+      <div class="flex items-center gap-8 pt-4">
+        <Button
+          variant="secondary"
+          size="sm"
+          href={SYSTEM_STATUS_HREF}
+          onclick={() => buildPanel.close()}
+        >
+          System Status
+          <ChevronRight class="size-16" aria-hidden="true" />
+        </Button>
+      </div>
     {/if}
   {:else}
     <!-- The signed-out panel stops at the page's own build. Saying so is the point: an absent
