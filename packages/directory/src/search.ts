@@ -287,6 +287,9 @@ export type MatchChannel = "phonetic" | "trigram" | "identifier";
 export interface MatchOptions {
   readonly schemes?: readonly string[];
   readonly nameRoles?: readonly string[];
+  // False skips the trigram channel. A conflicts check run without it is one a person chose to run
+  // that way and recorded on the check; entry-time duplicate detection never passes it.
+  readonly trigram?: boolean;
 }
 
 // The caller-supplied name and identifier facts to match against. Either given+family (for persons)
@@ -906,7 +909,10 @@ export async function findDuplicateCandidatesBatch(
   for (const kind of kinds) {
     const ofKind = active.filter((entry) => entry.subject.kind === kind);
     const codes = [...new Set(ofKind.flatMap((entry) => entry.codes))].sort();
-    const trigrams = [...new Set(ofKind.flatMap((entry) => entry.queryTrigrams))].sort();
+    const trigrams =
+      matchOptions.trigram === false
+        ? []
+        : [...new Set(ofKind.flatMap((entry) => entry.queryTrigrams))].sort();
     phoneticByKind.set(
       kind,
       codes.length === 0
@@ -1024,7 +1030,9 @@ export async function findDuplicateCandidates(
   // Run all three channels in parallel.
   const [phoneticSet, trigramSet, identifierMap] = await Promise.all([
     phoneticChannel(context.database, input),
-    trigramChannel(context.database, input),
+    input.matchOptions?.trigram === false
+      ? Promise.resolve(new Set<string>())
+      : trigramChannel(context.database, input),
     identifierChannel(context, input),
   ]);
 

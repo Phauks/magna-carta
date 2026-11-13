@@ -17,6 +17,8 @@ import {
   insertPostStatement,
   insertVoteStatement,
   listComments,
+  listModerationQueue,
+  listOpenFlagReasons,
   listPosts,
   recountCommentsStatement,
   recountVotesStatement,
@@ -640,6 +642,68 @@ export async function acceptAnswer(
   }
   await setAcceptedAnswerStatement(database, { postId: post.id, commentId }, now).run();
   return ok(null);
+}
+
+// What waits for the team: every held or hidden post and comment, oldest first, with why it is
+// waiting and what any open reports say. The author's display name is shown; their firm is not,
+// even to the team, because nothing a moderator decides depends on it.
+export interface ModerationItem {
+  readonly target: "post" | "comment";
+  readonly number: number;
+  readonly commentId: CommunityCommentId | null;
+  readonly postTitle: string;
+  readonly body: string;
+  readonly authorDisplayName: string;
+  readonly moderationState: ModerationState;
+  readonly heldReason: HeldReason | null;
+  readonly reports: Readonly<Partial<Record<FlagReason, number>>>;
+  readonly createdAt: string;
+}
+
+export async function readModerationQueue(
+  database: SqlDatabase,
+  member: BoardMember,
+): Promise<BoardResult<{ items: ModerationItem[] }>> {
+  if (!member.isTeam) {
+    return refuse("not-team");
+  }
+  const [queue, flags] = await Promise.all([
+    listModerationQueue(database),
+    listOpenFlagReasons(database),
+  ]);
+  const reportsFor = (postId: string, commentId: string | null) =>
+    Object.fromEntries(
+      flags
+        .filter((entry) => entry.postId === postId && entry.commentId === commentId)
+        .map((entry) => [entry.reason, entry.reports]),
+    ) as Partial<Record<FlagReason, number>>;
+  const items: ModerationItem[] = [
+    ...queue.posts.map((post) => ({
+      target: "post" as const,
+      number: post.number,
+      commentId: null,
+      postTitle: post.title,
+      body: post.body,
+      authorDisplayName: post.authorDisplayName,
+      moderationState: post.moderationState,
+      heldReason: post.heldReason,
+      reports: reportsFor(post.id, null),
+      createdAt: post.createdAt,
+    })),
+    ...queue.comments.map((comment) => ({
+      target: "comment" as const,
+      number: comment.postNumber,
+      commentId: comment.id,
+      postTitle: comment.postTitle,
+      body: comment.body,
+      authorDisplayName: comment.authorDisplayName,
+      moderationState: comment.moderationState,
+      heldReason: comment.heldReason,
+      reports: reportsFor(comment.postId, comment.id),
+      createdAt: comment.createdAt,
+    })),
+  ].toSorted((left, right) => left.createdAt.localeCompare(right.createdAt));
+  return ok({ items });
 }
 
 // A moderator's decision on something held or hidden. Publishing a first post also approves its

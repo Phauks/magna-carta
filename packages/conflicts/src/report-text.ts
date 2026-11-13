@@ -81,6 +81,8 @@ export interface ReportedCheck {
   // names the member rather than quoting their handle; null where the roster has no name for them.
   readonly actorDisplayName?: string | null;
   readonly strictness: Strictness;
+  // False when a person turned trigram matching off for the check. Absent reads as on.
+  readonly trigramMatching?: boolean;
   readonly depth: number;
   readonly floorRaised: boolean;
   readonly subjectEntityCount: number;
@@ -368,6 +370,11 @@ export function describeCheck(
       `Party — name and identifier similarity at ${check.strictness} strictness, over ` +
         `${check.subjectEntityCount} subject ${check.subjectEntityCount === 1 ? "party" : "parties"}.`,
     );
+    if (check.trigramMatching === false) {
+      statements.push(
+        "Trigram matching was turned off for this check: names that share only a few letters with a party were not looked for.",
+      );
+    }
   }
 
   if (searched(sources, "graph")) {

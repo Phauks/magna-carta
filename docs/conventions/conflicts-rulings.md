@@ -284,3 +284,10 @@ beneath them. Rows here supersede R1 where they say so.
   the print button."** The check page's second tab reads History (amends C1) and carries no
   introductory line. Filing a check with no matter moved from the Details section to an **Assign to
   Matter** button in the header, beside Print Report, which opens the matter field in a popover.
+- **2026-11-13, Trevor: "i think trigram overlap will likely be weak noise, so you should be able to
+  disable it?"** A check carries a `trigramMatching` choice (Advanced Settings, "Trigram matching",
+  on by default). Off skips the Directory's trigram channel at the balanced band only; the
+  over-inclusive band always runs it, so it stays a strict superset of balanced. The run records the
+  choice as `inputs_json.matching.trigramMatching` (absent on older rows, read as on), and the report
+  says when it was off. Sorting trigram-only results by how much of the name overlaps was proposed
+  and not built: it needs the overlap stored on each hit.
