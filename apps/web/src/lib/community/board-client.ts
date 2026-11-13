@@ -169,3 +169,19 @@ export function moderate(
 export function readModerationQueue(): Promise<ApiOutcome<{ items: ModerationItem[] }>> {
   return call("/api/moderation-queue");
 }
+
+export interface KnownIssue {
+  readonly id: string;
+  readonly title: string;
+  readonly impact: "minor" | "major" | "critical" | "maintenance";
+  readonly lifecycle: "investigating" | "identified" | "monitoring" | "resolved";
+  readonly startedAt: string;
+  readonly latestUpdate: { readonly at: string; readonly body: string } | null;
+}
+
+/** What the public status page says is wrong right now, newest first. */
+export function readKnownIssues(): Promise<
+  ApiOutcome<{ issues: KnownIssue[]; statusPageUrl: string }>
+> {
+  return call("/api/known-issues");
+}

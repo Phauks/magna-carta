@@ -2,7 +2,7 @@
   /*
    * The community board's own top bar. The board is a separate site on its own host, publicly
    * readable, so it carries the brand lockup with "Community" beside it (the same lockup the public
-   * status page wears) instead of the application's shell, and its navigation is the board's five
+   * status page wears) instead of the application's shell, and its navigation is the board's
    * places. Changelog leaves the board for the public changelog on the main domain.
    */
   import BrandMark from "@magna-carta/design-system/brand-mark";
@@ -13,6 +13,7 @@
   import CircleHelp from "@lucide/svelte/icons/circle-help";
   import Columns3 from "@lucide/svelte/icons/columns-3";
   import Newspaper from "@lucide/svelte/icons/newspaper";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
   import { displayInitials } from "@magna-carta/community/display";
   import { page } from "$app/state";
@@ -50,6 +51,7 @@
     { place: "requests", label: "Requests", icon: Lightbulb, path: "/" },
     { place: "questions", label: "Questions", icon: CircleHelp, path: "/questions" },
     { place: "roadmap", label: "Roadmap", icon: Columns3, path: "/roadmap" },
+    { place: "known-issues", label: "Known Issues", icon: TriangleAlert, path: "/known-issues" },
   ] as const;
 </script>
 
