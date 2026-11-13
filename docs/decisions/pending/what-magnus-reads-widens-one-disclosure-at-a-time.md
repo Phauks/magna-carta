@@ -1,12 +1,12 @@
 ---
 slug: what-magnus-reads-widens-one-disclosure-at-a-time
-status: Proposed
+status: Accepted
 area: Magnus
 date: 2026-11-13
 summary: "The three remaining steps of the Magnus page redesign each widen what Magnus reads or does: the right pane's Permissions, attaching many files, folders and uploads from a member's computer, and answers that cite their sources, with search across a large matter. Each step ships with its own bump of the disclosure, stating only what that step adds. Permissions are per conversation, and This Matter is the only one on by default. Magnus reads other conversations only when they are the reader's own. Search across a large matter starts with the keyword index, because the natural-language search stays behind its two open filter experiments. A cited answer is built only from passages Magnus was given, and every quote is checked word for word before it is shown."
 ---
 
-**What Magnus can read grows one step at a time, and each step gets its own disclosure.**
+**What Magnus can read grows one step at a time, and each step gets its own disclosure.** Approved by the owner on 2026-11-13.
 
 **Context:** the owner approved the Magnus page redesign on 2026-11-09 (the board, and the rulings
 in [`docs/conventions/magnus-rulings.md`](../../conventions/magnus-rulings.md)). Its first half is
