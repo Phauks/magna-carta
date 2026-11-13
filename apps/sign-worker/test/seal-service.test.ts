@@ -180,11 +180,50 @@ describe("sign worker — platform seal on workerd", () => {
       .flatMap((page) => page.lines.map((line) => line.text))
       .join("\n");
     expect(printed).toContain("Certificate of Completion");
-    expect(printed).toContain("env_0001");
+    expect(printed).toContain(response.certificate.reference);
+    expect(response.certificate.reference).toMatch(/^MC-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/);
+    expect(printed).not.toContain("env_0001");
     expect(printed).toContain("Alice Example");
     expect(printed).toContain("198.51.100.7");
-    expect(printed).toContain("Sent for signature");
+    expect(printed).toContain("Sent for Signature");
     expect(printed).toContain(response.documentHashSha256.slice(0, 32));
+  });
+
+  it("holds the summary, eight signers and the contacts on the certificate's first page", async () => {
+    const names = ["Ada", "Ben", "Cleo", "Dev", "Esme", "Finn", "Gwen", "Hugo"];
+    const response = await performSeal(
+      {
+        ...sealRequest(),
+        signers: names.map((name, index) => ({
+          intent: {
+            ...signer.intent,
+            signerId: `signer_${index}`,
+            name: `${name} Example`,
+            email: `${name.toLowerCase()}@example.test`,
+          },
+          consent: signer.consent,
+          attribution: signer.attribution,
+        })),
+        envelope: {
+          id: "env_0001",
+          title: "Engagement letter.pdf",
+          sender: { name: "Bob Sender", email: "bob@example.test" },
+          contact: { name: "Example Law Firm", email: "office@example.test", phone: "555-0100" },
+          createdAt: "2026-07-18T11:50:00Z",
+        },
+      },
+      { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+      engines,
+      "help@example.test",
+    );
+
+    const [first] = (await extractPdfText(response.certificatePdf)).pages;
+    const front = first?.lines.map((line) => line.text).join("\n") ?? "";
+    for (const name of names) expect(front).toContain(`${name} Example`);
+    expect(front).toContain("Contact");
+    expect(front).toContain("Example Law Firm");
+    expect(front).toContain("help@example.test");
+    expect(front).not.toContain("Signer Details");
   });
 
   it("POST /seal returns a sealed, verifiable document when configured", async () => {

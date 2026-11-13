@@ -12654,6 +12654,9 @@
               "documentHashSha256": {
                 "type": "string"
               },
+              "reference": {
+                "type": "string"
+              },
               "sealedAt": {
                 "type": "string"
               },
@@ -12673,6 +12676,12 @@
                         },
                         "email": {
                           "type": "string"
+                        },
+                        "signatureCount": {
+                          "type": "integer"
+                        },
+                        "initialCount": {
+                          "type": "integer"
                         },
                         "adoption": {
                           "type": "string",
@@ -12768,6 +12777,23 @@
                       "name"
                     ]
                   },
+                  "contact": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
                   "createdAt": {
                     "type": "string"
                   }
@@ -12824,6 +12850,7 @@
             },
             "required": [
               "documentHashSha256",
+              "reference",
               "sealedAt",
               "signers"
             ]
@@ -68175,6 +68202,16 @@
                               "type": "string",
                               "maxLength": 320,
                               "format": "email"
+                            },
+                            "signatureCount": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10000
+                            },
+                            "initialCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
                             },
                             "adoption": {
                               "type": "string",

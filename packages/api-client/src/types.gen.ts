@@ -2965,12 +2965,15 @@ export type DocumentSealResponse = {
     documentHashSha256: string;
     certificate: {
         documentHashSha256: string;
+        reference: string;
         sealedAt: string;
         signers: Array<{
             intent: {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -2992,6 +2995,11 @@ export type DocumentSealResponse = {
             sender?: {
                 name: string;
                 email?: string;
+            };
+            contact?: {
+                name: string;
+                email?: string;
+                phone?: string;
             };
             createdAt?: string;
         };
@@ -20617,6 +20625,8 @@ export type EsignSealData = {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
