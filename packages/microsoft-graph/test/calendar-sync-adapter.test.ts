@@ -581,6 +581,104 @@ describe("a series, as Microsoft Graph repeats it", () => {
   });
 });
 
+describe("the days of a series a member changed on their own", () => {
+  const changed =
+    "https://graph.microsoft.com/v1.0/me/events/series-1?$select=id&$expand=exceptionOccurrences";
+  const moved = {
+    id: "day-1",
+    changeKey: "d2",
+    subject: "Status conference",
+    isAllDay: false,
+    originalStart: "2026-12-01T15:30:00Z",
+    start: { dateTime: "2026-12-02T20:00:00.0000000", timeZone: "UTC" },
+    end: { dateTime: "2026-12-02T21:00:00.0000000", timeZone: "UTC" },
+  };
+
+  it("reads each changed day with when it used to begin, and leaves out one it cannot place", async () => {
+    const { http, sent } = serving({
+      [changed]: {
+        status: 200,
+        body: {
+          id: "series-1",
+          exceptionOccurrences: [moved, { ...moved, id: "day-2", originalStart: null }],
+        },
+      },
+    });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listSeriesChangedDays("series-1")).toEqual({
+      ok: true,
+      value: [
+        {
+          remoteId: "day-1",
+          versionTag: "d2",
+          title: "Status conference",
+          location: null,
+          when: {
+            kind: "instants",
+            startsAtMilliseconds: Date.parse("2026-12-02T20:00:00.000Z"),
+            endsAtMilliseconds: Date.parse("2026-12-02T21:00:00.000Z"),
+          },
+          originalStartsAtMilliseconds: Date.parse("2026-12-01T15:30:00.000Z"),
+        },
+      ],
+    });
+    expect(sent[0]?.method).toBe("GET");
+  });
+
+  it("answers nothing for a series with no changed day, and null for one that is gone", async () => {
+    const { http } = serving({ [changed]: { status: 200, body: { id: "series-1" } } });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listSeriesChangedDays("series-1")).toEqual({ ok: true, value: [] });
+    expect(await port.listSeriesChangedDays("series-gone")).toEqual({ ok: true, value: null });
+  });
+
+  it("writes one day by its own identifier, with no rule and no mark", async () => {
+    const { http, sent } = serving({
+      "https://graph.microsoft.com/v1.0/me/events/day-1": {
+        status: 200,
+        body: { id: "day-1", changeKey: "d3" },
+      },
+    });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(
+      await port.updateSeriesDay("day-1", {
+        title: "Status conference",
+        notes: "Bring the exhibits",
+        location: "Courtroom 4",
+        startsOn: "2026-12-01",
+        startsAtTime: "09:30",
+        endsOn: null,
+        endsAtTime: "11:00",
+        timeZone: "America/Chicago",
+        repeats: { line: "FREQ=WEEKLY", rule: parseRecurrence("FREQ=WEEKLY"), skippedDays: [] },
+      }),
+    ).toEqual({ ok: true, value: { found: true, versionTag: "d3" } });
+    expect(sent[0]?.method).toBe("PATCH");
+    expect(JSON.parse(sent[0]?.body ?? "{}")).toEqual({
+      subject: "Status conference",
+      location: { displayName: "Courtroom 4" },
+      isAllDay: false,
+      start: { dateTime: "2026-12-01T09:30:00", timeZone: "America/Chicago" },
+      end: { dateTime: "2026-12-01T11:00:00", timeZone: "America/Chicago" },
+    });
+    expect(
+      await port.updateSeriesDay("day-gone", {
+        title: "x",
+        notes: null,
+        location: null,
+        startsOn: "2026-12-01",
+        startsAtTime: null,
+        endsOn: null,
+        endsAtTime: null,
+        timeZone: "UTC",
+      }),
+    ).toEqual({
+      ok: true,
+      value: { found: false },
+    });
+  });
+});
+
 describe("the watch on a member's calendar", () => {
   const subscriptions = "https://graph.microsoft.com/v1.0/subscriptions";
   const open = (pages: Record<string, { status: number; body: unknown }>) => {

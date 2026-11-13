@@ -891,10 +891,11 @@ The United States is answered from an index the platform builds itself, with no 
 **Watching it**
 
 - `addresses.lookup` with `engine: openaddresses`. `outcome: unavailable` on that engine means the worker is bound but no index has been published yet.
+- The build bills for about three hours of `standard-4`, not one: the build instance sleeps three hours after the request that started it (`sleepAfter` in `apps/address-worker/src/address-build-container.ts`), and memory and disk bill for every awake second, CPU only while busy.
 - The build: the address worker's logs carry the cron's decision (missing, fresh, stale, running) and the build Container's state. A build takes about an hour. A failed build leaves the previous index answering — nothing user-facing breaks — and the next day's cron tries again once the index is more than 30 days old.
 - The bucket: `us/current.json` names the live build; two builds are kept, so about 20–24 GB at steady state. `us/<build>/attribution.json` lists every source the build used.
 
-**The licence register.** Which OpenAddresses layers are excluded, and why, is `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`, with the reason beside each entry; the rule is in the spec under _Data_. Changing it is a code change that takes effect at the next build.
+**The licence register.** Which OpenAddresses layers are excluded, and why, is `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`, with the reason beside each entry; the rule is in the spec under _Data_. Changing it is a code change that takes effect at the next build. The source list the build reads carries no licence, so the register goes stale as OpenAddresses adds layers: re-read it every few months against the `license` block of each address layer under `sources/us/` in the openaddresses/openaddresses repository, and add any layer recorded as share-alike (`"share-alike": true`), non-commercial, or under a bespoke agreement. Last re-read 2026-11-13.
 
 **What never appears anywhere.** As in §19: the query is a client's address. The Containers log no query text and no address, their error bodies carry engine vocabulary only, and the routes stay POSTs.
 

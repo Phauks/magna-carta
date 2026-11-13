@@ -49,11 +49,25 @@ const typefacePermutations = ["lexend", "opendyslexic", "serif", "system"].map((
   prepare: (css) => `:root[data-typeface="${typeface}"] {\n${css}\n}`,
 }));
 
+// The typeface SAMPLES: one block per reading face, the default included, keyed on
+// [data-typeface-sample="…"] on any element. Each re-points --mc-font-sans for that subtree only,
+// which is how the Font Family picker draws every option in its own face whatever face the
+// document is set in. The default needs a block here too, or an Atkinson sample would inherit the
+// face the document is set in.
+const typefaceSamplePermutations = ["atkinson", "lexend", "opendyslexic", "serif", "system"].map(
+  (typeface) => ({
+    input: { theme: "chancery", mode: "light", typeface },
+    include: ["font.sans"],
+    prepare: (css) => `[data-typeface-sample="${typeface}"] {\n${css}\n}`,
+  }),
+);
+
 const permutations = [
   ...themeModePermutations,
   ...densityPermutations,
   ...motionPermutations,
   ...typefacePermutations,
+  ...typefaceSamplePermutations,
 ];
 
 export default defineConfig({

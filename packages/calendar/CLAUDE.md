@@ -27,7 +27,8 @@ ADR-0059, ADR-0068, ADR-0051.)
 - `src/sync-port.ts` — `CalendarSyncPort`: what calendar sync needs from a member's own calendar
   account, in this package's vocabulary. An interface only; the adapters that implement it live in
   their provider's package (`packages/microsoft-graph`) and this package still calls no service. It
-  includes the provider's change watch (`watchChanges`, `renewWatch`, `stopWatch`) and the
+  includes reading and writing one changed day of a series (`listSeriesChangedDays`,
+  `updateSeriesDay`), the provider's change watch (`watchChanges`, `renewWatch`, `stopWatch`) and the
   `ProviderNotice` a provider's own reader turns a notice into
 - `src/sync-rule-statements.ts` / `src/sync-rule-service.ts` — calendar sync settings: the firm's
   limit on which event types may leave and with how much detail, and each member's own rules inside

@@ -282,7 +282,7 @@ async function search(
     // The name roles are a firm SETTING, resolved once with the rest of the scope and recorded
     // verbatim on the row below. Passing them rather than letting the matcher decide is what keeps
     // the roles a check compared against and the roles its record NAMES the same list.
-    { nameRoles: scope.nameRoles },
+    { nameRoles: scope.nameRoles, trigramMatching: scope.trigramMatching },
   );
 
   for (const entity of expanded) {
@@ -485,6 +485,9 @@ async function search(
       // `null` means every role the corpus holds, which is a different statement from a list that
       // happens to name them all: a firm that adds a name role later is covered by the first.
       nameRoles: scope.nameRoles,
+      // Whether names were also compared by trigram overlap. A person may turn it off at the
+      // balanced band; the record says so, because it narrows what the check could find.
+      trigramMatching: scope.trigramMatching,
     },
     traversal: {
       followedToClosure: true,
@@ -529,7 +532,7 @@ async function search(
                   fileMattersFailed: fileOutcome.mattersFailed,
                   fileQueryCeiling: FILE_QUERY_CEILING,
                 }),
-            partiesSearched: [...seedIds].length,
+            partiesSearched: seedIds.size,
             nameResultCeiling: NAME_RESULT_CEILING,
             namesAtCeiling,
             nameFloor: NAME_FLOOR,

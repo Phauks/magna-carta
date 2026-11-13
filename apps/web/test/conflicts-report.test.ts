@@ -30,6 +30,7 @@ function result(overrides: Partial<CheckWithHits["check"]> = {}): CheckWithHits 
         nameKeys: ["normalized_display"],
         phoneticSchemes: ["double_metaphone_primary"],
         nameRoles: null,
+        trigramMatching: true,
       },
       traversal: {
         followedToClosure: true,
