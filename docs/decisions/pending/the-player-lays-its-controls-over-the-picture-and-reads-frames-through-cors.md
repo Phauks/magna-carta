@@ -3,7 +3,7 @@ slug: the-player-lays-its-controls-over-the-picture-and-reads-frames-through-cor
 status: Accepted
 area: Documents
 date: 2026-11-12
-summary: "The video player lays its controls over the picture and fades them while it plays (the owner's look A), keeps only the often-pressed controls on the bar and moves speed (a submenu), the moment link, a screenshot and the download into a settings menu, and drops picture in picture. To take a screenshot the player reads a decoded frame back from a canvas, so the cookieless files host now grants CORS read access to the app's own pages (an https origin under the same parent domain, reflected, never a wildcard), the step the inline-preview design reserved for the player. Sound files (MP3, M4A, AAC, WAV, FLAC, Ogg) are judged and played in the same player."
+summary: "The video player lays its controls over the picture and fades them while it plays (the owner's look A), keeps only the often-pressed controls on the bar and moves speed (a submenu), the moment link, a screenshot and the download into a settings menu, and drops picture in picture. To take a screenshot the player reads a decoded frame back from a canvas, so the cookieless files host now grants CORS read access to the app's own pages (an https origin on the app's own host or a subdomain of it, reflected, never a wildcard), the step the inline-preview design reserved for the player. Sound files (MP3, M4A, AAC, WAV, FLAC, Ogg) are judged and played in the same player."
 ---
 
 **The controls lie over the picture, the rarely pressed ones live behind a cog, and the player may
@@ -21,8 +21,10 @@ or focus inside the controls keeps them up. The bar keeps play, frame and ten-se
 and the time; the cog holds speed, Copy Link at, Save Screenshot and Download. Save Screenshot draws
 the decoded frame into a canvas and reads it back as a PNG, which a browser allows only for a
 picture it may read: the player loads the recording with `crossorigin="anonymous"`, and the files
-host answers an app page under its own parent domain with that origin in
-`Access-Control-Allow-Origin` (`readerOriginFor` in `apps/api-worker/src/files/preview-serve.ts`).
+host answers a page on the app's own host (`APP_BASE_URL`) or a subdomain of it with that origin
+in `Access-Control-Allow-Origin` (`readerOriginFor` in `apps/api-worker/src/files/preview-serve.ts`).
+The app's pages are found from the app's address, not from the files host's parent, because the
+files host sits on a separate registrable domain so that no app cookie ever reaches it.
 The token in the address already lets that page download the same bytes, so the grant adds no
 reach; another origin gets nothing. Sound files are judged by `inline-playable.ts` (MP3, AAC and
 FLAC by container, M4A by its track, WAVE by its sample encoding, Ogg by its first packet) and open

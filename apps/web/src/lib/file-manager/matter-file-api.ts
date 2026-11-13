@@ -376,6 +376,38 @@ export function readPreviewGrant(
   return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/preview`);
 }
 
+/**
+ * Where the MP4 copy of a recording stands: the copy the converter makes of a recording a browser
+ * will not play, saved as a file of its own beside the original. `fileId` names that file once it is
+ * ready. A copy that was deleted reads as `none`, so it can be made again.
+ */
+export interface PlayableCopyStatus {
+  readonly versionId: string;
+  readonly state: "none" | "pending" | "ready" | "unavailable";
+  readonly reason: "unsupported" | "malformed" | "too-large" | "source-missing" | null;
+  readonly fileId: string | null;
+  readonly streamUrl: string | null;
+  readonly sizeBytes: number | null;
+}
+
+/** Where the MP4 copy of this file's current version stands. */
+export function readPlayableCopy(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<PlayableCopyStatus>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/playable-copy`);
+}
+
+/** Ask for the MP4 copy. Asking while one is being made does not start a second conversion. */
+export function requestPlayableCopy(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<PlayableCopyStatus>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/playable-copy`, {
+    method: "POST",
+  });
+}
+
 /** The five digests, in the order the Hashes tab lists them. */
 export interface DigestSet {
   md5: string;

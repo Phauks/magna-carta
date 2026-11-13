@@ -90,6 +90,8 @@
     quality={tile.quality}
     hostRole={tile.hostRole}
     spotlighted={tile.spotlighted}
+    handRaised={tile.handRaised}
+    reactions={tile.reactions}
     onPin={onPin === undefined || tile.participantId === null || tile.local
       ? undefined
       : () => onPin(tile.participantId ?? "")}
@@ -118,6 +120,8 @@
       quality={large.quality}
       hostRole={large.hostRole}
       spotlighted={large.spotlighted}
+    handRaised={large.handRaised}
+    reactions={large.reactions}
       {medium}
     >
       {#snippet menu()}

@@ -442,7 +442,7 @@ export const membersSetProfessionalProfileMutation = (options?: Partial<Options<
 export const metaVersionsQueryKey = (options?: Options<MetaVersionsData>) => createQueryKey('metaVersions', options);
 
 /**
- * The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.
+ * The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. connectedServices says whether each outside service the deployment depends on (Cloudflare Realtime, which carries meetings) is configured and accepting it. The service list is briefly cached; observedAt says when the services were actually probed.
  */
 export const metaVersionsOptions = (options?: Options<MetaVersionsData>) => queryOptions<MetaVersionsResponse2, MetaVersionsError, MetaVersionsResponse2, ReturnType<typeof metaVersionsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -3661,7 +3661,7 @@ export const filesHistoryInfiniteOptions = (options: Options<FilesHistoryData>) 
 export const filesPlayableCopyQueryKey = (options: Options<FilesPlayableCopyData>) => createQueryKey('filesPlayableCopy', options);
 
 /**
- * Reports the playable copy of the file's current clean version: a copy converted to H.264 and AAC in an MP4 so every browser plays it. A ready copy carries a short-lived signed streamUrl on the cookieless files host (null when that host is not bound). 404 when the file has no clean current version.
+ * Reports the playable copy of the file's current clean version: a copy converted to H.264 and AAC in an MP4 so every browser plays it, saved as a file of its own beside the original. A ready copy names that file in fileId; one made before copies were filed has no fileId and carries a short-lived signed streamUrl on the cookieless files host instead (null when that host is not bound). A filed copy that was since deleted reads as none. 404 when the file has no clean current version.
  */
 export const filesPlayableCopyOptions = (options: Options<FilesPlayableCopyData>) => queryOptions<FilesPlayableCopyResponse, FilesPlayableCopyError, FilesPlayableCopyResponse, ReturnType<typeof filesPlayableCopyQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -3677,7 +3677,7 @@ export const filesPlayableCopyOptions = (options: Options<FilesPlayableCopyData>
 });
 
 /**
- * Asks for a playable copy of the file's current clean version, converted in the background. Answers 202 with state pending while it is made, 200 when it already exists or cannot be made (state unavailable, with the reason). Asking again while a copy is being made does not start a second conversion. Accepted whatever the version's playability verdict, since the browser that refused the original is the one that matters. 422 when the version is not a video the converter reads (MP4, QuickTime or Matroska), or a scan flagged it.
+ * Asks for a playable copy of the file's current clean version, converted in the background and saved as a file of its own in the original's folder. Answers 202 with state pending while it is made, 200 when it already exists or cannot be made (state unavailable, with the reason). Asking again while a copy is being made does not start a second conversion. Accepted whatever the version's playability verdict, since the browser that refused the original is the one that matters. 422 when the version is not a video the converter reads (MP4, QuickTime or Matroska), or a scan flagged it.
  */
 export const filesRequestPlayableCopyMutation = (options?: Partial<Options<FilesRequestPlayableCopyData>>): MutationOptions<FilesRequestPlayableCopyResponse, FilesRequestPlayableCopyError, Options<FilesRequestPlayableCopyData>> => {
     const mutationOptions: MutationOptions<FilesRequestPlayableCopyResponse, FilesRequestPlayableCopyError, Options<FilesRequestPlayableCopyData>> = {
