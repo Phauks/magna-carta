@@ -83,9 +83,12 @@ The right side of the New Check panel is the search itself, in two tabs.
   for each of the party's names as an exact phrase. The first three choose files by the status of
   their matter; **Archived** adds files deleted from any matter, which your firm still keeps. The most
   recently active matters are searched first, and if a check reaches its limit the report says how
-  many matters' files were left unsearched. Files are read through the file search index. Until your
-  firm's file search is switched on, Files reads **Not searched** on every check that asks for it, with
-  the reason, so a report never reads as if your documents were searched and came up empty.
+  many matters' files were left unsearched. Files are read through the file search index. Until an
+  Owner or Administrator turns file indexing on (**Settings › Data & Platform › Search and Indexing**),
+  Files reads **Not searched** on every check that asks for it, with the reason, so a report never
+  reads as if your documents were searched and came up empty. Once it is on, a check reads the files
+  the index holds at that moment. A file that has not been indexed yet, or that could not be read, is
+  not searched; the same settings page shows how many of your files are indexed and how many are not.
 
 Every option is on when the panel opens. In messages, tasks and conversations a party's name is
 looked for **as whole words, in order, without regard to case or accents**: Acme Holdings LLC is

@@ -31,8 +31,8 @@ export const MESSAGING_SOURCE = "messaging";
 export const TASKS_SOURCE = "tasks";
 
 // The text of the firm's files, read through the file contents index (file-search.ts). Recorded
-// `searched` when the index answered, `unavailable` when it could not be reached, absent when not
-// asked for.
+// `searched` when the index answered, `unavailable` when it could not be reached or the firm does
+// not index its files, absent when not asked for.
 export const FILES_SOURCE = "files";
 
 // Every registered source with no class of its own, in the order the record lists them. A check
@@ -116,7 +116,7 @@ export function unavailabilityReason(source: string, context: UnavailabilityCont
     return "no corpus exists: nothing indexes document text, and no message-body index is wired";
   }
   if (source === FILES_SOURCE) {
-    return "the file contents index could not be reached: the search service that reads it is not connected";
+    return "the text inside the firm's files was not searched: file indexing is not turned on for the firm, or the search service that reads the index could not be reached";
   }
   if (source === PRIOR_FIRM_HISTORY_SOURCE) {
     return "no data is recorded: the source is registered so that it is reported, and it has no table behind it yet";

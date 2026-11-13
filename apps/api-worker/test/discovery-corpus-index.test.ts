@@ -42,10 +42,10 @@ import { searchIndexJobName, type SearchIndexMessage } from "../src/search/index
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { seedFirmRow } from "./support/test-auth.ts";
 
-// A review set entering its own corpus, with the index engine ABSENT — which is not a test posture, it
-// is the deployed posture: no firm has a SEARCH_SERVICE binding. So the path that has to work today is
-// the one that ends in a document parked and enumerable, and drains into the same derived split when
-// the engine arrives.
+// A review set entering its own corpus, with the index engine ABSENT: a deployment that has no
+// SEARCH_SERVICE binding, which every deployment was until the search worker was bound and any
+// preview or rollback without it still is. The path that has to hold there ends in a document parked
+// and enumerable, and drains into the same derived split when the engine arrives.
 
 const now = () => new Date().toISOString();
 
