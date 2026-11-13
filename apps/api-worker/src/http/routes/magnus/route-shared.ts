@@ -3,7 +3,7 @@ import { assertPermission } from "@magna-carta/access-control/registry";
 import type { MagnusConversationId } from "@magna-carta/identifiers/types";
 import type { ShelfRow } from "@magna-carta/magnus/shelf";
 import { readConversation } from "@magna-carta/magnus/statements";
-import type { ConversationRow } from "@magna-carta/magnus/types";
+import type { ConversationRow, TurnRow } from "@magna-carta/magnus/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import {
@@ -190,5 +190,29 @@ export function conversationBody(row: ConversationRow, shelf: ShelfRow) {
     updatedAt: row.updatedAt,
     folderId: shelf.folderId,
     pinnedAt: shelf.pinnedAt,
+  };
+}
+
+// A turn on the wire. A message its author removed is withheld from the AUTHOR, who took it back, and
+// shown to a reader holding the supervisory read: the text is kept on the record (a transcript is
+// erased only with its whole conversation), and the supervisor's read of it is already audited. A
+// turn set aside by an edit keeps its text for everyone, as the earlier version of the conversation.
+export function turnBody(turn: TurnRow, authorReading: boolean) {
+  return {
+    id: turn.id,
+    sequence: turn.sequence,
+    speaker: turn.speaker,
+    content: turn.removedAt !== null && authorReading ? null : turn.content,
+    status: turn.status,
+    failureLabel: turn.failureLabel,
+    modelId: turn.modelId,
+    snapshotId: turn.snapshotId,
+    contextTruncated: turn.contextTruncated,
+    effort: turn.effort,
+    removedAt: turn.removedAt,
+    supersededAt: turn.supersededAt,
+    replacesTurnId: turn.replacesTurnId,
+    createdAt: turn.createdAt,
+    completedAt: turn.completedAt,
   };
 }

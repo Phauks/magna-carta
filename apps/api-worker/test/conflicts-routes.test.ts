@@ -603,7 +603,13 @@ describe("searching the firm's own records over the wire", () => {
     expect(read.record?.statement.some((line) => line.startsWith("Messaging — texts"))).toBe(true);
   });
 
-  it("records Files as not searched, and says why, while the file index is not connected", async () => {
+  it("records Files as not searched, and says why, while the firm does not index its files", async () => {
+    /*
+     * The search service is bound here, to a stand-in that refuses every operation, and this firm has
+     * never turned file indexing on. A check that asked the index anyway would hear "no file names
+     * this party" from an index holding none of the firm's files, and would record a place it never
+     * read as searched and empty.
+     */
     const personId = await createPerson("Hollis", "Brande");
     const { read } = await openAndSettle({
       trigger: "preliminary",
@@ -618,7 +624,8 @@ describe("searching the firm's own records over the wire", () => {
     expect(
       read.record?.statement.some(
         (line) =>
-          line.startsWith("Not searched:") && line.includes("files (the file contents index"),
+          line.startsWith("Not searched:") &&
+          line.includes("files (the text inside the firm's files was not searched"),
       ),
     ).toBe(true);
     expect(read.record?.statement.some((line) => line.startsWith("Files —"))).toBe(false);

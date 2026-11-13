@@ -34,6 +34,7 @@ describe("SealPort wire codec", () => {
   it("round-trips a response, preserving the sealed bytes exactly", () => {
     const certificate: CertificateOfCompletion = {
       documentHashSha256: "a".repeat(64),
+      reference: "MC-AAAA-AAAA-AAAA",
       sealedAt: "2026-07-18T12:00:01Z",
       signers: [signer],
     };

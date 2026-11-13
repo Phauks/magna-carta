@@ -40,6 +40,9 @@ function turn(sequence: number, speaker: "member" | "magnus", content: string): 
     snapshotId: null,
     contextTruncated: false,
     effort: null,
+    removedAt: null,
+    supersededAt: null,
+    replacesTurnId: null,
     createdAt: STARTED_AT,
     completedAt: STARTED_AT,
   };
