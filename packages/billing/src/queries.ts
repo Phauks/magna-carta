@@ -674,3 +674,122 @@ export async function readAccountsReceivableAgingAsOf(
   }));
   return { buckets, breakdown, breakdownTruncated: truncated };
 }
+
+// WORK IN PROGRESS ACROSS THE FIRM, broken down by matter and timekeeper — the firm-wide companion to
+// `readUnbilledWorkInProgress`, over the same mirror columns and the same predicate, so that for every
+// matter the "not on a draft" figures here equal that read's integer for integer
+// (packages/billing/test/work-in-progress-breakdown.test.ts proves it).
+//
+// LIVE ONLY, and it takes no date at all. Both stores are mutable working stores — a narrative or a
+// duration is fixed during bill review, a re-rate rewrites `amount_minor`, and an entry carries no
+// `billed_at` or `voided_at` — so "unbilled as of 30 June" asked in August is not answerable from
+// stored data, and accepting a date would answer it with today's figure.
+//
+// Work held by a draft bill is reported beside the rest rather than dropped: it is still unbilled until
+// the draft is finalized, and a firm reading its work in progress wants to see both what is waiting to
+// be billed and what is already on a bill being reviewed.
+export const MAXIMUM_WORK_IN_PROGRESS_ROWS = 5000;
+
+export interface WorkInProgressBreakdownRow {
+  readonly kind: "time" | "cost";
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  // The matter's client, as the matter-party link names it, with the matter's own caption for it.
+  readonly clientEntityId: string | null;
+  readonly clientName: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+  // Null on a cost row: a cost has no timekeeper.
+  readonly timekeeperUserId: string | null;
+  readonly timekeeperName: string | null;
+  // Whether a draft bill holds these entries.
+  readonly onDraft: boolean;
+  readonly entryCount: number;
+  // Zero on a cost row.
+  readonly minutes: number;
+  readonly amountMinor: number;
+}
+
+export interface WorkInProgressBreakdown {
+  readonly rows: readonly WorkInProgressBreakdownRow[];
+  readonly truncated: boolean;
+}
+
+interface WorkInProgressRow {
+  kind: "time" | "cost";
+  matter_id: string;
+  matter_title: string;
+  matter_number: string | null;
+  client_entity_id: string | null;
+  client_name: string | null;
+  location_id: string | null;
+  location_name: string | null;
+  timekeeper_user_id: string | null;
+  timekeeper_name: string | null;
+  on_draft: number;
+  entry_count: number;
+  minutes: number;
+  amount_minor: number;
+}
+
+export async function readWorkInProgressBreakdown(
+  database: SqlDatabase,
+): Promise<WorkInProgressBreakdown> {
+  // The matter's client is read from `matter_party`, the one home for that link; a matter with two
+  // client parties is attributed to the lower identifier so the attribution is stable run to run.
+  const { results } = await database
+    .prepare(
+      `WITH work AS (
+         SELECT 'time' AS kind, t.matter_id, t.timekeeper_user_id,
+                CASE WHEN t.invoice_id IS NULL THEN 0 ELSE 1 END AS on_draft,
+                COUNT(*) AS entry_count, SUM(t.duration_minutes) AS minutes,
+                SUM(t.amount_minor) AS amount_minor
+           FROM time_entry t
+          WHERE t.status NOT IN ('billed', 'void') AND t.amount_minor IS NOT NULL
+          GROUP BY t.matter_id, t.timekeeper_user_id, on_draft
+         UNION ALL
+         SELECT 'cost' AS kind, c.matter_id, NULL AS timekeeper_user_id,
+                CASE WHEN c.invoice_id IS NULL THEN 0 ELSE 1 END AS on_draft,
+                COUNT(*) AS entry_count, 0 AS minutes, SUM(c.amount_minor) AS amount_minor
+           FROM cost_entry c
+          WHERE c.status NOT IN ('billed', 'void')
+          GROUP BY c.matter_id, on_draft
+       )
+       SELECT w.kind, w.matter_id, m.title AS matter_title, m.matter_number,
+              (SELECT MIN(p.entity_id) FROM matter_party p
+                WHERE p.matter_id = w.matter_id AND p.role = 'client') AS client_entity_id,
+              m.client_display_name AS client_name,
+              m.location_id, l.name AS location_name,
+              w.timekeeper_user_id, mem.display_name AS timekeeper_name,
+              w.on_draft, w.entry_count, w.minutes, w.amount_minor
+         FROM work w
+         JOIN matter m ON m.id = w.matter_id
+         LEFT JOIN location l ON l.id = m.location_id
+         LEFT JOIN member mem ON mem.user_id = w.timekeeper_user_id
+        ORDER BY w.matter_id, w.kind, w.timekeeper_user_id, w.on_draft
+        LIMIT ?1`,
+    )
+    .bind(MAXIMUM_WORK_IN_PROGRESS_ROWS + 1)
+    .all<WorkInProgressRow>();
+  const truncated = results.length > MAXIMUM_WORK_IN_PROGRESS_ROWS;
+  return {
+    truncated,
+    rows: results.slice(0, MAXIMUM_WORK_IN_PROGRESS_ROWS).map((row) => ({
+      kind: row.kind,
+      matterId: row.matter_id,
+      matterTitle: row.matter_title,
+      matterNumber: row.matter_number,
+      clientEntityId: row.client_entity_id,
+      clientName: row.client_name,
+      locationId: row.location_id,
+      locationName: row.location_name,
+      timekeeperUserId: row.timekeeper_user_id,
+      timekeeperName: row.timekeeper_name,
+      onDraft: row.on_draft === 1,
+      entryCount: row.entry_count,
+      minutes: row.minutes,
+      amountMinor: row.amount_minor,
+    })),
+  };
+}

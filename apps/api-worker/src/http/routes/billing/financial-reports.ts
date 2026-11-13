@@ -1,13 +1,15 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { identifierField } from "@magna-carta/identifiers/field";
 import { assembleAccountsReceivableAging } from "@magna-carta/reporting/financial/accounts-receivable-aging";
+import { assembleWorkInProgress } from "@magna-carta/reporting/financial/work-in-progress";
 import { ReportingValidationError } from "@magna-carta/reporting/reporting-validation";
+import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { requireChokepointFirmContext } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { Problem, problemJson } from "../../contracts/problem.ts";
+import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import {
   civilDate,
@@ -123,6 +125,114 @@ const agingRoute = defineOpenAPIRoute(agingMeta, {
   },
 });
 
+const WorkInProgressFigures = z.object({
+  timeMinutes: z.number().int(),
+  timeMinor: z.number().int(),
+  costMinor: z.number().int(),
+  onDraftMinor: z.number().int(),
+  totalMinor: z.number().int(),
+});
+
+const WorkInProgressResponse = z
+  .object({
+    computedAt: z.string(),
+    reproducible: z.literal(false),
+    statement: z.string(),
+    locationId: z.string().nullable(),
+    currency: z.literal("USD"),
+    completeness: ReportCompleteness,
+    totals: WorkInProgressFigures,
+    offices: z.array(
+      z.object({
+        locationId: z.string().nullable(),
+        locationName: z.string().nullable(),
+        figures: WorkInProgressFigures,
+      }),
+    ),
+    clients: z.array(
+      z.object({
+        clientEntityId: z.string().nullable(),
+        clientName: z.string().nullable(),
+        figures: WorkInProgressFigures,
+        matters: z.array(
+          z.object({
+            matterId: z.string(),
+            matterTitle: z.string(),
+            matterNumber: z.string().nullable(),
+            locationId: z.string().nullable(),
+            locationName: z.string().nullable(),
+            figures: WorkInProgressFigures,
+          }),
+        ),
+      }),
+    ),
+    timekeepers: z.array(
+      z.object({
+        timekeeperUserId: z.string(),
+        timekeeperName: z.string().nullable(),
+        figures: WorkInProgressFigures,
+      }),
+    ),
+  })
+  .openapi("WorkInProgressReport");
+
+const workInProgressRoute = defineOpenAPIRoute(
+  { ...agingMeta, operationId: "reports.workInProgress" },
+  {
+    method: "get",
+    path: "/api/v1/reports/work-in-progress",
+    description:
+      "Unbilled time and costs as they stand now, per office, client, matter and timekeeper, with the work already on a draft bill shown in its own column. Live only: time and cost entries can be edited until they are billed and record no date for when that happened, so this report takes no date and no knowledge instant, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+    // Deliberately no date and no knowledge instant: accepting one and answering with today's
+    // figures would answer a question about the past with a figure about the present.
+    request: { query: z.object({ locationId: identifierField("location").optional() }) },
+    responses: {
+      200: {
+        description: "The work in progress now",
+        content: { "application/json": { schema: WorkInProgressResponse } },
+      },
+      401: {
+        description: "No valid session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "The session member lacks reports:financial",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      404: {
+        description: "The firm is unreachable or the member is deactivated",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      422: {
+        description: "More matters and timekeepers have unbilled work than one report can list",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
+
+// A refusal's status is what it means, so the mapping lives in one place for every financial report.
+function reportingRefusal(c: Context, error: ReportingValidationError): ProblemResponse<422> {
+  if (error.code === "reporting-breakdown-truncated") {
+    return problemJson(c, {
+      type: "report-period-too-large",
+      title: "This report holds more than one document can carry",
+      status: 422,
+      detail: error.message,
+    });
+  }
+  return problemJson(c, {
+    type: "report-period-invalid",
+    title: "The date this report was asked for is not one that can be answered",
+    status: 422,
+    detail: error.message,
+  });
+}
+
 type ReportsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerFinancialReportsRoutes(app: ReportsApp, chokepoint: Chokepoint): void {
@@ -147,20 +257,27 @@ export function registerFinancialReportsRoutes(app: ReportsApp, chokepoint: Chok
         // the contract asserts, and the conformance suite checks it against the emitted document.
         return c.json(report as unknown as z.infer<typeof AccountsReceivableAgingResponse>, 200);
       } catch (caught) {
-        if (caught instanceof ReportingValidationError) {
-          return problemJson(c, {
-            type:
-              caught.code === "reporting-breakdown-truncated"
-                ? "report-period-too-large"
-                : "report-period-invalid",
-            title:
-              caught.code === "reporting-breakdown-truncated"
-                ? "This report holds more than one document can carry"
-                : "The date this report was asked for is not one that can be answered",
-            status: 422,
-            detail: caught.message,
-          });
-        }
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...workInProgressRoute, middleware: chokepointMiddleware(chokepoint, workInProgressRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleWorkInProgress(
+          firm.firmDatabase,
+          { locationId: query.locationId ?? null },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof WorkInProgressResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
         throw caught;
       }
     },

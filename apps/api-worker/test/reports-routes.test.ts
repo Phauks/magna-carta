@@ -367,3 +367,24 @@ describe("GET /api/v1/reports/accounts-receivable-aging", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("GET /api/v1/reports/work-in-progress", () => {
+  const url = "https://example.com/api/v1/reports/work-in-progress";
+
+  it("answers the Owner with live work in progress, stamped with when it was computed", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      computedAt: string;
+      totals: { totalMinor: number };
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.computedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});

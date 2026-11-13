@@ -6934,6 +6934,298 @@
           "clients"
         ]
       },
+      "WorkInProgressReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "timeMinutes": {
+                "type": "integer"
+              },
+              "timeMinor": {
+                "type": "integer"
+              },
+              "costMinor": {
+                "type": "integer"
+              },
+              "onDraftMinor": {
+                "type": "integer"
+              },
+              "totalMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "timeMinutes",
+              "timeMinor",
+              "costMinor",
+              "onDraftMinor",
+              "totalMinor"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "timeMinutes": {
+                      "type": "integer"
+                    },
+                    "timeMinor": {
+                      "type": "integer"
+                    },
+                    "costMinor": {
+                      "type": "integer"
+                    },
+                    "onDraftMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "timeMinutes",
+                    "timeMinor",
+                    "costMinor",
+                    "onDraftMinor",
+                    "totalMinor"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "timeMinutes": {
+                      "type": "integer"
+                    },
+                    "timeMinor": {
+                      "type": "integer"
+                    },
+                    "costMinor": {
+                      "type": "integer"
+                    },
+                    "onDraftMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "timeMinutes",
+                    "timeMinor",
+                    "costMinor",
+                    "onDraftMinor",
+                    "totalMinor"
+                  ]
+                },
+                "matters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "matterTitle": {
+                        "type": "string"
+                      },
+                      "matterNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "figures": {
+                        "type": "object",
+                        "properties": {
+                          "timeMinutes": {
+                            "type": "integer"
+                          },
+                          "timeMinor": {
+                            "type": "integer"
+                          },
+                          "costMinor": {
+                            "type": "integer"
+                          },
+                          "onDraftMinor": {
+                            "type": "integer"
+                          },
+                          "totalMinor": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeMinutes",
+                          "timeMinor",
+                          "costMinor",
+                          "onDraftMinor",
+                          "totalMinor"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "matterId",
+                      "matterTitle",
+                      "matterNumber",
+                      "locationId",
+                      "locationName",
+                      "figures"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "figures",
+                "matters"
+              ]
+            }
+          },
+          "timekeepers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timekeeperUserId": {
+                  "type": "string"
+                },
+                "timekeeperName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "timeMinutes": {
+                      "type": "integer"
+                    },
+                    "timeMinor": {
+                      "type": "integer"
+                    },
+                    "costMinor": {
+                      "type": "integer"
+                    },
+                    "onDraftMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "timeMinutes",
+                    "timeMinor",
+                    "costMinor",
+                    "onDraftMinor",
+                    "totalMinor"
+                  ]
+                }
+              },
+              "required": [
+                "timekeeperUserId",
+                "timekeeperName",
+                "figures"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "reproducible",
+          "statement",
+          "locationId",
+          "currency",
+          "completeness",
+          "totals",
+          "offices",
+          "clients",
+          "timekeepers"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -55164,6 +55456,101 @@
           },
           "422": {
             "description": "The date is not a calendar date, the knowledge instant is not a UTC instant or is in the future, or more matters have something unpaid than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/work-in-progress": {
+      "get": {
+        "description": "Unbilled time and costs as they stand now, per office, client, matter and timekeeper, with the work already on a draft bill shown in its own column. Live only: time and cost entries can be edited until they are billed and record no date for when that happened, so this report takes no date and no knowledge instant, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.workInProgress",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.workInProgress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The work in progress now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkInProgressReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "More matters and timekeepers have unbilled work than one report can list",
             "content": {
               "application/problem+json": {
                 "schema": {

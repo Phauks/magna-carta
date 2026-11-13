@@ -1648,6 +1648,69 @@ export type AccountsReceivableAgingReport = {
     }>;
 };
 
+export type WorkInProgressReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    currency: 'USD';
+    completeness: ReportCompleteness;
+    totals: {
+        timeMinutes: number;
+        timeMinor: number;
+        costMinor: number;
+        onDraftMinor: number;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                timeMinutes: number;
+                timeMinor: number;
+                costMinor: number;
+                onDraftMinor: number;
+                totalMinor: number;
+            };
+        }>;
+    }>;
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -15082,6 +15145,49 @@ export type ReportsAccountsReceivableAgingResponses = {
 };
 
 export type ReportsAccountsReceivableAgingResponse = ReportsAccountsReceivableAgingResponses[keyof ReportsAccountsReceivableAgingResponses];
+
+export type ReportsWorkInProgressData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/work-in-progress';
+};
+
+export type ReportsWorkInProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters and timekeepers have unbilled work than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsWorkInProgressError = ReportsWorkInProgressErrors[keyof ReportsWorkInProgressErrors];
+
+export type ReportsWorkInProgressResponses = {
+    /**
+     * The work in progress now
+     */
+    200: WorkInProgressReport;
+};
+
+export type ReportsWorkInProgressResponse = ReportsWorkInProgressResponses[keyof ReportsWorkInProgressResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

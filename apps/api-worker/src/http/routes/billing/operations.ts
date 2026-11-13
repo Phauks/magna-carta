@@ -53,4 +53,5 @@ export const OPERATIONS: readonly string[] = [
   "reports.accountsReceivableAging",
   "reports.exportRender",
   "reports.trustCompliancePack",
+  "reports.workInProgress",
 ];
