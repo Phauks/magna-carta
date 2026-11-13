@@ -7,8 +7,14 @@
 // read by people in more than one zone and a converted time invites the question of whose clock it
 // was. The record and its plain text keep each instant exactly as it was stored.
 
-import { ATTRIBUTION_LABEL, SIGNING_EVENT_LABEL, signerDisplayName } from "./certificate.ts";
-import type { CertificateOfCompletion, SignatureAdoption, SigningParty } from "./esign.ts";
+import { brandLockupPng } from "./brand-lockup.ts";
+import {
+  ADOPTION_LABEL,
+  ATTRIBUTION_LABEL,
+  SIGNING_EVENT_LABEL,
+  signerDisplayName,
+} from "./certificate.ts";
+import type { CertificateOfCompletion, SignerCompletion, SigningContact } from "./esign.ts";
 
 interface SheetField {
   readonly label: string;
@@ -18,8 +24,16 @@ interface SheetField {
 /** The blocks the sheet uses, a subset of the composer's own. */
 export type CertificateSheetBlock =
   | { readonly type: "title"; readonly text: string }
+  | { readonly type: "image"; readonly image: number; readonly width: number }
+  | { readonly type: "space"; readonly height: number }
+  | { readonly type: "pageBreak" }
   | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
   | { readonly type: "paragraph"; readonly text: string }
+  | {
+      readonly type: "paragraph";
+      readonly spans: readonly { readonly text: string; readonly bold?: boolean }[];
+      readonly small: true;
+    }
   | { readonly type: "fields"; readonly fields: readonly SheetField[] }
   | {
       readonly type: "table";
@@ -41,19 +55,73 @@ export interface CertificateSheet {
     readonly minute: number;
     readonly second: number;
   };
-  readonly page: { readonly paper: "letter" };
+  readonly page: {
+    readonly paper: "letter";
+    readonly marginTop: number;
+    readonly marginBottom: number;
+  };
+  /** The colour of the title, the headings and the rules: red, green and blue. */
+  readonly accent: readonly [number, number, number];
+  /** Rows set closer together, so the first page holds the summary, eight signers and the contacts. */
+  readonly compact: true;
   readonly footer: { readonly left: string; readonly right: string };
   readonly blocks: readonly CertificateSheetBlock[];
 }
 
-const ADOPTION_LABEL: Record<SignatureAdoption, string> = {
-  typed: "Typed",
-  drawn: "Drawn",
-  uploaded: "Uploaded image",
-};
+/**
+ * The dark gold the application uses for an accent on a light ground (`accent-700` in
+ * packages/design-tokens), as the red, green and blue a printed page needs.
+ */
+const ACCENT = [98, 72, 0] as const;
 
-function party(value: SigningParty): string {
-  return value.email === undefined ? value.name : `${value.name} (${value.email})`;
+/** The lockup's drawn width in points; it is 163 by 40 at its natural size. */
+const LOCKUP_WIDTH = 130;
+
+/**
+ * The pictures the sheet's image blocks name by position. Passed to the composer beside the sheet.
+ */
+export function certificateSheetImages(): Uint8Array[] {
+  return [brandLockupPng()];
+}
+
+/** What the sheet is told that the record does not hold. */
+export interface CertificateSheetOptions {
+  /**
+   * Who answers for the certificate itself, as distinct from the document: the platform's own
+   * support contact. Without one the sheet names the platform and gives no address.
+   */
+  readonly issuerContact?: SigningContact;
+}
+
+/** The platform's name, where no issuer contact says otherwise. */
+const ISSUER_NAME = "Magna Carta";
+
+/**
+ * The space above and below the page's content, in points: three quarters of an inch. The
+ * composer's own inch leaves the first page short of eight signers, and a certificate that runs its
+ * summary onto a second sheet is one a reader has to staple.
+ */
+const PAGE_MARGIN_VERTICAL = 54;
+
+/** A contact as one small line: what it answers for, then who and how to reach them. */
+function contactLine(about: string, contact: SigningContact): CertificateSheetBlock {
+  const reach = [contact.name, contact.email, contact.phone].filter(
+    (part): part is string => part !== undefined && part !== "",
+  );
+  return {
+    type: "paragraph",
+    small: true,
+    spans: [{ text: `${about}: `, bold: true }, { text: reach.join(", ") }],
+  };
+}
+
+/** The signature blocks a signer completed: one, the signing act itself, where none is counted. */
+function signatureCount(signer: SignerCompletion): number {
+  return signer.intent.signatureCount ?? 1;
+}
+
+function initialCount(signer: SignerCompletion): number {
+  return signer.intent.initialCount ?? 0;
 }
 
 /** The hash in two rows of 32, so it fits a column and still reads as one value. */
@@ -68,9 +136,17 @@ function clock(instant: string): string {
   return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
-function stamp(instant: string): string {
+/**
+ * An instant as two rows, `Label: Date` and `Label: Time`. One that does not read as an instant is
+ * a single row holding what was recorded.
+ */
+function instantFields(label: string, instant: string): SheetField[] {
   const read = clock(instant);
-  return read === instant ? instant : `${read} UTC`;
+  if (read === instant) return [{ label, value: instant }];
+  return [
+    { label: `${label}: Date`, value: read.slice(0, 10) },
+    { label: `${label}: Time`, value: `${read.slice(11)} UTC` },
+  ];
 }
 
 function createdOn(instant: string): CertificateSheet["created"] {
@@ -87,62 +163,94 @@ function createdOn(instant: string): CertificateSheet["created"] {
 }
 
 /**
- * Lay a Certificate of Completion out as a sheet: what was signed, who signed it and how each was
- * identified, then the audit log. Deterministic for a given certificate.
+ * Lay a Certificate of Completion out as a sheet: what was signed and by whom on the first page,
+ * each signer in full on the next, then the audit log. Deterministic for a given certificate.
  */
-export function certificateSheet(certificate: CertificateOfCompletion): CertificateSheet {
+export function certificateSheet(
+  certificate: CertificateOfCompletion,
+  options: CertificateSheetOptions = {},
+): CertificateSheet {
   const envelope = certificate.envelope;
+  const signers = certificate.signers;
+  const total = (count: (signer: SignerCompletion) => number) =>
+    String(signers.reduce((sum, signer) => sum + count(signer), 0));
 
-  const summary: SheetField[] = [];
+  const summary: SheetField[] = [{ label: "Reference", value: certificate.reference }];
   if (envelope !== undefined) {
-    summary.push({ label: "Reference", value: envelope.id });
     if (envelope.title !== undefined) summary.push({ label: "Document", value: envelope.title });
     if (envelope.pageCount !== undefined) {
       summary.push({ label: "Pages", value: String(envelope.pageCount) });
     }
     if (envelope.sender !== undefined) {
-      summary.push({ label: "Sent by", value: party(envelope.sender) });
+      summary.push({ label: "Sender: Name", value: envelope.sender.name });
+      if (envelope.sender.email !== undefined) {
+        summary.push({ label: "Sender: Email", value: envelope.sender.email });
+      }
     }
     if (envelope.createdAt !== undefined) {
-      summary.push({ label: "Created", value: stamp(envelope.createdAt) });
+      summary.push(...instantFields("Created", envelope.createdAt));
     }
   }
   summary.push(
     { label: "Status", value: "Completed" },
-    { label: "Signers", value: String(certificate.signers.length) },
-    { label: "Sealed", value: stamp(certificate.sealedAt) },
-    { label: "Document hash (SHA-256)", value: hashRows(certificate.documentHashSha256) },
-    { label: "Times", value: "Coordinated Universal Time (UTC), as the server observed them" },
+    ...instantFields("Sealed", certificate.sealedAt),
+    { label: "Signers", value: String(signers.length) },
+    { label: "Signatures", value: total(signatureCount) },
+    { label: "Initials", value: total(initialCount) },
+    { label: "Document Hash (SHA-256)", value: hashRows(certificate.documentHashSha256) },
+    { label: "Time Zone", value: "Coordinated Universal Time (UTC)" },
   );
 
+  const documentContact = envelope?.contact ?? envelope?.sender;
   const blocks: CertificateSheetBlock[] = [
+    { type: "image", image: 0, width: LOCKUP_WIDTH },
     { type: "title", text: "Certificate of Completion" },
+    { type: "rule" },
     { type: "fields", fields: summary },
     { type: "heading", level: 1, text: "Signers" },
+    {
+      type: "table",
+      columns: [
+        { heading: "Name", weight: 21 },
+        { heading: "Email", weight: 34 },
+        { heading: "Signed (UTC)", weight: 22 },
+        { heading: "Signatures", weight: 13 },
+        { heading: "Initials", weight: 10 },
+      ],
+      rows: signers.map((signer) => [
+        signerDisplayName(signer),
+        signer.intent.name === undefined ? "" : (signer.intent.email ?? ""),
+        clock(signer.intent.affirmedAt),
+        String(signatureCount(signer)),
+        String(initialCount(signer)),
+      ]),
+    },
+    { type: "heading", level: 2, text: "Contact" },
+    ...(documentContact === undefined ? [] : [contactLine("The Document", documentContact)]),
+    contactLine("This Certificate", options.issuerContact ?? { name: ISSUER_NAME }),
+    { type: "pageBreak" },
+    { type: "heading", level: 1, text: "Signer Details" },
   ];
 
-  for (const signer of certificate.signers) {
+  for (const signer of signers) {
     const fields: SheetField[] = [];
     if (signer.intent.email !== undefined && signer.intent.name !== undefined) {
       fields.push({ label: "Email", value: signer.intent.email });
     }
-    if (signerDisplayName(signer) !== signer.intent.signerId) {
-      fields.push({ label: "Signer reference", value: signer.intent.signerId });
-    }
-    fields.push({ label: "Identified by", value: ATTRIBUTION_LABEL[signer.attribution.level] });
+    fields.push({ label: "Identified By", value: ATTRIBUTION_LABEL[signer.attribution.level] });
     if (signer.attribution.proofReference !== undefined) {
-      fields.push({ label: "Identity proof", value: signer.attribution.proofReference });
+      fields.push({ label: "Identity Proof", value: signer.attribution.proofReference });
     }
     fields.push(
-      {
-        label: "Agreed to sign electronically",
-        value: `${stamp(signer.consent.consentedAt)} (disclosure ${signer.consent.disclosureVersion})`,
-      },
+      ...instantFields("Consent", signer.consent.consentedAt),
+      { label: "Consent: Disclosure", value: signer.consent.disclosureVersion },
       { label: "Signature", value: ADOPTION_LABEL[signer.intent.adoption] },
-      { label: "Signed", value: stamp(signer.intent.affirmedAt) },
+      ...instantFields("Signed", signer.intent.affirmedAt),
+      { label: "Signatures", value: String(signatureCount(signer)) },
+      { label: "Initials", value: String(initialCount(signer)) },
     );
     if (signer.attribution.observedIp !== undefined) {
-      fields.push({ label: "IP address", value: signer.attribution.observedIp });
+      fields.push({ label: "IP Address", value: signer.attribution.observedIp });
     }
     if (signer.attribution.userAgent !== undefined) {
       fields.push({ label: "Browser", value: signer.attribution.userAgent });
@@ -154,15 +262,16 @@ export function certificateSheet(certificate: CertificateOfCompletion): Certific
   }
 
   blocks.push(
-    { type: "heading", level: 1, text: "Audit log" },
+    { type: "pageBreak" },
+    { type: "heading", level: 1, text: "Audit Log" },
     {
       type: "table",
       columns: [
-        { heading: "Time (UTC)", weight: 23 },
-        { heading: "Event", weight: 22 },
-        { heading: "By", weight: 20 },
-        { heading: "IP address", weight: 15 },
-        { heading: "Details", weight: 20 },
+        { heading: "Time (UTC)", weight: 21 },
+        { heading: "Event", weight: 20 },
+        { heading: "By", weight: 17 },
+        { heading: "IP Address", weight: 14 },
+        { heading: "Details", weight: 28 },
       ],
       rows: (certificate.events ?? []).map((event) => [
         clock(event.at),
@@ -171,15 +280,6 @@ export function certificateSheet(certificate: CertificateOfCompletion): Certific
         event.observedIp ?? "",
         event.detail ?? "",
       ]),
-    },
-    { type: "rule" },
-    {
-      type: "paragraph",
-      text:
-        "The document hash is the SHA-256 digest of the bytes the platform seal covers in the " +
-        "signed document. A copy whose sealed bytes give a different digest is not the document " +
-        "this certificate describes. This certificate carries the same platform seal, so a change " +
-        "to it after it was issued shows in any PDF reader that checks signatures.",
     },
   );
 
@@ -193,9 +293,15 @@ export function certificateSheet(certificate: CertificateOfCompletion): Certific
     ...(createdOn(certificate.sealedAt) !== undefined
       ? { created: createdOn(certificate.sealedAt) }
       : {}),
-    page: { paper: "letter" },
+    page: {
+      paper: "letter",
+      marginTop: PAGE_MARGIN_VERTICAL,
+      marginBottom: PAGE_MARGIN_VERTICAL,
+    },
+    accent: ACCENT,
+    compact: true,
     footer: {
-      left: envelope === undefined ? "Certificate of Completion" : `Reference ${envelope.id}`,
+      left: `Certificate ${certificate.reference}`,
       right: "Page {page} of {pages}",
     },
     blocks,

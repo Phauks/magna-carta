@@ -44,6 +44,13 @@ export interface SigningIntent {
   /** The address the request was sent to. */
   readonly email?: string;
   readonly adoption: SignatureAdoption;
+  /**
+   * How many signature blocks this signer completed in the document. Absent, the certificate
+   * counts one: the signing act this record is.
+   */
+  readonly signatureCount?: number;
+  /** How many initial blocks this signer completed. Absent, the certificate counts none. */
+  readonly initialCount?: number;
   /** When intent was affirmed, ISO 8601 (server-observed). */
   readonly affirmedAt: string;
 }
@@ -80,6 +87,13 @@ export interface SigningParty {
   readonly email?: string;
 }
 
+/** Who a reader of the certificate asks about it: the firm, or the person who sent the request. */
+export interface SigningContact {
+  readonly name: string;
+  readonly email?: string;
+  readonly phone?: string;
+}
+
 /**
  * What was sent for signature: the identifying facts printed at the top of the certificate, the way
  * a signing platform prints its envelope summary.
@@ -92,6 +106,8 @@ export interface SigningEnvelope {
   /** The page count of the document that was signed. */
   readonly pageCount?: number;
   readonly sender?: SigningParty;
+  /** Printed as the contact for questions. Without one, the sender is the contact. */
+  readonly contact?: SigningContact;
   /** When the request was created, ISO 8601 (server-observed). */
   readonly createdAt?: string;
 }
@@ -149,6 +165,12 @@ export interface SigningEvent {
 export interface CertificateOfCompletion {
   /** Lowercase hex SHA-256 of the sealed byte range — the association to the record. */
   readonly documentHashSha256: string;
+  /**
+   * The certificate's number as a person reads and quotes it, such as `MC-B996-78C5-5ADD`: the
+   * first twelve characters of the document hash, so it can be checked against the hash and found
+   * again from it.
+   */
+  readonly reference: string;
   /** When the seal was applied, ISO 8601. */
   readonly sealedAt: string;
   readonly signers: readonly SignerCompletion[];

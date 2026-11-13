@@ -227,6 +227,10 @@ export type SetMemberPhotoRequest = {
     imageBase64: string;
 };
 
+export type CommunityHandoff = {
+    url: string;
+};
+
 export type StartRegistrationResponse = {
     next: 'checkEmail' | 'redeemInvitation';
 };
@@ -2961,12 +2965,15 @@ export type DocumentSealResponse = {
     documentHashSha256: string;
     certificate: {
         documentHashSha256: string;
+        reference: string;
         sealedAt: string;
         signers: Array<{
             intent: {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -2988,6 +2995,11 @@ export type DocumentSealResponse = {
             sender?: {
                 name: string;
                 email?: string;
+            };
+            contact?: {
+                name: string;
+                email?: string;
+                phone?: string;
             };
             createdAt?: string;
         };
@@ -8342,6 +8354,9 @@ export type MagnusTurn = {
     snapshotId: string | null;
     contextTruncated: boolean;
     effort: string | null;
+    removedAt: string | null;
+    supersededAt: string | null;
+    replacesTurnId: string | null;
     createdAt: string;
     completedAt: string | null;
 };
@@ -8412,6 +8427,12 @@ export type MagnusShelf = {
 export type MagnusShelfRequest = {
     folderId: string | null;
     pinned: boolean;
+};
+
+export type MagnusRemovedTurn = {
+    memberTurnId: string;
+    magnusTurnId: string | null;
+    removedAt: string;
 };
 
 export type ReviewSetAccessList = {
@@ -10617,6 +10638,39 @@ export type MePhotoContentResponses = {
 };
 
 export type MePhotoContentResponse = MePhotoContentResponses[keyof MePhotoContentResponses];
+
+export type MeCommunityHandoffData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/community-handoff';
+};
+
+export type MeCommunityHandoffErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Signing in to the board is not set up on this deployment
+     */
+    503: Problem;
+};
+
+export type MeCommunityHandoffError = MeCommunityHandoffErrors[keyof MeCommunityHandoffErrors];
+
+export type MeCommunityHandoffResponses = {
+    /**
+     * The address to send the browser to
+     */
+    200: CommunityHandoff;
+};
+
+export type MeCommunityHandoffResponse = MeCommunityHandoffResponses[keyof MeCommunityHandoffResponses];
 
 export type RegistrationsStartData = {
     body: StartRegistrationRequest;
@@ -20583,6 +20637,8 @@ export type EsignSealData = {
                 signerId: string;
                 name?: string;
                 email?: string;
+                signatureCount?: number;
+                initialCount?: number;
                 adoption: 'typed' | 'drawn' | 'uploaded';
                 affirmedAt: string;
             };
@@ -39971,6 +40027,57 @@ export type MagnusSubmitTurnResponses = {
 
 export type MagnusSubmitTurnResponse2 = MagnusSubmitTurnResponses[keyof MagnusSubmitTurnResponses];
 
+export type MagnusRemoveTurnData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        turnId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/turns/{turnId}';
+};
+
+export type MagnusRemoveTurnErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The message cannot be changed now: it is an answer rather than a member's message, it was already removed or replaced, or an answer is still being written in the conversation
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusRemoveTurnError = MagnusRemoveTurnErrors[keyof MagnusRemoveTurnErrors];
+
+export type MagnusRemoveTurnResponses = {
+    /**
+     * The message and its answer were removed
+     */
+    200: MagnusRemovedTurn;
+};
+
+export type MagnusRemoveTurnResponse = MagnusRemoveTurnResponses[keyof MagnusRemoveTurnResponses];
+
 export type MagnusGetTurnData = {
     body?: never;
     path: {
@@ -40018,6 +40125,57 @@ export type MagnusGetTurnResponses = {
 };
 
 export type MagnusGetTurnResponse = MagnusGetTurnResponses[keyof MagnusGetTurnResponses];
+
+export type MagnusEditTurnData = {
+    body: MagnusSubmitTurnRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        turnId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/turns/{turnId}';
+};
+
+export type MagnusEditTurnErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The message cannot be changed now: it is an answer rather than a member's message, it was already removed or replaced, or an answer is still being written in the conversation
+     */
+    409: Problem;
+    /**
+     * The message exceeds the per-turn size limit, or names a model or effort it cannot
+     */
+    422: Problem;
+    /**
+     * The firm's daily allowance is spent
+     */
+    429: Problem;
+};
+
+export type MagnusEditTurnError = MagnusEditTurnErrors[keyof MagnusEditTurnErrors];
+
+export type MagnusEditTurnResponses = {
+    /**
+     * The edit was recorded and an answer is pending
+     */
+    202: MagnusSubmitTurnResponse;
+};
+
+export type MagnusEditTurnResponse = MagnusEditTurnResponses[keyof MagnusEditTurnResponses];
 
 export type MagnusEventsData = {
     body?: never;

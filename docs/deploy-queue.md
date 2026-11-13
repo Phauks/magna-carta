@@ -265,14 +265,32 @@ draft is the firm's own addresses and parcel and needs no carrier.
 
 ## Search engine activation — a new worker, a new container image, one binding
 
-`apps/search-worker` (`magna-carta-search`) and `containers/search` now exist: the
-Tantivy engine, its R2 range-read adapter, and the object host it reads through. Nothing
-about them is live — `resolveSearchIndexPort` returns the deferred port until the app
-worker has a `SEARCH_SERVICE` binding, so every index job still parks in `deferred` and
-no query reaches an engine. API-confirmed still open in full (2026-08-24):
-`magna-carta-search` is not on the account and the deployed app worker has no
-`SEARCH_SERVICE` binding — this whole section stands. (The `SEARCH_INDEX` queue pair
-already exists, alongside every other production queue.)
+**Update 2026-11-13 — steps 1 to 3 are done; step 4 and two checks remain.** The owner
+confirmed on 2026-11-13 that `magna-carta-search` is on the account and connected, and the
+`SEARCH_SERVICE` binding is declared in `apps/api-worker/wrangler.jsonc` by the change that
+added this paragraph. That confirmation is the owner's word and not an API read: whether
+the binding is on the deployed app worker is live state, read as described in
+[`operations.md`](conventions/operations.md) (_How this file treats live Cloudflare state_).
+What is still open:
+
+- **Check the deploy took the binding.** The version overlay's row for `magna-carta-search`
+  reads a build when the app worker can reach it (`GET /api/v1/meta/versions`), and
+  **Settings › Data & Platform › Search and Indexing** stops saying the search service is not
+  connected. A deploy that failed with code 10143 means the worker is not on the account
+  under that name.
+- **Check the engine end to end, once.** Nothing has indexed a real file in production. Turn
+  indexing on for one firm, upload a PDF, and search a matter for a word inside it. A file
+  that stays "not indexed" with the index reading connected is the container not coming up:
+  read the `magna-carta-search` Worker's logs.
+- **Step 4 below (the warm cron) is still off**, and is the owner's call on cost.
+
+`apps/search-worker` (`magna-carta-search`) and `containers/search` are the Tantivy engine,
+its R2 range-read adapter, and the object host it reads through. Without a `SEARCH_SERVICE`
+binding on the app worker `resolveSearchIndexPort` returns the deferred port, every index
+job parks in `deferred` and no query reaches an engine; that was production's posture until
+the binding above. (The `SEARCH_INDEX` queue pair already exists, alongside every other
+production queue.) The steps as they were taken, kept as the record of what activation
+entailed:
 
 **A new container is its own Workers Build**, and the order matters because each step
 depends on the one before it:

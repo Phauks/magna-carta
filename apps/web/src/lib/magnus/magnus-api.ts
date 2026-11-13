@@ -178,6 +178,15 @@ export interface MagnusTurn {
   contextTruncated: boolean;
   /** The effort the answer was asked for, or null where none was sent. */
   effort: string | null;
+  /**
+   * When the author removed this message and its answer. The text is kept on the record but not
+   * returned to the author, so a removed turn reads as a marker.
+   */
+  removedAt: string | null;
+  /** When an edit of an earlier message set this turn aside; it remains as the earlier version. */
+  supersededAt: string | null;
+  /** On a message made by an edit, the message it replaces. */
+  replacesTurnId: string | null;
   createdAt: string;
   completedAt: string | null;
 }
@@ -376,6 +385,48 @@ export function submitTurn(
     fetchImpl,
     `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/turns`,
     { method: "POST", body, idempotencyKey },
+  );
+}
+
+/**
+ * Edits one of the member's messages and asks again from there. The message and every turn after
+ * it are set aside (kept on the record), and the edit comes back as a new message with a pending
+ * answer, exactly as a new question does.
+ */
+export function editTurn(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  turnId: string,
+  content: string,
+  idempotencyKey: string,
+  choice: MagnusModelChoice | null = null,
+): Promise<ApiOutcome<MagnusSubmittedTurn>> {
+  const body =
+    choice === null
+      ? { content }
+      : {
+          content,
+          modelId: choice.modelId,
+          ...(choice.effort !== null && { effort: choice.effort }),
+        };
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/turns/${encodeURIComponent(turnId)}`,
+    { method: "PATCH", body, idempotencyKey },
+  );
+}
+
+/** Removes one of the member's messages and its answer from the conversation, behind a marker. */
+export function removeTurn(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  turnId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ memberTurnId: string; magnusTurnId: string | null; removedAt: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/turns/${encodeURIComponent(turnId)}`,
+    { method: "DELETE", idempotencyKey },
   );
 }
 

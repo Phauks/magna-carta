@@ -20,6 +20,7 @@
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
   import KeyRound from "@lucide/svelte/icons/key-round";
+  import PencilLine from "@lucide/svelte/icons/pencil-line";
   import * as Alert from "@magna-carta/design-system/alert";
   import type { AlertVariant } from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
@@ -32,6 +33,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readDocumentBytes } from "$lib/documents/document-bytes.ts";
+  import { pdfEditorHref } from "$lib/documents/editable-documents.ts";
   import {
     formatDocumentSize,
     formatDocumentTimestamp,
@@ -572,6 +574,10 @@
               <ZoomIn class="size-16" aria-hidden="true" />
             </Button>
           </span>
+          <Button variant="secondary" size="sm" href={pdfEditorHref(file.id)}>
+            <PencilLine class="size-16" aria-hidden="true" />
+            Edit PDF
+          </Button>
           <Button
             variant="secondary"
             size="sm"

@@ -1,4 +1,3 @@
-import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { z } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
@@ -34,6 +33,7 @@ import {
   Availability,
   ConversationSummary,
   SubmitTurnRequest,
+  SubmittedTurn,
   TurnDetail,
   TurnProgress,
 } from "@magna-carta/magnus/contract";
@@ -90,6 +90,7 @@ import {
   resolveModelChoice,
 } from "../../../magnus/model-choice.ts";
 import { resolveTurnProgress } from "../../../magnus/turn-progress.ts";
+import { acceptTurn, utcDayStart } from "./turn-submission.ts";
 import { isWebSocketUpgrade } from "../../../progress/job-progress-sockets.ts";
 import {
   DEFAULT_PAGE_SIZE,
@@ -97,6 +98,7 @@ import {
   commonErrors,
   consentRefusal,
   conversationBody,
+  turnBody,
   firmGateRefusal,
   mutationMeta,
   notFound,
@@ -470,14 +472,7 @@ const submitTurnRoute = defineOpenAPIRoute(mutationMeta("submitTurn", true), {
       description: "The message was recorded and an answer is pending",
       content: {
         "application/json": {
-          schema: z
-            .object({
-              conversationId: z.string(),
-              memberTurnId: z.string(),
-              magnusTurnId: z.string(),
-              status: z.literal("pending"),
-            })
-            .openapi("MagnusSubmitTurnResponse"),
+          schema: SubmittedTurn,
         },
       },
     },
@@ -535,10 +530,6 @@ const eventsRoute = defineOpenAPIRoute(readMeta("events"), {
 
 // ---------------------------------------------------------------------------------------------
 // Handlers
-
-function utcDayStart(nowIso: string): string {
-  return `${civilDateOf(nowIso)}T00:00:00.000Z`;
-}
 
 export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): void {
   // Availability — what a client calls before showing an input box.
@@ -807,20 +798,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
           conversation: conversationBody(conversation, shelf),
           attachments: attachments.map(attachmentBody),
           turns: {
-            data: page.map((turn) => ({
-              id: turn.id,
-              sequence: turn.sequence,
-              speaker: turn.speaker,
-              content: turn.content,
-              status: turn.status,
-              failureLabel: turn.failureLabel,
-              modelId: turn.modelId,
-              snapshotId: turn.snapshotId,
-              contextTruncated: turn.contextTruncated,
-              effort: turn.effort,
-              createdAt: turn.createdAt,
-              completedAt: turn.completedAt,
-            })),
+            data: page.map((turn) => turnBody(turn, conversation.createdBy === userId)),
             nextCursor:
               turns.length > DEFAULT_PAGE_SIZE && last !== undefined
                 ? encodeCursor(last.createdAt, last.id)
@@ -1124,108 +1102,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       const { content, modelId, effort } = c.req.valid("json");
       const owned = await requireOwnConversation(c, conversationId, userId);
       if (owned === null) return notFound(c);
-
-      // The member's choice of model and effort is checked against the same roster the firm chooses
-      // from, and refused by name when it is not on it (apps/api-worker/src/magnus/model-choice.ts).
-      const chosen =
-        modelId === undefined && effort === undefined
-          ? null
-          : resolveModelChoice(
-              await readFirmSetting(firm.firmDatabase, primaryReasoningModelDefinition),
-              { modelId, effort },
-            );
-      if (chosen !== null && chosen.kind !== "ok")
-        return problemJson(c, modelChoiceRefusal(chosen));
-
-      // The cap is checked here as well as at the write path: a member gets a refusal naming the
-      // limit rather than a request that succeeds and quietly ships a deposition to a provider.
-      if (exceedsMemberTurnCap(content)) {
-        return problemJson(c, {
-          type: "magnus-turn-too-large",
-          title: "Message too long",
-          status: 422,
-          detail: `A message is limited to ${MEMBER_TURN_MAX_BYTES} bytes.`,
-        });
-      }
-
-      // The firm's daily allowance, checked BEFORE anything is enqueued. This is the limit that
-      // matters: the assistant is the first surface where one member can generate unbounded provider
-      // spend just by typing, so the firm is told it reached its own ceiling by name.
-      const ceiling = await readFirmSetting(firm.firmDatabase, magnusDailyTurnCeilingDefinition);
-      const spent = await countMemberTurnsSince(
-        firm.firmDatabase,
-        utcDayStart(new Date().toISOString()),
-      );
-      if (spent >= ceiling) {
-        return problemJson(c, {
-          type: "magnus-daily-ceiling-reached",
-          title: "The firm's daily allowance is spent",
-          status: 429,
-          detail: `This firm's daily limit of ${ceiling} messages has been reached. It resets at 00:00 UTC.`,
-        });
-      }
-
-      const nextSequence = await readNextSequence(firm.firmDatabase, conversationId);
-      const idempotency = requireChokepointIdempotency(c);
-      const now = () => new Date().toISOString();
-      const result = await runIdempotentEffect({
-        database: firm.firmDatabase,
-        key: idempotency.key,
-        fingerprint: idempotency.fingerprint,
-        now,
-        effect: async () => {
-          const submission = submitTurn(
-            firm.firmDatabase,
-            { clock: { now }, actorUserId: userId, randomSource: cryptoRandomSource },
-            {
-              conversationId,
-              content,
-              nextSequence,
-              disclosureVersion: MAGNUS_DISCLOSURE_VERSION,
-              ...(chosen !== null && { choice: chosen.choice }),
-            },
-          );
-          if (!submission.ok) {
-            // Unreachable given the check above; kept because the domain is the authority on its own
-            // cap and a route that silently disagreed with it would be the bug.
-            return {
-              write: { statements: [], outboxMessages: [] },
-              responseCode: 422,
-              responseBody: null,
-            };
-          }
-          return {
-            write: submission.effect,
-            responseCode: 202,
-            responseBody: canonicalJsonStringify({
-              conversationId,
-              memberTurnId: submission.memberTurnId,
-              magnusTurnId: submission.magnusTurnId,
-              status: "pending",
-            }),
-          };
-        },
-      });
-      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
-        return problemResponseForIdempotencyConflict(c, result);
-      }
-      if (result.responseBody === null) {
-        return problemJson(c, {
-          type: "magnus-turn-too-large",
-          title: "Message too long",
-          status: 422,
-          detail: `A message is limited to ${MEMBER_TURN_MAX_BYTES} bytes.`,
-        });
-      }
-      return c.json(
-        JSON.parse(result.responseBody) as {
-          conversationId: string;
-          memberTurnId: string;
-          magnusTurnId: string;
-          status: "pending";
-        },
-        202,
-      );
+      return acceptTurn(c, { firm, userId, conversationId, content, modelId, effort });
     },
   );
 

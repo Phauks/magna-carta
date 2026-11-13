@@ -209,7 +209,7 @@ describe("the status section", () => {
     );
     expect(dormant[1]?.state).toBe("not-searched");
     expect(dormant[1]?.lines).toEqual([
-      "The file index is not connected yet, so no file's text was read.",
+      "No file's text was read. File indexing is not turned on for this firm, or the file index could not be reached. An administrator turns it on in Settings, under Search and Indexing.",
     ]);
   });
 

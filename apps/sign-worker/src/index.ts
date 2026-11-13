@@ -45,7 +45,12 @@ export default {
     }
 
     try {
-      const response = await performSeal(sealRequest, identity, engines);
+      const response = await performSeal(
+        sealRequest,
+        identity,
+        engines,
+        env.CERTIFICATE_SUPPORT_EMAIL,
+      );
       return new Response(encodeSealResponse(response), {
         status: 200,
         headers: { "content-type": "application/json" },

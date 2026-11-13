@@ -1,7 +1,7 @@
 //! The writer: laid-out pages in, PDF bytes out. It makes no layout decision; every
 //! position it draws at was fixed in `layout`.
 
-use krilla::color::luma;
+use krilla::color::{luma, rgb};
 use krilla::geom::{PathBuilder, Point, Rect, Size, Transform};
 use krilla::image::Image;
 use krilla::metadata::{DateTime, Metadata};
@@ -13,8 +13,8 @@ use krilla::{Data, Document};
 
 use crate::fonts::{Face, FontFamily};
 use crate::images::{self, Embedded, ImageFailure};
-use crate::layout::{LaidPage, Mark};
-use crate::model::{Block, ComposedDocument};
+use crate::layout::{Ink, LaidPage, Mark};
+use crate::model::{Block, ComposedDocument, Rgb};
 use crate::ComposeError;
 
 /// Recorded as the document's producer, so a file found later says where it came from.
@@ -50,21 +50,38 @@ impl Fonts {
     }
 }
 
-fn gray_fill(gray: u8) -> Option<Fill> {
+/// The fill for an ink. A gray is written as a gray, so a document with no accent colour holds
+/// no colour at all and prints the same on any device.
+fn fill(ink: Ink, accent: Option<Rgb>) -> Option<Fill> {
+    let paint = match (ink, accent) {
+        (Ink::Accent { .. }, Some(accent)) => {
+            rgb::Color::new(accent.red, accent.green, accent.blue).into()
+        }
+        (Ink::Accent { fallback: gray }, None) | (Ink::Gray(gray), _) => {
+            luma::Color::new(gray).into()
+        }
+    };
     Some(Fill {
-        paint: luma::Color::new(gray).into(),
+        paint,
         ..Fill::default()
     })
 }
 
-fn fill_rectangle(surface: &mut Surface, x: f32, y: f32, width: f32, height: f32, gray: u8) {
+fn fill_rectangle(
+    surface: &mut Surface,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    paint: Option<Fill>,
+) {
     let Some(rectangle) = Rect::from_xywh(x, y, width, height) else {
         return;
     };
     let mut builder = PathBuilder::new();
     builder.push_rect(rectangle);
     if let Some(path) = builder.finish() {
-        surface.set_fill(gray_fill(gray));
+        surface.set_fill(paint);
         surface.draw_path(&path);
     }
 }
@@ -137,6 +154,7 @@ pub(crate) fn render(
     let fonts = Fonts::load(family)?;
     let settings = PageSettings::from_wh(document.page.width, document.page.height)
         .ok_or(ComposeError::InvalidPage)?;
+    let accent = document.accent;
     let mut output = Document::new();
     for laid in pages {
         let mut page = output.start_page_with(settings.clone());
@@ -148,10 +166,10 @@ pub(crate) fn render(
                     baseline,
                     face,
                     size,
-                    gray,
+                    ink,
                     text,
                 } => {
-                    surface.set_fill(gray_fill(*gray));
+                    surface.set_fill(fill(*ink, accent));
                     surface.draw_text(
                         Point::from_xy(*x, *baseline),
                         fonts.get(*face),
@@ -166,22 +184,22 @@ pub(crate) fn render(
                     x1,
                     y,
                     thickness,
-                    gray,
+                    ink,
                 } => fill_rectangle(
                     &mut surface,
                     *x0,
                     *y - *thickness / 2.0,
                     *x1 - *x0,
                     *thickness,
-                    *gray,
+                    fill(*ink, accent),
                 ),
                 Mark::Fill {
                     x,
                     y,
                     width,
                     height,
-                    gray,
-                } => fill_rectangle(&mut surface, *x, *y, *width, *height, *gray),
+                    ink,
+                } => fill_rectangle(&mut surface, *x, *y, *width, *height, fill(*ink, accent)),
                 Mark::Image {
                     index,
                     x,

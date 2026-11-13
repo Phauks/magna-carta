@@ -49,6 +49,8 @@
     models = [],
     choice = $bindable(null),
     sending = false,
+    editing = false,
+    onCancelEdit,
     sendRefused = false,
     allowanceSpent = false,
     remainingDailyTurns,
@@ -71,6 +73,10 @@
     /** The member's choice for the next question, or null for the firm's model. */
     choice?: MagnusModelChoice | null;
     sending?: boolean;
+    /** True while the member is rewriting one of their messages rather than asking a new one. */
+    editing?: boolean;
+    /** Stop editing and put the composer back to asking. */
+    onCancelEdit?: () => void;
     sendRefused?: boolean;
     allowanceSpent?: boolean;
     remainingDailyTurns?: number | undefined;
@@ -138,7 +144,19 @@
     </ul>
   {/if}
 
-  <Label for="magnus-composer">Your message</Label>
+  {#if editing}
+    <!-- Editing is a mode the composer is in, so it says so above the field and offers the way out
+         beside the sentence rather than leaving the reader to guess that Send now does something
+         different. -->
+    <p class="flex items-center justify-between gap-8 text-sm">
+      <span>
+        Editing your message. Sending it asks Magnus again from there; the replies after it are set
+        aside.
+      </span>
+      <Button variant="ghost" size="sm" onclick={() => onCancelEdit?.()}>Cancel Edit</Button>
+    </p>
+  {/if}
+  <Label for="magnus-composer">{editing ? "Your edited message" : "Your message"}</Label>
   <Textarea
     id="magnus-composer"
     bind:ref={composerElement}
@@ -171,7 +189,7 @@
         : "Send this message to Magnus."}
     >
       <SendHorizontal aria-hidden="true" />
-      {sending ? "Sending" : "Send"}
+      {sending ? "Sending" : editing ? "Send Edit" : "Send"}
     </Button>
   {/snippet}
   {#if allowanceSpent}

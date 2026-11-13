@@ -58,12 +58,6 @@ export const DEFINITION_PATTERN = new RegExp(
 // next reader does not have to re-derive it.
 export const ALLOWLIST = new Map([
   [
-    "createPost",
-    "the community board's write path, in packages/community; the board's own worker that calls it" +
-      " is the next pull request in the same stream (docs/active-work/claude/project-thread-fa00rq.md)," +
-      " and this entry goes when that lands",
-  ],
-  [
     "createMemoryLogger",
     "a test double — the in-memory logger every package's tests assert against, and production wires" +
       " the real one in apps/api-worker/src/http/app.ts",

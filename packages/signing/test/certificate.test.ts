@@ -94,7 +94,7 @@ describe("the audit log", () => {
         userAgent: "ExampleBrowser/1.0",
         detail: "Signature drawn",
       },
-      { kind: "sealed", at: "2026-07-18T12:00:01Z" },
+      { kind: "sealed", at: "2026-07-18T12:00:01Z", detail: "Platform certificate" },
     ]);
   });
 
@@ -121,11 +121,13 @@ describe("the audit log", () => {
     ]);
 
     const text = renderCertificateOfCompletion(certificate);
-    expect(text).toContain("Reference: env_0001");
+    expect(certificate.reference).toBe("MC-AAAA-AAAA-AAAA");
+    expect(text).toContain("Reference: MC-AAAA-AAAA-AAAA");
+    expect(text).toContain("Record: env_0001");
     expect(text).toContain("Document: Engagement letter.pdf");
     expect(text).toContain("Pages: 3");
     expect(text).toContain("Name: Alice Example");
-    expect(text).toContain("2026-07-18T11:50:00Z Sent for signature by Bob Sender");
+    expect(text).toContain("2026-07-18T11:50:00Z Sent for Signature by Bob Sender");
     expect(text).toContain("2026-07-18T12:00:00Z Signed by Alice Example");
   });
 

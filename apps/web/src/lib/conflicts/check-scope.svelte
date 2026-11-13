@@ -15,7 +15,8 @@
    * A PLACE THE ENGINE CANNOT SEARCH YET is drawn with its options, disabled and marked Soon, and the
    * check records it as not searched, so "never searched" is never read as "searched and found
    * nothing". Every place is searchable today, every option on. Files reads the file index, and a
-   * check run while that index is not connected records Files as not searched, saying why.
+   * check run for a firm that does not index its files, or while that index cannot be reached,
+   * records Files as not searched, saying why.
    *
    * NOTHING HERE LIMITS THE SEARCH. A check follows every recorded relationship to closure, and the
    * one bound on a run is the platform's, stated on the record when it is reached.

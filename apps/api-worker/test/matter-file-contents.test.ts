@@ -66,12 +66,18 @@ beforeAll(async () => {
 });
 
 describe("the matter search's way to the file contents index", () => {
-  it("says the index is not connected while no search service is bound", async () => {
-    // The test pool binds no search service, which is every deployment until the search worker is
-    // deployed and bound.
+  it("says the index is not connected on a deployment that binds no search service", async () => {
+    await setIndexing(true);
+    const searcher = matterFileContentsSearcherFor({ ...env, SEARCH_SERVICE: undefined }, firmId);
+    expect(await searcher.query(QUESTION)).toEqual({ kind: "not-connected" });
+  });
+
+  it("says the index is unavailable when the bound service has no engine behind it", async () => {
+    // The test pool binds a search service that refuses every operation, which is a deployment
+    // whose engine is not up. That is a fault to report, never "no file contains these words".
     await setIndexing(true);
     const searcher = matterFileContentsSearcherFor(env, firmId);
-    expect(await searcher.query(QUESTION)).toEqual({ kind: "not-connected" });
+    expect(await searcher.query(QUESTION)).toEqual({ kind: "unavailable" });
   });
 
   it("says the firm has not turned indexing on, without asking the index", async () => {
