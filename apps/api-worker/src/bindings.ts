@@ -150,11 +150,6 @@ export type Bindings = {
   // yet, and a service binding naming a missing worker fails this worker's own deploy. The binding
   // line lands with that worker's first deploy (docs/deploy-queue.md, email capture activation).
   EMAIL_SERVICE?: Fetcher;
-  // The community board worker (magna-carta-community), for the aggregate version read alone — the
-  // board's sign-in reaches it through a signed link, never over this binding. Optional, and absent
-  // from wrangler.jsonc until that worker is deployed to the account, because a service binding naming a
-  // missing worker fails this worker's own deploy; while unset, its version row reads "unbound".
-  COMMUNITY_SERVICE?: Fetcher;
   // The public status-page worker (magna-carta-status), for the aggregate version read alone — the
   // status page's own data flows through KV, never through this worker. Optional: absent in every
   // test environment; while unset, its version row reads "unbound".
@@ -165,6 +160,11 @@ export type Bindings = {
   // version shape as a static /__version file, and a deployment older than that file answers
   // index.html, which the probe reads as "unreported". Optional: absent in every test environment.
   WEB_SERVICE?: Fetcher;
+  // The community board's worker (magna-carta-community), for the aggregate version read alone; the
+  // board's data is the control plane's, never read through this binding. Optional, and NOT declared
+  // in wrangler.jsonc yet: a service binding to a worker the account does not have fails the deploy,
+  // so it is added once magna-carta-community has deployed. Until then its row reads "unbound".
+  COMMUNITY_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
   // environment today — while unset, resolveNaturalLanguageProvisioningPort returns the

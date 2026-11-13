@@ -371,6 +371,7 @@ export type MetaVersionsResponse = {
         buildTime: string | null;
     };
     services: Array<ServiceVersion>;
+    connectedServices: Array<ConnectedServiceStatus>;
     observedAt: string;
 };
 
@@ -381,6 +382,12 @@ export type ServiceVersion = {
     commit: string | null;
     commitTime: string | null;
     buildTime: string | null;
+    latencyMilliseconds: number | null;
+};
+
+export type ConnectedServiceStatus = {
+    id: 'realtime';
+    state: 'connected' | 'not-configured' | 'refused' | 'unreachable';
     latencyMilliseconds: number | null;
 };
 
@@ -2574,6 +2581,7 @@ export type FileHistoryItem = {
 export type PlayableCopyStatus = {
     versionId: string;
     state: 'none' | 'pending' | 'ready' | 'unavailable';
+    fileId: string | null;
     reason: 'unsupported' | 'malformed' | 'too-large' | 'source-missing' | null;
     streamUrl: string | null;
     contentType: 'video/mp4';
@@ -5481,6 +5489,7 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
+    trigramMatching?: boolean;
     places?: {
         messaging: Array<'calls' | 'texts' | 'email'>;
         tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
@@ -5579,6 +5588,7 @@ export type ConflictsRunSummary = {
     askedScope: {
         sources: Array<string>;
         strictness: string;
+        trigramMatching: boolean;
         places: {
             messaging: Array<'calls' | 'texts' | 'email'>;
             tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
@@ -5628,6 +5638,7 @@ export type ConflictsMatchingRecord = {
     nameKeys: Array<string>;
     phoneticSchemes: Array<string>;
     nameRoles: Array<string> | null;
+    trigramMatching: boolean;
 } | null;
 
 export type ConflictsTraversalRecord = {

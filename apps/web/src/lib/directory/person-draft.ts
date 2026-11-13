@@ -32,7 +32,30 @@ export interface PersonNameDraft {
 
 export interface OtherNameDraft extends PersonNameDraft {
   readonly id: string;
-  readonly nameRole: DirectoryNameRole;
+  nameRole: DirectoryNameRole;
+}
+
+/** A blank other name, as the Add Other Name button opens it. */
+export function blankOtherName(): OtherNameDraft {
+  return {
+    id: crypto.randomUUID(),
+    prefix: "",
+    given: "",
+    middle: "",
+    family: "",
+    suffix: "",
+    nameRole: "former",
+  };
+}
+
+/**
+ * The other names that hold something to answer to. A block opened and left empty is not a name:
+ * it is not counted, summarised or sent, the same rule the add row it replaced applied.
+ */
+export function filledOtherNames(draft: PersonDraft): readonly OtherNameDraft[] {
+  return draft.otherNames.filter(
+    (other) => other.given.trim() !== "" || other.family.trim() !== "",
+  );
 }
 
 /** The sets most people state, offered first; "Another set…" opens the five forms. */
@@ -163,7 +186,7 @@ export function personSectionCounts(draft: PersonDraft): readonly PersonSectionC
   // an address is a form of its own and its own rail item, beside the one-line ways to reach them.
   const addresses = draft.contacts.filter((contact) => contact.kind === "address").length;
   return [
-    { id: "names", label: "Names", count: currentName + draft.otherNames.length },
+    { id: "names", label: "Names", count: currentName + filledOtherNames(draft).length },
     { id: "contact", label: "Contact", count: draft.contacts.length - addresses },
     { id: "address", label: "Address", count: addresses },
     // Pronouns and the life dates share one section: each is a single answer, and a section of one
@@ -213,7 +236,7 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
   const lines: PersonSummaryLine[] = [];
   const name = displayName(draft.name);
   if (name !== "") lines.push({ label: "Name", value: name });
-  for (const other of draft.otherNames) {
+  for (const other of filledOtherNames(draft)) {
     const otherName = displayName(other);
     if (otherName !== "") lines.push({ label: nameRoleLabel(other.nameRole), value: otherName });
   }
@@ -281,7 +304,7 @@ export function personDraftWarning(draft: PersonDraft): string | null {
 export function personDraftStarted(draft: PersonDraft): boolean {
   return (
     displayName(draft.name) !== "" ||
-    draft.otherNames.length > 0 ||
+    filledOtherNames(draft).length > 0 ||
     draft.pronouns !== null ||
     draft.dateOfBirth !== "" ||
     draft.dateOfDeath !== "" ||
@@ -309,8 +332,9 @@ export function personCreateRequest(draft: PersonDraft): CreateDirectoryPersonRe
   // Absent rather than empty: a person with one name has no family name, which is a different
   // fact from a family name recorded as nothing at all.
   if (family !== "") request.family = family;
-  if (draft.otherNames.length > 0) {
-    request.otherNames = draft.otherNames.map((name) => ({
+  const otherNames = filledOtherNames(draft);
+  if (otherNames.length > 0) {
+    request.otherNames = otherNames.map((name) => ({
       given: name.given.trim(),
       family: name.family.trim(),
       nameRole: name.nameRole,

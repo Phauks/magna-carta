@@ -157,7 +157,10 @@ and never calls external services.
   name-role set is that over-inclusive is the one band a firm cannot narrow: it always searches every
   role, so whatever set is configured for balanced is a subset of it. A future channel may be enabled
   only at the wider band without breaking the invariant; one enabled at balanced and disabled higher
-  up would break it. The superset test in `test/matching.test.ts` and
+  up would break it. The one channel a person may turn off, trigram overlap (`trigramMatching` on
+  the scope request), is turned off at balanced only: `resolveScope` forces it on at over_inclusive
+  and `matchOptionsFor` ignores it there, and the check row records the choice under
+  `inputs_json.matching.trigramMatching`. The superset test in `test/matching.test.ts` and
   `test/matching-depth.test.ts` guard it against the directory's real corpus rather than a mock.
 - **Which NAME ROWS a check compared is a setting, and the row says which.** `strictness` is a preset
   name — a word whose meaning moves as channels are added — so it is no longer the only evidence of
@@ -239,7 +242,7 @@ and never calls external services.
   `recordDisposition`. A run that nobody asked for, under nobody's authority, writing a row that names
   a member as having concluded something is the one failure this subsystem cannot recover from — so it
   is enforced on the source text by `test/automated-path-cannot-dispose.test.ts` and the worker's
-  `test/conflicts-recheck-consumers.test.ts`, and a database trigger refusing a disposition whose
+  `apps/api-worker/test/conflicts-recheck-consumers.test.ts`, and a database trigger refusing a disposition whose
   reviewer is not a live member lands with the adjudication read models as the second layer. Request
   and run are separate consumers for a different reason and the same discipline: a slow check must not
   back-pressure the recording of causes, so the request consumer never imports `runConflictsCheck`.
@@ -358,7 +361,7 @@ and never calls external services.
   is therefore proportional to channels times ceil(entities / 100), not to entities times channels —
   a small fan for a platform limit, not a return of the N+1.
 - Drizzle-kit cannot model triggers; the six append-only guard triggers live in the hand-written
-  migration `.sql` (`packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`), like the
+  migration `.sql` (now folded into `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`), like the
   Directory FTS5 triggers, and are verified by `packages/database/test/conflicts-append-only.test.ts`
   plus `assertConflictsFitness`.
 - **The posture read does not check that the matter exists**, and that is deliberate: a 404 on an

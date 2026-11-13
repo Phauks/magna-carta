@@ -2,10 +2,11 @@
   /*
    * AddressFields — the one place an address is entered, and its shape is the country's.
    *
-   * THE COUNTRY IS THE FIRST FIELD BECAUSE IT DECIDES THE REST. Which boxes an address form has,
-   * what each is called and what order they read in are properties of the country, not of the
-   * platform (address-format.ts holds them). So the country leads, and choosing one re-labels and
-   * re-arranges the boxes beneath it: an Irish address stops asking for a state and starts asking
+   * THE COUNTRY DECIDES THE REST, AND IT SITS LAST. Which boxes an address form has, what each is
+   * called and what order they read in are properties of the country, not of the platform
+   * (address-format.ts holds them). It led the form until the owner moved it to the end
+   * (2026-11-13): nearly every address the firm enters is American, so the country is the field
+   * least often touched. Choosing one still re-labels and re-arranges the boxes above it: an Irish address stops asking for a state and starts asking
    * for an Eircode; a Japanese one puts the postal code first and reads down to the street; a German
    * one puts the code before the town on one line, the way an envelope is written there.
    *
@@ -77,11 +78,12 @@
      * Asked whether the postal code reads like one for the country it is in. Returning a string
      * shows it under the box; returning null says nothing.
      *
-     * A NOTE, NEVER A REFUSAL. It renders as the field's hint rather than its error, so the box is
-     * never marked invalid and nothing here can stop a commit — a code can match its country's
-     * published format perfectly and reach nobody, and a new development can carry one no published
-     * format knows yet. Whether a malformed code matters at all is the caller's rule, beside its
-     * own commit.
+     * A MARK, NEVER A REFUSAL. The box turns red and carries the sentence as its accessible
+     * description and hover text, but no line of text appears under it (owner ruling 2026-11-13:
+     * a field in error shows no text). Nothing here can stop a commit — a code can match its
+     * country's published format perfectly and reach nobody, and a new development can carry one
+     * no published format knows yet. Whether a malformed code matters at all is the caller's rule,
+     * beside its own commit.
      */
     postalCodeNote?: (country: string | undefined, value: string) => string | null;
     /**
@@ -182,6 +184,52 @@
 </script>
 
 <div class="flex flex-col gap-12">
+  {#each format.lines as line, index (index)}
+    <div class="grid gap-8" style="grid-template-columns: {templateFor(line.map((field) => field.span ?? 1))}">
+      {#each line as field (field.key)}
+        <LabelledField
+          label={field.label}
+          error={field.key === "postal"
+            ? postalNote
+            : index === 0 && field.key === "street"
+              ? error
+              : undefined}
+        >
+          {#snippet children({ props })}
+            {#if field.key === "street" && lookup !== undefined}
+              <StreetSuggestionField
+                text={value.street ?? ""}
+                country={value.country}
+                near={value.region}
+                {lookup}
+                fieldName={field.label}
+                controlProperties={props}
+                {disabled}
+                onType={(typed) => set("street", typed)}
+                onChoose={(parts) => (value = withResolvedAddress(value, parts))}
+              />
+            {:else}
+              <Input
+                {...props}
+                autocomplete="off"
+                list={field.key === "region" && administrativeAreas.length > 0
+                  ? areaListIdentifier
+                  : undefined}
+                value={value[field.key] ?? ""}
+                {disabled}
+                placeholder={placeholderOf(field.label)}
+                oninput={(event) => set(field.key, event.currentTarget.value)}
+              />
+            {/if}
+          {/snippet}
+        </LabelledField>
+      {/each}
+    </div>
+  {/each}
+
+  <!-- The country comes LAST (owner ruling 2026-11-13): it is nearly always the United States,
+       which is what a new address starts in, so it is the field somebody least often touches and the
+       one an envelope prints last. Changing it still re-labels and re-orders the boxes above it. -->
   <LabelledField label="Country">
     {#snippet children({ props })}
       <Combobox.Root
@@ -241,46 +289,6 @@
       </Combobox.Root>
     {/snippet}
   </LabelledField>
-
-  {#each format.lines as line, index (index)}
-    <div class="grid gap-8" style="grid-template-columns: {templateFor(line.map((field) => field.span ?? 1))}">
-      {#each line as field (field.key)}
-        <LabelledField
-          label={field.label}
-          hint={field.key === "postal" ? postalNote : undefined}
-          error={index === 0 && field.key === "street" ? error : undefined}
-        >
-          {#snippet children({ props })}
-            {#if field.key === "street" && lookup !== undefined}
-              <StreetSuggestionField
-                text={value.street ?? ""}
-                country={value.country}
-                near={value.region}
-                {lookup}
-                fieldName={field.label}
-                controlProperties={props}
-                {disabled}
-                onType={(typed) => set("street", typed)}
-                onChoose={(parts) => (value = withResolvedAddress(value, parts))}
-              />
-            {:else}
-              <Input
-                {...props}
-                autocomplete="off"
-                list={field.key === "region" && administrativeAreas.length > 0
-                  ? areaListIdentifier
-                  : undefined}
-                value={value[field.key] ?? ""}
-                {disabled}
-                placeholder={placeholderOf(field.label)}
-                oninput={(event) => set(field.key, event.currentTarget.value)}
-              />
-            {/if}
-          {/snippet}
-        </LabelledField>
-      {/each}
-    </div>
-  {/each}
 
   {#if administrativeAreas.length > 0}
     <datalist id={areaListIdentifier}>

@@ -272,6 +272,7 @@ const ScopeRequest = z
   .object({
     sources: z.array(z.enum(SOURCE_CLASSES)).max(SOURCE_CLASSES.length),
     strictness: z.enum(STRICTNESS_LEVELS),
+    trigramMatching: z.boolean().optional(), // false skips trigram matching at balanced only
     places: PlacesRequest.optional(),
   })
   .openapi("ConflictsScopeRequest");
@@ -581,18 +582,17 @@ const CandidateRecord = z
   })
   .openapi("ConflictsCandidateRecord");
 
-// What the name comparison compared. `strictness` is a preset NAME, and a preset is a word whose
-// meaning moves as channels are added — a check from one release compared fewer things than a check
-// from the next under the same word — so the row names the channels and this reports them.
+// What the name comparison compared: name keys, phonetic encoders, roles, and whether trigram
+// matching ran (true on rows from before it could be turned off). `strictness` is a preset NAME whose
+// meaning moves as channels are added, so the row names the channels and this reports them.
 const MatchingRecord = z
   .object({
-    // The name key columns compared for equality.
     nameKeys: z.array(z.string()),
-    // The phonetic encoders that ran.
     phoneticSchemes: z.array(z.string()),
     // The name roles compared. Null means every role the corpus holds, which is a different statement
     // from a list that happens to name them all: a firm that adds a role later is covered by the first.
     nameRoles: z.array(z.string()).nullable(),
+    trigramMatching: z.boolean(),
   })
   .openapi("ConflictsMatchingRecord");
 
@@ -1459,6 +1459,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
           ? null
           : await readMemberDisplayName(database, checkRow.actor_user_id as UserId),
       strictness: checkRow.strictness as "balanced" | "over_inclusive",
+      trigramMatching: inputs.matching?.trigramMatching ?? true,
       depth: checkRow.depth,
       floorRaised: checkRow.floor_raised === 1,
       subjectEntityCount: inputs.subjectEntityIds.length,

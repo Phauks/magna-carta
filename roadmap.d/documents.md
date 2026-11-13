@@ -422,11 +422,11 @@
 
 - id: documents.preview.player
   name: Video player UI
-  scope: Inline video player on the browser's own video element with the design system's own controls (seek with buffered fill, frame and ten-second steps, speed, sound, picture in picture, full screen, a link to the moment), as a page and in the details panel's Preview tab; HLS support dormant for future transcoding.
-  status: partial
+  scope: Inline video and sound player on the browser's own media element with the design system's own controls laid over the picture (seek with buffered fill and hover preview, frame and ten-second steps, a settings menu with speed, a link to the moment, a screenshot filed beside the recording, full screen), as a page and in the details panel's Preview tab; an unreadable recording offers Convert to MP4, filed beside the original.
+  status: shipped
   surface: screen
   spec: docs/specs/2026-06-19-slice-2-3-inline-preview-safe-delivery-design.md
-  evidence: packages/design-system/src/lib/components/video-player + slider (stories as browser tests); apps/web/src/routes/(app)/documents/[id]/watch and file-video-preview.svelte; the inline-playable verdict is judged at first preview by apps/api-worker/src/files/inline-playable-assessment.ts over packages/file-manager/src/inline-playable.ts. Partial because the production files host (FILES_ORIGIN) is still a placeholder, so a deployed grant streams nowhere and the player offers the download.
+  evidence: packages/design-system/src/lib/components/video-player + slider (stories as browser tests); apps/web/src/routes/(app)/documents/[id]/watch and file-video-preview.svelte; the inline-playable verdict is judged at first preview by apps/api-worker/src/files/inline-playable-assessment.ts over packages/file-manager/src/inline-playable.ts. Streams in production from files.magnacartausercontent.com (FILES_ORIGIN, zone route added 2026-11-13).
 
 - id: documents.preview.transcoding
   name: Preview transcoding
@@ -500,7 +500,7 @@
   status: partial
   surface: awaiting-screen
   evidence: containers/transcode reads MP4, QuickTime and Matroska carrying H.264 or HEVC with AAC, MP3, PCM or FLAC sound and writes a faststart H.264/AAC MP4 (tests/transcode.rs converts one fixture per path). apps/convert-worker deploys it as TranscodeEngineContainer; packages/conversion/src/registry.ts routes mp4, mov and mkv to playable-mp4 on the transcode engine. The playable copy reaches it - POST /api/v1/files/{id}/playable-copy asks for a copy of a file's current version and GET reports it, with a signed streamUrl on the files host once ready (apps/api-worker/src/http/routes/files/playable-copy.ts); background/conversions/playable-copy-consumer.ts streams the original from R2 through the engine and back without buffering, and the copy is recorded on the version's own row (packages/file-manager/src/playable-copy.ts).
-  notes: Partial because no screen offers it yet - the player's "prepare a playable copy" button belongs to the video player work (documents.preview.player) - and a production stream also waits on the files host (FILES_ORIGIN is still a placeholder). A conversion runs inside one queue invocation, so a recording that takes longer than fifteen minutes to convert fails and can be asked for again once stale. The buffered conversion port still leaves transcode unrouted on purpose. WMV/WMA, MPEG-2 and MPEG-4 Part 2 stay download-only until each has a proven Rust decoder (owner's "Rust only" ruling, 2026-11-10).
+  notes: Offered as Convert to MP4 on the Unreadable Media File notice, and the copy is filed beside the original as its own file. A conversion runs inside one queue invocation, so a recording that takes longer than fifteen minutes to convert fails and can be asked for again once stale. The buffered conversion port still leaves transcode unrouted on purpose. WMV/WMA, MPEG-2 and MPEG-4 Part 2 stay download-only until each has a proven Rust decoder (owner's "Rust only" ruling, 2026-11-10).
 
 - id: documents.conversion.email-to-pdf
   name: Email MSG/EML to PDF

@@ -167,6 +167,28 @@ function normalize(matches: readonly CandidateMatch[]): string {
   );
 }
 
+test("with trigram matching off, the batched matcher still returns exactly the per-entity hit set", async () => {
+  const context = await testContext("equivalence-without-trigram");
+  const entityIds = await seedCorpus(context);
+  const facts = await readSubjectFactsBatch(context, entityIds);
+  const subjects = entityIds
+    .map((entityId) => facts.get(entityId))
+    .filter((subject) => subject !== undefined);
+  const depth = { trigramMatching: false };
+  const batched = await matchPartyBatch(context, subjects, "balanced", depth);
+  for (const subject of subjects) {
+    const perEntity = await matchParty(context, subject, "balanced", depth);
+    expect({
+      entityId: subject.entityId,
+      matches: normalize(batched.get(subject.entityId as string) ?? []),
+    }).toEqual({ entityId: subject.entityId, matches: normalize(perEntity) });
+  }
+  // Nothing the batch found came from trigram overlap.
+  for (const matches of batched.values()) {
+    for (const match of matches) expect(match.evidence.trigramMatch).toBe(false);
+  }
+});
+
 for (const strictness of ["balanced", "over_inclusive"] as const satisfies readonly Strictness[]) {
   test(`the batched matcher returns exactly the per-entity matcher's hit set at ${strictness} strictness`, async () => {
     const context = await testContext(`equivalence-${strictness}`);

@@ -853,6 +853,7 @@
               <FileVideoPreview
                 fileId={file.id}
                 name={file.name}
+                contentType={file.sniffedContentType}
                 media={viewerKindOf(file) === "audio" ? "audio" : "video"}
               />
             {:else}

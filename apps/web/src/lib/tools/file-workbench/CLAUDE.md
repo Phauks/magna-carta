@@ -3,7 +3,7 @@
 **Purpose.** The surface a file that belongs to no matter is brought to, and every file capability is run from. A sidebar destination in the Firm group at `/file-workbench`, not a screen inside the Tools area: the ten file utilities in the tool catalog are this screen's own capability tabs, so the host does not belong filed among the things it hosts. One drop, and Type, Hash, Malware Scan, Metadata, Email, Convert, Repair, Text Recognition, Unlock and AI Text all address the same bytes. The boundary is the file's lifetime: nothing here is filed, versioned, or remembered.
 
 **White paper:** _Core domain_ — the Tools area and the file utilities.
-**Decision:** `docs/decisions/pending/a-file-nobody-trusts-is-the-reason-the-workbench-exists.md` (until the register assembles it on `main`).
+**Decision:** `docs/decisions/0415-a-file-nobody-trusts-is-the-reason-the-workbench-exists.md` (until the register assembles it on `main`).
 **Owner's rulings on this screen:** [`docs/conventions/file-workbench-rulings.md`](../../../../../../docs/conventions/file-workbench-rulings.md). Read it before changing anything here.
 
 ## Key files / entry points

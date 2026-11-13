@@ -10,6 +10,7 @@ import {
   listBoard,
   moderate,
   readBoardSummary,
+  readModerationQueue,
   readPost,
   saveDisplayName,
   setStatus,
@@ -258,6 +259,17 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
     if (number === null) return problem("post-not-found");
     return fromResult(
       await readPost(context.env.DB_CONTROL, number, context.var.viewer?.member),
+      (value) => value,
+    );
+  });
+
+  // The team's queue: everything held for review or hidden by reports, with what the reports say.
+  // A reader who is not on the team gets the same refusal whether signed in or not.
+  application.get("/api/moderation-queue", async (context) => {
+    const viewer = context.var.viewer;
+    if (viewer === null) return problem("not-team");
+    return fromResult(
+      await readModerationQueue(context.env.DB_CONTROL, viewer.member),
       (value) => value,
     );
   });

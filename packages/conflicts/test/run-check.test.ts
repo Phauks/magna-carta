@@ -137,6 +137,28 @@ test("a check writes one row recording the trigger, scope, strictness and how de
   expect(row.depth).toBe(0);
 });
 
+test("a check run without trigram matching records it, and finds no name by trigram overlap", async () => {
+  const { ctx, options } = await conflictsTestContext("run-without-trigram");
+  const clientId = await createPerson(ctx.database, { given: "Cather", family: "More" }, options);
+  await createPerson(ctx.database, { given: "Bartholomew", family: "Cathermore" }, options);
+
+  const checkId = await runConflictsCheck(
+    ctx,
+    {
+      trigger: "preliminary",
+      subjectEntityIds: [clientId],
+      scope: { sources: ["party"], strictness: "balanced", trigramMatching: false },
+    },
+    options,
+  );
+
+  const row = await readCheck(ctx.database, checkId);
+  expect(parseCheckInputs(row.inputs_json).matching?.trigramMatching).toBe(false);
+  for (const hit of await readHits(ctx.database, checkId)) {
+    expect(hit.matched_fields_json).not.toContain("trigram overlap");
+  }
+});
+
 test("a matter with no parties produces an empty run, not an error", async () => {
   const { ctx, options } = await conflictsTestContext("empty");
   const checkId = await runConflictsCheck(

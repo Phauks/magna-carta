@@ -169,8 +169,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   at the bottom and paste them into the conversation, and they get applied from there.</p>
   <div class="band" style="margin-top:8px">
     <div class="k "><span>Open questions</span><b>72</b><em>Every one is on this page.</em></div>
-    <div class="k n"><span>Holding a build</span><b>36</b><em>Nothing is written behind these.</em></div>
-    <div class="k y"><span>Not holding a build</span><b>36</b><em>Mostly built already; some are parked.</em></div>
+    <div class="k n"><span>Holding a build</span><b>32</b><em>Nothing is written behind these.</em></div>
+    <div class="k y"><span>Not holding a build</span><b>40</b><em>Mostly built already; some are parked.</em></div>
     <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:66ch">Decisions about a capability only. Account-side steps that no session can perform — a Cloudflare dashboard action, a billing budget, a repository setting — are listed in <code>docs/deploy-queue.md</code>, which is their one home.</p>
@@ -178,14 +178,14 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 
 <section class="controls" aria-label="Filters">
   <label class="field"><span>Area</span>
-    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (6)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (2)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (12)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (7)</option><option value="notes.md">Matter Notes and Activity (2)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
+    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="community.md">Community &amp; Feedback Forum (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (7)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (3)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (12)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (6)</option><option value="notes.md">Matter Notes and Activity (1)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
   <label class="toggle"><input type="checkbox" data-filter-unanswered="">
     <span>Only what I have not answered</span></label>
   <p class="count" data-visible-count="" role="status"></p>
 </section>
 
 <section class="group" data-group="blocking">
-  <h2>Nothing is built behind these <span class="ac">36</span></h2>
+  <h2>Nothing is built behind these <span class="ac">32</span></h2>
   <p class="lede">An answer here decides what gets written next. Until one lands, the work has no shape to take — so these are the questions that cost time by staying open.</p>
   <div class="cards">
     <article class="card" data-node="ai.consent" data-name="Client-consent model" data-area="ai.md">
@@ -194,17 +194,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.</p>
       <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
       <p class="scope">Owner decision on whether privileged matter content may reach third-party frontier models and under what consent; required before the first AI feature ships.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
-    <article class="card" data-node="community.board" data-name="Feedback board" data-area="community.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>community.board</code></div>
-      <h3>Feedback board</h3>
-      <p class="q">Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Feature requests with popularity-ranked upvotes, comments, tags, status pipeline, and roadmap-as-filtered-view-by-status.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -331,17 +320,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
-    <article class="card" data-node="meetings.recording" data-name="Recording" data-area="meetings.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.recording</code></div>
-      <h3>Recording</h3>
-      <p class="q">Is audio alone the right record for a law firm, or is video needed — and if it is, is it worth moving meetings onto RealtimeKit to get it managed rather than taking a C/C++ codec dependency?</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
     <article class="card" data-node="meetings.whiteboard" data-name="Whiteboard and annotation" data-area="meetings.md">
       <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.whiteboard</code></div>
       <h3>Whiteboard and annotation</h3>
@@ -375,17 +353,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
-    <article class="card" data-node="meetings.end-to-end-encryption" data-name="End-to-end encryption" data-area="meetings.md">
-      <div class="chips"><span class="chip todo">Not started</span><span class="chip todo">Not built</span><code>meetings.end-to-end-encryption</code></div>
-      <h3>End-to-end encryption</h3>
-      <p class="q">Opt-in fixed at the meeting's start, or on by default; whether a firm may forbid it; whether it waits for recording and dial-in and the two experiments (simulcast layer switching with encrypted frames, and the key-replacement cost at fifty); and the honest threat model — it does not protect against a malicious deploy of our own JavaScript, and an active malicious room could swap keys unless participants compare a security code.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Media the routing service cannot read — keys agreed between browsers, frames encrypted before they leave.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
     <article class="card" data-node="meetings.usage-reporting" data-name="Meetings usage and quality" data-area="meetings.md">
       <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>meetings.usage-reporting</code></div>
       <h3>Meetings usage and quality</h3>
@@ -403,17 +370,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Whose carrier account (platform-managed or per firm); whether to build the bridge now or wait for Cloudflare's own phone gateway into Realtime, which is drafted but not generally available; if the adapter goes away a container bridge needs an Opus codec, a young pure-Rust one or libopus under consent; whether a member's PIN skips the lobby when the lobby is off; local or toll-free numbers and how many per firm.</p>
       <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
       <p class="scope">A PSTN leg into a meeting through the telephony port.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
-    <article class="card" data-node="notes.search.firm-wide" data-name="Firm-wide note search" data-area="notes.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>notes.search.firm-wide</code></div>
-      <h3>Firm-wide note search</h3>
-      <p class="q">Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Searching every matter's notes from one place, under the same visibility predicate the timeline composes, with no snippet.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -588,7 +544,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 </section>
 
 <section class="group" data-group="changing">
-  <h2>These are not holding a build still <span class="ac">36</span></h2>
+  <h2>These are not holding a build still <span class="ac">40</span></h2>
   <p class="lede">Nobody is waiting on these to start writing something. Most have code behind them already, so an answer changes what is built rather than deciding it; the parked ones are set aside by an earlier decision and an answer is what would bring them back.</p>
   <div class="cards">
     <article class="card" data-node="ai.inference.embedding-pin-window" data-name="Embedding pin held open until the first index" data-area="ai.md">
@@ -619,6 +575,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Whether a correspondent rule may ask to FILE outright when it was authored from a typed address rather than learned from a filing. The design wants a rule to inherit an authorizing act a person actually performed, and a directly-authored rule has none — its audit terminates in a configuration screen. Built permissive because the design also names the abstract editor, and the exposure is narrow (an unattended firing still needs the firm ceiling raised, the member's own matter access re-checked at every fire, and an intact-original capture with a passing signature on a matching domain, so a correspondent rule can never fire on the forward or catch-all path at all). The question is whether promotion <code>file</code> should additionally require created_from_email_message_id.</p>
       <p class="reach">The capability works. Nobody can reach it, because its interface is not built.</p>
       <p class="scope">Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="community.board" data-name="Feedback board" data-area="community.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip part">Built · no screen yet</span><code>community.board</code></div>
+      <h3>Feedback board</h3>
+      <p class="q">Connect the magna-carta-community worker to Workers Builds and set COMMUNITY_HANDOFF_SECRET on it and on magna-carta; nothing on the community host is live until then.</p>
+      <p class="reach">The capability works. Nobody can reach it, because its interface is not built.</p>
+      <p class="scope">Feature requests with popularity-ranked upvotes, comments, tags, status pipeline, and roadmap-as-filtered-view-by-status.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -685,6 +652,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.</p>
       <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="search.across-matters" data-name="Search across matters" data-area="core-domain.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip done">Built · in use</span><code>search.across-matters</code></div>
+      <h3>Search across matters</h3>
+      <p class="q">Whether calendar events are searched across matters. The firm-wide timeline withholds an event's title from a reader outside its matter, and matching titles and descriptions here would show them, so the calendar source declares no across-matters reading until the owner says which stands.</p>
+      <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
+      <p class="scope">One search from the top bar over every matter the reader may see, answered from the record index and, once it is on, the file-contents index.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -773,6 +751,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Whether the scrub should also strip a PDF's executable content, which today it leaves entirely intact — the document-level JavaScript name tree, the action that fires when the file is opened, the catalog actions that fire on save, print and close, the additional-actions on pages and on form fields, and the action attached to any annotation. A document produced to an opposing party can therefore still carry code, from the step whose whole purpose is that it does not. This is not a hypothetical path: prepareFormTemplateVersion in packages/document-assembly/src/pdf-form.ts runs the scrub on every PDF form template a firm registers, so whichever way this is answered changes something already running. Detection is not the missing half: inspect_pdf in containers/scan already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan fallback for a compressed catalog, and records the finding as active-content on the verdict. Two things are done with it — nothing, and nothing. It blocks no upload unless the firm's policy flags the file for another reason, and scanAndGateStatements in apps/api-worker/src/http/routes/documents/templates.ts activates a template version even on an unscanned verdict, discarding verdict.activeContent entirely. So the third option below is closer to wiring up an answer the platform already computes than to building one. Stripping is not free, and the cost falls on fillable forms a FIRM uploaded — a court form still uses field actions for validation and formatting, so a scrub that removes them hands back a form that looks right and computes nothing. Three ways to answer. Strip always, and accept that. Strip with an exception a firm marks at upload for forms it needs to keep working, which puts the choice on the person who knows what the form is for and has to be recorded so a recipient cannot forge it. Or surface the active content without removing it, and let whoever is producing the document decide per file — which means carrying a verdict flag that is already computed and today thrown away, and closing the unscanned hole so the flag cannot be silently absent. Note that an exception keyed on "templates the platform authored" would exempt nothing today: every fillable template in the tree is a firm upload, and whether the platform ever authors its own is itself unanswered on document-automation.filing-grade-generation. The page-split path in crates/pdf-core/src/generate.rs removes some of the same entries, and does so for safety — but a different safety, that no byte of an excluded page survives into the output: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page only when that action points at an excluded one, with a fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a scrub, and neither path settles what the other should do.</p>
       <p class="reach">The capability works. Nobody can reach it, because its interface is not built.</p>
       <p class="scope">Removes hidden content and metadata from PDFs.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="documents.pdf.compose" data-name="Compose a PDF from content" data-area="documents.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip live">Built · no screen by nature</span><code>documents.pdf.compose</code></div>
+      <h3>Compose a PDF from content</h3>
+      <p class="q">Which screens should be able to put pictures into a generated PDF, and whether the tabular export (today a Word file converted by the office container) should be drawn by this engine instead.</p>
+      <p class="reach">This runs underneath the product and will never have a screen of its own.</p>
+      <p class="scope">Write a new PDF from a content model (headings, paragraphs, pictures, tables, labelled fields, running header and footer), for records, reports and exports that carry more than text.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -899,6 +888,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
+    <article class="card" data-node="meetings.recording" data-name="Recording" data-area="meetings.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip done">Built · in use</span><code>meetings.recording</code></div>
+      <h3>Recording</h3>
+      <p class="q">Is audio alone the right record for a law firm, or is video needed — and if it is, is it worth moving meetings onto RealtimeKit to get it managed rather than taking a C/C++ codec dependency?</p>
+      <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
+      <p class="scope">Server-side capture of a meeting into the matter file through the untrusted-file pipeline into R2; every participant is told "Recording in progress" when it starts and on arrival, audibly and on screen, and a recording mark stays on every screen for as long as it runs.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
     <article class="card" data-node="notes.matter-note.documents" data-name="Documents on a note" data-area="notes.md">
       <div class="chips"><span class="chip done">Shipped</span><span class="chip done">Built · in use</span><code>notes.matter-note.documents</code></div>
       <h3>Documents on a note</h3>
@@ -955,9 +955,9 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
     <article class="card" data-node="tasks" data-name="Tasks and workflows" data-area="tasks.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip live">A group of capabilities</span><code>tasks</code></div>
+      <div class="chips"><span class="chip done">Shipped</span><span class="chip live">A group of capabilities</span><code>tasks</code></div>
       <h3>Tasks and workflows</h3>
-      <p class="q">W7 and W8 are both answered and both built — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). T2 is answered and built the way the scope study recommended: one nullable task_id on time_entry, because an entry split across two tasks needs an allocation of its minutes and an allocation is a second ledger. Three calls raised by that study remain open and shape the remainder rather than the record: T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).</p>
+      <p class="q">W7 and W8 are both answered and both built — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). T2 is answered and built the way the scope study recommended: one nullable task_id on time_entry, because an entry split across two tasks needs an allocation of its minutes and an allocation is a second ledger. T3 and T5 were answered by the owner on 2026-11-09 with the task screen redesign: firm-defined statuses per list, a checklist, and sub-tasks. T4 was answered by the owner on 2026-11-10: a task gets a flat comment thread, with @ to name a colleague.</p>
       <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">Task lists with assignments and due dates, plus templated matter plans auto-instantiated per matter type.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>

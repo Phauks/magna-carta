@@ -83,6 +83,8 @@ export async function uploadDocument(
     readonly matterId: string;
     readonly file: File;
     readonly fileId?: string;
+    /** The folder a new document is filed in. Ignored for a new version, which stays where it is. */
+    readonly folderId?: string | null;
   },
 ): Promise<CreationOutcome> {
   const {
@@ -90,6 +92,7 @@ export async function uploadDocument(
     matterId,
     file,
     fileId,
+    folderId,
     onStage,
     sleep = defaultSleep,
     newIdempotencyKey = defaultIdempotencyKey,
@@ -107,6 +110,7 @@ export async function uploadDocument(
       // "unknown" is safer than guessing one from the extension.
       declaredContentType: file.type === "" ? null : file.type,
       ...(fileId === undefined ? {} : { fileId }),
+      ...(fileId === undefined && folderId !== undefined ? { folderId } : {}),
     },
     newIdempotencyKey(),
   );

@@ -1147,6 +1147,12 @@
               "$ref": "#/components/schemas/ServiceVersion"
             }
           },
+          "connectedServices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectedServiceStatus"
+            }
+          },
           "observedAt": {
             "type": "string"
           }
@@ -1154,6 +1160,7 @@
         "required": [
           "api",
           "services",
+          "connectedServices",
           "observedAt"
         ]
       },
@@ -1207,6 +1214,37 @@
           "commit",
           "commitTime",
           "buildTime",
+          "latencyMilliseconds"
+        ]
+      },
+      "ConnectedServiceStatus": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "realtime"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "connected",
+              "not-configured",
+              "refused",
+              "unreachable"
+            ]
+          },
+          "latencyMilliseconds": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
           "latencyMilliseconds"
         ]
       },
@@ -10860,6 +10898,12 @@
               "unavailable"
             ]
           },
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "reason": {
             "type": [
               "string",
@@ -10895,6 +10939,7 @@
         "required": [
           "versionId",
           "state",
+          "fileId",
           "reason",
           "streamUrl",
           "contentType",
@@ -23014,6 +23059,9 @@
               "over_inclusive"
             ]
           },
+          "trigramMatching": {
+            "type": "boolean"
+          },
           "places": {
             "type": "object",
             "properties": {
@@ -23512,6 +23560,9 @@
               "strictness": {
                 "type": "string"
               },
+              "trigramMatching": {
+                "type": "boolean"
+              },
               "places": {
                 "type": "object",
                 "properties": {
@@ -23567,6 +23618,7 @@
             "required": [
               "sources",
               "strictness",
+              "trigramMatching",
               "places"
             ]
           },
@@ -23772,12 +23824,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "trigramMatching": {
+            "type": "boolean"
           }
         },
         "required": [
           "nameKeys",
           "phoneticSchemes",
-          "nameRoles"
+          "nameRoles",
+          "trigramMatching"
         ]
       },
       "ConflictsTraversalRecord": {
@@ -45331,7 +45387,7 @@
     },
     "/api/v1/meta/versions": {
       "get": {
-        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.",
+        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. connectedServices says whether each outside service the deployment depends on (Cloudflare Realtime, which carries meetings) is configured and accepting it. The service list is briefly cached; observedAt says when the services were actually probed.",
         "operationId": "meta.versions",
         "tags": [
           "meta"
@@ -63864,7 +63920,7 @@
     },
     "/api/v1/files/{id}/playable-copy": {
       "get": {
-        "description": "Reports the playable copy of the file's current clean version: a copy converted to H.264 and AAC in an MP4 so every browser plays it. A ready copy carries a short-lived signed streamUrl on the cookieless files host (null when that host is not bound). 404 when the file has no clean current version.",
+        "description": "Reports the playable copy of the file's current clean version: a copy converted to H.264 and AAC in an MP4 so every browser plays it, saved as a file of its own beside the original. A ready copy names that file in fileId; one made before copies were filed has no fileId and carries a short-lived signed streamUrl on the cookieless files host instead (null when that host is not bound). A filed copy that was since deleted reads as none. 404 when the file has no clean current version.",
         "operationId": "files.playableCopy",
         "tags": [
           "files"
@@ -63937,7 +63993,7 @@
         }
       },
       "post": {
-        "description": "Asks for a playable copy of the file's current clean version, converted in the background. Answers 202 with state pending while it is made, 200 when it already exists or cannot be made (state unavailable, with the reason). Asking again while a copy is being made does not start a second conversion. Accepted whatever the version's playability verdict, since the browser that refused the original is the one that matters. 422 when the version is not a video the converter reads (MP4, QuickTime or Matroska), or a scan flagged it.",
+        "description": "Asks for a playable copy of the file's current clean version, converted in the background and saved as a file of its own in the original's folder. Answers 202 with state pending while it is made, 200 when it already exists or cannot be made (state unavailable, with the reason). Asking again while a copy is being made does not start a second conversion. Accepted whatever the version's playability verdict, since the browser that refused the original is the one that matters. 422 when the version is not a video the converter reads (MP4, QuickTime or Matroska), or a scan flagged it.",
         "operationId": "files.requestPlayableCopy",
         "tags": [
           "files"

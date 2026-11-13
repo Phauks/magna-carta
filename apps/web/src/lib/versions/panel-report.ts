@@ -27,6 +27,10 @@
  *
  * Pure over plain values and free of Svelte, so the node-pool tests exercise each section directly.
  */
+import {
+  CONNECTED_SERVICES_SECTION_LABEL,
+  connectedServiceRow,
+} from "./connected-services-model.ts";
 import type { Problem } from "$lib/api/request.ts";
 import {
   entry,
@@ -209,6 +213,16 @@ function workersSection(state: PanelReportState): ReportSection | null {
   return section(FLEET_SECTION_LABEL, rest.map(serviceEntry));
 }
 
+/** The outside services the deployment depends on, each with whether it accepts this deployment. */
+function connectedServicesSection(state: PanelReportState): ReportSection | null {
+  const services = state.deployment.value?.connectedServices ?? [];
+  if (services.length === 0) return null;
+  return section(
+    CONNECTED_SERVICES_SECTION_LABEL,
+    services.map((service) => healthEntry(connectedServiceRow(service))),
+  );
+}
+
 /** Whether this session can reach and use its firm's own data. */
 function databaseSection(state: PanelReportState): ReportSection | null {
   if (!state.readsAggregate) return null;
@@ -271,6 +285,7 @@ export const PANEL_REPORT_SECTIONS: readonly ((state: PanelReportState) => Repor
     environmentSection,
     deploymentSection,
     workersSection,
+    connectedServicesSection,
     databaseSection,
     readinessSection,
   ];

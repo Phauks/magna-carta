@@ -1,8 +1,13 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { FileVersionId } from "@magna-carta/identifiers/types";
-import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
+import { completeUploadSession, initiateUpload } from "@magna-carta/file-manager/file-service";
+import type {
+  FileId,
+  FileVersionId,
+  UploadSessionId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import {
-  playableCopyKey,
+  playableCopyFileName,
   playableCopySourceFormat,
   type PlayableCopyUnavailableReason,
   readVersionForPlayableCopy,
@@ -12,6 +17,7 @@ import {
 import type { Bindings } from "../../bindings.ts";
 import type { PlayableCopyMessage } from "../../conversions/conversion-types.ts";
 import { resolveFirmBucket } from "../../files/firm-bucket.ts";
+import { enqueueDevIngestEvent } from "../../files/presign.ts";
 import {
   firmDatabaseFor,
   type ProxyBatchDatabase,
@@ -26,6 +32,12 @@ import {
 // Content-Length, which is what lets the copy be written as one length-bound put: an R2 put of a
 // stream with no known length stores nothing.
 //
+// THE COPY IS FILED, NOT HIDDEN. A finished copy is saved into the matter as a file of its own, in
+// the original's folder and named for it, through the same entrance every server-written document
+// takes (initiateUpload, the bytes, completeUploadSession, then the ingest event): so it is sniffed,
+// hashed and scanned like an upload, metered against the firm, and opened, shared and exported like
+// any other document. The original's version records which file it became.
+//
 // The engine's answer is recorded whatever it is. A refusal (a codec it does not decode, a damaged
 // file, a file past its ceilings) is `unavailable` with the engine's reason, so the player stops
 // offering a conversion that will only fail again. A fault (the engine not answering, a 5xx) throws,
@@ -38,7 +50,7 @@ export const PLAYABLE_COPY_TARGET_FORMAT = "playable-mp4";
 export const PLAYABLE_COPY_RECIPE = "mp4-h264-aac-faststart";
 
 export type PlayableCopyOutcome =
-  | { readonly kind: "ready"; readonly r2Key: string; readonly sizeBytes: number }
+  | { readonly kind: "ready"; readonly fileId: FileId; readonly sizeBytes: number }
   | { readonly kind: "unavailable"; readonly reason: PlayableCopyUnavailableReason }
   // Nothing to do: the version is gone, no longer clean, already has its copy, or was never asked about.
   | { readonly kind: "skipped" }
@@ -116,22 +128,50 @@ export async function producePlayableCopy(
     throw new Error("transcode engine answered without a length");
   }
 
-  const r2Key = playableCopyKey(version.r2Key);
+  // Reserve the copy's file only once the engine has answered with a length: an upload is reserved
+  // against a declared size, and a refusal must leave nothing pending on the matter.
+  const requestedBy = (message.requestedBy as UserId | undefined) ?? null;
+  const options = { clock: { now }, actorUserId: requestedBy };
+  const initiated = await initiateUpload(
+    database,
+    {
+      matterId: version.matterId,
+      folderId: version.folderId,
+      name: playableCopyFileName(version.fileName),
+      declaredSize: length,
+      // Declared, never asserted: the ingest gate sniffs the bytes and refuses a disagreement.
+      declaredContentType: "video/mp4",
+      uploadedBy: requestedBy,
+      mode: "put",
+      uploadKind: "interactive",
+    },
+    options,
+  );
+  await commitEffectBatch(database, initiated.effect, { now });
+
   const sized = new FixedLengthStream(length);
   const [, stored] = await Promise.all([
     response.body.pipeTo(sized.writable),
-    bucket.put(r2Key, sized.readable, {
+    bucket.put(initiated.r2Key, sized.readable, {
       httpMetadata: { contentType: "video/mp4" },
-      customMetadata: matterScopedObjectDimensions({
-        objectClass: "playable-copy",
-        matterId: version.matterId,
-      }),
+      customMetadata: initiated.dimensions,
     }),
   ]);
+
+  const completed = await completeUploadSession(
+    database,
+    initiated.uploadSessionId as UploadSessionId,
+    options,
+  );
+  await commitEffectBatch(database, completed.effect, { now });
+  // The bytes were written here rather than through a presigned PUT, so the ingest is driven here
+  // too (idempotent at the consumer if the bucket's own notification also arrives).
+  await enqueueDevIngestEvent(env, message.bucketName, initiated.r2Key, length);
+
   return record(database, now, {
     versionId: version.id,
     state: "ready",
-    r2Key,
+    fileId: initiated.fileId,
     sizeBytes: stored?.size ?? length,
   });
 }
@@ -147,7 +187,7 @@ async function record(
     { now },
   );
   return row.state === "ready"
-    ? { kind: "ready", r2Key: row.r2Key, sizeBytes: row.sizeBytes }
+    ? { kind: "ready", fileId: row.fileId, sizeBytes: row.sizeBytes }
     : { kind: "unavailable", reason: row.reason };
 }
 

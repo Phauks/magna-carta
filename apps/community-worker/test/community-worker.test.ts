@@ -160,6 +160,16 @@ describe("writing", () => {
     const response = await write("/api/posts/1/status", cookie, { status: "planned" });
     expect([403, 404]).toContain(response.status);
   });
+
+  it("keeps the moderation queue to the team", async () => {
+    expect((await SELF.fetch(`${ORIGIN}/api/moderation-queue`)).status).toBe(403);
+    const cookie = await signIn("usr_dana");
+    const response = await SELF.fetch(`${ORIGIN}/api/moderation-queue`, {
+      headers: { Cookie: cookie },
+    });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ title: "not-team" });
+  });
 });
 
 describe("the board switch", () => {
@@ -185,5 +195,14 @@ describe("the board switch", () => {
     const response = await SELF.fetch(`${ORIGIN}/api/summary`);
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ title: "board-off" });
+  });
+});
+
+describe("the build identity", () => {
+  it("answers the app's version probe, uncached and still noindex", async () => {
+    const response = await SELF.fetch(`${ORIGIN}/__version`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("X-Robots-Tag")).toContain("noindex");
   });
 });

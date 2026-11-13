@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10 · **Status:** Accepted (design); build in progress · **Area:** Calendar / Integrations
 **Builds on:** [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-port-system-design.md) (the deferred credentialed adapter), [`2026-08-05-case-calendar-design.md`](2026-08-05-case-calendar-design.md) (the event model)
-**Decisions:** `docs/decisions/pending/calendar-sync-is-per-member-rule-driven-and-magna-carta-is-the-record.md`, `docs/decisions/pending/a-permission-request-states-only-what-it-grants.md`
+**Decisions:** `docs/decisions/0509-calendar-sync-is-per-member-rule-driven-and-magna-carta-is-the-record.md`, `docs/decisions/0508-a-permission-request-states-only-what-it-grants.md`
 **Owner rulings:** 2026-11-10, recorded in [`../conventions/design-corrections.md`](../conventions/design-corrections.md)
 
 ## 1. Scope

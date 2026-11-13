@@ -63,6 +63,7 @@
     id: identifier,
     "aria-describedby": describedBy,
     "aria-invalid": error === undefined ? undefined : true,
+    title: error,
   });
 </script>
 
@@ -73,6 +74,11 @@
     <p id={hintIdentifier} class="mc-form-description">{hint}</p>
   {/if}
   {#if error !== undefined}
-    <p id={errorIdentifier} class="mc-form-errors">{error}</p>
+    <!-- Read, never shown (owner ruling 2026-11-13): "if there are ever errors in a field, no
+         text, but you can highlight them in red". A line of text appearing under one field of a
+         row pushed that field down and the row out of line. The control turns red through
+         aria-invalid (input.css, combobox.css), carries the message as its hover title, and a
+         screen reader still hears it through aria-describedby. -->
+    <p id={errorIdentifier} class="sr-only">{error}</p>
   {/if}
 </div>
