@@ -98,7 +98,7 @@ jobs:
       tests: ${{ steps.plan.outputs.tests }}
       wasm-key: ${{ steps.wasm-key.outputs.key }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The gate measures the change from a merge-base, and the docs assemblers order fragments by
           # the commit that added them; both need history a depth-1 clone does not have.
@@ -143,7 +143,7 @@ jobs:
       - name: Is a built copy of the WASM artefacts already cached?
         id: wasm-cache
         if: steps.plan.outputs.wasm == 'true'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.WASM_PATHS }}
           key: ${{ steps.wasm-key.outputs.key }}
@@ -157,7 +157,7 @@ jobs:
 
       - name: Install wasm-pack
         if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: wasm-pack
 
@@ -167,7 +167,7 @@ jobs:
 
       - name: Cache the cargo registry and the crates target
         if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: crates
           cache-on-failure: true
@@ -178,7 +178,7 @@ jobs:
 
       - name: Save the WASM artefacts
         if: steps.plan.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.WASM_PATHS }}
           key: ${{ steps.wasm-key.outputs.key }}
@@ -193,14 +193,14 @@ jobs:
     env:
       DIFF_BASE: ${{ needs.prepare.outputs.base }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Restore the built WASM artefacts
         id: wasm-cache
         if: needs.prepare.outputs.wasm == 'true'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.WASM_PATHS }}
           key: ${{ needs.prepare.outputs.wasm-key }}
@@ -212,7 +212,7 @@ jobs:
       # dimension rebuilds what is missing, and needs wasm-pack to do it.
       - name: Install wasm-pack (only when the WASM artefacts must be rebuilt here)
         if: needs.prepare.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: wasm-pack
 
@@ -226,7 +226,7 @@ jobs:
 
       - name: Cache the cargo registry and the crates target
         if: needs.prepare.outputs.rust == 'true' || (needs.prepare.outputs.wasm == 'true' && steps.wasm-cache.outputs.cache-hit != 'true')
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: crates
           cache-on-failure: true
@@ -272,13 +272,13 @@ jobs:
       DIFF_BASE: ${{ needs.prepare.outputs.base }}
       MAGNA_CARTA_TEST_SHARD: ${{ matrix.slice }}/4
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Restore the built WASM artefacts
         id: wasm-cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.WASM_PATHS }}
           key: ${{ needs.prepare.outputs.wasm-key }}
@@ -288,7 +288,7 @@ jobs:
 
       - name: Install wasm-pack (only when the WASM artefacts must be rebuilt here)
         if: steps.wasm-cache.outputs.cache-hit != 'true'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: wasm-pack
 
@@ -301,7 +301,7 @@ jobs:
 
       - name: Restore the Playwright browser
         id: playwright-cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/pw-browsers
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -316,7 +316,7 @@ jobs:
       - name: Save the Playwright browser
         # One slice writes it; four writing the same key would be three refused saves.
         if: steps.playwright-cache.outputs.cache-hit != 'true' && matrix.slice == 1
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/pw-browsers
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}

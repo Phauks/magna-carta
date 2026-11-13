@@ -25,6 +25,7 @@ function turn(sequence: number, speaker: "member" | "magnus", content: string | 
     inputTokens: null,
     outputTokens: null,
     contextTruncated: false,
+    effort: null,
     createdAt: "2026-08-06T00:00:00.000Z",
     completedAt: null,
   };
