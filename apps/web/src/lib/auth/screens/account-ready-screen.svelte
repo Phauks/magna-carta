@@ -43,8 +43,7 @@
     <Alert.Root variant="success">
       <Alert.Description>
         {#if pendingFirm}
-          Your account is confirmed — sign in with the password you chose. Your workspace is still
-          being built, and the app will show you when it is ready.
+          Your account is confirmed. Sign in with the password you chose. We'll let you know when your workspace is ready.
         {:else}
           Your account is confirmed. Sign in with the password you chose when you registered.
         {/if}

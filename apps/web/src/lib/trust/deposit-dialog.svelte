@@ -135,7 +135,7 @@
     failure = stated(
       outcome.failure,
       "Nothing was paid in: this matter's trust ledger is unchanged.",
-      "Nothing answered, so nothing was paid in. The ledger is unchanged.",
+      "Couldn't connect. Nothing was paid in.",
     );
     return "refused";
   }

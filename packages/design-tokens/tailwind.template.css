@@ -46,6 +46,7 @@
   --color-surface-scrim: var(--mc-surface-scrim);
   --color-surface-selected: var(--mc-surface-selected);
   --color-surface-field: var(--mc-surface-field);
+  --color-surface-field-disabled: var(--mc-surface-field-disabled);
   --color-text-default: var(--mc-text-default);
   --color-text-muted: var(--mc-text-muted);
   --color-text-subtle: var(--mc-text-subtle);
@@ -66,6 +67,9 @@
   --color-border-default: var(--mc-border-default);
   --color-border-strong: var(--mc-border-strong);
   --color-border-focus: var(--mc-border-focus);
+  --color-border-field: var(--mc-border-field);
+  --color-border-field-hover: var(--mc-border-field-hover);
+  --color-border-control: var(--mc-border-control);
   --color-focus-ring: var(--mc-focus-ring);
   --color-accent-default: var(--mc-accent-default);
   --color-accent-subtle: var(--mc-accent-subtle);

@@ -16,6 +16,7 @@
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/status": "workspace:*",
     "@magna-carta/telemetry": "workspace:*",
+    "@magna-carta/worker-secrets": "workspace:*",
     "hono": "catalog:",
     "zod": "catalog:"
   },

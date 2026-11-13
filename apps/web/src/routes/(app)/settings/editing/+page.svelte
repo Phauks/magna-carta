@@ -48,5 +48,5 @@
   readFailureTitle="The Editing Policy Could Not Be Read"
   readFailureFallback="The firm's editing policy was not read."
   saveFailureFallback="The editing policy is unchanged. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the editing policy is unchanged. What you chose is still staged."
+  saveFailureWhenSilent="Couldn't connect. The editing policy is unchanged, and your choices are still here."
 />

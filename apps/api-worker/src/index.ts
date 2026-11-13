@@ -15,6 +15,7 @@
  * docs/conventions/build-performance.md.
  */
 import type { Bindings } from "./bindings.ts";
+import { resolveApiWorkerSecrets } from "./stored-secrets.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
@@ -80,6 +81,9 @@ export { DocumentSession } from "./editing/document-session.ts";
 export { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 export { SafeBrowseSession } from "./safe-browse/safe-browse-session.ts";
 
+// Each handler resolves the secrets bound from the account's Secrets Store into the plain strings the
+// rest of the Worker reads (src/stored-secrets.ts). With none bound it returns the same env, unread.
+//
 // The one dynamic import, shared by all three handlers and resolved once per isolate. A dynamic
 // import is idempotent and cached by the runtime, so racing events share the same evaluation.
 function dispatch(): Promise<typeof import("./event-dispatch.ts")> {
@@ -98,16 +102,24 @@ export default {
   // tests driving worker.fetch directly — stay assignable, exactly as Hono's own fetch signature
   // allowed when this was `fetch: app.fetch`.
   async fetch(request: Request, env: Bindings, executionContext: ExecutionContext) {
-    const { resolveApp } = await dispatch();
-    return resolveApp().fetch(request, env, executionContext);
+    const [{ resolveApp }, resolvedEnv] = await Promise.all([
+      dispatch(),
+      resolveApiWorkerSecrets(env),
+    ]);
+    return resolveApp().fetch(request, resolvedEnv, executionContext);
   },
   scheduled(controller, env, executionContext) {
     executionContext.waitUntil(
-      dispatch().then(({ runScheduledPass }) => runScheduledPass(controller, env)),
+      Promise.all([dispatch(), resolveApiWorkerSecrets(env)]).then(
+        ([{ runScheduledPass }, resolvedEnv]) => runScheduledPass(controller, resolvedEnv),
+      ),
     );
   },
   async queue(batch, env) {
-    const { routeQueueBatch } = await dispatch();
-    return routeQueueBatch(batch, env);
+    const [{ routeQueueBatch }, resolvedEnv] = await Promise.all([
+      dispatch(),
+      resolveApiWorkerSecrets(env),
+    ]);
+    return routeQueueBatch(batch, resolvedEnv);
   },
 } satisfies ExportedHandler<Bindings>;

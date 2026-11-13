@@ -315,7 +315,7 @@ export function validateAssemblyInput(
             label: field.label,
             severity: "warning",
             message:
-              "Left empty, this comes from the matter's own data — and appears as a blank if the matter has none.",
+              "If left empty, this comes from the matter, or stays blank if the matter has none.",
           });
         }
         continue;

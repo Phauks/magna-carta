@@ -66,7 +66,7 @@
     failure = stated(
       outcome.failure,
       "Nothing was decided: the request is still waiting.",
-      "Nothing answered, so nothing was decided. The request is still waiting.",
+      "Couldn't connect. Nothing was decided, and the request is still waiting.",
     );
     return "refused";
   }

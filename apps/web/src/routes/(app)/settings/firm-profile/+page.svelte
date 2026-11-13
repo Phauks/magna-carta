@@ -95,7 +95,7 @@
     failure = stated(
       outcome.failure,
       "The firm's name was not changed.",
-      "Nothing answered, so the name is unchanged; pressing Save again tries once more.",
+      "Couldn't connect. The name is unchanged. Press Save to try again.",
     );
   }
 </script>

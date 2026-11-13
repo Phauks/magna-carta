@@ -370,7 +370,7 @@
         if (outcome.kind !== "ok") {
           actionNotice =
             outcome.kind === "problem" && outcome.problem.status === 409
-              ? "The entry was not restored. Either it is not voided any more, or its value was moved onto a cost — restoring it would charge the same work twice."
+              ? "The entry wasn't restored. It may no longer be voided, or its value was moved to a cost, and restoring it would charge for the same work twice."
               : "The entry was not restored. It is still voided on the ledger.";
           return;
         }

@@ -149,8 +149,7 @@
 </div>
 
 <EmptyState title="The rest of your day assembles here">
-  Tasks and the matters you touch will gather on this page as the firm's work begins — open the
-  first matter to start.
+  Your tasks and matters will appear here. Open your first matter to start.
   {#snippet actions()}
     <Button variant="primary" href="/matters">Go to matters</Button>
   {/snippet}

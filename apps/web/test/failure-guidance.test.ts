@@ -124,8 +124,8 @@ describe("the server's own words win", () => {
   });
 
   it("distinguishes nothing answering from a refusal", () => {
-    expect(guidanceForProblem(null).title).toBe("Nothing answered");
-    expect(guidanceForProblem({ status: 500 }).title).not.toBe("Nothing answered");
+    expect(guidanceForProblem(null).title).toBe("Couldn't connect");
+    expect(guidanceForProblem({ status: 500 }).title).not.toBe("Couldn't connect");
   });
 });
 

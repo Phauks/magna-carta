@@ -201,7 +201,7 @@
 
     <LabelledField
       label="Proposed value"
-      hint="In your own words — the administrator making the change interprets it"
+      hint="In your own words. The administrator making the change will interpret it."
     >
       {#snippet children({ props })}
         <Input
@@ -229,9 +229,7 @@
 
     <div class="flex flex-wrap items-center justify-between gap-8">
       <p class="text-xs text-text-muted">
-        Filing this with your firm's administrators arrives with firm accounts — requests will ride
-        the same rails as access requests. Until then, send the copied request to the recipients
-        yourself.
+        Sending this to your firm's administrators is coming soon. For now, send the copied request yourself.
       </p>
       <Button variant="secondary" size="sm" disabled={copyDisabled} onclick={copyRequest}>
         {#if copied}

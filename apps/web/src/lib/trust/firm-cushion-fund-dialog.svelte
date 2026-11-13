@@ -116,7 +116,7 @@
     failure = stated(
       outcome.failure,
       "Nothing went in: the cushion holds what it held.",
-      "Nothing answered, so nothing went in. Retrying sends this same submission rather than a second top-up.",
+      "Couldn't connect. Nothing was deposited, and trying again won't deposit twice.",
     );
     return "refused";
   }

@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { MagnusConversationId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
@@ -24,7 +24,7 @@ import {
 //
 // The object is addressed by the SESSION firm id at the route, never a path value, so a firm can no
 // more subscribe to another firm's conversation than it can poll one.
-export class MagnusConversation extends DurableObject<Bindings> {
+export class MagnusConversation extends StoredSecretsDurableObject {
   // Constructed per call: class properties do not survive hibernation, and this holds no state of its
   // own.
   private sockets(): MagnusConversationSockets<TurnProgressState> {

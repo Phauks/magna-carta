@@ -127,7 +127,7 @@
     failure = stated(
       result.failure,
       "The attempt was not recorded, so the file does not carry it.",
-      "Nothing answered, so the attempt was not recorded. The file is unchanged.",
+      "Couldn't connect. The attempt wasn't recorded.",
     );
     return "refused";
   }

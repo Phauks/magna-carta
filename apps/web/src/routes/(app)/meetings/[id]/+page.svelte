@@ -31,6 +31,7 @@
   import { createQuery } from "@tanstack/svelte-query";
   import { meetingsGetOptions } from "@magna-carta/api-client";
   import * as Alert from "@magna-carta/design-system/alert";
+  import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -98,6 +99,10 @@
   import MeetingRoster from "$lib/meetings/screen/meeting-roster.svelte";
   import MeetingConnectionPanel from "$lib/meetings/screen/meeting-connection-panel.svelte";
   import MeetingChatPanel from "$lib/meetings/screen/meeting-chat-panel.svelte";
+  import MeetingSidePanel, {
+    type MeetingSideTab,
+  } from "$lib/meetings/screen/meeting-side-panel.svelte";
+  import MessageSquare from "@lucide/svelte/icons/message-square";
   import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
   import MeetingPollsPanel from "$lib/meetings/screen/meeting-polls-panel.svelte";
   import MeetingQuestionsPanel from "$lib/meetings/screen/meeting-questions-panel.svelte";
@@ -186,6 +191,26 @@
       ...viewPreference.current,
       layout: client.speakerView ? "gallery" : "speaker",
     });
+  }
+
+  /**
+   * Copy the connection's last few minutes as text, for a member to paste to whoever is helping
+   * with a stutter or a frozen picture. Numbers and handles only (diagnostic-text.ts).
+   */
+  async function copyDiagnostics(): Promise<void> {
+    const text = client.diagnostics.copyableText({
+      userAgent: navigator.userAgent,
+      processors: navigator.hardwareConcurrency ?? null,
+      background: client.appliedEffects?.background ?? effectsPreference.current.background,
+      layout: client.speakerView ? "speaker" : "gallery",
+      copiedAt: new Date(),
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Diagnostics copied. Paste them into a message.");
+    } catch {
+      toast.error("Could not copy the diagnostics.");
+    }
   }
 
   /**
@@ -666,8 +691,24 @@
    * it is a route and a record, and the client is what is torn down when a connection drops.
    */
   client.relayMessagesTo(chat);
-  /** Whether the chat panel is showing, which is also what decides if a message counts as unread. */
-  let chatOpen = $state(false);
+  /*
+   * THE SIDE PANEL: chat, questions, polls and who is here, as four tabs beside the picture. It opens
+   * on Chat; which tab is showing is also what decides whether a message, a question or a poll counts
+   * as unseen.
+   */
+  let sideOpen = $state(true);
+  let sideTab = $state<MeetingSideTab>("chat");
+  /** Open the panel on one tab, or close it where that tab is already showing. */
+  function toggleSide(tab: MeetingSideTab): void {
+    if (sideOpen && sideTab === tab) {
+      sideOpen = false;
+      return;
+    }
+    sideTab = tab;
+    sideOpen = true;
+  }
+  /** Whether the chat tab is showing, which is also what decides if a message counts as unread. */
+  const chatOpen = $derived(sideOpen && sideTab === "chat");
   /** What is typed and not yet said. Held by the screen, so closing the panel does not lose it. */
   let chatDraft = $state("");
 
@@ -781,8 +822,8 @@
   const questions = new MeetingQuestions(meetingQuestionSeams(() => meetingId));
   client.relayPollsTo(polls);
   client.relayQuestionsTo(questions);
-  let pollsOpen = $state(false);
-  let questionsOpen = $state(false);
+  const pollsOpen = $derived(sideOpen && sideTab === "polls");
+  const questionsOpen = $derived(sideOpen && sideTab === "questions");
   /** What is typed and not yet asked. Held by the screen, so closing the panel does not lose it. */
   let questionDraft = $state("");
 
@@ -1252,9 +1293,23 @@
   rendered here, for the reason the connection control is: the band owns where a control sits, and
   the control owns what it says and what it opens.
 -->
+{#snippet chatToggle()}
+  <Button
+    variant={chatOpen ? "primary" : "secondary"}
+    aria-pressed={chatOpen}
+    onclick={() => toggleSide("chat")}
+  >
+    <MessageSquare class="size-16" aria-hidden="true" />
+    Chat
+    {#if chat.unread > 0}
+      <Badge variant="primary">{chat.unread}</Badge>
+    {/if}
+  </Button>
+{/snippet}
+
 {#snippet chatControl()}
   <MeetingChatPanel
-    bind:open={chatOpen}
+    inline
     bind:draft={chatDraft}
     messages={chat.messages}
     unread={chat.unread}
@@ -1634,16 +1689,32 @@
             mirrorSelf={viewPreference.current.mirrorSelf}
           />
         </div>
-        <aside class="hidden min-h-0 w-3xs shrink-0 lg:block">
+        {#if sideOpen}
+          <div class="min-h-0 w-xs shrink-0">
+            <MeetingSidePanel
+              bind:tab={sideTab}
+              chatUnread={chat.unread}
+              questionsWaiting={questions.waiting}
+              pollsWaiting={polls.waitingForAnswer}
+              peopleCount={client.participants.length}
+              onClose={() => (sideOpen = false)}
+              chat={chatControl}
+              questions={questionsTab}
+              polls={pollsTab}
+            >
+              {#snippet people()}
           <MeetingRoster
-            participants={client.participants}
-            ownParticipantId={client.participantId}
-            presenceOf={(participant) => client.presenceOf(participant)}
-            qualityOf={(participant) => client.qualityOf(participant.participantId)}
-            spotlightedParticipantId={client.roomState.spotlight?.participantId ?? null}
-            hostMenu={myRole === null ? undefined : rowMenu}
-          />
-        </aside>
+                  participants={client.participants}
+                  ownParticipantId={client.participantId}
+                  presenceOf={(participant) => client.presenceOf(participant)}
+                  qualityOf={(participant) => client.qualityOf(participant.participantId)}
+                  spotlightedParticipantId={client.roomState.spotlight?.participantId ?? null}
+                  hostMenu={myRole === null ? undefined : rowMenu}
+                />
+              {/snippet}
+            </MeetingSidePanel>
+          </div>
+        {/if}
       </div>
 
       <!-- WHAT A READER WHO CANNOT SEE THE MARKS IS TOLD, politely and once. A raised hand is
@@ -1680,8 +1751,11 @@
         onStopRecording={() => void client.stopRecording()}
         onChangeEffects={changeEffects}
         onChooseBackgroundImage={(file) => void chooseBackgroundImage(file)}
-        onOpenPolls={() => (pollsOpen = true)}
-        onOpenQuestions={() => (questionsOpen = true)}
+        onOpenPolls={() => toggleSide("polls")}
+        onOpenQuestions={() => toggleSide("questions")}
+        onOpenPeople={() => toggleSide("people")}
+        sideTab={sideOpen ? sideTab : null}
+        peopleCount={client.participants.length}
         onToggleMicrophone={() => client.toggleMicrophone()}
         onToggleCamera={() => client.toggleCamera()}
         onToggleSharing={toggleSharing}
@@ -1700,7 +1774,7 @@
         onOpenHosts={() => (hostsOpen = true)}
         onLeave={() => void leave()}
         onEnd={end}
-        chat={chatControl}
+        chat={chatToggle}
         reactions={reactionsControl}
       >
         {#snippet connection()}
@@ -1708,6 +1782,7 @@
             {uplink}
             participants={connectionRoom}
             events={wireEvents}
+            onCopy={() => void copyDiagnostics()}
           />
         {/snippet}
 
@@ -1784,8 +1859,9 @@
 
       <!-- What a host has asked the room. Everybody answers from here, and a host asks from the top
            of the same panel. -->
+      {#snippet pollsTab()}
       <MeetingPollsPanel
-        bind:open={pollsOpen}
+        inline
         subject={endSubject}
         polls={polls.polls}
         hosting={myRole !== null}
@@ -1826,10 +1902,12 @@
           {/if}
         {/snippet}
       </MeetingPollsPanel>
+      {/snippet}
 
       <!-- What the room has asked, in the order a host works it. -->
+      {#snippet questionsTab()}
       <MeetingQuestionsPanel
-        bind:open={questionsOpen}
+        inline
         bind:draft={questionDraft}
         subject={endSubject}
         queue={questions.queue}
@@ -1870,6 +1948,7 @@
           {/if}
         {/snippet}
       </MeetingQuestionsPanel>
+      {/snippet}
 
       <!-- Who is at the door. Opened from a control that is absent for everybody who is not running
            the meeting, and it would have nothing to draw for them either: the room sends the list

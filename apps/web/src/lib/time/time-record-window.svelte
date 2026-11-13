@@ -418,7 +418,7 @@
     if (outcome.kind !== "ok") {
       saveFailure =
         outcome.kind === "problem" && outcome.problem.status === 409
-          ? "This entry was not restored. Either it is not voided any more, or its value was moved onto a cost — restoring it would charge the same work twice."
+          ? "This entry wasn't restored. It may no longer be voided, or its value was moved to a cost, and restoring it would charge for the same work twice."
           : "The entry was not restored. It is still voided on the record.";
       return;
     }
@@ -946,7 +946,7 @@
       saveFailure =
         outcome.kind === "problem"
           ? `The entry was not saved. The server answered ${String(outcome.problem.status)}.`
-          : "Nothing answered. The entry was not saved and the record is unchanged.";
+          : "Couldn't connect. The entry wasn't saved.";
       return;
     }
     /*
@@ -1442,7 +1442,7 @@
               id="time-record-task"
               fieldName="Task"
               readonly
-              title="Which piece of work on this matter this time went to. Optional — most entries name none."
+              title="The task on this matter this time was for. Optional."
               onfocus={() => (taskListOpen = true)}
               onclick={() => (taskListOpen = true)}
             />

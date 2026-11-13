@@ -522,7 +522,7 @@
                     <Button
                       variant="ghost"
                       size="icon"
-                      title="Edit this LINE — what the client is told. The record it was composed from is unchanged."
+                      title="Edit this line. Only what the client sees changes; the original record stays the same."
                       aria-label="Edit this line"
                       onclick={() => onEditLine(line)}
                     >
@@ -763,8 +763,8 @@
                 {#each note.lines as line (line.id)}
                   <p class="text-xs text-text-subtle">
                     {line.description}{line.creditsInvoiceLineId === null
-                      ? " — a general credit against this bill"
-                      : " — attributed to a charge on this bill"}
+                      ? ": general credit against this bill"
+                      : ": applied to a charge on this bill"}
                   </p>
                 {/each}
               </Card.Content>

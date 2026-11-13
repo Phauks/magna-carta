@@ -502,7 +502,7 @@
         "The call or text could not be recorded.",
         // Nothing answered is a stronger statement than a refusal, and it is the one a person about
         // to press the button again needs: nothing was written, so pressing again records one row.
-        "Nothing answered. Nothing was recorded.",
+        "Couldn't connect. Nothing was saved.",
       );
       return null;
     }
@@ -526,7 +526,7 @@
       saveFailure = stated(
         corrected.failure,
         "The correction was not recorded.",
-        "Nothing answered. Nothing was changed.",
+        "Couldn't connect. Nothing changed.",
       );
       return;
     }
@@ -931,7 +931,7 @@
         disabled={moveRefusal !== undefined}
         onSelect={() => (setAsideOpen = true)}
       >
-        Set it aside &mdash; not a matter
+        Set aside (not a matter)
       </DropdownMenu.Item>
     {/if}
   {/if}

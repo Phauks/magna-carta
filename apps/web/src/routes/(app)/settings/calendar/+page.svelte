@@ -51,5 +51,5 @@
   readFailureTitle="The Calendar Settings Could Not Be Read"
   readFailureFallback="The firm's calendar settings were not read."
   saveFailureFallback="The first day of the week was not changed. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the first day of the week was not changed. What you chose is still staged."
+  saveFailureWhenSilent="Couldn't connect. The first day of the week is unchanged, and your choice is still here."
 />

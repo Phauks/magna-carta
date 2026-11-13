@@ -99,8 +99,7 @@
         {/snippet}
         {#snippet emptyState()}
           <EmptyState title="No roles">
-            A firm is created with its default roles. This one has none, which means nobody can be given
-            anything — an administrator should be asked to look at it.
+            This firm has no roles, so no one can be given access. Ask an administrator to check it.
           </EmptyState>
         {/snippet}
         {@const shown = orderRolesByFamily(roles ?? [])}

@@ -168,8 +168,7 @@
           <PasswordInput bind:value={apiKey} autocomplete="off" disabled={busy} />
         </LabelledField>
         <p class="text-sm text-text-muted">
-          The key is stored encrypted and is never shown again — not here, and not by any part of the
-          application. If it is lost, issue a new one with the carrier and replace it here.
+          The key is stored encrypted and can't be shown again. If it's lost, get a new one from the carrier and replace it here.
         </p>
         <div class="flex justify-end">
           <Button disabled={!canSubmit} onclick={() => void submitKey()}>

@@ -131,7 +131,7 @@
       failure={loadFailure}
       title="The Template Library Could Not Be Read"
       fallback="The firm's templates could not be read."
-      whenSilent="Nothing answered when the template library was asked for."
+      whenSilent="Couldn't connect while loading the template library."
       onRetry={() => void activeRead.refetch()}
     />
   {:else}
@@ -140,7 +140,7 @@
         failure={archivedFailure}
         title="The Archived Templates Could Not Be Read"
         fallback="The archived templates could not be read. The active catalogue is still shown."
-        whenSilent="Nothing answered when the archived templates were asked for."
+        whenSilent="Couldn't connect while loading archived templates."
         onRetry={() => void archivedRead.refetch()}
       />
     {/if}

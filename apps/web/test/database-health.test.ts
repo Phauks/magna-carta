@@ -296,8 +296,9 @@ describe("the panel's two folding sections", () => {
     // block and the loading region. Each was written out longhand in the panel before, which is
     // how two carets end up disagreeing about aria-expanded, and how two identical failures end up
     // worded differently.
+    // Deployment, Features, Workers, Connected services, Database and Upload readiness.
     const renders = chip.match(/<VersionPanelSection/g) ?? [];
-    expect(renders).toHaveLength(4);
+    expect(renders).toHaveLength(6);
     expect(chip).not.toContain("<VersionSectionHeading");
     expect(panelSection).toContain("<VersionSectionHeading");
     expect(heading).toContain("aria-expanded={!collapsed}");
@@ -314,7 +315,7 @@ describe("the panel's two folding sections", () => {
     // the fault somebody opened the panel to find. The keys are DERIVED from the section ids now,
     // so a section cannot ship with its key spelled a second, different way.
     const registered = preferences.match(/createSectionFold\("[a-z]+"\)/g) ?? [];
-    expect(new Set(registered).size).toBe(4);
+    expect(new Set(registered).size).toBe(6);
     expect(preferences).toContain("`magna-carta.version-panel-${sectionId}`");
     expect(preferences).toMatch(/\["expanded", "collapsed"\],\s*"expanded",/);
     expect(preferences).toContain("followAcrossTabs()");
@@ -324,7 +325,7 @@ describe("the panel's two folding sections", () => {
     // Folding is a statement about how much detail the reader wants, never a statement that the
     // read succeeded — so the failure block sits OUTSIDE the fold in the one place that draws it.
     const failureBlock = panelSection.indexOf("{#if failure !== null}");
-    const foldedBody = panelSection.indexOf("{#if !preference.collapsed");
+    const foldedBody = panelSection.indexOf("{#if !collapsed");
     expect(failureBlock).toBeGreaterThan(-1);
     expect(failureBlock).toBeLessThan(foldedBody);
   });

@@ -27,9 +27,9 @@ export const SCAN_TIER_LABELS: Readonly<Record<ScanTier, string>> = {
 
 /** What the firm can do with a file the scan flagged. It is never deleted, by design. */
 export const FLAGGED_TREATMENT_LABELS: Readonly<Record<FlaggedTreatment, string>> = {
-  block: "Hold it — nobody can open it",
-  "informed-access": "Ask first — openable once the risk is acknowledged",
-  "allow-and-flag": "Allow it — openable, marked as flagged",
+  block: "Block it. No one can open it.",
+  "informed-access": "Ask first. It opens once the risk is accepted.",
+  "allow-and-flag": "Allow it. It opens, marked as flagged.",
 };
 
 /** The settings a reading states, as the four values the server carries them as. */

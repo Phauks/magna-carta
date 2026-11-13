@@ -226,6 +226,13 @@ export type Bindings = {
   // absence is real; the gate, not the type, is what makes them present in a deployment.
   CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  // A Cloudflare API token that can only READ Workers Logs (Account > Workers Observability > Read),
+  // for the System Status page's Recent Errors (system-status/recent-errors.ts). Its own token,
+  // never the provisioner's: that one can create and destroy firm resources, and an error list has
+  // no business holding that power. Optional, and absent is the shipped state: without it the
+  // Recent Errors read answers not-configured. Production sets it with
+  // `wrangler secret put OBSERVABILITY_API_TOKEN`. Never logged, never echoed to a caller.
+  OBSERVABILITY_API_TOKEN?: string;
   // The account-scoped R2 S3 API token the presigner signs upload/download URLs with — the bytes
   // bypass the Worker, so it holds only this signing credential. Production secrets (placeholder
   // values in .dev.vars to satisfy the secrets.required gate).

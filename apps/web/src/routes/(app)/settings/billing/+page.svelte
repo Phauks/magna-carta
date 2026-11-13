@@ -96,6 +96,6 @@
   readFailureTitle="The Time Policy Could Not Be Read"
   readFailureFallback="The firm's time policy was not read."
   saveFailureFallback="The firm's time policy is unchanged. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the firm's time policy is unchanged. What you chose is still staged."
+  saveFailureWhenSilent="Couldn't connect. The time policy is unchanged, and your choices are still here."
   {plateEnd}
 />

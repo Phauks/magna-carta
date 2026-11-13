@@ -103,7 +103,7 @@
     const result = await lookupWhoisWithRetries(target, (progress) => {
       attempt = progress;
       if (progress.attempt > 1) {
-        announcement = `The registry did not answer. Trying again, attempt ${progress.attempt} of ${progress.maxAttempts}.`;
+        announcement = `The registry didn't respond. Trying again, attempt ${progress.attempt} of ${progress.maxAttempts}.`;
       }
     });
     outcome = result;
@@ -178,7 +178,7 @@
             <Alert.Root variant="danger">
               <Alert.Title>The lookup service did not respond</Alert.Title>
               <Alert.Description>
-                Nothing answered the request. Check your connection, then try again.
+                Couldn't connect. Check your connection and try again.
               </Alert.Description>
             </Alert.Root>
           {/if}
@@ -210,7 +210,7 @@
             <div data-loading-keep class="flex flex-wrap items-center gap-8">
               <Badge variant="warning">Retrying</Badge>
               <span class="text-sm text-text-muted">
-                The registry did not answer. Trying again, attempt {attempt.attempt} of {attempt.maxAttempts}…
+                The registry didn't respond. Trying again, attempt {attempt.attempt} of {attempt.maxAttempts}…
               </span>
             </div>
           {:else}

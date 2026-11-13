@@ -76,7 +76,7 @@
     failure = stated(
       outcome.failure,
       "It could not be filed onto that matter.",
-      "Nothing answered. It is still in the queue.",
+      "Couldn't connect. It's still waiting to send.",
     );
     return "refused";
   }
@@ -108,7 +108,7 @@
     <LabelledField
       label="Matter"
       id="file-communication-matter"
-      hint="An intake or a consultation counts — a matter does not need a number to hold a conversation."
+      hint="An intake or consultation counts. A matter doesn't need a number to have a conversation."
     >
       {#snippet children({ props })}
         <MatterPicker

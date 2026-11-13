@@ -242,8 +242,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     key: "search",
     label: "Name",
     describes:
-      "What the document is called: its name, or the path it sat at in the production. Not the " +
-      "words inside it — that is Keyword, below.",
+      "The document's name, or its path in the production. To search the words inside it, use Keyword below.",
     stage: "ready",
     shape: { kind: "text" },
     setFrom: "the search field above the list",

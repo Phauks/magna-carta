@@ -102,6 +102,7 @@ export function buildFailureTrace(
     entry("route", environment.route),
     entry("request", failure?.request ?? "(no failing call — reported by hand)"),
     entry("failed", failure?.failedAt.toISOString() ?? "(not a caught failure)"),
+    ...(failure?.cause === undefined ? [] : [entry("cause", failure.cause)]),
     entry("copied", environment.copiedAt.toISOString()),
   ];
 

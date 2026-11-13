@@ -170,7 +170,7 @@ export class MatterSearch {
     this.failure = stated(
       outcome.failure,
       "The search could not be run.",
-      "Nothing answered. This matter was not searched.",
+      "Couldn't connect. This matter wasn't searched.",
     );
   }
 }

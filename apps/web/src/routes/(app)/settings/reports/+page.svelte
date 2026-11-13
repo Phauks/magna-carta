@@ -50,5 +50,5 @@
   readFailureTitle="The Report Policy Could Not Be Read"
   readFailureFallback="The firm's report policy was not read."
   saveFailureFallback="The report policy was not changed. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the report policy was not changed. What you chose is still staged."
+  saveFailureWhenSilent="Couldn't connect. The report policy is unchanged, and your choices are still here."
 />
