@@ -1747,6 +1747,16 @@ export const NO_PII_TABLES: readonly string[] = [
   // control row about which FILE evidences which asset. The linked document's own retention is
   // expressed by its `file` entry, exactly as for file_version, email_attachment, and custody_scan.
   "matter_asset_document",
+  // Exhibits. None of the four carries a structured personal-data column: what each row points at is
+  // a `file` or a `file_version`, whose retention is expressed by THAT row's entry, and provenance is
+  // firm-member user ids. An exhibit's title and description, a set's name, and a withdrawal or
+  // correction basis are free text that can name a person ("Declaration of Marcus Ortega") — the
+  // residue class matter.description and custody_item.description established, handled by the
+  // residue report rather than by a key here.
+  "matter_exhibit",
+  "exhibit_set",
+  "exhibit_set_member",
+  "exhibit_reference",
   // A note's link to one of the matter's files: two handles, an instant, and firm-member provenance
   // (linked_by). Whose document it is resolves through the file and the matter, never through a
   // column here — the same shape matter_asset_document sits in directly above.
