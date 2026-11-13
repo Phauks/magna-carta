@@ -18,6 +18,8 @@
    */
   import * as Avatar from "@magna-carta/design-system/avatar";
   import * as DefinitionList from "@magna-carta/design-system/definition-list";
+  import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
+  import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import { buttonClasses } from "@magna-carta/design-system/button";
@@ -40,12 +42,18 @@
     uplink,
     participants,
     events,
+    onCopy,
   }: {
     uplink: UplinkModel;
     /** Everybody else in the room, in the order the roster names them. */
     participants: readonly ConnectionParticipantModel[];
     /** What has happened on the wire, oldest first. */
     events: readonly EventRailEvent[];
+    /**
+     * Copy the last few minutes of numbers as text to paste to whoever is helping. Absent where the
+     * screen does not offer it.
+     */
+    onCopy?: () => void;
   } = $props();
 
   /** The words the quality mark is read with, so a row says it as well as showing it. */
@@ -174,6 +182,15 @@
         </li>
       {/each}
     </ul>
+
+    {#if onCopy !== undefined}
+      <!-- For a stutter that has already passed: the copy covers the last few minutes, frame by
+           frame, so it still holds what the reader saw. Numbers only, never a name. -->
+      <Button variant="secondary" onclick={onCopy}>
+        <ClipboardCopy class="size-16" aria-hidden="true" />
+        Copy Diagnostics
+      </Button>
+    {/if}
 
     <EventRail
       events={shown}
