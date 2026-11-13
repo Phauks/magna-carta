@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { momentLabel, pngWithText, stillTextEntries } from "../src/lib/documents/recording-still.ts";
+import {
+  momentLabel,
+  pngWithText,
+  stillTextEntries,
+} from "../src/lib/documents/recording-still.ts";
 
 // The smallest valid PNG: a 1x1 picture. Signature, IHDR, IDAT, IEND.
 const ONE_PIXEL = Uint8Array.from(
@@ -78,7 +82,9 @@ describe("pngWithText", () => {
     expect(new TextDecoder().decode(title.subarray(0, nul))).toBe("Title");
     expect(new TextDecoder().decode(title.subarray(nul + 5))).toBe("Entrevista á 0:00:05");
     // The original chunks are untouched.
-    expect(out.subarray(0, ONE_PIXEL.length - 12)).toEqual(ONE_PIXEL.subarray(0, ONE_PIXEL.length - 12));
+    expect(out.subarray(0, ONE_PIXEL.length - 12)).toEqual(
+      ONE_PIXEL.subarray(0, ONE_PIXEL.length - 12),
+    );
   });
 
   it("computes the chunk checksum the PNG specification defines", () => {
@@ -99,7 +105,9 @@ describe("pngWithText", () => {
   });
 
   it("hands back bytes that are not a PNG unchanged", () => {
-    const notPng = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+    const notPng = new Uint8Array([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    ]);
     expect(pngWithText(notPng, [["Title", "x"]])).toBe(notPng);
   });
 });

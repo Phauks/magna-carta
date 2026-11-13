@@ -109,7 +109,10 @@ export function pngWithText(
   // IEND is the last chunk, twelve bytes long with no data.
   const iend = png.length - 12;
   const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
-  if (view.getUint32(iend) !== 0 || new TextDecoder().decode(png.subarray(iend + 4, iend + 8)) !== "IEND") {
+  if (
+    view.getUint32(iend) !== 0 ||
+    new TextDecoder().decode(png.subarray(iend + 4, iend + 8)) !== "IEND"
+  ) {
     return png;
   }
   const chunks = entries.map(([keyword, text]) => internationalTextChunk(keyword, text));
