@@ -1,7 +1,7 @@
 # PDF Editor
 
 Use the PDF Editor to change a PDF that is on a matter. Nothing you rely on is overwritten:
-redacting, extracting and splitting save new files beside the original, and arranging the pages
+redacting, numbering, extracting and splitting save new files beside the original, and arranging the pages
 saves a new version, with the version before it kept in the file's history.
 
 To open it, open a PDF from the matter's documents and choose **Edit PDF**. Choose **Read** to go
@@ -58,3 +58,22 @@ Two options sit under the list:
 
 A PDF locked with a password cannot be redacted until it is unlocked. Unlock it in the
 [File Workbench](file-workbench.md) first.
+
+## Bates
+
+Bates numbering prints a running number on every page, such as **SMITH-000041**, so each page of
+a production can be cited.
+
+1. Enter a **Prefix** and, if you use one, a **Suffix**.
+2. Set the **First Number**. For a second production, start where the last one stopped.
+3. Set the **Digits**. Numbers shorter than this are padded with zeros, so 6 digits writes 41 as 000041.
+4. Choose the **Position**, **Typeface** and **Size**. The first and last pages show where the
+   number will go.
+5. Choose **Number the Pages**.
+
+The numbered copy is saved beside the original, named with its first and last numbers, for example
+**Production (SMITH-000001 to SMITH-000016).pdf**. The message afterwards tells you the number the
+next production should start at.
+
+Numbering adds text to each page and removes nothing. To withhold something, redact it first, then
+number the redacted copy.

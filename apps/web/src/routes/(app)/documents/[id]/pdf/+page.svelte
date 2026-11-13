@@ -11,6 +11,7 @@
   import { invalidateAll } from "$app/navigation";
   import BookOpen from "@lucide/svelte/icons/book-open";
   import EyeOff from "@lucide/svelte/icons/eye-off";
+  import Hash from "@lucide/svelte/icons/hash";
   import Layers from "@lucide/svelte/icons/layers";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
@@ -19,6 +20,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { formatDocumentSize } from "$lib/documents/document-presentation.ts";
+  import BatesTool from "$lib/pdf-editor/bates-tool.svelte";
   import PagesTool from "$lib/pdf-editor/pages-tool.svelte";
   import RedactTool from "$lib/pdf-editor/redact-tool.svelte";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -74,6 +76,10 @@
           <EyeOff class="size-16" aria-hidden="true" />
           Redact
         </Tabs.Trigger>
+        <Tabs.Trigger value="bates">
+          <Hash class="size-16" aria-hidden="true" />
+          Bates
+        </Tabs.Trigger>
       </Tabs.List>
     </Tabs.Root>
 
@@ -84,6 +90,8 @@
           <PagesTool {file} onSaved={() => void invalidateAll()} />
         {:else if tool === "redact"}
           <RedactTool {file} />
+        {:else if tool === "bates"}
+          <BatesTool {file} />
         {/if}
       {/key}
     </FullHeightSection>

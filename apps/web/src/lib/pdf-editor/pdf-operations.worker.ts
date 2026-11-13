@@ -10,7 +10,7 @@
  * A failure crosses back as the engine's own message, which never carries document content or a
  * password (the engine's error contract), so it can be shown to the reader as it stands.
  */
-import { DecompressionBombError, redactDocument } from "@magna-carta/pdf";
+import { DecompressionBombError, redactDocument, stampBates } from "@magna-carta/pdf";
 import { arrangeDocument } from "./arrange-document.ts";
 import type { PdfOperationReply, PdfOperationRequest } from "./pdf-operations.ts";
 
@@ -60,6 +60,15 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
               total + plan.runs.reduce((count, piece) => count + piece.end - piece.start + 1, 0),
             0,
           ),
+        };
+      }
+      case "bates": {
+        const result = await stampBates(bytes, { ...request.operation.options });
+        return {
+          kind: "done",
+          id: request.id,
+          documents: [result.pdf],
+          pagesChanged: result.pageCount,
         };
       }
       default:

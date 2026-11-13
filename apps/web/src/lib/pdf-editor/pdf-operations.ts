@@ -5,6 +5,7 @@
  * The engine and its several megabytes load inside the worker only, and only once the reader asks
  * for a change, so opening the editor costs nothing more than opening the reader does.
  */
+import type { BatesStampOptions } from "@magna-carta/pdf";
 import type { ArrangementPlan } from "./page-arrangement.ts";
 
 /** One operation the worker can run. Each later tool adds its own variant here. */
@@ -23,6 +24,11 @@ export type PdfOperation =
       /** Make one new document per plan, each from the original's pages (`page-arrangement.ts`). */
       readonly kind: "arrange";
       readonly plans: readonly ArrangementPlan[];
+    }
+  | {
+      /** Stamp a Bates label on every page (`bates.ts`). */
+      readonly kind: "bates";
+      readonly options: BatesStampOptions;
     };
 
 export interface PdfOperationRequest {
