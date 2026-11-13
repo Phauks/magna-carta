@@ -11,6 +11,7 @@
  * password (the engine's error contract), so it can be shown to the reader as it stands.
  */
 import { DecompressionBombError, redactDocument } from "@magna-carta/pdf";
+import { arrangeDocument } from "./arrange-document.ts";
 import type { PdfOperationReply, PdfOperationRequest } from "./pdf-operations.ts";
 
 const scope = self as unknown as {
@@ -42,8 +43,23 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
         return {
           kind: "done",
           id: request.id,
-          bytes: result.pdf,
+          documents: [result.pdf],
           pagesChanged: result.pagesRedacted.length,
+        };
+      }
+      case "arrange": {
+        const documents: Uint8Array[] = [];
+        for (const plan of request.operation.plans)
+          documents.push(await arrangeDocument(bytes, plan));
+        return {
+          kind: "done",
+          id: request.id,
+          documents,
+          pagesChanged: request.operation.plans.reduce(
+            (total, plan) =>
+              total + plan.runs.reduce((count, piece) => count + piece.end - piece.start + 1, 0),
+            0,
+          ),
         };
       }
       default:
@@ -63,6 +79,9 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
 
 scope.addEventListener("message", (event) => {
   void run(event.data).then((reply) => {
-    scope.postMessage(reply, reply.kind === "done" ? [reply.bytes.buffer] : []);
+    scope.postMessage(
+      reply,
+      reply.kind === "done" ? reply.documents.map((document) => document.buffer) : [],
+    );
   });
 });

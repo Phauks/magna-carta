@@ -5,18 +5,25 @@
  * The engine and its several megabytes load inside the worker only, and only once the reader asks
  * for a change, so opening the editor costs nothing more than opening the reader does.
  */
+import type { ArrangementPlan } from "./page-arrangement.ts";
 
 /** One operation the worker can run. Each later tool adds its own variant here. */
-export type PdfOperation = {
-  readonly kind: "redact";
-  readonly regions: readonly {
-    page: number;
-    rect: { x0: number; y0: number; x1: number; y1: number };
-    reason: string;
-  }[];
-  /** Also remove metadata, attachments, form values, bookmarks and layers. */
-  readonly removeHiddenData: boolean;
-};
+export type PdfOperation =
+  | {
+      readonly kind: "redact";
+      readonly regions: readonly {
+        page: number;
+        rect: { x0: number; y0: number; x1: number; y1: number };
+        reason: string;
+      }[];
+      /** Also remove metadata, attachments, form values, bookmarks and layers. */
+      readonly removeHiddenData: boolean;
+    }
+  | {
+      /** Make one new document per plan, each from the original's pages (`page-arrangement.ts`). */
+      readonly kind: "arrange";
+      readonly plans: readonly ArrangementPlan[];
+    };
 
 export interface PdfOperationRequest {
   readonly id: number;
@@ -41,7 +48,8 @@ export type PdfOperationReply =
   | {
       readonly kind: "done";
       readonly id: number;
-      readonly bytes: Uint8Array;
+      /** The new documents: one for a redaction, one per plan for an arrangement. */
+      readonly documents: readonly Uint8Array[];
       /** How many pages the operation touched, for the result line. */
       readonly pagesChanged: number;
     }

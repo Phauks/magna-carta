@@ -1,10 +1,37 @@
 # PDF Editor
 
-Use the PDF Editor to change a PDF that is on a matter. Every change is saved as a new file beside
-the original, so the original stays exactly as it was.
+Use the PDF Editor to change a PDF that is on a matter. Nothing you rely on is overwritten:
+redacting, extracting and splitting save new files beside the original, and arranging the pages
+saves a new version, with the version before it kept in the file's history.
 
 To open it, open a PDF from the matter's documents and choose **Edit PDF**. Choose **Read** to go
 back to reading it.
+
+## Pages
+
+Put the pages in a new order, turn them, or take some out.
+
+1. Choose a page to select it. Choose it again to clear it. Hold **Shift** to select every page
+   between the last one you chose and this one.
+2. With pages selected, you can:
+   - **Rotate Left** or **Rotate Right** to turn them a quarter turn.
+   - Drag them to a new place, or choose **Move Earlier** or **Move Later** to move them one place
+     at a time.
+   - **Delete** them.
+3. Choose **Save as New Version**. Until then nothing is changed, and **Reset** puts every page
+   back as it was.
+
+Each page shows its new number, and **was** with its old number if you moved it.
+
+Two more tools make new files and leave this one as it is:
+
+- **Extract to New File** saves the selected pages as a new file, named with the page numbers,
+  for example **Exhibits (Pages 3-5).pdf**.
+- **Split Into Files** starts a new file at each selected page. Select page 4 and page 9 of a
+  12-page document to get three files: pages 1 to 3, 4 to 8, and 9 to 12. Each is named with its
+  part, for example **Exhibits (Part 2 of 3).pdf**.
+
+A PDF locked with a password must be unlocked in the [File Workbench](file-workbench.md) first.
 
 ## Redact
 

@@ -24,18 +24,16 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Label from "@magna-carta/design-system/label";
   import * as Select from "@magna-carta/design-system/select";
-  import { readDocumentBytes } from "$lib/documents/document-bytes.ts";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import {
-    PDF_VIEWER_MAX_BYTES,
     PdfDocumentSource,
     pageDisplaySize,
-    pdfWorkerAvailable,
     renderDpiFor,
     type PdfPageSize,
   } from "$lib/documents/pdf-pages.ts";
   import { uploadIntoFolder } from "$lib/file-manager/file-upload.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import { fileMadeDocument, openEditorDocument } from "./editor-document.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
   import {
     REDACTION_REASONS,
@@ -123,38 +121,21 @@
   }
 
   async function open(): Promise<void> {
-    if (!pdfWorkerAvailable()) {
-      phase = { kind: "refused", message: "This browser cannot run the background worker the editor draws pages in." };
+    const opened = await openEditorDocument(
+      file,
+      "This document is locked with a password. Unlock it in the File Workbench, save the unlocked copy, and redact that.",
+    );
+    if (gone) {
+      if (opened.kind === "ready") opened.source.close();
       return;
     }
-    const outcome = await readDocumentBytes(fetch, file.id, file.sizeBytes, PDF_VIEWER_MAX_BYTES);
-    if (gone) return;
-    if (outcome.kind !== "ok") {
-      phase = {
-        kind: "refused",
-        message:
-          outcome.kind === "too-large"
-            ? "This document is larger than the editor opens. Download it to work on it elsewhere."
-            : "The document could not be read. Try again.",
-      };
+    if (opened.kind === "refused") {
+      phase = { kind: "refused", message: opened.message };
       return;
     }
-    original = outcome.bytes.slice(0);
-    const engine = new PdfDocumentSource();
-    source = engine;
-    const reason = await engine.open(outcome.bytes);
-    if (gone) return;
-    if (reason !== null) {
-      phase = {
-        kind: "refused",
-        message:
-          reason === "encrypted" || reason === "wrong-password"
-            ? "This document is locked with a password. Unlock it in the File Workbench, save the unlocked copy, and redact that."
-            : "This document could not be opened in the editor.",
-      };
-      return;
-    }
-    pages = engine.pages;
+    source = opened.source;
+    original = opened.original;
+    pages = opened.pages;
     phase = { kind: "ready" };
   }
 
@@ -255,20 +236,17 @@
       return;
     }
     const name = redactedCopyName(file.name);
-    const redacted = new File([new Uint8Array(reply.bytes)], name, { type: "application/pdf" });
-    const saved = await uploadIntoFolder({
-      fetchImpl: fetch,
-      matterId: file.matterId,
-      folderId: file.folderId,
-      file: redacted,
-      name,
-    });
+    const made = reply.documents[0];
+    if (made === undefined) {
+      result = { kind: "failed", message: describeOperationFailure("refused", "") };
+      return;
+    }
+    const filed = await fileMadeDocument(file, made, name);
     if (gone) return;
-    if (saved.kind !== "committed" && saved.kind !== "settling") {
-      // The redacted copy exists in this browser; only filing it failed. Offer it rather than lose it.
+    if (filed.kind === "notFiled") {
       result = {
         kind: "downloadOnly",
-        url: URL.createObjectURL(redacted),
+        url: filed.url,
         name,
         why: "The redacted copy was made but could not be filed on the matter. Download it now; nothing was saved.",
       };
@@ -287,7 +265,7 @@
     }
     marks = [];
     selectedKey = null;
-    result = { kind: "saved", fileId: saved.fileId, name, pages: reply.pagesChanged };
+    result = { kind: "saved", fileId: filed.fileId, name, pages: reply.pagesChanged };
   }
 </script>
 

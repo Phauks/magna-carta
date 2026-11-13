@@ -4,12 +4,14 @@
    * over the same document. The header and the way back are the reader's own, so moving between
    * reading a document and working on it never changes where the reader stands.
    *
-   * Every tool makes a NEW file beside the original rather than overwriting it, because a court
-   * filing, a production and a client copy are each a document someone may already rely on.
+   * No tool overwrites what someone may already rely on. Redacting, extracting and splitting make NEW
+   * files beside the original; arranging the pages saves the next VERSION, which keeps the version
+   * before it in the file's history.
    */
   import { invalidateAll } from "$app/navigation";
   import BookOpen from "@lucide/svelte/icons/book-open";
   import EyeOff from "@lucide/svelte/icons/eye-off";
+  import Layers from "@lucide/svelte/icons/layers";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import * as Tabs from "@magna-carta/design-system/tabs";
@@ -17,6 +19,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { formatDocumentSize } from "$lib/documents/document-presentation.ts";
+  import PagesTool from "$lib/pdf-editor/pages-tool.svelte";
   import RedactTool from "$lib/pdf-editor/redact-tool.svelte";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { matterFilesBack } from "$lib/screen/screen-header.ts";
@@ -29,7 +32,7 @@
     file === null ? null : matterFilesBack(file.matterId, data.matter?.title ?? "Files", file.id),
   );
 
-  let tool = $state("redact");
+  let tool = $state("pages");
 </script>
 
 <svelte:head>
@@ -63,6 +66,10 @@
 
     <Tabs.Root bind:value={tool} class="flex-none">
       <Tabs.List aria-label="PDF tools">
+        <Tabs.Trigger value="pages">
+          <Layers class="size-16" aria-hidden="true" />
+          Pages
+        </Tabs.Trigger>
         <Tabs.Trigger value="redact">
           <EyeOff class="size-16" aria-hidden="true" />
           Redact
@@ -71,9 +78,14 @@
     </Tabs.Root>
 
     <FullHeightSection class="-mx-24 flex flex-col border-t border-border-default">
-      {#if tool === "redact"}
-        <RedactTool {file} />
-      {/if}
+      <!-- A tab is opened afresh on each new version, so it never works from bytes a save replaced. -->
+      {#key file.versionNumber}
+        {#if tool === "pages"}
+          <PagesTool {file} onSaved={() => void invalidateAll()} />
+        {:else if tool === "redact"}
+          <RedactTool {file} />
+        {/if}
+      {/key}
     </FullHeightSection>
   </div>
 {/if}
