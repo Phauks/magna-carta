@@ -33,8 +33,18 @@
     // Where the app lives, for the "sign in" link. The board is reached from there.
     "APP_BASE_URL": "https://magnacarta.esq",
   },
-  // COMMUNITY_HANDOFF_SECRET is a secret (wrangler secret put), shared with magna-carta's own
-  // worker and with nothing else. Without it the board is readable and nobody can sign in.
+  // COMMUNITY_HANDOFF_SECRET is shared with magna-carta's own worker and with nothing else. Without
+  // it the board is readable and nobody can sign in. It lives in the account's Secrets Store, bound
+  // below as SECRETS_STORE_COMMUNITY_HANDOFF_SECRET, which src/index.ts resolves into the string the
+  // board reads; a per-Worker secret of the plain name is the fallback.
+  // docs/conventions/operations.md, "Secrets Store", says how a secret moves.
+  "secrets_store_secrets": [
+    {
+      "binding": "SECRETS_STORE_COMMUNITY_HANDOFF_SECRET",
+      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
+      "secret_name": "COMMUNITY_HANDOFF_SECRET",
+    },
+  ],
   "d1_databases": [
     {
       "binding": "DB_CONTROL",
