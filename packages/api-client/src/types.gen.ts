@@ -8451,6 +8451,38 @@ export type MagnusConversationPermissionRequest = {
     granted: boolean;
 };
 
+export type MagnusConversationArtifacts = {
+    artifacts: Array<MagnusArtifact>;
+};
+
+export type MagnusArtifact = {
+    id: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    versions: Array<MagnusArtifactVersionSummary>;
+};
+
+export type MagnusArtifactVersionSummary = {
+    versionNumber: number;
+    note: string | null;
+    writtenByTurnId: string | null;
+    memberUserId: string;
+    restoredFromVersion: number | null;
+    createdAt: string;
+    bytes: number;
+};
+
+export type MagnusArtifactVersionText = {
+    artifactId: string;
+    versionNumber: number;
+    content: string;
+};
+
+export type MagnusRestoreArtifactVersionRequest = {
+    versionNumber: number;
+};
+
 export type ReviewSetAccessList = {
     data: Array<ReviewSetAccessMember>;
 };
@@ -40530,6 +40562,153 @@ export type MagnusSetConversationPermissionResponses = {
 };
 
 export type MagnusSetConversationPermissionResponse = MagnusSetConversationPermissionResponses[keyof MagnusSetConversationPermissionResponses];
+
+export type MagnusListArtifactsData = {
+    body?: never;
+    path: {
+        conversationId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/artifacts';
+};
+
+export type MagnusListArtifactsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusListArtifactsError = MagnusListArtifactsErrors[keyof MagnusListArtifactsErrors];
+
+export type MagnusListArtifactsResponses = {
+    /**
+     * The conversation's documents
+     */
+    200: MagnusConversationArtifacts;
+};
+
+export type MagnusListArtifactsResponse = MagnusListArtifactsResponses[keyof MagnusListArtifactsResponses];
+
+export type MagnusReadArtifactVersionData = {
+    body?: never;
+    path: {
+        conversationId: string;
+        artifactId: string;
+        versionNumber: number;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/artifacts/{artifactId}/versions/{versionNumber}';
+};
+
+export type MagnusReadArtifactVersionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusReadArtifactVersionError = MagnusReadArtifactVersionErrors[keyof MagnusReadArtifactVersionErrors];
+
+export type MagnusReadArtifactVersionResponses = {
+    /**
+     * The version's text
+     */
+    200: MagnusArtifactVersionText;
+};
+
+export type MagnusReadArtifactVersionResponse = MagnusReadArtifactVersionResponses[keyof MagnusReadArtifactVersionResponses];
+
+export type MagnusRestoreArtifactVersionData = {
+    body: MagnusRestoreArtifactVersionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/artifacts/{artifactId}/restore';
+};
+
+export type MagnusRestoreArtifactVersionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusRestoreArtifactVersionError = MagnusRestoreArtifactVersionErrors[keyof MagnusRestoreArtifactVersionErrors];
+
+export type MagnusRestoreArtifactVersionResponses = {
+    /**
+     * The document with its new version
+     */
+    200: MagnusArtifact;
+};
+
+export type MagnusRestoreArtifactVersionResponse = MagnusRestoreArtifactVersionResponses[keyof MagnusRestoreArtifactVersionResponses];
 
 export type DiscoveryGetReviewSetAccessData = {
     body?: never;

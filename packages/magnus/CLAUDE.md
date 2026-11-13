@@ -44,7 +44,7 @@ registered there; this file states what they mean for the code, not where they w
   always ending on the newest member turn, reporting whether it truncated
 - `src/statements.ts` — the SQL builders and bounded reads for the three tables; every read is
   `LIMIT`ed and every list read is cursor-paginated
-- `src/audit.ts` — the audit builders (seventeen, counted by `test/purity.test.ts`) and the shared
+- `src/audit.ts` — the audit builders (twenty, counted by `test/purity.test.ts`) and the shared
   write context
 - `src/shelf.ts` — a member's own folders (`magnus_folder`) and where they keep each conversation
   (`magnus_conversation_shelf`: its folder, null for General, and when they pinned it). Both are

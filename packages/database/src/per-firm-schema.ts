@@ -94,6 +94,7 @@ import type {
   LocationId,
   MagnusConversationId,
   MagnusFolderId,
+  MagnusArtifactId,
   MagnusTurnId,
   MatterAssetDocumentId,
   MatterAssetEncumbranceId,
@@ -10270,6 +10271,50 @@ export const magnusConversationPermission = sqliteTable(
       sql`${table.permission} IN ('own-matter-conversations')`,
     ),
   ],
+);
+
+// A document Magnus wrote in a conversation: a letter, a table, a timeline. It belongs to the
+// conversation and goes with it; saving it to a matter's files makes a separate file. The text of each
+// version is a row, not an object, for the reason a turn is: a version is capped (limits.ts in the
+// magnus package), so it is not bulk content.
+export const magnusArtifact = sqliteTable(
+  "magnus_artifact",
+  {
+    id: text("id").primaryKey().$type<MagnusArtifactId>(), // magnusArtifact_ handle
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // The name Magnus gave it. Magnus revises a document by writing it again under the same name.
+    title: text("title").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("magnus_artifact_conversation_index").on(table.conversationId)],
+);
+
+// One version of a document Magnus wrote. Versions are only ever added: a revision by Magnus and a
+// member restoring an earlier version each add one, so the history is never rewritten.
+export const magnusArtifactVersion = sqliteTable(
+  "magnus_artifact_version",
+  {
+    artifactId: text("artifact_id")
+      .notNull()
+      .$type<MagnusArtifactId>()
+      .references(() => magnusArtifact.id),
+    versionNumber: integer("version_number").notNull(),
+    content: text("content").notNull(),
+    // What changed, in a few words, as Magnus or the restore described it.
+    note: text("note"),
+    // The answer that wrote this version; null for a version a member restored.
+    writtenByTurnId: text("written_by_turn_id").$type<MagnusTurnId>(),
+    // The member who asked for it, or who restored it. Not a foreign key, like the conversation's
+    // own author: the record outlives the member row.
+    memberUserId: text("member_user_id").notNull().$type<UserId>(),
+    restoredFromVersion: integer("restored_from_version"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.artifactId, table.versionNumber] })],
 );
 
 // ---------------------------------------------------------------------------------------------

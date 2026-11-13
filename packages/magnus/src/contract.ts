@@ -174,3 +174,40 @@ export const ConversationPermissionRequest = z
 export const ConversationPermissions = z
   .object({ permissions: z.array(ConversationPermissionName) })
   .meta({ id: "MagnusConversationPermissions" });
+
+// One version of a document Magnus wrote, without its text. `writtenByTurnId` is the answer that
+// wrote it, null for a version a member restored, which names the version it came from.
+export const ArtifactVersionSummary = z
+  .object({
+    versionNumber: z.number(),
+    note: z.string().nullable(),
+    writtenByTurnId: z.string().nullable(),
+    memberUserId: z.string(),
+    restoredFromVersion: z.number().nullable(),
+    createdAt: z.string(),
+    bytes: z.number(),
+  })
+  .meta({ id: "MagnusArtifactVersionSummary" });
+
+// A document Magnus wrote in a conversation, with its versions oldest first.
+export const ArtifactSummary = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    versions: z.array(ArtifactVersionSummary),
+  })
+  .meta({ id: "MagnusArtifact" });
+
+export const ConversationArtifacts = z
+  .object({ artifacts: z.array(ArtifactSummary) })
+  .meta({ id: "MagnusConversationArtifacts" });
+
+export const ArtifactVersionText = z
+  .object({ artifactId: z.string(), versionNumber: z.number(), content: z.string() })
+  .meta({ id: "MagnusArtifactVersionText" });
+
+export const RestoreArtifactVersionRequest = z
+  .object({ versionNumber: z.number().int().min(1) })
+  .meta({ id: "MagnusRestoreArtifactVersionRequest" });

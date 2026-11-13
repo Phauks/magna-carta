@@ -3,8 +3,14 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FirmId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  MagnusConversationId,
+  MagnusTurnId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import { aiProcessingEligibilityDefinition } from "@magna-carta/inference/settings";
+import { writeDocuments } from "@magna-carta/magnus/artifact";
 import { magnusEnabledDefinition } from "@magna-carta/magnus/settings";
 import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
@@ -17,14 +23,16 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// Turning Magnus's read permissions on and off for a conversation, driven through the chokepoint over
-// real Miniflare bindings. Its own firm, because the rate limit is the firm's. The load-bearing
-// assertions: every permission starts off, only the conversation's author changes one, and each
-// change is audited by name.
+// The right pane's routes, driven through the chokepoint over real Miniflare bindings: turning
+// Magnus's read permissions on and off, and the documents Magnus wrote. Its own firm, because the
+// rate limit is the firm's. The load-bearing assertions: every permission starts off and only the
+// author changes one, audited by name; a document is read by whoever reads the conversation, and
+// restoring a version adds one and overwrites none.
 
 let firmId: FirmId;
 let ownerCookie: string;
 let attorneyCookie: string;
+let attorneyUserId: UserId;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
 const clock = { now: () => new Date().toISOString() };
@@ -59,6 +67,7 @@ beforeAll(async () => {
     userName: "Magnus Attorney",
     firmId,
   });
+  attorneyUserId = attorney.userId as UserId;
   await insertMemberStatement(firmDatabase, {
     userId: attorney.userId,
     displayName: "Magnus Attorney",
@@ -167,5 +176,90 @@ describe("a conversation's read permissions", () => {
     );
     expect(unknown.status).toBe(422);
     expect(await permissionsOf(conversationId, attorneyCookie)).toEqual([]);
+  });
+});
+
+// Two versions of one document in a new conversation of the attorney's, as two answers would write it.
+async function conversationWithDocument(): Promise<{ conversationId: string; artifactId: string }> {
+  const started = await send(
+    "POST",
+    "/api/v1/magnus/conversations",
+    { title: "Documents" },
+    attorneyCookie,
+  );
+  const conversationId = (await readJson<{ id: string }>(started)).id as MagnusConversationId;
+  const artifactId = newIdentifier("magnusArtifact");
+  const context = { clock, actorUserId: null };
+  for (const [index, content] of ["First draft.", "Second draft."].entries()) {
+    await commitEffectBatch(
+      firmDatabase,
+      {
+        statements: writeDocuments(firmDatabase, context, {
+          conversationId,
+          magnusTurnId: newIdentifier("magnusTurn") as MagnusTurnId,
+          memberUserId: attorneyUserId,
+          documents: [{ title: "Engagement Letter", note: null, content }],
+          existing: index === 0 ? new Map() : new Map([["engagement letter", artifactId]]),
+          newArtifactId: () => artifactId,
+        }),
+        outboxMessages: [],
+      },
+      { now: clock.now },
+    );
+  }
+  return { conversationId, artifactId };
+}
+
+describe("the documents Magnus wrote", () => {
+  it("lists them with their versions and serves each version's text", async () => {
+    const { conversationId, artifactId } = await conversationWithDocument();
+    const listed = await SELF.fetch(
+      `https://example.com/api/v1/magnus/conversations/${conversationId}/artifacts`,
+      { headers: { origin: "https://example.com", cookie: attorneyCookie } },
+    );
+    expect(listed.status).toBe(200);
+    const { artifacts } = await readJson<{
+      artifacts: Array<{ id: string; title: string; versions: Array<{ versionNumber: number }> }>;
+    }>(listed);
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]?.title).toBe("Engagement Letter");
+    expect(artifacts[0]?.versions.map((version) => version.versionNumber)).toEqual([1, 2]);
+
+    const first = await SELF.fetch(
+      `https://example.com/api/v1/magnus/conversations/${conversationId}/artifacts/${artifactId}/versions/1`,
+      { headers: { origin: "https://example.com", cookie: attorneyCookie } },
+    );
+    expect(first.status).toBe(200);
+    expect((await readJson<{ content: string }>(first)).content).toBe("First draft.");
+
+    // The owner holds the supervisory permission, so reads the attorney's documents too.
+    const supervised = await SELF.fetch(
+      `https://example.com/api/v1/magnus/conversations/${conversationId}/artifacts`,
+      { headers: { origin: "https://example.com", cookie: ownerCookie } },
+    );
+    expect(supervised.status).toBe(200);
+  });
+
+  it("restores an earlier version as the newest, keeping every version, for the author alone", async () => {
+    const { conversationId, artifactId } = await conversationWithDocument();
+    const path = `/api/v1/magnus/conversations/${conversationId}/artifacts/${artifactId}/restore`;
+    expect((await send("POST", path, { versionNumber: 1 }, ownerCookie)).status).toBe(404);
+
+    const restored = await send("POST", path, { versionNumber: 1 }, attorneyCookie);
+    expect(restored.status).toBe(200);
+    const body = await readJson<{
+      versions: Array<{ versionNumber: number; restoredFromVersion: number | null }>;
+    }>(restored);
+    expect(body.versions.map((version) => version.versionNumber)).toEqual([1, 2, 3]);
+    expect(body.versions[2]?.restoredFromVersion).toBe(1);
+
+    const third = await SELF.fetch(
+      `https://example.com/api/v1/magnus/conversations/${conversationId}/artifacts/${artifactId}/versions/3`,
+      { headers: { origin: "https://example.com", cookie: attorneyCookie } },
+    );
+    expect((await readJson<{ content: string }>(third)).content).toBe("First draft.");
+
+    const missing = await send("POST", path, { versionNumber: 9 }, attorneyCookie);
+    expect(missing.status).toBe(404);
   });
 });

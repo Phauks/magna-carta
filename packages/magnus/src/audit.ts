@@ -4,6 +4,7 @@ import type { RandomSource } from "@magna-carta/identifiers/random";
 import type {
   FileId,
   MagnusConversationId,
+  MagnusArtifactId,
   MagnusFolderId,
   MagnusTurnId,
   MatterId,
@@ -39,6 +40,8 @@ export const MAGNUS_EVENTS = {
   turnRemoved: "magnus.turn_removed",
   permissionGranted: "magnus.permission_granted",
   permissionRevoked: "magnus.permission_revoked",
+  artifactWritten: "magnus.artifact_written",
+  artifactRestored: "magnus.artifact_restored",
 } as const;
 
 // What every Magnus write needs from its caller: the clock and the acting member (this package reads
@@ -340,4 +343,37 @@ export function conversationPermissionAudit(
     input.conversationId,
     { permission: input.permission },
   );
+}
+
+// Magnus wrote a document, or a new version of one. Names the document and the version, never its
+// words or its name.
+export function artifactWrittenAudit(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: {
+    readonly conversationId: MagnusConversationId;
+    readonly artifactId: MagnusArtifactId;
+    readonly magnusTurnId: MagnusTurnId;
+  },
+): SqlStatement {
+  return auditStatement(database, context, MAGNUS_EVENTS.artifactWritten, input.conversationId, {
+    artifactId: input.artifactId,
+    magnusTurnId: input.magnusTurnId,
+  });
+}
+
+// A member put an earlier version of a document back, as a new version.
+export function artifactRestoredAudit(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: {
+    readonly conversationId: MagnusConversationId;
+    readonly artifactId: MagnusArtifactId;
+    readonly restoredFromVersion: number;
+  },
+): SqlStatement {
+  return auditStatement(database, context, MAGNUS_EVENTS.artifactRestored, input.conversationId, {
+    artifactId: input.artifactId,
+    restoredFromVersion: input.restoredFromVersion,
+  });
 }

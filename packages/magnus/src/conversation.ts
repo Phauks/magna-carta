@@ -1,3 +1,4 @@
+import { deleteConversationArtifactsStatements } from "./artifact.ts";
 import { deleteConversationPermissionsStatement } from "./permissions.ts";
 import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -214,6 +215,7 @@ export function deleteConversation(
       deleteConversationAttachmentsStatement(database, input.conversationId),
       deleteConversationShelvesStatement(database, input.conversationId),
       deleteConversationPermissionsStatement(database, input.conversationId),
+      ...deleteConversationArtifactsStatements(database, input.conversationId),
       markConversationDeletedStatement(database, { id: input.conversationId, now }),
       conversationDeletedAudit(database, context, {
         conversationId: input.conversationId,

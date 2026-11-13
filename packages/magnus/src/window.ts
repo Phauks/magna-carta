@@ -166,6 +166,10 @@ export interface ConversationWindowOptions {
   // for this conversation (permissions.ts). Placed ahead of the files under their own budget
   // (EARLIER_CONVERSATIONS_MAX_BYTES). Absent or empty means none are sent.
   readonly earlierConversations?: readonly WindowEarlierConversation[];
+  // The documents Magnus has written in this conversation, each at its latest version, laid out by
+  // the caller (artifact.ts) under their own budget. Placed first, so Magnus revises a document from
+  // what it is now. Absent or empty means there are none.
+  readonly documents?: string;
 }
 
 // Builds the window from the conversation's turns in ascending sequence order. Walks BACKWARD from
@@ -192,7 +196,9 @@ export function buildConversationWindow(
   const laidOutFiles = layOutAttachments(options.attachments ?? []);
   const earlier = layOutEarlierConversations(options.earlierConversations ?? []);
   const laidOut = {
-    preface: [earlier, laidOutFiles.preface].filter((part) => part !== "").join("\n\n"),
+    preface: [options.documents ?? "", earlier, laidOutFiles.preface]
+      .filter((part) => part !== "")
+      .join("\n\n"),
     outcomes: laidOutFiles.outcomes,
   };
   if (lastMemberIndex === -1) {

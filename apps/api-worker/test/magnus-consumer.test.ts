@@ -20,6 +20,7 @@ import {
   setFileCurrentVersionStatement,
 } from "@magna-carta/file-manager/file-statements";
 import { attachConversationFile, startConversation } from "@magna-carta/magnus/conversation";
+import { listArtifacts, readArtifactVersionContent } from "@magna-carta/magnus/artifact";
 import { setConversationPermission } from "@magna-carta/magnus/permissions";
 import { magnusEnabledDefinition } from "@magna-carta/magnus/settings";
 import { listAttachments, readTurn } from "@magna-carta/magnus/statements";
@@ -396,6 +397,54 @@ describe("the assistant queue consumer", () => {
       "--- Your earlier conversation on this matter: Lease review ---",
     );
     expect(after?.content).toContain("Member: the landlord waived the late fee in March");
+  });
+
+  it("keeps a document Magnus wrote as a version, and the same title again as the next one", async () => {
+    // The stub echoes the member's message, so a member message holding a document block stands in
+    // for an answer that wrote one.
+    const first = await submitOneTurn(
+      'A draft:\n<document title="Demand Letter">\nPay now.\n</document>',
+    );
+    await handleMagnusTurnJob(consumerEnv(), first);
+    const answer = await readTurn(firmDatabase, first.magnusTurnId as MagnusTurnId);
+    expect(answer?.status).toBe("complete");
+    expect(answer?.content).not.toContain("<document");
+    expect(answer?.content).not.toContain("Pay now.");
+
+    const conversationId = first.conversationId as MagnusConversationId;
+    const [written] = await listArtifacts(firmDatabase, conversationId);
+    expect(written?.title).toBe("Demand Letter");
+    expect(written?.versions.map((version) => version.versionNumber)).toEqual([1]);
+    expect(written?.versions[0]?.writtenByTurnId).toBe(first.magnusTurnId);
+    expect(written?.versions[0]?.memberUserId).toBe(USER);
+
+    const context = { clock, actorUserId: USER };
+    const revision = submitTurn(firmDatabase, context, {
+      conversationId,
+      content: '<document title="demand letter" note="firmer">\nPay within 7 days.\n</document>',
+      nextSequence: 2,
+      disclosureVersion: 3,
+    });
+    if (!revision.ok) throw new Error("submission refused");
+    await commitEffectBatch(firmDatabase, revision.effect, { now: clock.now });
+    await handleMagnusTurnJob(consumerEnv(), {
+      firmId,
+      conversationId,
+      magnusTurnId: revision.magnusTurnId,
+      outboxId: newIdentifier("outbox"),
+    });
+    // The revision was asked with the document as it stood in front of the model.
+    const second = await readTurn(firmDatabase, revision.magnusTurnId);
+    expect(second?.content).toContain(
+      "--- Document in this conversation: Demand Letter (version 1) ---",
+    );
+
+    const [revised] = await listArtifacts(firmDatabase, conversationId);
+    expect(revised?.versions.map((version) => version.versionNumber)).toEqual([1, 2]);
+    expect(revised?.versions[1]?.note).toBe("firmer");
+    expect(await readArtifactVersionContent(firmDatabase, revised!.id, 2)).toBe(
+      "Pay within 7 days.",
+    );
   });
 
   it("a redelivery neither re-calls the port nor double-meters", async () => {
