@@ -55,6 +55,7 @@ describe("featureStatuses", () => {
       "working",
     );
     expect(stateOf({ ADDRESS_SERVICE: {} }, "addressSuggestions")).toBe("working");
+    expect(stateOf({ GOOGLE_PLACES_API_KEY: "key" }, "addressSuggestions")).toBe("working");
   });
 
   it("a set-up feature whose Worker does not answer is a fault", () => {
