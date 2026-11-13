@@ -1181,7 +1181,9 @@ describe("telling a large room what changed", () => {
       await waitFor(() => rosterOf(other)?.participants.length === 1);
     });
     expect(leaveReads.lists).toBeLessThanOrEqual(1);
-    expect(leaveReads.gets).toBeLessThanOrEqual(5);
+    // One more than a frame's budget: a leave also reads the encrypted meeting's group key, one key
+    // whatever the room's size, to hand the group on when its last member goes (room-group.ts).
+    expect(leaveReads.gets).toBeLessThanOrEqual(6);
   });
 
   it("resolves who is connected once a pass, not once a participant", async () => {

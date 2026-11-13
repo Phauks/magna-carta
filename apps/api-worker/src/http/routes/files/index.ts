@@ -13,6 +13,7 @@ import { registerFilesRoutes } from "./files.ts";
 import { registerFoldersRoutes } from "./folders.ts";
 import { registerMetadataRoutes } from "./metadata.ts";
 import { registerOcrRoutes } from "./ocr.ts";
+import { registerPlayableCopyRoutes } from "./playable-copy.ts";
 import { registerRecoveryRoutes } from "./recovery.ts";
 import { registerScanDiagnoseRoute } from "./scan-diagnose.ts";
 import { registerScanMatterRoute } from "./scan-matter.ts";
@@ -44,6 +45,9 @@ export function mountFiles(app: AppRouter, chokepoint: Chokepoint, _deps: Domain
   // streaming ZIP64 bulk download — each composed through the same chokepoint.
   registerFoldersRoutes(domain, chokepoint);
   registerFilesRoutes(domain, chokepoint);
+  // A copy of a video every browser plays, asked for when the browser in front of the member cannot
+  // play the original, and looked up while it is made.
+  registerPlayableCopyRoutes(domain, chokepoint);
   registerDownloadsRoutes(domain, chokepoint);
   // The one-off, matter-less malware-scan diagnostic — stream a file through the engine, get a verdict.
   registerScanDiagnoseRoute(domain, chokepoint);

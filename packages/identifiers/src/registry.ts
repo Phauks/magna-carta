@@ -397,6 +397,9 @@ export const ENTITY_PREFIXES = {
   // thing the summary says somebody undertook to do, which a member may turn into a task.
   meetingSummary: "meetingSummary",
   meetingSummaryActionItem: "meetingSummaryActionItem",
+  // A `meetingPersonalRoom` is a member's standing room: a link that does not change, which writes an
+  // ordinary event and meeting each time its owner opens it.
+  meetingPersonalRoom: "meetingPersonalRoom",
   // The matter asset register — what a client or an estate owns, recorded against one matter. A
   // `matterAsset` is one matter's assertion about one thing owned; a `matterAssetType` is the
   // per-firm catalog under the platform class the asset carries. A `matterAssetValuation` is one

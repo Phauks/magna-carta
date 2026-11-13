@@ -264,6 +264,30 @@ describe("the Guests panel", () => {
     expect(minted?.body).toEqual({ entityId: "directoryPerson_1" });
   });
 
+  it("invites somebody not on the list by the name and address typed", async () => {
+    await drawGuests();
+
+    const name = document.body.querySelector<HTMLInputElement>("#guest-typed-name");
+    const address = document.body.querySelector<HTMLInputElement>("#guest-typed-address");
+    if (name === null || address === null) throw new Error("the typed-guest fields are not drawn");
+    name.value = "Ruth Okafor";
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    address.value = "ruth@elsewhere.test";
+    address.dispatchEvent(new Event("input", { bubbles: true }));
+    flushSync();
+
+    const form = name.closest("form");
+    form?.requestSubmit();
+    await settle();
+
+    const invited = requests.find(
+      (request) =>
+        request.method === "POST" &&
+        request.path === `/api/v1/meetings/${MEETING_ID}/guests/by-address`,
+    );
+    expect(invited?.body).toEqual({ name: "Ruth Okafor", emailAddress: "ruth@elsewhere.test" });
+  });
+
   it("asks before replacing a live link, and then replaces it", async () => {
     await drawGuests();
 

@@ -61,6 +61,17 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   standard telemetry pipeline, the refusal that is sent and recorded in one act, the browser's own
   connection report (its window, and the last sample kept on the participant), and the sampled
   storage budget a frame is measured against. Nothing here may throw into a caller.
+- `room/room-group.ts` — the encrypted meeting's MLS group, with the room as its delivery service:
+  it founds the group (a `mls-welcome` carrying none, to the first stay that sends a key package),
+  keeps each waiting key package under `mls-key-package:<stay>` and relays it to the group, accepts
+  the first `mls-commit` made from the epoch it holds and refuses the rest `stale-epoch`, sends an
+  accepted commit to the group as it stood (the committer's own socket is its acknowledgement) and
+  the welcome to the stays it adds, and relays proposals. It reads none of the bytes. It stores the
+  epoch and the members the commits named under `mls-group`; a departure drops the stay's key
+  package, and the last member's departure hands the group to somebody still waiting. A meeting
+  opened in the clear carries no group: its sockets' attachments say `encrypted: false` (off the
+  meeting row, fixed for its life) and every group frame is refused `not-encrypted`. Whether a new
+  meeting opens encrypted is `encryption-switch.ts`, the one reader of `MEETINGS_END_TO_END_ENCRYPTION`.
 - `room/room-inspect.ts` — what one room is holding, for a platform operator: the roster with each
   person's role, presence, counts and last connection report, the door, the sockets, the alarm and
   which of its deadlines are pending, the storage size, the routing sessions, the ended marker. One

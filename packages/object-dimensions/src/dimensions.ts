@@ -54,6 +54,10 @@ export type MatterScopedObjectClass =
   // when the editor cuts the version and served wherever a copy leaves the platform. DERIVED from
   // the version's own bytes and rebuildable from them; it belongs to the version's matter.
   | "export-copy"
+  // A video version's playable copy: the recording converted to H.264 and AAC so every browser
+  // plays it, made on request by the Rust transcode engine. DERIVED from the version's own bytes and
+  // rebuildable from them; it belongs to the version's matter.
+  | "playable-copy"
   // A purchased carrier label, when the shipment it belongs to names a matter.
   | "shipping-label"
   // The frozen list of review documents one bulk coding act executed against, resolved once at
@@ -139,6 +143,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "working-document",
   "working-copy",
   "export-copy",
+  "playable-copy",
   "shipping-label",
   "review-coding-selection",
   "search-split",

@@ -1,0 +1,21 @@
+{
+  "name": "@magna-carta/mls",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sframe": "./src/sframe.ts",
+    "./src/pkg/mls_core_bg.wasm": "./src/pkg/mls_core_bg.wasm"
+  },
+  "scripts": {
+    "test": "vp test run",
+    "build:wasm": "wasm-pack build ../../crates/mls-core --target web --out-dir ../../packages/mls/src/pkg --release --no-opt"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

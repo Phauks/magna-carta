@@ -411,6 +411,12 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "who shut the door on a meeting, and when, is part of what the record says happened — the line ended_by_user_id sits on",
   },
   {
+    table: "meeting_personal_room",
+    subjectKey: "owner_user_id",
+    action: "retain-under-matter",
+    note: "whose standing room a session was held in is part of what the record says about every meeting opened from it — the line created_by_user_id sits on",
+  },
+  {
     table: "meeting_attendance",
     subjectKey: "user_id",
     action: "retain-under-matter",

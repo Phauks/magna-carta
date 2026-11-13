@@ -3,7 +3,12 @@ import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimen
 import type { Bindings } from "../../bindings.ts";
 import { resolveFirmBucket } from "../../files/firm-bucket.ts";
 import { resolveEnginePort } from "../../conversions/conversion-engine.ts";
-import type { ConversionMessage } from "../../conversions/conversion-types.ts";
+import {
+  type ConversionMessage,
+  type ConversionQueueMessage,
+  isPlayableCopyMessage,
+} from "../../conversions/conversion-types.ts";
+import { handlePlayableCopyMessage } from "./playable-copy-consumer.ts";
 
 // PER-FIRM BUCKET SEAM: the source object is read and the result written through resolveFirmBucket
 // (files/firm-bucket.ts) — the same resolver the conversion routes presign the upload and the result
@@ -51,17 +56,30 @@ async function convertOne(
 }
 
 export async function conversionQueue(
-  batch: MessageBatch<ConversionMessage>,
+  batch: MessageBatch<ConversionQueueMessage>,
   env: Bindings,
   resolveEngines: (env: Bindings) => EngineResolver = resolveEnginePort,
 ): Promise<void> {
   for (const message of batch.messages) {
+    const body = message.body;
+    // A playable copy keeps its state on the version's row, not in a ConversionJob, so a fault has
+    // no coordinator to mark: the retry is the whole answer, and the row stays pending until the
+    // copy is made or the request goes stale (packages/file-manager/src/playable-copy.ts).
+    if (isPlayableCopyMessage(body)) {
+      try {
+        await handlePlayableCopyMessage(env, body);
+        message.ack();
+      } catch {
+        message.retry();
+      }
+      continue;
+    }
     try {
-      await convertOne(env, message.body, resolveEngines);
+      await convertOne(env, body, resolveEngines);
       message.ack();
     } catch (error) {
       // Transport/unexpected failure: mark failed (the DO guards against clobbering a done) and retry.
-      await coordinatorFor(env, message.body).markFailed(
+      await coordinatorFor(env, body).markFailed(
         error instanceof Error ? error.message : "conversion error",
       );
       message.retry();

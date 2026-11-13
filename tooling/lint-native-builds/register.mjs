@@ -382,6 +382,29 @@ export const NATIVE_CRATES = new Map([
     },
   ],
   [
+    "crabgrind",
+    {
+      status: "surfaced",
+      language: "C (Valgrind client-request bindings)",
+      reason:
+        "In the lock through mls-core: openmls_rust_crypto -> hpke-rs -> libcrux-sha3 -> " +
+        "libcrux-traits -> libcrux-secrets, which depends on it only under " +
+        "`cfg(valgrind_ct_test)`, a configuration flag for running libcrux's constant-time tests " +
+        "under Valgrind that nothing here sets. Never compiled by a build, a test run or a deploy: " +
+        "`cargo tree -p mls-core -i crabgrind` is empty for the host and for wasm32",
+    },
+  ],
+  [
+    "clang-sys",
+    {
+      status: "surfaced",
+      language: "C (libclang bindings)",
+      reason:
+        "bindgen's binding to libclang, in the lock only as crabgrind's build dependency, so it " +
+        "is reached exactly when crabgrind is: never, here. See the crabgrind entry",
+    },
+  ],
+  [
     "ring",
     {
       status: "surfaced",

@@ -251,12 +251,12 @@ cross services: an engine backed by the convert worker (`libvips`, `image-pdf`, 
 the `CONVERT_WORKER_ENGINE_IDS` set is the authoritative list) gets the service-binding port (which
 stamps `x-engine-id` so that worker dispatches to the right Container); the `ocr` engine is its own
 live service and resolves to the `OCR_SERVICE` binding instead; an engine whose Container is not
-built yet (`email`, `ffmpeg`) resolves to the deferred port (`engine-not-implemented`), as does any
+built yet (`email`), or one this port deliberately leaves out (`transcode`, below), resolves to the deferred port (`engine-not-implemented`), as does any
 engine whose binding is absent — which is every engine under the local Miniflare test pool, whose
 `CONVERT` stub satisfies startup validation only.
 
-The **engines** (the pure-Rust raster service, LibreOffice headless, FFmpeg, the future Rust PDF
-engine) do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
+The **engines** (the pure-Rust raster service, LibreOffice headless, the pure-Rust transcode
+engine, the future Rust PDF engine) do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
 outbound-disabled Container runtimes that scan was extracted into its own worker for. They live in a
 **dedicated conversion worker** that owns the engine Container(s) and is reached from here through a
 thin **service-binding adapter** that implements the same `ConversionPort` (the split is the existing
@@ -287,6 +287,18 @@ In the same step it applies the **browser-upload CORS policy** from
 `src/files/browser-upload-cors.ts`, without which the file-manager upload's presigned PUT dies at the
 preflight and the firm cannot upload at all. Buckets provisioned before 2026-09-03 take that policy
 by hand: `pnpm run emit-r2-cors` prints it as the dashboard's JSON (the deploy runbook, section 15).
+
+**The playable copy reaches the transcode engine by STREAMING, not through this port.** The
+`ConversionPort` reads a whole source into memory, which a recording would exhaust, so `transcode` is
+deliberately absent from `CONVERT_WORKER_ENGINE_IDS`. A copy of a video every browser plays is asked
+for at `POST /api/v1/files/{id}/playable-copy` (`routes/files/playable-copy.ts`), rides the same
+`CONVERSION` queue as a `PlayableCopyMessage` (it carries `kind`, which a `ConversionMessage` never
+does), and `background/conversions/playable-copy-consumer.ts` pipes the R2 body into the convert
+worker and the engine's answer into a length-bound put (the engine always sends a Content-Length).
+Its state lives on the version's own row (`packages/file-manager/src/playable-copy.ts`), not in a
+`ConversionJob`, so it has no coordinator and no alarm: a fault throws and the queue retries, and a
+request left pending past its stale window may be asked for again. One queue invocation is cut off at
+fifteen minutes, which is the longest conversion this path can finish.
 
 The dedicated-worker split is a cross-cutting decision shared with the scan, editing, and PDF-engine
 subsystems (search is the exception — its index is durable per-firm data), with `apps/scan-worker`

@@ -741,6 +741,17 @@ export const PROBLEM_TYPES = {
   // The action item has already been made into a task (HTTP 409) — by this member a moment ago or by a
   // colleague — and a second press must not put a second copy of one obligation on somebody's list.
   "meeting-summary-action-item-tasked": "meeting-summary-action-item-tasked",
+  // A MEMBER'S PERSONAL ROOM. A link that names no room, or the room of somebody who has left the
+  // firm (HTTP 404) — one answer for both, because the second is not the caller's business.
+  "personal-room-not-found": "personal-room-not-found",
+  // Opening or changing somebody else's room (HTTP 403): only its owner does either.
+  "personal-room-not-owner": "personal-room-not-owner",
+  // Moving a meeting onto a matter that cannot be moved there (HTTP 409): it is not a personal-room
+  // session, it is on a matter already, or the caller is neither its room's owner nor running it.
+  "meeting-move-refused": "meeting-move-refused",
+  // Somebody else replaced the room's link or moved the session between the read and the write
+  // (HTTP 409); what they did stands, and the remedy is to look again.
+  "personal-room-changed": "personal-room-changed",
   // A MEETING GUEST'S LINK THAT CANNOT BE USED, said to somebody holding a correctly SIGNED one — which
   // only somebody the firm sent it to can hold, so each is specific and actionable. A token whose
   // signature does not verify never reaches any of these: it gets the reserved `not-found`, one flat
@@ -757,6 +768,10 @@ export const PROBLEM_TYPES = {
   // A host asked to invite somebody the record cannot resolve to a Directory entity on the event with
   // an address the firm may use (HTTP 422). The remedy is in the Directory, not in retrying.
   "guest-not-invitable": "guest-not-invitable",
+  // A playable copy was asked for of a version the converter cannot take at all (HTTP 422): not an
+  // MP4, QuickTime or Matroska video, stored in a form it cannot read directly, or flagged by a scan.
+  // DISTINCT from a copy the engine tried and could not make, which is a 200 with state unavailable.
+  "playable-copy-not-a-candidate": "playable-copy-not-a-candidate",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

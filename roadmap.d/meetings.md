@@ -81,7 +81,7 @@
   surface: screen
   spec: docs/specs/2026-09-20-meetings-external-guests-design.md
   evidence: Both halves built. The server half — meeting_guest_invitation and meeting_guest_stay in packages/database/src/per-firm-schema.ts (migration 20260924T090000); packages/meetings/src/guest-types.ts, guest-statements.ts, guest-service.ts and guest-removal.ts, with presence unioned over both stay tables through MEETING_STAY_TABLES in meeting-statements.ts; the chokepoint's guest lane (guestLane in apps/api-worker/src/http/contracts/route-meta.ts, step 0 in chokepoint/chokepoint.ts, makeGuestLane in chokepoint/ports.ts); the credentials in apps/api-worker/src/meetings/guest-token.ts over src/signed-token.ts; the four host routes and six guest routes in apps/api-worker/src/http/routes/communications/meetings-guest.ts; guest sockets redacted per viewer in apps/api-worker/src/meetings/room/. Tests: test/guest-lane.test.ts, test/guest-token.test.ts, test/guest-invitation-mail.test.ts, test/meetings-guest-routes.test.ts, the guest block in test/meeting-room.test.ts, and packages/meetings/test/guests.test.ts.
-  notes: The web half is the arrival page at apps/web/src/routes/join/[token]/ outside the application shell, apps/web/src/lib/meetings/guest-meeting.svelte, guest-arrival.svelte, guest-api.ts and meeting-guests-panel.svelte, the guest mark in the lobby panel, and the guest page's own crash screen; nothing yet seen in a browser. The portal grant model will subsume the link when it lands.
+  notes: The web half is the arrival page at apps/web/src/routes/join/[token]/ outside the application shell, apps/web/src/lib/meetings/guest-meeting.svelte, guest-arrival.svelte, guest-api.ts and meeting-guests-panel.svelte, the guest mark in the lobby panel, and the guest page's own crash screen; nothing yet seen in a browser. The portal grant model will subsume the link when it lands. A guest can also be invited by typed name and address (2026-11-10, the owner's ruling that the Directory is not forced): packages/meetings/src/guest-by-address.ts matches the address or makes a needs-review Directory person and puts them on the event, POST /api/v1/meetings/{meetingId}/guests/by-address then invites them; the Directory has no review list for those entries yet.
   audience: public
   public-summary: Invite a client or another party to a meeting with a one-time link.
 
@@ -254,16 +254,19 @@
 - id: meetings.personal-room
   name: A member's standing room
   scope: A room a member always has, joined by a stable link, not tied to a calendar event.
-  status: not-started
-  evidence: No code.
-  notes: The owner's ruling of 2026-11-09 — personal rooms are allowed. The design still has to say how a meeting held in one reaches the record, since every other meeting hangs from a calendar event.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-11-10-meetings-personal-rooms-design.md
+  evidence: Built 2026-11-10 — `meeting_personal_room` and `meeting.personal_room_id` (one open session per room by a partial unique index); `packages/meetings/src/personal-room-service.ts` (made once, link replaced, opened onto a firm or matter event, arrival by link onto the session's event, abandoned sessions ended at the last departure, moved onto a matter during or after); eight routes in `apps/api-worker/src/http/routes/communications/meeting-personal-rooms.ts`; the My Room card, the link page at `/meetings/rooms/{linkCode}` and Move to a Matter in the room. Tests: `packages/meetings/test/personal-room.test.ts`, `apps/api-worker/test/meeting-personal-room-routes.test.ts`, `apps/web/test/my-room-card.test.ts`.
+  notes: The owner's rulings of 2026-11-09 (personal rooms allowed) and 2026-11-10 (a session moves onto a matter during or after it; guests are not forced into the Directory). Open — whether a room also has a standing link for people outside the firm; today a guest is invited per meeting.
 
 - id: meetings.end-to-end-encryption
   name: End-to-end encryption
   scope: Media the routing service cannot read — keys agreed between browsers over MLS, frames encrypted with SFrame before they leave, at the room's full size, with cloud recording, live captions and dial-in each pausing encryption visibly while they run.
-  status: designed
+  status: in-build
+  surface: awaiting-screen
   spec: docs/specs/2026-11-09-meetings-end-to-end-encryption-design.md
-  evidence: No code. Designed 2026-11-09 over the research in docs/research/2026-09-24-meetings-end-to-end-encryption.md; four experiments (simulcast with encrypted VP8, Opus clear prefix, encrypted H.264 from Safari, MLS cost at 300) come before any code.
+  evidence: Stream docs/active-work/claude/project-thread-ezg0ip.md. Built so far, nothing a member can reach yet — crates/mls-core (the MLS group over OpenMLS and its pure-Rust provider: admissions checked against the stay the room names, removals, the pause flag in the group context, the committer rule, the security code) and packages/mls (the session over its WebAssembly, and the SFrame cipher on WebCrypto, held to every header vector and the AES-GCM vector in RFC 9605). Experiment E4 passed on 2026-11-10 (an admission or removal at 300 under 0.35 s at a 4x CPU slowdown, about 500 KB gzipped); E1 to E3 need the live routing service and Safari. Since built: the room's relay (apps/api-worker/src/meetings/room/room-group.ts), the browser's key group and frame transform (apps/web/src/lib/meetings/client/encryption-group.ts, meeting-encryption.ts, frame-encryption.ts and its worker), and `meeting.encrypted`, chosen when a room opens and honoured only where the deployment var MEETINGS_END_TO_END_ENCRYPTION is on, so no meeting opens encrypted yet. Tests: apps/api-worker/test/meeting-room-group.test.ts, apps/web/test/meeting-encryption.test.ts. Not built: the pause rows and banner, the security panel, a host's choice at Start on the screen.
   notes: The owner's rulings of 2026-11-09 — build it; MLS rather than sender keys so the room keeps its 300; on by default, fixed at Start; recordings stay in the cloud and live captions stay available, and dial-in is allowed, each pausing end-to-end encryption under a banner everyone sees, signed into the group so the server cannot fake a pause, and resuming with fresh keys.
 - id: meetings.usage-reporting
   name: Meetings usage and quality

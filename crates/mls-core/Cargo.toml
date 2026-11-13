@@ -1,0 +1,29 @@
+[package]
+name = "mls-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Group key agreement for an end-to-end encrypted meeting: OpenMLS (RFC 9420) over its pure-Rust
+# RustCrypto provider. The AWS-LC and libcrux providers are never used here: the first is C, and the
+# second is not needed. `cargo tree -i cc` must stay empty for this crate (golden rule 14).
+openmls = "0.9"
+openmls_basic_credential = "0.6"
+openmls_rust_crypto = "0.6"
+openmls_traits = "0.6"
+thiserror = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# OpenMLS's "js" feature is its browser randomness and clock. getrandom 0.2, which the curve crates
+# still reach, needs its own "js" feature named once for the browser build; it compiles no C.
+openmls = { version = "0.9", features = ["js"] }
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+wasm-bindgen = "0.2"
+
+# The workspace lint floor (see crates/Cargo.toml).
+[lints]
+workspace = true

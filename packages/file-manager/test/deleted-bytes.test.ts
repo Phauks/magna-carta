@@ -102,7 +102,13 @@ describe("purgeableVersionObjects — the purge guard", () => {
     const afterOne = await purgeableVersionObjects(database, original.fileId);
     expect(afterOne.destroy).toEqual([]);
     expect(afterOne.retained).toEqual([
-      { versionId: original.versionId, r2Key: original.r2Key, exportR2Key: null, heldBy: 1 },
+      {
+        versionId: original.versionId,
+        r2Key: original.r2Key,
+        exportR2Key: null,
+        playableCopyR2Key: null,
+        heldBy: 1,
+      },
     ]);
   });
 
@@ -128,7 +134,12 @@ describe("purgeableVersionObjects — the purge guard", () => {
     const answer = await purgeableVersionObjects(database, alone.fileId);
     expect(answer.retained).toEqual([]);
     expect(answer.destroy).toEqual([
-      { versionId: alone.versionId, r2Key: alone.r2Key, exportR2Key: null },
+      {
+        versionId: alone.versionId,
+        r2Key: alone.r2Key,
+        exportR2Key: null,
+        playableCopyR2Key: null,
+      },
     ]);
   });
 
