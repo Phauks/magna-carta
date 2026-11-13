@@ -125,7 +125,7 @@
     writeFailure = stated(
       outcome.failure,
       `${notificationCategoryLabel(category)} was not changed.`,
-      "Nothing answered, so nothing changed; choosing again tries once more.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
     // The screen still shows the old value, because the read is the only thing that changed it.
   }

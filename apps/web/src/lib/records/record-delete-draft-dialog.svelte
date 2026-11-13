@@ -84,9 +84,7 @@
 
   {#snippet fields()}
     <p class="text-sm">
-      The draft is removed and does not come back. Nothing has been submitted or billed from it, so
-      there is no record to preserve &mdash; which is the whole difference from Void, where the
-      record stays on the ledger because somebody may be asked to account for it.
+      The draft is deleted for good. Nothing was submitted or billed from it, so there&rsquo;s no record to keep. To keep a record, void it instead.
     </p>
   {/snippet}
 </ActionDialog>

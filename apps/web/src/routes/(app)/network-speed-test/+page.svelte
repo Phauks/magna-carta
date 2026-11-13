@@ -342,9 +342,7 @@
     {#snippet info()}
       <InfoHint label="What does Download mean?">
         <p>
-          The headline figure is the 90th percentile of this run's samples, not an average — nine
-          measurements in ten were at least this fast. The median, 95th percentile and peak below
-          show how consistent the connection was.
+          The main figure is the 90th percentile, not an average: nine in ten measurements were at least this fast. The median, 95th percentile and peak below show how steady the connection was.
         </p>
       </InfoHint>
     {/snippet}
@@ -361,9 +359,7 @@
     {#snippet info()}
       <InfoHint label="What does Upload mean?">
         <p>
-          The headline figure is the 90th percentile of this run's samples, not an average — nine
-          measurements in ten were at least this fast. The median, 95th percentile and peak below
-          show how consistent the connection was.
+          The main figure is the 90th percentile, not an average: nine in ten measurements were at least this fast. The median, 95th percentile and peak below show how steady the connection was.
         </p>
       </InfoHint>
     {/snippet}
@@ -412,8 +408,7 @@
         published; the exact cutoffs between the five ratings are not.
       </p>
       <p class="mt-8">
-        Packet loss is not measured here, and it feeds all three ratings — online gaming draws on
-        only three measurements, one of them packet loss. Read these ratings as incomplete.
+        Packet loss isn't measured here, and all three ratings use it, so read them as incomplete.
       </p>
     </InfoHint>
     <a

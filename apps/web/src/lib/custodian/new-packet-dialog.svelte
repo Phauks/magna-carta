@@ -189,7 +189,7 @@
       "The packet could not be logged.",
       // Nothing answered is a stronger statement than a refusal, and it is the one a person about
       // to press the button again needs: no number was drawn, so pressing again logs one packet.
-      "Nothing answered. Nothing was logged, so no number was drawn.",
+      "Couldn't connect. Nothing was logged and no number was used.",
     );
     return "refused";
   }

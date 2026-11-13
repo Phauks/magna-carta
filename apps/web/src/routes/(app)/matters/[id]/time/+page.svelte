@@ -106,7 +106,7 @@
       failure={loadFailure}
       title="Time Could Not Be Read"
       fallback="This matter's time could not be read."
-      whenSilent="Nothing answered when this matter's time was asked for."
+      whenSilent="Couldn't connect while loading this matter's time."
       onRetry={() => (reloadToken += 1)}
     >
       The record itself is unaffected: nothing was changed by this failure.

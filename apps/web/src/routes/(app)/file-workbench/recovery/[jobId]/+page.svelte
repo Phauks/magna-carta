@@ -153,8 +153,7 @@
             {/if}
           </div>
           <p class="text-xs text-text-muted">
-            Shown once, to you. Copy it now — a reload of this page will not show it again, and
-            after a while it is cleared so another firm member cannot read it even with this link.
+            Shown only to you, once. Copy it now. It won't show again if you reload, and it's cleared after a while.
           </p>
         {/if}
       </Card.Content>

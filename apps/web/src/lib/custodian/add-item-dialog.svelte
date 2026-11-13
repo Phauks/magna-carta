@@ -132,7 +132,7 @@
     failure = stated(
       outcome.failure,
       "The item could not be described.",
-      "Nothing answered. Nothing was recorded against this packet.",
+      "Couldn't connect. Nothing was saved to this packet.",
     );
     return "refused";
   }

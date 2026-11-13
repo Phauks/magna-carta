@@ -33,8 +33,7 @@
           This page and the service are briefly on different releases. Reload and they will line up
           again. Nothing you have saved is affected.
         {:else}
-          More than one part of the screen could not be read just now. Nothing you have saved is
-          affected — the failures are reads, and none of them changed anything.
+          Parts of this screen couldn't load. Your saved work isn't affected.
         {/if}
       </Alert.Description>
       <div class="flex flex-wrap items-center gap-8 pt-4">

@@ -318,7 +318,7 @@
       readFailure = stated(
         outcome.failure,
         "The document could not be read.",
-        "Nothing answered when the document was read.",
+        "Couldn't connect while reading the document.",
       );
       opening = false;
       return;
@@ -467,7 +467,7 @@
     failure={data.failure}
     subject="The document"
     fallback="The document could not be read."
-    whenSilent="Nothing answered when the document was read."
+    whenSilent="Couldn't connect while reading the document."
     onRetry={() => void invalidateAll()}
   />
 {:else if file !== null && filesBack !== null}
@@ -535,9 +535,8 @@
             Don't have the password? <a
               class="underline"
               href="/file-workbench?capability=unlock"
-              {...opensBeside("session")}>Try Password Recovery</a
-            > in a new tab — download the document there first, since the recovery tool works on its
-            own copy of a file.
+              {...opensBeside("session")}>Open Password Recovery</a
+            > in a new tab, and download the document there first.
           </p>
         </div>
       {:else}

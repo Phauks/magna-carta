@@ -174,7 +174,7 @@
     inviteFailure = stated(
       outcome.failure,
       "The invitation was not sent.",
-      "Nothing answered, so nobody was invited; pressing again tries once more.",
+      "Couldn't connect. No one was invited. Try again.",
     );
     return "refused";
   }
@@ -226,7 +226,7 @@
     rolesFailure = stated(
       outcome.failure,
       "The roles were not changed.",
-      "Nothing answered, so nothing changed; pressing again tries once more.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
     return "refused";
   }

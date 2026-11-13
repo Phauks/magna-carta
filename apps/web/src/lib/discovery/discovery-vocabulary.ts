@@ -188,7 +188,7 @@ const LOAD_STATES: Readonly<Record<DiscoveryLoadState, VocabularyEntry>> = {
   reversed: {
     label: "Reversed",
     tone: "warning",
-    meaning: "Withdrawn by a recorded act — a clawback. The load itself was never edited.",
+    meaning: "Withdrawn by a clawback. The load itself wasn't edited.",
   },
 };
 
@@ -289,8 +289,7 @@ const EXCEPTION_CODES: Readonly<Record<ReviewDocumentExceptionCode, VocabularyEn
     label: "Archive refused by a guard",
     tone: "warning",
     meaning:
-      "Expanding the archive would have exceeded a safety limit — its depth, its entry count or " +
-      "the size it expands to.",
+      "The archive is too large to expand safely: too deep, too many entries, or too big once expanded.",
   },
   oversize: {
     label: "Too large",

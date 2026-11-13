@@ -57,7 +57,7 @@ export function noteSheet(note: MatterNote, context: NoteSheetContext): PrintShe
           // the thing happened, not for when somebody got round to typing it.
           {
             label: "Date",
-            value: happened ?? "Not recorded — the note names no single moment",
+            value: happened ?? "Not recorded (the note has no single date)",
           },
           { label: "Written By", value: context.authorName },
           { label: "Written", value: context.instant(note.createdAt) },

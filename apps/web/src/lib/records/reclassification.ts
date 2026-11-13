@@ -99,9 +99,7 @@ export function mayReclassify(record: ReclassifiableRecord): ReclassifyVerdict {
   if (record.invoiceNumber !== null) {
     return {
       allowed: false,
-      reason:
-        `Billed on ${record.invoiceNumber}. A record on a finalized bill is evidence — the ` +
-        "correction is a credit note beside it, never a move.",
+      reason: `Billed on ${record.invoiceNumber}. Items on a finalized bill can't be moved. To correct it, add a credit note.`,
     };
   }
   if (record.claimedByDraftInvoice) {
@@ -125,7 +123,7 @@ export function mayReclassify(record: ReclassifiableRecord): ReclassifyVerdict {
   }
   return {
     allowed: true,
-    reason: `Move this ${recordName} to another ledger — it is a draft nothing is relying on yet.`,
+    reason: `Move this ${recordName} to another ledger. It's a draft, so nothing depends on it yet.`,
   };
 }
 
@@ -173,15 +171,13 @@ export function carryFacts(
   } else if (from === "fee" && to === "time") {
     amountCarriesAs("The amount is held as the target amount");
     loses.push(
-      "Time needs HOURS and a RATE, which a flat charge never had — it opens incomplete, as a " +
-        "draft that cannot be billed until they are entered",
+      "Time needs hours and a rate, which a flat fee doesn't have. It opens as a draft that can't be billed until you add them.",
     );
   } else if (from === "cost" && to === "time") {
     amountCarriesAs("The amount is held as the target amount");
     loses.push("The payee and the expense code do not carry");
     loses.push(
-      "Time needs HOURS and a RATE — it opens incomplete, as a draft that cannot be billed until " +
-        "they are entered",
+      "Time needs hours and a rate. It opens as a draft that can't be billed until you add them.",
     );
   } else if (from === "fee" && to === "cost") {
     amountCarriesAs("The amount carries exactly");

@@ -98,7 +98,7 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
             value:
               cost.status !== "billed"
                 ? "—"
-                : (cost.invoiceId ?? "Billed — the bill is not recorded on this cost"),
+                : (cost.invoiceId ?? "Billed, but the bill isn't linked to this cost"),
           },
         ],
       },

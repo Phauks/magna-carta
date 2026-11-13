@@ -307,7 +307,7 @@
       failure={loadFailure}
       title="The Docket Could Not Be Read"
       fallback="The firm's matters could not be read."
-      whenSilent="Nothing answered when the docket was asked for."
+      whenSilent="Couldn't connect while loading the docket."
       onRetry={reread}
     />
   {:else}

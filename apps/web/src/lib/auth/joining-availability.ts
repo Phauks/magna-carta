@@ -66,7 +66,7 @@ export const JOINING_STEPS: readonly JoiningStep[] = [
     label: "Ask a firm to let you in",
     reach: "unbuilt",
     behaviour:
-      "Nothing publishes which firms exist, and nothing should — a directory of a platform's law firms is a customer list. A firm brings people in by issuing an invitation, so ask whoever invited you for a code.",
+      "Firms aren't listed publicly. Ask the person who invited you for an invitation code.",
   },
   {
     id: "agreements",

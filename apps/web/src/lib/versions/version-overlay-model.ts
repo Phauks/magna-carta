@@ -185,7 +185,7 @@ export function serviceStateDescription(state: ServiceVersionState): string | nu
     case "unbound":
       return "This deployment is not wired to it.";
     case "unreachable":
-      return "Wired here, but it did not answer.";
+      return "Set up, but it didn't respond.";
     case "unreported":
       return "Answering, from a build too old to state its version.";
   }

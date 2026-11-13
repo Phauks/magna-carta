@@ -47,7 +47,7 @@
       }),
     },
     {
-      name: "Nothing answered",
+      name: "Couldn't connect",
       note: "A different thing to a refusal, and the one the member's own connection often explains.",
       subject: "The costs",
       failure: failure("GET /matters/mat_8QK2/costs", null),

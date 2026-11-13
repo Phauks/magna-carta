@@ -65,7 +65,8 @@ const DISPOSITIONS: Readonly<Record<CommunicationDisposition, VocabularyEntry>> 
   spam: { label: "Spam or wrong number", meaning: "Nobody the firm has business with." },
   firmBusiness: {
     label: "Firm business",
-    meaning: "The firm's own affairs — a vendor, the landlord, the bar — not a client's case.",
+    meaning:
+      "The firm's own business, such as a vendor, the landlord or the bar. Not a client matter.",
   },
   noAction: {
     label: "Nothing came of it",

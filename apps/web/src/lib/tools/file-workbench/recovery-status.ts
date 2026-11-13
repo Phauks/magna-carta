@@ -34,7 +34,7 @@ export function presentRecoveryStatus(
     case "found":
       return {
         heading: "Found",
-        description: "The password is shown below. Copy it now — it is shown once.",
+        description: "The password is shown below. Copy it now. It's only shown once.",
         active: false,
       };
     case "exhausted":

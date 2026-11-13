@@ -84,7 +84,7 @@
   readFailureTitle="The Search Settings Could Not Be Read"
   readFailureFallback="The firm's search settings were not read."
   saveFailureFallback="The search settings are unchanged. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the search settings are unchanged. What you chose is still staged."
+  saveFailureWhenSilent="Couldn't connect. The search settings are unchanged, and your choices are still here."
   {afterRow}
   {after}
 />

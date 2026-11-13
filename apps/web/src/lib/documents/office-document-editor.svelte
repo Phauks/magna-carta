@@ -169,7 +169,7 @@
     openFailure = stated(
       result.failure,
       "The editing session did not open.",
-      "Nothing answered when the editing session was opened.",
+      "Couldn't connect while opening the editor.",
     );
   }
 
