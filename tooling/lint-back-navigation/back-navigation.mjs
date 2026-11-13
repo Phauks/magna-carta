@@ -82,6 +82,10 @@ export const STANDING_EXEMPTIONS = new Map([
     "the same as the editor: the viewer's way back is the matter's Files page, and the template library above it is not where a document lives",
   ],
   [
+    "/documents/[id]/pdf",
+    "the same as the viewer: the PDF Editor's way back is the matter's Files page, and the template library above it is not where a document lives",
+  ],
+  [
     "/documents/[id]/watch",
     "the same as the viewer: the player's way back is the matter's Files page, and the template library above it is not where a recording lives",
   ],
