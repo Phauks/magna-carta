@@ -10,7 +10,7 @@
   status: partial
   adrs: ADR-0044
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: The domain package (packages/community) and the control-plane tables are built and tested; the board worker, its sign-in handoff and the screens follow. Board home layout: option A, list with a product-area rail, picked by the owner 2026-11-10.
+  evidence: The domain package (packages/community), the control-plane tables, the board's own worker (apps/community-worker, the API, the read-only and off switch, noindex on every answer) and the one-time sign-in link from the app are built and tested; the worker's first deploy and the screens' wiring follow. Board home layout: option A, list with a product-area rail, picked by the owner 2026-11-10.
 
 - id: community.board
   name: Feedback board
@@ -18,11 +18,11 @@
   status: partial
   surface: awaiting-screen
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
-  evidence: Posting, voting (distinct-firm ranking, counts below five withheld), comments, the status pipeline with decline reasons, duplicates, accepted answers and the roadmap-by-status counts are built in packages/community/src/board-service.ts and tested against the control-plane schema; no route or screen yet.
+  evidence: Posting, voting (distinct-firm ranking, counts below five withheld), comments, the status pipeline with decline reasons, duplicates, accepted answers and the roadmap-by-status counts are built in packages/community/src/board-service.ts and tested against the control-plane schema, and served by apps/community-worker under /api/; the screens are built in the developer console and not yet wired to it.
   audience: public
   public-name: Feature requests and voting
   public-summary: Ask for what your firm needs, vote on what other firms have asked for, and see what we decided and why.
-  awaiting-owner: How a signed-in member's session reaches the community host, which is a different origin from the application. (The cross-firm exception was ratified on 2026-11-10.)
+  awaiting-owner: Connect the magna-carta-community worker to Workers Builds and set COMMUNITY_HANDOFF_SECRET on it and on magna-carta; nothing on the community host is live until then.
 
 - id: community.package
   name: Extractable community package
