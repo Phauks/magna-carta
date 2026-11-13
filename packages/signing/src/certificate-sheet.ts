@@ -140,12 +140,12 @@ function initialCount(signer: SignerCompletion): number {
 }
 
 /**
- * The hash as two lines of 32 characters, each set in groups of six, so a reader comparing it
- * against another copy keeps their place. The last group of a line is the two characters left over.
+ * The hash as two lines of 32 characters, each set in eight groups of four, the grouping the
+ * reference uses, so a reader comparing it against another copy keeps their place.
  */
 function hashRows(hash: string): string {
   const lines = hash.match(/.{1,32}/g) ?? [hash];
-  return lines.map((line) => (line.match(/.{1,6}/g) ?? [line]).join(" ")).join("\n");
+  return lines.map((line) => (line.match(/.{1,4}/g) ?? [line]).join(" ")).join("\n");
 }
 
 /** `2026-07-18 12:00:01`: an instant to the second, in Coordinated Universal Time. */

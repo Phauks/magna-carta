@@ -64,14 +64,14 @@ describe("certificateSheet", () => {
     expect(value("Signers")).toBe("1");
     expect(value("Signatures")).toBe("2");
     expect(value("Initials")).toBe("5");
-    // Two lines of 32 characters, each in groups of six.
+    // Two lines of 32 characters, each in eight groups of four.
     const printedHash = value("Document Hash (SHA-256)") ?? "";
     expect(printedHash.replaceAll(/\s/g, "")).toBe(HASH);
     expect(
       printedHash.split("\n").map((line) => line.split(" ").map((group) => group.length)),
     ).toEqual([
-      [6, 6, 6, 6, 6, 2],
-      [6, 6, 6, 6, 6, 2],
+      [4, 4, 4, 4, 4, 4, 4, 4],
+      [4, 4, 4, 4, 4, 4, 4, 4],
     ]);
     expect(value("Email")).toBe("alice@example.test");
     expect(value("Identified By")).toBe("Email/SMS one-time access code");
