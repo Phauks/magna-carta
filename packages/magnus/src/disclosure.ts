@@ -10,4 +10,8 @@
 //
 // Version 2: what Magnus can SEE changed. A member can attach a matter's files to a conversation, and
 // the readable text of those files is sent with the question. Nothing else is read.
-export const MAGNUS_DISCLOSURE_VERSION = 2;
+//
+// Version 3: what Magnus can SEE changed again. A member can let one conversation kept on a matter
+// read their own other conversations on that matter. It is off until they turn it on, and it never
+// reaches a colleague's conversation.
+export const MAGNUS_DISCLOSURE_VERSION = 3;

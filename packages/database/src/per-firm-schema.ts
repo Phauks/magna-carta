@@ -10246,6 +10246,32 @@ export const magnusConversationShelf = sqliteTable(
   ],
 );
 
+// What Magnus may read beyond the conversation itself, granted per conversation by its author. A
+// row is a permission turned on; no row is off, which is every permission's default. One row per
+// permission rather than a column per permission, because the list grows as Magnus learns to read
+// more (the firm's records, the client, the firm library), and each later one is a new value in the
+// CHECK rather than a new column on every conversation.
+export const magnusConversationPermission = sqliteTable(
+  "magnus_conversation_permission",
+  {
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // `own-matter-conversations`: the author's own other conversations kept on the same matter.
+    permission: text("permission", { enum: ["own-matter-conversations"] }).notNull(),
+    grantedBy: text("granted_by").notNull().$type<UserId>(),
+    grantedAt: text("granted_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.conversationId, table.permission] }),
+    check(
+      "magnus_conversation_permission_check",
+      sql`${table.permission} IN ('own-matter-conversations')`,
+    ),
+  ],
+);
+
 // ---------------------------------------------------------------------------------------------
 // Discovery — the corpus of documents under review on a matter.
 //

@@ -160,3 +160,17 @@ export const RemovedTurn = z
     removedAt: z.string(),
   })
   .meta({ id: "MagnusRemovedTurn" });
+
+// What Magnus may read beyond the conversation, as its author set it for one conversation. Every
+// permission is off until turned on (permissions.ts).
+export const ConversationPermissionName = z
+  .enum(["own-matter-conversations"])
+  .meta({ id: "MagnusConversationPermissionName" });
+
+export const ConversationPermissionRequest = z
+  .object({ granted: z.boolean() })
+  .meta({ id: "MagnusConversationPermissionRequest" });
+
+export const ConversationPermissions = z
+  .object({ permissions: z.array(ConversationPermissionName) })
+  .meta({ id: "MagnusConversationPermissions" });

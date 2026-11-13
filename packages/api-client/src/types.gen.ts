@@ -8346,6 +8346,7 @@ export type MagnusConversationDetail = {
         nextCursor: string | null;
     };
     attachments: Array<MagnusConversationAttachment>;
+    permissions: Array<MagnusConversationPermissionName>;
 };
 
 export type MagnusTurn = {
@@ -8374,6 +8375,8 @@ export type MagnusConversationAttachment = {
     textStatus: 'pending' | 'sent' | 'cut' | 'unreadable';
     textBytes: number | null;
 };
+
+export type MagnusConversationPermissionName = 'own-matter-conversations';
 
 export type MagnusRenameConversationRequest = {
     title: string | null;
@@ -8438,6 +8441,14 @@ export type MagnusRemovedTurn = {
     memberTurnId: string;
     magnusTurnId: string | null;
     removedAt: string;
+};
+
+export type MagnusConversationPermissions = {
+    permissions: Array<MagnusConversationPermissionName>;
+};
+
+export type MagnusConversationPermissionRequest = {
+    granted: boolean;
 };
 
 export type ReviewSetAccessList = {
@@ -40468,6 +40479,57 @@ export type MagnusShelveConversationResponses = {
 };
 
 export type MagnusShelveConversationResponse = MagnusShelveConversationResponses[keyof MagnusShelveConversationResponses];
+
+export type MagnusSetConversationPermissionData = {
+    body: MagnusConversationPermissionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        permission: MagnusConversationPermissionName;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/permissions/{permission}';
+};
+
+export type MagnusSetConversationPermissionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusSetConversationPermissionError = MagnusSetConversationPermissionErrors[keyof MagnusSetConversationPermissionErrors];
+
+export type MagnusSetConversationPermissionResponses = {
+    /**
+     * The permissions now on for the conversation
+     */
+    200: MagnusConversationPermissions;
+};
+
+export type MagnusSetConversationPermissionResponse = MagnusSetConversationPermissionResponses[keyof MagnusSetConversationPermissionResponses];
 
 export type DiscoveryGetReviewSetAccessData = {
     body?: never;

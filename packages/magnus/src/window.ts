@@ -1,4 +1,9 @@
-import { ATTACHMENT_TEXT_MAX_BYTES, contentByteLength, cutToByteLength } from "./limits.ts";
+import {
+  ATTACHMENT_TEXT_MAX_BYTES,
+  EARLIER_CONVERSATIONS_MAX_BYTES,
+  contentByteLength,
+  cutToByteLength,
+} from "./limits.ts";
 import type { TurnRow } from "./types.ts";
 
 // The bounded conversation window: what the consumer actually sends to the model.
@@ -90,6 +95,49 @@ function layOutAttachments(attachments: readonly WindowAttachment[]): {
   return { preface: parts.join("\n\n"), outcomes };
 }
 
+// One of the author's own earlier conversations on the matter, already read by the caller: its name
+// and its turns, oldest first.
+export interface WindowEarlierConversation {
+  readonly title: string | null;
+  readonly turns: readonly TurnRow[];
+}
+
+function earlierConversationHeading(title: string | null): string {
+  return `--- Your earlier conversation on this matter: ${title ?? "Untitled"} ---`;
+}
+const EARLIER_CONVERSATION_CUT_MARK =
+  "[The rest of this conversation did not fit and was not sent.]";
+
+// Lays the earlier conversations out under their own budget, most recent first, each as the turns
+// the model may read ("Member:" and "Magnus:" lines). The first that does not fit is cut and marked,
+// and the rest are left out, for the same reason a file after the budget is: a heading over nothing
+// would say a conversation was there when it was not.
+function layOutEarlierConversations(conversations: readonly WindowEarlierConversation[]): string {
+  const parts: string[] = [];
+  let remaining = EARLIER_CONVERSATIONS_MAX_BYTES;
+  for (const conversation of conversations) {
+    if (remaining <= 0) break;
+    const lines = [...conversation.turns]
+      .sort((left, right) => left.sequence - right.sequence)
+      .filter(hasContent)
+      .map((turn) => `${turn.speaker === "member" ? "Member" : "Magnus"}: ${turn.content}`);
+    const text = lines.join("\n\n").trim();
+    if (text === "") continue;
+    const bytes = contentByteLength(text);
+    if (bytes <= remaining) {
+      parts.push(`${earlierConversationHeading(conversation.title)}\n${text}`);
+      remaining -= bytes;
+      continue;
+    }
+    const cut = cutToByteLength(text, remaining);
+    parts.push(
+      `${earlierConversationHeading(conversation.title)}\n${cut}\n${EARLIER_CONVERSATION_CUT_MARK}`,
+    );
+    remaining = 0;
+  }
+  return parts.join("\n\n");
+}
+
 // Turns with no content are skipped, not counted: a pending or failed Magnus turn has nothing to say
 // to the model, and counting it against the window would silently shrink the real history.
 // A turn the model may read: it has words, and its author has neither removed it nor set it aside by
@@ -114,6 +162,10 @@ export interface ConversationWindowOptions {
   // ahead of the newest member turn under their own budget (ATTACHMENT_TEXT_MAX_BYTES), inside the
   // window's own cap. Absent or empty means the question travels as typed.
   readonly attachments?: readonly WindowAttachment[];
+  // The author's own earlier conversations on the matter, when the author turned that permission on
+  // for this conversation (permissions.ts). Placed ahead of the files under their own budget
+  // (EARLIER_CONVERSATIONS_MAX_BYTES). Absent or empty means none are sent.
+  readonly earlierConversations?: readonly WindowEarlierConversation[];
 }
 
 // Builds the window from the conversation's turns in ascending sequence order. Walks BACKWARD from
@@ -137,7 +189,12 @@ export function buildConversationWindow(
     }
   }
   const readWasCapped = options.readWasCapped === true;
-  const laidOut = layOutAttachments(options.attachments ?? []);
+  const laidOutFiles = layOutAttachments(options.attachments ?? []);
+  const earlier = layOutEarlierConversations(options.earlierConversations ?? []);
+  const laidOut = {
+    preface: [earlier, laidOutFiles.preface].filter((part) => part !== "").join("\n\n"),
+    outcomes: laidOutFiles.outcomes,
+  };
   if (lastMemberIndex === -1) {
     return {
       messages: [],

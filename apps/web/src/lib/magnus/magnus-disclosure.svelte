@@ -5,7 +5,8 @@
    *
    * WHAT IT HAS TO SAY IS FIXED, not editorial. Four facts a member must hold before they type:
    * the message leaves the platform for an outside model provider; the assistant sees what they
-   * type in that conversation and the text of the files they attach to it, and nothing else; it
+   * type in that conversation, the text of the files they attach to it and, where they turn it on,
+   * their own other conversations on the same matter, and nothing else; it
    * can do nothing but answer; and the transcript is kept as a firm record. Then the sentence an
    * administrator does not need told and the person typing does:
    * the assistant can be wrong, its output is not legal advice, and verifying anything they rely on
@@ -43,7 +44,7 @@
     },
     {
       heading: "Magnus sees what you type, and the files you attach",
-      body: "It reads the messages in the conversation you are in, and the readable text of any file you attach to it from the matter's own files. Nothing else: no other documents, no calendar, no directory. Keeping a conversation on a matter's file does not, by itself, let it read the matter.",
+      body: "It reads the messages in the conversation you are in, and the readable text of any file you attach to it from the matter's own files. If you turn it on for a conversation kept on a matter, it also reads your own other conversations on that matter, never a colleague's. Nothing else: no other documents, no calendar, no directory. Keeping a conversation on a matter's file does not, by itself, let it read the matter.",
     },
     {
       heading: "Magnus can only answer",

@@ -484,6 +484,13 @@
       "when": 1794603337268,
       "tag": "20261113T215937_file-the-playable-copy",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1794608141227,
+      "tag": "20261113T221541_magnus-conversation-permissions",
+      "breakpoints": true
     }
   ]
 }

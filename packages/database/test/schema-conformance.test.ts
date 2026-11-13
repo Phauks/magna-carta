@@ -210,6 +210,8 @@ describe("schema conformance (fitness functions)", () => {
       // What a conversation has been given to read: the pair IS the fact, and a file is attached to
       // a conversation once, so a surrogate key would let the same attachment exist twice.
       "magnus_conversation_attachment",
+      // A permission turned on for a conversation: the pair IS the permission, and it is on once.
+      "magnus_conversation_permission",
       // A community vote: one per person per post, so the pair IS the vote.
       "community_vote",
       // A list's flow, a team's membership and a task's watchers are each the pair itself: a move is

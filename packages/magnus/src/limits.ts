@@ -46,6 +46,11 @@ export const CONVERSATION_ATTACHMENTS_MAX = 10;
 // does not fit is CUT AND SAID rather than silently dropped.
 export const ATTACHMENT_TEXT_MAX_BYTES = 65536;
 
+// The author's own earlier conversations on the matter, together, per request, when the author has
+// turned that permission on. Its own budget, so a long history never crowds out a file the member
+// attached on purpose, and inside the window's cap like the files.
+export const EARLIER_CONVERSATIONS_MAX_BYTES = 32768;
+
 // A source file larger than this is not read at all. Extraction runs on every question that carries
 // the attachment, and a file this size is not a document a question is about.
 export const ATTACHMENT_SOURCE_MAX_BYTES = 25 * 1024 * 1024;

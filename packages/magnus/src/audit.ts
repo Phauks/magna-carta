@@ -37,6 +37,8 @@ export const MAGNUS_EVENTS = {
   folderDeleted: "magnus.folder_deleted",
   conversationShelved: "magnus.conversation_shelved",
   turnRemoved: "magnus.turn_removed",
+  permissionGranted: "magnus.permission_granted",
+  permissionRevoked: "magnus.permission_revoked",
 } as const;
 
 // What every Magnus write needs from its caller: the clock and the acting member (this package reads
@@ -317,5 +319,25 @@ export function conversationShelvedAudit(
       folderId: input.folderId,
       pinned: input.pinned ? 1 : 0,
     },
+  );
+}
+
+// A permission on what Magnus may read, turned on or off for one conversation. The permission's name
+// is a closed label, never anything a member typed.
+export function conversationPermissionAudit(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: {
+    readonly conversationId: MagnusConversationId;
+    readonly permission: string;
+    readonly granted: boolean;
+  },
+): SqlStatement {
+  return auditStatement(
+    database,
+    context,
+    input.granted ? MAGNUS_EVENTS.permissionGranted : MAGNUS_EVENTS.permissionRevoked,
+    input.conversationId,
+    { permission: input.permission },
   );
 }

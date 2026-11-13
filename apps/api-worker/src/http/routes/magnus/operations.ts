@@ -19,6 +19,7 @@ export const OPERATIONS: readonly string[] = [
   "magnus.removeTurn",
   "magnus.renameConversation",
   "magnus.renameFolder",
+  "magnus.setConversationPermission",
   "magnus.shelveConversation",
   "magnus.startConversation",
   "magnus.submitTurn",

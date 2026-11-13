@@ -13,10 +13,15 @@ import { catalogEntryFor } from "@magna-carta/inference/catalog";
 import { MAGNUS_SYSTEM_PROMPT } from "@magna-carta/magnus/system-prompt";
 import {
   markAttachmentTextStatement,
+  readConversation,
   readRecentTurns,
   readTurn,
 } from "@magna-carta/magnus/statements";
 import { completeTurn, settleTurnFailure } from "@magna-carta/magnus/turn";
+import {
+  listConversationPermissions,
+  readEarlierConversations,
+} from "@magna-carta/magnus/permissions";
 import type { MagnusWriteContext } from "@magna-carta/magnus/audit";
 import type { AttachmentTextStatus, TurnFailureLabel } from "@magna-carta/magnus/types";
 import {
@@ -131,6 +136,23 @@ export interface MagnusConsumerPorts {
   readonly attachments?: AttachmentTextReader;
 }
 
+// The author's own other conversations on the same matter, when the author turned that permission on
+// for this conversation and the conversation is kept on a matter. Anything else reads nothing.
+async function readPermittedEarlierConversations(
+  firmDatabase: ReturnType<typeof firmDatabaseFor>,
+  conversationId: MagnusConversationId,
+) {
+  const permissions = await listConversationPermissions(firmDatabase, conversationId);
+  if (!permissions.includes("own-matter-conversations")) return [];
+  const conversation = await readConversation(firmDatabase, conversationId);
+  if (conversation === undefined || conversation.matterId === null) return [];
+  return readEarlierConversations(firmDatabase, {
+    matterId: conversation.matterId,
+    authorUserId: conversation.createdBy,
+    excludeConversationId: conversationId,
+  });
+}
+
 export async function handleMagnusTurnJob(
   env: Bindings,
   job: MagnusTurnJob,
@@ -175,9 +197,16 @@ export async function handleMagnusTurnJob(
   const readAttachments = await attachmentReader.readAll(
     job.conversationId as MagnusConversationId,
   );
+  // The author's own other conversations on the matter, only where the author turned that on for
+  // this conversation, and read fresh for this question like the files.
+  const earlierConversations = await readPermittedEarlierConversations(
+    firmDatabase,
+    job.conversationId as MagnusConversationId,
+  );
   const window = buildConversationWindow(priorTurns, {
     readWasCapped: priorTurns.length >= WINDOW_READ_LIMIT,
     attachments: windowAttachmentsFrom(readAttachments),
+    earlierConversations,
   });
   if (window.messages.length === 0) {
     // Nothing to answer — the member turn this job refers to is gone (a deleted conversation racing

@@ -1,3 +1,4 @@
+import { deleteConversationPermissionsStatement } from "./permissions.ts";
 import { guarded } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
@@ -212,6 +213,7 @@ export function deleteConversation(
       deleteConversationTurnsStatement(database, input.conversationId),
       deleteConversationAttachmentsStatement(database, input.conversationId),
       deleteConversationShelvesStatement(database, input.conversationId),
+      deleteConversationPermissionsStatement(database, input.conversationId),
       markConversationDeletedStatement(database, { id: input.conversationId, now }),
       conversationDeletedAudit(database, context, {
         conversationId: input.conversationId,

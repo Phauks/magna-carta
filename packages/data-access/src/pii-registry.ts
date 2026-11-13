@@ -256,6 +256,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent conversation; a reference to a file, holding nothing of it",
   },
+  // A permission turned on for a conversation names who turned it on, and goes with the
+  // conversation it belongs to.
+  {
+    table: "magnus_conversation_permission",
+    subjectKey: "conversation_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation; granted_by is the conversation's own author",
+  },
   // A member's own folders and where they keep each conversation. Both arrange that member's list and
   // nothing else: no other member reads them and the firm relies on neither, so they go with the
   // member. A folder's name is free text the member typed about their own work.

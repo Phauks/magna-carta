@@ -35765,12 +35765,19 @@
             "items": {
               "$ref": "#/components/schemas/MagnusConversationAttachment"
             }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusConversationPermissionName"
+            }
           }
         },
         "required": [
           "conversation",
           "turns",
-          "attachments"
+          "attachments",
+          "permissions"
         ]
       },
       "MagnusTurn": {
@@ -35929,6 +35936,12 @@
           "attachedAt",
           "textStatus",
           "textBytes"
+        ]
+      },
+      "MagnusConversationPermissionName": {
+        "type": "string",
+        "enum": [
+          "own-matter-conversations"
         ]
       },
       "MagnusRenameConversationRequest": {
@@ -36169,6 +36182,31 @@
           "memberTurnId",
           "magnusTurnId",
           "removedAt"
+        ]
+      },
+      "MagnusConversationPermissions": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusConversationPermissionName"
+            }
+          }
+        },
+        "required": [
+          "permissions"
+        ]
+      },
+      "MagnusConversationPermissionRequest": {
+        "type": "object",
+        "properties": {
+          "granted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "granted"
         ]
       },
       "ReviewSetAccessList": {
@@ -115919,6 +115957,138 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MagnusShelf"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/permissions/{permission}": {
+      "put": {
+        "description": "Turns one of Magnus's read permissions on or off for one of the caller's conversations. Turning on a permission already on, or off one already off, changes nothing. Answers with every permission now on for the conversation.",
+        "operationId": "magnus.setConversationPermission",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.setConversationPermission",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/MagnusConversationPermissionName"
+            },
+            "required": true,
+            "name": "permission",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusConversationPermissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The permissions now on for the conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusConversationPermissions"
                 }
               }
             }
