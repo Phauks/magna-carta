@@ -77,6 +77,7 @@
 
   let {
     open = $bindable(false),
+    inline = false,
     subject,
     polls,
     hosting = false,
@@ -94,6 +95,8 @@
     readFailure,
     writeFailure,
   }: {
+    /** Drawn in the room's side panel rather than as a dialog over the room. */
+    inline?: boolean;
     /** Whether the panel is showing. Bindable, so the band and the count agree about it. */
     open?: boolean;
     /** Which meeting this is about, named once. */
@@ -421,12 +424,11 @@
   {/each}
 {/snippet}
 
-<ActionDialog bind:open kind="reading" heading="Polls" subtitle={subject}>
-  {#snippet notice()}
+{#snippet panelNotice()}
     {@render writeFailure?.()}
   {/snippet}
 
-  {#snippet fields()}
+{#snippet panelBody()}
     <div class="flex flex-col gap-24">
       {#if hosting}
         <section class="flex flex-col gap-12" aria-labelledby="meeting-new-poll-heading">
@@ -517,7 +519,24 @@
       </LoadingRegion>
     </div>
   {/snippet}
-</ActionDialog>
+
+{#if inline}
+  <!-- Drawn in the room's side panel, beside the picture rather than over it. -->
+  <div class="flex flex-col gap-16">
+    {@render panelNotice()}
+    {@render panelBody()}
+  </div>
+{:else}
+  <ActionDialog bind:open kind="reading" heading="Polls" subtitle={subject}>
+    {#snippet notice()}
+      {@render panelNotice()}
+    {/snippet}
+
+    {#snippet fields()}
+      {@render panelBody()}
+    {/snippet}
+  </ActionDialog>
+{/if}
 
 <!-- Asked first: a closed poll takes no more answers, it cannot be opened again, and somebody in the
      room may be halfway through choosing. -->

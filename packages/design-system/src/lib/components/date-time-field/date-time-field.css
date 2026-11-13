@@ -14,8 +14,10 @@
     gap: var(--mc-space-4);
   }
   .mc-date-time-field[data-disabled] {
-    background-color: var(--mc-action-disabled);
-    color: var(--mc-action-disabled-foreground);
+    background-color: var(--mc-surface-field-disabled);
+    border-style: dashed;
+    border-color: var(--mc-border-default);
+    color: var(--mc-text-subtle);
   }
   .mc-date-time-field-part {
     display: inline-flex;

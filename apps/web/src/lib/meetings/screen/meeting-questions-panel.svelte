@@ -45,6 +45,7 @@
 
   let {
     open = $bindable(false),
+    inline = false,
     draft = $bindable(""),
     subject,
     queue,
@@ -62,6 +63,8 @@
     readFailure,
     writeFailure,
   }: {
+    /** Drawn in the room's side panel rather than as a dialog over the room. */
+    inline?: boolean;
     open?: boolean;
     /** What is typed and not yet asked. Bindable, so it survives the panel being closed. */
     draft?: string;
@@ -203,12 +206,11 @@
   {@render rows(FIXTURE, false)}
 {/snippet}
 
-<ActionDialog bind:open kind="reading" heading="Q&amp;A" subtitle={subject}>
-  {#snippet notice()}
+{#snippet panelNotice()}
     {@render writeFailure?.()}
   {/snippet}
 
-  {#snippet fields()}
+{#snippet panelBody()}
     <div class="flex flex-col gap-24">
       <LoadingRegion
         class="flex flex-col"
@@ -238,4 +240,21 @@
       </div>
     </div>
   {/snippet}
-</ActionDialog>
+
+{#if inline}
+  <!-- Drawn in the room's side panel, beside the picture rather than over it. -->
+  <div class="flex flex-col gap-16">
+    {@render panelNotice()}
+    {@render panelBody()}
+  </div>
+{:else}
+  <ActionDialog bind:open kind="reading" heading="Q&amp;A" subtitle={subject}>
+    {#snippet notice()}
+      {@render panelNotice()}
+    {/snippet}
+
+    {#snippet fields()}
+      {@render panelBody()}
+    {/snippet}
+  </ActionDialog>
+{/if}
