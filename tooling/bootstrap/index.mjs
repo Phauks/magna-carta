@@ -90,6 +90,12 @@ const ARTEFACTS = [
     bindings: "mls_core.js",
   },
   {
+    crate: "disarm-core",
+    pkg: "packages/disarm",
+    wasm: "disarm_core_bg.wasm",
+    bindings: "disarm_core.js",
+  },
+  {
     crate: "pdf-compose-core",
     pkg: "packages/pdf-compose",
     wasm: "pdf_compose_core_bg.wasm",
