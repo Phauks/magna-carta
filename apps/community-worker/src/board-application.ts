@@ -49,7 +49,10 @@ import type { z } from "zod";
 import type { Bindings } from "./bindings.ts";
 import { json, problem, type BoardProblemCode } from "./respond.ts";
 
-// The board's API. Reads are open to anyone; every write needs a signed-in member of a firm, a
+// The board's API. A write that has nothing to report answers 200 with an empty object rather than
+// 204, so the app's one transport, which reads every success as JSON, reads it as a success.
+//
+// Reads are open to anyone; every write needs a signed-in member of a firm, a
 // request from the board's own pages, and the board switch on "open".
 
 // Sent as `__Host-community_session`: Hono adds the prefix, which binds the cookie to this exact host
@@ -214,7 +217,7 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
     }
     deleteCookie(context, SESSION_COOKIE, { path: "/", secure: true, prefix: "host" });
     context.header("Cache-Control", "no-store");
-    return context.body(null, 204);
+    return context.json({});
   });
 
   // ---- Reading --------------------------------------------------------------------------------
@@ -291,7 +294,7 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
       member(context).userId,
       nowInstant(),
     );
-    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+    return json({});
   });
 
   application.post("/api/posts", async (context) => {
@@ -339,7 +342,7 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
       number,
       nowInstant(),
     );
-    return result.ok ? new Response(null, { status: 204 }) : problem(result.refusal);
+    return result.ok ? json({}) : problem(result.refusal);
   });
 
   application.delete("/api/comments/:id", async (context) => {
@@ -349,7 +352,7 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
       context.req.param("id") as CommunityCommentId,
       nowInstant(),
     );
-    return result.ok ? new Response(null, { status: 204 }) : problem(result.refusal);
+    return result.ok ? json({}) : problem(result.refusal);
   });
 
   application.post("/api/posts/:number/flag", async (context) => {
@@ -386,7 +389,7 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
       body,
       nowInstant(),
     );
-    return result.ok ? new Response(null, { status: 204 }) : problem(result.refusal);
+    return result.ok ? json({}) : problem(result.refusal);
   });
 
   application.post("/api/posts/:number/accept-answer", async (context) => {
@@ -401,7 +404,7 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
       body.commentId as CommunityCommentId | null,
       nowInstant(),
     );
-    return result.ok ? new Response(null, { status: 204 }) : problem(result.refusal);
+    return result.ok ? json({}) : problem(result.refusal);
   });
 
   application.post("/api/posts/:number/moderate", async (context) => {
@@ -416,7 +419,7 @@ export function boardApplication(): Hono<{ Bindings: Bindings; Variables: Variab
       body.decision,
       nowInstant(),
     );
-    return result.ok ? new Response(null, { status: 204 }) : problem(result.refusal);
+    return result.ok ? json({}) : problem(result.refusal);
   });
 
   return application;
