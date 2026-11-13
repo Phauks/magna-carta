@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c09f6f45-e875-47ee-8043-a7112abfc518",
-  "prevId": "d49f09c2-f03f-4ae7-b949-b37e9e2bb1d4",
+  "id": "38e2be65-b113-49af-8f15-04a8b94f077a",
+  "prevId": "df959152-726e-4b1a-89fe-ee650670d767",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -10166,6 +10166,41 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "playable_copy_state": {
+          "name": "playable_copy_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playable_copy_r2_key": {
+          "name": "playable_copy_r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playable_copy_size_bytes": {
+          "name": "playable_copy_size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playable_copy_reason": {
+          "name": "playable_copy_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playable_copy_requested_at": {
+          "name": "playable_copy_requested_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -20069,21 +20104,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "personal_room_id": {
-          "name": "personal_room_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "encrypted": {
-          "name": "encrypted",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -20100,14 +20120,6 @@
         }
       },
       "indexes": {
-        "meeting_personal_room_open_session_unique_index": {
-          "name": "meeting_personal_room_open_session_unique_index",
-          "columns": [
-            "personal_room_id"
-          ],
-          "isUnique": true,
-          "where": "\"meeting\".\"personal_room_id\" IS NOT NULL AND \"meeting\".\"status\" <> 'ended'"
-        },
         "meeting_matter_event_unique_index": {
           "name": "meeting_matter_event_unique_index",
           "columns": [
@@ -20187,19 +20199,6 @@
           ],
           "columnsTo": [
             "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "meeting_personal_room_id_meeting_personal_room_id_fk": {
-          "name": "meeting_personal_room_id_meeting_personal_room_id_fk",
-          "tableFrom": "meeting",
-          "tableTo": "meeting_personal_room",
-          "columnsFrom": [
-            "personal_room_id"
-          ],
-          "columnsTo": [
-            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -21061,116 +21060,6 @@
         "meeting_message_participant_kind_check": {
           "name": "meeting_message_participant_kind_check",
           "value": "\"meeting_message\".\"participant_kind\" IN ('member', 'guest')"
-        }
-      }
-    },
-    "meeting_personal_room": {
-      "name": "meeting_personal_room",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "owner_user_id": {
-          "name": "owner_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "link_code": {
-          "name": "link_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "medium": {
-          "name": "medium",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'video'"
-        },
-        "lobby": {
-          "name": "lobby",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'on'"
-        },
-        "link_replaced_at": {
-          "name": "link_replaced_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "meeting_personal_room_owner_unique_index": {
-          "name": "meeting_personal_room_owner_unique_index",
-          "columns": [
-            "owner_user_id"
-          ],
-          "isUnique": true
-        },
-        "meeting_personal_room_link_code_unique_index": {
-          "name": "meeting_personal_room_link_code_unique_index",
-          "columns": [
-            "link_code"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "meeting_personal_room_owner_user_id_member_user_id_fk": {
-          "name": "meeting_personal_room_owner_user_id_member_user_id_fk",
-          "tableFrom": "meeting_personal_room",
-          "tableTo": "member",
-          "columnsFrom": [
-            "owner_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "meeting_personal_room_medium_check": {
-          "name": "meeting_personal_room_medium_check",
-          "value": "\"meeting_personal_room\".\"medium\" IN ('video', 'audio')"
-        },
-        "meeting_personal_room_lobby_check": {
-          "name": "meeting_personal_room_lobby_check",
-          "value": "\"meeting_personal_room\".\"lobby\" IN ('off', 'on')"
-        },
-        "meeting_personal_room_link_code_shape_check": {
-          "name": "meeting_personal_room_link_code_shape_check",
-          "value": "length(\"meeting_personal_room\".\"link_code\") = 10 AND \"meeting_personal_room\".\"link_code\" NOT GLOB '*[^a-z0-9]*'"
         }
       }
     },

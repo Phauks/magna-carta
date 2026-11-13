@@ -58,7 +58,7 @@ export type Bindings = {
     import("./conversions/conversion-coordinator.ts").ConversionJob
   >;
   // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
-  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
+  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionQueueMessage>;
   // The document-assembly job coordinator: keyed firmId:assemblyId, single-flights one assembly per job
   // so a retried submit can never file two documents onto a matter.
   DOCUMENT_ASSEMBLY_JOB: DurableObjectNamespace<

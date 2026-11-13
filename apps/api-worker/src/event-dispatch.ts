@@ -23,7 +23,7 @@ import { documentAssemblyQueue } from "./background/assemblies/assembly-consumer
 import type { DocumentAssemblyMessage } from "./assemblies/assembly-types.ts";
 import { runTemplateOrphanSweep } from "./background/assemblies/template-orphan-sweep.ts";
 import { conversionQueue } from "./background/conversions/conversion-consumer.ts";
-import type { ConversionMessage } from "./conversions/conversion-types.ts";
+import type { ConversionQueueMessage } from "./conversions/conversion-types.ts";
 import {
   perFirmQueue,
   type PerFirmQueueMessage,
@@ -305,7 +305,7 @@ export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Prom
   }
   // The conversion queue routes to the conversion consumer (ConversionPort adapter).
   if (batch.queue === CONVERSION_QUEUE) {
-    return conversionQueue(batch as MessageBatch<ConversionMessage>, env);
+    return conversionQueue(batch as MessageBatch<ConversionQueueMessage>, env);
   }
   // The shared per-firm job queue carries the outbox relay's per-firm topics (firmId-tagged). Its
   // dispatch table owns shipment.purchased (matter cost recovery) and emailCaptureAddress.minted

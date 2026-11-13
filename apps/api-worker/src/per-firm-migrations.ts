@@ -73,7 +73,8 @@ import syncIssueProviderRefusedSql from "@magna-carta/database/drizzle/per-firm/
 import rejudgeDownloadOnlyRecordingsSql from "@magna-carta/database/drizzle/per-firm/20261110T083359_rejudge-download-only-recordings.sql";
 import taskCommentsSql from "@magna-carta/database/drizzle/per-firm/20261110T084953_task-comments.sql";
 import shownCalendarsAndExternalEventsSql from "@magna-carta/database/drizzle/per-firm/20261110T095653_shown-calendars-and-external-events.sql";
-import meetingPersonalRoomSql from "@magna-carta/database/drizzle/per-firm/20261112T194512_meeting-personal-room.sql";
+import versionPlayableCopySql from "@magna-carta/database/drizzle/per-firm/20261112T195920_version-playable-copy.sql";
+import meetingPersonalRoomSql from "@magna-carta/database/drizzle/per-firm/20261113T001452_meeting-personal-room.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -149,7 +150,8 @@ export function perFirmMigrations(): Migration[] {
     "20261110T083359_rejudge-download-only-recordings": rejudgeDownloadOnlyRecordingsSql,
     "20261110T084953_task-comments": taskCommentsSql,
     "20261110T095653_shown-calendars-and-external-events": shownCalendarsAndExternalEventsSql,
-    "20261112T194512_meeting-personal-room": meetingPersonalRoomSql,
+    "20261112T195920_version-playable-copy": versionPlayableCopySql,
+    "20261113T001452_meeting-personal-room": meetingPersonalRoomSql,
   });
 }
 
