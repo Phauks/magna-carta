@@ -13,6 +13,7 @@
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import Hash from "@lucide/svelte/icons/hash";
   import Layers from "@lucide/svelte/icons/layers";
+  import Stamp from "@lucide/svelte/icons/stamp";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import * as Tabs from "@magna-carta/design-system/tabs";
@@ -23,6 +24,7 @@
   import BatesTool from "$lib/pdf-editor/bates-tool.svelte";
   import PagesTool from "$lib/pdf-editor/pages-tool.svelte";
   import RedactTool from "$lib/pdf-editor/redact-tool.svelte";
+  import WatermarkTool from "$lib/pdf-editor/watermark-tool.svelte";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { matterFilesBack } from "$lib/screen/screen-header.ts";
   import type { DocumentViewPageData } from "../view/+page.ts";
@@ -80,6 +82,10 @@
           <Hash class="size-16" aria-hidden="true" />
           Bates
         </Tabs.Trigger>
+        <Tabs.Trigger value="watermark">
+          <Stamp class="size-16" aria-hidden="true" />
+          Watermark
+        </Tabs.Trigger>
       </Tabs.List>
     </Tabs.Root>
 
@@ -92,6 +98,8 @@
           <RedactTool {file} />
         {:else if tool === "bates"}
           <BatesTool {file} />
+        {:else if tool === "watermark"}
+          <WatermarkTool {file} />
         {/if}
       {/key}
     </FullHeightSection>

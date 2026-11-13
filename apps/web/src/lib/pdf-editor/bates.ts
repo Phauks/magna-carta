@@ -105,6 +105,11 @@ const WINDOWS_LATIN_EXTRAS =
   "\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u017D\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC\u2122\u0161\u203A\u0153\u017E\u0178";
 const DRAWABLE = new RegExp(`^[\\u0020-\\u007E\\u00A0-\\u00FF${WINDOWS_LATIN_EXTRAS}]*$`);
 
+/** Whether the standard PDF fonts can print every character of `text`. The watermark asks too. */
+export function printableInStandardFonts(text: string): boolean {
+  return DRAWABLE.test(text);
+}
+
 /** What is wrong with the settings, field by field. Empty means the engine can be asked. */
 export function batesProblems(
   settings: BatesSettings,
@@ -114,7 +119,7 @@ export function batesProblems(
     const value = settings[field];
     if (value.length > BATES_LIMITS.affixLength) {
       problems[field] = `Keep it to ${BATES_LIMITS.affixLength} characters.`;
-    } else if (!DRAWABLE.test(value)) {
+    } else if (!printableInStandardFonts(value)) {
       problems[field] =
         "Use plain letters, numbers and punctuation. Curly quotes and long dashes cannot be printed.";
     }

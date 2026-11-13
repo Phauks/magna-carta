@@ -1,7 +1,7 @@
 # PDF Editor
 
 Use the PDF Editor to change a PDF that is on a matter. Nothing you rely on is overwritten:
-redacting, numbering, extracting and splitting save new files beside the original, and arranging the pages
+redacting, numbering, watermarking, extracting and splitting save new files beside the original, and arranging the pages
 saves a new version, with the version before it kept in the file's history.
 
 To open it, open a PDF from the matter's documents and choose **Edit PDF**. Choose **Read** to go
@@ -77,3 +77,20 @@ next production should start at.
 
 Numbering adds text to each page and removes nothing. To withhold something, redact it first, then
 number the redacted copy.
+
+## Watermark
+
+A watermark prints a word such as **CONFIDENTIAL**, or an image such as the firm's logo, faintly
+across the pages.
+
+1. Under **Mark**, choose **Words** or **Image**.
+2. For words, pick one of the usual ones or choose **Other** and write your own. Set the
+   **Typeface**, **Size** and **Colour**. For an image, choose a PNG or JPEG and set its width.
+3. Set the **Strength**, the **Angle**, and whether the mark appears once in the middle or
+   **Repeated** across the page.
+4. To mark only some pages, write them under **Pages**, such as **1-3, 7**. Leave it empty to mark
+   every page.
+5. Choose **Mark Pages**; the button says how many. The page shown is the first one that will be marked.
+
+The marked copy is saved beside the original, named with the words, for example
+**Brief (Confidential).pdf**. A watermark is printed on top of the page and removes nothing.
