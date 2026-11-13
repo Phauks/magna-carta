@@ -65,9 +65,9 @@ describe("the rule-kind set is closed, and every home agrees on it", () => {
   });
 
   it("is the same two in the schema's column enum and its CHECK constraint", () => {
-    expect(
-      quotedValuesAfter(schemaSource, 'kind: text("kind", { enum: [', "] }).notNull()"),
-    ).toEqual([...KNOWN_KINDS]);
+    expect(quotedValuesAfter(schemaSource, 'kind: text("kind", {', "}).notNull()")).toEqual([
+      ...KNOWN_KINDS,
+    ]);
     expect(quotedValuesAfter(schemaSource, '"email_auto_file_rule_kind_check",', "),")).toEqual([
       ...KNOWN_KINDS,
     ]);
