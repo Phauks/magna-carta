@@ -1293,6 +1293,10 @@ export class MeetingClient {
   async #swapPublishedPicture(next: MediaStream): Promise<void> {
     this.localStream = next;
     const sender = this.#cameraSender;
+    this.diagnostics.note({
+      kind: "camera-track",
+      detail: sender === null ? "preview only" : "preview and what the room receives",
+    });
     const [picture] = next.getVideoTracks();
     if (sender === null || picture === undefined || sender.track === picture) return;
     try {
