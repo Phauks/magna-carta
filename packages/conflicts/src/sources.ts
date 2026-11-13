@@ -82,12 +82,12 @@ export function locationsOfSource(source: string): readonly SearchLocation[] {
 // How a source key reads in a sentence a lawyer is meant to understand. The stored key is a column
 // value, not prose.
 const SOURCE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
-  party: "party",
-  graph: "graph",
-  imputation: "imputation",
-  content: "content",
+  party: "names and identifiers",
+  graph: "relationships",
+  imputation: "Firm Employees",
+  content: "documents and messages",
   [PRIOR_FIRM_HISTORY_SOURCE]: "prior-firm history",
-  [NICKNAME_EQUIVALENCE_SOURCE]: "nickname equivalents",
+  [NICKNAME_EQUIVALENCE_SOURCE]: "nicknames",
   [MESSAGING_SOURCE]: "calls, texts and email",
   [TASKS_SOURCE]: "tasks",
   [FILES_SOURCE]: "files",
@@ -113,22 +113,22 @@ export interface UnavailabilityContext {
 // reason this table does not know about must read as unexplained, never as explained-away.
 export function unavailabilityReason(source: string, context: UnavailabilityContext): string {
   if (source === "content") {
-    return "no corpus exists: nothing indexes document text, and no message-body index is wired";
+    return "Nothing indexes the text of documents or the bodies of messages yet.";
   }
   if (source === FILES_SOURCE) {
-    return "the text inside the firm's files was not searched: file indexing is not turned on for the firm, or the search service that reads the index could not be reached";
+    return "File indexing is not turned on for the firm, or the search service that reads the index could not be reached.";
   }
   if (source === PRIOR_FIRM_HISTORY_SOURCE) {
-    return "no data is recorded: the source is registered so that it is reported, and it has no table behind it yet";
+    return "Nothing is recorded for it yet. It is listed so the record shows it was not searched.";
   }
   if (source === NICKNAME_EQUIVALENCE_SOURCE) {
-    return "no equivalents are curated: the catalogue exists and holds nothing, so no name was compared against a nickname of itself";
+    return "No nicknames are listed yet, so a name was not compared with its nicknames, such as Bob for Robert.";
   }
   if (source === MAGNUS_CONVERSATIONS_SOURCE) {
-    return "no conversation index exists: nothing reads a party's name out of a Magnus conversation";
+    return "Nothing reads a party's name out of a Magnus conversation.";
   }
   if (source === "imputation" && !context.hasSubjectMatter) {
-    return "no matter was supplied, so there were no matter parties to join the firm's members against";
+    return "No matter was named, so there were no matter parties to compare the firm's members with.";
   }
-  return "the check recorded this source unavailable and recorded no reason";
+  return "The check recorded this as not searched, and recorded no reason.";
 }

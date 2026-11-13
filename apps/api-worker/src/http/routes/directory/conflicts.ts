@@ -25,7 +25,7 @@ import {
   type StoredRunRequest,
 } from "@magna-carta/conflicts/check-run";
 import { type RunCheckInput } from "@magna-carta/conflicts/run-check";
-import { AskedScope, FoundIn, PlacesRequest } from "@magna-carta/conflicts/contract";
+import { AskedScope, CheckReport, FoundIn, PlacesRequest } from "@magna-carta/conflicts/contract";
 import { resolveFoundIns } from "@magna-carta/conflicts/content-search";
 import {
   recordDisposition,
@@ -623,15 +623,9 @@ const CheckDetail = z
   })
   .openapi("ConflictsCheckDetail");
 
-// The reader-facing account of the search, one line per statement, in reading order. Every line is a
-// fact about the search itself — which channels ran, which sources have no corpus, how many candidates
-// surfaced. A search that surfaced nothing ends "0 results.", which reports that the search
-// ended and says nothing about the matter.
-const CheckStatement = z.array(z.string());
-
 // A completed run's record: the search's own account, its recorded scope, and every hit it surfaced.
 const CheckRecord = z
-  .object({ check: CheckDetail, statement: CheckStatement, hits: z.array(HitDetail) })
+  .object({ check: CheckDetail, report: CheckReport, hits: z.array(HitDetail) })
   .openapi("ConflictsCheckRecord");
 
 // The numbered check itself: what a person refers to.
@@ -1044,8 +1038,8 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
     "Returns a conflicts check with every run under it, and the record of the run asked for (the " +
     "latest, unless `run` names another). A run still in flight reports its stage and counts so " +
     "far and carries no record; a settled run carries its record: the recorded scope, every hit it " +
-    "surfaced with each hit's current disposition, and a plain-language statement of what the " +
-    "search did. The statement reports the search and reaches no conclusion about the matter — a " +
+    "surfaced with each hit's current disposition, and a plain-language report of what the " +
+    "search did, in sections. The report covers the search and reaches no conclusion about the matter — a " +
     "search that surfaced nothing ends by saying so, which is a fact about the search and not about " +
     "whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a " +
     "disposition naming them. The address accepts the check's own handle or any run's handle, so an " +
@@ -1449,7 +1443,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
   const sources: ReportedSource[] = reportedSourcesFor(scope, {
     hasSubjectMatter: checkRow.subject_matter_id !== null,
   });
-  const statement = describeCheck(
+  const report = describeCheck(
     {
       createdAt: checkRow.created_at,
       trigger: checkRow.trigger,
@@ -1488,7 +1482,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
       actorUserId: checkRow.actor_user_id,
       createdAt: checkRow.created_at,
     },
-    statement,
+    report,
     hits,
   };
 }

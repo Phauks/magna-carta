@@ -49,7 +49,7 @@
   import NamesSection from "./sections/names-section.svelte";
   import OrganizationsSection from "./sections/organizations-section.svelte";
   import PronounsSection from "./sections/pronouns-section.svelte";
-  import SectionHeading from "./sections/section-heading.svelte";
+  import NewPersonContext from "./new-person-context.svelte";
   import {
     contactRowFromDraft,
     emptyContactDraft,
@@ -269,19 +269,16 @@
   {#snippet context()}
     <!-- The same height as the sections beside it, for the same reason: a long duplicate list must
          not decide how tall the panel is either. -->
-    <div class="mc-scrollbar flex flex-col gap-16 overflow-y-auto" style={RECORD_PANEL_BODY_STYLE}>
-      <DuplicateGate kind="person" given={draft.name.given} family={draft.name.family} />
-      {#if summary.length > 0}
-        <div class="flex flex-col gap-8">
-          <SectionHeading label="As It Will Read" />
-          <dl class="grid gap-x-12 gap-y-4 text-sm" style="grid-template-columns: auto minmax(0, 1fr)">
-            {#each summary as line, index (index)}
-              <dt class="text-text-muted">{line.label}</dt>
-              <dd class="text-right break-words">{line.value}</dd>
-            {/each}
-          </dl>
-        </div>
-      {/if}
+    <div class="mc-scrollbar flex flex-col overflow-y-auto" style={RECORD_PANEL_BODY_STYLE}>
+      <NewPersonContext
+        {summary}
+        name={personDraftDisplayName(draft)}
+        {photoBase64}
+      >
+        {#snippet gate()}
+          <DuplicateGate kind="person" given={draft.name.given} family={draft.name.family} />
+        {/snippet}
+      </NewPersonContext>
     </div>
   {/snippet}
 </ActionDialog>

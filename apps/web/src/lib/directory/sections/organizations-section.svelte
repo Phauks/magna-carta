@@ -22,7 +22,6 @@
   import { edgeTypeLabel } from "../directory-vocabulary.ts";
   import { farKindsFor, offeredEdgeTypesForRecord } from "../edge-draft.ts";
   import type { OrganizationDraft } from "../person-draft.ts";
-  import SectionHeading from "./section-heading.svelte";
 
   let {
     rows,
@@ -74,8 +73,6 @@
 </script>
 
 <section class="flex flex-col gap-12">
-  <SectionHeading label="Belongs To" count={rows.length} />
-
   {#if rows.length > 0}
     <ul class="flex flex-col">
       {#each rows as row (row.id)}

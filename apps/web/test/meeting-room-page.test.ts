@@ -17,6 +17,7 @@
  */
 import { flushSync, mount, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MEETING_VIEW_STORAGE_KEY } from "../src/lib/meetings/meeting-view-preference.svelte.ts";
 import { client } from "@magna-carta/api-client/client";
 import { queryClient } from "../src/lib/api/screen-data.ts";
 import { page } from "./stubs/app-state.ts";
@@ -218,6 +219,7 @@ afterEach(() => {
   if (instance !== undefined) void unmount(instance);
   instance = undefined;
   target.remove();
+  window.localStorage.removeItem(MEETING_VIEW_STORAGE_KEY);
   page.params = {};
   sessionPermissions.session = null;
   sessionPermissions.settled = false;
@@ -607,6 +609,8 @@ describe("the door, to a host inside the room", () => {
 
 describe("a large room", () => {
   it("pages the gallery and states how much of the room is on screen", async () => {
+    // A room opens in speaker view; this case is about the gallery, so the browser remembers that.
+    window.localStorage.setItem(MEETING_VIEW_STORAGE_KEY, JSON.stringify({ layout: "gallery" }));
     const rendered = await draw();
     const socket = sockets[0];
     expect(socket).toBeDefined();
