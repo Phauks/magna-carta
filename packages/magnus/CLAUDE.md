@@ -28,7 +28,10 @@ registered there; this file states what they mean for the code, not where they w
 - `src/settings.ts` — `magnus.enabled` (boolean, default **false**) and `magnus.dailyTurnCeiling`
   (integer, default 500). There is **no model setting here**: the firm's shipped
   `inference.primaryReasoningModel` is what the assistant reads, and the firm chooses it on its AI
-  settings screen
+  settings screen. A member may choose another model from the same roster, and an effort, for one
+  question at a time in the composer; the choice rides the outbox payload as two labels and is
+  checked again by the consumer (`apps/api-worker/src/magnus/model-choice.ts`), and the effort sent
+  is recorded on the answer (`magnus_turn.effort`)
 - `src/limits.ts` also carries the attachment caps: ten files per conversation, 64 KiB of attachment
   text per request, a 25 MiB source file; `cutToByteLength` cuts on a character boundary
 - `src/statements.ts` — the fourth table is `magnus_conversation_attachment`; `listConversations`
@@ -41,7 +44,13 @@ registered there; this file states what they mean for the code, not where they w
   always ending on the newest member turn, reporting whether it truncated
 - `src/statements.ts` — the SQL builders and bounded reads for the three tables; every read is
   `LIMIT`ed and every list read is cursor-paginated
-- `src/audit.ts` — the nine audit builders and the shared write context
+- `src/audit.ts` — the audit builders (sixteen, counted by `test/purity.test.ts`) and the shared
+  write context
+- `src/shelf.ts` — a member's own folders (`magnus_folder`) and where they keep each conversation
+  (`magnus_conversation_shelf`: its folder, null for General, and when they pinned it). Both are
+  keyed by the READER, never the author, and decide nothing about who may read a conversation
+- `src/contract.ts` — the wire shapes the routes declare: the conversation (with the reader's
+  `folderId` and `pinnedAt`), the turn, the turn's progress, and the folder and shelf bodies
 - `src/conversation.ts` / `src/turn.ts` — lifecycle and turn composition as `EffectWrite`s
 
 ## Invariants that apply here
@@ -175,6 +184,13 @@ registered there; this file states what they mean for the code, not where they w
   `sort: date | name | matter`; the name and matter orders page on the shared composite cursor with a
   mixed-direction keyset spelled out in `statements.ts` (the group key ascends, the instant beneath it
   descends). A page is never re-ordered by a client.
+- **A folder and a pin are the reader's arrangement, not the conversation's.** `listConversations`
+  takes `shelfMember` and outer-joins that member's shelf row, so every listed row carries where the
+  CALLER keeps it and a conversation nobody moved reads as General. Moving or pinning needs only that
+  the member can read the conversation; a folder is only ever its own member's (another member's is
+  reported as absent). A folder's NAME is never audited, by the same rule as a title, and the purity
+  test refuses a `name` or `title` field on any audit builder. Deleting a conversation removes every
+  member's shelf row for it; removing a folder sends its conversations back to General.
 - **The interface polls the turn; it does not hold the socket.** The events route exists and is
   correct, and the surface deliberately reads `GET .../turns/{turnId}` instead, because the two
   return identical state and a socket buys nothing until a frame can carry a partial answer. Token

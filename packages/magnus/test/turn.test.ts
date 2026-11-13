@@ -145,6 +145,7 @@ describe("settling a turn", () => {
       inputTokens: 1,
       outputTokens: 1,
       contextTruncated: false,
+      effort: null,
     });
     expect(result.ok).toBe(false);
   });
@@ -160,6 +161,7 @@ describe("settling a turn", () => {
       inputTokens: 3,
       outputTokens: 4,
       contextTruncated: true,
+      effort: null,
     });
     const update = recorded.find((statement) => statement.sql.startsWith("UPDATE magnus_turn"));
     expect(update?.sql).toContain("status = 'pending'");
