@@ -1,0 +1,30 @@
+{
+  "name": "@magna-carta/community-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "vp run -w rust-wasm-build-pdf && vp run -w rust-wasm-build-segmentation && vp run -w rust-wasm-build-noise-suppression && vp run -w rust-wasm-build-mls && pnpm --filter @magna-carta/web run build && wrangler deploy --dry-run --outdir dist",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/community": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/telemetry": "workspace:*",
+    "hono": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@magna-carta/web": "workspace:*",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

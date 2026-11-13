@@ -227,6 +227,10 @@ export type SetMemberPhotoRequest = {
     imageBase64: string;
 };
 
+export type CommunityHandoff = {
+    url: string;
+};
+
 export type StartRegistrationResponse = {
     next: 'checkEmail' | 'redeemInvitation';
 };
@@ -10614,6 +10618,39 @@ export type MePhotoContentResponses = {
 };
 
 export type MePhotoContentResponse = MePhotoContentResponses[keyof MePhotoContentResponses];
+
+export type MeCommunityHandoffData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/community-handoff';
+};
+
+export type MeCommunityHandoffErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Signing in to the board is not set up on this deployment
+     */
+    503: Problem;
+};
+
+export type MeCommunityHandoffError = MeCommunityHandoffErrors[keyof MeCommunityHandoffErrors];
+
+export type MeCommunityHandoffResponses = {
+    /**
+     * The address to send the browser to
+     */
+    200: CommunityHandoff;
+};
+
+export type MeCommunityHandoffResponse = MeCommunityHandoffResponses[keyof MeCommunityHandoffResponses];
 
 export type RegistrationsStartData = {
     body: StartRegistrationRequest;
