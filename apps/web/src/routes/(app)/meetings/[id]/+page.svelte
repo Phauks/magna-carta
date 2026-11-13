@@ -83,6 +83,10 @@
   import UsersRound from "@lucide/svelte/icons/users-round";
   import FolderInput from "@lucide/svelte/icons/folder-input";
   import Disc from "@lucide/svelte/icons/disc";
+  import Link from "@lucide/svelte/icons/link";
+  import Share2 from "@lucide/svelte/icons/share-2";
+  import { buttonClasses } from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import RecordingMark from "$lib/meetings/screen/recording-mark.svelte";
   import RecordingNotice from "$lib/meetings/screen/recording-notice.svelte";
   import RecordingList from "$lib/meetings/screen/recording-list.svelte";
@@ -105,6 +109,8 @@
   } from "$lib/meetings/client/questions.svelte.ts";
   import type { EffectsChange, MediaEffectSettings } from "$lib/meetings/client/media-effects.ts";
   import { meetingEffectsPreference } from "$lib/meetings/meeting-effects-preference.svelte.ts";
+  import { meetingViewPreference } from "$lib/meetings/meeting-view-preference.svelte.ts";
+  import { meetingRoomAddress } from "$lib/meetings/meeting-tab.ts";
   import { keepBackgroundImage } from "$lib/meetings/effects/background-image-store.ts";
   import MeetingReactionCounts from "$lib/meetings/screen/meeting-reaction-counts.svelte";
   import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
@@ -162,6 +168,39 @@
    */
   const effectsPreference = meetingEffectsPreference();
   $effect(() => effectsPreference.followAcrossTabs());
+
+  /*
+   * How this member likes the room drawn: speaker view or the gallery, and their own picture
+   * mirrored or not. Remembered in this browser, and the client is told the arrangement whenever the
+   * remembered one changes, another tab's change included.
+   */
+  const viewPreference = meetingViewPreference();
+  $effect(() => viewPreference.followAcrossTabs());
+  $effect(() => {
+    const speaker = viewPreference.current.layout === "speaker";
+    untrack(() => client.setSpeakerView(speaker));
+  });
+
+  function toggleSpeakerView(): void {
+    viewPreference.set({
+      ...viewPreference.current,
+      layout: client.speakerView ? "gallery" : "speaker",
+    });
+  }
+
+  /**
+   * Copy the room's address for somebody at the firm. It opens the same room for any member who may
+   * join it; a person outside the firm is sent a guest link from Guests instead.
+   */
+  async function copyMeetingLink(): Promise<void> {
+    const link = new URL(meetingRoomAddress(meetingId), window.location.href).href;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Link copied. It opens this meeting for people at the firm.");
+    } catch {
+      toast.error("Could not copy the link. Copy it from the address bar instead.");
+    }
+  }
 
   /**
    * A change made in the Effects panel: remembered first, so the next capture on this machine asks
@@ -1275,20 +1314,32 @@
   {/if}
 {/snippet}
 
-<!-- Who from outside the firm may come. In the header rather than the control bar: it is about the
-     meeting's guest list, not about what is happening in the room this second. Passed only to a
-     member who may send a link, so nobody else's header carries an empty actions column. -->
-{#snippet guestsControl()}
-  <Button variant="secondary" onclick={() => (guestsOpen = true)}>
-    <UsersRound class="size-16" aria-hidden="true" />
-    Guests
-  </Button>
-{/snippet}
-
 <!-- What has been recorded in this room, beside Guests and for the same reason: it is about the
      meeting's record rather than the room this second, and it is read after the meeting as often as
      during it. Only a meeting on a matter can be recorded, so only one offers the list. -->
 {#snippet headerActions()}
+  {#if !over}
+    <!-- Who else should be here. The firm's link for a colleague, and the guest list for somebody
+         outside it, in one place a member looks for both. -->
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger class={buttonClasses({ variant: "secondary", size: "default" })}>
+        <Share2 class="size-16" aria-hidden="true" />
+        Share
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        <DropdownMenu.Item onSelect={() => void copyMeetingLink()}>
+          <Link class="size-16 shrink-0" aria-hidden="true" />
+          Copy Link for the Firm
+        </DropdownMenu.Item>
+        {#if canHost}
+          <DropdownMenu.Item onSelect={() => (guestsOpen = true)}>
+            <UsersRound class="size-16 shrink-0" aria-hidden="true" />
+            Invite Guests
+          </DropdownMenu.Item>
+        {/if}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  {/if}
   {#if mayMoveToMatter}
     <Button variant="secondary" onclick={() => (moveOpen = true)}>
       <FolderInput class="size-16" aria-hidden="true" />
@@ -1300,9 +1351,6 @@
       <Disc class="size-16" aria-hidden="true" />
       Recordings
     </Button>
-  {/if}
-  {#if canHost && !over}
-    {@render guestsControl()}
   {/if}
 {/snippet}
 
@@ -1319,7 +1367,7 @@
   <ScreenHeader
     {title}
     back="meetings"
-    actions={summary !== null && (summary.eventKind === "matter" || mayMoveToMatter || (canHost && !over))
+    actions={summary !== null && (summary.eventKind === "matter" || mayMoveToMatter || !over)
       ? headerActions
       : undefined}
   >
@@ -1583,6 +1631,7 @@
                 ? client.unpin(participantId)
                 : client.pin(participantId)}
             hostMenu={myRole === null ? undefined : tileMenu}
+            mirrorSelf={viewPreference.current.mirrorSelf}
           />
         </div>
         <aside class="hidden min-h-0 w-3xs shrink-0 lg:block">
@@ -1639,7 +1688,9 @@
         onToggleHand={() => (client.reactions.hand ? client.lowerHand() : client.raiseHand())}
         onOpenHands={() => (handsOpen = true)}
         onLowerAllHands={() => client.lowerHands(null)}
-        onToggleSpeakerView={() => client.toggleSpeakerView()}
+        onToggleSpeakerView={toggleSpeakerView}
+        mirrorSelf={viewPreference.current.mirrorSelf}
+        onMirrorSelf={(mirrorSelf) => viewPreference.set({ ...viewPreference.current, mirrorSelf })}
         onMuteAll={() => client.muteAll()}
         onSetLocked={(wanted) => void hostingWrite(() => setMeetingLocked(meetingId, wanted))}
         onSetLobby={(wanted: MeetingLobbyMode) =>

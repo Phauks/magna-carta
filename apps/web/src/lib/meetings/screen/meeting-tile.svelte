@@ -28,6 +28,7 @@
    * lies over a picture whose colours nothing can predict, so it needs a surface of its own; the
    * work happening in the tile is the picture, and the identity stays at its edge.
    */
+  import AudioLines from "@lucide/svelte/icons/audio-lines";
   import Focus from "@lucide/svelte/icons/focus";
   import Hand from "@lucide/svelte/icons/hand";
   import MicOff from "@lucide/svelte/icons/mic-off";
@@ -61,9 +62,12 @@
     quality = "unknown",
     hostRole = null,
     spotlighted = false,
+    mirrored = false,
+    fit = "cover",
     onPin,
     menu,
     class: className = "",
+    style = undefined,
   }: {
     /** The media to show. Null before anything has been pulled for this participant. */
     stream?: MediaStream | null;
@@ -113,6 +117,16 @@
     hostRole?: MeetingHostRole | null;
     /** A host has put them on every screen in the room. */
     spotlighted?: boolean;
+    /**
+     * Draw the picture flipped, as a mirror shows it. Only ever this browser's own camera preview,
+     * at the member's choice: what the room receives is the camera's own picture either way.
+     */
+    mirrored?: boolean;
+    /**
+     * How the picture meets the tile. A face is cropped to fill it (`cover`); a shared screen is
+     * shown whole (`contain`), because a cropped spreadsheet is a spreadsheet with columns missing.
+     */
+    fit?: "cover" | "contain";
     /** Offered on a person's tile; a screen share has nobody to pin. */
     onPin?: () => void;
     /**
@@ -122,6 +136,8 @@
      */
     menu?: Snippet;
     class?: string;
+    /** The size the gallery worked out for this tile, where it worked one out. */
+    style?: string;
   } = $props();
 
   /** The element the picture is played through. There is none where no picture was asked for. */
@@ -151,15 +167,23 @@
   data-pinned={pinned ? "true" : undefined}
   data-spotlighted={spotlighted ? "true" : undefined}
   class="relative flex min-h-0 min-w-0 overflow-hidden rounded-lg border bg-surface-sunken {speaking
-    ? 'border-accent-default'
+    ? 'border-accent-default outline-2 -outline-offset-2 outline-accent-default'
     : 'border-border-default'} {className}"
+  {style}
 >
   {#if drawsPicture}
     <!-- svelte-ignore a11y_media_has_caption -->
     <!-- A live camera has no caption track to offer: nothing is transcribing the room in this slice,
          and an empty track element would assert captions that do not exist. Muted whoever it
          belongs to — every voice in the room is played once, elsewhere. -->
-    <video bind:this={element} class="h-full w-full object-cover" autoplay playsinline muted
+    <video
+      bind:this={element}
+      class="h-full w-full {fit === 'contain' ? 'object-contain' : 'object-cover'} {mirrored
+        ? '-scale-x-100'
+        : ''}"
+      autoplay
+      playsinline
+      muted
     ></video>
 
     {#if !showsPicture}
@@ -199,6 +223,11 @@
   <figcaption
     class="absolute inset-x-0 bottom-0 flex items-center gap-8 bg-chrome-surface px-12 py-8"
   >
+    {#if speaking}
+      <!-- Who is talking, said twice: the ring round the tile for a glance across the room, and this
+           mark beside the name for a tile too small for the ring to stand out. -->
+      <AudioLines class="size-16 shrink-0 text-accent-default" aria-label="Speaking" />
+    {/if}
     <span class="min-w-0 flex-1 truncate text-sm text-chrome-text" title={name}>{name}</span>
     <MeetingQualityMark {quality} register="chrome" />
     {#if handRaised}
