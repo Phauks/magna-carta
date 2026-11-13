@@ -29,22 +29,25 @@ right side has two tabs: **Locations**, the places the check searches, and **Adv
 names are compared. You can leave every one of them alone. Pressing **Run Check** opens the check and
 takes you to its screen, where the search runs in front of you.
 
-**The check's screen** is titled by its number, with two tabs: **Report** and **Runs**.
+**The check's screen** is titled by its number, with two tabs: **Report** and **History**.
 
 - **Report** has three sections, each of which you can fold away. **Details** is what was asked for:
   the parties, one per line, then the settings (what each location searched, how names were
-  compared, who asked, and the matter it is filed on, or No Matter with a field to file it on one).
+  compared, who asked, and the matter it is filed on, or No Matter).
   **Status** has a row for each location with what it is doing while the run is under way, and what
   it did once it finishes; open a row to read its log. A location that cannot be searched yet reads
   Not searched. **Results** is what the search turned up (see below).
-- **Runs** lists every run of the check with when it started, how long it took, who asked, how many
-  results it found and how it ended. Open any one to read its report. **Run Again** searches again
+- **History** lists every run of the check with when it started, how long it took, who asked, how
+  many results it found and how it ended. Click a run's name to show its report on the Report tab. **Run Again** searches again
   with the same parties and settings, as a further run under the same number.
 
 While a run is under way, the badge at the top reads **Running** with the time so far, and pressing
 its **Cancel** half stops the run. A cancelled run stays in the check's history as Cancelled, naming
-who stopped it, and records no results. The two buttons beside the badge print the report and
-download it as a PDF, kept in your Downloads; hover over either to see which is which.
+who stopped it, and records no results. The two icon buttons beside the badge print the report and
+download it as a PDF, kept in your Downloads; hover over either to see which is which. On a check
+with no matter, **Assign to Matter** beside them files it on one: pick the matter (the parties'
+own matters are listed first) and press **Assign**. The next run searches with that matter's
+parties too.
 
 **The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
 checked and under what settings, anything nobody has answered yet, and whether your firm has since

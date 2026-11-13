@@ -279,3 +279,8 @@ beneath them. Rows here supersede R1 where they say so.
   index its files can hold files the index does not have yet, and a check that reads `searched`
   does not count them. The Search and Indexing settings page does. A `narrowMatters` seam takes the firm-wide term summary the indexing work will build,
   so the fan-out shrinks without a change here.
+- **2026-11-13, Trevor: "rename runs to History. remove 'Every search run under CC-0003. Open one
+  to read its report.' there is not way to 'open its report'. assign to matter should be in next to
+  the print button."** The check page's second tab reads History (amends C1) and carries no
+  introductory line. Filing a check with no matter moved from the Details section to an **Assign to
+  Matter** button in the header, beside Print Report, which opens the matter field in a popover.
