@@ -1,0 +1,37 @@
+{
+  "name": "@magna-carta/exhibits",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./scheme": "./src/scheme.ts",
+    "./label": "./src/label.ts",
+    "./presets": "./src/presets.ts",
+    "./types": "./src/types.ts",
+    "./validation": "./src/validation.ts",
+    "./reference-name": "./src/reference-name.ts",
+    "./exhibit-statements": "./src/exhibit-statements.ts",
+    "./exhibit-service": "./src/exhibit-service.ts",
+    "./set-statements": "./src/set-statements.ts",
+    "./set-service": "./src/set-service.ts",
+    "./member-statements": "./src/member-statements.ts",
+    "./member-service": "./src/member-service.ts",
+    "./issue-service": "./src/issue-service.ts",
+    "./queries": "./src/queries.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}
