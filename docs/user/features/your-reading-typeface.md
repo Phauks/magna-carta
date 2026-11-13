@@ -19,7 +19,8 @@ Five faces are offered:
 ## Choosing a typeface
 
 1. Open **Settings**, then **Text** (under Appearance).
-2. Pick a face from **Font Family**.
+2. Pick a face from **Font Family**. Each choice in the list is shown in its own face, so you can
+   see it before you pick it.
 
 The interface changes at once, with no reload, and every other Magna Carta tab you have open in the
 same browser follows. The next time you open Magna Carta it starts in your face rather than flashing
@@ -35,8 +36,10 @@ the default first.
   puts a previous face back.
 - **Another computer starts from the default.** The choice is kept by your browser, so set it once
   on each computer or browser you use.
-- **Text size.** A size choice is coming to the same page. Until then, your browser's own zoom or
-  text-size setting enlarges the whole interface.
+- **Text size.** **Text Size**, on the same page, sets interface text anywhere from 50% to 200% of
+  your browser's normal size (100% is normal), without changing the spacing around it. Type a
+  number into the field to jump to it. It applies at once, like
+  the face, and stacks with your browser's own text-size setting.
 
 ## Related
 

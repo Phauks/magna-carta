@@ -25,6 +25,9 @@
       "path": "../../packages/identifiers/tsconfig.build.json"
     },
     {
+      "path": "../../packages/status/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/telemetry/tsconfig.build.json"
     }
   ],

@@ -30,6 +30,7 @@ function result(overrides: Partial<CheckWithHits["check"]> = {}): CheckWithHits 
         nameKeys: ["normalized_display"],
         phoneticSchemes: ["double_metaphone_primary"],
         nameRoles: null,
+        trigramMatching: true,
       },
       traversal: {
         followedToClosure: true,
@@ -46,10 +47,20 @@ function result(overrides: Partial<CheckWithHits["check"]> = {}): CheckWithHits 
       createdAt: "2026-08-30T12:00:00.000Z",
       ...overrides,
     },
-    statement: [
-      "Searched on 30 August 2026 by user_one, trigger comprehensive.",
-      "Party — name and identifier similarity at over_inclusive strictness, over 1 subject party.",
-      "0 results.",
+    report: [
+      {
+        key: "searched",
+        heading: "Searched",
+        lines: ["30 August 2026 (UTC) by a member, as a comprehensive check."],
+        attention: false,
+      },
+      {
+        key: "names",
+        heading: "Names and identifiers",
+        lines: ["1 party's names and identifiers compared under Widest name matching."],
+        attention: false,
+      },
+      { key: "results", heading: "Results", lines: ["0 results."], attention: false },
     ],
     hits: [],
   };
@@ -65,16 +76,17 @@ function fieldValue(sheet: ReturnType<typeof checkReportSheet>, label: string): 
 }
 
 describe("the report prints the engine's own account", () => {
-  it("carries every statement line, in order, unedited", () => {
+  it("prints each part of the account as its own section, in order, unedited", () => {
     const sheet = checkReportSheet(result(), { printedAt: new Date("2026-08-30T15:00:00.000Z") });
-    const search = sheet.sections.find((section) => section.id === "search");
-    expect(search?.kind).toBe("text");
-    if (search?.kind !== "text") throw new Error("the search section must be prose");
-    expect(search.text.split("\n")).toEqual([
-      "Searched on 30 August 2026 by user_one, trigger comprehensive.",
-      "Party — name and identifier similarity at over_inclusive strictness, over 1 subject party.",
-      "0 results.",
+    const parts = sheet.sections.filter((section) => section.id.startsWith("search-"));
+    expect(parts.map((section) => section.title)).toEqual([
+      "Searched",
+      "Names and identifiers",
+      "Results",
     ]);
+    const names = parts[1];
+    if (names?.kind !== "text") throw new Error("each part of the account must be prose");
+    expect(names.text).toBe("1 party's names and identifiers compared under Widest name matching.");
   });
 });
 
@@ -181,12 +193,8 @@ describe("the downloaded report", () => {
     const sheet = checkReportSheet(result(), { checkNumber: "CC-0007", printedAt: new Date() });
     const exported = reportExportDocument(sheet, new Date("2026-09-11T12:00:00.000Z"));
     expect(exported.title).toBe("Conflicts Check Report CC-0007");
-    const statement = exported.sections.find((section) => section.title === "What The Search Did");
-    expect(statement?.rows.map((row) => row[0])).toEqual([
-      "Searched on 30 August 2026 by user_one, trigger comprehensive.",
-      "Party — name and identifier similarity at over_inclusive strictness, over 1 subject party.",
-      "0 results.",
-    ]);
+    const results = exported.sections.find((section) => section.title === "Results");
+    expect(results?.rows.map((row) => row[0])).toEqual(["0 results."]);
     const scope = exported.sections.find((section) => section.title === "Scope In Force");
     expect(scope?.rows).toContainEqual(["Traversal Truncated", "Yes"]);
   });

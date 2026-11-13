@@ -3,9 +3,9 @@
   // board. Its own deployable on its own host, so it can be firewalled or switched off without
   // touching the app, and so its pages never share an origin with a firm's data.
   //
-  // It binds the control-plane database and nothing else: the board's rows live there, and a
-  // person's firm and team standing are read from there on every request. No per-firm binding, no
-  // bucket, no service binding into the app. The board package cannot reach a firm's database, and
+  // It binds the control-plane database, and reads the public status page's store for the board's
+  // Known Issues: the board's rows live in the database, and a person's firm and team standing are
+  // read from there on every request. No per-firm binding, no bucket, no service binding into the app. The board package cannot reach a firm's database, and
   // this file is where that would be undone, so read apps/community-worker/CLAUDE.md first.
   "name": "magna-carta-community",
   "main": "./src/index.ts",
@@ -37,5 +37,8 @@
       "database_id": "a0982ab7-97d9-471b-8dd7-19f18aa53f04",
     },
   ],
+  // The status page's own store (magna-carta-status binds the same namespace), read and never
+  // written: the board shows the unresolved events the public status page already publishes.
+  "kv_namespaces": [{ "binding": "STATUS_KV", "id": "6746720bd1ad4638ad00370197f49788" }],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }

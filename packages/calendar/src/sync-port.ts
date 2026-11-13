@@ -103,6 +103,13 @@ export interface ProviderCalendarEvents {
   readonly complete: boolean;
 }
 
+// One day of a series this platform wrote, as the member changed it on its own without touching
+// the rest. `originalStartsAtMilliseconds` is when that day began before they changed it, which
+// is the only thing that says which day of the series it was once it has been moved.
+export interface ProviderSeriesChangedDay extends ProviderEventSnapshot {
+  readonly originalStartsAtMilliseconds: number;
+}
+
 // Two instants. An event that touches the time between them is inside.
 export interface ProviderEventWindow {
   readonly fromInstant: string;
@@ -166,6 +173,18 @@ export interface CalendarSyncPort {
     calendarRemoteId: string,
     window: ProviderEventWindow,
   ): Promise<Dispatch<ProviderCalendarEvents | null>>;
+  // The days of one series the member changed on their own, each still part of the series. A day
+  // they deleted is not among them: a provider's series does not say which days were taken out of
+  // it by whom. Null when the provider no longer has the series.
+  listSeriesChangedDays(
+    seriesRemoteId: string,
+  ): Promise<Dispatch<readonly ProviderSeriesChangedDay[] | null>>;
+  // Writes one day of a series, by that day's own identifier, and leaves the series alone. Only
+  // what a member can see is written: when, the title and the place.
+  updateSeriesDay(
+    dayRemoteId: string,
+    event: ProviderEventWrite,
+  ): Promise<Dispatch<ProviderEventPresence>>;
   // Begins a watch on the member's whole calendar account.
   watchChanges(request: ProviderChangeWatchRequest): Promise<Dispatch<ProviderChangeWatch>>;
   // Keeps a watch going until a later instant. Null when the provider no longer has the watch, in
@@ -186,6 +205,8 @@ export const CALENDAR_SYNC_OPERATIONS = [
   "listWrittenEvents",
   "readEvent",
   "listCalendarEvents",
+  "listSeriesChangedDays",
+  "updateSeriesDay",
   "watchChanges",
   "renewWatch",
   "stopWatch",

@@ -106,6 +106,8 @@
     subtitle = {},
     appliedEffects = null,
     effectSettings = DEFAULT_EFFECT_SETTINGS,
+    mirrorSelf = true,
+    onMirrorSelf,
     pollsWaiting = 0,
     questionsWaiting = 0,
     recording = false,
@@ -194,6 +196,10 @@
      * and the member has to see that it did.
      */
     effectSettings?: MediaEffectSettings;
+    /** Whether this member sees their own camera as a mirror shows it. */
+    mirrorSelf?: boolean;
+    /** Change it. Absent where the screen does not offer the choice. */
+    onMirrorSelf?: (mirrored: boolean) => void;
     /**
      * How many open polls this member has not answered. On the Polls control, for the lobby's
      * reason: a poll nobody sees is a poll nobody answers.
@@ -445,6 +451,17 @@
             <p class="text-sm">{platformBlurStatement(applied.platformBlur)}</p>
           {:else}
             <p class="text-sm">{BLUR_UNAVAILABLE_STATEMENT}</p>
+          {/if}
+          {#if onMirrorSelf !== undefined}
+            <!-- Only this member's own preview is flipped; everybody else sees the camera's own
+                 picture, so writing held up to it reads the right way round for them. -->
+            <div class="flex items-center gap-8">
+              <Switch
+                aria-labelledby="meeting-effects-mirror-label"
+                bind:checked={() => mirrorSelf, (mirrored) => onMirrorSelf(mirrored)}
+              />
+              <Label id="meeting-effects-mirror-label">Mirror my video</Label>
+            </div>
           {/if}
         </section>
       {/if}
