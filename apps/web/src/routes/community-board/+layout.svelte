@@ -10,13 +10,17 @@
   import { page } from "$app/state";
   import Button from "@magna-carta/design-system/button";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { isCommunityHost } from "$lib/community/board-paths.ts";
+  import { isChangelogHost, isCommunityHost } from "$lib/community/board-paths.ts";
   import { provideBoardSession } from "$lib/community/board-session.svelte.ts";
 
   let { children } = $props();
 
   const board = provideBoardSession();
-  const onBoardHost = $derived(isCommunityHost(page.url.hostname) || import.meta.env.DEV);
+  const onBoardHost = $derived(
+    isCommunityHost(page.url.hostname) || isChangelogHost(page.url.hostname) || import.meta.env.DEV,
+  );
+  // The changelog's own address is the one page search engines may list; the board never is.
+  const listable = $derived(isChangelogHost(page.url.hostname));
 
   $effect(() => {
     if (onBoardHost) void board.refresh();
@@ -24,7 +28,9 @@
 </script>
 
 <svelte:head>
-  <meta name="robots" content="noindex, nofollow" />
+  {#if !listable}
+    <meta name="robots" content="noindex, nofollow" />
+  {/if}
   <meta name="referrer" content="no-referrer" />
 </svelte:head>
 

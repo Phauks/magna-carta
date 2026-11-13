@@ -7515,6 +7515,7 @@ export type MeetingPoll = {
     question: string;
     anonymous: boolean;
     maxChoices: number;
+    kind: 'one' | 'multiple' | 'ranking' | 'score';
     openedAt: string;
     closedAt: string | null;
     closedByUserId: string | null;
@@ -7528,6 +7529,7 @@ export type MeetingPollOption = {
     position: number;
     label: string;
     count: number;
+    averageRank: number | null;
 };
 
 export type OpenMeetingPollRequest = {
@@ -7535,6 +7537,7 @@ export type OpenMeetingPollRequest = {
     options: Array<string>;
     anonymous: boolean;
     maxChoices?: number;
+    kind?: 'one' | 'multiple' | 'ranking' | 'score';
 };
 
 export type MeetingPollPage = {
