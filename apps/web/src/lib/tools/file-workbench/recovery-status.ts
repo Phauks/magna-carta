@@ -49,9 +49,7 @@ export function presentRecoveryStatus(
       return {
         heading: "Needs More Powerful Hardware",
         description:
-          "This file uses a modern, deliberately slow form of encryption that ordinary computers " +
-          "cannot search quickly. Recovering it needs specialized hardware, offered in a later " +
-          "version. Nothing is wrong with the file.",
+          "This file uses strong encryption that ordinary computers can't break quickly. Recovering it needs specialized hardware, coming in a later version. Nothing is wrong with the file.",
         active: false,
       };
     case "cancelled":

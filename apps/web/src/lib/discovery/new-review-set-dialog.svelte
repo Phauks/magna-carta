@@ -178,8 +178,7 @@
             </Combobox.Content>
           </Combobox.Root>
           <p class="text-text-muted text-sm">
-            The case this corpus belongs to. It decides the document ceiling the set snapshots and
-            the lifecycle it lives under, and it cannot be changed afterwards.
+            The matter this review set belongs to. It sets the document limit and can't be changed later.
           </p>
         </div>
       {/if}
@@ -193,10 +192,7 @@
       </div>
 
       <p class="text-text-muted text-sm">
-        It starts open and empty. Only you can reach it until you add somebody: a review set's access
-        list is separate from who works the matter, because material another party produced may be
-        under a protective order the whole matter team is not cleared for. A review set locks and
-        closes, and it does not reopen.
+        It starts open and empty, and only you can see it until you add people. Access is separate from the matter team, because produced material may be under a protective order. Once a review set is closed, it can't be reopened.
       </p>
     </div>
   {/snippet}

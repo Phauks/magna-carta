@@ -518,7 +518,7 @@ export function fileRecordMenu(
       icon: Trash,
       ...(count > 1 && fullFolders.length > 0
         ? {
-            disabledReason: `A folder with contents is deleted on its own, so what is inside it can be dealt with. Deselect ${fullFolders.map((record) => record.name).join(", ")}.`,
+            disabledReason: `Folders with contents are deleted one at a time, so you can decide what happens to what's inside. Deselect ${fullFolders.map((record) => record.name).join(", ")}.`,
           }
         : {}),
     };

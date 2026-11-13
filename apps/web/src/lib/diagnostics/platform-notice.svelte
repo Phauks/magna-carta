@@ -30,8 +30,7 @@
       </Alert.Title>
       <Alert.Description>
         {#if trouble === "skew"}
-          This page and the service are briefly on different releases. Reload and they will line up
-          again. Nothing you have saved is affected.
+          This page is out of date after an update. Reload it. Your saved work isn't affected.
         {:else}
           Parts of this screen couldn't load. Your saved work isn't affected.
         {/if}

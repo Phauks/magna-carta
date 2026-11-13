@@ -344,8 +344,7 @@
                 <!-- A batch of thousands is remembered in part, and says so rather than reading as
                      a batch that was smaller than it was. -->
                 <p class="text-xs text-text-muted">
-                  The first {String(entry.files.length)} of {String(entry.total)} files are
-                  remembered here; the rest are on the matter.
+                  The first {String(entry.files.length)} of {String(entry.total)} files are listed here; the rest are on the matter.
                 </p>
               {/if}
             {/if}

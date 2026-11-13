@@ -149,9 +149,7 @@ export function problemGuidance(problem: SafeBrowseProblem): ProblemGuidance {
       tone: "warning",
       title: "That page could not be rendered",
       message:
-        "The isolated browser reached the address but the page did not finish loading. It may be " +
-        "very slow, very large, or broken. The redirect chain and response headers below are still " +
-        "what the address answered.",
+        "The secure browser reached the address, but the page didn't finish loading. It may be slow, large or broken. The redirects and response headers below are still accurate.",
       remedy: { kind: "retry" },
     };
   }

@@ -15,6 +15,7 @@ import {
   featureSectionPills,
   githubHeadingAnchor,
   groupFeatures,
+  describeSecretSources,
   missingRequirements,
   sortFeatures,
 } from "../src/lib/versions/features-model.ts";
@@ -134,6 +135,33 @@ describe("feature states", () => {
       }),
     ).toEqual(["ADDRESS_SERVICE"]);
     expect(missingRequirements(undefined)).toEqual([]);
+  });
+
+  it("says where a set-up feature's secrets come from, from the alternative it runs on", () => {
+    expect(
+      describeSecretSources({
+        id: "meetings",
+        alternatives: [
+          [
+            { name: "REALTIME_SFU_APP_ID", present: true, source: "worker" },
+            { name: "REALTIME_SFU_APP_SECRET", present: true, source: "secrets-store" },
+          ],
+        ],
+      }),
+    ).toBe("From the Secrets Store: REALTIME_SFU_APP_SECRET · On the Worker: REALTIME_SFU_APP_ID");
+    expect(
+      describeSecretSources({
+        id: "addressSuggestions",
+        alternatives: [
+          [
+            { name: "SMARTY_AUTH_ID", present: true, source: "worker" },
+            { name: "SMARTY_AUTH_TOKEN", present: false, source: null },
+          ],
+          [{ name: "ADDRESS_SERVICE", present: true, source: null }],
+        ],
+      }),
+    ).toBeNull();
+    expect(describeSecretSources(undefined)).toBeNull();
   });
 });
 

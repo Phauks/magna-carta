@@ -81,7 +81,7 @@
         kind="not-applicable"
         reason={files.length === 1
           ? `Nothing converts from ${describeType(files[0]!)}.`
-          : `${withoutTargets.length} of the selected files convert to nothing, so the selection shares no target. Narrow the selection to see what the rest can become.`}
+          : `${withoutTargets.length} of the selected files can't be converted, so there's no shared format. Narrow the selection to see options for the rest.`}
       />
     {:else}
       <Absence

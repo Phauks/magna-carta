@@ -283,8 +283,7 @@
             />
           </LabelledField>
           <p class="text-sm text-text-muted">
-            Postage on a shipment filed to a matter is recorded against it as a recoverable cost.
-            Mail the firm sends on its own account needs no matter.
+            Postage on a shipment for a matter is recorded as a recoverable cost. The firm's own mail doesn't need a matter.
           </p>
         </Card.Content>
       </Card.Root>

@@ -403,6 +403,7 @@ export type FeatureRequirements = {
     alternatives: Array<Array<{
         name: string;
         present: boolean;
+        source: 'secrets-store' | 'worker' | null;
     }>>;
 };
 
@@ -5419,6 +5420,10 @@ export type SetDirectoryEntityPhotoRequest = {
 export type AddressSuggestionsResponse = {
     outcome: 'suggestions';
     suggestions: Array<AddressSuggestion>;
+    /**
+     * Whose data the offers are, when its terms require the list to say so. `google-maps`: the list shows the words Google Maps in the same container as the offers.
+     */
+    attribution?: 'google-maps';
 } | {
     outcome: 'no-coverage';
 } | {

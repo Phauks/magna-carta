@@ -66,4 +66,4 @@ export const SCAN_ENGINE_FIXTURE_PARTS: ScanEngineParts = {
 /** What the reading says where no engine reports. A fact about the deployment, not a fault. */
 export const SCAN_ENGINE_UNREPORTED_LABEL = "Not reported";
 export const SCAN_ENGINE_UNREPORTED_DETAIL =
-  "No scan engine is reporting to this deployment, so uploads are recorded as unscanned rather than clean.";
+  "No malware scanner is connected, so uploads are marked as unscanned.";

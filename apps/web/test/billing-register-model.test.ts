@@ -324,7 +324,9 @@ describe("the verbs a bill offers", () => {
 
   it("refuses finalize on anything but a draft, and void on anything but a draft", () => {
     const onFinal = billActions(makeRow({}), context);
-    expect(billAction(onFinal, "finalize")?.disabledReason).toContain("Only a draft can be finalized");
+    expect(billAction(onFinal, "finalize")?.disabledReason).toContain(
+      "Only a draft can be finalized",
+    );
     expect(billAction(onFinal, "voidDraft")?.disabledReason).toContain("credit note");
   });
 
