@@ -9,8 +9,8 @@
 use serde::Deserialize;
 
 use crate::model::{
-    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph, Rgb,
-    RunningLine, Span, Table, Timestamp,
+    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
+    Paragraph, Rgb, RunningLine, Span, Table, Timestamp,
 };
 use crate::{compose, ComposeError, ComposeOutput, FontFamily};
 
@@ -30,6 +30,7 @@ struct WireDocument {
     /// Rows of tables and field lists set closer together.
     #[serde(default)]
     compact: bool,
+    letterhead: Option<WireLetterhead>,
     header: Option<WireRunningLine>,
     footer: Option<WireRunningLine>,
     #[serde(default)]
@@ -77,6 +78,17 @@ struct WirePage {
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct WireLetterhead {
+    /// The picture's position in the list of byte arrays passed beside the JSON.
+    image: Option<usize>,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    detail: String,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct WireRunningLine {
     #[serde(default)]
     left: String,
@@ -120,6 +132,9 @@ struct WireColumn {
 struct WireField {
     label: String,
     value: String,
+    /// The value's words set in columns of one width.
+    #[serde(default)]
+    grid: bool,
 }
 
 #[derive(Deserialize)]
@@ -274,6 +289,7 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                     .map(|field| Field {
                         label: field.label,
                         value: field.value,
+                        grid: field.grid,
                     })
                     .collect(),
             ),
@@ -282,6 +298,22 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             WireBlock::PageBreak => Block::PageBreak,
         });
     }
+    let letterhead = match wire.letterhead {
+        None => None,
+        Some(letterhead) => Some(Letterhead {
+            image: match letterhead.image {
+                None => None,
+                Some(index) => Some(
+                    images
+                        .get(index)
+                        .ok_or(ComposeError::ImageMissing { index })?
+                        .to_vec(),
+                ),
+            },
+            title: letterhead.title,
+            detail: letterhead.detail,
+        }),
+    };
     Ok(ComposedDocument {
         title: wire.title,
         author: wire.author,
@@ -300,6 +332,7 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             .accent
             .map(|[red, green, blue]| Rgb { red, green, blue }),
         compact: wire.compact,
+        letterhead,
         header: wire.header.map(running_line),
         footer: wire.footer.map(running_line),
         blocks,

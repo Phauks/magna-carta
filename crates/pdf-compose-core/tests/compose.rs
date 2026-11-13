@@ -334,10 +334,12 @@ fn page_breaks_fields_and_running_lines() {
             Field {
                 label: "Matter".to_string(),
                 value: "Rivera v. Northgate Holdings".to_string(),
+                grid: false,
             },
             Field {
                 label: "Opened".to_string(),
                 value: "2026-02-14".to_string(),
+                grid: false,
             },
         ]),
         Block::Rule,
@@ -557,6 +559,47 @@ fn a_compact_document_sets_its_rows_closer_together() {
     let compact = pdf_compose_core::compose_json(&json(true), &[], &fonts).unwrap();
     assert_eq!(page_texts(&roomy.pdf).len(), 2);
     assert_eq!(page_texts(&compact.pdf).len(), 1);
+}
+
+#[test]
+fn a_letterhead_heads_every_page_in_the_accent_colour() {
+    let json = |letterhead: &str| {
+        format!(
+            r#"{{ "accent": [200, 20, 20], "page": {{ "marginTop": 90 }}, {letterhead}
+                "footer": {{ "center": "Page {{page}} of {{pages}}" }},
+                "blocks": [
+                    {{ "type": "paragraph", "text": "First." }},
+                    {{ "type": "pageBreak" }},
+                    {{ "type": "paragraph", "text": "Second." }},
+                    {{ "type": "fields", "fields": [
+                        {{ "label": "Hash", "value": "b996 78c5\n74a8 ca0a", "grid": true }}
+                    ] }}
+                ] }}"#
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let plain = pdf_compose_core::compose_json(&json(""), &[], &fonts).unwrap();
+    let headed = pdf_compose_core::compose_json(
+        &json(r#""letterhead": { "title": "Certificate of Completion", "detail": "MC-0123" },"#),
+        &[],
+        &fonts,
+    )
+    .unwrap();
+    let pages = page_texts(&headed.pdf);
+    assert_eq!(pages.len(), 2);
+    for page in &pages {
+        assert!(page.contains("Certificate of Completion"), "{page}");
+        assert!(page.contains("MC-0123"), "{page}");
+    }
+    assert!(
+        pages[1].contains("b996 78c5") && pages[1].contains("74a8 ca0a"),
+        "{}",
+        pages[1]
+    );
+    assert!(!page_texts(&plain.pdf)[0].contains("MC-0123"));
+    // The bar and the title are drawn in the accent; without a letterhead nothing is.
+    assert_eq!(red_pixels(&plain.pdf), 0);
+    assert!(red_pixels(&headed.pdf) > 300, "{}", red_pixels(&headed.pdf));
 }
 
 #[test]

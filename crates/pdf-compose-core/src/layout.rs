@@ -6,7 +6,8 @@
 
 use crate::fonts::{Face, Measurer};
 use crate::model::{
-    Alignment, Block, Column, ComposedDocument, Field, PageSetup, Paragraph, RunningLine, Table,
+    Alignment, Block, Column, ComposedDocument, Field, Letterhead, PageSetup, Paragraph,
+    RunningLine, Table,
 };
 use crate::ComposeError;
 
@@ -290,6 +291,39 @@ fn break_lines(
     lines
 }
 
+/// Leads a cell whose words are to be set on a grid. It is a control character, which
+/// `clean` drops from any text a caller supplies, so only layout itself can ask for a grid.
+const GRID_MARK: char = '\u{1}';
+
+/// Set each word of `text` in a column as wide as the widest word, so the words of every
+/// line stand under one another whatever their letters measure. A line feed starts a new
+/// line; nothing else does, because a grid that wrapped would no longer be one.
+fn grid_lines(measurer: &mut Measurer, face: Face, text: &str, size: f32) -> Vec<Line> {
+    let cleaned = clean(text);
+    let step = cleaned
+        .split_whitespace()
+        .map(|word| measurer.width(face, size, word))
+        .fold(0.0f32, f32::max)
+        + 2.0 * measurer.width(face, size, " ");
+    cleaned
+        .split('\n')
+        .map(|row| {
+            let pieces: Vec<Piece> = row
+                .split_whitespace()
+                .map(|word| Piece {
+                    face,
+                    text: word.to_string(),
+                    width: step,
+                })
+                .collect();
+            Line {
+                width: step * pieces.len() as f32,
+                pieces,
+            }
+        })
+        .collect()
+}
+
 fn plain(face: Face, text: &str) -> Vec<(Face, String)> {
     vec![(face, text.to_string())]
 }
@@ -538,6 +572,9 @@ impl Flow<'_, '_> {
             .map(|(index, column)| {
                 let text = cells.get(index).map(String::as_str).unwrap_or("");
                 let face = if bold { Face::Bold } else { column.face };
+                if let Some(words) = text.strip_prefix(GRID_MARK) {
+                    return grid_lines(self.measurer, face, words, CELL.size);
+                }
                 break_lines(
                     self.measurer,
                     &plain(face, text),
@@ -787,7 +824,14 @@ impl Flow<'_, '_> {
         ];
         let rows: Vec<Vec<String>> = fields
             .iter()
-            .map(|field| vec![field.label.clone(), field.value.clone()])
+            .map(|field| {
+                let value = if field.grid {
+                    format!("{GRID_MARK}{}", field.value)
+                } else {
+                    field.value.clone()
+                };
+                vec![field.label.clone(), value]
+            })
             .collect();
         self.rows(&columns, None, &rows, false)
     }
@@ -797,9 +841,9 @@ fn running_line(
     measurer: &mut Measurer,
     page: &PageSetup,
     line: &RunningLine,
+    style: TextStyle,
     baseline: f32,
-    number: usize,
-    count: usize,
+    (number, count): (usize, usize),
     marks: &mut Vec<Mark>,
 ) {
     let fill = |text: &str| {
@@ -817,7 +861,7 @@ fn running_line(
         if text.trim().is_empty() {
             continue;
         }
-        let width = measurer.width(Face::Regular, RUNNING.size, &text);
+        let width = measurer.width(Face::Regular, style.size, &text);
         let x = match alignment {
             Alignment::Start => page.margin_left,
             Alignment::Center => page.margin_left + (page.content_width() - width) / 2.0,
@@ -827,11 +871,97 @@ fn running_line(
             x,
             baseline,
             face: Face::Regular,
-            size: RUNNING.size,
-            ink: RUNNING.ink,
+            size: style.size,
+            ink: style.ink,
             text,
         });
     }
+}
+
+/// The footer of a document with a letterhead: a size up from the plain running line and
+/// darker, because it stands under a rule of its own and not alone in the margin.
+const LETTERHEAD_FOOTER: TextStyle = TextStyle {
+    size: 9.5,
+    line_height: 12.0,
+    ink: Ink::Gray(60),
+};
+const LETTERHEAD_BAR: f32 = 5.0;
+const LETTERHEAD_PICTURE_HEIGHT: f32 = 24.0;
+const LETTERHEAD_TITLE_SIZE: f32 = 12.0;
+const LETTERHEAD_DETAIL_SIZE: f32 = 9.5;
+/// The band ends this far above the content.
+const LETTERHEAD_CLEARANCE: f32 = 12.0;
+
+/// Draw the letterhead in the top margin of one page: the bar, the picture and the two lines
+/// of text beside it, and the rule that closes the band. `picture` is the picture's position
+/// among the document's images and its size, where the letterhead has one.
+fn letterhead_marks(
+    measurer: &mut Measurer,
+    page: &PageSetup,
+    letterhead: &Letterhead,
+    picture: Option<(usize, ImageSize)>,
+    marks: &mut Vec<Mark>,
+) {
+    let left = page.margin_left;
+    let right = page.width - page.margin_right;
+    let rule = page.margin_top - LETTERHEAD_CLEARANCE;
+    let picture_top = rule - 9.0 - LETTERHEAD_PICTURE_HEIGHT;
+    let bar_top = picture_top - 10.0 - LETTERHEAD_BAR;
+    marks.push(Mark::Fill {
+        x: left,
+        y: bar_top,
+        width: right - left,
+        height: LETTERHEAD_BAR,
+        ink: Ink::Accent { fallback: 60 },
+    });
+    if let Some((index, size)) = picture.filter(|(_, size)| size.pixel_height > 0) {
+        let width = LETTERHEAD_PICTURE_HEIGHT * size.pixel_width as f32 / size.pixel_height as f32;
+        marks.push(Mark::Image {
+            index,
+            x: left,
+            y: picture_top,
+            width: width.min(right - left),
+            height: LETTERHEAD_PICTURE_HEIGHT,
+        });
+    }
+    let lines = [
+        (
+            &letterhead.title,
+            Face::Bold,
+            LETTERHEAD_TITLE_SIZE,
+            Ink::Accent { fallback: 0 },
+            picture_top + 10.0,
+        ),
+        (
+            &letterhead.detail,
+            Face::Regular,
+            LETTERHEAD_DETAIL_SIZE,
+            Ink::Gray(70),
+            picture_top + 23.0,
+        ),
+    ];
+    for (text, face, size, ink, baseline) in lines {
+        let text = clean(text).replace('\n', " ");
+        if text.trim().is_empty() {
+            continue;
+        }
+        let width = measurer.width(face, size, &text);
+        marks.push(Mark::Text {
+            x: right - width,
+            baseline,
+            face,
+            size,
+            ink,
+            text,
+        });
+    }
+    marks.push(Mark::Rule {
+        x0: left,
+        x1: right,
+        y: rule,
+        thickness: 0.75,
+        ink: Ink::Gray(200),
+    });
 }
 
 /// Lay a document out. `images` holds the pixel size of each [`Block::Image`], in the order
@@ -925,6 +1055,12 @@ pub(crate) fn lay_out(
         }
     }
 
+    // The letterhead's picture follows the image blocks in `images`.
+    let letterhead_picture = document
+        .letterhead
+        .as_ref()
+        .and_then(|letterhead| letterhead.image.as_ref())
+        .and_then(|_| images.get(image_index).map(|size| (image_index, *size)));
     let mut pages = flow.pages;
     let count = pages.len();
     for (index, laid) in pages.iter_mut().enumerate() {
@@ -934,24 +1070,80 @@ pub(crate) fn lay_out(
                 measurer,
                 &page,
                 header,
+                RUNNING,
                 baseline,
-                index + 1,
-                count,
+                (index + 1, count),
+                &mut laid.marks,
+            );
+        }
+        if let Some(letterhead) = &document.letterhead {
+            letterhead_marks(
+                measurer,
+                &page,
+                letterhead,
+                letterhead_picture,
                 &mut laid.marks,
             );
         }
         if let Some(footer) = &document.footer {
-            let baseline = page.height - page.margin_bottom / 2.0 + RUNNING.size / 2.0;
+            let style = if document.letterhead.is_some() {
+                LETTERHEAD_FOOTER
+            } else {
+                RUNNING
+            };
+            let baseline = page.height - page.margin_bottom / 2.0 + style.size / 2.0;
+            if document.letterhead.is_some() {
+                laid.marks.push(Mark::Rule {
+                    x0: page.margin_left,
+                    x1: page.width - page.margin_right,
+                    y: baseline - style.size - 7.0,
+                    thickness: 0.75,
+                    ink: Ink::Accent { fallback: 150 },
+                });
+            }
             running_line(
                 measurer,
                 &page,
                 footer,
+                style,
                 baseline,
-                index + 1,
-                count,
+                (index + 1, count),
                 &mut laid.marks,
             );
         }
     }
     Ok(pages)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fonts::FontFamily;
+
+    #[test]
+    fn a_grid_sets_every_word_in_a_column_of_one_width() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        // Digits and letters measure differently, so plain text would not line up.
+        let narrow = measurer.width(Face::Regular, CELL.size, "1111");
+        let wide = measurer.width(Face::Regular, CELL.size, "dddd");
+        assert!((narrow - wide).abs() > 0.1);
+
+        let lines = grid_lines(
+            &mut measurer,
+            Face::Regular,
+            "1111 dddd ffff\nabcd 0000 1f1f",
+            CELL.size,
+        );
+        assert_eq!(lines.len(), 2);
+        let widths: Vec<f32> = lines
+            .iter()
+            .flat_map(|line| line.pieces.iter().map(|piece| piece.width))
+            .collect();
+        assert_eq!(widths.len(), 6);
+        assert!(widths
+            .iter()
+            .all(|width| *width == widths[0] && *width > wide));
+        assert_eq!(lines[0].pieces[1].text, "dddd");
+    }
 }

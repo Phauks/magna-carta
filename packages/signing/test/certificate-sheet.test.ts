@@ -46,8 +46,13 @@ describe("certificateSheet", () => {
     const fields = sheet.blocks.flatMap((block) => (block.type === "fields" ? block.fields : []));
     const value = (label: string) => fields.find((field) => field.label === label)?.value;
 
-    expect(sheet.blocks[0]).toEqual({ type: "image", image: 0, width: 130 });
-    expect(sheet.blocks[1]).toEqual({ type: "title", text: "Certificate of Completion" });
+    // Every page is headed with the lockup, the certificate's name and its reference.
+    expect(sheet.letterhead).toEqual({
+      image: 0,
+      title: "Certificate of Completion",
+      detail: "MC-0123-4567-89AB",
+    });
+    expect(sheet.blocks[0]).toEqual({ type: "heading", level: 1, text: "Summary" });
     // A number a person can read out, never the request's internal identifier.
     expect(value("Reference")).toBe("MC-0123-4567-89AB");
     expect(JSON.stringify(sheet)).not.toContain("env_0001");
@@ -82,14 +87,11 @@ describe("certificateSheet", () => {
     expect(value("Consent: Disclosure")).toBe("v1");
     expect(value("IP Address")).toBe("198.51.100.7");
     expect(value("Browser")).toBe("ExampleBrowser/1.0");
-    expect(sheet.footer).toEqual({
-      left: "Certificate MC-0123-4567-89AB",
-      right: "Page {page} of {pages}",
-    });
+    expect(sheet.footer).toEqual({ center: "Page {page} of {pages}" });
     expect(sheet.accent).toEqual([98, 72, 0]);
-    // Close rows and three-quarter-inch margins are what let the first page hold eight signers.
+    // Close rows are what let the first page hold eight signers under the letterhead.
     expect(sheet.compact).toBe(true);
-    expect(sheet.page).toEqual({ paper: "letter", marginTop: 54, marginBottom: 54 });
+    expect(sheet.page).toEqual({ paper: "letter", marginTop: 92, marginBottom: 54 });
     expect(sheet.created).toEqual({
       year: 2026,
       month: 7,
@@ -191,11 +193,11 @@ describe("certificateSheet", () => {
       { heading: "Signer Details (1 of 3)", signers: ["Signer 1", "Signer 2"], rows: 0 },
       { heading: "Signer Details (2 of 3)", signers: ["Signer 3", "Signer 4"], rows: 0 },
       { heading: "Signer Details (3 of 3)", signers: ["Signer 5"], rows: 0 },
-      // A page takes as many rows as their expected height allows: 36 short ones, or fewer long.
-      { heading: "Audit Log (1 of 4)", signers: [], rows: 36 },
-      { heading: "Audit Log (2 of 4)", signers: [], rows: 36 },
-      { heading: "Audit Log (3 of 4)", signers: [], rows: 23 },
-      { heading: "Audit Log (4 of 4)", signers: [], rows: 5 },
+      // A page takes as many rows as their expected height allows: 34 short ones, or fewer long.
+      { heading: "Audit Log (1 of 4)", signers: [], rows: 34 },
+      { heading: "Audit Log (2 of 4)", signers: [], rows: 34 },
+      { heading: "Audit Log (3 of 4)", signers: [], rows: 24 },
+      { heading: "Audit Log (4 of 4)", signers: [], rows: 8 },
     ]);
   });
 

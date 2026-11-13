@@ -19,13 +19,12 @@ import type { CertificateOfCompletion, SignerCompletion, SigningContact } from "
 interface SheetField {
   readonly label: string;
   readonly value: string;
+  /** The value's words set in columns of one width, so its lines stand under one another. */
+  readonly grid?: true;
 }
 
 /** The blocks the sheet uses, a subset of the composer's own. */
 export type CertificateSheetBlock =
-  | { readonly type: "title"; readonly text: string }
-  | { readonly type: "image"; readonly image: number; readonly width: number }
-  | { readonly type: "space"; readonly height: number }
   | { readonly type: "pageBreak" }
   | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
   | { readonly type: "paragraph"; readonly text: string }
@@ -39,8 +38,7 @@ export type CertificateSheetBlock =
       readonly type: "table";
       readonly columns: readonly { readonly heading: string; readonly weight: number }[];
       readonly rows: readonly (readonly string[])[];
-    }
-  | { readonly type: "rule" };
+    };
 
 /** A document the PDF composer accepts as it stands. */
 export interface CertificateSheet {
@@ -64,7 +62,9 @@ export interface CertificateSheet {
   readonly accent: readonly [number, number, number];
   /** Rows set closer together, so the first page holds the summary, eight signers and the contacts. */
   readonly compact: true;
-  readonly footer: { readonly left: string; readonly right: string };
+  /** What heads every page: the lockup, the certificate's name and its reference. */
+  readonly letterhead: { readonly image: number; readonly title: string; readonly detail: string };
+  readonly footer: { readonly center: string };
   readonly blocks: readonly CertificateSheetBlock[];
 }
 
@@ -74,11 +74,8 @@ export interface CertificateSheet {
  */
 const ACCENT = [98, 72, 0] as const;
 
-/** The lockup's drawn width in points; it is 163 by 40 at its natural size. */
-const LOCKUP_WIDTH = 130;
-
 /**
- * The pictures the sheet's image blocks name by position. Passed to the composer beside the sheet.
+ * The pictures the sheet names by position: the lockup its letterhead draws. Passed to the composer beside the sheet.
  */
 export function certificateSheetImages(): Uint8Array[] {
   return [brandLockupPng()];
@@ -97,11 +94,17 @@ export interface CertificateSheetOptions {
 const ISSUER_NAME = "Magna Carta";
 
 /**
- * The space above and below the page's content, in points: three quarters of an inch. The
- * composer's own inch leaves the first page short of eight signers, and a certificate that runs its
- * summary onto a second sheet is one a reader has to staple.
+ * The page's top margin, in points: the room the composer's letterhead takes and half an inch of
+ * paper above it that a desktop printer can reach.
  */
-const PAGE_MARGIN_VERTICAL = 54;
+const PAGE_MARGIN_TOP = 92;
+
+/**
+ * The page's bottom margin, in points: three quarters of an inch. The composer's own inch leaves
+ * the first page short of eight signers, and a certificate that runs its summary onto a second
+ * sheet is one a reader has to staple.
+ */
+const PAGE_MARGIN_BOTTOM = 54;
 
 /**
  * How many signers' full records one page holds. A record is never run across two pages: a reader
@@ -124,7 +127,7 @@ const AUDIT_COLUMNS = [
  * margins, less the section heading and the table's own heading row, less a margin for the
  * estimate below being an estimate.
  */
-const AUDIT_ROWS_HEIGHT = 590;
+const AUDIT_ROWS_HEIGHT = 552;
 
 /** The composer's compact row: a line of cell text, and the space above and below a row. */
 const ROW_LINE_HEIGHT = 13;
@@ -275,15 +278,17 @@ export function certificateSheet(
     { label: "Signers", value: String(signers.length) },
     { label: "Signatures", value: total(signatureCount) },
     { label: "Initials", value: total(initialCount) },
-    { label: "Document Hash (SHA-256)", value: hashRows(certificate.documentHashSha256) },
+    {
+      label: "Document Hash (SHA-256)",
+      value: hashRows(certificate.documentHashSha256),
+      grid: true,
+    },
     { label: "Time Zone", value: "Coordinated Universal Time (UTC)" },
   );
 
   const documentContact = envelope?.contact ?? envelope?.sender;
   const blocks: CertificateSheetBlock[] = [
-    { type: "image", image: 0, width: LOCKUP_WIDTH },
-    { type: "title", text: "Certificate of Completion" },
-    { type: "rule" },
+    { type: "heading", level: 1, text: "Summary" },
     { type: "fields", fields: summary },
     { type: "heading", level: 1, text: "Signers" },
     {
@@ -377,15 +382,17 @@ export function certificateSheet(
       : {}),
     page: {
       paper: "letter",
-      marginTop: PAGE_MARGIN_VERTICAL,
-      marginBottom: PAGE_MARGIN_VERTICAL,
+      marginTop: PAGE_MARGIN_TOP,
+      marginBottom: PAGE_MARGIN_BOTTOM,
     },
     accent: ACCENT,
     compact: true,
-    footer: {
-      left: `Certificate ${certificate.reference}`,
-      right: "Page {page} of {pages}",
+    letterhead: {
+      image: 0,
+      title: "Certificate of Completion",
+      detail: certificate.reference,
     },
+    footer: { center: "Page {page} of {pages}" },
     blocks,
   };
 }

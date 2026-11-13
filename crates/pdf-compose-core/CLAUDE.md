@@ -39,6 +39,13 @@ The sign Worker composes the Certificate of Completion with it.
 - **Density is the document's choice, not a block's.** `compact` narrows the rows of every table and
   field list at once, and a `small` paragraph is the caption style in the flow. A caller that has to
   fit a known amount on a page uses those and the page margins, never a font size of its own.
+- **What repeats on every page is added after the flow.** The header and footer lines and the
+  `letterhead` band are marks pushed onto each finished page, drawn in the margins, so they never
+  move the content; the caller sizes the top margin for the band. The letterhead's picture takes the
+  position after the last image block in the list layout and render both read.
+- **A grid is asked for by the model, never by the text.** `Field::grid` sets a value's words in
+  columns of one width. Layout marks such a cell with a control character that `clean` strips from
+  anything a caller supplies.
 - **The output is deterministic.** No clock is read: the creation time is the caller's
   `ComposedDocument::created`. The same model and fonts give the same bytes, and a test holds that.
 

@@ -127,7 +127,8 @@ fn metadata(document: &ComposedDocument) -> Metadata {
     metadata
 }
 
-/// The encoded bytes of the document's `index`-th image block.
+/// The encoded bytes of the document's `index`-th picture: its image blocks in order, then
+/// the letterhead's.
 fn image_data(document: &ComposedDocument, index: usize) -> Option<&[u8]> {
     document
         .blocks
@@ -136,6 +137,12 @@ fn image_data(document: &ComposedDocument, index: usize) -> Option<&[u8]> {
             Block::Image(image) => Some(image.data.as_slice()),
             _ => None,
         })
+        .chain(
+            document
+                .letterhead
+                .as_ref()
+                .and_then(|letterhead| letterhead.image.as_deref()),
+        )
         .nth(index)
 }
 

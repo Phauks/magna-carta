@@ -83,7 +83,15 @@ export type ComposeBlock =
     }
   | {
       readonly type: "fields";
-      readonly fields: readonly { readonly label: string; readonly value: string }[];
+      readonly fields: readonly {
+        readonly label: string;
+        readonly value: string;
+        /**
+         * Set the value's words in columns of one width, a line to each line feed, so a value read
+         * in groups (a hash, a serial number) lines up from row to row.
+         */
+        readonly grid?: boolean;
+      }[];
     }
   | { readonly type: "rule" }
   | { readonly type: "space"; readonly height: number }
@@ -116,6 +124,18 @@ export interface ComposeDocument {
    * known amount on one page.
    */
   readonly compact?: boolean;
+  /**
+   * A band in the top margin of every page: a bar in the accent colour, a picture at the left,
+   * a title over a line of detail at the right, and a thin rule beneath. It takes 60 points
+   * above the content, so give the page a top margin of about 90. With a letterhead the footer
+   * is set a little larger under a rule of its own.
+   */
+  readonly letterhead?: {
+    /** The picture's position in the `images` list passed beside the document. */
+    readonly image?: number;
+    readonly title?: string;
+    readonly detail?: string;
+  };
   readonly header?: ComposeRunningLine;
   readonly footer?: ComposeRunningLine;
   readonly blocks: readonly ComposeBlock[];

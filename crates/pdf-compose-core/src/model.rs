@@ -21,6 +21,8 @@ pub struct ComposedDocument {
     /// Set the rows of every table and field list closer together, for a document that has to
     /// hold a known amount on one page.
     pub compact: bool,
+    /// A band drawn in the top margin of every page, and a rule above the footer to match.
+    pub letterhead: Option<Letterhead>,
     /// Drawn in the top margin of every page.
     pub header: Option<RunningLine>,
     /// Drawn in the bottom margin of every page.
@@ -102,6 +104,24 @@ impl Default for PageSetup {
     fn default() -> Self {
         Self::letter()
     }
+}
+
+/// What every page of a document is headed with: a bar in the accent colour, a picture at
+/// the left (a logo), and at the right a title over a line of detail, with a thin rule
+/// beneath. It is drawn in the top margin and ends 12 points above the content, so the page
+/// needs a top margin of at least [`Letterhead::HEIGHT`] plus whatever the printer cannot
+/// reach. With a letterhead the footer is set a little larger under a rule of its own.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Letterhead {
+    /// The encoded picture, drawn 24 points tall. `None` leaves the left side empty.
+    pub image: Option<Vec<u8>>,
+    pub title: String,
+    pub detail: String,
+}
+
+impl Letterhead {
+    /// The room the band takes above the content, in points.
+    pub const HEIGHT: f32 = 60.0;
 }
 
 /// One line repeated on every page, in three slots. `{page}` is replaced with the page's
@@ -209,6 +229,9 @@ pub struct Table {
 pub struct Field {
     pub label: String,
     pub value: String,
+    /// Set the value's words in columns of one width, a line to each line feed, so a value
+    /// read in groups (a hash, a serial number) lines up from row to row.
+    pub grid: bool,
 }
 
 #[derive(Debug, Clone)]
