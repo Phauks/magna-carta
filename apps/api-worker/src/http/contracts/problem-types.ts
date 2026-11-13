@@ -777,6 +777,9 @@ export const PROBLEM_TYPES = {
   // MP4, QuickTime or Matroska video, stored in a form it cannot read directly, or flagged by a scan.
   // DISTINCT from a copy the engine tried and could not make, which is a 200 with state unavailable.
   "playable-copy-not-a-candidate": "playable-copy-not-a-candidate",
+  // The one-time link to the community board cannot be minted because this deployment holds no
+  // COMMUNITY_HANDOFF_SECRET (HTTP 503). A fact about configuration, not about the member.
+  "community-sign-in-not-configured": "community-sign-in-not-configured",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
