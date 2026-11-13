@@ -141,7 +141,7 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-  <div class="flex items-center gap-8 border-b border-border px-16 py-8">
+  <div class="flex items-center gap-8 border-b border-border-default bg-surface-raised px-16 py-8">
     <Tooltip.Root>
       <Tooltip.Trigger>
         {#snippet child({ props })}
@@ -222,7 +222,7 @@
     </DropdownMenu.Root>
   </div>
 
-  <div class="flex flex-col gap-4 border-b border-border px-16 py-8">
+  <div class="flex flex-col gap-4 border-b border-border-default bg-surface-raised px-16 py-8">
     <div class="flex items-center justify-between gap-8">
       <p class="flex items-center gap-4 text-xs font-semibold">
         <History class="size-12" aria-hidden="true" />
@@ -238,7 +238,7 @@
         <li>
           <button
             type="button"
-            class="flex w-full items-baseline gap-8 rounded-sm px-8 py-4 text-left text-xs hover:bg-surface-subtle aria-pressed:bg-accent-subtle"
+            class="flex w-full items-baseline gap-8 rounded-sm px-8 py-4 text-left text-xs hover:bg-surface-raised aria-pressed:bg-surface-selected"
             aria-pressed={version.versionNumber === versionNumber}
             onclick={() => (versionNumber = version.versionNumber)}
           >
@@ -257,7 +257,7 @@
 
   {#if onScreen !== undefined && versionNumber !== latest}
     <div
-      class="flex flex-wrap items-center justify-between gap-8 bg-surface-subtle px-16 py-8 text-xs"
+      class="flex flex-wrap items-center justify-between gap-8 bg-status-warning-subtle px-16 py-8 text-xs text-status-warning-subtle-foreground"
     >
       <span>You are looking at version {versionNumber}. The latest is version {latest}.</span>
       {#if canRestore}

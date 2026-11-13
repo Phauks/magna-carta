@@ -17,7 +17,7 @@
    * An empty commit clears the name: the conversation goes back to reading by the instant it
    * started, which is the same act the record calls a null title.
    */
-  import Button from "@magna-carta/design-system/button";
+  import * as Masthead from "@magna-carta/design-system/masthead";
   import Input from "@magna-carta/design-system/input";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -124,16 +124,17 @@
       <!-- The name is the control: pressing it opens the edit where the name stands. It is a ghost
            button so it reads as text at rest and as a control on hover, which is what "edited where it
            is read" asks for. -->
-      <Button
-        variant="ghost"
-        size="sm"
-        class="min-w-0 justify-start truncate font-medium"
-        disabled={conversation === null || disabled || committing}
-        onclick={begin}
-        title={conversation === null ? undefined : name}
-      >
-        {committing ? draft || name : name}
-      </Button>
+      <Masthead.Title level={2} class="min-w-0 truncate text-lg">
+        <button
+          type="button"
+          class="max-w-full truncate rounded-sm text-start hover:bg-surface-sunken disabled:cursor-default disabled:hover:bg-transparent"
+          disabled={conversation === null || disabled || committing}
+          onclick={begin}
+          title={conversation === null ? undefined : `${name}. Press to rename.`}
+        >
+          {committing ? draft || name : name}
+        </button>
+      </Masthead.Title>
     {/if}
   </div>
   {#if failure !== null}

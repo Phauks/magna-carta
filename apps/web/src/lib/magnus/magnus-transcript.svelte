@@ -159,7 +159,11 @@
 </script>
 
 {#snippet transcriptShape(shown: readonly MagnusTurn[], live: boolean)}
-  <Conversation.Transcript arrangement="exchange" label="This conversation with Magnus">
+  <Conversation.Transcript
+    arrangement="exchange"
+    label="This conversation with Magnus"
+    class="*:mx-auto *:w-full *:max-w-3xl"
+  >
     {#each shown as turn, index (turn.id)}
       {@const failureSentence = turnFailureSentence(turn)}
       {@const name = live ? speakerName(turn) : turn.speaker === "member" ? samplePerson(index).name : "Magnus"}
@@ -206,7 +210,7 @@
             {#each versionsWrittenBy(session.artifacts, turn.id) as written (written.artifact.id)}
               <button
                 type="button"
-                class="flex w-full max-w-md items-center gap-12 rounded-md border border-border bg-surface px-12 py-8 text-left hover:bg-surface-subtle"
+                class="flex w-full max-w-md items-center gap-12 rounded-md border border-border-default bg-surface-raised px-12 py-8 text-left hover:border-border-strong"
                 onclick={() => onOpenDocument?.(written.artifact.id, written.version.versionNumber)}
               >
                 <FileText class="size-16 shrink-0 text-text-muted" aria-hidden="true" />

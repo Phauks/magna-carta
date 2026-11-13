@@ -12,6 +12,7 @@
  * a sample, so a sixth label added to the wire cannot ship without words.
  */
 import { describe, expect, it } from "vitest";
+import { railDateGroup, railRowLine } from "../src/lib/magnus/magnus-vocabulary.ts";
 import {
   ANSWER_SLOW_AFTER_MILLISECONDS,
   CONVERSATION_SORTS,
@@ -235,5 +236,23 @@ describe("what a settled failure says", () => {
       TURN_FAILURE_SENTENCES["ceiling-reached"],
     );
     expect(turnFailureSentence(turn({ status: "complete", content: "An answer." }))).toBeNull();
+  });
+});
+
+describe("the rail's headings and row lines", () => {
+  // A Friday at noon, local time: the week began on Monday the 9th.
+  const now = new Date(2026, 10, 13, 12, 0);
+  const at = (day: number, hour = 9) => new Date(2026, 10, day, hour, 30).toISOString();
+
+  it("groups today, the earlier days of this week, and older months", () => {
+    expect(railDateGroup(at(13), now)).toBe("Today");
+    expect(railDateGroup(at(9), now)).toBe("Earlier This Week");
+    expect(railDateGroup(at(8), now)).toBe("November 2026");
+    expect(railDateGroup(new Date(2026, 9, 28, 9).toISOString(), now)).toBe("October 2026");
+  });
+
+  it("names the matter by number, or General, before when it started", () => {
+    expect(railRowLine("2026-0152", at(13), now)).toMatch(/^2026-0152 · \d{1,2}:30/);
+    expect(railRowLine(null, at(3), now)).toMatch(/^General · Nov 3, 2026$/);
   });
 });
