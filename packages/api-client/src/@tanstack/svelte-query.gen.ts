@@ -442,7 +442,7 @@ export const membersSetProfessionalProfileMutation = (options?: Partial<Options<
 export const metaVersionsQueryKey = (options?: Options<MetaVersionsData>) => createQueryKey('metaVersions', options);
 
 /**
- * The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. The service list is briefly cached; observedAt says when the services were actually probed.
+ * The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. connectedServices says whether each outside service the deployment depends on (Cloudflare Realtime, which carries meetings) is configured and accepting it. The service list is briefly cached; observedAt says when the services were actually probed.
  */
 export const metaVersionsOptions = (options?: Options<MetaVersionsData>) => queryOptions<MetaVersionsResponse2, MetaVersionsError, MetaVersionsResponse2, ReturnType<typeof metaVersionsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
