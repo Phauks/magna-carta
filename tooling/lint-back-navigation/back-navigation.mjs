@@ -58,6 +58,10 @@ export const BACK_TARGETS_SOURCE = "apps/web/src/lib/screen/screen-header.ts";
 export const EXCLUDED_SUBTREES = new Map([
   ["login", "the signed-out card carries its own step-back (auth-panel.svelte)"],
   ["register", "the signed-out card carries its own step-back (auth-panel.svelte)"],
+  [
+    "community-board",
+    "a separate site on its own host (community.magnacarta.esq) with no app sidebar: its pages are reached from the board's own top bar, and an opened post's breadcrumb links back to its list (apps/web/src/lib/community/)",
+  ],
 ]);
 
 /**

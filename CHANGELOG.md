@@ -7915,6 +7915,427 @@ range selection walk the rows as the reader sees them. `DataTable.GroupByMenu` i
 trigger and radio menu. The pure split is `bandedGridRows` in
 `packages/design-system/src/lib/components/data-table/grid-rows.ts`; the Tasks and Notifications
 screens are its first consumers.
+- **A file found by the words inside it quotes the passage it matched.** The file contents index holds which words are on which page and not the sentences, and it is asked by a service that is believed about candidates and nothing else, so the words a reader is shown come from the firm's own storage instead. The index job now keeps what it extracted: one object per indexed version of a matter's file, at `extracted-text/{fileId}/{version}` under a new `extracted-text` object class, holding the same passages the split was built from and laid out so that one passage is read by range (`packages/search/src/extracted-text.ts`). It is written before the catalog says the document is searchable, so a failed write retries the job instead of leaving a result that names a page and cannot show it. At search time the matter search asks for quotes only for the rows it is about to show, after its own statement has returned them under the matter binding; one more statement (`listQuotableIndexedVersions`) answers which version the index holds, and only for a file on that matter, not deleted, whose version is clean. The reader's words are then found in the passage again by the engine's own rules for cutting and folding a word (`packages/search/src/keyword-excerpt.ts`), and about two lines around them go out as the hit's existing `snippet`, which the search panel already shows. No contract change and no interface change. A quote that cannot be read never fails a search, and is reported by its kind alone: no word of the question, the passage or the object's key. A discovery review document is not written, because its text is the review pipeline's own object and a second copy would outlive the review set. Recorded and not solved: nothing destroys a derived copy of a version (the split, the feed object, the kept text) until the retention engine calls the purge point in `packages/file-manager/src/file-service.ts`; turning a firm's switch off deletes nothing; and the matched words are not marked, because the wire carries a plain string for every source. Internal for now on the same ground as the entries before it: nothing inside a file is searchable in production until the search worker is deployed and bound.
+- **The meeting switches have a writer.** `meetings.recordingEnabled`, `meetings.captionsEnabled`,
+`meetings.summariesEnabled` and `meetings.recordedTrackCeiling` were read by the recording start
+route, the recorder and the summary consumer and written by nothing, so every firm's recording
+answered `meeting-recording-not-configured` and every summary was refused `disabled`.
+`GET`/`PATCH /api/v1/firm/meetings/settings` (`routes/meeting-settings.ts`,
+`firmMeetingSettings.get` / `.update`) reads and writes all four: sparse, one idempotent batch with
+one `firm.meeting_settings_updated` audit row, and an empty patch writes and audits nothing. The
+ceiling is refused with a 422 outside 1 to `RECORDED_TRACK_CEILING_MAXIMUM` (11, the recorder's memory
+arithmetic), never clamped. The read also reports two facts it never writes:
+`recordingServiceConfigured`, from the same bindings check the start route's 503 reads, and
+`aiProcessingEligible`, the gate a summary needs beside its own switch.
+
+**A fourth meetings key.** `meetings:manageSettings` gates both verbs and is seeded to Owner/Admin
+alone (`20261110T000108_seed-meeting-settings-permission`): recording one meeting is a practitioner's
+act on `meetings:record`, deciding that every meeting may be recorded, captioned or summarized is the
+firm's.
+
+**Settings › Practice › Meetings** renders the four on the standard settings page over the shared
+server-backed draft, through the generated client. The ceiling's row is composed from the read's
+maximum, and a typed value outside it is refused at the Save button.
+- **A firm can turn searching inside its files on.** A new page, **Settings › Data & Platform › Search and Indexing**, carries one switch, **Search Inside Files**, off until an Owner or Administrator turns it on. With it on, every file added is read as it arrives, the files the firm already holds are read in the background over the following days, and a matter's search names the documents whose text matches. The page says so, and says when the platform's search service is not connected yet, so "on" never reads as "searchable". Behind it: `GET`/`PATCH /api/v1/firm/search-settings` (`firmSearchSettings.get` / `.update`) is the one writer of the firm's `search.indexing_enabled` setting, which was read by the ingest path and by a matter's search and written by nothing; the change is one idempotent batch with a `firm.search_settings_updated` audit row, behind the new `firm:manageSearchSettings` permission, seeded to Owner and Admin. Turning it on starts a bounded walk of the firm's existing files (`apps/api-worker/src/search/index-backlog.ts`, now shared with the daily repair pass). A matter's search that answers "turned off for this firm" names the page. Guide: `docs/user/admin/search-and-indexing.md`. Internal for now on purpose: nothing inside a file is searchable in production until the search worker is deployed and bound (`docs/deploy-queue.md`, _Search engine activation_), and the public entry belongs with the change that binds it.
+- **A matter's search asks the file contents index, and a Files result can come from the text inside a document.** `packages/matter-search` gains a second source on the Files section, `file-contents`, beside the name match. It builds the keyword engine's query from the reader's parsed words (`packages/search/src/keyword-query.ts`; the reader's text is never query syntax), asks the engine for the matter's own corpus through `apps/api-worker/src/search/matter-file-contents.ts`, and then re-reads the files the engine named from the firm's `file` table under the matter binding and the visibility predicate, so the index only ever proposes candidates. A result names the file and the pages matched; it carries no excerpt, because the index does not store passage text and a matter file's extracted text is not kept. The group reports the new `engine-not-connected` while the search service is not bound, `engine-unavailable` when it fails to answer, and the new `not-indexed` while the firm's `search.indexing_enabled` setting is off, so none of them reads as "no matches". The engine (`crates/search-core`) now accepts a pattern over one field, which is how one unfinished word is asked for. Nothing answers in production until the search worker is deployed and bound, in the order `docs/deploy-queue.md` gives under _Search engine activation_.
+- **Meeting recording, the server half: the sink and the consent mechanism.** Three per-firm tables by
+one additive migration — `meeting_recording`, `meeting_recording_track` and `meeting_recording_notice`
+— with every stay named by kind and by value so a guest is on the record exactly as a member is, a
+nullable `breakout_id` on the recording, and a new `meetings:record` key seeded to the seats that hold
+`meetings:host`. Four routes in `routes/meetings.ts`: `POST` and `DELETE /api/v1/meetings/{id}/recording`
+to start and stop, `GET .../recordings` to list, and `GET .../recordings/{recordingId}/notices` for the
+consent record. Stopping is the key or a live grant on the meeting, labelled `host`. Ending a meeting
+stops its recording in the end's own batch. `MeetingSummary` gains `recordingState`,
+`recordingConfigured` and `captionsAvailable`.
+
+**The announcement is the consent mechanism, with a record.** The room broadcasts a `recording` frame
+to every welcomed socket, guests included and never the lobby, the instant a start or stop commits; a
+socket welcomed while a recording runs is told on its welcome; and the room writes a notice row for
+every stay it told, one batch per fan-out with one audit row carrying the count. The room is told
+before any audio is captured.
+
+**The sink.** A `MeetingRecorder` Durable Object per recording receives each audio track from the media
+routing service's WebSocket adapter, decodes the envelope with a hand-written reader, folds it to mono,
+writes silence for frames that never arrived, and stages it in the firm's own bucket in uniform 8 MiB
+parts. It reconciles against the room every few seconds — admitting late tracks, refusing past the
+firm's track ceiling with a `lost` row, closing tracks of people who left — and stops itself when every
+track is lost. The routing service dials `/internal/meeting-audio/<token>`, outside the chokepoint,
+on a signed per-track token, refusing any request that carries an Origin. Recording stays off — the
+start route answers 503 `meeting-recording-not-configured` — until a firm switches it on and the
+deployment holds `MEETING_SINK_SIGNING_KEY`, which waits on proving the routing service keeps the sink
+address intact. Composing and filing the recording are the next slice.
+- **Live captions, server half.** A host turns captions on for the room with a `captions` frame
+(refused `captions-unavailable` where the firm's `meetings.captionsEnabled` is off or the deployment
+cannot route meeting audio, `not-host` to anybody not running the meeting), and the room state carries
+`captions: { by, at }` to every socket and every welcome, absent while off. A new Durable Object,
+`MeetingCaptioner` (one per meeting, binding `MEETING_CAPTIONER`, migration tag
+`v12-meeting-captioner`), opens a caption session for somebody only while the room's `speaking`
+presence says they are talking — a routing-service adapter on their microphone dialling back through
+the existing sink address on a caption token of its own `typ`, and a stream to `@cf/deepgram/nova-3`
+through the new `InferencePort.openCaptionStream` (the catalog's `captioning` slot, platform-fixed,
+off the firm roster; `websocket: true` on the AI binding) — and closes it three seconds after they
+stop. No recording is needed. Interim and final words reach every welcomed socket as `caption` frames
+naming the speaker (a guest's copy carries no firm identifier), interims coalesced to one per speaker
+per half second inside a room-wide budget of ten a second, finals never held. Nothing a caption says is
+stored anywhere. A caption model that fails mid-meeting closes that speaker's session and touches the
+recording not at all. The AI-processing eligibility is not asked, as for the transcript of record — an
+owner decision assumed and recorded in the recording design (A86). Captions are configured exactly
+when recording is, so they wait on the same sink experiment and signing key. The caption strip is the
+web half.
+- **A copy of a video every browser plays, asked for and made in the background.**
+`POST /api/v1/files/{id}/playable-copy` asks for a copy of a file's current version converted by the
+Rust transcode engine to H.264 and AAC in a faststart MP4, and `GET` on the same path reports where
+it stands, with a short-lived signed address on the cookieless files host once it is ready. The
+request is accepted whatever the version's playability verdict, because the browser that refused
+the original is the one that matters. The conversion runs on the conversion queue and streams the
+original from the firm's bucket through the engine and back without buffering it; the copy is
+recorded on the version it came from (five new `playable_copy_*` columns, an additive migration),
+stamped `playable-copy`, and destroyed with that version's bytes. A file the engine cannot convert is
+recorded with the engine's reason so it is not attempted again. The player's button for it is not
+built yet.
+- **A member can connect their own Outlook account, with calendar access only.** The sign-in runs
+through Microsoft with a proof key, the account's token is sealed under the firm key, and the
+Connected Accounts page names the account that was connected. Nothing syncs yet. The feature is
+dormant until a Microsoft application is registered for the deployment and its two secrets are set
+(`docs/deploy-queue.md`), and the page stays out of the settings navigation until then.
+- **The PDF Editor, with Redact.** `/documents/[id]/pdf` opens from the reader's new Edit PDF button. Redact marks boxes or whole pages, each with a reason, and applies them in a worker through `@magna-carta/pdf`'s `redactDocument` (`apps/web/src/lib/pdf-editor/pdf-operations.worker.ts`), so the engine verifies the output before anything is filed. The result is uploaded as a new file, `<name> (Redacted).pdf`, beside the original, with an optional CSV redaction log that records page and reason, never text. The screen-to-PDF coordinate conversion is pure and tested (`apps/web/test/pdf-editor-redactions.test.ts`).
+- **A place of the record index that has fallen behind can be rebuilt, from the page that shows it.** While any place reads Behind, **Settings › Data & Platform › Search and Indexing** carries a **Rebuild** row beneath Records. Pressing it calls `POST /api/v1/firm/search-status/rebuild` (`firmSearchStatus.rebuild`, behind `firm:manageSearchSettings`), which does none of the work: in one idempotent batch it writes a `firm.record_index_rebuild_requested` audit row naming who asked and a `recordIndex.rebuildRequested` message on the firm's outbox, and answers 202. The per-firm job queue's consumer does the rebuild (`apps/api-worker/src/search/record-index-rebuild.ts`). **The message names no place.** The consumer counts when it runs, with the read the page shows, and rebuilds the places whose counts differ at that moment, one place to a transaction so a search never reads a place half rebuilt; a second delivery counts, finds nothing behind and rebuilds nothing. A completed rebuild writes `firm.record_index_rebuilt` with the keys of the places it took. The status read gains `records.rebuild` (when one was last asked for, when one last finished, and whether one is outstanding), read from those two audit rows, so a member who opens the page later is told a rebuild is still to run. "Behind" has one definition, `recordIndexPlaceIsBehind` in `packages/search/src/record-index-statements.ts`, shared by the page and the rebuild. No migration and no new binding: the message rides the existing per-firm queue. Not built: a rebuild of the file contents index, whose equivalent is the daily repair pass, and a rebuild in steps for a firm past roughly a million indexed records.
+- **Meeting recording, the server half of the transcript.** Every filed recording now has a transcript,
+begun in the batch that files the audio (`meeting_transcript` and `meeting_transcript_segment`, migration
+`20261110T000104_meeting-transcript`) and made on the existing `meeting-recording-compose` queue as a
+second kind of message, so a deployment needs no new queue. The transcript reads each track's own staged
+audio — the compose no longer deletes the staging when it files — finds where its speaker was talking
+from the audio's energy against the track's own noise floor (`packages/meetings/src/speech-spans.ts`),
+cuts each span at thirty seconds at a pause where there is one, downsamples to 16 kHz behind an
+anti-alias filter (`resample.ts`) and sends each piece to the platform's speech model with the tail of
+the previous piece's words as its prompt. A window is a bounded number of model calls, claimed on the
+row so two deliveries never send the same audio twice. Lines are attributed to the track they came from
+— a guest's to the guest's stay — merged into reading order, and a gap line says where a speaker was
+lost, refused at the ceiling, or missing. The finished transcript is filed beside the audio on the same
+matter as `Meeting transcript — <event title> — <start in the event's zone>.vtt` through the upload
+pipeline, with each speaker's name in every cue. The staged tracks are released when the transcript
+settles, ready or failed; a model that will not answer fails it with an Error ID after three deliveries,
+and the recording sweep hands a stalled transcript on and fails it after three attempts so the staging
+is still released. New read: `GET /api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript`
+(the header and cursor-paged lines), and each recording-list entry carries `transcript`.
+- **Meeting recording, the server half of compose and file.** A stopped recording's staged tracks are
+mixed into one mono 48 kHz WAV by a queue consumer on the new `meeting-recording-compose` queue
+(`apps/api-worker/src/meetings/recording-compose-consumer.ts`): ten one-minute parts per message, each
+track at its first frame's offset, summed in 32 bits and clamped once (`packages/meetings/src/pcm-mix.ts`),
+the 44-byte header at the head of the first part (`packages/meetings/src/wav.ts`), about 40 MB of working
+memory per invocation whatever the length or track count. The cursor is five added columns on
+`meeting_recording` (migration `20261110T000102_meeting-recording-compose-cursor`). The finished recording
+is filed through the upload pipeline unchanged — `initiateUpload` on the recording's matter,
+`completeUploadSession`, the ingest queue — named `Meeting recording — <event title> — <start in the
+event's zone>.wav`; the recording moves to `filed` with its file and version, and the staged tracks are
+deleted. A sweep on the ten-minute cron (`recording-sweep.ts`) abandons a recording whose recorder has
+stopped reconciling (the recorder's new `heartbeat` and `abandon`), hands a stalled compose on and fails
+it with an Error ID after three attempts, and releases staged audio after seven days for a failed or
+abandoned recording. `MeetingRecordingSummary` gains `failureErrorId`, and `stoppedBy` is emitted as the
+actor or null. Also from the first slice: the track ceiling counts participants rather than tracks, a
+guest's announcement no longer carries the recording's handle, a recording is announced once however
+many requests carry its start, and ending or cancelling a meeting whose recording stopped at the same
+moment no longer answers a server error.
+- **Meeting summaries: a ready transcript is summarized, with its action items, and an item can become a
+task.** The server half; the summary card is the web half and is next.
+
+- Every transcript that becomes ready begins a summary in the same batch (`meeting_summary`,
+  `meeting_summary_action_item`, migration `20261110T000106_meeting-summary`), written on the recording's
+  own queue as a third kind of message by `apps/api-worker/src/meetings/summary-consumer.ts` — no new
+  queue. It is `refused` with a reason when the firm has not switched `meetings.summariesEnabled` on
+  (`disabled`), when the firm has not allowed its content to reach a model at all (`not-eligible`), or
+  when nobody was heard (`transcript-empty`). A firm that chose no model is summarized by the platform's
+  own reasoning model hosted on Cloudflare (`@cf/openai/gpt-oss-120b`), so the conversation does not
+  leave the platform unless the firm chose a model that sends it elsewhere.
+- The transcript is sent through `InferencePort.generateConversation` — never as an assistant
+  conversation — with a platform-authored instruction (`packages/meetings/src/summary-prompt.ts`) and one
+  member message of `HH:MM:SS Name: text` lines. A transcript too long for the model's context window is
+  summarized a part at a time (at most five, inside one message's wall-clock budget) and combined. Every
+  call's provider usage is written to the firm's token meter, including a run that did not finish.
+- The answer must be one documented JSON structure; anything else fails the summary with an Error ID
+  (`summary-parse.ts`). An action item's owner is linked only on an exact match to a member's name as the
+  transcript knows them, and a due date only where the model quoted transcript words stating it.
+- `GET` and `POST /api/v1/meetings/{meetingId}/recordings/{recordingId}/summary` read (audited, one
+  `meetings.summary.read` row of identifiers) and re-run a summary; its words are withheld whenever the
+  transcript's filed document is trashed, held or gone. `POST …/summary/action-items/{actionItemId}/task`
+  makes an item a task through `createMatterTask`, once. The recording list entry carries `summary`.
+- The inference catalog records each reasoning model's context window (and answer limit where the
+  provider publishes one), and a conversation may ask for an answer length; a model hosted on Cloudflare
+  takes the platform's instruction as its first `system` message. The repo-wide scan in
+  `packages/meetings/test/no-transcript-text-escape.test.ts` now covers summary text too. Amendments A57
+  onward in the recording spec.
+- **Meeting recording, the summary's web half.** The Recordings panel gains a Summary column
+(`recordingSummaryText` and `recordingSummaryOpens` in
+`apps/web/src/lib/meetings/screen/recording-list.ts`): "Being Written", "Read", "Could Not Be
+Written" or "Not Written". Pressing it opens the new summary panel
+(`apps/web/src/lib/meetings/screen/summary-panel.svelte`, its words in `summary-panel.ts`), a reading
+`ActionDialog` over the list on the transcript's precedent, read through
+`meetingsRecordingSummaryOptions`. The text stands under one quiet line saying it is the platform's
+characterization of the conversation and not a record of it; the action items are a numbered list,
+each with its owner or "No owner" and its due date through the design system's civil-date formatter.
+A summary being written, one that could not be written (with its Error ID), one refused for each of
+its three reasons, and a ready one whose words are withheld (in the transcript panel's words) are the
+design system's `EmptyState`, decided by one pure function (`summaryBody`); a summary being written
+is read again every fifteen seconds while the panel is open, and the list is read again when it
+settles. **Create Task** makes nothing on its own press: it opens a `New Task` confirmation naming
+who the task will be assigned to, with a box to take the owner's name off (refused, with the reason,
+where the member holds neither the item nor the key to assign), and only its commit calls the task
+route with a fresh idempotency key; the made task links to `/matters/{matterId}/tasks?entry={taskId}`
+(`taskAddress` in `meetings-api.ts`), a task somebody else made first is said on the row and linked,
+and any other refusal stands in the confirmation. **Re-run** is offered only where the session holds
+`meetings:host`, behind a destructive confirmation saying the text and action items are replaced and
+tasks already made are kept. Summary and action-item text is drawn and nowhere else: not logged, not
+in an address, not in a failure report. Tests: `apps/web/test/meeting-summary.test.ts` and the
+Summary column in `meeting-recording-list.test.ts`.
+- **Meeting recording, the transcript's web half.** The Recordings panel gains a Transcript column
+(`recordingTranscriptText` and `recordingTranscriptOpens` in
+`apps/web/src/lib/meetings/screen/recording-list.ts`): "Being Made", "Read", or "Could Not Be Made"
+with the Error ID wherever the row carries one. Pressing it opens the new transcript panel
+(`apps/web/src/lib/meetings/screen/transcript-panel.svelte`, its words in `transcript-panel.ts`), a
+reading `ActionDialog` over the list on the precedent of who was told, so it serves the room and the
+Meetings page alike. The lines are a `Conversation` read through
+`meetingsRecordingTranscriptInfiniteOptions` under `paged`, two hundred at a time with Load More on
+the ordinal cursor: each under its speaker (a guest marked as one), at its place in the recording as
+`mm:ss` or `h:mm:ss`, and each gap as a failed turn whose warning note says whose audio is missing
+and for how long, or that nothing was heard. A transcript being made, one that could not be made, and
+a ready one whose lines the read withholds (`linesWithheld`: removed, held or unavailable) are the
+design system's `EmptyState`, decided by one pure function (`transcriptBody`), the failure stating
+its Error ID; a ready one with no lines
+says "No Results" inside its frame; a read that failed is the failure notice with Retry. A
+transcript being made is read again every fifteen seconds while the panel is open, and the list is
+read again the moment it settles. The WebVTT document opens beside the reader through the file's
+own route and `opensBeside("file")`. Line text is drawn and nowhere else: not logged, not in an
+address, not in a failure report, and the region is not a live region. Tests:
+`apps/web/test/meeting-transcript.test.ts` and the Transcript column in
+`meeting-recording-list.test.ts`.
+- **A pure-Rust video transcode engine, in place of the FFmpeg that was never built.**
+`containers/transcode` reads MP4, QuickTime and Matroska carrying H.264 or HEVC, with AAC, MP3, PCM
+or FLAC sound, and writes an MP4 every browser plays: H.264 copied when it already plays and
+re-encoded at up to 1080p otherwise, AAC copied and everything else encoded to AAC-LC, the movie
+header first and the display rotation kept. It is deployed as `TranscodeEngineContainer` in the
+convert worker, and the conversion registry names it `transcode` (replacing the `ffmpeg`
+placeholder) with a new `playable-mp4` target and a `mkv` source. The app worker's buffered
+conversion port does not route to it yet; the playable-copy path that streams to it comes next.
+Checked against FFmpeg as a reference: copied streams are frame-identical, re-encoded pictures about
+41 dB PSNR, sound aligned to the sample.
+- **About Magna Carta opens a window.** The profile menu's Websites > About Magna Carta entry, previously disabled as Soon, and its command-palette twin now open an About window (`apps/web/src/lib/about/about-window.svelte`), mounted once in the app shell. The left column states the build's commit (linked to the source), release date, the signed-in member and firm from the cached session read, the build environment and the browser, with Copy Version Details putting the same lines on the clipboard (`aboutFacts`/`aboutDetailsText` in `about-facts.ts`). The right column links to the Changelog, Settings > Versions, the status page and Report an Issue; Documentation, Terms of Service, Privacy Policy and open-source licenses render as Soon. The ecosystem-site registry gains `opensWindow`, an in-application window that stands in for a site with no address yet, beside `route`.
+- **Calendar sync notices a copy a member changed in Outlook.** Once a sync pass has nothing left to
+send, it reads back the copies Magna Carta wrote, and only those. A copy the member moved, renamed
+or deleted appears on their Calendar Sync page under Changed in Outlook, with what Magna Carta has
+beside what Outlook has, and two answers: Put Back writes the event to Outlook again, and Leave It
+keeps Outlook as the member made it. Nothing a member does in Outlook changes the event in Magna
+Carta. A deadline's copy is put back without asking. Dormant until a Microsoft application is
+registered.
+- **Calendar sync sends events to a member's Outlook calendar.** Each connected account has its own
+sync pass, which makes the member's Outlook calendar agree with their rules: an event of a type they
+chose is written to the calendar that type's rule names, an edit is sent as an update, and a
+cancelled event, a removed rule or a type the firm has closed takes the copy back. Deadlines go as
+whole-day entries. Where the firm allows minimal detail, only the event type and the matter number
+leave. No attendees are ever sent, so Outlook emails nobody. A pass runs a few seconds after a
+calendar change or a saved setting and again every six hours; an unreachable Outlook is retried,
+and a refused sign-in marks the account for signing in again. One direction only: a change made in
+Outlook is not read back yet, and repeating events are not sent yet. Dormant until a Microsoft
+application is registered.
+- **Events made in Outlook appear in Magna Carta, for the member whose they are.** On the Calendar
+Sync page a member can now switch on any calendar of their connected Outlook account under From
+Outlook to Magna Carta. What is in it then appears on their Magna Carta calendar as My Outlook
+Calendar, with its own titles, at the hour it falls in their time zone, for a month back and a
+year ahead. Only that member can read it: there is no route and no permission that reaches another
+person's own events, and colleagues see nothing, not even busy time. Events Magna Carta itself sent
+to Outlook are left out, so nothing appears twice. Nothing is changed in Outlook and nothing is
+added to a matter. Dormant until a Microsoft application is registered.
+- **Calendar sync sends repeating events to Outlook.** A series goes as one repeating Outlook event.
+A day changed in Magna Carta goes as its own entry, and a day called off is taken out of the Outlook
+series. A rule Outlook cannot repeat on exactly the same days (a monthly date past the 28th, a fifth
+weekday, 29 February, a weekly rule that leaves out its own first day) is not sent, and shows on the
+member's Calendar Sync page as Not Sent with Try Again and Dismiss. Dormant until a Microsoft
+application is registered.
+- **Calendar sync settings: the firm's limit and each member's rules.** The firm sets, for every event
+type and for deadlines, whether it may be copied to a member's own calendar and with how much detail
+(a new permission, `calendar:manageSyncPolicy`, held by Owner/Admin). Each member then chooses,
+inside that limit, which event types go to which of their Outlook calendars; nothing is chosen by
+default, every event type has its own row, and a rule can only point at a calendar the member's
+account has and can write to. Stopping a type from leaving removes every member's rule for it in the
+same write. These are settings only: no event is sent yet, and both pages stay out of the settings
+navigation until sync itself ships.
+- **Calendar sync with Outlook and Google: the design of record.** Per member, off until a member writes
+a rule for an event type, bounded by a firm limit per type, with Magna Carta as the record (provider
+edits flow back, provider deletes cancel nothing, deadlines are one-way, no invitations are sent).
+Email sync is excluded and waits on its own design. The integrations inventory, the roadmap and the
+cost register are corrected on what the provider reviews gate: Microsoft publisher verification limits
+self-service consent at other firms, and Google's security assessment attaches to reading Gmail, not to
+calendar. Two decisions are recorded, one of them a reusable permission request that states only what
+it grants. Design: `docs/specs/2026-11-10-calendar-sync-design.md`.
+- **Caller lookup on a typed number.** A whole number in the call record's number field is answered by `POST /api/v1/communications/caller-lookup` (`communications.callerLookup`): the Directory records listing it (`packages/directory/src/phone-match.ts`, matching numbers stored with or without their country code), the area code's region (`packages/caller-lookup/src/area-code.ts`, from libphonenumber's geocoding rows), and any caller ID already kept. `POST /api/v1/communications/caller-lookup/caller-identity` (`communications.callerIdentity`, idempotency required) asks Telnyx Number Lookup for the caller name and carrier through the new `@magna-carta/caller-lookup` port and keeps the answer in the new per-firm `caller_identity` table, so a number is paid for once per firm; a refused query keeps nothing. Both are gated on `communications:log` and are POSTs because the number is a client's. The paid half is dormant until `TELNYX_API_KEY` is set (runbook in `docs/conventions/operations.md`), counted as `communications.caller_lookup`. The web logic is `apps/web/src/lib/communications/caller-lookup.ts`, drawn by `caller-lookup.svelte` under the number field.
+- **Community board, domain and storage.** A new `@magna-carta/community` package holds the rules for
+the public feature-request and question board that will live on `community.magnacarta.esq`: posting
+into one of seventeen product areas (there is no general area), voting ranked by distinct firms with
+counts below five withheld, comments with a marked team reply, the request status pipeline (New,
+Future, Planned, Building now, Beta, Completed, Not on the roadmap with a required reason, and
+Duplicate), accepted answers on questions, and moderation that holds a first contribution and
+anything a format-only detector reads as a case name, docket or matter number, email, phone number
+or an amount beside a name. One confidentiality flag hides a post; spam needs three firms. Five
+additive control-plane tables back it (`community_profile`, `community_post`, `community_vote`,
+`community_comment`, `community_flag`). The package cannot reach a firm's own database, held by a
+test. The board's screens (the home list with its product-area rail, an opened post, and the
+composer with its live confidentiality check) are built from the design system and reviewable at
+`/developer-console/community-board` in development builds; the board's request and question
+statuses join the status register. No route serves them yet; the board's worker follows.
+- **Community board screens, live.** On `community.magnacarta.esq` the board's screens now read and
+write through the board's worker: the request and question lists with their topic, sort, status and
+search filters, an opened post with voting, comments, reporting and the author's delete, and the
+composer, which saves a member's display name before their first post. Sign In goes through the
+app's new `/community-sign-in` page, which fetches the one-minute link and sends the member back
+signed in; a link that did not work says so under the board's header. A read-only board says so too.
+- **Community board worker and sign-in.** The board has its own worker for `community.magnacarta.esq`
+(`apps/community-worker`): anyone can read the board's API, and a member of a firm who is signed in
+can post, vote, comment, flag and set a display name, with the team's triage and moderation routes
+beside them. Every answer carries `noindex`. A switch in the control-plane database
+(`community_board_switch`) makes the board read-only or closes it without a deploy. A member reaches
+the board signed in through a one-minute, one-use link from the app (`GET
+/api/v1/me/community-handoff`), signed with a secret only the two workers share. Nothing is live on
+the community host until the worker is connected and the secret is set.
+- **Community board, change your name while posting.** The composer's "Posting as" line has a Change
+Name control. The name set there becomes the member's account display name everywhere on the board
+and may be a pseudonym; it is one name per account, never a per-post choice, and the firm is still
+never shown.
+- **A sealed document comes with a certificate sheet and an audit log, as a PDF.** The Certificate of Completion was a few lines of plain text: the document's hash, the seal time, and each signer's identifier, attribution level, address and consent. A signing platform's certificate says more, and says it on a page that is filed beside the signed copy: which document, how many pages, who sent it, each signer by name and address, and every step with its time. The record (`packages/signing/src/esign.ts`) gains an optional `envelope` (a reference, the title, the page count, the sender, when it was created), a signer's `name` and `email`, the `userAgent` the signing act was observed from, and `events`: the audit log, oldest first. `assembleCertificateOfCompletion` always writes each signer's consent and signature and the seal into that log from the signer records, and places among them the steps only a signing request observes (created, sent, delivered, reminded, viewed, identity verified, declined, reassigned, voided, completed), which a caller passes through `SealRequest.events`. `certificateSheet` (`packages/signing/src/certificate-sheet.ts`) lays the record out as a document, and the sign Worker composes it with `@magna-carta/pdf-compose`, its first caller, then seals the sheet with the platform certificate, so the certificate is as tamper-evident as the document it describes. `SealResponse` gains `certificatePdf`; `POST /api/v1/documents/seal` accepts an optional `documentTitle` and a signer's `name` and `email`, records the request's `User-Agent` beside the connecting address, and returns `certificatePdfBase64`. The certificate's reference on that route is the identifier of the `esign.sealed` audit row, and the page count is read from the sealed document, not taken from the caller. The plain text stays and gains the same facts. Times on the sheet are Coordinated Universal Time to the second. A name in a script the bundled fonts do not cover (they cover Latin, Greek and Cyrillic) prints as empty boxes on the sheet and in full in the text and the record. The sign Worker's build now compiles the composer (`rust-wasm-build-pdf-compose`), and its bundle grows from about 2.7 MB to 4.8 MB compressed.
+- **A conflicts check searches the text of the firm's files.** `packages/conflicts/src/file-search.ts` asks each matter's file contents index, one matter at a time and never a discovery review set, for every subject party's names as exact phrases; results are tier 2 `content` hits with `foundIn.kind` `file`. The scope request's `places` takes `files` (Consultations, Open, Closed, Archived, where Archived is files deleted from a matter). Runs record `files` searched only when the index answered, and `unavailable` with its reason while `SEARCH_SERVICE` is unbound; matters left unsearched by the query ceiling, or whose query failed, are counted in the record and the report.
+- **A conflicts check searches calls, texts, email, tasks and Magnus conversations.** `packages/conflicts/src/content-search.ts` searches the check's subject parties in `communication`, `email_participant` and `email_message.subject`, `matter_task` (by matter status, archived tasks optional) and Magnus conversations (General included, deleted excluded): identity at tier 1, the name compared whole at tier 2, as `content`-class hits. A new nullable `conflicts_hit.found_in_json` records where each was found (kind, id, matter, instant; never text). The scope request takes `places`, run summaries echo it in `askedScope`, hit details carry `foundIn` with the matter's number, and runs report a `places` stage. Files and email bodies are not searched yet.
+- **A directory record carries a picture.** A new per-firm table, `directory_entity_photo`, holds one picture per person or organization; the bytes live in the firm's bucket under `directory-photo/<entity>/<sha256>.<ext>`, written before the row and swept after a replacement. `GET`/`PUT`/`DELETE /api/v1/directory/entities/{id}/photo` and `GET .../photo/content` follow the staff-photo route (PNG or JPEG only, idempotent writes, audited as `directory.entity.photo_changed` and `directory.entity.photo_removed`). The browser crops to a 512-pixel square JPEG before upload (`photo-crop.ts`, `photo-crop-dialog.svelte`), the record window shows it through `ActionDialog`'s new `leading` snippet, New Person can add one before saving, and the contact card embeds it as `PHOTO`.
+- **Legal citations.** `@magna-carta/citations` is a pure engine that reads a pasted link (govinfo,
+Cornell LII, eCFR, Nevada and California code pages, CourtListener) or a rough citation into fields,
+keeps each field's provenance so typed values override what was read, and formats the full, short
+and Id. forms in a court format (Uniform System from The Indigo Book; Nevada state courts; the
+California Style Manual). The design system gains `FormattedCitation`, and `/legal-citations` is a
+new top-level tool gated by `tools:legalCitations`, seeded onto the five default roles.
+- **The Magnus conversation's `…` menu, and a link to one conversation.** `conversation-menu.svelte`
+replaces the head row's two icons with one menu: Copy Link, Open in New Tab, Rename (the in-place
+edit, now without its pencil), Save to a Different Matter (the existing move dialog), Download
+Transcript and Delete. The address names the open conversation as `?conversation=<id>`
+(`conversation-link.ts`, mirrored with `replaceState`), and arriving with one opens it even when
+the rail has not paged to it. The transcript download (`transcript-export.ts`) reads every page and
+writes Markdown through `saveToTarget`. Who asked is named by one helper,
+`conversation-author.svelte.ts`, shared by the transcript and the download. Tests:
+`apps/web/test/magnus-transcript-export.test.ts`.
+- **A member can edit or remove their own Magnus message.** An edit
+(`PATCH /api/v1/magnus/conversations/{conversationId}/turns/{turnId}`) sets aside the message and every
+turn after it and asks again, passing the same checks as a new question; a removal (`DELETE` on the
+same path) hides the message and its answer behind a marker. Neither erases: three nullable columns on
+`magnus_turn` (`removed_at`, `superseded_at`, `replaces_turn_id`) record what happened, the model no
+longer reads either kind of turn, and the words are erased only when the whole conversation is
+deleted. Both are refused (409 `magnus-turn-unchangeable`) while an answer is being written.
+- **Find in Conversation.** The open Magnus conversation's menu gains Find in Conversation, a bar
+under the conversation's name that marks every place the typed words stand, counts the messages
+that hold them, and steps between those messages. It reads every earlier page of the conversation
+first, so it never finds in only the part on screen. It runs in the browser over the transcript the
+reader already has; nothing new is asked of the server.
+- **Magnus conversations can be kept in folders and pinned.** The conversation list in the Magnus
+workspace is now in sections that fold: Pinned first, then your own folders, then General, which
+holds every conversation in no folder. Add Folder makes a folder; the conversation's More menu pins
+it or moves it to a folder. Folders and pins are yours alone and change nothing about who can read a
+conversation.
+- **A Magnus question can be answered by a chosen model, at a chosen effort.** The composer gains a
+model control that lists every model the firm could choose on its AI settings screen, with the
+firm's own marked and used by default, and every effort level the chosen model takes. The choice is
+checked on submission and again when the answer runs; the effort is sent as the provider's effort
+control and recorded on the answer beside the model (a new nullable `effort` column on
+`magnus_turn`).
+- **Background blur and image backgrounds in meetings, drawn by the product in any browser with WebGL 2 in a Worker.** `apps/web/src/lib/meetings/effects/background-effects.worker.ts` loads `@magna-carta/segmentation`, segments each camera frame at 256 by 144, steadies the mask across frames, and composites a mask-weighted blur (no halo of the person spread into the room) or a cover-fitted picture in WebGL 2. Frames reach it as `MediaStreamTrackProcessor`/`MediaStreamTrackGenerator` streams where the browser has them (nothing on the main thread), and as one `ImageBitmap` per frame through a hidden video element elsewhere (`effects/background-processor.ts`). `client/background-effects.ts` wraps the pass-through stage: the camera's own track is published until an effect is chosen, and the treated one is swapped in and out with `RTCRtpSender.replaceTrack` through the new `EffectedCapture.onChange`, so no offer is renegotiated and a member with no effect pays nothing. A treatment that cannot start or stops mid-meeting falls back to the camera with the reason in the panel. The chosen picture is cut down to 1920 by 1080 and kept in IndexedDB (`effects/background-image-store.ts`), never uploaded. The Effects popover offers None, Blur and Image. `rust-wasm-build-segmentation` joins the deploy composite and the interface Worker's build. Checked in headless Chromium with a fake camera playing a portrait, on both frame routes.
+- **A meeting can be opened end-to-end encrypted, behind a deployment switch.** Each meeting now records whether its pictures and sound are sealed end to end (`meeting.encrypted`, fixed when the room opens), and the summary, Start, scheduled meetings, personal-room sessions and a guest's arrival all carry it. Start asks for it by default, but a meeting is opened encrypted only where `MEETINGS_END_TO_END_ENCRYPTION` is `on`, which stays unset until the browsers have been tried against the live routing service. In an encrypted meeting the browser loads the MLS engine before it connects, joins the key group once the room welcomes it, and puts the SFrame transform on every sender and receiver before a frame can cross it, with video held to VP8. A browser without a frame transform is told it cannot join, before anything is captured. The room refuses key-group frames in a meeting opened in the clear (`not-encrypted`).
+- **End-to-end encrypted meetings are designed.** `docs/specs/2026-11-09-meetings-end-to-end-encryption-design.md` uses MLS for group keys, so an encrypted meeting keeps the room's 300 participants, and SFrame per frame. Cloud recording, live captions and dial-in each pause encryption under a banner everyone sees, and encryption resumes with fresh keys afterwards. It compares the result with Zoom's and Google Meet's encrypted modes. Four experiments run before any code. The `meetings.end-to-end-encryption` ledger node moves to `designed`, on by default with the host able to switch it off at Start.
+- **Meeting guests by name and e-mail address.** `POST /api/v1/meetings/{meetingId}/guests/by-address`
+(`meetings.inviteGuestByAddress`) takes a typed name and address. `addGuestByAddress` in
+`packages/meetings/src/guest-by-address.ts` matches the address to the Directory entity that holds it,
+or composes a Directory person marked `needs_review` with that address, and puts the entity on the
+meeting's event; the route commits that and then mints the ordinary invitation through `inviteGuest`.
+`composeCreatePerson` gains an optional `needsReview`. `@magna-carta/meetings` now depends on
+`@magna-carta/directory`. The Guests panel gains an Invite somebody by e-mail form.
+- **The person-segmentation engine for background blur and image backgrounds.** `crates/segmentation-core` runs MediaPipe's landscape selfie segmenter on the pure-Rust `rten` runtime. The model was converted once to ONNX by `model/convert-tflite-to-onnx.py`, because its custom final layer defeats off-the-shelf converters, and is compiled into the WebAssembly module. `packages/segmentation` is the TypeScript seam (`ensureReady`, `loadPersonSegmenter`). Both the native test and the WebAssembly test hold the mask to the one Google's reference interpreter produces for a real portrait, on every pixel. The crate builds with SIMD128 (crate-local `.cargo/config.toml`) and at `opt-level 3` with the `rten` crates. It measures 14 ms a frame at p50 in headless Chromium and 1.16 MB gzipped. `rten` was chosen over `tract` because `tract` assembles native kernels with `cc`, which golden rule 14 would need consent for. Wired into bootstrap, the dev build and its own Docker task. It is not yet in the deploy composite, because nothing deployed imports it until the meeting client's effects Worker does.
+- **Personal meeting rooms.** A host has one standing room (`meeting_personal_room`: owner, a
+ten-character link code, the medium and lobby its sessions open with), made on request and never by
+a read. Opening it writes an ordinary firm event (or matter event) with the owner on it and an
+ordinary meeting with `personal_room_id` set; a partial unique index holds one open session per
+room, and a session everybody has left is ended at the last departure on the next open, its event
+given an end time and marked occurred. A colleague's arrival by link puts them on the session's
+event, so the room's own join admits them. A session on a firm event moves onto a matter during or
+after it (`POST /api/v1/meetings/{meetingId}/move-to-matter`): a matter event is written with the
+same participants, the meeting is re-pointed under a guard, and the firm event is deleted, so the
+meeting keeps its handle. Eight routes under `meetings.*`; four new problem types; the meeting
+summary gains `personalRoomSession`. The web gains the My Room card, the link page at
+`/meetings/rooms/{linkCode}` and Move to a Matter in the room's header. Includes a per-firm
+migration.
+- **Stronger noise removal in meetings, in Rust.** `crates/noise-suppression-core` wraps nnnoiseless
+(the pure-Rust port of RNNoise, BSD-3, built with no default features so no C reaches the tree) and
+compiles to WebAssembly for `packages/noise-suppression`. The web client runs it in an
+`AudioWorklet` (`effects/noise-removal.worklet.ts`) on 480-sample frames, with the engine module
+compiled on the main thread and passed in `processorOptions`, and swaps the filtered track into the
+microphone's sender with `replaceTrack`. It is a second, opt-in switch beside the browser's own noise
+reduction, which it asks off while it runs; a failure turns it off and hands the sound back. The web
+worker's build gains the `rust-wasm-build-noise-suppression` task. Measured in Chromium against a
+fake microphone: a low rumble at 0.10 RMS came out at about 0.001, and a voiced sound was kept.
+- **The notification centre groups its rows.** `apps/web/src/routes/(app)/notifications` passes the
+grid a `grouping` from `notification-grouping.ts` and offers `DataTable.GroupByMenu`: Day (the
+default, the reader's own calendar days, ordered with the sort direction), Category, Priority,
+Matter, Read State, or No Grouping. Opened, the dismissed shelf is always the last band.
+- **The PDF composer can be called from TypeScript.** `@magna-carta/pdf-compose` (`packages/pdf-compose`) is a new package: `composeDocument(document, images)` takes a plain-data document and the pictures it names by position, and returns the PDF, its page count and the characters the bundled fonts could not draw. Behind it, `crates/pdf-compose-core` gains a JSON form of its content model (`src/wire.rs`, `compose_json`), which refuses unknown fields and reports a malformed document by line and column without quoting it, and a WebAssembly edge (`src/wasm.rs`). In a WebAssembly build a picture that needs more than 64 MiB to decode is refused, because a Worker that runs out of memory cannot recover. The artefact is built by `vp run bootstrap` and has a Docker task of its own, `rust-wasm-build-pdf-compose`, which is in no Worker's build script and not in the `rust-wasm-build` composite: no deploy compiles it until something imports the package. The module is about 5 MB.
+- **A PDF can be composed from content, pictures included.** `crates/pdf-compose-core` is a new crate: `compose` takes a `ComposedDocument` (title, headings, paragraphs with bold and italic runs, pictures with captions, tables, labelled fields, rules, spacing, page breaks, a header and a footer line with `{page}` and `{pages}`) and returns the PDF, its page count and any character the font family could not draw. Until now the only route to a new PDF was the tabular export's Word file converted by the office container, which carries text cells and nothing else; `crates/pdf-core/src/generate.rs` merges, splits and rotates existing files and never wrote one. Layout (`src/layout.rs`) and writing (`src/render.rs`, through `krilla`) are separate passes. A table's heading row repeats on every page and a row taller than a page is split between its lines instead of dropped. A picture is PNG, JPEG, GIF, WebP, BMP or TIFF, decoded under explicit limits, turned upright from its EXIF orientation, scaled down to 300 pixels per inch of the size it is drawn at, and fitted to the page. Fonts are embedded and subset; Liberation Sans (SIL Open Font License) is bundled. Output is deterministic. The crate builds for `wasm32-unknown-unknown` and has no product caller yet.
+
+**The in-Worker text extractor keeps a line's punctuation and descenders on the line.** `reconstruct_lines` (`crates/pdf-core/src/textextract.rs`) grouped glyphs by the bottom of each one's inked box. A hyphen or a quotation mark floats above the baseline and a "g" or "y" hangs below it, so `2026-03-01 judgment` came back as three lines: the hyphens on one, the body on a second with gaps where letters were missing ("jud ment"), and the tails on a third. It now groups by the baseline each glyph was set on (`GlyphMark.baseline`, `crates/pdf-core/src/textpos.rs`). This is the fallback extractor used when the discovery engine is not bound; the engine's own extraction is unchanged.
+- **The PDF Editor's Pages tab.** Pages are reordered (dragged through the design system's `ItemDrag`, or moved with Move Earlier and Move Later), turned and deleted on an arrangement held on the screen (`apps/web/src/lib/pdf-editor/page-arrangement.ts`), then saved as the file's next version. The worker turns pages with `rotatePages`, cuts runs of consecutive pages with `splitDocument` and joins them with `mergeDocuments` (`arrange-document.ts`), so bookmarks and form fields travel with each run. Extract to New File and Split Into Files file new documents beside the original. The model and the engine path are tested (`apps/web/test/pdf-editor-page-arrangement.test.ts`, `pdf-editor-arrange-document.test.ts`).
+- **Build Information checks the meetings video service.** A new Connected services section has a row for Cloudflare Realtime, which carries meeting audio and video. It says Connected, Not configured, Refused (the application id or secret is wrong) or Not answering, found by opening one throwaway session when the panel reads the Workers.
+- **A recorded call says what happened on the line, and a message taken on it becomes a task.** Four nullable columns on `communication` (`caller_id_name`, `outcome`, `spam_kind`, `message_task_id`), validated in `packages/communications/src/validation.ts` (`normalizeCallOutcome`, `normalizeCallerIdName`) rather than by CHECKs, since the table is populated. Outcomes are per direction (`INBOUND_CALL_OUTCOMES`, `OUTBOUND_CALL_OUTCOMES`); a spam outcome sets the `spam` disposition and refuses a matter; a transfer needs `memberUserId`; spam, no answer and a voicemail need no notes. `POST /api/v1/communications` takes `callerIdName`, `outcome`, `spamKind` and `message`; a message is written through `createMatterTask` in the same batch as the call (a `MessageTaskWriter` handed to `logCommunication`), needs `tasks:write` and, for somebody else, `tasks:assign`, and raises the ordinary task-assignment notification. The form's Activity section is `communication-activity.svelte`; the Identification tab counts earlier spam marks on the number from the rows themselves (`number-history.ts`).
+- **`RecordWindow` takes `editControl={false}` for a record edited in place.** The header's Edit button is withheld for a record kind whose fields save as they change, so there is no mode to enter; a new record of that kind still opens into its fields and commits with Save. The task window is the first to use it.
+- **Repeating tasks.** `matter_task` gains `recurrence_rule`, `recurrence_mode`, `recurrence_occurrence_on` and `recurrence_next_task_id` (added columns, migration `20261110T032943_recurring-tasks`). Only the current copy is a row: `packages/tasks/src/recurrence-service.ts` writes the next one, guarded on its slot, either in the completion batch (`completed`) or from an hourly pass on the digest trigger once its start date has come in the task's zone (`scheduled`). The rule is read from each copy onward and a count runs down copy by copy. `PUT /api/v1/tasks/{taskId}/recurrence` sets or clears it, and an edit's `recurrenceScope` says whether a moved due date moves this copy or the series. The task window asks Repeats with the calendar's own control plus a Next One choice, and a repeat icon marks the task in the list and on the board.
+- **Repeating events, painted and changed one day at a time.** `GET /api/v1/calendar/series` returns the
+repeating settings that touch a window, each with the days inside it that it falls on, worked out
+from the stored RFC 5545 rule at read time and never stored; a day changed on its own is left out of
+its series. `POST /api/v1/events/{eventId}/occurrences` and `POST /api/v1/firm-events/{firmEventId}/occurrences`
+change or cancel one day (`this`, written as its own event naming the series and the day it replaces,
+on the existing `recurrence_parent_id` and `recurrence_occurrence_on` columns) or that day and every
+later one (`following`: the series ends the day before and a new one starts carrying the change and
+the rest of a count). No migration. The grid marks a repeating entry with a repeat sign, the entry
+window opens on the day pressed and asks how far a change reaches, and the record form's Ends answer
+is three rows (Never, After N times, On a date) with the day of the last one named under them.
+- **One search across every matter a member may see.** `GET /api/v1/search` answers one question with a group per place, in the order a matter's own sections read in, and every hit names its matter and links into its own section there. It reads the same registry as a matter's search through a second door: a source in `packages/matter-search/src/sources/all.ts` may declare an `acrossMatters` reading, built by a builder that binds no matter and composes the visible-matter predicate before the limit, and a source with no declaration is reported as `one-matter-only` instead of being run. Notes, time narratives, cost descriptions and what was said on a call or in a text answer through the record index; file and folder names answer by substring. The words inside files, parties, custody, billing and calendar events are still searched inside a matter only; calendar waits on the owner, because the firm-wide timeline withholds an event's title. The route is gated by `search:matter`, the matter search's own key, with the firm as its resource, and each place is checked again against the capability set the chokepoint resolved. **Its cost is bounded before it runs.** The across-matters form of the record index takes the newest 2,000 matches before joining, and a second statement counts matches up to one past that; when it gets there the answer is marked `broad` and the page says the results are the most recent matches and not every one. On 200,000 synthetic records a word every record holds took about 26 ms capped against 363 ms uncapped (`packages/matter-search/scripts/measure-across-matters.mts`). **The page is `/search`**, reached from the top bar: the palette's last row hands over whatever was typed. It shows matters (by the matters listing's own title, number and client match) and people (by the directory's name search) beside the record places, a list of places with the number of results showing for each, and a Not Searched list read from the server's answer. No count is a total: a group says how many results are showing and whether there are more, measured by reading one row past the limit.
+- **The Search and Indexing settings page shows what the firm's indexes hold.** Beneath the switch, two plates: the standing of each of the three indexes (the firm's records, the words inside its files, search by meaning), and a table of every indexed place with how many of its records are indexed, how many are not, and which searches read it. Every figure is counted from the firm's own database when the page opens (`GET /api/v1/firm/search-status`, behind `firm:manageSearchSettings`); nothing is stored between reads, and **Count Again** is the only other time it is asked. A record place whose index does not hold exactly its records reads Behind, counted by comparing the index's rows with the records themselves through the same select the triggers are rendered from. The file contents line says Turned Off or Not Connected before it says anything about counts, and a file it does not hold is "not indexed", never "waiting", because a file whose words nothing can read stays in that number. Discovery review sets are named and not counted: each set's index sits behind that set's access list. Each source of the record index now declares which searches read it, and a test compares that with the source keys the matter search and the conflicts check name in their own statements. One correction rides with the count: the daily repair pass looked only for a file's own index split, so every file a merge had folded into a larger split would have been sent to be indexed again each day; the pass and the screen now share one definition of "held by the index". The status register gains a `searchIndexStanding` vocabulary, and the standard settings page takes an `after` snippet for plates a page reads and does not change. Not on the screen yet: rebuilding a place that reads Behind.
+- **A search across matters can be narrowed to the reader's own matters or to one client's.** `GET /api/v1/search` (`search.acrossMatters`) and `GET /api/v1/matters` (`matters.list`) each gain two optional query parameters: `mine=true`, the matters the calling member is responsible for or currently assigned to (taken from the session, never from a request value), and `clientEntityId`, the matters that directory entity is a live client party on. Sent together they compose with AND. Both are declared once in `packages/matters/src/matter-narrowing.ts`. A narrowing is composed inside the visible-matter predicate (`narrowedVisibility` in `packages/matter-search/src/narrowing.ts`), so it only ever takes matters away, and the composed predicate keeps the marker that proves the visibility check ran. A narrowed search reads which matters it reaches first, and when there are at most 25 (`RECORD_QUERY_MATTERS_LIMIT` in `packages/search/src/record-index-query.ts`) it names them to the record index, so the newest-2,000 cap and `broad` are taken over those matters' records and an old record on one of them is not lost behind the firm's newer ones; past 25 the index is asked as it is firm-wide and the narrowed predicate decides. The limit was measured (`packages/matter-search/scripts/measure-across-matters.mts`): naming 100 matters cost about four times the firm-wide read for a word one record in a hundred holds, and 25 costs about the same. The Search page carries the choice as a **Search In** row and in its address (`scope=mine`, `client=<entityId>`); **One Matter** opens that matter's own search with the question. People are not asked under a narrowing. Additive; no migration, no new permission, no binding.
+- **`SourceQuote`, the citation card.** A design-system component (`@magna-carta/design-system/source-quote`)
+for a quoted passage and its source: a coloured tab naming the kind (`statute` in the accent gilt,
+`case` in the information blue, `file` neutral) and its number in the answer's source list, the
+source's name and location with the caller's acts beside them, the passage in the display serif
+inside drawn quotation marks, and a footer strip with the check it passed and where and when it was
+read. It is the owner's chosen citation style for Magnus (`docs/conventions/magnus-rulings.md`,
+R2.8). Magnus answers do not use it yet: an answer is plain text today, and it needs source-structured
+answers first. Also spells the exchange arrangement's speaker tracking with the `--mc-tracking-normal`
+token.
+- **Tasks as a board.** `task-board.svelte` draws the task list one list at a time, a column per status in the list's order, behind a List and Board switch in `task-list.svelte`; the board reads its list whole through `listIds`. Cards move through `ItemDrag`, and only the statuses `statusesReachableFrom` returns for the carried card accept it, so a move the flow refuses is never attempted. Mark Complete is a drop zone after the last column and leaves the status where it stood. A card opens the same task window and a move is the same status write the row's pill makes.
+- **Task comments.** Two per-firm tables, `matter_task_comment` and `matter_task_comment_mention` (migration `20261110T084953_task-comments`), hold a flat thread per task and the members each comment names. `packages/tasks/src/comment-service.ts` adds, rewords and removes a comment (author only), refuses to name anybody who is not an active member able to see the task, and writes audit rows that carry no words. Four outbox topics (`tasks.task.commented`, `tasks.firmTask.commented`, `tasks.task.commentMentioned`, `tasks.firmTask.commentMentioned`) tell the people assigned and watching, and separately the people named, never the author and never one person twice. Routes: `GET`/`POST /api/v1/tasks/{taskId}/comments`, `PUT`/`DELETE /api/v1/task-comments/{commentId}`. The task window opens on a new Comments tab.
+- **Task lists, the firm's own statuses, teams, and what a task now carries, through the API.** A
+firm keeps several task lists, each with its own named and coloured statuses and a flow between
+them, and teams a task can be assigned to in one step. A task gains a start date, a location, several
+assignees (people and teams), watchers, a checklist, links and sub-tasks, and completion is its own
+act that leaves the status where it stood. New routes: `/api/v1/task-lists` and its statuses and
+flow, `/api/v1/task-teams`, and per task `status`, `list`, `completion`, `assignees`, `watchers`,
+`checklist`, `links` and `/api/v1/tasks/subtask-trees`. The task list takes `listId`, `topLevel`,
+`mine=assigned|watching|both` and `completed`. Every member now sees a task on no matter. The body
+shapes live in `packages/tasks/src/contract.ts`. The screens that use this follow.
+- **A task's watchers and the members of an assigned team are told.** Two new outbox topics, `tasks.task.watchedChange` and `tasks.firmTask.watchedChange`, split by whether the task is on a matter, reach the watchers named in the payload through the `named-members` audience. They are raised when a watcher is added and when a task is completed, reopened, moved to another status, given different assignees or has its due date moved, never to the actor. Assigning a team now raises the assignment topic for each live member who did not already have the work. `packages/tasks/src/watcher-notices.ts` is the one place both audiences are worked out.
+- **Videos play in the browser.** Opening a video on a matter's files plays it in a new tab, and its
+row's Preview tab plays it in the details panel. The controls are Magna Carta's own, in a bar beneath
+the picture: seek with how much has loaded, one-frame and ten-second steps, sound, playback speed,
+picture in picture, full screen, keyboard keys while the player is selected, and **Copy Link at**,
+which copies an address that opens the video at that moment. A video a browser cannot decode — the
+HEVC most phones record, or sound in a format browsers lack — says so and offers the download.
+
+**How a video is judged.** The first time a version is previewed, the server reads its track table
+through bounded ranged reads (MP4 and QuickTime boxes, WebM elements, at most 16 MiB of headers) and
+records `playable`, `download-only` or `indeterminate` on the version, so every later preview reads
+the column; videos uploaded before this change are judged the same way, with no backfill. A failed
+read records nothing and the next preview tries again. New design-system components: `Slider` and
+`VideoPlayer`.
+- **A signature can be seen on the page, and a document can be signed more than once.** `prepare_signature` (`crates/pdf-core/src/sign.rs`) signed invisibly and only that way: the signature was in the file and in a viewer's signature panel, and nothing on the page said the document was signed. `SignatureOptions` gains `appearance`: a page, a box in points, and lines of text such as the signer's name and the time. The engine draws a thin border and the lines in Helvetica, sized so every line fits the box, and writes them into the same incremental update the signature covers, so the text cannot be changed afterwards without breaking the signature. It reads no clock and knows no signer; it draws what the caller gives it. `prepareSignature` in `@magna-carta/pdf` and `sealDocument` in `@magna-carta/signing` take the same optional `appearance`; the sealing service's request (`SealMetadata` in `packages/signing/src/port.ts`) does not carry it yet. A page the document does not have is "page index out of range" and a box with no width or height is "the signature box has no usable size". Every signature field was also named `Signature1`, so a second signature shared the first one's name; each now takes the first of `Signature1`, `Signature2`, ... that the form does not already hold. A page stored with a rotation shows the box turned with it.
+- **A watermark can mark chosen pages.** `WatermarkOptions` gains `pages` (`crates/pdf-core/src/watermark.rs`), and `watermarkDocument` in `@magna-carta/pdf` takes an optional `pages` list of 0-based page numbers; left out, every page is marked as before. A page listed twice is marked once, and a page past the end of the document is the error "page index out of range" instead of a silent skip.
 
 ### Fixed
 
@@ -11792,6 +12213,151 @@ started — a barrier that quietly stopped observing anything would drain instan
 - **Record a Deadline no longer accepts a time that is not a time, and no longer offers "No matter".** The deadline form's time was a plain text box that took anything typed into it and said nothing until the commit refused; it is now the same time-of-day control the event form uses (`apps/web/src/lib/calendar/record-deadline-dialog.svelte`). A half-typed time reports an empty value from that control, so the form reads the control's `validity.badInput` and the draft refuses it (`deadlineDraftShortfalls(draft, { timeEntryUnfinished })` in `apps/web/src/lib/calendar/deadline-draft.ts`) instead of recording the deadline as due at the end of the day, and the refusal is shown beneath the field with `aria-invalid` once the reader leaves it. The server already refused a malformed `dueAtTime` at the request contract and in `assertWallClockTime`; tests now pin both (`apps/api-worker/test/calendar-routes.test.ts`, `packages/calendar/test/deadline-service.test.ts`). The shared matter picker gains `offerNoMatter` (default on), which the deadline form turns off: a deadline is recorded only on a matter (`matter_deadline.matter_id` is `NOT NULL` and the only create route is `POST /api/v1/matters/{matterId}/deadlines`), so the list no longer offers an answer the commit then refused with "A matter is needed."
 - **The Meetings row reaches the rail.** The row is gated on `meetings:join`, and the rail and the palette asked `grantedPermissions()` in `apps/web/src/lib/tools/tool-permissions.ts`, a fixed mock list of tool permissions that never named it, so the row was filtered out for every member. That function now unions in the permissions the bootstrap session carries (registry-checked, additive only), and the `(app)` layout starts the shared single-flight session read so the gate does not wait on some screen asking first. Held by `apps/web/test/session-granted-destinations.test.ts`.
 - **The New Packet form can add the container it needs.** Nothing in `apps/web` called `POST /api/v1/custody/locations`, so a firm that had never set up storage met an empty, disabled Container list, and since Container is required the packet could never be saved. The Custodian screens' refusal for "no open container" only fired when containers existed and were all closed, so the zero-container case slipped through to the dead form. The Container field is now a combobox over every open container's path (`container-picker.svelte`) whose add row opens a panel for Name, Kind and Inside; `container-draft.ts` decides the requests, creating an office's own root node first when a container goes into an office the tree has never met, since only a root may name a firm office. An empty tree opens the panel by itself, the "no open container" refusal is gone from both Custodian screens, the required fields come first, and the commit reads Save.
+- **Meeting summaries: the server half is corrected after its review.** Amendments A68 to A80 in the
+recording spec.
+
+- A task made from an action item can be deleted again: the task delete clears the item's link in its own
+  batch (`clearActionItemTaskStatement`, from `@magna-carta/meetings`), and the item reads as untasked.
+- A retried `POST` with the same Idempotency-Key now answers the documented body — the summary as it
+  stands, or `{ taskId, actionItem }` — instead of the stored pointer.
+- A summary needs the firm's AI-processing eligibility as well as `meetings.summariesEnabled`, on every
+  model. The platform's own model is now `@cf/openai/gpt-oss-120b` (Apache-2.0, text-only) in a catalog
+  role no firm can select for the assistant, and every model hosted on Cloudflare is sent a default
+  answer length when a caller names none.
+- A due date is kept only when the words somebody said name its day and month one way — never a line's
+  timestamp, never "the 14th" alone, never "3/12" — and a year that fits.
+- The context bound reckons non-Latin text and timestamps honestly, each call has room for a reasoning
+  model's answer, a long transcript's action items are kept whole rather than re-listed by a model, the
+  wall clock is checked before each call, every call is metered as it completes, a call the model will
+  never take stops being retried, a host's re-run no longer doubles a scheduled retry, the gate is read
+  before every call, a withheld transcript is never sent, the answer is asked for in JSON mode, and a
+  task's title is cut between characters. Migration
+  `20261110T000107_meeting-summary-retry-and-failed-call` adds `model_failure_call` and `retry_at`.
+- **Meeting transcripts: an outage is outlasted, the read follows the filed document, and the words are
+kept out of every log by a scan.** From the adversarial review of the transcript's server half.
+
+- A speech model that refuses for now no longer fails a transcript after about thirty seconds: each
+  refusal is counted on the row (`meeting_transcript.model_failures`, reset by progress) and the window
+  is sent again after a delay doubling from thirty seconds to fifteen minutes, ten in a row before it
+  fails (`apps/api-worker/src/meetings/transcript-consumer.ts`). A failure a retry could get past — the
+  model, or the sweep's stall — keeps the per-speaker staged audio for the seven-day retention a failed
+  compose's has; only a refusal no retry can change releases it at once.
+- `GET /api/v1/meetings/{meetingId}/recordings/{recordingId}/transcript` serves lines only while the
+  transcript's filed WebVTT version exists, is not trashed and is not held by the scan, and answers
+  `linesWithheld` (`removed`, `held`, `unavailable`) otherwise; it is now audited, one
+  `meetings.transcript.read` row of identifiers per page of lines.
+- Failures are guarded on the upload session they read and, for the sweep, on what it judged stalled; a
+  redelivery that meets a live lease is retried when it runs out; a lost speaker whose audio is missing
+  is said not to have been heard from their first frame; a track whose staging vanishes part-way is
+  refused; ingest hand-ons are best effort after the filing.
+- The model's answer: a segment past the piece it was sent is dropped; the language is taken from the
+  first piece of eight seconds or more and sent as the hint after; audio sent is counted in
+  milliseconds (`transcribed_milliseconds`, migration
+  `20261110T000105_meeting-transcript-model-failures-and-milliseconds`). The recorder's own digital
+  silence no longer drags the noise floor down, and the WebVTT document strips bidirectional and
+  invisible characters with the filed audio name's own set.
+- `packages/meetings/test/no-transcript-text-escape.test.ts` is the repo-wide fitness scan keeping
+  transcript text, speaker names and the model's prompt out of loggers, audit builders and errors.
+  Amendments A45 to A56 in the recording spec.
+- **Meeting recording, hardened after review of compose and file.** Each track's staged audio is a list
+of stretches anchored to the instant each began (`meeting_recording_track.segments`), so a participant
+whose connection drops and returns is placed where they were heard rather than up to a padded part late;
+the 300-second clamp on wall-clock silence is gone. A compose consumer claims each window on the row
+(`meeting_recording.compose_claimed_at`, migration
+`20261110T000103_meeting-recording-segments-and-compose-claim`) so two deliveries cannot upload the same
+parts; recorded progress resets the attempt count, stalls are measured from the latest stop, claim or
+progress, and the record is re-read before the composite is completed. A failed compose aborts its
+upload session and multipart upload in the same failure, and `initiateUpload` gets a two-day
+expiry as a backstop. An abandoned recording completes its staged uploads instead of aborting them, so
+the seven-day retention keeps real audio. The compose checks its layout against the declared size,
+composes without a staged object missing at the start and records an Error ID for it, and cleans
+hostile event titles out of the file name. Ingest's in-memory inspection ceiling is 40 MiB
+(`IN_MEMORY_INSPECTION_CEILING_BYTES`), so a long recording commits through the streaming path,
+hashed and size-checked and marked unscanned as oversize, rather than running out of memory. Bucket
+lifecycle rules for `meeting-recordings/` and abandoned multipart uploads under `files/` are set by
+provisioning. The room keeps recently stopped recordings so a late start lights nothing and starts no
+recorder; a calendar cancel's last retry settles; the recording list carries the filed version's
+document state, and Open appears only for the clean current version. The compose queue runs ten
+consumers. Clearing a full page of staging keys stays under SQLite's bound-variable limit.
+- **An anonymous poll's answer leaves nothing in the idempotency record the choice could be read back
+out of.** The answer route's fingerprint was an unsalted SHA-256 of the path and `{ optionIds }`, so
+a choice among at most ten options was recovered by hashing each candidate, and its stored response
+was the tally just before the answer, so consecutive bodies differed by exactly one choice. The route
+now stores the poll's handle alone and re-reads the poll on a retry, and the chokepoint gained an
+opt-in `idempotencyFingerprint: "path"` mode on `RouteMeta` (`chokepoint/idempotency-port.ts`) that
+fingerprints the method and path without the body and leaves the replay decision to the handler's
+`runIdempotentEffect`. The trade: a retry under the same key with different choices is answered as
+the first was rather than refused 422; it can never become a second answer.
+
+**The room's tallies cannot move backwards across a flush.** A poll's tallies are ordered by
+`respondents`, which only grows; a question's by the read instant. Each flush of the per-second
+bucket leaves a per-subject high-water mark under a `tally-marks` storage key, written in the same
+storage turn that clears the bucket, and a poll's close raises its mark to the final count
+(`room/room-coalescing.ts`, `room/room-polls.ts`).
+
+**A reconnect while a media session is being opened no longer strands the browser.**
+`admitParticipant` gives up an opening the routing service has answered, inside the gate that resets
+the record, and closes its session (`abandonAnsweredOpening`, `closeUnrecordedSession` in
+`room/room-media.ts`); an unanswered one is still inherited. `releaseParticipant` closes an
+unrecorded session even when no roster entry was left to remove.
+
+**The question queue.** An upvote on a question that has been taken back is refused 409 `conflict`
+(withdrawal still allowed). `since` without `sinceId` is inclusive (`asked_at >= ?`), so a question
+committed in the same millisecond as the last one held is no longer skipped; callers drop ids they
+hold. A withdrawal's audit row names the stay the upvote was cast from. Upvote and withdrawal spend a
+new member-scoped bucket, `meeting-question-upvote` (thirty a minute, keyed `member:<firm>:<user>`
+through `MEMBER_SCOPED_BUCKETS`), instead of the firm's default budget.
+- **The caller-lookup contract passes the API conformance checks again.** The free lookup is recorded as a read-shaped POST, and the money-namespace idempotency rule now skips the POSTs that write nothing. The kept caller ID is one component shape across both routes. The two matter-close test files now send a JSON content type only when a body is sent, as the web client does.
+- **The files host lets the app's own pages read a recording.** The CORS grant and the
+`frame-ancestors` source on the cookieless preview path are now read from `APP_BASE_URL` (the app's
+host and its subdomains) instead of from the files host's parent domain. The files host is meant to
+be `files.magnacartausercontent.com`, a separate registrable domain from the app, so the old rule
+would have refused the app itself, and the watch page, which loads a recording with
+`crossorigin="anonymous"`, would have failed to load every video once that host carried traffic.
+- **A filled form field shows all of its text.** `fill_form` (`crates/pdf-core/src/forms.rs`) drew every text field as one centred line, so a field declared to hold several lines (an address, a notes box) showed its whole value on a single line running out of the box. Such a field is now wrapped to the box's width and set from the top down, breaking at the value's own line breaks and between words, and a word wider than the box is broken between characters instead of lost off the side (`multiline_text_appearance`, `wrap_lines`). A field that sizes its own text shrinks it until the value fits, down to 4 points: across the width for a single line, down the height for several. A field with a fixed size keeps it and is clipped by its box, as a viewer clips it. The stored value of a field is now written as a PDF text string, UTF-16 when it is not ASCII; it was written as UTF-8 bytes, which a viewer and this engine's own `read_form` both read back as "JosÃ©" for "José". Alignment set on a parent field is inherited by the fields under it.
+- **A password-locked PDF is refused, not mangled.** The PDF engine's operations loaded a document that needs a password to open and then worked on its enciphered contents. Merging one wrote its pages out as unreadable noise and reported success; reading its form returned nonsense; stamping and watermarking failed with "failed to parse PDF". Every operation in `crates/pdf-core` that reads or rewrites content (Bates stamp, watermark, merge, split, rotate, form read, fill and flatten, sanitize, redact, signature preparation, searchable text layer) now checks `guard::is_locked` after loading and returns its `Encrypted` error, which `@magna-carta/pdf` reports as "the document is locked with a password; unlock it first". `decrypt` unlocks it. A document that carries only an owner's restrictions opens without a password and is worked on as before; the result is written without those restrictions, as it already was.
+- **Reactions and raised hands show on the meeting tiles again.** The gallery never handed a tile its reactions or its raised hand, so a thrown reaction drew nothing and a raised hand showed nowhere on the tile. Both now appear: the reaction rises off the sender's tile, and the hand sits beside the name.
+- **Every new-tab opening goes through `$lib/navigation/open-beside` again.** Five screens had grown
+their own `_blank` since the gate landed, so `apps/web/test/open-beside.test.ts` failed on `main`
+and on every pull request's test slice. The About window's version link and the product-updates
+pull request and commit badges now open with `opensBeside("external")`, the directory photo's
+**View full size** with `openBeside(href, "file")`, and the two **Open in new tab** menu items (the
+page actions menu and the Magnus conversation menu) with a new sixth reason, `requested`: the reader
+chose a command whose whole meaning is a new tab. Every one now carries `noopener noreferrer`, where
+three carried `noopener` alone and two carried `noreferrer` alone; nothing else a reader sees changes.
+- **The OCR container builds again.** `pdf-core` gained a `PdfError::Encrypted` variant for password-locked documents, and the container's load-error mapping did not cover it, so the `magna-carta-ocr` Workers Build failed. A locked document now maps to `DocumentUnreadable`, the same permanent outcome as a document that will not parse.
+- **Text the PDF engine draws keeps its accents.** A Bates stamp, a text watermark and a filled form field's appearance wrote their text as UTF-8 bytes into a string drawn with a standard font that declared no encoding, so every character past ASCII came out as two unrelated glyphs ("José" as "JosÃ©") and was measured as zero width. The text is now written one byte per character in Windows-1252 (`win_ansi_literal` in `crates/pdf-core/src/bates.rs`) and each font object declares `/Encoding /WinAnsiEncoding`, which covers the Western European alphabets, the euro sign, and typographic quotation marks and dashes. A character outside that set is no longer drawn wrong: `stamp_document` returns `BatesError::UnsupportedCharacter` and `watermark` returns `GenerateError::UnsupportedCharacter`, and a form field's appearance shows a question mark in its place while the field's stored value keeps the character. A signature's name, reason, location and contact details are written as UTF-16 when they are not ASCII (`pdf_text_string` in `src/sign.rs`), which is the form a reader's signature panel decodes. Other scripts still need an embedded font, which these overlays do not have.
+- **Five defects in the PDF engine, each with the test it was missing.** `scrub_form_field_values` (`crates/pdf-core/src/scrub.rs`) removed `/AP` from every field, and a button's appearance dictionary is the only record of its on-state name, so `fill_form` on a sanitized template found no radio options and guessed `Yes` for every checkbox. A button now keeps `/AP` and has `/AS` reset to `Off`; text and choice fields still lose theirs, and `/RV` is cleared beside `/V` and `/DV`. `/Fields` and `/Kids` are resolved through `resolve_array` (`surgery.rs`) in both `scrub.rs` and `forms.rs`, where an array stored behind a reference used to read as empty. `verify_scrub_absence` no longer repeats the scrub's own walk: it scans every field-like object in the document, so a tree the walk cannot follow fails the gate instead of passing it. `parse_cid_widths` caps a `/W` range at character identifier 65,535, where a file could previously declare four billion entries and be looped over as declared. `signed_bytes` and `embed_signature` (`sign.rs`) check the host-supplied ranges and return the new `SignError::InvalidRange`; `signed_bytes` now returns a `Result`. `extractPdfText` refused any document over 100 pages with the decompression-bomb token; the ceiling is `MAX_TEXT_EXTRACTION_PAGES` (50,000, the discovery engine's own) and the refusal past it is named `document has too many pages`. Word breaks are measured between glyph advances (`GlyphMark::advance_span`, `gap_between` in `textextract.rs`) with the inked boxes as the fallback, because two narrow glyphs set solid sit further apart box to box than a word break does.
+- **A scanned PDF of more than 100 pages is recognized instead of refused.** `recognize_pdf` (`containers/ocr/src/lib.rs`) rejected any document over `MAX_PAGES` whole, so a 101-page scan lost its first hundred pages along with the rest. `POST /ocr` now takes `?firstPage=N` and walks one window of at most `MAX_PAGES` pages from that index, and its response carries `pageCount`. A request that names no window is still refused for a long document, because answering it with the first window would hand that caller a truncated reading it cannot notice. `recognizedPages` (`apps/api-worker/src/search/text-extraction.ts`) asks for each window in turn, placing every window at the next page that needs recognition, so a long born-digital filing with one scanned exhibit is one request. It stops at 500 windows (50,000 pages) with `limitExceeded`. `forwardOcr` (`apps/ocr-worker/src/forward.ts`) dropped the query string, which also meant `force=true` never reached the engine; it carries it through now. `pageCount` is optional in the Worker's schema, so a Worker deployed ahead of the container reads the old response as a single window. Each window re-sends the document and runs in sequence, so a very long scan is bounded by the queue consumer's wall clock; `POST /ocr/searchable` and the `/api/v1/ocr` route still take one window's worth.
+- **A text-preserving redaction no longer leaves drawn content under its box.** In `RedactionMode::Surgery`, `redact` (`crates/pdf-core/src/redact.rs`) removed the text inside a rectangle and drew a black box, and the outcome gate checked only for glyphs and raster images. Anything the page drew there as a path, such as a signature, a diagram, a stamp or text converted to outlines, stayed in the content stream under the box, one deleted operator from visible. `draws_under_rectangles` now observes every filled or stroked path of the page's own content (`ShapeMark` in `src/textpos.rs`) and sends the page to the flatten path when one sits under a rectangle. Three kinds of drawing are let through so an ordinary page keeps its selectable text: a straight-edged fill covering the whole rectangle (a page background, a shaded table cell), and up to four thin straight rules crossing it (a table cell's borders). More thin lines than that, which is what a barcode is, flatten the page, as does any curve, slanted line or partial block. Annotations are judged by the existing annotation path, not this one.
+
+**A flattened page keeps nothing of the page it replaced.** `reassemble_page` overwrote `/Contents`, `/Resources`, `/MediaBox` and `/Rotate` on the existing page dictionary and kept every other key, so `/Thumb` (a thumbnail of the unredacted page), `/PieceInfo` and `/Metadata` (an authoring tool's copy of its content), `/B`, `/StructParents` and `/AA` survived, and an old `/CropBox` cropped the new image in the old page's coordinates. The page dictionary is now rebuilt from `/Type`, `/Parent`, `/Contents`, `/Resources`, `/MediaBox` and `/Rotate` alone; the objects the dropped keys named are pruned with the original content.
+- **Screen readers and voice control now hear the words a control shows.** Several controls were
+named in a way that left out what was printed on them, so a person using voice control could not say
+the label they saw. A folder in the file manager's tree is now named with its file count ("Pleadings
+12 files"), the month heading of a small calendar starts with the month it shows ("June 2026, choose a
+month"), and the Error ID chip on a failure band reads the ID and what pressing it does ("Error ID
+err_7FQ2K9XW, copy").
+
+**For builders.** The accessibility checker the design system's stories run under (axe-core 4.14,
+arrived with the dependency refresh) now enforces `label-content-name-mismatch`, which it used to
+treat as experimental, and 23 stories failed it or the changes beside it. Fixed per component rather
+than by turning the rule off:
+
+- `Tree`: the treeitem is now the row, and an open branch is the row's sibling `role="group"` inside
+  a `role="none"` `<li>` (levels, set sizes and positions stay explicit). A treeitem that wrapped its
+  children showed every descendant's label inside itself. `Tree` takes an optional `itemLabel` for a
+  row whose `trailing` content shows text; `FolderTree` uses it for the file count. Drag marks land on
+  the treeitem itself now.
+- `MergeFieldPicker`'s trigger is a `combobox`, the role Bits 2.20 gave the `Select` trigger, so the
+  field's label names it and the chosen field is its value. Story queries for both moved from
+  `button` to `combobox`.
+- `FolderTree` clips its loading placeholder instead of scrolling it, since a scroll region with
+  nothing focusable fails `scrollable-region-focusable`.
+- Two stories asserted more than they meant: the day-lanes story now expects the deposition held in
+  two calendars twice, and the exchange story reads which side a turn sits on from its mark, not from
+  the width of the member's question.
+- **`Sidebar.MenuTrigger` folds in the icon rail again.** In the collapsed rail it renders inside a tooltip trigger, and the tooltip's props were spread after the caller's `onclick`, replacing it; the fold's handler now runs last, after the tooltip's. The sidebar story's truncation step moved to the labelled rail, where marks show.
 
 ### Changed
 
@@ -12804,6 +13370,120 @@ read. Priority shows only Urgent or Needs Attention; informational rows have no 
 leads with the most pressing of its rows, says "No Results" when empty, and links to "Open
 Notifications". The `email.filed` kind now reads "Email saved to a matter".
 - **Client and matter numbering: separators, unpadded counts, and an editor that drags.** `NumberSegment`'s `date_opened` and `client_name` take an optional `separator` (`-`, `.`, `_`, `~` or empty; a slash is refused because a number is URL-safe), mirrored in the OpenAPI `NumberSegment` schema and the generated client. Absent renders as before (`20261111`, `AshcombeMercantile`), so no saved scheme changes shape; a client name's words are now folded one at a time and joined by the separator, dropping a word that folds to nothing. In `numbering-scheme-editor.svelte`, Preview sits under Current with no descriptive line under either (Current keeps its line only when nothing is in force), parts move by a grip on `DragReorderController` with Alt+Arrow as the keyboard path, the move buttons and the examples (`NUMBERING_STARTERS`) are gone, "Digits" is "Format" (counter minimum digits, year digits, separators), "Restarts the Count" is "Separate Count", the Part picker shows each kind's sample value, and a new counter starts at one digit. `compareGridRows` orders text with a numeric `Intl.Collator`, so every `DataTable.Grid` text column sorts `3333-2` before `3333-10`.
+- **A returning reader's browser no longer re-asks for the application's files.** Cloudflare's asset
+server answers every file with `max-age=0, must-revalidate` unless told otherwise, so each repeat
+visit to the sign-in page made about 116 conditional requests (a `304` each) before the application
+could start. `magna-carta-web` now serves everything under `/_app/immutable/`, whose names carry a
+hash of their content, with `Cache-Control: public, max-age=31536000, immutable`. Measured against
+`wrangler dev` with Chromium on 2026-11-10: a first visit is unchanged at 120 requests, and a repeat
+visit reaches the server once, for the page itself.
+
+**The same change makes a missing application file a `404`.** `magna-carta-web` gains its first
+script (`apps/web-worker/src/`), run only for `/_app/*`. The single-page fallback used to answer a
+request for a script that was not there with the application shell and a `200`; with a year-long
+lifetime that would have let a deploy race store HTML under a script's address. The script answers
+`404` with `no-store` instead, and only a response that really is the file gets the lifetime. The
+Worker still binds nothing but its own public files. Home: `docs/conventions/operations.md`, the
+`magna-carta-web` roster entry.
+- **Capital letters and accents do not matter when searching inside files.** The keyword engine (`crates/search-core`) now composes a letter and its accent into one character before it cuts text into words (text taken out of a PDF often carries the two apart, which used to cut "Peña" into "pen" and "a"), folds Latin letters to their unaccented form, and lowercases, so "pena" finds "Peña" and "resume" finds "résumé" inside a document as they already do in a note. The same is done to a quoted word in a question, so the search box sends a finished word as typed. An unfinished word is a pattern, which the engine compares with the index's words as held, so `packages/search/src/keyword-query.ts` folds that one itself from `keyword-letter-folds.ts`, a table rendered from the one the engine writes out about its own analyzer (`crates/search-core/tests/fixtures/body-letter-folds.tsv`); a test on each side holds the three together. This changes how every word is cut, so it is schema generation 2, taken now because no production index exists yet and afterwards it would mean rebuilding every one. The address index (`crates/address-core`) is packaged in the same split format and used to borrow that generation number; it now carries its own (`ADDRESS_INDEX_GENERATION`, the value its partitions already hold), so the partitions in the bucket stay readable. Internal for now on the same ground as the entries before it: nothing inside a file is searchable in production until the search worker is deployed and bound.
+- **The api-worker tests that never reach the Workers runtime now run in plain Node, and test and type-check memory have explicit ceilings.** A test file that declares `// @node-runtime` in its header runs in a second project, `apps/api-worker/vitest.node.config.ts`, with no workerd VM and no whole-app preload. That preload cost about 25 s of setup per file and most of the suite's 6.4 GB peak. The first 67 files to opt in run together in about 8 s. The other test projects share a ceiling of eight workers (`MC_TEST_MAX_WORKERS`) instead of one per CPU, and `tsc -b` runs with a 4 GB heap instead of Node's default, which is sized from system memory. On a 15 GB machine that default is 2,096 MB, against a measured peak of 1,943 MB. Measurements and reasoning: `docs/conventions/build-performance.md`, under "Test memory".
+- **A change made in Outlook is picked up when it happens.** Each connected account now asks Microsoft
+to say when anything in the member's calendar changes, and a notice brings that account's sync pass
+forward to about a second away, where it used to wait for the next pass and could take six hours.
+The notice is believed only by a secret the account gave Microsoft, carries nothing that is read
+about the change, and is received on a new public address, `POST
+/api/v1/calendar-sync/provider-notices/microsoft/{firmId}/{connectionId}`. The six-hour pass stays
+as the backstop for a lost notice. A request for a pass that arrives while one is running is now
+run straight after it. Dormant until a Microsoft application is registered.
+- **An edit made in Outlook changes the event in Magna Carta.** A member who may edit the calendar
+and moves, renames or re-places their Outlook copy of an event now changes the event itself, for
+everyone it is shared with, where before the copy became a question on their Calendar Sync page.
+The change goes through the calendar's own edit, is recorded under the member's name, and is marked
+in the audit log as having come from their calendar. A member without permission to edit the
+calendar is still asked. A deleted copy never cancels an event, a deadline's copy is still put
+back, a title is not carried from a copy sent with minimal detail, and a series cannot be moved to
+a different first day from Outlook. Dormant until a Microsoft application is registered.
+- **Caller lookup names the town and the time there.** The free answer of `communications.callerLookup` now carries, beside the area code's region, `place` (the town the number's exchange was assigned to, from libphonenumber's exchange-level geocoding rows) and `timeZone` (the IANA zone of the number's prefix, from libphonenumber's time zone map; null where the prefix spans several). Both tables are generated by `packages/caller-lookup/scripts/refresh-places.mjs`. The record screen shows "702 · Henderson, Nevada" and "3:19 PM PST".
+- **The Changelog lists every merged pull request.** `/updates` now reads `docs/pull-request-ledger.json`, which `tooling/doc-fragments/build-pull-request-ledger.mjs` rebuilds from first-parent history: one row per squash-merged pull request with its number, commit, landing day, the application areas its paths fall in (four or more read as "Across the app", none as "Behind the scenes"), and the developer text of the fragment it added. The assemble-docs workflow rebuilds it whenever a merge carries a fragment, and the docs-sync routine runs it as a backstop. The screen (`pull-request-changelog.svelte`) groups rows by day and folds each day and each pull request on a leading caret (`Accordion.Trigger` gains `chevron="start"`), puts each pull request on a card with linked pull-request and commit badges, and filters by kind, area and whether members see the change from three compact menus.
+- **Community board, Topic.** The composer asks for a post's topic from a dropdown instead of a wall
+of product-area buttons, and the board's rail and a post's details call it Topic as well.
+- **The Certificate of Completion reads as a finished document.** The sheet opens with the product's lockup and a title in the application's dark gold, with rules in the same colour; the summary, the signers and the audit log each start a page of their own. The reference is now a number a person can read out, `MC-` and the first twelve characters of the document hash in three groups (`certificateReference` in `packages/signing/src/certificate.ts`, carried on the record as `reference`), where it was the request's internal identifier; that identifier stays in the record and the plain text as `Record` and is no longer printed on the sheet, and neither is a signer's internal identifier. The first page carries everything a reader wants at a glance: the sender as `Sender: Name` and `Sender: Email`; every instant as a date row and a time row; the count of signers, signatures and initials; a table of the signers with when each signed and how many signature and initial blocks each completed (`SigningIntent.signatureCount` and `initialCount`, which the seal route accepts; a signer whose blocks were not counted is one signature and no initials); and a Contact note in small text naming who answers for the document (`SigningEnvelope.contact`, or the sender without one) and who answers for the certificate (the platform, with the address in the sign Worker's `CERTIFICATE_SUPPORT_EMAIL` variable when it is set). Each signer's full record is on the next page and the audit log on the one after. Labels are in title case and the footer reads `Certificate MC-...` beside the page number. Two lines are gone: the note that times are as the server observed them, and the paragraph explaining the document hash. The first page holds the summary, eight signers and the contacts, so a certificate for eight people prints its front on one sheet: rows are set closer together and the top and bottom margins are three quarters of an inch. To draw this, the PDF composer (`crates/pdf-compose-core`) learned three things, each off unless a document asks: an `accent` colour, which its title, first two heading levels and rules are drawn in; `compact`, which narrows the rows of every table and field list; and a `small` paragraph, set in the caption's size. A document that names none of them is written exactly as before. The lockup is a picture (`packages/signing/src/brand-lockup.ts`) rendered once from the design system's `BrandMark`, because a page cannot load the blackletter web font.
+- **A conflicts check's run list is now its History tab, and Assign to Matter sits beside Print.** The check's second tab reads History and drops its introductory line. A check with no matter is assigned to one from an **Assign to Matter** button in the header, next to Print Report and Download Report, which opens the matter field in a small panel; the field no longer sits at the foot of the Details section.
+- **A conflicts check reads names in calls, texts, tasks and Magnus through the record index.** `packages/conflicts/src/content-search.ts` asks `@magna-carta/search`'s record index for each subject party's names as exact phrases, firm-wide and index-led, instead of scanning those tables with LIKE. Matching is by whole word and folds case and accents. Each name keeps at most `NAME_RESULT_CEILING` (200) records per place, and the check's `inputs.places` records `namesAtCeiling`, which the report states. Numbers, addresses, linked records and email (not an index source) are matched on their own columns as before.
+- **The conflicts check is redesigned, and a run can be cancelled.** The New Check panel asks for parties only and lists five locations, each a dropdown of what it searches; Firm Employees runs without a matter by looking for members among the entities a check reached (`findMemberEntities`). The check page gains Report and Runs tabs, collapsible Details, Status and Results sections, a per-location status log, result cards with filters and a review dropdown, and icon-only print and download buttons. `POST /api/v1/conflicts/checks/{checkId}/runs/{runId}/cancel` stops a run; a run summary reports `cancelled`, `cancelledByUserId` and `askedScope`. Reports say "0 results." and count results rather than candidates.
+- **New Person's form is wider beside the duplicate check.** A primary pane that carries a section rail now stops at the new `size.record-form` token (832px: the record's 640px measure plus the rail) instead of `size.record-pane`, through `.mc-modal-frame-pane:has([data-record-rail])` in `modal-frame.css`. `record-sections.svelte` marks its rail. A three-field name row and the email row's kind, address and use now fit on one line.
+- **HEVC and MKV recordings play where the browser can decode them.** The server no longer refuses
+HEVC video, or Matroska files whose tracks carry browser codecs (H.264, HEVC, VP8, VP9 or AV1 with
+AAC, Opus, Vorbis or FLAC sound); the player offers the download when the reader's own browser
+reports a media error or shows no picture. ProRes, MPEG-2 and Dolby Digital sound stay download-only.
+A per-firm data migration clears every stored `download-only` verdict once, so videos refused under
+the old rule are judged again the next time they are opened.
+- **The Magnus transcript is laid out as an exchange.** The design-system Conversation component gains
+a second arrangement (`arrangement="exchange"` on `Conversation.Transcript`, with new `TurnMark`,
+`TurnContent` and `TurnActions` parts); the default `record` arrangement and the meetings chat are
+unchanged. `magnus-transcript.svelte` uses it: member turns on the right under the conversation
+creator's real name and initials (the session read for the signed-in member, the firm roster for
+anyone else), Magnus on the left behind the blackletter M, a time on every turn and a Copy control.
+The conversation head names the matter it is kept on beneath the title, with its number, read
+through `matter-citations.svelte.ts`. First piece of the owner's round two in
+`docs/conventions/magnus-rulings.md`.
+- **Meetings say plainly when the video service is not connected.** The Meetings page and a meeting's room no longer tell a member that meetings were not turned on for their firm and that an administrator should fix it; they say the video service that carries meetings is not connected to the site yet.
+- **Meeting recording ships switched off until the deployment is set up for it.** Recording,
+transcripts, summaries and live captions are now on `main`, but the recording queue
+(`MEETING_RECORDING_COMPOSE`) is left unbound in `apps/api-worker/wrangler.jsonc`, because a deploy
+that binds a queue the account does not have fails. The start route now also requires that queue
+before it offers recording. The owner's steps are in the operations runbook under "Turning meeting
+recording on".
+- **One field for a day and a time.** The design system's new `DateTimeField`
+(`@magna-carta/design-system/date-time-field`) holds a day, a time of day, or both: the parts are
+typed into one box, and its button opens one panel with the month beside a list of times, or only
+the half the field asks for. The list steps every fifteen minutes but the field takes any minute, and
+an off-step time is listed in its place (`time-choices.ts`). `formatWallClockTime` joins the display
+vocabulary for a time with no day or zone. The calendar's event form uses it for Starts and Ends,
+replacing a date picker beside the browser's time box and the All Day checkbox, which is now the
+Starts list's first row. `withStartsOn` and `withStartsAtTime` (`event-draft.ts`) carry the start
+date to the end and put a new end an hour after the start.
+- **The PDF engine's forms code is split by what it does, and the crate has an area note.** `crates/pdf-core/src/forms.rs` was 3,255 lines holding the field-tree walk, the text-field drawing, the fill and flatten writers and 1,750 lines of tests. It is now `src/forms/`: `mod.rs` (types, the walk, `read_form`), `appearance.rs`, `fill.rs`, `flatten.rs` and `tests.rs`. Code was moved, not changed: the public functions and types, the WebAssembly exports and all 319 unit tests are the same. `crates/pdf-core/CLAUDE.md` is new and says where each operation lives and the rules every new one must follow.
+- **The person form is tidier, and a ZIP code fills in the town.** `HonorificField` rows carry the whole line they leave as their `label`, because the combobox writes the chosen row's label into the input: picking "Jr." then "Esq." had shown "Esq." alone while the record held "Jr., Esq.". `LabelledField` now renders an error `sr-only` and as the control's `title`, and `input.css` / `combobox.css` paint `aria-invalid` controls with `status-danger`, so no field grows a line of text under it. `AddressFields` puts the country last and marks a malformed postal code as invalid rather than hinting. New Person's other names are full name blocks opened by Add Other Name (`filledOtherNames` drops empty ones); the address, identifier and organization entry rows start as Add buttons; the contact and address "Use" is labelled "Type"; and the address place/mailing choice is no longer asked (a new address is recorded as physical). `@magna-carta/address-formats/us-postal-places` adds `usPostalPlaceFor`, generated from the GeoNames postal-code file (CC BY 4.0) and loaded lazily.
+- **The player's new look, a settings menu, screenshots and sound files.** The video player lays its
+controls over the picture on the chrome ink and fades them while the video plays; resting on the
+seek bar shows the time and the frame there. Speed (now a submenu), Copy Link at, Save Screenshot
+and Download moved into a settings menu behind a cog, and picture in picture is gone. A screenshot
+saves the frame on screen as a PNG named for the video and the moment. For that, the cookieless
+files host grants CORS read access to the app's own pages (never a wildcard). MP3, M4A, AAC, WAV,
+FLAC and Ogg sound files are now judged and play in the same player, drawn as a panel of controls.
+- **The Record Communication window is built around the phone number, and holds several calls at once.** `communication-fields.svelte` now leads with Call / Text and Incoming / Outgoing as a pressed button group (`$lib/components/button-choice.svelte`), then `PhoneNumberField`, then the notes, then a one-line When that opens on Change; the Contact field leaves the form while a record is being made. The window (`communication-record-window.svelte`) holds a list of `CallEntry` drafts down the left of the pane, each the draft on screen rather than a copy; saving one retires it and the window closes on the last, and `recordThenIntake` no longer closes the window, so the messaging page stopped closing it too. While creating, the context tabs are Identification (`communication-identification.svelte`: the contact, their open matters read through `readDirectoryEntityMatterParties` with a search past five, and File Here) and History (`communication-number-history.svelte`: the log's own search, narrowed to rows on the same stored number). Start An Intake moved into the header menu; the subtitle is the previewed number alone, in italics. The contact choice moved to `communication-contact.ts` so the form and the panel share it.
+- **The text a firm holds in its records is now indexed, and matter search reads that index for prose.** A per-firm migration adds the record index: `record_text_entry` and the contentless full-text table `record_text_fts`, kept current only by triggers on `matter_note`, `time_entry`, `cost_entry`, `matter_event`, `communication`, `matter_task`, `magnus_conversation` and `magnus_turn`, and filled in the same migration for records that already exist. The sources are declared once in `packages/search/src/record-index-sources.ts` and everything else is rendered from them. `packages/matter-search` now matches notes, time, costs, calendar and the words of a call or text through the index; files, folders, parties, custody, billing and telephone numbers still match by substring. Tasks and Magnus conversations are indexed and have no reader yet. Design: `docs/specs/2026-11-10-indexing-and-discovery-design.md`.
+- **Screenshots and converted copies are filed beside the recording.** Save Screenshot now files the
+still into the matter, in the recording's folder, instead of saving it to the reader's computer. The
+PNG carries its provenance in UTF-8 text chunks (Title, Description, Source, Comment, Creation Time,
+Author), written by `apps/web/src/lib/documents/recording-still.ts`. A recording that will not play
+now reads "Unreadable Media File" and, for an MP4, QuickTime or Matroska file whose refusal is about
+its encoding, offers Convert to MP4. The playable copy is saved as a file of its own beside the
+original ("<name> (converted).mp4"), through the same reserve, write, complete and ingest path as
+any server-written document, and the original's version records it in the new
+`playable_copy_file_id` column. A copy a member deletes is owed again on the next request.
+- **A search result marks the words that answered, and a long text is quoted where they are.** Every hit of a matter's own search (`matterSearch.search`) and of the search across matters (`search.acrossMatters`) gains `titleMarks` and `snippetMarks`: where each run of the reader's words begins and ends in the text beside it, as offsets in UTF-16 code units with the end not included (the new `SearchTextMark` component). The words are found again on the server by the rules of the index that made the match (`packages/search/src/matched-text.ts`): a whole word, the start of the last word typed or a quoted run for the record index and for the file contents index, each by its own cutting and folding, and the characters typed for a name or a number. Each source of the matter search declares which rule its title and its excerpt are marked by, or none (`marking` in `packages/matter-search/src/sources/all.ts`), so a title that is a date is left alone and a file found by the words inside it marks the sentence and not the name. **`snippet` changes for a long record:** a text matched through the record index that runs past about two hundred characters is now cut to the stretch holding the most of the question, with an ellipsis at a cut end, where it used to be the whole column; a shorter text is unchanged. The marking is the last step of both searches, after the matter binding, the visible-matter predicate and the limit, and cannot add, drop or reorder a result. Additive on the wire apart from the shorter `snippet`; no migration and no binding. Not built: marks in the Matters and People groups of the Search page, which are read from the matters listing and the directory.
+- **The favourite star moves into the page menu.** `page-actions-menu.svelte` now opens with Add to Favorites (Remove from Favorites, with the star glyph filled gold, once the page is saved), ahead of Copy Link and Open in New Tab, and `ScreenHeader` no longer draws a separate star. `favorite-control.svelte` is removed; the favourites store is unchanged, so every saved favourite carries over. `favoritable={false}` still drops the whole menu. The ruling is updated in `docs/conventions/design-corrections.md`.
+- **Task comments stand beside the task.** The comment thread moved out of the task window's tabs into a column of its own on the right, so it stays in view whichever tab is open. `RecordWindow` gains an optional `aside` snippet (with `asideLabel`), a fixed column after the tabs sized by the new `size.record-aside` token; a window carrying one opens to `size.record-window-wide` (the `max-w-record-window-wide` utility), so the panel is added beside the record and its tabs rather than taken from them. Without `aside` the window renders exactly as before.
+- **The Tasks list and the task window, rebuilt on the firm's lists, statuses and teams.** `task-list.svelte` is now a `DataTable.Grid` over `TaskRow` (`task-columns.ts`): a status pill per row (`task-status-menu.svelte`) offering the statuses the list's flow allows plus Mark Complete; Start, Due and Priority edited in the row (`task-date-field.svelte`, `editTaskFields`); sub-tasks read with `readSubtaskTrees` and kept under their parent by `orderTaskRows`, folding from a chevron; bands keyed by the root task with Group By defaulting to List; a View menu for one or two lines, row size and columns; Me Mode (`mine=assigned|watching|both`); Show Completed (`completed=false` by default); and a Task Settings dialog (`task-settings-dialog.svelte`) for lists, statuses, flow and teams behind `tasks:managePlans`. A past due date is drawn red and never labelled. `task-record-window.svelte` edits in place (`editControl={false}`), keeps Save for a new task, puts the status beside Mark Complete, moves Duplicate, Archive and Delete into the "..." menu, and adds People, Location with Join, Checklist, Sub-Tasks and Links. The rung buttons and the Overdue badge are gone from both screens, and the print sheet names the status and Completed rather than the rung.
+- **The app worker is bound to the keyword search engine.** `apps/api-worker/wrangler.jsonc` declares the `SEARCH_SERVICE` service binding to `magna-carta-search`, on the owner's confirmation of 2026-11-13 that the worker is on the account. No code path changed: `resolveSearchIndexPort` now returns the port over the binding in place of the deferred one, the engine generation changes (`index:none` to `index:search`) so the index queue attempts its parked documents again, and a matter's search, the conflicts check and a discovery review set can ask the engine. `searchServiceConnected` on `GET /api/v1/firm/search-settings` and `fileContents.serviceConnected` on `GET /api/v1/firm/search-status` read true. A firm's files are still indexed only after that firm turns indexing on. The test pool binds a stub for the service that refuses every operation, so a test reads the binding as present by default and passes an environment without it to reach the deferred port. **A conflicts check is given no way to the file index for a firm that has not turned file indexing on** (`apps/api-worker/src/conflicts/file-contents-searcher.ts`, now asynchronous): with the service bound, a searcher there would have had every matter answer that no file names the party, and the check would have recorded `files` as `searched` when no file had been read. It records `unavailable`, as it does on a deployment without the binding, and `unavailabilityReason` for `files` names both causes. The search worker's warm cron stays off. Not yet shown: a real file indexed and found by the deployed engine (`docs/deploy-queue.md`, _Search engine activation_).
+- **The hosted gate divides the test battery across four machines and writes its caches even when a
+run is red.** `ci.yml` was one job that ran `pnpm gate` end to end: 60 to 86 minutes on 2026-11-09,
+of which the battery was 52 to 74. It is now `prepare` (the plan, and one build of the WASM
+artefacts when no cached copy matches), `checks` (`pnpm gate --skip tests`), four `tests` jobs
+(`pnpm gate --only wasm,tests`, each with one slice of the suite) and `gate`, the required check,
+which is green only when the others are. The gate reads the slice from `MAGNA_CARTA_TEST_SHARD`
+(`tooling/gate/plan.mjs`, `parseShard`) and hands it to the test runner as `--shard`; unset, as on a
+laptop, it runs the whole suite as before.
+
+**The WASM cache was never being written.** The combined cache step saves only when its job
+succeeds, and no hosted run had succeeded, so every run compiled the artefacts from cold (251 to 320
+seconds). Each cache is now saved by its own step right after the build, the cached paths are
+every `packages/*/src/pkg` instead of a list that had fallen two artefacts behind, and the cargo cache is kept on failure.
+Home: `docs/conventions/build-performance.md`, _The hosted run_.
+- **The repository is ready to be made public.** A full-history scan of every branch and pull-request ref (gitleaks and trufflehog) found no live credential, so nothing was rotated. What would have been published is removed from the current tree: the real network address in the speed-test tests and plan is now a documentation address (`203.0.113.10`), and the owner's personal mail addresses are gone from the operations runbook and the company-email decision. Every action the workflows use is pinned to a commit rather than a movable tag, because a public repository runs pull requests from forks. A `LICENSE` file states all rights reserved, and `package.json` says `UNLICENSED`.
+- **A typeable dropdown opens its list when you click or tap the box itself.** Before, the list opened only from the small arrows at the end of the field or once you started typing, so seeing the choices meant aiming at a narrow target. Now a click anywhere in the box shows the list, and you can still type straight away to narrow it. Moving into the field with Tab does not open it, so tabbing through a form stays quiet; Down Arrow or any letter opens it from the keyboard as before. Fields that only offer suggestions once you type, such as the street line of an address, are unchanged.
 
 ### Security
 

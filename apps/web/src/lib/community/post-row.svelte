@@ -11,6 +11,8 @@
   import VoteButton from "./vote-button.svelte";
   import { formatInstantDate } from "@magna-carta/design-system/formatters";
   import { communityStatusKey } from "./community-status.ts";
+  import { boardPath } from "./board-paths.ts";
+  import { page } from "$app/state";
 
   let {
     post,
@@ -33,7 +35,7 @@
     />
   {/if}
   <div class="flex min-w-0 flex-1 flex-col gap-4">
-    <a href="#post-{post.number}" class="text-md font-semibold text-text-default hover:underline">
+    <a href={boardPath(`/posts/${post.number}`, page.url.hostname)} class="text-md font-semibold text-text-default hover:underline">
       {post.title}
     </a>
     <p class="truncate text-sm text-text-muted">{post.body}</p>

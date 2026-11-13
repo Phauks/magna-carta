@@ -180,3 +180,21 @@ test("readConflictsPolicy: an emptied name-role set falls back to the default, a
   );
   expect((await readConflictsPolicy(database)).balancedNameRoles).toEqual(["current", "maiden"]);
 });
+
+test("trigram matching is on unless a balanced request turns it off", () => {
+  expect(resolveScope(policy, { sources: ["party"], strictness: "balanced" }).trigramMatching).toBe(
+    true,
+  );
+  expect(
+    resolveScope(policy, { sources: ["party"], strictness: "balanced", trigramMatching: false })
+      .trigramMatching,
+  ).toBe(false);
+  // Over-inclusive may never find less than balanced, so it runs trigram matching whatever is asked.
+  expect(
+    resolveScope(policy, {
+      sources: ["party"],
+      strictness: "over_inclusive",
+      trigramMatching: false,
+    }).trigramMatching,
+  ).toBe(true);
+});

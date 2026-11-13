@@ -46,7 +46,9 @@
   import Vote from "@lucide/svelte/icons/vote";
   import DoorClosed from "@lucide/svelte/icons/door-closed";
   import DoorOpen from "@lucide/svelte/icons/door-open";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Focus from "@lucide/svelte/icons/focus";
+  import UsersRound from "@lucide/svelte/icons/users-round";
   import Hand from "@lucide/svelte/icons/hand";
   import Lock from "@lucide/svelte/icons/lock";
   import LockOpen from "@lucide/svelte/icons/lock-open";
@@ -106,6 +108,11 @@
     subtitle = {},
     appliedEffects = null,
     effectSettings = DEFAULT_EFFECT_SETTINGS,
+    mirrorSelf = true,
+    onMirrorSelf,
+    sideTab = null,
+    peopleCount = 0,
+    onOpenPeople,
     pollsWaiting = 0,
     questionsWaiting = 0,
     recording = false,
@@ -194,6 +201,19 @@
      * and the member has to see that it did.
      */
     effectSettings?: MediaEffectSettings;
+    /**
+     * Which tab of the room's side panel is showing, or null where the screen has no side panel or
+     * it is closed. The tab's control is drawn pressed.
+     */
+    sideTab?: "chat" | "questions" | "polls" | "people" | null;
+    /** How many people are in the room, on the People control. */
+    peopleCount?: number;
+    /** Open the side panel on who is here. Absent where the screen has no side panel. */
+    onOpenPeople?: () => void;
+    /** Whether this member sees their own camera as a mirror shows it. */
+    mirrorSelf?: boolean;
+    /** Change it. Absent where the screen does not offer the choice. */
+    onMirrorSelf?: (mirrored: boolean) => void;
     /**
      * How many open polls this member has not answered. On the Polls control, for the lobby's
      * reason: a poll nobody sees is a poll nobody answers.
@@ -446,6 +466,17 @@
           {:else}
             <p class="text-sm">{BLUR_UNAVAILABLE_STATEMENT}</p>
           {/if}
+          {#if onMirrorSelf !== undefined}
+            <!-- Only this member's own preview is flipped; everybody else sees the camera's own
+                 picture, so writing held up to it reads the right way round for them. -->
+            <div class="flex items-center gap-8">
+              <Switch
+                aria-labelledby="meeting-effects-mirror-label"
+                bind:checked={() => mirrorSelf, (mirrored) => onMirrorSelf(mirrored)}
+              />
+              <Label id="meeting-effects-mirror-label">Mirror my video</Label>
+            </div>
+          {/if}
         </section>
       {/if}
 
@@ -489,11 +520,82 @@
   </Popover.Root>
 {/snippet}
 
+{#snippet hostMenu()}
+    <!-- ONE MENU RATHER THAN A ROW OF NEW GLYPHS. The acts over the whole room are four, and four
+         more controls in a band every member reads would cost everybody else the space so that
+         three people could save a click. -->
+    <DropdownMenu.Root>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <DropdownMenu.Trigger
+              {...props}
+              class={buttonClasses({ variant: "ghost", size: "icon" })}
+              aria-label="Host controls"
+            >
+              <Ellipsis class="size-16" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top">Host controls</Tooltip.Content>
+      </Tooltip.Root>
+      <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
+        <DropdownMenu.Item onSelect={() => onMuteAll?.()}>
+          <MicOff class="size-16 shrink-0" aria-hidden="true" />
+          Mute Everyone
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => onSetLocked?.(!locked)}>
+          {#if locked}
+            <LockOpen class="size-16 shrink-0" aria-hidden="true" />
+            Unlock the Room
+          {:else}
+            <Lock class="size-16 shrink-0" aria-hidden="true" />
+            Lock the Room
+          {/if}
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => onSetLobby?.(lobby === "on" ? "off" : "on")}>
+          {#if lobby === "on"}
+            <DoorOpen class="size-16 shrink-0" aria-hidden="true" />
+            Let Arrivals Straight In
+          {:else}
+            <DoorClosed class="size-16 shrink-0" aria-hidden="true" />
+            Hold Arrivals in a Lobby
+          {/if}
+        </DropdownMenu.Item>
+        {#if raisedHandCount > 0}
+          <!-- Offered only while there is a floor to clear: an item that lowers nothing teaches a
+               reader that the menu does not mean what it says. -->
+          <DropdownMenu.Item onSelect={() => onLowerAllHands?.()}>
+            <Hand class="size-16 shrink-0" aria-hidden="true" />
+            Lower All Hands
+          </DropdownMenu.Item>
+        {/if}
+        {#if spotlighted}
+          <!-- Offered only while somebody is on every screen: an item that clears nothing is an
+               item that teaches a reader the menu does not mean what it says. -->
+          <DropdownMenu.Item onSelect={() => onClearSpotlight?.()}>
+            <Focus class="size-16 shrink-0" aria-hidden="true" />
+            Stop Spotlighting
+          </DropdownMenu.Item>
+        {/if}
+        <DropdownMenu.Separator />
+        <DropdownMenu.Item onSelect={() => onOpenHosts?.()}>
+          <ShieldUser class="size-16 shrink-0" aria-hidden="true" />
+          Hosts
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+{/snippet}
+
+<!-- THREE GROUPS, read left to right: what this member sends (sound, picture, how it is treated,
+     how it is getting through), what they do in the room (present, ask for the floor, react,
+     record), and where they look and how they leave (the side panel's tabs, then Leave). -->
 <div
-  class="flex flex-wrap items-center gap-8"
+  class="flex flex-wrap items-center justify-between gap-16"
   role="group"
   aria-label={medium === "audio" ? "Call controls" : "Meeting controls"}
 >
+  <div class="flex items-center gap-8">
   <Tooltip.Root>
     <Tooltip.Trigger>
       {#snippet child({ props })}
@@ -543,6 +645,13 @@
   {#if appliedEffects !== null}
     {@render effectsControl(appliedEffects)}
   {/if}
+
+  <!-- The way to the numbers behind the marks. It is not a toggle, so it wears no fill and no
+       pressed state: it only shows what the connection is already doing. -->
+  {@render connection?.()}
+  </div>
+
+  <div class="flex flex-wrap items-center justify-center gap-8">
 
   {#if medium === "video"}
     <Tooltip.Root>
@@ -618,38 +727,6 @@
        what the menu offers is the client's vocabulary, and where it sits is the band's. -->
   {@render reactions?.()}
 
-  <!-- The way to the numbers behind the marks. It is not a toggle, so it wears no fill and no
-       pressed state: the band's other controls change what the room is doing, and this one only
-       shows what it is already doing. -->
-  {@render connection?.()}
-
-  <!-- What is being said, beside what is being sent. It carries its own count, which is how a
-       member learns something was said while they were watching the room rather than the panel. -->
-  {@render chat?.()}
-
-  {#if onOpenPolls !== undefined}
-    <!-- The polls, for everybody: a member answers from here, and a host asks from here too. The
-         count is the open polls this member has not answered, so it goes the moment they answer. -->
-    <Button variant="secondary" onclick={onOpenPolls}>
-      <Vote class="size-16" aria-hidden="true" />
-      Polls
-      {#if pollsWaiting > 0}
-        <Badge variant="primary">{pollsWaiting}</Badge>
-      {/if}
-    </Button>
-  {/if}
-
-  {#if onOpenQuestions !== undefined}
-    <!-- The question queue, for everybody. The count is what is still waiting for an answer. -->
-    <Button variant="secondary" onclick={onOpenQuestions}>
-      <MessageCircleQuestionMark class="size-16" aria-hidden="true" />
-      Q&amp;A
-      {#if questionsWaiting > 0}
-        <Badge variant="primary">{questionsWaiting}</Badge>
-      {/if}
-    </Button>
-  {/if}
-
   {#if recording && mayStopRecording && onStopRecording !== undefined}
     <!-- Stop, while the room says a recording runs. Before the menu rather than at the end of the
          band, for the lobby control's reason: the end is an anchor, and this control comes and goes
@@ -677,6 +754,60 @@
         </span>
       </span>
     {/if}
+  {/if}
+
+  {#if hosting}
+    {@render hostMenu()}
+  {/if}
+  </div>
+
+  <div class="flex flex-wrap items-center justify-end gap-8">
+  <!-- What is being said, beside what is being sent. It carries its own count, which is how a
+       member learns something was said while they were watching the room rather than the panel. -->
+  {@render chat?.()}
+
+  {#if onOpenPolls !== undefined}
+    <!-- The polls, for everybody: a member answers from here, and a host asks from here too. The
+         count is the open polls this member has not answered, so it goes the moment they answer. -->
+    <Button
+      variant={sideTab === "polls" ? "primary" : "secondary"}
+      aria-pressed={sideTab === null ? undefined : sideTab === "polls"}
+      onclick={onOpenPolls}
+    >
+      <Vote class="size-16" aria-hidden="true" />
+      Polls
+      {#if pollsWaiting > 0}
+        <Badge variant="primary">{pollsWaiting}</Badge>
+      {/if}
+    </Button>
+  {/if}
+
+  {#if onOpenQuestions !== undefined}
+    <!-- The question queue, for everybody. The count is what is still waiting for an answer. -->
+    <Button
+      variant={sideTab === "questions" ? "primary" : "secondary"}
+      aria-pressed={sideTab === null ? undefined : sideTab === "questions"}
+      onclick={onOpenQuestions}
+    >
+      <MessageCircleQuestionMark class="size-16" aria-hidden="true" />
+      Q&amp;A
+      {#if questionsWaiting > 0}
+        <Badge variant="primary">{questionsWaiting}</Badge>
+      {/if}
+    </Button>
+  {/if}
+
+  {#if onOpenPeople !== undefined}
+    <!-- Who is here, with their hands and roles, in the same side panel as what they are saying. -->
+    <Button
+      variant={sideTab === "people" ? "primary" : "secondary"}
+      aria-pressed={sideTab === "people"}
+      onclick={onOpenPeople}
+    >
+      <UsersRound class="size-16" aria-hidden="true" />
+      People
+      <Badge variant="neutral">{peopleCount}</Badge>
+    </Button>
   {/if}
 
   {#if hosting && onOpenLobby !== undefined}
@@ -713,66 +844,6 @@
     </Button>
   {/if}
 
-  {#if hosting}
-    <!-- ONE MENU RATHER THAN A ROW OF NEW GLYPHS. The acts over the whole room are four, and four
-         more controls in a band every member reads would cost everybody else the space so that
-         three people could save a click. -->
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger
-        class={buttonClasses({ variant: "secondary", size: "default" })}
-        aria-label="Host controls"
-      >
-        <ShieldUser class="size-16" aria-hidden="true" />
-        Host Controls
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="end" style="inline-size: var(--mc-size-popover)">
-        <DropdownMenu.Item onSelect={() => onMuteAll?.()}>
-          <MicOff class="size-16 shrink-0" aria-hidden="true" />
-          Mute Everyone
-        </DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={() => onSetLocked?.(!locked)}>
-          {#if locked}
-            <LockOpen class="size-16 shrink-0" aria-hidden="true" />
-            Unlock the Room
-          {:else}
-            <Lock class="size-16 shrink-0" aria-hidden="true" />
-            Lock the Room
-          {/if}
-        </DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={() => onSetLobby?.(lobby === "on" ? "off" : "on")}>
-          {#if lobby === "on"}
-            <DoorOpen class="size-16 shrink-0" aria-hidden="true" />
-            Let Arrivals Straight In
-          {:else}
-            <DoorClosed class="size-16 shrink-0" aria-hidden="true" />
-            Hold Arrivals in a Lobby
-          {/if}
-        </DropdownMenu.Item>
-        {#if raisedHandCount > 0}
-          <!-- Offered only while there is a floor to clear: an item that lowers nothing teaches a
-               reader that the menu does not mean what it says. -->
-          <DropdownMenu.Item onSelect={() => onLowerAllHands?.()}>
-            <Hand class="size-16 shrink-0" aria-hidden="true" />
-            Lower All Hands
-          </DropdownMenu.Item>
-        {/if}
-        {#if spotlighted}
-          <!-- Offered only while somebody is on every screen: an item that clears nothing is an
-               item that teaches a reader the menu does not mean what it says. -->
-          <DropdownMenu.Item onSelect={() => onClearSpotlight?.()}>
-            <Focus class="size-16 shrink-0" aria-hidden="true" />
-            Stop Spotlighting
-          </DropdownMenu.Item>
-        {/if}
-        <DropdownMenu.Separator />
-        <DropdownMenu.Item onSelect={() => onOpenHosts?.()}>
-          <ShieldUser class="size-16 shrink-0" aria-hidden="true" />
-          Hosts
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
-  {/if}
-
   <Button variant="destructive" onclick={onLeave}>
     <PhoneOff class="size-16" aria-hidden="true" />
     Leave
@@ -784,6 +855,7 @@
       {endLabel}
     </Button>
   {/if}
+  </div>
 </div>
 
 {#if canEnd && onEnd !== undefined}

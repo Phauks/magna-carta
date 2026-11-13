@@ -316,6 +316,8 @@ export interface MatchingRecord {
   phoneticSchemes: string[];
   /** Null means every role the corpus holds, which is not the same as a list naming them all. */
   nameRoles: string[] | null;
+  /** Whether names were also found by trigram overlap. True on every check before it could be turned off. */
+  trigramMatching: boolean;
 }
 
 /** How the walk went, and whether it got to the end. */
@@ -375,11 +377,33 @@ export interface CheckDetail {
   createdAt: string;
 }
 
+/**
+ * One part of the platform's account of a search: who searched and when, one part of the Directory
+ * search, one place beyond it, what was not searched, or what surfaced. `attention` marks a part
+ * saying the search was narrower than asked or stopped short.
+ */
+export interface ReportSection {
+  key:
+    | "searched"
+    | "names"
+    | "relationships"
+    | "employees"
+    | "messaging"
+    | "tasks"
+    | "magnus"
+    | "files"
+    | "not_searched"
+    | "results";
+  heading: string;
+  lines: string[];
+  attention: boolean;
+}
+
 /** A completed run's record: the search's own account, its recorded scope, and every hit. */
 export interface CheckWithHits {
   check: CheckDetail;
-  /** The platform's account of its own search, one sentence per line, in reading order. */
-  statement: string[];
+  /** The platform's account of its own search, as sections in reading order. */
+  report: ReportSection[];
   hits: HitDetail[];
 }
 
@@ -415,7 +439,12 @@ export interface RunSummary {
   /** Who stopped a cancelled run. Null on every other run. */
   cancelledByUserId: string | null;
   /** What the run was asked to search, readable from the moment it is queued. */
-  askedScope: { sources: string[]; strictness: string; places: PlacesRequest } | null;
+  askedScope: {
+    sources: string[];
+    strictness: string;
+    trigramMatching: boolean;
+    places: PlacesRequest;
+  } | null;
   /** How many candidates this run's record holds. Null while it has no record. */
   hitCount: number | null;
   /** Who this run searches, by name, from the moment it is queued. */

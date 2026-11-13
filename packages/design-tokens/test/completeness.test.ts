@@ -72,6 +72,14 @@ const overlayExpectations = [
     minimumVariables: 1,
     valuePattern: /^.+, (sans-serif|serif)$/,
   })),
+  // The typeface samples: every reading face, the default included, as an element-scoped block
+  // the Font Family picker sets on each option so the option reads in its own face.
+  ...Object.keys(resolver.modifiers.typeface.contexts).map((level) => ({
+    selector: `[data-typeface-sample="${level}"]`,
+    variablePrefix: "--mc-font-sans",
+    minimumVariables: 1,
+    valuePattern: /^.+, (sans-serif|serif)$/,
+  })),
 ];
 const expectedOverlaySelectors = overlayExpectations.map(({ selector }) => selector);
 

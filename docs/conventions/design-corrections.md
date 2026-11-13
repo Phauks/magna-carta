@@ -294,6 +294,12 @@ is usually the fastest way to understand the rule.
 
 ### Data entry
 
+- **A field is a box you can see, that answers the hand, and says plainly when it is shut.** Its edge
+  meets the 3 to 1 a control's edge needs on every surface it sits on, and steps one shade darker
+  under the pointer. Focus is the ink edge with the gold ring, never a second dark outline that
+  reads as an error. A disabled field is a dashed edge on a pale fill and never shares a fill with
+  a button. A secondary button is outlined, so it never looks like a disabled primary.
+  _(app visual refresh, 2026-11-13)_
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
   column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
@@ -1613,6 +1619,21 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-11-13 — the app's visual refresh: fields, choices and buttons first
+
+The owner, asked to pick one of three directions for the app as a whole:
+
+- **"A, but i am also referring to how fields look, dropdown, data entry. colors are not what i am
+  focusing on much on, but shape, feel, and function."** Direction A keeps the dark sidebar and
+  serif titles; the first pass is the controls themselves. An audit of New Matter and Log Time
+  found fields whose edge was 1.3 to 1 against the page, a disabled field filled with the same grey
+  as a secondary button, no hover, and a focus that read as an error box. Approved from the
+  mockups ("I like this, looks really good") and built as the field, choice and button recipes.
+  Promoted to _Data entry_.
+- **Still to come in later passes:** one choice field in place of Select and Combobox (search, the
+  tick on the right), a typed date, a segmented control for two to four choices, one label voice,
+  and the shell and tables in direction A.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 
@@ -3562,7 +3583,7 @@ generalizes to:
   only ever say what they are granting, not what they are not granting. Simpler permission windows."**
   One design-system window: what is being allowed, who is asking, the list of grants. No "will not"
   list. Generalizes: **a request tells the reader what they are agreeing to and stops.** Decision:
-  `docs/decisions/pending/a-permission-request-states-only-what-it-grants.md`.
+  `docs/decisions/0508-a-permission-request-states-only-what-it-grants.md`.
 - **Email matching "could be bad or dangerous" if wrong, and needs "a good long conversation".** No
   mailbox is connected until that design is settled. Not a visual ruling; recorded so a later build
   does not fold email into the calendar pages.
@@ -3590,3 +3611,17 @@ The owner, working through New Person. What was said, and what each part general
   the fields above it.
 - **"Use → Type", then "remove type for address"** (the place / mailing / PO box choice). Recorded so
   a later build does not bring the question back; a new address is recorded as a physical place.
+
+### 2026-11-13 — a record's sections are folding cards
+
+The owner, choosing between a hairline rule, cards and a heading band for New Person's sections:
+
+- **"Cards seems better, but remove the sub part like 'Ways to Reach Them' and make the header for
+  each card better, allow the cards to be collapsible as well."** Generalizes: **a record's sections
+  are cards, and a card says its name once.** The header carries the section's icon, name and
+  count, and nothing inside the card repeats it as a second heading. **Every card folds** from its
+  header, and jumping to a folded section from the rail opens it. Built once in
+  `apps/web/src/lib/directory/record-sections.svelte`, so New Person and the record window agree.
+- **"The right sidebar needs to be improved as well."** The duplicate check states where it stands
+  in one sentence (nobody similar, or how many may be this person) instead of a caps heading over
+  an empty list with a 0 beside it.

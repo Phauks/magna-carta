@@ -80,6 +80,16 @@ pub const LICENCE_EXCLUSIONS: &[LicenceExclusion] = &[
         name: "condos",
         reason: "SEMCOG Copyright License Agreement (bespoke agreement)",
     },
+    LicenceExclusion {
+        source: "us/tx/capcog",
+        name: "state",
+        reason: "CC BY-SA (share-alike)",
+    },
+    LicenceExclusion {
+        source: "us/or/portland_metro",
+        name: "city",
+        reason: "RLIS Open Database End User License (share-alike)",
+    },
 ];
 
 /// Where and how a build runs.
