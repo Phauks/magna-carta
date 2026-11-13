@@ -70,18 +70,22 @@
     "run_worker_first": ["/api/*", "/wopi/*", "/search-objects/*", "/__dev/*", "/internal/*"],
   },
   // Public, non-secret config. FILES_ORIGIN is the cookieless preview/download host; bound here (not
-  // .dev.vars) because it is a hostname, not a credential. In production this becomes
-  // files.magnacartausercontent.com — the SAME dedicated content domain the editor uses (a separate
-  // registrable domain from the app, so served bytes never carry an app cookie); the app worker takes a
-  // `files.magnacartausercontent.com/*` route, more specific than the editor's wildcard. The placeholder
-  // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
+  // .dev.vars) because it is a hostname, not a credential. It is files.magnacartausercontent.com — the
+  // SAME dedicated content domain the editor uses (a separate registrable domain from the app, so served
+  // bytes never carry an app cookie). It carries traffic only once the zone routes
+  // `files.magnacartausercontent.com/*` to this Worker, more specific than the editor's wildcard: a
+  // zone route, which is dashboard state like the app's own path families (docs/conventions/operations.md).
+  // Until then a grant's stream address answers the editor's 404 and the player offers the download,
+  // exactly as it did under the placeholder. The Miniflare test pool exercises the host branch with this
+  // same value. The app pages allowed to read the bytes are found from APP_BASE_URL below, not from this
+  // host's parent, because the two hosts sit on different domains. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
   // R2_BUCKET_NAME names the bucket bound below as R2. An R2Bucket handle carries no name, so this is
   // how the bucket resolver (src/files/firm-bucket.ts) proves that the bucket a presigned URL addresses
   // is the same one this Worker reads through. Keep it byte-identical to the r2_buckets bucket_name.
   "vars": {
-    "FILES_ORIGIN": "files.example.com",
+    "FILES_ORIGIN": "files.magnacartausercontent.com",
     "R2_BUCKET_NAME": "magna-carta-production-platform-files",
     // What the two anonymous writes (registration, invitation redemption) do while NO Turnstile
     // secret is provisioned: "fail-open" serves them unprotected and counts every unprotected pass
