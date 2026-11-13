@@ -76,7 +76,6 @@ export const MeetingPoll = z
   })
   .meta({ id: "MeetingPoll" });
 
-
 export const MeetingPollAnswer = z
   .object({
     // The STAY that answered, as a kind and a handle, and the firm member behind it — null for a

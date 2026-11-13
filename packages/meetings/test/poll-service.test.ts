@@ -408,18 +408,22 @@ describe("a ranking and a score", () => {
     });
     expect(poll.kind).toBe("ranking");
     const [first, second, third] = poll.options.map((option) => option.optionId);
+    if (first === undefined || second === undefined || third === undefined) {
+      throw new Error("a ranking of three opens with three options");
+    }
 
     // Every option, in order; fewer is refused.
-    await expect(
-      answer(database, meetingId, poll.id, [third ?? "", first ?? ""]),
-    ).rejects.toMatchObject({ code: "meeting-poll-invalid", field: "optionIds" });
-    await answer(database, meetingId, poll.id, [third ?? "", first ?? "", second ?? ""]);
+    await expect(answer(database, meetingId, poll.id, [third, first])).rejects.toMatchObject({
+      code: "meeting-poll-invalid",
+      field: "optionIds",
+    });
+    await answer(database, meetingId, poll.id, [third, first, second]);
 
     const entry = await readMeetingPollEntry(database.database, meetingId, poll.id, options);
     const places = new Map(entry.options.map((option) => [option.optionId, option.averageRank]));
-    expect(places.get(third ?? "")).toBe(1);
-    expect(places.get(first ?? "")).toBe(2);
-    expect(places.get(second ?? "")).toBe(3);
+    expect(places.get(third)).toBe(1);
+    expect(places.get(first)).toBe(2);
+    expect(places.get(second)).toBe(3);
   });
 
   it("opens a score whose options are its scale, and leaves its places empty", async () => {
