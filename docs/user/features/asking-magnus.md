@@ -111,6 +111,17 @@ in a conversation you started, and only when Magnus is not in the middle of an a
 Neither one erases anything. The words stay on the firm's record, where a colleague allowed to read
 every conversation can still see them, until the whole conversation is deleted.
 
+## Finding Words in a Conversation
+
+To find something said earlier in the open conversation, open its **More** menu (the three dots
+beside its name) and choose **Find in Conversation**. Type the words in the box that appears under
+the name. Every place they appear is marked, whatever their capitals, and the box says how many
+messages hold them, such as "2 of 5 messages".
+
+Press **Enter** or the down arrow to go to the next message that matches, and **Shift+Enter** or the
+up arrow to go back. Press **Escape** or the close button when you are done. The find covers the
+whole conversation, including earlier messages that were not yet on screen.
+
 ## While You Wait
 
 Your question is recorded the moment you send it, and the answer arrives underneath when it is ready.
