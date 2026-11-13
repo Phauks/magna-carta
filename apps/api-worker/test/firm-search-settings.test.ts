@@ -112,27 +112,28 @@ async function wasEnqueued(fileId: string): Promise<boolean> {
 }
 
 describe("GET /api/v1/firm/search-settings", () => {
-  it("reads file indexing as off for a fresh firm, on a deployment with no search service", async () => {
+  it("reads file indexing as off for a fresh firm, on a deployment that binds the search service", async () => {
+    // The deployment binds the search service and so does the test pool (a stub with no engine
+    // behind it), so connected is what a firm reads.
     const response = await SELF.fetch(ROUTE, { headers: { cookie: ownerCookie } });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       fileContentsIndexed: false,
-      searchServiceConnected: false,
+      searchServiceConnected: true,
     });
   });
 
-  it("says the search service is connected when the deployment binds one", async () => {
-    // The test pool binds none, which is production's posture until the search worker is deployed;
-    // a bound service is handed in through the request's own environment.
+  it("says the search service is not connected on a deployment that binds none", async () => {
+    // A deployment without the binding is handed in through the request's own environment.
     const response = await createApp().request(
       ROUTE,
       { headers: { cookie: ownerCookie } },
-      { ...env, SEARCH_SERVICE: { fetch: async () => new Response(null, { status: 503 }) } },
+      { ...env, SEARCH_SERVICE: undefined },
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       fileContentsIndexed: false,
-      searchServiceConnected: true,
+      searchServiceConnected: false,
     });
   });
 
@@ -157,7 +158,7 @@ describe("PATCH /api/v1/firm/search-settings", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       fileContentsIndexed: false,
-      searchServiceConnected: false,
+      searchServiceConnected: true,
     });
     expect(await countAudits()).toBe(before);
   });
@@ -178,7 +179,7 @@ describe("PATCH /api/v1/firm/search-settings", () => {
     expect(first.status).toBe(200);
     expect(await first.json()).toEqual({
       fileContentsIndexed: true,
-      searchServiceConnected: false,
+      searchServiceConnected: true,
     });
 
     // The same key again is the same answer and no second decision in the log.
@@ -187,14 +188,14 @@ describe("PATCH /api/v1/firm/search-settings", () => {
     expect(second.headers.get("Idempotency-Replayed")).toBe("true");
     expect(await second.json()).toEqual({
       fileContentsIndexed: true,
-      searchServiceConnected: false,
+      searchServiceConnected: true,
     });
     expect((await countAudits()) - before).toBe(1);
 
     const read = await SELF.fetch(ROUTE, { headers: { cookie: ownerCookie } });
     expect(await read.json()).toEqual({
       fileContentsIndexed: true,
-      searchServiceConnected: false,
+      searchServiceConnected: true,
     });
 
     // The file the firm already held is handed to the index without waiting for the daily pass.
@@ -209,7 +210,7 @@ describe("PATCH /api/v1/firm/search-settings", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       fileContentsIndexed: false,
-      searchServiceConnected: false,
+      searchServiceConnected: true,
     });
 
     const fileId = await seedCommittedDocument("Deposition Transcript.pdf");

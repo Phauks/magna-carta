@@ -539,17 +539,17 @@ No migration, no new permission and no new route: two optional query parameters 
 
 ## 5. Build order
 
-| Step | What                                                                                        | State                                                                                |
-| ---- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 1    | This specification and its decision record                                                  | Built                                                                                |
-| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index     |
-| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, matters and people by name, words marked, Search In (4.2-4.4) |
-| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                |
-| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers once 6b is done                                                       |
-| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; needs the owner's steps in [`../deploy-queue.md`](../deploy-queue.md)  |
-| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                     |
-| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                            |
+| Step | What                                                                                        | State                                                                                         |
+| ---- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 1    | This specification and its decision record                                                  | Built                                                                                         |
+| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                         |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index              |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, matters and people by name, words marked, Search In (4.2-4.4)          |
+| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                         |
+| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers for a firm that has turned indexing on                                         |
+| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; bound 2026-11-13; two checks left in [`../deploy-queue.md`](../deploy-queue.md) |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                              |
+| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                                     |
 
 ## 6. Open with the owner
 
@@ -558,8 +558,10 @@ No migration, no new permission and no new route: two optional query parameters 
   would show them. The source declares no across-matters reading until the owner says which
   stands; adding it is one declaration.
 
-- **Step 6** needs the search service bound in Cloudflare, and natural-language retrieval needs the
-  two live experiments in
+- **Step 6** has the search service bound since 2026-11-13 and still owes one file indexed and
+  found end to end in production, and the owner's call on the warm cron
+  ([`../deploy-queue.md`](../deploy-queue.md)). Natural-language retrieval needs the two live
+  experiments in
   [`../research/2026-08-07-ai-search-filter-wall-experiment.md`](../research/2026-08-07-ai-search-filter-wall-experiment.md)
   run against a real instance.
 - **Step 7's coding panel** waits on the two discovery questions recorded on the review-coding

@@ -151,7 +151,7 @@ describe("the Meetings screen", () => {
 
     const rendered = await draw();
 
-    expect(rendered.textContent).toContain("Meetings Are Not Turned On");
+    expect(rendered.textContent).toContain("Meetings Are Not Connected");
     expect(rendered.querySelector("table")).toBeNull();
   });
 });

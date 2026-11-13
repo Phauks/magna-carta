@@ -9,7 +9,7 @@
 use serde::Deserialize;
 
 use crate::model::{
-    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph,
+    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph, Rgb,
     RunningLine, Span, Table, Timestamp,
 };
 use crate::{compose, ComposeError, ComposeOutput, FontFamily};
@@ -25,6 +25,11 @@ struct WireDocument {
     created: Option<WireTimestamp>,
     #[serde(default)]
     page: WirePage,
+    /// Red, green and blue, each from 0 to 255.
+    accent: Option<[u8; 3]>,
+    /// Rows of tables and field lists set closer together.
+    #[serde(default)]
+    compact: bool,
     header: Option<WireRunningLine>,
     footer: Option<WireRunningLine>,
     #[serde(default)]
@@ -140,6 +145,9 @@ enum WireBlock {
         spans: Vec<WireSpan>,
         #[serde(default)]
         alignment: WireAlignment,
+        /// The smaller, grayer text of a caption.
+        #[serde(default)]
+        small: bool,
     },
     Image {
         /// The picture's position in the list of byte arrays passed beside the JSON.
@@ -219,6 +227,7 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                 text,
                 spans,
                 alignment: wire_alignment,
+                small,
             } => {
                 let mut all: Vec<Span> = text.into_iter().map(Span::plain).collect();
                 all.extend(spans.into_iter().map(|span| Span {
@@ -229,6 +238,7 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                 Block::Paragraph(Paragraph {
                     spans: all,
                     alignment: alignment(wire_alignment),
+                    small,
                 })
             }
             WireBlock::Image {
@@ -286,6 +296,10 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             second: created.second,
         }),
         page,
+        accent: wire
+            .accent
+            .map(|[red, green, blue]| Rgb { red, green, blue }),
+        compact: wire.compact,
         header: wire.header.map(running_line),
         footer: wire.footer.map(running_line),
         blocks,

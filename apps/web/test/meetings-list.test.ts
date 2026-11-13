@@ -320,7 +320,7 @@ describe("the screen", () => {
       configured: false,
     });
 
-    expect(rendered.textContent).toContain("Meetings Are Not Turned On");
+    expect(rendered.textContent).toContain("Meetings Are Not Connected");
     expect(rendered.querySelector("table")).toBeNull();
     expect(rendered.querySelectorAll("h2")).toHaveLength(0);
   });

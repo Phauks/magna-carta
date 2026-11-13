@@ -61,6 +61,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`metadata-inspector-scrubber.md`](metadata-inspector-scrubber.md) — Metadata Inspector & Scrubber (stub; backend built, screens pending).
 - [`file-hash-integrity.md`](file-hash-integrity.md) — File Hash & Integrity (stub; backend built, screens pending).
 - [`file-workbench.md`](file-workbench.md) — File Workbench: the screen in the sidebar that a file belonging to no matter is dropped on, where its real type, its fingerprints and every other file capability are read in one place — including for a file the scanner flagged.
+- [`pdf-editor.md`](pdf-editor.md) — PDF Editor: change a PDF on a matter, saving each change as a new file beside the original. Redact is the first tool.
 - [`file-unlock-password-recovery.md`](file-unlock-password-recovery.md) — File Unlock & Password Recovery: unlock a protected PDF, ZIP, or Office document with a known password, or start a search for one you have lost; reached from the File Workbench's Unlock tab, and from a locked PDF's own reader.
 - [`product-changelog.md`](product-changelog.md) — What's new: how the changelog is organized and what it covers (stub; the content is built, the page is not).
 - [`when-something-goes-wrong.md`](when-something-goes-wrong.md) — When something goes wrong: what a failure tells you, the Error ID and what to do with it, what Copy details puts on your clipboard and what it never includes, reporting a problem from anywhere, and the two messages that mean the trouble is ours rather than yours.

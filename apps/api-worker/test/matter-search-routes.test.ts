@@ -7,6 +7,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import { beforeAll, describe, expect, it } from "vitest";
+import { createApp } from "../src/http/app.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -246,10 +247,24 @@ describe("one query, answered from every section the member may read", () => {
     expect(group(answer, "file-contents").section).toBe("files");
   });
 
-  it("says the words inside files are not connected while no search service is bound", async () => {
-    // The test pool binds no search service. That has to read as "not switched on yet", never as
-    // "no file contains this word", and it must not take the rest of the answer down with it.
+  it("says the firm has not turned file indexing on, and answers the rest", async () => {
+    // The search service is bound, here as in the deployment, and this firm has not turned
+    // indexing on. That has to read as "not turned on", never as "no file contains this word",
+    // and it must not take the rest of the answer down with it.
     const answer = await search("easement");
+    expect(group(answer, "file-contents").skipped).toBe("not-indexed");
+    expect(group(answer, "file-contents").hits).toEqual([]);
+    expect(group(answer, "notes").hits).toHaveLength(1);
+  });
+
+  it("says the words inside files are not connected on a deployment that binds no search service", async () => {
+    const response = await createApp().request(
+      `https://example.com/api/v1/matters/${matterId}/search?q=easement`,
+      { headers: { origin: "https://example.com", cookie: ownerCookie } },
+      { ...env, SEARCH_SERVICE: undefined },
+    );
+    expect(response.status).toBe(200);
+    const answer = await jsonOf<SearchAnswer>(response);
     expect(group(answer, "file-contents").skipped).toBe("engine-not-connected");
     expect(group(answer, "file-contents").hits).toEqual([]);
     expect(group(answer, "notes").hits).toHaveLength(1);
