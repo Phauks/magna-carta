@@ -26,3 +26,21 @@ describe("the package's purity", () => {
     }
   });
 });
+
+describe("the label column", () => {
+  it("is written by the issue batch and by nothing else", () => {
+    const writers = readdirSync(sourceDirectory).filter((file) => {
+      const text = readFileSync(join(sourceDirectory, file), "utf8");
+      return /\blabel\s*=\s*\(?\s*SELECT|SET[^`]*\blabel\s*=/.test(text);
+    });
+    expect(writers).toEqual(["issue-service.ts"]);
+  });
+
+  it("is never named by the correction or withdrawal paths, which cannot renumber", () => {
+    for (const file of ["correction-service.ts", "withdrawal-service.ts"]) {
+      const text = readFileSync(join(sourceDirectory, file), "utf8");
+      const sql = [...text.matchAll(/`([^`]*)`/g)].map((match) => match[1]).join(" ");
+      expect(sql, file).not.toMatch(/\blabel\b|\bposition\b/);
+    }
+  });
+});

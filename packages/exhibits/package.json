@@ -7,6 +7,7 @@
   "exports": {
     "./scheme": "./src/scheme.ts",
     "./label": "./src/label.ts",
+    "./label-moves": "./src/label-moves.ts",
     "./presets": "./src/presets.ts",
     "./types": "./src/types.ts",
     "./validation": "./src/validation.ts",
@@ -17,13 +18,17 @@
     "./set-service": "./src/set-service.ts",
     "./member-statements": "./src/member-statements.ts",
     "./member-service": "./src/member-service.ts",
+    "./queries": "./src/queries.ts",
     "./issue-service": "./src/issue-service.ts",
-    "./queries": "./src/queries.ts"
+    "./withdrawal-service": "./src/withdrawal-service.ts",
+    "./correction-service": "./src/correction-service.ts",
+    "./supersession-service": "./src/supersession-service.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*"
