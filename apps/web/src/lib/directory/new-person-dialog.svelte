@@ -83,12 +83,6 @@
 
   const search = directoryPickerSearch(fetch, { kinds: ["organization"] });
 
-  // MOCKUP ONLY, removed before merge: which sidebar option to draw.
-  const sidebarLook = (new URLSearchParams(location.search).get("sidebar") ?? "card") as
-    | "card"
-    | "cards"
-    | "checklist";
-
   const counts = $derived(personSectionCounts(draft));
   const summary = $derived(personDraftSummary(draft));
   const refusal = $derived(personDraftRefusal(draft));
@@ -280,8 +274,6 @@
         {summary}
         name={personDraftDisplayName(draft)}
         {photoBase64}
-        sections={counts}
-        look={sidebarLook}
       >
         {#snippet gate()}
           <DuplicateGate kind="person" given={draft.name.given} family={draft.name.family} />
