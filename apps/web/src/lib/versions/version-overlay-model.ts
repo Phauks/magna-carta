@@ -8,6 +8,7 @@
  * Kept free of Svelte and of the vite define constants so the node-pool tests exercise every rule
  * directly.
  */
+import type { FeatureRequirements, FeatureStatus } from "./features-model.ts";
 import { formatInstant, readInstant } from "@magna-carta/design-system/formatters";
 
 import type { ConnectedServiceStatus } from "./connected-services-model.ts";
@@ -63,6 +64,10 @@ export interface MetaVersionsValue {
   services: ServiceVersionRow[];
   /** The outside services the deployment depends on; absent from an API older than the field. */
   connectedServices?: ConnectedServiceStatus[];
+  /** Every feature the deployment can switch on and its state; absent from an older API. */
+  features?: FeatureStatus[];
+  /** What each feature needs and whether it is present; null unless a platform operator asked. */
+  featureRequirements?: FeatureRequirements[] | null;
   observedAt: string;
 }
 

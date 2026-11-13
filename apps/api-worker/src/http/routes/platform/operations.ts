@@ -6,6 +6,7 @@ export const OPERATIONS: readonly string[] = [
   "incidents.report",
   "meta.databaseHealth",
   "meta.versions",
+  "platform.recentErrors",
   "platform.setFirmReleaseChannel",
   "platformStatus.clearComponentOverride",
   "platformStatus.declareEvent",
