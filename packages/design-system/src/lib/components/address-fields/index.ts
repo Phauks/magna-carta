@@ -16,9 +16,11 @@ export {
 } from "./address-format.ts";
 export {
   ADDRESS_LOOKUP_SENTENCES,
+  ADDRESS_OFFER_ATTRIBUTION_TEXT,
   withResolvedAddress,
   type AddressLookup,
   type AddressLookupAnswer,
   type AddressLookupResolution,
   type AddressOffer,
+  type AddressOfferAttribution,
 } from "./street-lookup.ts";
