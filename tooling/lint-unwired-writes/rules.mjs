@@ -88,12 +88,6 @@ export const ALLOWLIST = new Map([
       " docs/specs/2026-11-10-record-transfer-framework-design.md, and this entry goes when that lands",
   ],
   [
-    "createPost",
-    "the community board's write path, in packages/community; the board's own worker that calls it" +
-      " is the next pull request in the same stream (docs/active-work/claude/project-thread-fa00rq.md)," +
-      " and this entry goes when that lands",
-  ],
-  [
     "createMemoryLogger",
     "a test double — the in-memory logger every package's tests assert against, and production wires" +
       " the real one in apps/api-worker/src/http/app.ts",

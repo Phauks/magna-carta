@@ -45,6 +45,9 @@
       "path": "../../packages/communications/tsconfig.build.json"
     },
     {
+      "path": "../../packages/community/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/conflicts/tsconfig.build.json"
     },
     {

@@ -14,6 +14,9 @@
       "path": "apps/bundle-worker/tsconfig.test.json"
     },
     {
+      "path": "apps/community-worker/tsconfig.test.json"
+    },
+    {
       "path": "apps/convert-worker/tsconfig.test.json"
     },
     {

@@ -169,6 +169,10 @@ export const setStatusRequestSchema = z
   })
   .meta({ id: "CommunitySetStatusRequest" });
 
+export const acceptAnswerRequestSchema = z
+  .object({ commentId: z.string().nullable() })
+  .meta({ id: "CommunityAcceptAnswerRequest" });
+
 export const moderateRequestSchema = z
   .object({ commentId: z.string().optional(), decision: z.enum(["publish", "remove"]) })
   .meta({ id: "CommunityModerateRequest" });
@@ -186,3 +190,21 @@ export const profileSchema = z
 export const saveProfileRequestSchema = z
   .object({ displayName: z.string().trim().min(2).max(DISPLAY_NAME_MAX_LENGTH) })
   .meta({ id: "CommunitySaveProfileRequest" });
+
+// The app's answer when a signed-in person asks to go to the board: a one-minute, one-use address
+// on the board's own host that signs them in there.
+export const communityHandoffResponseSchema = z
+  .object({ url: z.url() })
+  .meta({ id: "CommunityHandoff" });
+
+// Who the board's worker sees behind the request: nobody, a reader with no firm, or a member; and
+// whether the board is taking writes at all.
+export const communitySessionSchema = z
+  .object({
+    signedIn: z.boolean(),
+    canWrite: z.boolean(),
+    boardState: z.enum(["open", "read-only", "off"]),
+    signInUrl: z.url(),
+    profile: profileSchema.nullable(),
+  })
+  .meta({ id: "CommunitySession" });

@@ -341,6 +341,9 @@ importers:
       '@magna-carta/communications':
         specifier: workspace:*
         version: link:../../packages/communications
+      '@magna-carta/community':
+        specifier: workspace:*
+        version: link:../../packages/community
       '@magna-carta/conflicts':
         specifier: workspace:*
         version: link:../../packages/conflicts
@@ -583,6 +586,49 @@ importers:
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.5.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(playwright@1.65.0)(vitest@5.1.0))(@vitest/ui@5.1.0(vitest@5.1.0))(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.158.0(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)
+
+  apps/community-worker:
+    dependencies:
+      '@magna-carta/community':
+        specifier: workspace:*
+        version: link:../../packages/community
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../../packages/identifiers
+      '@magna-carta/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
+      hono:
+        specifier: 'catalog:'
+        version: 4.13.16
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@cloudflare/vitest-plugin':
+        specifier: 'catalog:'
+        version: 1.6.0(patch_hash=1be42dd0eb7ddfa13bbb495e3b24cedea75dd43e3abf7087b086132fd5a680dc)(@cloudflare/workers-types@5.20261106.1)(@types/node@26.6.6)(vitest@5.1.0)
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261106.1
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@magna-carta/web':
+        specifier: workspace:*
+        version: link:../web
       vite-plus:
         specifier: 'catalog:'
         version: 1.5.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(playwright@1.65.0)(vitest@5.1.0))(@vitest/ui@5.1.0(vitest@5.1.0))(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
