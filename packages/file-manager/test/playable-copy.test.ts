@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   decidePlayableCopyRequest,
   PLAYABLE_COPY_STALE_AFTER_MILLISECONDS,
+  playableCopyFileName,
   playableCopyKey,
   playableCopySourceFormat,
   type VersionForPlayableCopy,
@@ -13,6 +14,8 @@ const base: VersionForPlayableCopy = {
   id: "fileVersion_x" as never,
   fileId: "file_x" as never,
   matterId: "matter_x" as never,
+  folderId: null,
+  fileName: "Interview.mov",
   r2Key: "files/file_x/fileVersion_x",
   sizeBytes: 1000,
   sniffedContentType: "video/quicktime",
@@ -23,6 +26,8 @@ const base: VersionForPlayableCopy = {
   playableCopySizeBytes: null,
   playableCopyReason: null,
   playableCopyRequestedAt: null,
+  playableCopyFileId: null,
+  playableCopyFileDeleted: false,
 };
 
 describe("playable copy", () => {
@@ -30,6 +35,28 @@ describe("playable copy", () => {
     expect(playableCopyKey("bulk/file_x/fileVersion_x")).toBe(
       "bulk/file_x/fileVersion_x.playable.mp4",
     );
+  });
+
+  it("is filed under the original's name, marked as the converted copy", () => {
+    expect(playableCopyFileName("Interview.mov")).toBe("Interview (converted).mp4");
+    expect(playableCopyFileName("deposition.day2.mkv")).toBe("deposition.day2 (converted).mp4");
+    expect(playableCopyFileName("clip.mp4")).toBe("clip (converted).mp4");
+    expect(playableCopyFileName("no-extension")).toBe("no-extension (converted).mp4");
+    expect(playableCopyFileName(".mov")).toBe(".mov (converted).mp4");
+    expect(playableCopyFileName("   .mov")).toBe("Recording (converted).mp4");
+  });
+
+  it("hands out a filed copy, and owes a new one once a member deletes it", () => {
+    const filed = {
+      ...base,
+      playableCopyState: "ready" as const,
+      playableCopyFileId: "file_copy" as never,
+    };
+    expect(decidePlayableCopyRequest(filed, NOW)).toEqual({ kind: "ready" });
+    expect(decidePlayableCopyRequest({ ...filed, playableCopyFileDeleted: true }, NOW)).toEqual({
+      kind: "start",
+      sourceFormat: "mov",
+    });
   });
 
   it("names the container the engine reads, and nothing for a type it does not", () => {

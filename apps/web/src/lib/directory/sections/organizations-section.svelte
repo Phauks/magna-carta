@@ -16,6 +16,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Plus from "@lucide/svelte/icons/plus";
+  import X from "@lucide/svelte/icons/x";
   import Unlink from "@lucide/svelte/icons/unlink";
   import type { DirectoryEdgeType } from "../directory-api.ts";
   import { edgeTypeLabel } from "../directory-vocabulary.ts";
@@ -62,7 +63,14 @@
     });
     picked = null;
     role = "";
+    adding = false;
   }
+
+  /**
+   * Whether the entry row is open. It starts closed, as an Add to Organization button, and closes
+   * again once the link is added (owner ruling 2026-11-13: "just make an add ... button, at which point the fields would populate. this reduces clutter").
+   */
+  let adding = $state(false);
 </script>
 
 <section class="flex flex-col gap-12">
@@ -97,7 +105,15 @@
     </ul>
   {/if}
 
-  <div class="grid items-end gap-8" style="grid-template-columns: minmax(0, 1.4fr) 10rem minmax(0, 1fr) auto">
+  {#if !adding}
+    <div>
+      <Button variant="secondary" size="sm" {disabled} onclick={() => (adding = true)}>
+        <Plus class="size-16" aria-hidden="true" />
+        Add to Organization
+      </Button>
+    </div>
+  {:else}
+  <div class="grid items-end gap-8" style="grid-template-columns: minmax(0, 1.4fr) 10rem minmax(0, 1fr) auto auto">
     <div class="flex flex-col gap-8">
       <Label for={organizationInputId}>Organization</Label>
       <DirectoryEntityPicker
@@ -144,5 +160,19 @@
     >
       <Plus class="size-16" aria-hidden="true" />
     </Button>
+    <Button
+      variant="ghost"
+      size="icon"
+      title="Cancel"
+      aria-label="Cancel adding an organization"
+      onclick={() => {
+        adding = false;
+        picked = null;
+        role = "";
+      }}
+    >
+      <X class="size-16" aria-hidden="true" />
+    </Button>
   </div>
+  {/if}
 </section>

@@ -10,7 +10,8 @@
    * conversation, which is why the page menu's own link cannot serve: the workspace's address is the
    * whole workspace, and only this menu knows which conversation is open.
    *
-   * Then the conversation's own acts in the ruling's order: pin it, rename it, move it to one of the
+   * Find in Conversation follows them, because it too is about reading what is here rather than
+   * changing it (the ruling's R2.6). Then the conversation's own acts in the ruling's order: pin it, rename it, move it to one of the
    * reader's folders, save it to a different matter (whose dialog warns that the matter decides who can read it),
    * download its transcript, and delete it, last and set apart. Pinning and folders are the
    * reader's own and change nothing for anyone else; they are offered only where the rail shows
@@ -25,6 +26,7 @@
   import Link from "@lucide/svelte/icons/link";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
   import Pin from "@lucide/svelte/icons/pin";
+  import Search from "@lucide/svelte/icons/search";
   import PinOff from "@lucide/svelte/icons/pin-off";
   import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -47,6 +49,7 @@
     shelf = null,
     onShelve,
     onRename,
+    onFind,
     onMove,
     onDownload,
     onDelete,
@@ -68,6 +71,8 @@
     } | null;
     onShelve?: (next: { folderId: string | null; pinned: boolean }) => void;
     onRename: () => void;
+    /** Open the find bar under the conversation's name. */
+    onFind: () => void;
     onMove: () => void;
     onDownload: () => void;
     onDelete: () => void;
@@ -79,6 +84,8 @@
    * rename waits for the close and keeps focus off the trigger.
    */
   let renameOnClose = false;
+  /* Find puts the caret in its own field, so it waits for the close in the same way. */
+  let findOnClose = false;
 
   const link = $derived(
     conversationId === null ? null : conversationLink(page.url, conversationId).href,
@@ -119,6 +126,12 @@
   <DropdownMenu.Content
     align="end"
     onCloseAutoFocus={(event) => {
+      if (findOnClose) {
+        findOnClose = false;
+        event.preventDefault();
+        onFind();
+        return;
+      }
       if (!renameOnClose) return;
       renameOnClose = false;
       event.preventDefault();
@@ -132,6 +145,10 @@
     <DropdownMenu.Item onSelect={openInNewTab}>
       <SquareArrowOutUpRight class="size-16 shrink-0" aria-hidden="true" />
       Open in New Tab
+    </DropdownMenu.Item>
+    <DropdownMenu.Item onSelect={() => (findOnClose = true)}>
+      <Search class="size-16 shrink-0" aria-hidden="true" />
+      Find in Conversation
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
     {#if shelf !== null && onShelve !== undefined}

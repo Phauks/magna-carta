@@ -155,6 +155,8 @@ export interface InitiateUploadInput {
   readonly declaredContentType: string | null;
   /** Present = a new version on an existing document; absent = a new document. */
   readonly fileId?: string;
+  /** The folder a new document is filed in; absent or null files it at the matter's top level. */
+  readonly folderId?: string | null;
 }
 
 export function initiateUpload(

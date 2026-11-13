@@ -30,6 +30,7 @@
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Lock from "@lucide/svelte/icons/lock";
   import Plus from "@lucide/svelte/icons/plus";
+  import X from "@lucide/svelte/icons/x";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { Snippet } from "svelte";
   import type { DirectoryEntityKind, DirectoryIdentifierType } from "../directory-api.ts";
@@ -95,10 +96,17 @@
   const refusal = $derived(identifierDraftRefusal(draft));
   const started = $derived(identifierDraftStarted(draft));
 
+  /**
+   * Whether the entry row is open. It starts closed, as an Add Identifier button, and closes again
+   * once the identifier is sealed (owner ruling 2026-11-13: "just make an add ... button, at which point the fields would populate. this reduces clutter").
+   */
+  let adding = $state(false);
+
   function add(): void {
     if (refusal !== null || !canEdit) return;
     onAdd(draft);
     draft = emptyIdentifierDraft(draft.type);
+    adding = false;
   }
 
   /*
@@ -146,6 +154,14 @@
       </li>
     {/each}
 
+    {#if !adding}
+      <li class="py-8">
+        <Button variant="secondary" size="sm" disabled={!canEdit} onclick={() => (adding = true)}>
+          <Plus class="size-16" aria-hidden="true" />
+          Add Identifier
+        </Button>
+      </li>
+    {:else}
     <!-- The entry row: the last line of the same list. The type first; the fields it decides; the
          plus live once the value fits its shape. It wraps rather than sharing one grid line. -->
     <li class="flex flex-wrap items-end gap-8 py-8">
@@ -220,6 +236,19 @@
       >
         <Plus class="size-16" aria-hidden="true" />
       </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        title="Cancel"
+        aria-label="Cancel adding an identifier"
+        onclick={() => {
+          adding = false;
+          draft = emptyIdentifierDraft(draft.type);
+        }}
+      >
+        <X class="size-16" aria-hidden="true" />
+      </Button>
     </li>
+    {/if}
   </ul>
 </section>

@@ -10,6 +10,8 @@
  */
 import { formatInstant, readInstant } from "@magna-carta/design-system/formatters";
 
+import type { ConnectedServiceStatus } from "./connected-services-model.ts";
+
 export type ServiceVersionState = "reported" | "unbound" | "unreachable" | "unreported";
 
 /**
@@ -59,6 +61,8 @@ export interface ServiceVersionRow {
 export interface MetaVersionsValue {
   api: { commit: string; commitTime: string | null; buildTime: string | null };
   services: ServiceVersionRow[];
+  /** The outside services the deployment depends on; absent from an API older than the field. */
+  connectedServices?: ConnectedServiceStatus[];
   observedAt: string;
 }
 

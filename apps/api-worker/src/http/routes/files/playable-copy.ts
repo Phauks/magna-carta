@@ -29,9 +29,11 @@ import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.t
 //
 // The preview gate promises only that SOME browser decodes a recording, and the player is the last
 // word for the browser in front of the member. When that browser refuses the original (or the
-// server already judged it download-only), the player offers to prepare a copy: POST asks for it,
-// GET says where it stands, and a ready copy carries a short-lived signed address on the cookieless
-// files host, minted exactly as the preview route mints one for an original. The rules for the copy
+// server already judged it download-only), the page offers to convert it to MP4: POST asks for it,
+// GET says where it stands, and a ready copy names the FILE it was saved as, beside the original in
+// the same folder, which opens like any other document. A copy made before copies were filed has no
+// file and carries a short-lived signed address on the cookieless files host instead, minted exactly
+// as the preview route mints one for an original. The rules for the copy
 // itself are packages/file-manager/src/playable-copy.ts; the work is done off the request path by
 // background/conversions/playable-copy-consumer.ts.
 //
@@ -49,9 +51,11 @@ const fileParam = z.object({ id: identifierPathParam("file", "id") });
 const PlayableCopyStatus = z
   .object({
     versionId: z.string(),
-    // none: nobody has asked. pending: being made. ready: made, with streamUrl when the files host is
-    // bound. unavailable: cannot be made, with the reason.
+    // none: nobody has asked, or the filed copy was deleted. pending: being made. ready: made, with
+    // fileId (the file it was saved as), or for a copy made before copies were filed, streamUrl when
+    // the files host is bound. unavailable: cannot be made, with the reason.
     state: z.enum(["none", "pending", "ready", "unavailable"]),
+    fileId: z.string().nullable(),
     reason: z.enum(["unsupported", "malformed", "too-large", "source-missing"]).nullable(),
     streamUrl: z.string().nullable(),
     contentType: z.literal("video/mp4"),
@@ -90,9 +94,11 @@ const statusRoute = defineOpenAPIRoute(statusMeta, {
   path: "/api/v1/files/{id}/playable-copy",
   description:
     "Reports the playable copy of the file's current clean version: a copy converted to H.264 " +
-    "and AAC in an MP4 so every browser plays it. A ready copy carries a short-lived signed " +
-    "streamUrl on the cookieless files host (null when that host is not bound). 404 when the file " +
-    "has no clean current version.",
+    "and AAC in an MP4 so every browser plays it, saved as a file of its own beside the original. " +
+    "A ready copy names that file in fileId; one made before copies were filed has no fileId and " +
+    "carries a short-lived signed streamUrl on the cookieless files host instead (null when that " +
+    "host is not bound). A filed copy that was since deleted reads as none. 404 when the file has " +
+    "no clean current version.",
   request: { params: fileParam },
   responses: {
     200: {
@@ -120,7 +126,8 @@ const requestRoute = defineOpenAPIRoute(requestMeta, {
   method: "post",
   path: "/api/v1/files/{id}/playable-copy",
   description:
-    "Asks for a playable copy of the file's current clean version, converted in the background. " +
+    "Asks for a playable copy of the file's current clean version, converted in the background " +
+    "and saved as a file of its own in the original's folder. " +
     "Answers 202 with state pending while it is made, 200 when it already exists or cannot be " +
     "made (state unavailable, with the reason). Asking again while a copy is being made does not " +
     "start a second conversion. Accepted whatever the version's playability verdict, since the " +
@@ -163,11 +170,21 @@ async function statusOf(
     reason: null,
     streamUrl: null,
     sizeBytes: null,
+    fileId: null,
   };
   if (version.playableCopyState === null) return { ...base, state: "none" };
   if (version.playableCopyState === "pending") return { ...base, state: "pending" };
   if (version.playableCopyState === "unavailable") {
     return { ...base, state: "unavailable", reason: version.playableCopyReason ?? "unsupported" };
+  }
+  if (version.playableCopyFileId !== null) {
+    if (version.playableCopyFileDeleted) return { ...base, state: "none" };
+    return {
+      ...base,
+      state: "ready",
+      fileId: version.playableCopyFileId,
+      sizeBytes: version.playableCopySizeBytes,
+    };
   }
   const r2Key = version.playableCopyR2Key;
   const filesOrigin = env.FILES_ORIGIN;
@@ -274,6 +291,7 @@ export function registerPlayableCopyRoutes(
           firmId,
           bucketName,
           versionId: version.id,
+          requestedBy: userId,
         };
         await c.env.CONVERSION.send(message);
         const pending: VersionForPlayableCopy = {

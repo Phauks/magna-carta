@@ -7,13 +7,15 @@
   "exports": {
     "./types": "./src/types.ts",
     "./postal-code": "./src/postal-code.ts",
-    "./administrative-areas": "./src/administrative-areas.ts"
+    "./administrative-areas": "./src/administrative-areas.ts",
+    "./us-postal-places": "./src/us-postal-places.ts"
   },
   "scripts": {
     "test": "vp test run",
     "build:data": "tsx scripts/build-data.mts",
     "verify:data": "tsx scripts/build-data.mts --check",
-    "fetch:corpus": "tsx scripts/fetch-corpus.mts"
+    "fetch:corpus": "tsx scripts/fetch-corpus.mts",
+    "build:us-postal-places": "tsx scripts/build-us-postal-places.mts"
   },
   "devDependencies": {
     "@magna-carta/civil-time": "workspace:*",
