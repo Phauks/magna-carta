@@ -1,6 +1,7 @@
 {
   "name": "magna-carta",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "check": "node tooling/tsconfig-refs/index.mjs --check && pnpm --filter @magna-carta/database run check-snapshots && vp check && vp run typecheck && pnpm --filter @magna-carta/api-client run typecheck && pnpm --filter @magna-carta/web check && pnpm --filter @magna-carta/design-system check && vp run rust-check",

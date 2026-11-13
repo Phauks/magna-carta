@@ -10,7 +10,7 @@ import {
 } from "../src/lib/tools/speed-test/speed-test-meta.ts";
 
 const RAW = {
-  clientIp: "24.234.27.182",
+  clientIp: "203.0.113.10",
   asn: 22773,
   asOrganization: "Cox Communications Inc.",
   country: "US",
@@ -22,7 +22,7 @@ const RAW = {
 
 describe("ipVersion", () => {
   it("reads a dotted address as IPv4", () => {
-    expect(ipVersion("24.234.27.182")).toBe("IPv4");
+    expect(ipVersion("203.0.113.10")).toBe("IPv4");
   });
 
   it("reads a colonned address as IPv6", () => {
@@ -33,7 +33,7 @@ describe("ipVersion", () => {
 describe("parseMeasurementServer", () => {
   it("reads the fields Cloudflare's meta endpoint returns", () => {
     expect(parseMeasurementServer(RAW)).toEqual({
-      clientIp: "24.234.27.182",
+      clientIp: "203.0.113.10",
       asn: 22773,
       asOrganization: "Cox Communications Inc.",
       city: "Las Vegas",
