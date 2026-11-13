@@ -558,6 +558,21 @@
       await expect(table).toHaveAttribute("data-zebra", "on");
       await closeMenu();
     });
+
+    await step("The roster stays open for several choices, even hiding its own column", async () => {
+      // Readers add and remove several columns in one go, so a tick never closes the menu — not
+      // even unticking the column whose header summoned it.
+      await openColumns("Title");
+      await userEvent.click(body.getByRole("menuitemcheckbox", { name: "Title" }));
+      await waitFor(() => expect(canvas.queryByRole("button", { name: "Title" })).toBeNull());
+      await userEvent.click(body.getByRole("menuitemcheckbox", { name: "Entry Number" }));
+      await expect(canvas.getByRole("button", { name: "Entry Number" })).toBeVisible();
+      await expect(body.getAllByRole("menu").length).toBeGreaterThan(1);
+      // The menu still speaks about its column, and offers it back.
+      await userEvent.click(body.getByRole("menuitem", { name: "Show Title" }));
+      await waitFor(() => expect(canvas.getByRole("button", { name: "Title" })).toBeVisible());
+      await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
+    });
   }}
 >
   {#snippet template()}
