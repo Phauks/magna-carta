@@ -36,8 +36,9 @@ the default first.
   puts a previous face back.
 - **Another computer starts from the default.** The choice is kept by your browser, so set it once
   on each computer or browser you use.
-- **Text size.** **Text Size**, on the same page, makes interface text smaller or larger (Smaller,
-  Default, Large, Larger, Largest) without changing the spacing around it. It applies at once, like
+- **Text size.** **Text Size**, on the same page, sets interface text anywhere from 50% to 200% of
+  your browser's normal size (100% is normal), without changing the spacing around it. Type a
+  number into the field to jump to it. It applies at once, like
   the face, and stacks with your browser's own text-size setting.
 
 ## Related

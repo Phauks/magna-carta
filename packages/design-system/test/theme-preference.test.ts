@@ -56,7 +56,7 @@ beforeEach(() => {
   document.documentElement.removeAttribute("data-contrast");
   document.documentElement.removeAttribute("data-scroll-edge-hints");
   document.documentElement.removeAttribute("data-typeface");
-  document.documentElement.removeAttribute("data-text-size");
+  document.documentElement.style.fontSize = "";
   document.documentElement.classList.remove("dark");
   stubMatchMedia(false);
 });
@@ -76,7 +76,7 @@ describe("readThemePreference", () => {
       contrast: "system",
       scrollEdgeHints: "shown",
       typeface: "atkinson",
-      textSize: "default",
+      textSize: 100,
     });
   });
 
@@ -88,7 +88,7 @@ describe("readThemePreference", () => {
     localStorage.setItem("magna-carta.contrast", "high");
     localStorage.setItem("magna-carta.scrollEdgeHints", "hidden");
     localStorage.setItem("magna-carta.typeface", "opendyslexic");
-    localStorage.setItem("magna-carta.textSize", "larger");
+    localStorage.setItem("magna-carta.textSize", "125");
     expect(readThemePreference()).toEqual({
       theme: "midnight",
       mode: "dark",
@@ -97,7 +97,7 @@ describe("readThemePreference", () => {
       contrast: "high",
       scrollEdgeHints: "hidden",
       typeface: "opendyslexic",
-      textSize: "larger",
+      textSize: 125,
     });
   });
 
@@ -133,27 +133,37 @@ describe("readThemePreference", () => {
 
   it("falls back to the default text size when the stored size is not recognized", () => {
     localStorage.setItem(TEXT_SIZE_STORAGE_KEY, "enormous");
-    expect(readThemePreference().textSize).toBe("default");
+    expect(readThemePreference().textSize).toBe(100);
+  });
+
+  it.each(["49", "201", "12.5", "-80", ""])(
+    "falls back to 100%% when the stored size %j is outside 50 to 200 or not whole",
+    (stored) => {
+      localStorage.setItem(TEXT_SIZE_STORAGE_KEY, stored);
+      expect(readThemePreference().textSize).toBe(100);
+    },
+  );
+
+  it.each([50, 200])("accepts the bound %i", (bound) => {
+    localStorage.setItem(TEXT_SIZE_STORAGE_KEY, String(bound));
+    expect(readThemePreference().textSize).toBe(bound);
   });
 });
 
 describe("applyTextSizeToDocument", () => {
-  it.each(["smaller", "large", "larger", "largest"] as const)(
-    "sets data-text-size for %s",
-    (textSize) => {
-      applyTextSizeToDocument(textSize);
-      expect(document.documentElement.dataset.textSize).toBe(textSize);
-    },
-  );
+  it.each([50, 90, 125, 200])("sets the root font size to %i%%", (textSize) => {
+    applyTextSizeToDocument(textSize);
+    expect(document.documentElement.style.fontSize).toBe(`${textSize}%`);
+  });
 
-  it("removes data-text-size for the default, which needs no rule", () => {
-    applyTextSizeToDocument("largest");
-    applyTextSizeToDocument("default");
-    expect(document.documentElement.dataset.textSize).toBeUndefined();
+  it("clears the root font size at 100%, the browser's own size", () => {
+    applyTextSizeToDocument(150);
+    applyTextSizeToDocument(100);
+    expect(document.documentElement.style.fontSize).toBe("");
   });
 
   it("persists nothing", () => {
-    applyTextSizeToDocument("large");
+    applyTextSizeToDocument(110);
     expect(localStorage.getItem(TEXT_SIZE_STORAGE_KEY)).toBeNull();
   });
 });
@@ -328,10 +338,10 @@ describe("applyThemePreference", () => {
       "high",
       "hidden",
       "lexend",
-      "large",
+      110,
     );
     expect(TEXT_SIZE_STORAGE_KEY).toBe("magna-carta.textSize");
-    expect(localStorage.getItem("magna-carta.textSize")).toBe("large");
+    expect(localStorage.getItem("magna-carta.textSize")).toBe("110");
     expect(TYPEFACE_STORAGE_KEY).toBe("magna-carta.typeface");
     expect(localStorage.getItem("magna-carta.typeface")).toBe("lexend");
     expect(THEME_STORAGE_KEY).toBe("magna-carta.theme");
@@ -347,18 +357,9 @@ describe("applyThemePreference", () => {
   });
 
   it("applies the theme, mode, motion, contrast, scroll-edge-hint and typeface choice to the document", () => {
-    applyThemePreference(
-      "midnight",
-      "dark",
-      "off",
-      "comfortable",
-      "high",
-      "hidden",
-      "serif",
-      "largest",
-    );
+    applyThemePreference("midnight", "dark", "off", "comfortable", "high", "hidden", "serif", 150);
     expect(document.documentElement.dataset.typeface).toBe("serif");
-    expect(document.documentElement.dataset.textSize).toBe("largest");
+    expect(document.documentElement.style.fontSize).toBe("150%");
     expect(document.documentElement.dataset.theme).toBe("midnight");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(document.documentElement.dataset.motion).toBe("off");
@@ -368,16 +369,7 @@ describe("applyThemePreference", () => {
 
   it("round-trips through readThemePreference", () => {
     const mode: Mode = "dark";
-    applyThemePreference(
-      "midnight",
-      mode,
-      "full",
-      "compact",
-      "high",
-      "hidden",
-      "system",
-      "smaller",
-    );
+    applyThemePreference("midnight", mode, "full", "compact", "high", "hidden", "system", 80);
     expect(readThemePreference()).toEqual({
       theme: "midnight",
       mode,
@@ -386,7 +378,7 @@ describe("applyThemePreference", () => {
       contrast: "high",
       scrollEdgeHints: "hidden",
       typeface: "system",
-      textSize: "smaller",
+      textSize: 80,
     });
   });
 });

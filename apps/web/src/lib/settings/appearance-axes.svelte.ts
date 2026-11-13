@@ -33,6 +33,9 @@ import {
   type ScrollEdgeHintPreference,
   type TextSizePreference,
   type TypefacePreference,
+  DEFAULT_TEXT_SIZE,
+  TEXT_SIZE_MAXIMUM,
+  TEXT_SIZE_MINIMUM,
 } from "@magna-carta/design-system/internal/theme-preference";
 
 interface AppearanceValues {
@@ -57,7 +60,7 @@ function readInitialValues(): AppearanceValues {
       contrast: "system",
       scrollEdgeHints: "shown",
       typeface: "atkinson",
-      textSize: "default",
+      textSize: DEFAULT_TEXT_SIZE,
     };
   }
   return readThemePreference();
@@ -246,33 +249,37 @@ export const TYPEFACE_AXIS: AppearanceAxis = {
 };
 
 /*
- * Text Size scales the root font size, so every rem type size follows; spacing and control floors
- * are px and stay put (packages/design-tokens/test/units-policy.test.ts). Each step is a share of
- * the browser's own root size, so a browser text-size setting compounds with it rather than being
- * overridden. The percentages live with the rules in packages/design-system/src/lib/styles/base.css.
+ * Text Size is a percentage of the browser's own root size, 50% to 200% (owner-directed: a number,
+ * not named steps). It becomes the root font size, so every rem type size follows; spacing and
+ * control floors are px and stay put (packages/design-tokens/test/units-policy.test.ts). Offered
+ * in steps of ten, which the field narrows as a percentage is typed.
  */
+const TEXT_SIZE_STEP = 10;
+
+function textSizeOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  for (let percent = TEXT_SIZE_MINIMUM; percent <= TEXT_SIZE_MAXIMUM; percent += TEXT_SIZE_STEP) {
+    options.push({ value: String(percent), label: `${percent}%` });
+  }
+  return options;
+}
+
 export const TEXT_SIZE_DEFINITION: SettingDefinition = {
   id: "text.text-size",
   sectionId: "text",
   label: "Text Size",
   description: "The size interface text renders at, across every screen.",
   kind: "select",
-  options: [
-    { value: "smaller", label: "Smaller" },
-    { value: "default", label: "Default" },
-    { value: "large", label: "Large" },
-    { value: "larger", label: "Larger" },
-    { value: "largest", label: "Largest" },
-  ],
-  defaultValue: "default",
+  options: textSizeOptions(),
+  defaultValue: String(DEFAULT_TEXT_SIZE),
   sensitivity: "open",
 };
 
 export const TEXT_SIZE_AXIS: AppearanceAxis = {
   sectionId: "text",
   definition: TEXT_SIZE_DEFINITION,
-  current: () => values.textSize,
-  set: (value) => (values.textSize = value as TextSizePreference),
+  current: () => String(values.textSize),
+  set: (value) => (values.textSize = Number(value)),
 };
 
 /*

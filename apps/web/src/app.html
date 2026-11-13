@@ -57,19 +57,13 @@
         }
         if (typeface === "atkinson") delete root.dataset.typeface;
         else root.dataset.typeface = typeface;
-        // The text size: without it a person who chose Larger watches the whole boot at the
-        // browser's base size and then every line grow when the application mounts.
+        // The text size, a whole percentage from 50 to 200: without it a person who chose 150%
+        // watches the whole boot at the browser's base size and then every line grow when the
+        // application mounts.
         var textSize = localStorage.getItem("magna-carta.textSize");
-        if (
-          textSize !== "smaller" &&
-          textSize !== "large" &&
-          textSize !== "larger" &&
-          textSize !== "largest"
-        ) {
-          textSize = "default";
-        }
-        if (textSize === "default") delete root.dataset.textSize;
-        else root.dataset.textSize = textSize;
+        var textPercent = /^\d{1,3}$/.test(textSize || "") ? Number(textSize) : 100;
+        if (textPercent < 50 || textPercent > 200) textPercent = 100;
+        root.style.fontSize = textPercent === 100 ? "" : textPercent + "%";
       })();
     </script>
     %sveltekit.head%

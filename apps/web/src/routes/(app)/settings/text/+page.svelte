@@ -12,8 +12,8 @@
    *   list is SET IN ITS OWN FACE: its row carries data-typeface-sample, which re-points
    *   --mc-font-sans for that row alone (the sample blocks in
    *   @magna-carta/design-tokens), so the list shows the faces rather than describing them.
-   * - Text Size sets data-text-size on <html>; the document base sets the root font size from it,
-   *   and every rem type size follows.
+   * - Text Size is a percentage from 50% to 200%, written as the root font size on <html>, so
+   *   every rem type size follows.
    */
   import {
     appearanceRestoreAction,

@@ -42,25 +42,4 @@
   :root.dark {
     color-scheme: dark;
   }
-
-  /*
-   * THE TEXT SIZE A PERSON CHOSE (Settings > Text). Every type size is in rem, so the root font
-   * size is the one dial that scales all interface text at once. Each step is a percentage of the
-   * browser's own root size rather than a fixed px, so a browser or OS text-size setting still
-   * compounds with the choice instead of being overridden by it. "default" carries no attribute and
-   * no rule. The attribute is written by internal/theme-preference.ts and the boot script in
-   * apps/web/src/app.html.
-   */
-  :root[data-text-size="smaller"] {
-    font-size: 87.5%;
-  }
-  :root[data-text-size="large"] {
-    font-size: 112.5%;
-  }
-  :root[data-text-size="larger"] {
-    font-size: 125%;
-  }
-  :root[data-text-size="largest"] {
-    font-size: 150%;
-  }
 }
