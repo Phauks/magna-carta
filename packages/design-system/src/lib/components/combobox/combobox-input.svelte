@@ -6,6 +6,12 @@
    * borderless and fills the row. bits sets no aria-controls on the combobox input, so we point it at
    * the shared Content listbox id (from context).
    *
+   * A browsable field opens its list when the text box itself is clicked or tapped, not only from
+   * the chevron: the chevron is a small target at the end of a wide box, and a person who wants to
+   * see the choices aims at the box. Typing still works the moment the list is open, because focus
+   * stays in the box. Keyboard arrival (Tab) deliberately does not open it, so moving through a form
+   * does not drop a list over every field passed; Down Arrow or any typed letter opens it there.
+   *
    * The ghost text is the FIELD'S NAME and nothing else — not a description of the field, not an
    * example, and above all not an instruction about how to use the control. Ghost text vanishes the
    * instant somebody types, which is precisely when an instruction would be needed, so a placeholder
@@ -19,7 +25,13 @@
   import { getContext } from "svelte";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { placeholderOf } from "../../formatters/placeholder.ts";
-  import { COMBOBOX_FIELD_ANCHOR, COMBOBOX_LISTBOX_ID, type ComboboxFieldAnchor } from "./context.ts";
+  import {
+    COMBOBOX_FIELD_ANCHOR,
+    COMBOBOX_LISTBOX_ID,
+    COMBOBOX_OPENER,
+    type ComboboxFieldAnchor,
+    type ComboboxOpener,
+  } from "./context.ts";
   import type { WithoutChild } from "../../internal/types.ts";
 
   let {
@@ -28,6 +40,7 @@
     fieldName,
     placeholder,
     browsable = true,
+    onclick,
     ...restProps
   }: WithoutChild<ComboboxPrimitive.InputProps> & {
     /**
@@ -45,6 +58,13 @@
   } = $props();
 
   const listboxId = getContext<string>(COMBOBOX_LISTBOX_ID);
+  const opener = getContext<ComboboxOpener | undefined>(COMBOBOX_OPENER);
+
+  function openOnClick(event: MouseEvent & { currentTarget: EventTarget & HTMLInputElement }): void {
+    onclick?.(event);
+    if (event.defaultPrevented || !browsable || event.currentTarget.readOnly) return;
+    opener?.open();
+  }
   // The bordered box is what the listbox aligns to — the control a person sees, not the text box
   // inside it (see context.ts). Written into Root's slot; Content reads it.
   const fieldAnchor = getContext<ComboboxFieldAnchor | undefined>(COMBOBOX_FIELD_ANCHOR);
@@ -70,6 +90,7 @@
     aria-controls={listboxId}
     placeholder={ghostText}
     class="mc-combobox-input grow min-w-0"
+    onclick={openOnClick}
     {...restProps}
   />
   {#if browsable}

@@ -161,6 +161,16 @@
       await expect(input).toHaveAttribute("placeholder", "Matter");
     });
 
+    await step("Clicking the text box itself opens the list, and typing still works", async () => {
+      await userEvent.click(input);
+      await body.findByRole("listbox");
+      await expect(input).toHaveFocus();
+      await expect(input).toHaveAttribute("aria-expanded", "true");
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
+      await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
+    });
+
     await step("Opening renders a virtualized window, not all 10,000 rows", async () => {
       await userEvent.click(trigger);
       await body.findByRole("listbox");
