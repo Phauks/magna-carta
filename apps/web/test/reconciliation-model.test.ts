@@ -305,9 +305,9 @@ describe("what closing this reconciliation would do", () => {
     expect(closeReading(OPEN_RECONCILIATION, PROOF, 1, 3)).toEqual({
       refusal: undefined,
       sentence:
-        "This period balances. 1 statement line and 3 recorded items are unmatched. Closing " +
-        "freezes the proof as it stands now and writes nothing else: no entry is moved, no match " +
-        "is made, and a correction afterwards is a new reconciliation that supersedes this one.",
+        "This period balances. 1 statement line and 3 recorded items are unmatched. Closing locks " +
+        "the reconciliation as it is now. Nothing else changes. To correct it later, start a new " +
+        "reconciliation.",
     });
   });
 

@@ -194,8 +194,7 @@
 
 <SettingsScrollRegion>
   <SettingsDescription>
-    What you hear about, and how. In-app rows appear in your own feed; email arrives as a summary
-    rather than a message per event.
+    What you're notified about, and how. In-app notifications go to your feed; email comes as a summary.
   </SettingsDescription>
 
   {#if writeFailure !== null}

@@ -127,7 +127,7 @@
           <ul class="flex flex-col gap-4 text-xs text-text-muted">
             <li>The next number in the firm's sequence is drawn.</li>
             <li>The client details and every line's wording are copied onto the bill.</li>
-            <li>Every claimed time and cost entry locks as billed.</li>
+            <li>All claimed time and cost entries are locked as billed.</li>
             <li>
               The per-matter balance is created with the ceiling that makes over-application
               impossible.
@@ -166,8 +166,7 @@
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
-          A firm that has not mapped which of its ledger accounts play the billing roles is refused
-          here by name, not posted somewhere plausible.
+          This firm hasn't set which ledger accounts to use for billing, so the bill can't be posted.
         </span>
       </p>
 

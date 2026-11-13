@@ -70,9 +70,7 @@
   {#if plateLabel === INCREMENT_DEFINITION.plateLabel}
     {#if customIncrement !== null}
       <SettingsPlateNote>
-        This firm bills in {customIncrement}-minute units, which is not one of the increments this
-        page offers. It is shown rather than changed, so choosing from a shorter list cannot
-        quietly move the firm off it.
+        This firm bills in {customIncrement}-minute units, which isn't one of the options here. It's shown as is, so it won't change unless you pick another option.
       </SettingsPlateNote>
     {/if}
     {#if canEdit}
@@ -87,7 +85,7 @@
 <SettingsPage
   sectionId={BILLING_SECTION_ID}
   title="Billing"
-  meta="How the firm measures the time it bills. A matter, a client or a timekeeper can carry its own increment, which takes precedence over the firm's."
+  meta="How the firm rounds billed time. A matter, client or timekeeper can have its own increment, which overrides this one."
   {draft}
   definitions={BILLING_DEFINITIONS}
   {canEdit}

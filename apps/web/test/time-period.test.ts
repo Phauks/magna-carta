@@ -57,7 +57,7 @@ describe("what a period says about itself", () => {
   it("says on the recorded figure that a void is being left out, and stays quiet when none is", () => {
     const money = (amountMinor: number): string => `$${(amountMinor / 100).toFixed(2)}`;
     const withVoid = periodFigureReading(periodTotals(entries), money);
-    expect(withVoid[0]?.caption).toContain("1 voided entry counts toward nothing");
+    expect(withVoid[0]?.caption).toContain("1 voided entry is not counted");
 
     const clean = periodFigureReading(periodTotals(entries.slice(0, 3)), money);
     expect(clean[0]?.caption).not.toContain("voided");

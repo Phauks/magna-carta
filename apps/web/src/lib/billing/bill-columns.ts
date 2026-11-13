@@ -167,7 +167,7 @@ export function billColumns(context: BillRegisterContext): readonly GridColumn<I
     },
     {
       id: BILL_COLUMN_IDENTIFIERS.invoiceNumber,
-      label: "Invoice",
+      label: "Bill",
       type: "text",
       filter: "set",
       fitExtra: 22,
