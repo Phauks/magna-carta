@@ -116,6 +116,7 @@ function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
             ? "Every role the corpus holds"
             : check.matching.nameRoles.join(", "),
       },
+      { label: "Trigram Matching", value: check.matching.trigramMatching ? "On" : "Off" },
     );
   }
   if (check.traversal === null) {
