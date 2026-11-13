@@ -777,6 +777,16 @@ export const PROBLEM_TYPES = {
   // MP4, QuickTime or Matroska video, stored in a form it cannot read directly, or flagged by a scan.
   // DISTINCT from a copy the engine tried and could not make, which is a 200 with state unavailable.
   "playable-copy-not-a-candidate": "playable-copy-not-a-candidate",
+  // A signing request a member tried to change, send or cancel when its state does not allow it
+  // (HTTP 409), or a draft that cannot be sent yet (HTTP 422); the detail names which, in words the
+  // member can act on. DISTINCT from `signing-request-moved`, where the read was right but another
+  // write landed first.
+  "signing-request-refused": "signing-request-refused",
+  // Another write changed the signing request between this one's read and its commit (HTTP 409), so
+  // nothing was written. Opening the request again and retrying is the answer.
+  "signing-request-moved": "signing-request-moved",
+  // A file sent for signature is not a PDF, or its PDF cannot be opened (HTTP 422).
+  "signing-not-a-pdf": "signing-not-a-pdf",
   // The one-time link to the community board cannot be minted because this deployment holds no
   // COMMUNITY_HANDOFF_SECRET (HTTP 503). A fact about configuration, not about the member.
   "community-sign-in-not-configured": "community-sign-in-not-configured",

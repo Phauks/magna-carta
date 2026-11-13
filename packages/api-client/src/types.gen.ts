@@ -3024,6 +3024,109 @@ export type DocumentSealResponse = {
     certificatePdfBase64: string;
 };
 
+export type SigningRequestDetail = {
+    id: string;
+    matterId: string;
+    fileId: string;
+    fileVersionId: string;
+    documentHashSha256: string | null;
+    title: string;
+    subject: string;
+    message: string;
+    order: 'in-order' | 'all-at-once';
+    status: 'draft' | 'sent' | 'completed' | 'declined' | 'voided' | 'expired';
+    expiresAt: string;
+    remindEveryDays: number | null;
+    lastRemindedAt: string | null;
+    createdBy: string;
+    sentAt: string | null;
+    completedAt: string | null;
+    sealedAt: string | null;
+    voidedReason: string | null;
+    signers: Array<{
+        id: string;
+        position: number;
+        name: string;
+        email: string;
+        attribution: 'email-link' | 'access-code' | 'firm-authenticated';
+        userId: string | null;
+        status: 'waiting' | 'notified' | 'opened' | 'signed' | 'declined';
+        notifiedAt: string | null;
+        openedAt: string | null;
+        signedAt: string | null;
+        declinedAt: string | null;
+    }>;
+    fields: Array<{
+        id: string;
+        signerId: string;
+        kind: 'signature' | 'initials' | 'date-signed' | 'full-name' | 'text' | 'checkbox';
+        page: number;
+        rect: [
+            number,
+            number,
+            number,
+            number
+        ];
+        required: boolean;
+    }>;
+    events: Array<{
+        kind: 'created' | 'sent' | 'delivered' | 'reminded' | 'viewed' | 'identity-verified' | 'consented' | 'signed' | 'declined' | 'reassigned' | 'voided' | 'completed' | 'sealed';
+        at: string;
+        signerId: string | null;
+        actor: string | null;
+        observedIp: string | null;
+        detail: string | null;
+    }>;
+};
+
+export type SigningRequestList = {
+    requests: Array<SigningRequestSummary>;
+};
+
+export type SigningRequestSummary = {
+    id: string;
+    fileId: string;
+    fileVersionId: string;
+    title: string;
+    status: 'draft' | 'sent' | 'completed' | 'declined' | 'voided' | 'expired';
+    sentAt: string | null;
+    completedAt: string | null;
+    createdAt: string;
+    signerCount: number;
+    signedCount: number;
+};
+
+export type SaveSigningDraftRequest = {
+    subject: string;
+    message: string;
+    order: 'in-order' | 'all-at-once';
+    expiresAt: string;
+    remindEveryDays: number | null;
+    signers: Array<{
+        key: string;
+        name: string;
+        email: string;
+        attribution: 'email-link' | 'access-code' | 'firm-authenticated';
+        userId?: string;
+    }>;
+    fields: Array<{
+        signerKey: string;
+        kind: 'signature' | 'initials' | 'date-signed' | 'full-name' | 'text' | 'checkbox';
+        page: number;
+        rect: [
+            number,
+            number,
+            number,
+            number
+        ];
+        required: boolean;
+    }>;
+};
+
+export type CancelSigningRequest = {
+    reason: string;
+};
+
 export type SessionLaunchResponse = {
     editorUrl: string;
     editorOrigin: string;
@@ -20706,6 +20809,315 @@ export type EsignSealResponses = {
 };
 
 export type EsignSealResponse = EsignSealResponses[keyof EsignSealResponses];
+
+export type SigningListRequestsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/signing-requests';
+};
+
+export type SigningListRequestsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such file or request in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningListRequestsError = SigningListRequestsErrors[keyof SigningListRequestsErrors];
+
+export type SigningListRequestsResponses = {
+    /**
+     * The requests
+     */
+    200: SigningRequestList;
+};
+
+export type SigningListRequestsResponse = SigningListRequestsResponses[keyof SigningListRequestsResponses];
+
+export type SigningCreateRequestData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/signing-requests';
+};
+
+export type SigningCreateRequestErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such file or request in this firm
+     */
+    404: Problem;
+    /**
+     * The file's current version is not a clean PDF
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningCreateRequestError = SigningCreateRequestErrors[keyof SigningCreateRequestErrors];
+
+export type SigningCreateRequestResponses = {
+    /**
+     * The draft
+     */
+    201: SigningRequestDetail;
+};
+
+export type SigningCreateRequestResponse = SigningCreateRequestResponses[keyof SigningCreateRequestResponses];
+
+export type SigningReadRequestData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}';
+};
+
+export type SigningReadRequestErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such file or request in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningReadRequestError = SigningReadRequestErrors[keyof SigningReadRequestErrors];
+
+export type SigningReadRequestResponses = {
+    /**
+     * The request
+     */
+    200: SigningRequestDetail;
+};
+
+export type SigningReadRequestResponse = SigningReadRequestResponses[keyof SigningReadRequestResponses];
+
+export type SigningSaveDraftData = {
+    body: SaveSigningDraftRequest;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/draft';
+};
+
+export type SigningSaveDraftErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such file or request in this firm
+     */
+    404: Problem;
+    /**
+     * The request has already been sent
+     */
+    409: Problem;
+    /**
+     * An expiry out of range, or a field naming a signer not on the request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningSaveDraftError = SigningSaveDraftErrors[keyof SigningSaveDraftErrors];
+
+export type SigningSaveDraftResponses = {
+    /**
+     * The saved draft
+     */
+    200: SigningRequestDetail;
+};
+
+export type SigningSaveDraftResponse = SigningSaveDraftResponses[keyof SigningSaveDraftResponses];
+
+export type SigningSendRequestData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/sending';
+};
+
+export type SigningSendRequestErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such file or request in this firm
+     */
+    404: Problem;
+    /**
+     * The request was already sent, or moved while this was decided
+     */
+    409: Problem;
+    /**
+     * The draft cannot be sent yet; the detail says why
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningSendRequestError = SigningSendRequestErrors[keyof SigningSendRequestErrors];
+
+export type SigningSendRequestResponses = {
+    /**
+     * The request, sent
+     */
+    200: SigningRequestDetail;
+};
+
+export type SigningSendRequestResponse = SigningSendRequestResponses[keyof SigningSendRequestResponses];
+
+export type SigningRemindSignersData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/reminders';
+};
+
+export type SigningRemindSignersErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such file or request in this firm
+     */
+    404: Problem;
+    /**
+     * The request is not out for signing
+     */
+    409: Problem;
+    /**
+     * The request cannot be reminded; the detail says why
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningRemindSignersError = SigningRemindSignersErrors[keyof SigningRemindSignersErrors];
+
+export type SigningRemindSignersResponses = {
+    /**
+     * The request, with the reminder in its activity
+     */
+    200: SigningRequestDetail;
+};
+
+export type SigningRemindSignersResponse = SigningRemindSignersResponses[keyof SigningRemindSignersResponses];
+
+export type SigningCancelRequestData = {
+    body: CancelSigningRequest;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/voiding';
+};
+
+export type SigningCancelRequestErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such file or request in this firm
+     */
+    404: Problem;
+    /**
+     * The request is already complete, declined or cancelled
+     */
+    409: Problem;
+    /**
+     * The request cannot be cancelled; the detail says why
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningCancelRequestError = SigningCancelRequestErrors[keyof SigningCancelRequestErrors];
+
+export type SigningCancelRequestResponses = {
+    /**
+     * The request, cancelled
+     */
+    200: SigningRequestDetail;
+};
+
+export type SigningCancelRequestResponse = SigningCancelRequestResponses[keyof SigningCancelRequestResponses];
 
 export type DocumentsEditSessionData = {
     body?: never;
