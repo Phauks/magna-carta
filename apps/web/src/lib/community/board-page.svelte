@@ -24,6 +24,7 @@
     createPost,
     dismissNotice,
     readBoard,
+    readKnownIssues,
     readSummary,
     saveDisplayName,
   } from "./board-client.ts";
@@ -103,9 +104,20 @@
     };
   });
 
+  // The newest open problem on the status page, beside the list. A failed read shows no panel:
+  // the Known Issues page itself says why it could not be read.
+  let knownIssue: { title: string; standing: string } | null = $state(null);
+
   $effect(() => {
     void readSummary().then((outcome) => {
       if (outcome.kind === "ok") summary = outcome.value;
+    });
+    void readKnownIssues().then((outcome) => {
+      const first = outcome.kind === "ok" ? outcome.value.issues[0] : undefined;
+      knownIssue =
+        first === undefined
+          ? null
+          : { title: first.title, standing: first.latestUpdate?.body ?? "Being looked into." };
     });
   });
 
@@ -195,7 +207,7 @@
   {posts}
   {total}
   {summary}
-  knownIssue={null}
+  {knownIssue}
   viewerDisplayName={board.viewerDisplayName}
   {signInUrl}
   failure={listFailure}
