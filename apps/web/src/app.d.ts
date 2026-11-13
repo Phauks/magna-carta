@@ -16,5 +16,11 @@ declare namespace App {
      * unhandled rejection — and the client minted its own so the failure is still reportable.
      */
     errorId?: string;
+    /**
+     * What a crash in this browser was and where it was thrown (crashSignature in
+     * $lib/diagnostics/crash.ts): the kind, the engine's own message where the engine wrote it, and
+     * the first stack frame. Absent for a failure the platform answered.
+     */
+    cause?: string;
   }
 }

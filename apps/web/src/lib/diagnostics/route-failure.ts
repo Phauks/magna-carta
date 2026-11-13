@@ -34,5 +34,6 @@ export function routeFailure(page: RoutePageState): Failure {
     problem,
     request: `PAGE ${page.url.pathname}`,
     failedAt: new Date(),
+    ...(page.error?.cause === undefined ? {} : { cause: page.error.cause }),
   };
 }

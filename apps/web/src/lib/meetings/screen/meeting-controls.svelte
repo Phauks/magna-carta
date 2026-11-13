@@ -844,17 +844,21 @@
     </Button>
   {/if}
 
-  <Button variant="destructive" onclick={onLeave}>
-    <PhoneOff class="size-16" aria-hidden="true" />
-    Leave
-  </Button>
-
   {#if canEnd && onEnd !== undefined}
     <Button variant="secondary" onclick={() => (ending = true)}>
       <Square class="size-16" aria-hidden="true" />
       {endLabel}
     </Button>
   {/if}
+  </div>
+
+  <!-- LEAVE IS ALWAYS THE BOTTOM RIGHT CORNER. It is the last control in the band and pushed to the
+       end of its line, so it stays in the corner however the groups before it wrap. -->
+  <div class="ms-auto flex items-center">
+    <Button variant="destructive" onclick={onLeave}>
+      <PhoneOff class="size-16" aria-hidden="true" />
+      Leave
+    </Button>
   </div>
 </div>
 
