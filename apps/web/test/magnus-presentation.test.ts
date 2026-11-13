@@ -45,6 +45,8 @@ function conversation(title: string | null, updatedAt: string = STARTED_AT): Mag
     state: "active",
     createdAt: STARTED_AT,
     updatedAt,
+    folderId: null,
+    pinnedAt: null,
   };
 }
 
@@ -59,6 +61,7 @@ function turn(overrides: Partial<MagnusTurn> = {}): MagnusTurn {
     modelId: null,
     snapshotId: null,
     contextTruncated: false,
+    effort: null,
     createdAt: STARTED_AT,
     completedAt: STARTED_AT,
     ...overrides,

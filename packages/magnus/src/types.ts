@@ -76,6 +76,8 @@ export interface TurnRow {
   // True when earlier turns did not fit the bounded request window, so this answer was built on part
   // of the conversation.
   readonly contextTruncated: boolean;
+  // The effort the answer was asked for, or null where none was sent.
+  readonly effort: string | null;
   readonly createdAt: string;
   readonly completedAt: string | null;
 }

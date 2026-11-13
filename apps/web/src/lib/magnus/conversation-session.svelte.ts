@@ -24,6 +24,7 @@ import {
   newWriteKey,
   type MagnusAttachment,
   type MagnusConversation,
+  type MagnusModelChoice,
   type MagnusTurn,
   type MagnusTurnProgress,
 } from "./magnus-api.ts";
@@ -188,7 +189,7 @@ export class ConversationSession {
    * turn and the pending answer as one pair, and reading them back is what keeps the sequence on
    * screen the sequence on the record.
    */
-  async send(content: string): Promise<boolean> {
+  async send(content: string, choice: MagnusModelChoice | null = null): Promise<boolean> {
     const conversationId = this.#conversationId;
     if (conversationId === null || this.sending) return false;
     const message = content.trim();
@@ -196,7 +197,13 @@ export class ConversationSession {
     this.sending = true;
     this.submitFailure = null;
     const attempt = this.#latest.attempt();
-    const outcome = await submitTurn(this.#fetchImpl, conversationId, message, newWriteKey());
+    const outcome = await submitTurn(
+      this.#fetchImpl,
+      conversationId,
+      message,
+      newWriteKey(),
+      choice,
+    );
     if (!attempt.current) return false;
     this.sending = false;
     if (outcome.kind !== "ok") {

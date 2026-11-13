@@ -229,6 +229,9 @@ describe("schema conformance (fitness functions)", () => {
       "external_calendar_event",
       // A comment names a colleague once.
       "matter_task_comment_mention",
+      // Where one member keeps one conversation: a member keeps a conversation in one place, so the
+      // pair IS the shelf and a surrogate key would let it sit in two folders at once.
+      "magnus_conversation_shelf",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a

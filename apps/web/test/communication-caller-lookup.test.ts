@@ -44,10 +44,8 @@ describe("the lines it prints", () => {
 
   it("says where a number was issued, not where the caller is", () => {
     const nevada = { areaCode: "702", region: "Nevada", place: null, timeZone: null };
-    expect(areaCodeLine(nevada)).toBe("702 · Nevada number");
-    expect(areaCodeLine({ ...nevada, place: "Henderson, NV" })).toBe(
-      "702 · Henderson, Nevada number",
-    );
+    expect(areaCodeLine(nevada)).toBe("702 · Nevada");
+    expect(areaCodeLine({ ...nevada, place: "Henderson, NV" })).toBe("702 · Henderson, Nevada");
     expect(
       areaCodeLine({
         areaCode: "202",
@@ -55,14 +53,14 @@ describe("the lines it prints", () => {
         place: "Washington, DC",
         timeZone: null,
       }),
-    ).toBe("202 · Washington D.C. number");
+    ).toBe("202 · Washington D.C.");
   });
 
   it("tells the time where the number was issued, or nothing when the zone is not known", () => {
     const at = new Date("2026-11-09T23:19:00.000Z");
     const nevada = { areaCode: "702", region: "Nevada", place: null };
     expect(localTimeLine({ ...nevada, timeZone: "America/Los_Angeles" }, at)).toMatch(
-      /^3:19\sPM PST there$/,
+      /^3:19\sPM PST$/,
     );
     expect(localTimeLine({ ...nevada, timeZone: null }, at)).toBeNull();
   });
