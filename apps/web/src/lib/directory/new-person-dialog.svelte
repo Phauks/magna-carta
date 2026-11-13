@@ -217,10 +217,7 @@
           </div>
           <NamesSection
             bind:name={draft.name}
-            otherNames={draft.otherNames}
-            disabled={busy}
-            onAddOtherName={(other) => (draft.otherNames = [...draft.otherNames, { ...other, id: crypto.randomUUID() }])}
-            onRemoveOtherName={(other) => (draft.otherNames = draft.otherNames.filter((entry) => entry.id !== other.id))}
+            bind:otherNames={draft.otherNames}
           />
         {:else if part.id === "contact"}
           <ContactSection
