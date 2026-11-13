@@ -150,6 +150,7 @@ export function parseStoredRunRequest(json: string): StoredRunRequest | null {
     scope: {
       sources: strings(scopeRecord["sources"]) as ScopeRequest["sources"],
       strictness: scopeRecord["strictness"] as ScopeRequest["strictness"],
+      ...(scopeRecord["trigramMatching"] === false ? { trigramMatching: false } : {}),
       places: readPlacesRequest(scopeRecord["places"]),
     },
   };
@@ -182,6 +183,7 @@ export function subjectPartiesOf(
 export function askedScopeOf(requestJson: string): {
   readonly sources: readonly string[];
   readonly strictness: string;
+  readonly trigramMatching: boolean;
   readonly places: PlacesRequest;
 } | null {
   const scope = parseStoredRunRequest(requestJson)?.scope;
@@ -190,6 +192,7 @@ export function askedScopeOf(requestJson: string): {
     : {
         sources: [...scope.sources],
         strictness: scope.strictness,
+        trigramMatching: scope.trigramMatching !== false,
         places: readPlacesRequest(scope.places),
       };
 }

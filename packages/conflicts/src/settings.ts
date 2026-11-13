@@ -68,6 +68,10 @@ export interface ConflictsPolicy {
 export interface ScopeRequest {
   readonly sources: readonly SourceClass[];
   readonly strictness: Strictness;
+  // Whether the balanced band also finds names by trigram overlap (any shared three-letter piece).
+  // Absent means yes, which is what every caller that predates the choice meant. The over-inclusive
+  // band always runs it, so turning it off can never make that band narrower than balanced.
+  readonly trigramMatching?: boolean;
   // The firm's own records to search beyond the Directory: calls, texts, email, tasks, Magnus and
   // files. Absent means none, which is what every caller that predates them means; so does an absent
   // `files` inside it.
@@ -84,6 +88,8 @@ export interface ResolvedScope {
   // and is a distinct statement from a list that happens to name them all, because a firm that later
   // adds a name role to its catalogue is covered by the first and not by the second.
   readonly nameRoles: readonly string[] | null;
+  // Whether the trigram channel ran. Always true at over_inclusive; at balanced, as asked.
+  readonly trigramMatching: boolean;
   // The places beyond the Directory, exactly as asked: the floor says nothing about them.
   readonly places: PlacesRequest;
   // True when the request fell below the floor and was raised. Recorded on the check row so an
@@ -129,6 +135,7 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
     sources: orderSources(requested),
     strictness,
     nameRoles: strictness === "balanced" ? policy.balancedNameRoles : OVER_INCLUSIVE_NAME_ROLES,
+    trigramMatching: strictness === "balanced" ? request.trigramMatching !== false : true,
     places: readPlacesRequest(request.places),
     floorRaised,
   };

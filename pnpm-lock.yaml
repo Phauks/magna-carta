@@ -607,6 +607,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../../packages/identifiers
+      '@magna-carta/status':
+        specifier: workspace:*
+        version: link:../../packages/status
       '@magna-carta/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry

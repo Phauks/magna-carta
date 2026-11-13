@@ -259,3 +259,9 @@ export function sharedScreenTile(
     quality: client.qualityOf(sharer.participantId),
   };
 }
+
+/** Whether a tile is this browser's own camera, the one picture a member may see mirrored. */
+export function isOwnCamera(tile: MeetingTileModel): boolean {
+  // A share is never mirrored, and the share is the one local tile that is not a person.
+  return tile.local && tile.microphoneOff !== null;
+}

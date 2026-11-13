@@ -35,8 +35,10 @@ takes you to its screen, where the search runs in front of you.
   the parties, one per line, then the settings (what each location searched, how names were
   compared, who asked, and the matter it is filed on, or No Matter).
   **Status** has a row for each location with what it is doing while the run is under way, and what
-  it did once it finishes; open a row to read its log. A location that cannot be searched yet reads
-  Not searched. **Results** is what the search turned up (see below).
+  it did once it finishes; open a row to read its log. Once the run finishes, the Directory row opens
+  onto blocks, one per row: when and by whom it searched, names and identifiers, relationships, Firm
+  Employees, what was not searched and why (tinted, so a gap stands out), and the results. The
+  printed report has the same parts. A location that cannot be searched yet reads Not searched. **Results** is what the search turned up (see below).
 - **History** lists every run of the check with when it started, how long it took, who asked, how
   many results it found and how it ended. Click a run's name to show its report on the Report tab. **Run Again** searches again
   with the same parties and settings, as a further run under the same number.
@@ -114,6 +116,12 @@ names that sound alike** — Stephen and Steven, Smith and Smyth.
 - **Widest** compares every name your directory holds, trading styles and also-known-as names
   included, under every encoder. It is a strict superset of Standard: widening can only add
   candidates, never hide one.
+
+Below it, **Trigram matching** also finds a name because it shares a three-letter piece with a
+party's name, which catches a misspelling such as "Jonhson" for "Johnson". It is the noisiest way a
+name is found, and a result found only this way is the weakest kind. It is on unless you clear it,
+and you can clear it only under Standard: Widest always uses it. A check run without it says so in
+its Details and in its report.
 
 **There is no limit to set.** A check follows every relationship your directory holds, as far as
 the chain goes, and there is no cap on how much it may look at or record. The platform keeps one

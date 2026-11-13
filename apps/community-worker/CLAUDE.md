@@ -3,7 +3,7 @@
 **Purpose.** The deployable behind `community.magnacarta.esq` (`magna-carta-community`): the
 community board's JSON API under `/api/`, its own sign-in under `/session/`, and the app's built
 interface for everything else, whose reroute hook shows the board's screens on this host. It binds
-the control-plane database and nothing else.
+the control-plane database, and the status page's KV namespace read only, for Known Issues.
 
 **White paper:** _Community & feedback forum_ — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md).
 **Spec:** [`docs/specs/2026-08-11-community-surfaces-design.md`](../../docs/specs/2026-08-11-community-surfaces-design.md).
@@ -17,6 +17,8 @@ only routes to them.
   leaves with the board's headers.
 - `src/board-application.ts` — the routes, the session middleware, and the write guard.
 - `src/respond.ts` — the board's headers, the problem documents and the refusal wording.
+- `src/known-issues.ts` — the status page's unresolved events, through `@magna-carta/status`'s public
+  merge, so the board never says more than the status page does.
 - `wrangler.jsonc` — the binding set and the custom domain. Read its header before adding anything.
 
 ## Local conventions
@@ -34,7 +36,8 @@ only routes to them.
 
 ## Invariants that apply here
 
-- **No per-firm binding, no bucket, no service binding into the app.** The board is the one place
+- **No per-firm binding, no bucket, no service binding into the app, and `STATUS_KV` is never
+  written.** The board is the one place
   people at many firms share rows; this worker reaching a firm's database would undo the named
   exception that lets it exist (`docs/decisions/pending/the-community-board-is-a-named-exception-to-firm-scoped-data.md`).
 - **`noindex` on every answer, from the first byte**, pages included. That is why every request runs

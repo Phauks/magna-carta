@@ -25,7 +25,7 @@ import {
   type StoredRunRequest,
 } from "@magna-carta/conflicts/check-run";
 import { type RunCheckInput } from "@magna-carta/conflicts/run-check";
-import { AskedScope, FoundIn, PlacesRequest } from "@magna-carta/conflicts/contract";
+import { AskedScope, CheckReport, FoundIn, PlacesRequest } from "@magna-carta/conflicts/contract";
 import { resolveFoundIns } from "@magna-carta/conflicts/content-search";
 import {
   recordDisposition,
@@ -272,6 +272,7 @@ const ScopeRequest = z
   .object({
     sources: z.array(z.enum(SOURCE_CLASSES)).max(SOURCE_CLASSES.length),
     strictness: z.enum(STRICTNESS_LEVELS),
+    trigramMatching: z.boolean().optional(), // false skips trigram matching at balanced only
     places: PlacesRequest.optional(),
   })
   .openapi("ConflictsScopeRequest");
@@ -581,18 +582,17 @@ const CandidateRecord = z
   })
   .openapi("ConflictsCandidateRecord");
 
-// What the name comparison compared. `strictness` is a preset NAME, and a preset is a word whose
-// meaning moves as channels are added — a check from one release compared fewer things than a check
-// from the next under the same word — so the row names the channels and this reports them.
+// What the name comparison compared: name keys, phonetic encoders, roles, and whether trigram
+// matching ran (true on rows from before it could be turned off). `strictness` is a preset NAME whose
+// meaning moves as channels are added, so the row names the channels and this reports them.
 const MatchingRecord = z
   .object({
-    // The name key columns compared for equality.
     nameKeys: z.array(z.string()),
-    // The phonetic encoders that ran.
     phoneticSchemes: z.array(z.string()),
     // The name roles compared. Null means every role the corpus holds, which is a different statement
     // from a list that happens to name them all: a firm that adds a role later is covered by the first.
     nameRoles: z.array(z.string()).nullable(),
+    trigramMatching: z.boolean(),
   })
   .openapi("ConflictsMatchingRecord");
 
@@ -623,15 +623,9 @@ const CheckDetail = z
   })
   .openapi("ConflictsCheckDetail");
 
-// The reader-facing account of the search, one line per statement, in reading order. Every line is a
-// fact about the search itself — which channels ran, which sources have no corpus, how many candidates
-// surfaced. A search that surfaced nothing ends "0 results.", which reports that the search
-// ended and says nothing about the matter.
-const CheckStatement = z.array(z.string());
-
 // A completed run's record: the search's own account, its recorded scope, and every hit it surfaced.
 const CheckRecord = z
-  .object({ check: CheckDetail, statement: CheckStatement, hits: z.array(HitDetail) })
+  .object({ check: CheckDetail, report: CheckReport, hits: z.array(HitDetail) })
   .openapi("ConflictsCheckRecord");
 
 // The numbered check itself: what a person refers to.
@@ -1044,8 +1038,8 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
     "Returns a conflicts check with every run under it, and the record of the run asked for (the " +
     "latest, unless `run` names another). A run still in flight reports its stage and counts so " +
     "far and carries no record; a settled run carries its record: the recorded scope, every hit it " +
-    "surfaced with each hit's current disposition, and a plain-language statement of what the " +
-    "search did. The statement reports the search and reaches no conclusion about the matter — a " +
+    "surfaced with each hit's current disposition, and a plain-language report of what the " +
+    "search did, in sections. The report covers the search and reaches no conclusion about the matter — a " +
     "search that surfaced nothing ends by saying so, which is a fact about the search and not about " +
     "whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a " +
     "disposition naming them. The address accepts the check's own handle or any run's handle, so an " +
@@ -1449,7 +1443,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
   const sources: ReportedSource[] = reportedSourcesFor(scope, {
     hasSubjectMatter: checkRow.subject_matter_id !== null,
   });
-  const statement = describeCheck(
+  const report = describeCheck(
     {
       createdAt: checkRow.created_at,
       trigger: checkRow.trigger,
@@ -1459,6 +1453,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
           ? null
           : await readMemberDisplayName(database, checkRow.actor_user_id as UserId),
       strictness: checkRow.strictness as "balanced" | "over_inclusive",
+      trigramMatching: inputs.matching?.trigramMatching ?? true,
       depth: checkRow.depth,
       floorRaised: checkRow.floor_raised === 1,
       subjectEntityCount: inputs.subjectEntityIds.length,
@@ -1487,7 +1482,7 @@ async function readRecord(database: SqlDatabase, runId: string) {
       actorUserId: checkRow.actor_user_id,
       createdAt: checkRow.created_at,
     },
-    statement,
+    report,
     hits,
   };
 }

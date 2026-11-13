@@ -354,6 +354,10 @@
   const places = $derived(run === null ? [] : statusPlaces(run, record));
   const askedSources = $derived(new Set(run?.askedScope?.sources ?? []));
   const strictness = $derived(record?.check.strictness ?? run?.askedScope?.strictness ?? null);
+  /** Whether names were also found by trigram overlap: the record's word, or the request's while it runs. */
+  const trigramMatching = $derived(
+    record?.check.matching?.trigramMatching ?? run?.askedScope?.trigramMatching ?? null,
+  );
   const hits = $derived(record?.hits ?? []);
   const NO_SHEET = "The report exists once the run has finished.";
 
@@ -640,6 +644,11 @@
                       {strictnessVocabulary(strictness).label}
                     </DefinitionList.Row>
                   {/if}
+                  {#if trigramMatching !== null}
+                    <DefinitionList.Row term="Trigram Matching">
+                      {trigramMatching ? "On" : "Off"}
+                    </DefinitionList.Row>
+                  {/if}
                   <DefinitionList.Row term="Asked By">
                     {memberText(run.requestedByUserId)}
                   </DefinitionList.Row>
@@ -670,13 +679,14 @@
             <Accordion.Content class="flex flex-col gap-4 px-16 pb-16">
               <ul class="flex flex-col divide-y divide-border-default">
                 {#each places as place (place.location)}
-                  {@const placeOpen = openPlaces.has(place.location) && place.lines.length > 0}
+                  {@const hasDetail = place.lines.length > 0 || place.sections.length > 0}
+                  {@const placeOpen = openPlaces.has(place.location) && hasDetail}
                   <li class="flex flex-col" data-place={place.location} data-state={place.state}>
                     <button
                       type="button"
                       class="flex items-center gap-12 py-8 text-start text-sm disabled:cursor-default"
-                      aria-expanded={place.lines.length > 0 ? placeOpen : undefined}
-                      disabled={place.lines.length === 0}
+                      aria-expanded={hasDetail ? placeOpen : undefined}
+                      disabled={!hasDetail}
                       onclick={() => togglePlace(place.location)}
                     >
                       <span role="img" aria-label={PLACE_STATE_LABELS[place.state]}>
@@ -685,7 +695,29 @@
                       <span class="w-96 font-semibold">{place.label}</span>
                       <span class="flex-1 text-text-muted">{place.summary}</span>
                     </button>
-                    {#if placeOpen}
+                    {#if placeOpen && place.sections.length > 0}
+                      <!-- The finished account, one block per row: what each part of the search did,
+                           what was not searched (tinted, so a gap stands out from what ran) and what
+                           surfaced. -->
+                      <div class="flex flex-col gap-8 pb-12 ps-32 text-sm">
+                        {#each place.sections as part (part.key)}
+                          <section
+                            class={[
+                              "flex flex-col gap-4 rounded-md p-12",
+                              part.attention
+                                ? "bg-status-warning-subtle text-status-warning-subtle-foreground"
+                                : "bg-surface-sunken",
+                            ]}
+                            data-section={part.key}
+                          >
+                            <FieldLabel as="h4">{part.heading}</FieldLabel>
+                            {#each part.lines as line, index (`${String(index)}-${line}`)}
+                              <p>{line}</p>
+                            {/each}
+                          </section>
+                        {/each}
+                      </div>
+                    {:else if placeOpen}
                       <ol class="flex flex-col gap-4 pb-12 ps-32 text-sm" aria-live="polite">
                         {#each place.lines as line, index (`${String(index)}-${line}`)}
                           <li>{line}</li>

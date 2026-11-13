@@ -27,8 +27,10 @@ form never shifts while you type; hover over the field to read what is wrong.
 Press **New** to record a person or an organization. A person is recorded whole, on one form that
 scrolls: their names, the ways to reach them, an address, an About section for their pronouns and
 dates, sealed identifiers and the organizations they belong to, one under another. The parts most people leave empty (an address, an identifier, an organization) start as an **Add** button and open their fields when pressed. Press **Tab**
-to move through every field in order. The list down the left side jumps to a section, shows how
-many entries each one holds, and highlights the section you are in. On the right, as you type
+to move through every field in order. Each section is a card with its name and how many entries it
+holds at the top; press that header to fold the card away, and press it again to open it. The list
+down the left side jumps to a section (opening it if it was folded), shows how many entries each one
+holds, and highlights the section you are in. On the right, as you type
 the name, the Directory shows records that may already be the same person, with a way to open each
 beside your draft, so the same client does not end up in the book twice under two spellings. Below
 that, the record is read back as it will read, with the email address and the address themselves,
@@ -38,8 +40,8 @@ Save, or not at all.
 ## A record
 
 A record opens in a window over whatever you were doing, and it looks the way it did when it was
-recorded: one page that scrolls, with every section of the record one under another, and the list
-down the left side jumping between them. A person's pronouns and dates of birth and death are
+recorded: one page that scrolls, with every section of the record one under another in cards that fold
+from their headers, and the list down the left side jumping between them. A person's pronouns and dates of birth and death are
 under their name at the top. A long list, such as the matters a record is on, shows its first few
 lines and a **Show All** button. Close the window and you are back exactly where you
 were, with nothing to retrace. It is the same window from the Directory's list, from a party on a

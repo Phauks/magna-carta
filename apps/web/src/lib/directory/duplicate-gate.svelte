@@ -23,7 +23,9 @@
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { findDuplicateCandidates, readDirectoryEntity, type DirectoryEntityKind } from "./directory-api.ts";
   import { directoryEntityName, entityRecordHref } from "./entity-presentation.ts";
-  import SectionHeading from "./sections/section-heading.svelte";
+  import StatusMark from "@magna-carta/design-system/status-mark";
+  import ScanSearch from "@lucide/svelte/icons/scan-search";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 
   let {
     kind,
@@ -104,11 +106,33 @@
   });
 </script>
 
-<div class="flex flex-col gap-4">
-  <SectionHeading
-    label="May Already Be In The Directory"
-    count={ready && !checking && !failed ? candidates.length : null}
-  />
+<!-- ONE SENTENCE THAT SAYS WHERE THE CHECK STANDS, not a heading over an empty list with a 0 beside
+     it: what is still needed before it can run, that it found nobody, or how many it found. -->
+<div class="flex flex-col gap-8">
+  <p class="flex items-center gap-8 text-sm" aria-live="polite">
+    {#if !ready}
+      <ScanSearch class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
+      <span class="text-text-muted">
+        {kind === "person"
+          ? "Once there is a first and last name, the Directory is checked for this person."
+          : "Once there is a name, the Directory is checked for this organization."}
+      </span>
+    {:else if checking}
+      <ScanSearch class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
+      <span class="text-text-muted">Checking the Directory</span>
+    {:else if failed}
+      <!-- The failure itself is stated below; nothing here may read as "nobody similar". -->
+    {:else if candidates.length === 0}
+      <StatusMark decorative class="size-16 shrink-0" />
+      <span>Nobody similar is in the Directory.</span>
+    {:else}
+      <TriangleAlert class="size-16 shrink-0 text-status-warning" aria-hidden="true" />
+      <span class="font-semibold">
+        {candidates.length === 1 ? "1 record" : `${candidates.length} records`} may be this
+        {kind === "person" ? "person" : "organization"} already.
+      </span>
+    {/if}
+  </p>
   <LoadingRegion
     loading={false}
     refreshing={checking}

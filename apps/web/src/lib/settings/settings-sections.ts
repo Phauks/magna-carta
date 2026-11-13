@@ -195,8 +195,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
-    // Text preferences: the reading typeface (live) and text size (a Soon seam until the type
-    // system grows a text-scale overlay) — see the page.
+    // Text preferences: the reading typeface and the text size, both live — see the page.
     id: "text",
     label: "Text",
     href: "/settings/text",

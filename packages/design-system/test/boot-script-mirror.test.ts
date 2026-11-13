@@ -23,6 +23,9 @@ import {
   MOTION_STORAGE_KEY,
   SCROLL_EDGE_HINTS_STORAGE_KEY,
   THEME_STORAGE_KEY,
+  TEXT_SIZE_MAXIMUM,
+  TEXT_SIZE_MINIMUM,
+  TEXT_SIZE_STORAGE_KEY,
   TYPEFACE_STORAGE_KEY,
 } from "../src/lib/internal/theme-preference.ts";
 
@@ -71,6 +74,16 @@ describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts",
 
   it("writes the same data-typeface attribute the token overlays key on", () => {
     expect(appHtml).toContain("root.dataset.typeface");
+  });
+
+  it("reads the same text-size storage key", () => {
+    expect(appHtml).toContain(`"${TEXT_SIZE_STORAGE_KEY}"`);
+  });
+
+  it("writes the text size as the same root font size, within the same range", () => {
+    expect(appHtml).toContain("root.style.fontSize");
+    expect(appHtml).toContain(`< ${TEXT_SIZE_MINIMUM}`);
+    expect(appHtml).toContain(`> ${TEXT_SIZE_MAXIMUM}`);
   });
 
   /*

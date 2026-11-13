@@ -222,6 +222,14 @@ rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws ins
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who
 answered) and `meeting-questions-panel.svelte` (the queue and the composer) are reading
 `ActionDialog`s on the lobby panel's precedent, where the design named a sheet.
+In the member's room all three, with the roster, are drawn `inline` as the tabs of
+`meeting-side-panel.svelte` (Chat, Q&A, Polls, People) beside the picture; the room page derives each
+one's "open", which drives its unseen count, from the panel's tab. The guest page still opens chat as
+a popover.
+`meeting-layout.ts` is the pure arithmetic that picks the gallery's column count for the largest
+16:9 tile in the measured space (tiles keep the camera's shape; speaker view, the default, puts the
+others in a strip along the top). `meeting-view-preference.svelte.ts` beside this directory keeps the
+member's layout and Mirror My Video choice per browser; the mirror flips only the local preview.
 `meeting-tiles.ts` projects the client's state into tile models and
 `meeting-connection.ts` projects its diagnostics into the connection surface's models;
 `meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte`,
