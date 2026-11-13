@@ -22,7 +22,7 @@ mod wire;
 
 pub use fonts::FontFamily;
 pub use model::{
-    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph,
+    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph, Rgb,
     RunningLine, Span, Table, Timestamp,
 };
 pub use wire::{compose_json, document_from_json};
