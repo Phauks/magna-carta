@@ -18,6 +18,9 @@ to revisit — your job is fidelity to it, not invention.
 4. `docs/specs/2026-06-12-page-archetypes.md` — the archetype your screen composes and its state set.
 5. `docs/specs/2026-06-12-design-language.md` — when color, type, space, motion or identity is in
    question.
+6. If you touch `packages/design-system`: its `CLAUDE.md`, the note beside the component family you
+   change (`src/lib/components/<family>/CLAUDE.md`), `src/lib/components/CLAUDE.md` for how every
+   component is built, and `src/stories/CLAUDE.md` for the catalog.
 
 ## Binding constraints
 
