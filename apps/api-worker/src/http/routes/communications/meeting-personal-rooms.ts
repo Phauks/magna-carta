@@ -10,9 +10,13 @@ import {
   replacePersonalRoomLink,
   updatePersonalRoomDefaults,
 } from "@magna-carta/meetings/personal-room-service";
-import { readPersonalRoomForOwner } from "@magna-carta/meetings/personal-room-statements";
+import {
+  listFirmRooms,
+  readPersonalRoomForOwner,
+} from "@magna-carta/meetings/personal-room-statements";
 import { MeetingPersonalRoomRefusedError } from "@magna-carta/meetings/personal-room-types";
 import {
+  FirmRoomsResponse,
   MoveMeetingToMatterRequest,
   MoveMeetingToMatterResponse,
   OpenPersonalRoomRequest,
@@ -188,6 +192,22 @@ const openRoute = defineOpenAPIRoute(meta("meetings.openPersonalRoom", HOST, tru
   },
 });
 
+const firmRoomsRoute = defineOpenAPIRoute(meta("meetings.listFirmRooms", JOIN, false), {
+  method: "get",
+  path: "/api/v1/meetings/rooms",
+  description:
+    "Every active member's personal room, by name: its link where the member has set one up, and " +
+    "how many people are in the session it has open. Names no matter: what a session is about stays " +
+    "behind the meeting reads.",
+  responses: {
+    200: {
+      description: "The firm's rooms",
+      content: { "application/json": { schema: FirmRoomsResponse } },
+    },
+    ...commonErrors,
+  },
+});
+
 const atLinkRoute = defineOpenAPIRoute(meta("meetings.readRoomLink", JOIN, false), {
   method: "get",
   path: "/api/v1/meetings/rooms/{linkCode}",
@@ -355,6 +375,30 @@ export function registerMeetingPersonalRoomRoutes(
         await meetingRoomFor(c.env, firmId, ended).end(new Date().toISOString());
       }
       return c.json({ meetingId: outcome.value.meetingId, created: outcome.value.created }, 200);
+    },
+  );
+
+  // GET /api/v1/meetings/rooms
+  app.openapi(
+    { ...firmRoomsRoute, middleware: chokepointMiddleware(chokepoint, firmRoomsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const rows = await listFirmRooms(firm.firmDatabase);
+      return c.json(
+        {
+          rooms: rows.map((row) => ({
+            userId: row.user_id,
+            name: row.display_name,
+            linkCode: row.link_code,
+            medium: row.medium,
+            openMeetingId: row.open_meeting_id,
+            inTheRoom: row.live_count,
+            isCaller: row.user_id === userId,
+          })),
+        },
+        200,
+      );
     },
   );
 

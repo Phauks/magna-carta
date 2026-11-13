@@ -270,6 +270,8 @@ export interface MeetingSummary {
   // Whether this meeting is a session of somebody's personal room, opened without a scheduled
   // event — the one kind of meeting that can be moved onto a matter after it began.
   readonly personalRoomSession: boolean;
+  // The title of the matter the meeting is filed on, or null on a firm event.
+  readonly matterTitle: string | null;
   // WHETHER THE PICTURES AND SOUND ARE SEALED END TO END, so a screen can say so before Join and the
   // room's browsers know to build their key group. Fixed when the room was opened.
   readonly encrypted: boolean;
