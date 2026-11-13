@@ -1,5 +1,4 @@
 import { DurableObject } from "cloudflare:workers";
-import { StoredSecretsDurableObject } from "./stored-secrets.ts";
 import { resolveStoredSecrets } from "@magna-carta/worker-secrets/stored-secrets";
 import type { Bindings } from "./bindings.ts";
 
@@ -46,7 +45,7 @@ export function resolveApiWorkerSecrets(env: Bindings): Promise<Bindings> {
 // string; this resolves them before any call is delivered. A subclass whose own constructor starts
 // work that reads a secret awaits `storedSecretsReady` first, because blockConcurrencyWhile holds
 // back calls, not other constructor work.
-export abstract class StoredSecretsDurableObject extends StoredSecretsDurableObject {
+export abstract class StoredSecretsDurableObject extends DurableObject<Bindings> {
   protected readonly storedSecretsReady: Promise<void>;
 
   constructor(ctx: DurableObjectState, env: Bindings) {
