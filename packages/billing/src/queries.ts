@@ -515,3 +515,162 @@ export async function readAccountsReceivableAging(
   }
   return buckets;
 }
+
+// THE AGING AS AT A PAST DATE, as the firm knew it at a stated instant.
+//
+// `readAccountsReceivableAging` owns the live answer and stays untouched. This read answers the same
+// question for a date the firm has moved past, on the two axes every report is taken over:
+//
+//   - the EFFECTIVE axis: a bill counts once its issue date is on or before the date — the same date
+//     its receivable posting carries — and a payment, credit or write-off counts once its own
+//     effective date is.
+//   - the KNOWLEDGE axis: a bill counts only if it was finalized by the instant, and an application
+//     only if it was recorded by it. A write-off entered next month with a backdated effective date
+//     therefore does not change this month's answer re-run under this month's instant.
+//
+// It cannot read `invoice_matter_balance.applied_minor`, which is the balance NOW. It re-derives the
+// applied figure from `invoice_application`, which is append-only: a `reversal` adds back and every
+// other kind subtracts, exactly as the running column was moved. The agreement test
+// (packages/billing/test/aging-as-of.test.ts) proves that at today's date and the present instant the
+// buckets equal the live read's, integer for integer — two answers to one question is the failure this
+// read exists to avoid, so the equality is proved rather than assumed.
+//
+// One difference is deliberate and stated: a bill finalized with an issue date AFTER the date asked
+// about is not yet owed as at that date, so it is absent here; the live read, which takes no issue
+// date, buckets it as current.
+//
+// The bucketing is in SQL for the reason the live read's comment gives. The breakdown comes back
+// grouped by bucket, client, matter and office, so its size is the number of matters with something
+// unpaid rather than the firm's billing history.
+export const MAXIMUM_AGING_BREAKDOWN_ROWS = 5000;
+
+export interface AgingAsOfQuery {
+  // A civil date on the effective axis.
+  readonly asOfDate: string;
+  // A UTC instant on the knowledge axis, in the shape `finalized_at` and `applied_at` are written in.
+  readonly knownAsOf: string;
+}
+
+export interface AgingBreakdownRow {
+  // Index into the five buckets: current, 1-30, 31-60, 61-90, 90+.
+  readonly bucketIndex: number;
+  readonly clientEntityId: string;
+  readonly clientName: string | null;
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+  readonly invoiceCount: number;
+  readonly unpaidMinor: number;
+}
+
+export interface AccountsReceivableAgingAsOf {
+  // The firm-wide figure, one per bucket, in the live read's own labels and order.
+  readonly buckets: readonly AgingBucket[];
+  readonly breakdown: readonly AgingBreakdownRow[];
+  // True when the breakdown hit its ceiling. The caller refuses rather than presenting a short list.
+  readonly breakdownTruncated: boolean;
+}
+
+// The unpaid balance per (invoice, matter) on both axes, with the bucket it falls in. Shared by the
+// two statements below so the firm-wide buckets and the breakdown are taken over one definition.
+const OPEN_BALANCES_AS_OF = `
+  open_balance AS (
+    SELECT i.id AS invoice_id,
+           i.client_entity_id AS client_entity_id,
+           b.matter_id AS matter_id,
+           CASE
+             WHEN julianday(?1) - julianday(i.due_date) <= 0 THEN 0
+             WHEN julianday(?1) - julianday(i.due_date) <= ${AGING_BUCKET_DAYS[0]} THEN 1
+             WHEN julianday(?1) - julianday(i.due_date) <= ${AGING_BUCKET_DAYS[1]} THEN 2
+             WHEN julianday(?1) - julianday(i.due_date) <= ${AGING_BUCKET_DAYS[2]} THEN 3
+             ELSE 4
+           END AS bucket_index,
+           b.total_minor - COALESCE(
+             (SELECT SUM(CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END)
+                FROM invoice_application a
+               WHERE a.invoice_id = b.invoice_id AND a.matter_id = b.matter_id
+                 AND a.effective_date <= ?1 AND a.applied_at <= ?2), 0) AS unpaid_minor
+      FROM invoice i
+      JOIN invoice_matter_balance b ON b.invoice_id = i.id
+     WHERE i.status = 'final' AND i.due_date IS NOT NULL
+       AND i.issue_date <= ?1 AND i.finalized_at <= ?2
+  )`;
+
+export async function readAccountsReceivableAgingAsOf(
+  database: SqlDatabase,
+  query: AgingAsOfQuery,
+): Promise<AccountsReceivableAgingAsOf> {
+  const [bucketRows, breakdownRows] = await Promise.all([
+    database
+      .prepare(
+        `WITH ${OPEN_BALANCES_AS_OF}
+         SELECT bucket_index, COUNT(DISTINCT invoice_id) AS invoice_count, SUM(unpaid_minor) AS unpaid_minor
+           FROM open_balance WHERE unpaid_minor > 0
+          GROUP BY bucket_index`,
+      )
+      .bind(query.asOfDate, query.knownAsOf)
+      .all<AgingBucketRow>(),
+    database
+      .prepare(
+        `WITH ${OPEN_BALANCES_AS_OF}
+         SELECT o.bucket_index AS bucket_index,
+                o.client_entity_id AS client_entity_id,
+                m.client_display_name AS client_name,
+                o.matter_id AS matter_id,
+                m.title AS matter_title,
+                m.matter_number AS matter_number,
+                m.location_id AS location_id,
+                l.name AS location_name,
+                COUNT(DISTINCT o.invoice_id) AS invoice_count,
+                SUM(o.unpaid_minor) AS unpaid_minor
+           FROM open_balance o
+           JOIN matter m ON m.id = o.matter_id
+           LEFT JOIN location l ON l.id = m.location_id
+          WHERE o.unpaid_minor > 0
+          GROUP BY o.bucket_index, o.client_entity_id, o.matter_id
+          ORDER BY o.client_entity_id, o.matter_id, o.bucket_index
+          LIMIT ?3`,
+      )
+      .bind(query.asOfDate, query.knownAsOf, MAXIMUM_AGING_BREAKDOWN_ROWS + 1)
+      .all<{
+        bucket_index: number;
+        client_entity_id: string;
+        client_name: string | null;
+        matter_id: string;
+        matter_title: string;
+        matter_number: string | null;
+        location_id: string | null;
+        location_name: string | null;
+        invoice_count: number;
+        unpaid_minor: number;
+      }>(),
+  ]);
+
+  const buckets = AGING_BUCKET_LABELS.map((label) => ({
+    label,
+    invoiceCount: 0,
+    unpaidMinor: 0,
+  }));
+  for (const row of bucketRows.results) {
+    const bucket = buckets[row.bucket_index];
+    if (!bucket) continue;
+    bucket.invoiceCount = row.invoice_count;
+    bucket.unpaidMinor = row.unpaid_minor;
+  }
+  const truncated = breakdownRows.results.length > MAXIMUM_AGING_BREAKDOWN_ROWS;
+  const breakdown = breakdownRows.results.slice(0, MAXIMUM_AGING_BREAKDOWN_ROWS).map((row) => ({
+    bucketIndex: row.bucket_index,
+    clientEntityId: row.client_entity_id,
+    clientName: row.client_name,
+    matterId: row.matter_id,
+    matterTitle: row.matter_title,
+    matterNumber: row.matter_number,
+    locationId: row.location_id,
+    locationName: row.location_name,
+    invoiceCount: row.invoice_count,
+    unpaidMinor: row.unpaid_minor,
+  }));
+  return { buckets, breakdown, breakdownTruncated: truncated };
+}

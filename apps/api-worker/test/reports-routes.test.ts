@@ -330,3 +330,40 @@ describe("the trust-account listing the report screen picks from", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("GET /api/v1/reports/accounts-receivable-aging", () => {
+  const agingUrl = (query: string) =>
+    `https://example.com/api/v1/reports/accounts-receivable-aging?${query}`;
+
+  it("answers the Owner with the aging at a date, stamped live when no knowledge instant is given", async () => {
+    const response = await SELF.fetch(agingUrl("asOfDate=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      asOfDate: string;
+      reproducibility: { reproducible: boolean };
+      totals: { unpaidMinor: number[]; invoiceCount: number[] | null };
+      offices: unknown[];
+      clients: unknown[];
+    };
+    expect(report.asOfDate).toBe("2026-07-31");
+    expect(report.reproducibility.reproducible).toBe(false);
+    expect(report.totals.unpaidMinor).toHaveLength(5);
+    expect(report.totals.invoiceCount).toHaveLength(5);
+  });
+
+  it("refuses a date that is not on the calendar", async () => {
+    const response = await SELF.fetch(agingUrl("asOfDate=2026-02-30"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(agingUrl("asOfDate=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

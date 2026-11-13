@@ -1613,6 +1613,41 @@ export type TrustComplianceExceptions = {
     };
 };
 
+export type AccountsReceivableAgingReport = {
+    asOfDate: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+        invoiceCount: Array<number> | null;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            unpaidMinor: Array<number>;
+            totalMinor: number;
+        }>;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -15002,6 +15037,51 @@ export type ReportsTrustCompliancePackResponses = {
 };
 
 export type ReportsTrustCompliancePackResponse = ReportsTrustCompliancePackResponses[keyof ReportsTrustCompliancePackResponses];
+
+export type ReportsAccountsReceivableAgingData = {
+    body?: never;
+    path?: never;
+    query: {
+        asOfDate: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/accounts-receivable-aging';
+};
+
+export type ReportsAccountsReceivableAgingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The date is not a calendar date, the knowledge instant is not a UTC instant or is in the future, or more matters have something unpaid than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsAccountsReceivableAgingError = ReportsAccountsReceivableAgingErrors[keyof ReportsAccountsReceivableAgingErrors];
+
+export type ReportsAccountsReceivableAgingResponses = {
+    /**
+     * The aging at that date
+     */
+    200: AccountsReceivableAgingReport;
+};
+
+export type ReportsAccountsReceivableAgingResponse = ReportsAccountsReceivableAgingResponses[keyof ReportsAccountsReceivableAgingResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

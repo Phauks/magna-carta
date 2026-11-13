@@ -2928,6 +2928,9 @@ importers:
 
   packages/reporting:
     dependencies:
+      '@magna-carta/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@magna-carta/civil-time':
         specifier: workspace:*
         version: link:../civil-time
@@ -2940,6 +2943,9 @@ importers:
       '@magna-carta/ledger':
         specifier: workspace:*
         version: link:../ledger
+      '@magna-carta/money':
+        specifier: workspace:*
+        version: link:../money
       '@magna-carta/trust':
         specifier: workspace:*
         version: link:../trust
@@ -2947,9 +2953,6 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
-      '@magna-carta/money':
-        specifier: workspace:*
-        version: link:../money
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

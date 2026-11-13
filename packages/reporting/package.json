@@ -9,21 +9,23 @@
     "./completeness": "./src/completeness.ts",
     "./reporting-validation": "./src/reporting-validation.ts",
     "./trust-compliance/pack": "./src/trust-compliance/pack.ts",
-    "./trust-compliance/types": "./src/trust-compliance/types.ts"
+    "./trust-compliance/types": "./src/trust-compliance/types.ts",
+    "./financial/accounts-receivable-aging": "./src/financial/accounts-receivable-aging.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/billing": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/money": "workspace:*",
     "@magna-carta/trust": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/money": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-orm": "catalog:",
