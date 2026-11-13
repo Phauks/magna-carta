@@ -17,7 +17,7 @@ Store_ (which secret lives where, and the order a secret moves in).
 
 - **Resolve at the entry, never at the read.** Each Worker calls `resolveStoredSecrets` in its
   `fetch`, `queue` and `scheduled` handlers, and the app Worker's Durable Objects do it in their
-  constructor (`apps/api-worker/src/stored-secrets-durable-object.ts`). A reader that awaits a
+  constructor (`apps/api-worker/src/stored-secrets.ts`). A reader that awaits a
   store binding itself is a second path that the System Status page cannot see.
 - **The list of names is the Worker's own.** Each Worker keeps the names it reads beside its
   bindings; a secret that is not on that list is never looked for in the store.

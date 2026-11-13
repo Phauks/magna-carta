@@ -142,6 +142,7 @@
     featureSteps,
     groupFeatures,
     missingRequirements,
+    describeSecretSources,
     sortFeatures,
     type FeatureStatus,
   } from "$lib/versions/features-model.ts";
@@ -880,6 +881,10 @@
     feature.state === "not-set-up"
       ? missingRequirements(featureRequirementsList?.find((entry) => entry.id === feature.id))
       : []}
+  {@const sourceLine =
+    feature.state === "not-set-up"
+      ? null
+      : describeSecretSources(featureRequirementsList?.find((entry) => entry.id === feature.id))}
   {@const stepsOpen = openSteps[feature.id] === true}
   {@const steps = featureSteps(feature.id)}
   {@const guideUrl = deployQueueUrl(repositoryForGuides, feature.id)}
@@ -892,6 +897,9 @@
           <span class="font-mono text-xs break-all text-text-muted">Needs {missing.join(", ")}</span>
         {:else if isOperator && feature.state === "fault" && worker !== null}
           <span class="text-xs text-text-muted">Set up, and {worker} is not answering.</span>
+        {/if}
+        {#if isOperator && sourceLine !== null}
+          <span class="font-mono text-xs break-all text-text-muted">{sourceLine}</span>
         {/if}
       </div>
       <div class="flex shrink-0 items-center gap-4">
