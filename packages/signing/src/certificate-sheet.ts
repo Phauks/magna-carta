@@ -110,8 +110,66 @@ const PAGE_MARGIN_VERTICAL = 54;
  */
 const SIGNERS_PER_PAGE = 2;
 
-/** How many audit log rows one page holds, with room for rows whose details wrap. */
-const EVENTS_PER_PAGE = 20;
+/** The audit log's columns. The weights share the page's width out of a hundred. */
+const AUDIT_COLUMNS = [
+  { heading: "Time (UTC)", weight: 21 },
+  { heading: "Event", weight: 20 },
+  { heading: "By", weight: 19 },
+  { heading: "IP Address", weight: 16 },
+  { heading: "Details", weight: 24 },
+] as const;
+
+/**
+ * The room one page gives the audit log's rows, in points: a letter page inside the sheet's
+ * margins, less the section heading and the table's own heading row, less a margin for the
+ * estimate below being an estimate.
+ */
+const AUDIT_ROWS_HEIGHT = 590;
+
+/** The composer's compact row: a line of cell text, and the space above and below a row. */
+const ROW_LINE_HEIGHT = 13;
+const ROW_PADDING = 3;
+
+/**
+ * How many characters of cell text fit a column one percent of the page wide. The composer
+ * measures real glyphs; this sheet cannot, so it assumes text a little wider than it usually is.
+ * The time column is left out of the estimate because an instant is sized to fit it.
+ */
+const CHARACTERS_PER_WEIGHT = 0.92;
+
+/** The lines a row is expected to take: its most-wrapped cell. */
+function estimatedLines(row: readonly string[]): number {
+  let lines = 1;
+  for (const [index, cell] of row.entries()) {
+    const column = AUDIT_COLUMNS[index];
+    if (index === 0 || column === undefined) continue;
+    const capacity = Math.floor(column.weight * CHARACTERS_PER_WEIGHT);
+    lines = Math.max(lines, Math.ceil(cell.length / capacity));
+  }
+  return lines;
+}
+
+/**
+ * The audit log's rows a page at a time. A page is filled by the height its rows are expected to
+ * take, so a log of short rows runs well down the page and one of long rows still breaks where the
+ * next heading can be printed above what follows.
+ */
+function auditPages(rows: readonly string[][]): string[][][] {
+  const pages: string[][][] = [[]];
+  let used = 0;
+  for (const row of rows) {
+    const height = estimatedLines(row) * ROW_LINE_HEIGHT + ROW_PADDING;
+    const page = pages.at(-1);
+    if (page === undefined || (used + height > AUDIT_ROWS_HEIGHT && page.length > 0)) {
+      pages.push([row]);
+      used = height;
+    } else {
+      page.push(row);
+      used += height;
+    }
+  }
+  return pages;
+}
 
 /** `Signer Details (1 of 3)`: a section's heading on each of its pages, plain where it has one. */
 function pageHeading(section: string, page: number, pages: number): string {
@@ -290,31 +348,20 @@ export function certificateSheet(
     );
   }
 
-  const events = certificate.events ?? [];
-  const logPages = Math.max(1, Math.ceil(events.length / EVENTS_PER_PAGE));
-  for (let page = 0; page < logPages; page += 1) {
+  const logPages = auditPages(
+    (certificate.events ?? []).map((event) => [
+      clock(event.at),
+      SIGNING_EVENT_LABEL[event.kind],
+      event.actor ?? "System",
+      event.observedIp ?? "",
+      event.detail ?? "",
+    ]),
+  );
+  for (const [page, rows] of logPages.entries()) {
     blocks.push(
       { type: "pageBreak" },
-      { type: "heading", level: 1, text: pageHeading("Audit Log", page, logPages) },
-      {
-        type: "table",
-        columns: [
-          { heading: "Time (UTC)", weight: 21 },
-          { heading: "Event", weight: 20 },
-          { heading: "By", weight: 19 },
-          { heading: "IP Address", weight: 16 },
-          { heading: "Details", weight: 24 },
-        ],
-        rows: events
-          .slice(page * EVENTS_PER_PAGE, (page + 1) * EVENTS_PER_PAGE)
-          .map((event) => [
-            clock(event.at),
-            SIGNING_EVENT_LABEL[event.kind],
-            event.actor ?? "System",
-            event.observedIp ?? "",
-            event.detail ?? "",
-          ]),
-      },
+      { type: "heading", level: 1, text: pageHeading("Audit Log", page, logPages.length) },
+      { type: "table", columns: AUDIT_COLUMNS, rows },
     );
   }
 

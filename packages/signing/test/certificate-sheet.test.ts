@@ -166,9 +166,11 @@ describe("certificateSheet", () => {
         ...first,
         intent: { ...first.intent, name: `Signer ${index + 1}` },
       })),
-      events: Array.from({ length: 45 }, () => ({
+      // Eighty one-line rows, then twenty whose details wrap onto a second line.
+      events: Array.from({ length: 100 }, (_, index) => ({
         kind: "viewed" as const,
         at: "2026-07-18T11:58:00Z",
+        ...(index >= 80 ? { detail: "A note that wraps to a second line" } : {}),
       })),
     });
 
@@ -189,9 +191,11 @@ describe("certificateSheet", () => {
       { heading: "Signer Details (1 of 3)", signers: ["Signer 1", "Signer 2"], rows: 0 },
       { heading: "Signer Details (2 of 3)", signers: ["Signer 3", "Signer 4"], rows: 0 },
       { heading: "Signer Details (3 of 3)", signers: ["Signer 5"], rows: 0 },
-      { heading: "Audit Log (1 of 3)", signers: [], rows: 20 },
-      { heading: "Audit Log (2 of 3)", signers: [], rows: 20 },
-      { heading: "Audit Log (3 of 3)", signers: [], rows: 5 },
+      // A page takes as many rows as their expected height allows: 36 short ones, or fewer long.
+      { heading: "Audit Log (1 of 4)", signers: [], rows: 36 },
+      { heading: "Audit Log (2 of 4)", signers: [], rows: 36 },
+      { heading: "Audit Log (3 of 4)", signers: [], rows: 23 },
+      { heading: "Audit Log (4 of 4)", signers: [], rows: 5 },
     ]);
   });
 
