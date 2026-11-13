@@ -31,9 +31,16 @@ import {
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
+import type { SendEmail } from "../../../email-port.ts";
+import {
+  linkStatements,
+  mailSigners,
+  type SignerMailing,
+} from "../../../signing/signer-delivery.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
@@ -54,8 +61,8 @@ import {
 // and fields while it is a draft, send it, follow it, remind and cancel. The decisions are the
 // signing package's (packages/signing/src/request.ts and request-service.ts); this module reads the
 // file, hands the package the facts only the server may establish (the hash of the bytes sent and
-// their page count), and commits what it returns with an audit line. Who is told, and how, is the
-// outside-signer work that follows; a request sent here is recorded and waits.
+// their page count), and commits what it returns with an audit line. Outside signers are mailed their
+// link after the commit (../../../signing/signer-delivery.ts).
 
 type App = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
@@ -134,7 +141,30 @@ async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function registerSigningRequestRoutes(app: App, chokepoint: Chokepoint): void {
+/** What mailing a request's signers needs, read for the member who sent it. */
+async function mailingFor(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+  sendEmail: (env: Bindings) => SendEmail,
+  senderName: string,
+): Promise<SignerMailing> {
+  const logger = c.get("logger");
+  return {
+    send: sendEmail(c.env),
+    key: c.env.AUTH_SECRET,
+    firmId: requireChokepointFirmId(c),
+    firmName: await requireChokepointFirmContext(c).readFirmName(),
+    senderName,
+    origin: new URL(c.req.url).origin,
+    ...(logger === undefined ? {} : { logger }),
+    correlationId: c.get("correlationId") ?? "",
+  };
+}
+
+export function registerSigningRequestRoutes(
+  app: App,
+  chokepoint: Chokepoint,
+  sendEmail: (env: Bindings) => SendEmail,
+): void {
   app.openapi(
     { ...createRoute, middleware: chokepointMiddleware(chokepoint, createRoute) },
     async (c) => {
@@ -298,12 +328,24 @@ export function registerSigningRequestRoutes(app: App, chokepoint: Chokepoint): 
           { sha256: await sha256Hex(bytes), pageCount },
           options,
         );
-        await commitWithAudit(firm.firmDatabase, sent.effect, {
-          event: "esign.request_sent",
-          userId,
-          requestId,
-          now: options.now,
-        });
+        const links = await linkStatements(
+          firm.firmDatabase,
+          c.env.AUTH_SECRET,
+          requireChokepointFirmId(c),
+          sent.notify,
+          options.now,
+        );
+        await commitWithAudit(
+          firm.firmDatabase,
+          { ...sent.effect, statements: [...sent.effect.statements, ...links] },
+          { event: "esign.request_sent", userId, requestId, now: options.now },
+        );
+        await mailSigners(
+          await mailingFor(c, sendEmail, options.actorName),
+          current.request,
+          sent.notify,
+          "request",
+        );
       } catch (error) {
         const answer = refusal(c, error);
         if (answer !== undefined) return answer;
@@ -330,6 +372,15 @@ export function registerSigningRequestRoutes(app: App, chokepoint: Chokepoint): 
           requestId,
           now: options.now,
         });
+        const request = (await readRequestDetail(firm.firmDatabase, requestId))?.request;
+        if (request !== undefined) {
+          await mailSigners(
+            await mailingFor(c, sendEmail, options.actorName),
+            request,
+            reminded.remind,
+            "reminder",
+          );
+        }
       } catch (error) {
         const answer = refusal(c, error);
         if (answer !== undefined) return answer;

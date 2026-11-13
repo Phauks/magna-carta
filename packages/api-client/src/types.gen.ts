@@ -3127,6 +3127,64 @@ export type CancelSigningRequest = {
     reason: string;
 };
 
+export type SignerRequestView = {
+    firmName: string;
+    senderName: string;
+    title: string;
+    message: string;
+    expiresAt: string;
+    signerName: string;
+    codeSentTo: string | null;
+    needsCode: boolean;
+    consented: boolean;
+    adopted: boolean;
+    consent: {
+        version: string;
+        title: string;
+        paragraphs: Array<string>;
+    };
+    fields: Array<{
+        id: string;
+        kind: 'signature' | 'initials' | 'date-signed' | 'full-name' | 'text' | 'checkbox';
+        page: number;
+        rect: [
+            number,
+            number,
+            number,
+            number
+        ];
+        required: boolean;
+    }>;
+};
+
+export type SignerAccessCodeSent = {
+    sentTo: string;
+};
+
+export type SignerAccessCodeCheck = {
+    code: string;
+};
+
+export type SignerAdoption = {
+    how: 'typed' | 'drawn' | 'uploaded';
+    signaturePng: string;
+    initialsPng: string | null;
+};
+
+export type SignerOutcome = {
+    status: 'signed' | 'declined';
+};
+
+export type SignerFinish = {
+    answers: {
+        [key: string]: string | boolean;
+    };
+};
+
+export type SignerDecline = {
+    reason: string;
+};
+
 export type SessionLaunchResponse = {
     editorUrl: string;
     editorOrigin: string;
@@ -21118,6 +21176,379 @@ export type SigningCancelRequestResponses = {
 };
 
 export type SigningCancelRequestResponse = SigningCancelRequestResponses[keyof SigningCancelRequestResponses];
+
+export type SignerReadRequestData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/request';
+};
+
+export type SignerReadRequestErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this signer's turn
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadRequestError = SignerReadRequestErrors[keyof SignerReadRequestErrors];
+
+export type SignerReadRequestResponses = {
+    /**
+     * The signer's view
+     */
+    200: SignerRequestView;
+};
+
+export type SignerReadRequestResponse = SignerReadRequestResponses[keyof SignerReadRequestResponses];
+
+export type SignerReadDocumentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/document';
+};
+
+export type SignerReadDocumentErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this signer's turn
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadDocumentError = SignerReadDocumentErrors[keyof SignerReadDocumentErrors];
+
+export type SignerReadDocumentResponses = {
+    /**
+     * The document
+     */
+    200: Blob | File;
+};
+
+export type SignerReadDocumentResponse = SignerReadDocumentResponses[keyof SignerReadDocumentResponses];
+
+export type SignerOpenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/opening';
+};
+
+export type SignerOpenErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * It is not this signer's turn yet
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerOpenError = SignerOpenErrors[keyof SignerOpenErrors];
+
+export type SignerOpenResponses = {
+    /**
+     * The signer's view
+     */
+    200: SignerRequestView;
+};
+
+export type SignerOpenResponse = SignerOpenResponses[keyof SignerOpenResponses];
+
+export type SignerSendAccessCodeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/access-code';
+};
+
+export type SignerSendAccessCodeErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * No code is needed, or it is not this signer's turn
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The code could not be sent
+     */
+    503: Problem;
+};
+
+export type SignerSendAccessCodeError = SignerSendAccessCodeErrors[keyof SignerSendAccessCodeErrors];
+
+export type SignerSendAccessCodeResponses = {
+    /**
+     * The code was sent
+     */
+    202: SignerAccessCodeSent;
+};
+
+export type SignerSendAccessCodeResponse = SignerSendAccessCodeResponses[keyof SignerSendAccessCodeResponses];
+
+export type SignerCheckAccessCodeData = {
+    body: SignerAccessCodeCheck;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/access-code/check';
+};
+
+export type SignerCheckAccessCodeErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * No code was sent, it expired, or its tries are spent
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * The code is wrong
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerCheckAccessCodeError = SignerCheckAccessCodeErrors[keyof SignerCheckAccessCodeErrors];
+
+export type SignerCheckAccessCodeResponses = {
+    /**
+     * The signer's view
+     */
+    200: SignerRequestView;
+};
+
+export type SignerCheckAccessCodeResponse = SignerCheckAccessCodeResponses[keyof SignerCheckAccessCodeResponses];
+
+export type SignerConsentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/consent';
+};
+
+export type SignerConsentErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerConsentError = SignerConsentErrors[keyof SignerConsentErrors];
+
+export type SignerConsentResponses = {
+    /**
+     * The signer's view
+     */
+    200: SignerRequestView;
+};
+
+export type SignerConsentResponse = SignerConsentResponses[keyof SignerConsentResponses];
+
+export type SignerAdoptData = {
+    body: SignerAdoption;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/adoption';
+};
+
+export type SignerAdoptErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * An image is not a PNG, or is too large
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerAdoptError = SignerAdoptErrors[keyof SignerAdoptErrors];
+
+export type SignerAdoptResponses = {
+    /**
+     * The signer's view
+     */
+    200: SignerRequestView;
+};
+
+export type SignerAdoptResponse = SignerAdoptResponses[keyof SignerAdoptResponses];
+
+export type SignerFinishData = {
+    body: SignerFinish;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/finish';
+};
+
+export type SignerFinishErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * A required field is empty
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerFinishError = SignerFinishErrors[keyof SignerFinishErrors];
+
+export type SignerFinishResponses = {
+    /**
+     * Signed
+     */
+    200: SignerOutcome;
+};
+
+export type SignerFinishResponse = SignerFinishResponses[keyof SignerFinishResponses];
+
+export type SignerDeclineData = {
+    body: SignerDecline;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/declining';
+};
+
+export type SignerDeclineErrors = {
+    /**
+     * Not a signing link this deployment made
+     */
+    404: Problem;
+    /**
+     * It is not this signer's turn, or they already signed
+     */
+    409: Problem;
+    /**
+     * The link was replaced, or the request is no longer out for signing
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerDeclineError = SignerDeclineErrors[keyof SignerDeclineErrors];
+
+export type SignerDeclineResponses = {
+    /**
+     * Declined
+     */
+    200: SignerOutcome;
+};
+
+export type SignerDeclineResponse = SignerDeclineResponses[keyof SignerDeclineResponses];
 
 export type DocumentsEditSessionData = {
     body?: never;

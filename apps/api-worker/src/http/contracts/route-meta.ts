@@ -114,6 +114,16 @@ export interface RouteMeta {
    * route cannot be written that names one.
    */
   guestLane?: "invitation" | "grant";
+  /**
+   * An outside signer's lane, for the routes a signer's page calls. The one value, "link", is the
+   * link the signing email carries, in the `x-signing-link` header and nowhere else.
+   *
+   * It is a lane of its own rather than a third guest lane because the two credentials name
+   * different things (a meeting's invitation, a request's signer) and a handler of one must never be
+   * handed the other. Registration holds it to the guest lane's terms: `authenticated: false`,
+   * `permission: null`, `surface: "app"` and `resource: "firm"`, and never beside `guestLane`.
+   */
+  signerLane?: "link";
 }
 
 // The meta as attached to a defined route: optional fields resolved to their defaults, so the
@@ -342,6 +352,25 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     );
   }
 
+  // #6 An outside signer's lane is held to the guest lane's terms, for the guest lane's reasons, and
+  // a route may ride one lane or the other but never both.
+  if (
+    meta.signerLane !== undefined &&
+    (meta.authenticated ||
+      meta.permission !== null ||
+      meta.surface !== "app" ||
+      meta.resource !== "firm" ||
+      meta.guestLane !== undefined ||
+      meta.firmlessSession !== undefined ||
+      meta.firmDatabaseOutage !== undefined)
+  ) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} declares signerLane but a signer route must be ` +
+        `authenticated: false, permission: null, surface: "app" and resource: "firm", with no ` +
+        `guestLane, firmlessSession or firmDatabaseOutage — a signer holds no session and no capability.`,
+    );
+  }
+
   const namespace = meta.operationId.slice(0, meta.operationId.indexOf("."));
   const resolvedMeta: ResolvedRouteMeta = {
     ...meta,
@@ -380,6 +409,9 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     // Emitted because it stands where a permission would on the few routes that carry it: a reader
     // of the contract that could not see it would find an anonymous route serving firm data.
     ...(resolvedMeta.guestLane === undefined ? {} : { "x-mc-guestLane": resolvedMeta.guestLane }),
+    ...(resolvedMeta.signerLane === undefined
+      ? {}
+      : { "x-mc-signerLane": resolvedMeta.signerLane }),
     "x-mc-tags": resolvedMeta.tags,
     "x-mc-deprecated": resolvedMeta.deprecated,
   });

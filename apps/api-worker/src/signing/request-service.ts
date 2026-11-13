@@ -132,7 +132,8 @@ function addDays(instant: string, days: number): string {
   return new Date(Date.parse(instant) + days * 86_400_000).toISOString();
 }
 
-function event(
+/** One activity line, stamped with a fresh id. */
+export function event(
   requestId: SigningRequestId,
   kind: SigningEventRow["kind"],
   at: string,
@@ -352,23 +353,31 @@ export async function sendRequest(
       }),
     ),
   ];
-  for (const signer of notify) {
-    statements.push(
-      guarded(
-        updateSignerStatusStatement(database, signer.id, "waiting", "notified", options.now),
-        SIGNING_GUARD.moved,
-      ),
-      insertEventStatement(
-        database,
-        event(id, "delivered", options.now, {
-          signerId: signer.id,
-          actor: signer.name,
-          detail: signer.attributionLevel === "firm-authenticated" ? "in the app" : signer.email,
-        }),
-      ),
-    );
-  }
+  statements.push(...deliveredStatements(database, id, notify, options.now));
   return { effect: { statements, outboxMessages: [] }, notify };
+}
+
+/** Each signer whose turn has come is marked asked, with an activity line saying how. */
+export function deliveredStatements(
+  database: SqlDatabase,
+  id: SigningRequestId,
+  notify: readonly SigningSignerRow[],
+  now: string,
+): EffectStatement[] {
+  return notify.flatMap((signer) => [
+    guarded(
+      updateSignerStatusStatement(database, signer.id, "waiting", "notified", now),
+      SIGNING_GUARD.moved,
+    ),
+    insertEventStatement(
+      database,
+      event(id, "delivered", now, {
+        signerId: signer.id,
+        actor: signer.name,
+        detail: signer.attributionLevel === "firm-authenticated" ? "in the app" : signer.email,
+      }),
+    ),
+  ]);
 }
 
 /** Cancel a request that is a draft or still out for signing. */

@@ -787,6 +787,14 @@ export const PROBLEM_TYPES = {
   "signing-request-moved": "signing-request-moved",
   // A file sent for signature is not a PDF, or its PDF cannot be opened (HTTP 422).
   "signing-not-a-pdf": "signing-not-a-pdf",
+  // A signing link the firm sent that cannot be used now: replaced by a corrected one, past the
+  // request's last day, or for a request that is no longer out for signing (HTTP 410).
+  "signing-link-not-valid": "signing-link-not-valid",
+  "signing-link-expired": "signing-link-expired",
+  "signing-request-closed": "signing-request-closed",
+  // The signer is ahead of their own steps: not yet their turn, the code not yet entered, the
+  // agreement to sign electronically not yet given, or a field left empty (HTTP 409 or 422).
+  "signing-step-refused": "signing-step-refused",
   // The one-time link to the community board cannot be minted because this deployment holds no
   // COMMUNITY_HANDOFF_SECRET (HTTP 503). A fact about configuration, not about the member.
   "community-sign-in-not-configured": "community-sign-in-not-configured",

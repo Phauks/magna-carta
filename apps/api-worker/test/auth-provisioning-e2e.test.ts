@@ -655,6 +655,31 @@ const GUEST_LANE_OPERATIONS: ReadonlySet<string> = new Set([
   "guest.sendMessage",
 ]);
 
+/**
+ * AND AN OUTSIDE SIGNER'S LANE: the same shape for a signing link, admitted by the chokepoint's
+ * signer lane (`x-mc-signerLane`), which verifies the link before anything is read and checks it
+ * against the signer's row on every request. Enumerated for the same reason.
+ */
+const SIGNER_LANE_OPERATIONS: ReadonlySet<string> = new Set([
+  "signer.readRequest",
+  "signer.readDocument",
+  "signer.open",
+  "signer.sendAccessCode",
+  "signer.checkAccessCode",
+  "signer.consent",
+  "signer.adopt",
+  "signer.finish",
+  "signer.decline",
+]);
+
+function expectSignerLaneShape(operation: OpenApiOperation, label: string): void {
+  expect(operation["x-mc-authenticated"], label).toBe(false);
+  expect(operation["x-mc-permission"], label).toBeNull();
+  expect(operation["x-mc-surface"], label).toBe("app");
+  expect(operation["x-mc-resource"], label).toBe("firm");
+  expect(operation["x-mc-signerLane"], label).toBe("link");
+}
+
 /** The shape every guest-lane operation must have, asserted wherever the sweeps meet one. */
 function expectGuestLaneShape(operation: OpenApiOperation, label: string): void {
   expect(operation["x-mc-authenticated"], label).toBe(false);
@@ -751,6 +776,10 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // A meeting guest's write: admitted by the guest lane's verified credential, never a session.
       if (GUEST_LANE_OPERATIONS.has(operation["operationId"] as string)) {
         expectGuestLaneShape(operation, label);
+        continue;
+      }
+      if (SIGNER_LANE_OPERATIONS.has(operation["operationId"] as string)) {
+        expectSignerLaneShape(operation, label);
         continue;
       }
       expect(operation["x-mc-authenticated"], label).toBe(true);
@@ -881,6 +910,10 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         expectGuestLaneShape(operation, label);
         continue;
       }
+      if (SIGNER_LANE_OPERATIONS.has(operation["operationId"] as string)) {
+        expectSignerLaneShape(operation, label);
+        continue;
+      }
       expect(operation["x-mc-authenticated"], label).toBe(true);
     }
     // AND THE GUEST SET, every member present and nothing else wearing its shape: an operation that
@@ -891,6 +924,12 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
         .map((entry) => entry.operation["operationId"])
         .toSorted(),
     ).toEqual([...GUEST_LANE_OPERATIONS].toSorted());
+    expect(
+      emittedOperations(document, ALL_METHODS)
+        .filter((entry) => entry.operation["x-mc-signerLane"] !== undefined)
+        .map((entry) => entry.operation["operationId"])
+        .toSorted(),
+    ).toEqual([...SIGNER_LANE_OPERATIONS].toSorted());
   });
 
   it("ENFORCES every declared-authenticated operation behaviorally: a credential-less request answers 401", async () => {
