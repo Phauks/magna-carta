@@ -16,6 +16,9 @@
   "references": [
     {
       "path": "../../packages/build-identity/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/worker-secrets/tsconfig.build.json"
     }
   ],
   "include": [

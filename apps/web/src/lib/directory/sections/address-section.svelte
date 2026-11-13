@@ -50,7 +50,6 @@
   import type { DirectoryAddressUse } from "../directory-api.ts";
   import { ADDRESS_USES } from "../directory-vocabulary.ts";
   import { phoneCountries } from "../phone-entry.ts";
-  import SectionHeading from "./section-heading.svelte";
 
   let {
     rows,
@@ -188,8 +187,6 @@
 </script>
 
 <section class="flex flex-col gap-12">
-  <SectionHeading label="Addresses" count={rows.length} />
-
   {#if rows.length > 0}
     <ul class="flex flex-col">
       {#each rows as row (row.id)}

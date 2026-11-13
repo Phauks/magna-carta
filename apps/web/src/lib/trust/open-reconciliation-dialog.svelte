@@ -129,7 +129,7 @@
     failure = stated(
       outcome.failure,
       "No reconciliation was opened.",
-      "Nothing answered, so no reconciliation was opened. Retrying sends this same submission rather than opening a second one.",
+      "Couldn't connect. No reconciliation was opened, and trying again won't open a second one.",
     );
     return "refused";
   }
@@ -174,7 +174,7 @@
       {#if existing.length > 0}
         <LabelledField
           label="Supersedes"
-          hint="This period has been reconciled before. A correction is a new reconciliation that supersedes the old one, so what the firm attested to then stays on the record."
+          hint="This period was reconciled before. A correction is a new reconciliation that replaces the old one, and the old one stays on record."
         >
           {#snippet children({ props })}
             <ChoicePicker

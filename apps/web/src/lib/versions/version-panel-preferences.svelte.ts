@@ -73,6 +73,8 @@ function createSectionFold(sectionId: string): SectionFoldPreference {
 export const PANEL_SECTION_FOLDS = {
   /** The API and the Worker serving this page, and how the two compare. */
   deployment: createSectionFold("deployment"),
+  /** The features the deployment can switch on, and which are working. */
+  features: createSectionFold("features"),
   /** The rest of the fleet. */
   fleet: createSectionFold("fleet"),
   /** The outside services the deployment depends on (Cloudflare Realtime). */

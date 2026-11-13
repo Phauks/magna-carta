@@ -183,7 +183,12 @@ interface CheckRead {
       readonly traversal: { followedToClosure: boolean; truncated: boolean } | null;
       readonly scope: Record<string, string>;
     };
-    readonly statement: string[];
+    readonly report: Array<{
+      key: string;
+      heading: string;
+      lines: string[];
+      attention: boolean;
+    }>;
     readonly hits: Array<{
       id: string;
       entityId: string;
@@ -599,8 +604,10 @@ describe("searching the firm's own records over the wire", () => {
       id: "magnusConversation_routes",
       matterId: null,
     });
-    expect(read.record?.statement.some((line) => line.startsWith("Magnus —"))).toBe(true);
-    expect(read.record?.statement.some((line) => line.startsWith("Messaging — texts"))).toBe(true);
+    const keys = read.record?.report.map((section) => section.key) ?? [];
+    expect(keys).toContain("magnus");
+    const messaging = read.record?.report.find((section) => section.key === "messaging");
+    expect(messaging?.lines[0]).toMatch(/^Texts, filed on a matter or not/u);
   });
 
   it("records Files as not searched, and says why, while the firm does not index its files", async () => {
@@ -621,14 +628,11 @@ describe("searching the firm's own records over the wire", () => {
     });
     expect(read.run.askedScope?.places.files).toEqual(["open", "archived"]);
     expect(read.record?.check.scope["files"]).toBe("unavailable");
+    const notSearched = read.record?.report.find((section) => section.key === "not_searched");
     expect(
-      read.record?.statement.some(
-        (line) =>
-          line.startsWith("Not searched:") &&
-          line.includes("files (the text inside the firm's files was not searched"),
-      ),
+      notSearched?.lines.some((line) => line.startsWith("Files. File indexing is not turned on")),
     ).toBe(true);
-    expect(read.record?.statement.some((line) => line.startsWith("Files —"))).toBe(false);
+    expect(read.record?.report.some((section) => section.key === "files")).toBe(false);
   });
 });
 
@@ -1018,7 +1022,7 @@ describe("the reporting posture over the wire", () => {
     expect(response.status).toBe(403);
   });
 
-  it("returns the statement of what a check searched, ending in what surfaced", async () => {
+  it("returns the report of what a check searched, ending in what surfaced", async () => {
     const matterId = await createMatter("Statement");
     const { read } = await openAndSettle({
       trigger: "comprehensive",
@@ -1027,10 +1031,14 @@ describe("the reporting posture over the wire", () => {
       scope: { sources: ["party", "graph", "content"], strictness: "balanced" },
     });
     expect(read.record?.hits).toEqual([]);
-    const statement = read.record?.statement ?? [];
-    expect(statement[0]).toMatch(/^Searched on .*, as a comprehensive check\.$/);
-    expect(statement.some((line) => line.includes("followed to closure"))).toBe(true);
-    expect(statement.some((line) => line.startsWith("Not searched:"))).toBe(true);
-    expect(statement.at(-1)).toBe("0 results.");
+    const report = read.record?.report ?? [];
+    expect(report[0]?.key).toBe("searched");
+    expect(report[0]?.lines[0]).toMatch(/, as a comprehensive check\.$/u);
+    const relationships = report.find((section) => section.key === "relationships");
+    expect(relationships?.lines.some((line) => line.includes("to the end of its chain"))).toBe(
+      true,
+    );
+    expect(report.some((section) => section.key === "not_searched")).toBe(true);
+    expect(report.at(-1)?.lines.at(-1)).toBe("0 results.");
   });
 });

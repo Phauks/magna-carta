@@ -372,6 +372,8 @@ export type MetaVersionsResponse = {
     };
     services: Array<ServiceVersion>;
     connectedServices: Array<ConnectedServiceStatus>;
+    features: Array<FeatureStatus>;
+    featureRequirements: Array<FeatureRequirements> | null;
     observedAt: string;
 };
 
@@ -389,6 +391,19 @@ export type ConnectedServiceStatus = {
     id: 'realtime';
     state: 'connected' | 'not-configured' | 'refused' | 'unreachable';
     latencyMilliseconds: number | null;
+};
+
+export type FeatureStatus = {
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    state: 'working' | 'not-set-up' | 'fault';
+};
+
+export type FeatureRequirements = {
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    alternatives: Array<Array<{
+        name: string;
+        present: boolean;
+    }>>;
 };
 
 export type DatabaseHealthResponse = {
@@ -503,6 +518,27 @@ export type SetComponentOverride = {
 
 export type ClearComponentOverride = {
     componentId: string;
+};
+
+export type RecentErrorsResponse = {
+    state: 'read' | 'not-configured' | 'refused' | 'unreachable';
+    windowStart: string | null;
+    windowEnd: string | null;
+    total: number | null;
+    truncated: boolean;
+    groups: Array<RecentErrorGroup>;
+};
+
+export type RecentErrorGroup = {
+    latestErrorId: string | null;
+    service: string | null;
+    eventName: string;
+    where: string | null;
+    errorName: string | null;
+    messageHead: string | null;
+    count: number;
+    firstSeen: string;
+    lastSeen: string;
 };
 
 export type ReportIncidentResponse = {
@@ -5383,6 +5419,10 @@ export type SetDirectoryEntityPhotoRequest = {
 export type AddressSuggestionsResponse = {
     outcome: 'suggestions';
     suggestions: Array<AddressSuggestion>;
+    /**
+     * Whose data the offers are, when its terms require the list to say so. `google-maps`: the list shows the words Google Maps in the same container as the offers.
+     */
+    attribution?: 'google-maps';
 } | {
     outcome: 'no-coverage';
 } | {
@@ -5612,7 +5652,12 @@ export type ConflictsRunProgress = {
 
 export type ConflictsCheckRecord = {
     check: ConflictsCheckDetail;
-    statement: Array<string>;
+    report: Array<{
+        key: 'searched' | 'names' | 'relationships' | 'employees' | 'messaging' | 'tasks' | 'magnus' | 'files' | 'not_searched' | 'results';
+        heading: string;
+        lines: Array<string>;
+        attention: boolean;
+    }>;
     hits: Array<ConflictsHitDetail>;
 } | null;
 
@@ -7225,6 +7270,20 @@ export type OpenPersonalRoomRequest = {
     matterId?: string | null;
 };
 
+export type FirmRoomsResponse = {
+    rooms: Array<FirmRoom>;
+};
+
+export type FirmRoom = {
+    userId: string;
+    name: string;
+    linkCode: string | null;
+    medium: 'video' | 'audio' | null;
+    openMeetingId: string | null;
+    inTheRoom: number;
+    isCaller: boolean;
+};
+
 export type PersonalRoomAtLink = {
     state: 'closed' | 'open';
     ownerDisplayName: string;
@@ -7263,6 +7322,7 @@ export type MeetingSummary = {
     eventKind: 'matter' | 'firm';
     eventId: string;
     matterId: string | null;
+    matterTitle: string | null;
     title: string;
     startsOn: string;
     startsAtTime: string | null;
@@ -7455,6 +7515,7 @@ export type MeetingPoll = {
     question: string;
     anonymous: boolean;
     maxChoices: number;
+    kind: 'one' | 'multiple' | 'ranking' | 'score';
     openedAt: string;
     closedAt: string | null;
     closedByUserId: string | null;
@@ -7468,6 +7529,7 @@ export type MeetingPollOption = {
     position: number;
     label: string;
     count: number;
+    averageRank: number | null;
 };
 
 export type OpenMeetingPollRequest = {
@@ -7475,6 +7537,7 @@ export type OpenMeetingPollRequest = {
     options: Array<string>;
     anonymous: boolean;
     maxChoices?: number;
+    kind?: 'one' | 'multiple' | 'ranking' | 'score';
 };
 
 export type MeetingPollPage = {
@@ -11358,6 +11421,39 @@ export type PlatformStatusClearComponentOverrideResponses = {
 };
 
 export type PlatformStatusClearComponentOverrideResponse = PlatformStatusClearComponentOverrideResponses[keyof PlatformStatusClearComponentOverrideResponses];
+
+export type PlatformRecentErrorsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/recent-errors';
+};
+
+export type PlatformRecentErrorsErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformRecentErrorsError = PlatformRecentErrorsErrors[keyof PlatformRecentErrorsErrors];
+
+export type PlatformRecentErrorsResponses = {
+    /**
+     * The recent failures, or why they could not be read
+     */
+    200: RecentErrorsResponse;
+};
+
+export type PlatformRecentErrorsResponse = PlatformRecentErrorsResponses[keyof PlatformRecentErrorsResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
@@ -34701,6 +34797,43 @@ export type MeetingsOpenPersonalRoomResponses = {
 };
 
 export type MeetingsOpenPersonalRoomResponse = MeetingsOpenPersonalRoomResponses[keyof MeetingsOpenPersonalRoomResponses];
+
+export type MeetingsListFirmRoomsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/rooms';
+};
+
+export type MeetingsListFirmRoomsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room, link, meeting or matter is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsListFirmRoomsError = MeetingsListFirmRoomsErrors[keyof MeetingsListFirmRoomsErrors];
+
+export type MeetingsListFirmRoomsResponses = {
+    /**
+     * The firm's rooms
+     */
+    200: FirmRoomsResponse;
+};
+
+export type MeetingsListFirmRoomsResponse = MeetingsListFirmRoomsResponses[keyof MeetingsListFirmRoomsResponses];
 
 export type MeetingsReadRoomLinkData = {
     body?: never;

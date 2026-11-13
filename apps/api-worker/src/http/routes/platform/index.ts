@@ -6,9 +6,10 @@ import { registerIncidentsRoute } from "./incidents.ts";
 import { registerMetaDatabaseHealthRoute } from "./meta-database-health.ts";
 import { registerMetaVersionsRoute } from "./meta-versions.ts";
 import { registerPlatformReleaseChannelRoute } from "./platform-release-channel.ts";
+import { registerPlatformRecentErrorsRoute } from "./platform-recent-errors.ts";
 import { registerPlatformStatusRoute } from "./platform-status.ts";
 
-// Platform plumbing: the public firms door and its alpha release-channel twin, the operator's status and incident surfaces, and the version and database-health probes.
+// Platform plumbing: the public firms door and its alpha release-channel twin, the operator's status, recent-errors and incident surfaces, and the version and database-health probes.
 //
 // One sub-app per domain, built by the one constructor and mounted at the root by the manifest
 // (src/http/routes/manifest.ts). Every route below registers exactly as it did on the root app — through
@@ -25,6 +26,7 @@ export function mountPlatform(
   registerFirmsRoute(domain, chokepoint, authForEnv);
   registerPlatformReleaseChannelRoute(domain, chokepoint);
   registerPlatformStatusRoute(domain, chokepoint);
+  registerPlatformRecentErrorsRoute(domain, chokepoint);
   registerIncidentsRoute(domain, chokepoint);
   app.route("/", domain);
 }

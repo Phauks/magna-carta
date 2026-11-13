@@ -77,7 +77,7 @@
     failure = stated(
       outcome.failure,
       "The match still stands.",
-      "Nothing answered, so the match still stands. Retrying sends this same submission.",
+      "Couldn't connect. The match is unchanged. You can safely try again.",
     );
     return "refused";
   }
@@ -118,8 +118,7 @@
           : `${formatDate(match.item.effectiveDate)} · ${bankItemDirectionLabel(match.item)} · ${money(match.item.bankDeltaMinor)} · ${match.item.description}`}
       </DefinitionList.Row>
       <DefinitionList.Row term="What Changes">
-        The recorded item becomes outstanding again and can be matched to another line. The
-        assertion stays on the record, with who took it back and when.
+        The item becomes outstanding again and can be matched to another line. The original match stays on record with who withdrew it and when.
       </DefinitionList.Row>
     </DefinitionList.Root>
   {/snippet}

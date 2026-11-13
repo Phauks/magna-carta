@@ -62,8 +62,8 @@
   const identity = $props.id();
 
   const OUTPUT_FORMAT_OPTIONS: readonly ChoiceOption[] = [
-    { value: "docx", label: "Word document — still editable" },
-    { value: "pdf", label: "PDF — ready to sign" },
+    { value: "docx", label: "Word document, still editable" },
+    { value: "pdf", label: "PDF, ready to sign" },
   ];
   const OUTPUT_FORMAT_HINT =
     "A PDF is converted from the merged document before it is added, so it takes a little longer. Choose it when the document is going out to be signed.";

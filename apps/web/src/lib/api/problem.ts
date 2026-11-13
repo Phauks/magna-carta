@@ -78,6 +78,12 @@ export interface Failure {
   /** The call as the app made it, e.g. "GET /matters/mat_8QK2/costs". Never carries a body. */
   readonly request: string;
   readonly failedAt: Date;
+  /**
+   * For a crash in this browser: what was thrown and where, from crashSignature in
+   * $lib/diagnostics/crash.ts. It is what turns a client Error ID into a line a developer can find,
+   * because nothing about a client crash reaches a server log.
+   */
+  readonly cause?: string;
 }
 
 function wholeNumber(value: unknown): number | undefined {

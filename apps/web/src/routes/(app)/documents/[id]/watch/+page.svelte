@@ -94,7 +94,7 @@
       grantFailure = stated(
         outcome.failure,
         "The recording could not be opened.",
-        "Nothing answered when the recording was opened.",
+        "Couldn't connect while opening the recording.",
       );
     }
     asking = false;
@@ -179,7 +179,7 @@
     failure={data.failure}
     subject="The recording"
     fallback="The recording could not be read."
-    whenSilent="Nothing answered when the recording was read."
+    whenSilent="Couldn't connect while reading the recording."
     onRetry={() => void invalidateAll()}
   />
 {:else if file !== null && filesBack !== null}

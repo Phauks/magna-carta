@@ -53,5 +53,5 @@
   readFailureTitle="The Retention Setting Could Not Be Read"
   readFailureFallback="The firm's minimum retention was not read."
   saveFailureFallback="The minimum retention was not changed. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the minimum retention was not changed. What you chose is still staged."
+  saveFailureWhenSilent="Couldn't connect. The minimum retention is unchanged, and your choice is still here."
 />

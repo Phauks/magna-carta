@@ -129,7 +129,7 @@
 <Story
   name="Nothing to press"
   args={{
-    title: "Nothing answered",
+    title: "Couldn't connect",
     message:
       "The request did not reach Magna Carta, or the answer never arrived. Check your connection, then try again.",
     errorId: null,

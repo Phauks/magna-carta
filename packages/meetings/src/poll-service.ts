@@ -31,6 +31,7 @@ import {
 import type {
   MeetingPollAttributedAnswer,
   MeetingPollEntry,
+  MeetingPollKind,
   MeetingPollRow,
   MeetingPollTally,
 } from "./poll-types.ts";
@@ -105,6 +106,7 @@ export function toPollEntry(
     question: row.question,
     anonymous: row.anonymous === 1,
     maxChoices: row.max_choices,
+    kind: row.kind,
     openedAt: row.opened_at,
     closedAt: row.closed_at,
     closedByUserId: row.closed_by_user_id,
@@ -151,6 +153,7 @@ export async function openMeetingPoll(
     readonly options: readonly string[];
     readonly anonymous: boolean;
     readonly maxChoices: number;
+    readonly kind: MeetingPollKind;
   },
   options: MeetingPollOptions,
 ): Promise<{ poll: MeetingPollEntry; effect: EffectWrite }> {
@@ -166,6 +169,7 @@ export async function openMeetingPoll(
     position,
     label,
     count: 0,
+    averageRank: null,
   }));
 
   const statements: EffectStatement[] = [
@@ -176,6 +180,7 @@ export async function openMeetingPoll(
       question: body.question,
       anonymous: input.anonymous,
       maxChoices: body.maxChoices,
+      kind: body.kind,
       now,
     }),
     ...optionEntries.map((option) =>
@@ -200,6 +205,7 @@ export async function openMeetingPoll(
         openedAt: now,
         optionCount: optionEntries.length,
         maxChoices: body.maxChoices,
+        kind: body.kind,
         anonymous: input.anonymous,
       },
     }),
@@ -213,6 +219,7 @@ export async function openMeetingPoll(
       question: body.question,
       anonymous: input.anonymous,
       maxChoices: body.maxChoices,
+      kind: body.kind,
       openedAt: now,
       closedAt: null,
       closedByUserId: null,
@@ -316,20 +323,25 @@ export async function answerMeetingPoll(
   const optionIds = assertAnswerChoices(input.optionIds, {
     maxChoices: poll.max_choices,
     optionIds: new Set(await readPollOptionIds(database, pollId)),
+    kind: poll.kind,
   }) as readonly MeetingPollOptionId[];
 
   const now = options.clock.now();
   const respondentId = newIdentifier("meetingPollRespondent", options.randomSource);
   const anonymous = poll.anonymous === 1;
-  const answerStatements = optionIds.map((optionId) => {
+  const ranked = poll.kind === "ranking";
+  const answerStatements = optionIds.map((optionId, index) => {
     const id = newIdentifier("meetingPollAnswer", options.randomSource);
+    // On a ranking the order of the ids IS the answer: the first named is first place.
+    const rank = ranked ? index + 1 : null;
     return anonymous
-      ? insertAnonymousAnswerStatement(database, { id, pollId, optionId })
+      ? insertAnonymousAnswerStatement(database, { id, pollId, optionId, rank })
       : insertAttributedMemberAnswerStatement(database, {
           id,
           pollId,
           optionId,
           attendanceId: stay.id,
+          rank,
         });
   });
 

@@ -13,7 +13,7 @@ import {
   resetServiceVersionsCache,
   SERVICE_VERSION_ROSTER,
   type ServiceVersionBindings,
-} from "../src/http/routes/platform/meta-versions.ts";
+} from "../src/system-status/service-versions.ts";
 
 const REPORTED_IDENTITY = {
   commit: "abc1234",

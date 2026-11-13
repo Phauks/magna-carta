@@ -15,7 +15,7 @@
  */
 import type { HandleClientError } from "@sveltejs/kit";
 import { record } from "$lib/diagnostics/breadcrumbs.ts";
-import { CRASH_MESSAGE, noteCrash } from "$lib/diagnostics/crash.ts";
+import { CRASH_MESSAGE, crashSignature, noteCrash } from "$lib/diagnostics/crash.ts";
 
 export const handleError: HandleClientError = ({ error, event, status, message }) => {
   // A 404 is routing, not a crash: it has no handle to mint and nothing to report.
@@ -23,7 +23,7 @@ export const handleError: HandleClientError = ({ error, event, status, message }
 
   const errorId = noteCrash(error, event.url.pathname);
 
-  return { message: CRASH_MESSAGE, errorId };
+  return { message: CRASH_MESSAGE, errorId, cause: crashSignature(error) };
 };
 
 /*
@@ -41,14 +41,18 @@ if (typeof window !== "undefined") {
     // by whoever wrote the throw and can carry anything the code had in hand — a document name, a
     // party, a field value — and a breadcrumb has no business holding it (golden rule 4). The
     // filename and line say which code failed, which is what a report needs.
-    const kind = event.error instanceof Error ? event.error.name : "Error";
+    // An engine's own message is the exception: crash.ts says which kinds, and why.
     const where = event.filename === "" ? "unknown" : `${event.filename}:${String(event.lineno)}`;
-    record("failure", `uncaught ${kind} at ${where}`);
+    record(
+      "failure",
+      event.error instanceof Error
+        ? `uncaught ${crashSignature(event.error)}`
+        : `uncaught Error at ${where}`,
+    );
   });
   window.addEventListener("unhandledrejection", (event) => {
     // Same rule: the rejection's kind, never its reason.
     const reason: unknown = event.reason;
-    const kind = reason instanceof Error ? reason.name : typeof reason;
-    record("failure", `unhandled rejection: ${kind}`);
+    record("failure", `unhandled rejection: ${crashSignature(reason)}`);
   });
 }

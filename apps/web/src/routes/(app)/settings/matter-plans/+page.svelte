@@ -164,10 +164,7 @@
     <Alert.Root variant="info">
       <Alert.Title>A Plan Offers, It Does Not Impose</Alert.Title>
       <Alert.Description>
-        When a matter of the right kind is opened, its plan is offered on the matter's Tasks page.
-        Somebody reviews what it would add, changes what needs changing, and keeps what applies —
-        nothing is written until they do. Dates are counted in plain days, so a step can land on a
-        weekend and the person reviewing it moves it. Magna Carta ships no plans of its own.
+        When a matter of the right type opens, its plan's tasks are offered on the matter's Tasks page. Nothing is added until someone accepts them. Dates count calendar days, so check for weekends.
       </Alert.Description>
     </Alert.Root>
 
@@ -257,8 +254,7 @@
       {/snippet}
       {#snippet emptyState()}
         <EmptyState title="No plans yet">
-          A plan is your own list of what a kind of matter takes — the calls, the letters, the filings.
-          Write one here and it is offered every time a matter of that kind is opened.
+          A plan lists the tasks a type of matter needs, such as calls, letters and filings. It's offered each time a matter of that type opens.
         </EmptyState>
       {/snippet}
       {#snippet fixture()}
@@ -440,8 +436,7 @@
                           </div>
                         </div>
                         <p class="text-xs text-text-muted">
-                          The role is matched against each matter's own team when the plan is offered.
-                          Where nobody holds it, the step arrives unassigned and says so.
+                          The role is matched to each matter's team when the plan is offered. If no one has the role, the task is unassigned.
                         </p>
                         <div class="flex justify-end gap-8">
                           <Button

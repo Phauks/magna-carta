@@ -101,7 +101,7 @@
   {:else}
     <CheckEmailScreen
       address={redeemedAddress}
-      instruction="Open the link we sent and choose a password. That is the last step — you can sign in straight afterwards."
+      instruction="Open the link we sent and choose a password. Then you can sign in."
       {sentAt}
       remedy="If it does not arrive, check the spam folder, then ask the firm that invited you to send a new invitation."
       back={() => goto("/login")}

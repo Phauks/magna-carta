@@ -17,7 +17,8 @@ random bytes, so every branch runs in a test with no network.
   asks for events carrying it and nothing else, so no event the member made is ever read. Changing
   that identifier orphans every copy already written. `graphRecurrenceOf` converts a series' rule and
   returns null for a rule Graph is not documented to put on the same days; a null is refused before
-  any request, never approximated
+  any request, never approximated. `listSeriesChangedDays` reads a series' `exceptionOccurrences`
+  and leaves out any day that does not say when it originally began
 
 - `src/change-notices.ts` — reads what Graph posts to a subscription's address into the calendar's
   `ProviderNotice`: the secret and whether the notice is about the subscription itself. Which event

@@ -1,8 +1,8 @@
 @layer components {
   /*
    * Checkbox (Tier 2, Bits UI). A square box that fills with action-primary and shows the Lucide
-   * Check (or Minus for indeterminate) when set. Resting border like the Input, so the merged-edge
-   * focus (border + flush outline both focus-ring).
+   * Check (or Minus for indeterminate) when set. Resting edge like the Input (border.field), and the
+   * same focus: an ink edge with the shared gold ring outside it.
    */
   .mc-checkbox {
     display: inline-flex;
@@ -16,7 +16,7 @@
     block-size: var(--mc-space-20);
     border-style: solid;
     border-width: var(--mc-border-width-default);
-    border-color: var(--mc-border-default);
+    border-color: var(--mc-border-field);
     border-radius: var(--mc-radius-sm);
     background-color: var(--mc-surface-field);
     color: var(--mc-action-primary-foreground);
@@ -35,8 +35,8 @@
     border-color: var(--mc-action-primary);
   }
   .mc-checkbox:focus-visible {
-    border-color: var(--mc-focus-ring);
-    outline-color: var(--mc-focus-ring);
+    border-color: var(--mc-text-default);
+    outline-color: var(--mc-accent-strong);
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }

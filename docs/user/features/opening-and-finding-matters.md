@@ -40,7 +40,9 @@ Each column header sorts when you press it. Everything else a column can be aske
 right-click menu: **Filter** narrows by that column alone, and beside it you can hide the column,
 pin it so it stays put when the table scrolls sideways, or open **Columns** for every column the
 table can show and the row-striping setting. A column you have hidden has no header left to
-right-click, so **Columns** is where you bring it back. A column that is being filtered is marked
+right-click, so **Columns** is where you bring it back. The **Columns** list stays open while you
+tick and untick, so you can change several columns at once; press Escape or click elsewhere to
+close it. A column that is being filtered is marked
 in its heading — hover the mark to read what it is narrowed to. Columns can be dragged into the
 order you prefer and resized by their edges.
 

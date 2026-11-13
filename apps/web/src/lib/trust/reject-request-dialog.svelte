@@ -50,7 +50,7 @@
   const refusal = $derived.by((): string | undefined => {
     if (request === null) return "No request is open.";
     if (reason.trim() === "") {
-      return "A reason is required. It is what the member who proposed this reads.";
+      return "A reason is required. The person who proposed this will see it.";
     }
     return undefined;
   });
@@ -66,7 +66,7 @@
     failure = stated(
       outcome.failure,
       "Nothing was decided: the request is still waiting.",
-      "Nothing answered, so nothing was decided. The request is still waiting.",
+      "Couldn't connect. Nothing was decided, and the request is still waiting.",
     );
     return "refused";
   }

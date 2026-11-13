@@ -92,8 +92,7 @@
       {list.loadingMore ? "Loading" : "Load more time"}
     </Button>
     <p class="text-xs text-text-muted">
-      Showing the {(entries ?? []).length} most recent. The figures below cover only what is
-      loaded, so they are not the matter's whole time record until every page is read.
+      Showing the {(entries ?? []).length} most recent. The totals below cover only these until you load more.
     </p>
   </div>
 {/snippet}
@@ -106,7 +105,7 @@
       failure={loadFailure}
       title="Time Could Not Be Read"
       fallback="This matter's time could not be read."
-      whenSilent="Nothing answered when this matter's time was asked for."
+      whenSilent="Couldn't connect while loading this matter's time."
       onRetry={() => (reloadToken += 1)}
     >
       The record itself is unaffected: nothing was changed by this failure.
@@ -117,9 +116,7 @@
     <Alert.Root variant="info">
       <Alert.Title>This is a sample matter.</Alert.Title>
       <Alert.Description>
-        It exists so the matter screens stay reviewable at a stable address; there is no firm record
-        behind it, so it holds no time and nothing can be recorded against it. Open one of the firm's
-        own matters to use this surface.
+        This is a sample matter for previewing screens. It has no time. Open one of the firm's matters to use it.
       </Alert.Description>
     </Alert.Root>
   </section>

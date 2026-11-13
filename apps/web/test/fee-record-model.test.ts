@@ -83,7 +83,7 @@ describe("the fee ledger's columns", () => {
     // eventually rides, the kind of line it becomes, or the entries it was drawn from — there are
     // none.
     const labels = COLUMNS.map((column) => column.label);
-    expect(labels).not.toContain("Invoice");
+    expect(labels).not.toContain("Bill");
     expect(labels).not.toContain("Kind");
     expect(labels).not.toContain("Agreement");
     expect(labels).not.toContain("Drawn From");
@@ -238,7 +238,7 @@ describe("moving a charge between ledgers", () => {
   it("states what carries FOR THE PAIR, because the differences are the whole decision", () => {
     const toTime = carryFacts("fee", "time", { amountMinor: 40_000 }, money);
     expect(toTime.keeps.join(" ")).toContain("held as the target amount");
-    expect(toTime.loses.join(" ")).toContain("HOURS");
+    expect(toTime.loses.join(" ")).toContain("hours");
     expect(toTime.loses.join(" ")).toContain("incomplete");
 
     const toCost = carryFacts("fee", "cost", { amountMinor: 40_000 }, money);

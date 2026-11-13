@@ -96,7 +96,7 @@
     }
     failure =
       outcome.kind === "transport"
-        ? "Nothing answered. The report was not sent."
+        ? "Couldn't connect. The report wasn't sent."
         : (outcome.problem.detail ?? "The report was not sent.");
     return "refused";
   }

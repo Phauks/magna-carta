@@ -199,9 +199,7 @@
       <CredentialNotice message={rejection} errorId={supportErrorId} subject="registration" />
 
       <p class="text-sm text-text-muted">
-        Your account is created when you open the link in that email, which is how we know the
-        address is yours — and opening it signs you in, so there is no password to type a third
-        time. From there you can start a law firm or join one you have been invited to.
+        Open the link in that email to create your account and sign in. Then you can start a law firm or join one you've been invited to.
       </p>
     </form>
   {/snippet}

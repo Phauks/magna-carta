@@ -12,6 +12,7 @@ import {
   type ProviderEventSnapshot,
   type ProviderEventWindow,
   type ProviderEventWrite,
+  type ProviderSeriesChangedDay,
   type ProviderWrittenEvents,
 } from "@magna-carta/calendar/sync-port";
 import {
@@ -48,6 +49,8 @@ const descriptor: CapabilityDescriptor = {
     listWrittenEvents: { supported: true },
     readEvent: { supported: true },
     listCalendarEvents: { supported: true },
+    listSeriesChangedDays: { supported: true },
+    updateSeriesDay: { supported: true },
     watchChanges: { supported: true },
     renewWatch: { supported: true },
     stopWatch: { supported: true },
@@ -122,6 +125,16 @@ const calendarViewPageSchema = z.object({
     }),
   ),
   "@odata.nextLink": z.string().optional(),
+});
+
+// A series with the days a member changed on their own. Graph names them `exceptionOccurrences`
+// and hands them back only when the series is asked for by its identifier with the relationship
+// expanded. `originalStart` is when the day began before it was changed, always in UTC.
+const seriesChangedDaysSchema = z.object({
+  exceptionOccurrences: z
+    .array(eventSnapshotSchema.extend({ originalStart: z.string().nullable().optional() }))
+    .nullable()
+    .optional(),
 });
 
 const GRAPH_MOMENT_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/;
@@ -582,6 +595,63 @@ export function createMicrosoftCalendarAdapter(
             url = next !== undefined && next.startsWith(`${GRAPH_ORIGIN}/`) ? next : undefined;
           }
           return ok({ events, complete: url === undefined });
+        },
+
+        async listSeriesChangedDays(
+          seriesRemoteId: string,
+        ): Promise<Dispatch<readonly ProviderSeriesChangedDay[] | null>> {
+          let response;
+          try {
+            response = await dependencies.http.request({
+              method: "GET",
+              url:
+                `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(seriesRemoteId)}` +
+                `?$select=id&$expand=exceptionOccurrences`,
+              headers,
+            });
+          } catch {
+            return unreachable();
+          }
+          if (response.status === 404) return ok(null);
+          if (response.status >= 400) return adapterError(problemFor(response.status));
+          const parsed = seriesChangedDaysSchema.safeParse(await readJson(response));
+          if (!parsed.success) return unreadable("Microsoft's list of a series' changed days");
+          const days: ProviderSeriesChangedDay[] = [];
+          for (const day of parsed.data.exceptionOccurrences ?? []) {
+            // A day that cannot be placed, or does not say which day it was, is left as the
+            // member made it. Guessing which day of a series a moved event used to be would
+            // change the wrong one.
+            const snapshot = snapshotOfGraphEvent(day);
+            const originalStartsAtMilliseconds = Date.parse(day.originalStart ?? "");
+            if (snapshot === undefined || Number.isNaN(originalStartsAtMilliseconds)) continue;
+            days.push({ ...snapshot, originalStartsAtMilliseconds });
+          }
+          return ok(days);
+        },
+
+        async updateSeriesDay(
+          dayRemoteId: string,
+          event: ProviderEventWrite,
+        ): Promise<Dispatch<ProviderEventPresence>> {
+          const body = graphEventBody({ ...event, repeats: null });
+          const sent = await send(
+            "PATCH",
+            `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(dayRemoteId)}`,
+            // Only what a member can see. The day keeps the series' notes and its mark, and a
+            // day of a series is never given a rule of its own.
+            {
+              subject: body.subject,
+              location: body.location,
+              isAllDay: body.isAllDay,
+              start: body.start,
+              end: body.end,
+            },
+          );
+          if (!sent.ok) return sent;
+          if (sent.value.status === 404) return ok({ found: false });
+          if (sent.value.status >= 400) return adapterError(problemFor(sent.value.status));
+          const receipt = await readReceipt(sent.value);
+          return ok({ found: true, versionTag: receipt?.changeKey ?? null });
         },
 
         async watchChanges(

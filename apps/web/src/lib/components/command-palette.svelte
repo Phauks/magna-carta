@@ -298,7 +298,7 @@
               <Command.Item onSelect={openBugReport}>Report an Issue</Command.Item>
               <!-- Hand-mirrored from the profile menu like Report a bug (the seam has no
                    registry yet — it gains one, or a live route, when accounts ship). -->
-              <Command.Item disabled>Account Settings — soon</Command.Item>
+              <Command.Item disabled>Account Settings (soon)</Command.Item>
               {#each ECOSYSTEM_SITES as site (site.id)}
                 {#if site.href === null && site.opensWindow !== undefined}
                   {@const opensWindow = site.opensWindow}

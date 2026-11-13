@@ -112,7 +112,7 @@
     readFailure = stated(
       outcome.failure,
       "The document could not be read.",
-      "Nothing answered when the document was read.",
+      "Couldn't connect while reading the document.",
     );
   }
 

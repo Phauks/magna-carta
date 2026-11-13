@@ -12115,7 +12115,16 @@ export const meetingPoll = sqliteTable(
     // held by the ANSWER table rather than by a read filter — see `meeting_poll_answer`.
     anonymous: integer("anonymous", { mode: "boolean" }).notNull(),
     // How many options one participation may name. One is an ordinary poll; more is "choose up to".
+    // On a ranking it is every option, since each participant puts them all in order.
     maxChoices: integer("max_choices").notNull().default(1),
+    // WHAT KIND OF QUESTION IT IS. `one` and `multiple` pick options; `ranking` puts every option in
+    // order, each answer row carrying its place; `score` is a rating, its options the points of the
+    // scale ("1" to "5"), so the tally is the ordinary one and the average is read off positions.
+    // Added as a column with its own CHECK rather than read off `max_choices`, because a ranking and
+    // a "choose up to" poll can both let a participant name several options.
+    kind: text("kind", { enum: ["one", "multiple", "ranking", "score"] })
+      .notNull()
+      .default("one"),
     openedAt: text("opened_at").notNull(), // ISO-8601 instant
     // Closed says who closed it and when, or neither. A closed poll refuses answers.
     closedAt: text("closed_at"), // ISO-8601 instant
@@ -12135,6 +12144,7 @@ export const meetingPoll = sqliteTable(
     // Between one and the most options a poll may carry, since a participation can name no more
     // options than exist.
     check("meeting_poll_max_choices_check", sql`${table.maxChoices} BETWEEN 1 AND 10`),
+    check("meeting_poll_kind_check", sql`${table.kind} IN ('one', 'multiple', 'ranking', 'score')`),
     check(
       "meeting_poll_question_length_check",
       sql`length(${table.question}) > 0 AND length(${table.question}) <= 500`,
@@ -12244,6 +12254,9 @@ export const meetingPollAnswer = sqliteTable(
       enum: ["member", "guest", "attendee"],
     }),
     participantId: text("participant_id"),
+    // The place a participant put this option on a ranking poll, 1 being first; null on every other
+    // kind. It says nothing about who, so an anonymous ranking stays anonymous.
+    rank: integer("rank"),
   },
   (table) => [
     foreignKey({
@@ -12257,6 +12270,10 @@ export const meetingPollAnswer = sqliteTable(
       "meeting_poll_answer_participant_shape_check",
       sql`(${table.participantKind} IS NULL AND ${table.participantId} IS NULL)
         OR (${table.participantKind} IS NOT NULL AND ${table.participantId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_poll_answer_rank_check",
+      sql`${table.rank} IS NULL OR ${table.rank} BETWEEN 1 AND 10`,
     ),
     check(
       "meeting_poll_answer_participant_kind_check",

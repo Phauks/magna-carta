@@ -21,6 +21,9 @@ import {
   awaitsAnswerFrom,
   isAcceptableAnswer,
   isOpenablePoll,
+  rankedOptions,
+  scoreAverage,
+  scoreScaleOptions,
   MeetingPolls,
   membersWhoCanAnswer,
   readPoll,
@@ -43,12 +46,31 @@ function poll(over: Partial<MeetingPollView> = {}): MeetingPollView {
     question: "Which date works for the hearing?",
     anonymous: false,
     maxChoices: 1,
+    kind: "one",
     openedAt: "2026-09-20T15:00:00.000Z",
     closedAt: null,
     options: [
-      { optionId: "meetingPollOption_1", position: 0, label: "Thursday", count: 0 },
-      { optionId: "meetingPollOption_2", position: 1, label: "Friday", count: 0 },
-      { optionId: "meetingPollOption_3", position: 2, label: "Monday", count: 0 },
+      {
+        optionId: "meetingPollOption_1",
+        position: 0,
+        label: "Thursday",
+        count: 0,
+        averageRank: null,
+      },
+      {
+        optionId: "meetingPollOption_2",
+        position: 1,
+        label: "Friday",
+        count: 0,
+        averageRank: null,
+      },
+      {
+        optionId: "meetingPollOption_3",
+        position: 2,
+        label: "Monday",
+        count: 0,
+        averageRank: null,
+      },
     ],
     respondents: 0,
     answered: false,
@@ -116,8 +138,8 @@ describe("reading a poll off the wire", () => {
       openedAt: "2026-09-20T15:00:00.000Z",
       closedAt: null,
       options: [
-        { optionId: "b", position: 1, label: "Friday", count: 2 },
-        { optionId: "a", position: 0, label: "Thursday", count: 1 },
+        { optionId: "b", position: 1, label: "Friday", count: 2, averageRank: null },
+        { optionId: "a", position: 0, label: "Thursday", count: 1, averageRank: null },
       ],
       respondents: 3,
     });
@@ -161,8 +183,62 @@ describe("what a poll will take", () => {
     ).toBe(false);
   });
 
+  it("holds each poll type to what it asks", () => {
+    const base = { question: "Rank these", options: ["A", "B", "C"], anonymous: false };
+    expect(isOpenablePoll({ ...base, kind: "one", maxChoices: 1 })).toBe(true);
+    expect(isOpenablePoll({ ...base, kind: "one", maxChoices: 2 })).toBe(false);
+    expect(isOpenablePoll({ ...base, kind: "ranking", maxChoices: 3 })).toBe(true);
+    expect(isOpenablePoll({ ...base, kind: "ranking", maxChoices: 2 })).toBe(false);
+    const scale = scoreScaleOptions(5);
+    expect(scale).toEqual(["1", "2", "3", "4", "5"]);
+    expect(isOpenablePoll({ ...base, options: scale, kind: "score", maxChoices: 1 })).toBe(true);
+    expect(isOpenablePoll({ ...base, kind: "score", maxChoices: 1 })).toBe(false);
+  });
+
+  it("takes a ranking only as every option in order, and averages a score", () => {
+    const ranking = poll({ kind: "ranking", maxChoices: 3 });
+    expect(isAcceptableAnswer(ranking, ["meetingPollOption_2", "meetingPollOption_1"])).toBe(false);
+    expect(
+      isAcceptableAnswer(ranking, [
+        "meetingPollOption_3",
+        "meetingPollOption_1",
+        "meetingPollOption_2",
+      ]),
+    ).toBe(true);
+
+    const score = poll({
+      kind: "score",
+      options: [
+        { optionId: "s1", position: 0, label: "1", count: 1, averageRank: null },
+        { optionId: "s2", position: 1, label: "2", count: 0, averageRank: null },
+        { optionId: "s3", position: 2, label: "3", count: 3, averageRank: null },
+      ],
+    });
+    expect(scoreAverage(score)).toBe(2.5);
+    expect(scoreAverage(poll())).toBeNull();
+  });
+
+  it("orders a ranking's result by average place, unranked last", () => {
+    const ranked = rankedOptions(
+      poll({
+        kind: "ranking",
+        options: [
+          { optionId: "a", position: 0, label: "A", count: 2, averageRank: 2.5 },
+          { optionId: "b", position: 1, label: "B", count: 2, averageRank: 1.5 },
+          { optionId: "c", position: 2, label: "C", count: 0, averageRank: null },
+        ],
+      }),
+    );
+    expect(ranked.map((option) => option.label)).toEqual(["B", "A", "C"]);
+  });
+
   it("opens a poll with two to ten options and a choice count they can meet", () => {
-    const draft = { question: "Which date?", options: ["Thursday", "Friday"], anonymous: false };
+    const draft = {
+      question: "Which date?",
+      options: ["Thursday", "Friday"],
+      anonymous: false,
+      kind: "multiple" as const,
+    };
     expect(isOpenablePoll({ ...draft, maxChoices: 1 })).toBe(true);
     expect(isOpenablePoll({ ...draft, options: ["Thursday"], maxChoices: 1 })).toBe(false);
     expect(isOpenablePoll({ ...draft, options: ["Thursday", " "], maxChoices: 1 })).toBe(false);
@@ -419,14 +495,64 @@ describe("the polls panel", () => {
     expect(asked).toEqual(["answer:meetingPoll_1:meetingPollOption_2"]);
   });
 
+  it("sends a ranking as the order the member put the options in", async () => {
+    const ranking = poll({ kind: "ranking", maxChoices: 3 });
+    instance = mount(Panel, { target, props: props({ polls: [ranking] }) });
+    flushSync();
+
+    document.body.querySelector<HTMLButtonElement>('[aria-label="Move Monday up"]')?.click();
+    flushSync();
+    buttonReading("Answer")?.click();
+    await settle();
+
+    expect(asked).toEqual([
+      "answer:meetingPoll_1:meetingPollOption_1,meetingPollOption_3,meetingPollOption_2",
+    ]);
+  });
+
+  it("shows a score's average once answered", () => {
+    const score = poll({
+      kind: "score",
+      answered: true,
+      respondents: 2,
+      options: [
+        { optionId: "s1", position: 0, label: "1", count: 0, averageRank: null },
+        { optionId: "s2", position: 1, label: "2", count: 1, averageRank: null },
+        { optionId: "s3", position: 2, label: "3", count: 1, averageRank: null },
+      ],
+    });
+    instance = mount(Panel, { target, props: props({ polls: [score] }) });
+    flushSync();
+
+    expect(document.body.textContent).toContain("Average 2.5 out of 3");
+  });
+
   it("is a tally once answered: a bar per option and how many of the room answered", () => {
     const answered = poll({
       answered: true,
       respondents: 12,
       options: [
-        { optionId: "meetingPollOption_1", position: 0, label: "Thursday", count: 9 },
-        { optionId: "meetingPollOption_2", position: 1, label: "Friday", count: 3 },
-        { optionId: "meetingPollOption_3", position: 2, label: "Monday", count: 0 },
+        {
+          optionId: "meetingPollOption_1",
+          position: 0,
+          label: "Thursday",
+          count: 9,
+          averageRank: null,
+        },
+        {
+          optionId: "meetingPollOption_2",
+          position: 1,
+          label: "Friday",
+          count: 3,
+          averageRank: null,
+        },
+        {
+          optionId: "meetingPollOption_3",
+          position: 2,
+          label: "Monday",
+          count: 0,
+          averageRank: null,
+        },
       ],
     });
     instance = mount(Panel, { target, props: props({ polls: [answered] }) });

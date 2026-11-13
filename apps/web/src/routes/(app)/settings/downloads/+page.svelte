@@ -45,7 +45,7 @@
     sectionId: "downloads",
     label: "Save a file as soon as I export",
     description:
-      "Exporting adds the item to your Downloads so you can gather several and take them together. Turn this on to also save the file straight away, the moment you export it.",
+      "Exporting adds the file to Downloads so you can collect several at once. Turn this on to also save each file right away.",
     kind: "switch",
     defaultValue: false,
     sensitivity: "open",
@@ -64,7 +64,7 @@
     sectionId: "downloads",
     label: "Download Folder",
     description: !canChooseFolder
-      ? 'This browser does not let a page choose a folder. Turn on "always ask where to save files" in your browser\'s own settings and it will ask you for every download.'
+      ? 'This browser can\'t let a page choose a folder. Turn on "Always ask where to save files" in your browser settings instead.'
       : folderName === null
         ? "Files go wherever this browser saves downloads."
         : `Files are saved to ${folderName}.`,
@@ -111,7 +111,7 @@
 <SettingsMasthead sectionId="downloads" title="Downloads" posture="instant" />
 
 <SettingsScrollRegion>
-  <SettingsDescription>How you take the files the platform makes for you.</SettingsDescription>
+  <SettingsDescription>How you get the files you export.</SettingsDescription>
 
   <SettingsPlate heading="Exporting">
     <SettingsRow

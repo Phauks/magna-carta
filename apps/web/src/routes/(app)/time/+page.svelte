@@ -458,8 +458,7 @@
       <!-- The figures cover what is loaded, and the record is not fully loaded. Saying so is the
            difference between a running subtotal and a number somebody bills from. -->
       <p class="text-xs text-text-muted">
-        Showing the {entries.length} most recent entries. The figures cover only what is loaded, so
-        they are not the whole total until every page is read.
+        Showing the {entries.length} most recent entries. Totals cover only these until you load more.
       </p>
     {/if}
   {/if}

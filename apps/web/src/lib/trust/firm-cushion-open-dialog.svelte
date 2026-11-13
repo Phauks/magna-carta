@@ -83,7 +83,7 @@
     failure = stated(
       outcome.failure,
       "The cushion is not open: this account holds no money of the firm's.",
-      "Nothing answered, so the cushion is not open. Retrying sends this same submission rather than asking for a second carve-out.",
+      "Couldn't connect. The cushion wasn't opened, and trying again won't open a second one.",
     );
     return "refused";
   }

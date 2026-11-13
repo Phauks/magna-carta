@@ -110,7 +110,7 @@ function firmDatabaseRow(value: DatabaseHealthValue): HealthRow {
       status: "Not answering",
       detail:
         fault === null
-          ? "The firm's database did not answer this request, and gave no reason."
+          ? "The firm's database didn't respond and gave no reason."
           : `The firm's database did not answer this request: ${fault}`,
     };
   }
@@ -244,7 +244,7 @@ function membershipRow(value: DatabaseHealthValue): HealthRow {
       name: "Your membership",
       reading: "fault",
       status: "No permissions",
-      detail: `${formatRoles(membership.roles)} — held, but granting nothing in this firm.`,
+      detail: `${formatRoles(membership.roles)}: assigned, but grants nothing at this firm.`,
     };
   }
   return {
@@ -268,7 +268,7 @@ function controlPlaneRow(value: DatabaseHealthValue): HealthRow {
       name: "Control plane",
       reading: "fault",
       status: "Not answering",
-      detail: "The platform's own database did not answer this request.",
+      detail: "Magna Carta's database didn't respond.",
     };
   }
   if (!value.controlPlane.bucketProvisioned) {

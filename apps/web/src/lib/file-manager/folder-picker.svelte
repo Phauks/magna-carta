@@ -87,7 +87,7 @@
     showFileCounts={false}
     {label}
     homeLabel="Home"
-    emptyMessage="No folders yet — everything lands at the top level."
+    emptyMessage="No folders yet. Everything is at the top level."
     newFolderDisabledReason="Folders are made from the file list, not from this picker."
   />
 </div>

@@ -20,7 +20,10 @@
   --mc-action-secondary: var(--mc-color-neutral-100);
   --mc-action-secondary-foreground: var(--mc-color-neutral-900);
   --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-control: var(--mc-color-neutral-300);
   --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-700);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
   --mc-border-width-default: 1px;
@@ -221,6 +224,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-field-disabled: var(--mc-color-neutral-50);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -313,7 +317,10 @@
   --mc-action-secondary: var(--mc-color-neutral-800);
   --mc-action-secondary-foreground: var(--mc-color-neutral-50);
   --mc-action-secondary-hover: var(--mc-color-neutral-700);
+  --mc-border-control: var(--mc-color-neutral-700);
   --mc-border-default: var(--mc-color-neutral-800);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-300);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
   --mc-border-width-default: 1px;
@@ -514,6 +521,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-field: var(--mc-color-neutral-1000);
+  --mc-surface-field-disabled: var(--mc-color-neutral-900);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -606,7 +614,10 @@
   --mc-action-secondary: var(--mc-color-neutral-100);
   --mc-action-secondary-foreground: var(--mc-color-neutral-900);
   --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-control: var(--mc-color-neutral-300);
   --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-700);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
   --mc-border-width-default: 1px;
@@ -807,6 +818,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-field-disabled: var(--mc-color-neutral-50);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -899,7 +911,10 @@
   --mc-action-secondary: var(--mc-color-neutral-800);
   --mc-action-secondary-foreground: var(--mc-color-neutral-50);
   --mc-action-secondary-hover: var(--mc-color-neutral-700);
+  --mc-border-control: var(--mc-color-neutral-700);
   --mc-border-default: var(--mc-color-neutral-800);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-300);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
   --mc-border-width-default: 1px;
@@ -1100,6 +1115,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-field: var(--mc-color-neutral-1000);
+  --mc-surface-field-disabled: var(--mc-color-neutral-900);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -1192,7 +1208,10 @@
   --mc-action-secondary: var(--mc-color-neutral-100);
   --mc-action-secondary-foreground: var(--mc-color-neutral-900);
   --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-control: var(--mc-color-neutral-300);
   --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-700);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
   --mc-border-width-default: 1px;
@@ -1393,6 +1412,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-field-disabled: var(--mc-color-neutral-50);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -1485,7 +1505,10 @@
   --mc-action-secondary: var(--mc-color-neutral-800);
   --mc-action-secondary-foreground: var(--mc-color-neutral-50);
   --mc-action-secondary-hover: var(--mc-color-neutral-700);
+  --mc-border-control: var(--mc-color-neutral-700);
   --mc-border-default: var(--mc-color-neutral-800);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-300);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
   --mc-border-width-default: 1px;
@@ -1686,6 +1709,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-field: var(--mc-color-neutral-1000);
+  --mc-surface-field-disabled: var(--mc-color-neutral-900);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -1778,7 +1802,10 @@
   --mc-action-secondary: var(--mc-color-neutral-100);
   --mc-action-secondary-foreground: var(--mc-color-neutral-900);
   --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-control: var(--mc-color-neutral-300);
   --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-700);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
   --mc-border-width-default: 1px;
@@ -1979,6 +2006,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-field-disabled: var(--mc-color-neutral-50);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -2071,7 +2099,10 @@
   --mc-action-secondary: var(--mc-color-neutral-800);
   --mc-action-secondary-foreground: var(--mc-color-neutral-50);
   --mc-action-secondary-hover: var(--mc-color-neutral-700);
+  --mc-border-control: var(--mc-color-neutral-700);
   --mc-border-default: var(--mc-color-neutral-800);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-300);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
   --mc-border-width-default: 1px;
@@ -2272,6 +2303,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-field: var(--mc-color-neutral-1000);
+  --mc-surface-field-disabled: var(--mc-color-neutral-900);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -2364,7 +2396,10 @@
   --mc-action-secondary: var(--mc-color-neutral-100);
   --mc-action-secondary-foreground: var(--mc-color-neutral-900);
   --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-control: var(--mc-color-neutral-300);
   --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-700);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
   --mc-border-width-default: 1px;
@@ -2565,6 +2600,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-field-disabled: var(--mc-color-neutral-50);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -2657,7 +2693,10 @@
   --mc-action-secondary: var(--mc-color-neutral-800);
   --mc-action-secondary-foreground: var(--mc-color-neutral-50);
   --mc-action-secondary-hover: var(--mc-color-neutral-700);
+  --mc-border-control: var(--mc-color-neutral-700);
   --mc-border-default: var(--mc-color-neutral-800);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-300);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
   --mc-border-width-default: 1px;
@@ -2858,6 +2897,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-field: var(--mc-color-neutral-1000);
+  --mc-surface-field-disabled: var(--mc-color-neutral-900);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -2950,7 +2990,10 @@
   --mc-action-secondary: var(--mc-color-neutral-100);
   --mc-action-secondary-foreground: var(--mc-color-neutral-900);
   --mc-action-secondary-hover: var(--mc-color-neutral-200);
+  --mc-border-control: var(--mc-color-neutral-300);
   --mc-border-default: var(--mc-color-neutral-200);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-700);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
   --mc-border-width-default: 1px;
@@ -3151,6 +3194,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-field: var(--mc-color-neutral-0);
+  --mc-surface-field-disabled: var(--mc-color-neutral-50);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -3243,7 +3287,10 @@
   --mc-action-secondary: var(--mc-color-neutral-800);
   --mc-action-secondary-foreground: var(--mc-color-neutral-50);
   --mc-action-secondary-hover: var(--mc-color-neutral-700);
+  --mc-border-control: var(--mc-color-neutral-700);
   --mc-border-default: var(--mc-color-neutral-800);
+  --mc-border-field: var(--mc-color-neutral-500);
+  --mc-border-field-hover: var(--mc-color-neutral-300);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
   --mc-border-width-default: 1px;
@@ -3444,6 +3491,7 @@
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-field: var(--mc-color-neutral-1000);
+  --mc-surface-field-disabled: var(--mc-color-neutral-900);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
@@ -3558,5 +3606,25 @@
 }
 
 :root[data-typeface="system"] {
+--mc-font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="atkinson"] {
+--mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="lexend"] {
+--mc-font-sans: "Lexend Variable", "Lexend", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="opendyslexic"] {
+--mc-font-sans: "OpenDyslexic", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="serif"] {
+--mc-font-sans: "Literata Variable", "Literata", "Georgia", "Times New Roman", serif;
+}
+
+[data-typeface-sample="system"] {
 --mc-font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
 }

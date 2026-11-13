@@ -35,6 +35,8 @@
    *
    * IT TAKES MODELS AND HANDLERS, NOT THE CLIENT, like every other screen component here.
    */
+  import ArrowDown from "@lucide/svelte/icons/arrow-down";
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
@@ -53,12 +55,20 @@
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import {
     awaitsAnswerFrom,
+    DEFAULT_MEETING_POLL_SCORE_SCALE,
     isAcceptableAnswer,
     isOpenablePoll,
     MAX_MEETING_POLL_OPTIONS,
     MAX_MEETING_POLL_QUESTION_LENGTH,
+    MEETING_POLL_KIND_LABELS,
+    MEETING_POLL_KINDS,
+    MEETING_POLL_SCORE_SCALES,
     MIN_MEETING_POLL_OPTIONS,
+    rankedOptions,
+    scoreAverage,
+    scoreScaleOptions,
     shareOf,
+    type MeetingPollKind,
     type MeetingPollAnswerPageView,
     type MeetingPollAnswerView,
     type MeetingPollDraft,
@@ -77,6 +87,7 @@
 
   let {
     open = $bindable(false),
+    inline = false,
     subject,
     polls,
     hosting = false,
@@ -94,6 +105,8 @@
     readFailure,
     writeFailure,
   }: {
+    /** Drawn in the room's side panel rather than as a dialog over the room. */
+    inline?: boolean;
     /** Whether the panel is showing. Bindable, so the band and the count agree about it. */
     open?: boolean;
     /** Which meeting this is about, named once. */
@@ -147,24 +160,55 @@
   let question = $state("");
   let options = $state<string[]>(["", ""]);
   let hideNames = $state(false);
-  let maxChoices = $state("1");
+  let kind = $state<string>("one");
+  /** How many a Multiple poll lets each person choose. */
+  let upTo = $state("2");
+  /** How many points a Score poll's scale has. */
+  let scale = $state(String(DEFAULT_MEETING_POLL_SCORE_SCALE));
+
+  const pollKind = $derived<MeetingPollKind>(
+    (MEETING_POLL_KINDS as readonly string[]).includes(kind) ? (kind as MeetingPollKind) : "one",
+  );
+
+  /** What each kind asks: a Score's options are its scale, a Ranking names every option. */
+  const draftOptions = $derived(
+    pollKind === "score" ? scoreScaleOptions(Number(scale)) : options,
+  );
+  const draftMaxChoices = $derived(
+    pollKind === "multiple"
+      ? Number(upTo)
+      : pollKind === "ranking"
+        ? draftOptions.length
+        : 1,
+  );
 
   const draft = $derived<MeetingPollDraft>({
     question,
-    options,
+    options: draftOptions,
     anonymous: hideNames,
-    maxChoices: Number(maxChoices),
+    maxChoices: draftMaxChoices,
+    kind: pollKind,
   });
   const canOpen = $derived(!opening && isOpenablePoll(draft));
   const questionRoomLeft = $derived(MAX_MEETING_POLL_QUESTION_LENGTH - question.trim().length);
 
-  /** One choice, or up to as many as there are options to choose. */
+  const kindChoices = MEETING_POLL_KINDS.map((value) => ({
+    value,
+    label: MEETING_POLL_KIND_LABELS[value],
+  }));
+
+  /** On a Multiple poll, up to two, three, and so on to as many options as there are. */
   const choiceCounts = $derived(
-    Array.from({ length: Math.max(options.length, MIN_MEETING_POLL_OPTIONS) }, (_, index) => ({
-      value: String(index + 1),
-      label: index === 0 ? "One" : `Up to ${String(index + 1)}`,
+    Array.from({ length: Math.max(options.length - 1, 1) }, (_, index) => ({
+      value: String(index + 2),
+      label: `Up to ${String(index + 2)}`,
     })),
   );
+
+  const scaleChoices = MEETING_POLL_SCORE_SCALES.map((points) => ({
+    value: String(points),
+    label: `1 to ${String(points)}`,
+  }));
 
   /** How much room is left, said the way a person would say it. */
   function roomLeftStatement(left: number): string {
@@ -182,7 +226,7 @@
     if (options.length <= MIN_MEETING_POLL_OPTIONS) return;
     options = options.filter((_, at) => at !== index);
     // A poll cannot let somebody choose more options than it has.
-    if (Number(maxChoices) > options.length) maxChoices = String(options.length);
+    if (Number(upTo) > options.length) upTo = String(options.length);
   }
 
   async function openPoll(): Promise<void> {
@@ -193,7 +237,9 @@
     question = "";
     options = ["", ""];
     hideNames = false;
-    maxChoices = "1";
+    kind = "one";
+    upTo = "2";
+    scale = String(DEFAULT_MEETING_POLL_SCORE_SCALE);
   }
 
   // ---- a member answering ---------------------------------------------------------------------
@@ -214,8 +260,42 @@
     choose(pollId, checked ? [...held, optionId] : held);
   }
 
+  /**
+   * A ranking's order as this person has it: what they have arranged, or the order the room was
+   * shown until they move something. Leaving it untouched is an answer too.
+   */
+  function orderFor(poll: MeetingPollView): readonly string[] {
+    const held = chosenFor(poll.pollId);
+    return held.length === poll.options.length
+      ? held
+      : poll.options.map((option) => option.optionId);
+  }
+
+  function labelOf(poll: MeetingPollView, optionId: string): string {
+    return poll.options.find((option) => option.optionId === optionId)?.label ?? "";
+  }
+
+  /** Move one option up or down a place in this person's ranking. */
+  function move(poll: MeetingPollView, index: number, by: -1 | 1): void {
+    const order = [...orderFor(poll)];
+    const to = index + by;
+    if (to < 0 || to >= order.length) return;
+    [order[index], order[to]] = [order[to] ?? "", order[index] ?? ""];
+    choose(poll.pollId, order);
+  }
+
+  /** What a card sends: a ranking's whole order, or the options picked. */
+  function answerOf(poll: MeetingPollView): readonly string[] {
+    return poll.kind === "ranking" ? orderFor(poll) : chosenFor(poll.pollId);
+  }
+
+  /** An average, said to one decimal place. */
+  function oneDecimal(value: number): string {
+    return (Math.round(value * 10) / 10).toFixed(1);
+  }
+
   async function sendAnswer(poll: MeetingPollView): Promise<void> {
-    const picked = chosenFor(poll.pollId);
+    const picked = answerOf(poll);
     if (!isAcceptableAnswer(poll, picked)) return;
     if (await onAnswer(poll.pollId, picked)) choose(poll.pollId, []);
   }
@@ -299,6 +379,7 @@
       question: SAMPLE_SENTENCE,
       anonymous: false,
       maxChoices: 1,
+      kind: "one",
       openedAt: sampleInstant(0),
       closedAt: null,
       options: [0, 1, 2].map((position) => ({
@@ -306,6 +387,7 @@
         position,
         label: SAMPLE_SENTENCE,
         count: 0,
+        averageRank: null,
       })),
       respondents: 0,
       answered: true,
@@ -324,7 +406,31 @@
     </Card.Header>
 
     <Card.Content>
-      {#if showsTally(poll)}
+      {#if showsTally(poll) && poll.kind === "ranking"}
+        <!-- A ranking's result is the order the room put the options in: best average place first,
+             with the average beside it. -->
+        <ol class="flex flex-col gap-8" aria-label="Ranking so far">
+          {#each rankedOptions(poll) as option, index (option.optionId)}
+            <li class="flex items-baseline gap-8 text-sm">
+              <span class="w-16 shrink-0 tabular-nums text-text-muted">{index + 1}.</span>
+              <span class="min-w-0 flex-1">{option.label}</span>
+              <span class="shrink-0 tabular-nums text-text-muted">
+                {option.averageRank === null
+                  ? "Not ranked yet"
+                  : `Average place ${oneDecimal(option.averageRank)}`}
+              </span>
+            </li>
+          {/each}
+        </ol>
+      {:else if showsTally(poll)}
+        {#if poll.kind === "score"}
+          {@const average = scoreAverage(poll)}
+          <p class="mb-12 text-sm font-medium">
+            {average === null
+              ? "No scores yet"
+              : `Average ${oneDecimal(average)} out of ${String(poll.options.length)}`}
+          </p>
+        {/if}
         <!-- Every option, in the order the room was shown them, including the ones nobody chose:
              a tally that left out a zero would be a poll with fewer options than it was asked with. -->
         <ul class="flex flex-col gap-12" aria-label="Answers so far">
@@ -345,6 +451,52 @@
             </li>
           {/each}
         </ul>
+      {:else if poll.kind === "ranking"}
+        {@const order = orderFor(poll)}
+        <ol class="flex flex-col gap-4" aria-label="Put these in order, first at the top">
+          {#each order as optionId, index (optionId)}
+            {@const label = labelOf(poll, optionId)}
+            <li class="flex items-center gap-8 rounded-sm border border-border-default px-8 py-4">
+              <span class="w-16 shrink-0 text-sm tabular-nums text-text-muted">{index + 1}.</span>
+              <span class="min-w-0 flex-1 text-sm">{label}</span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Move {label} up"
+                disabled={index === 0}
+                onclick={() => move(poll, index, -1)}
+              >
+                <ArrowUp class="size-16" aria-hidden="true" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Move {label} down"
+                disabled={index === order.length - 1}
+                onclick={() => move(poll, index, 1)}
+              >
+                <ArrowDown class="size-16" aria-hidden="true" />
+              </Button>
+            </li>
+          {/each}
+        </ol>
+      {:else if poll.kind === "score"}
+        <!-- A rating reads along a line, lowest to highest. -->
+        <RadioGroup.Root
+          aria-label={poll.question}
+          bind:value={
+            () => chosenFor(poll.pollId)[0] ?? "", (next) => choose(poll.pollId, [next])
+          }
+          class="flex flex-wrap gap-12"
+        >
+          {#each poll.options as option (option.optionId)}
+            {@const id = `poll-${poll.pollId}-${option.optionId}`}
+            <div class="flex items-center gap-4">
+              <RadioGroup.Item {id} value={option.optionId} />
+              <Label for={id}>{option.label}</Label>
+            </div>
+          {/each}
+        </RadioGroup.Root>
       {:else if poll.maxChoices === 1}
         <RadioGroup.Root
           aria-label={poll.question}
@@ -405,7 +557,7 @@
         <Button
           variant="secondary"
           size="sm"
-          disabled={!isAcceptableAnswer(poll, chosenFor(poll.pollId)) || answering.has(poll.pollId)}
+          disabled={!isAcceptableAnswer(poll, answerOf(poll)) || answering.has(poll.pollId)}
           onclick={() => void sendAnswer(poll)}
         >
           {answering.has(poll.pollId) ? "Answering" : "Answer"}
@@ -421,12 +573,11 @@
   {/each}
 {/snippet}
 
-<ActionDialog bind:open kind="reading" heading="Polls" subtitle={subject}>
-  {#snippet notice()}
+{#snippet panelNotice()}
     {@render writeFailure?.()}
   {/snippet}
 
-  {#snippet fields()}
+{#snippet panelBody()}
     <div class="flex flex-col gap-24">
       {#if hosting}
         <section class="flex flex-col gap-12" aria-labelledby="meeting-new-poll-heading">
@@ -442,6 +593,27 @@
             {/if}
           </div>
 
+          <div class="flex flex-col gap-4">
+            <Label for="meeting-new-poll-kind">Poll Type</Label>
+            <ChoicePicker
+              inputId="meeting-new-poll-kind"
+              label="Poll Type"
+              options={kindChoices}
+              bind:value={kind}
+            />
+          </div>
+
+          {#if pollKind === "score"}
+            <div class="flex flex-col gap-4">
+              <Label for="meeting-new-poll-scale">Scale</Label>
+              <ChoicePicker
+                inputId="meeting-new-poll-scale"
+                label="Scale"
+                options={scaleChoices}
+                bind:value={scale}
+              />
+            </div>
+          {:else}
           <fieldset class="flex flex-col gap-8">
             <legend class="text-sm">Options</legend>
             {#each options as _, index (index)}
@@ -472,17 +644,20 @@
               </div>
             {/if}
           </fieldset>
+          {/if}
 
           <div class="flex flex-wrap items-end gap-16">
-            <div class="flex flex-col gap-4">
-              <Label for="meeting-new-poll-choices">Choices each person may make</Label>
-              <ChoicePicker
-                inputId="meeting-new-poll-choices"
-                label="Choices each person may make"
-                options={choiceCounts}
-                bind:value={maxChoices}
-              />
-            </div>
+            {#if pollKind === "multiple"}
+              <div class="flex flex-col gap-4">
+                <Label for="meeting-new-poll-choices">Choices each person may make</Label>
+                <ChoicePicker
+                  inputId="meeting-new-poll-choices"
+                  label="Choices each person may make"
+                  options={choiceCounts}
+                  bind:value={upTo}
+                />
+              </div>
+            {/if}
             <div class="flex items-center gap-8">
               <Switch aria-labelledby="meeting-new-poll-names-label" bind:checked={hideNames} />
               <Label id="meeting-new-poll-names-label">Do not show names with answers</Label>
@@ -517,7 +692,24 @@
       </LoadingRegion>
     </div>
   {/snippet}
-</ActionDialog>
+
+{#if inline}
+  <!-- Drawn in the room's side panel, beside the picture rather than over it. -->
+  <div class="flex flex-col gap-16">
+    {@render panelNotice()}
+    {@render panelBody()}
+  </div>
+{:else}
+  <ActionDialog bind:open kind="reading" heading="Polls" subtitle={subject}>
+    {#snippet notice()}
+      {@render panelNotice()}
+    {/snippet}
+
+    {#snippet fields()}
+      {@render panelBody()}
+    {/snippet}
+  </ActionDialog>
+{/if}
 
 <!-- Asked first: a closed poll takes no more answers, it cannot be opened again, and somebody in the
      room may be halfway through choosing. -->

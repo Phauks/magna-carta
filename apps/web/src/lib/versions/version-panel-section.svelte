@@ -42,6 +42,7 @@
     loadingLabel,
     fixture,
     children,
+    foldable = true,
   }: {
     label: string;
     /** The remembered fold for this section, from the fold registry. */
@@ -63,7 +64,15 @@
     /** Row shapes over sample values, greyed, for the first read. */
     fixture?: Snippet;
     children?: Snippet;
+    /**
+     * False where something else already names the section and decides whether it shows — a tab
+     * on the System Status page. The section then has no heading and no fold of its own; a fold
+     * inside a tab would be a second way to hide what the tab was opened to show.
+     */
+    foldable?: boolean;
   } = $props();
+
+  const collapsed = $derived(foldable && preference.collapsed);
 
   // Whether there is anything at all to put inside the loading region: rows, or a skeleton standing
   // in for rows that have not arrived. A section with neither renders its heading and stops, rather
@@ -75,12 +84,14 @@
   );
 </script>
 
-<VersionSectionHeading
-  {label}
-  collapsed={preference.collapsed}
-  toggle={() => preference.toggle()}
-  {pills}
-/>
+{#if foldable}
+  <VersionSectionHeading
+    {label}
+    collapsed={preference.collapsed}
+    toggle={() => preference.toggle()}
+    {pills}
+  />
+{/if}
 
 {#if failure !== null}
   <!-- OUTSIDE the fold, deliberately. Folding a section is a statement about how much detail the
@@ -106,7 +117,7 @@
   </div>
 {/if}
 
-{#if !preference.collapsed && hasBody}
+{#if !collapsed && hasBody}
   <!-- The region's own `failed`/`failure` snippets are deliberately unused: they render the failure
        INSIDE the region, which is inside the fold, and this panel's rule is that folding never hides
        a fault. The block above sits outside both. -->

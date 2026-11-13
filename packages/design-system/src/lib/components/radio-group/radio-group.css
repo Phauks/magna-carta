@@ -17,7 +17,7 @@
     block-size: var(--mc-space-20);
     border-style: solid;
     border-width: var(--mc-border-width-default);
-    border-color: var(--mc-border-default);
+    border-color: var(--mc-border-field);
     border-radius: var(--mc-radius-full);
     background-color: var(--mc-surface-field);
     cursor: pointer;
@@ -33,8 +33,8 @@
     border-color: var(--mc-action-primary);
   }
   .mc-radio-item:focus-visible {
-    border-color: var(--mc-focus-ring);
-    outline-color: var(--mc-focus-ring);
+    border-color: var(--mc-text-default);
+    outline-color: var(--mc-accent-strong);
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }

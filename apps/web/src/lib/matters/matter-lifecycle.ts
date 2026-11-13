@@ -93,7 +93,7 @@ export interface MatterLifecycleStep {
  * the matter exactly where it was.
  */
 export const MATTER_LIFECYCLE_TRANSPORT_FAILURE =
-  "Nothing answered. The matter's status is unchanged.";
+  "Couldn't connect. The matter's status is unchanged.";
 
 const GRADUATE_STEP: MatterLifecycleStep = {
   action: "graduate",

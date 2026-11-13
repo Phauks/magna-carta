@@ -5,7 +5,8 @@
     "sunken": { "$type": "color", "$value": "{color.neutral.1000}" },
     "overlay": { "$type": "color", "$value": "{color.neutral.900}" },
     "selected": { "$type": "color", "$value": "{color.neutral.800}" },
-    "field": { "$type": "color", "$value": "{color.neutral.1000}" }
+    "field": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "field-disabled": { "$type": "color", "$value": "{color.neutral.900}" }
   },
   "text": {
     "default": { "$type": "color", "$value": "{color.neutral.50}" },
@@ -31,7 +32,10 @@
   "border": {
     "default": { "$type": "color", "$value": "{color.neutral.800}" },
     "strong": { "$type": "color", "$value": "{color.neutral.600}" },
-    "focus": { "$type": "color", "$value": "{color.brand.400}" }
+    "focus": { "$type": "color", "$value": "{color.brand.400}" },
+    "field": { "$type": "color", "$value": "{color.neutral.500}" },
+    "field-hover": { "$type": "color", "$value": "{color.neutral.300}" },
+    "control": { "$type": "color", "$value": "{color.neutral.700}" }
   },
   "focus": {
     "ring": { "$type": "color", "$value": "{color.brand.400}" }

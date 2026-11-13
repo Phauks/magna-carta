@@ -64,7 +64,7 @@ export function invoiceRecordSheet(
   const credited = creditedMinor(row);
 
   return {
-    heading: invoice.status === "draft" ? "Draft Bill" : "Invoice",
+    heading: invoice.status === "draft" ? "Draft Bill" : "Bill",
     reference: invoiceReference(row),
     subtitle: subtitleFor(context),
     sections: [

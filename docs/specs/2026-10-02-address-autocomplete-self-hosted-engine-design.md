@@ -63,7 +63,7 @@ licence at all, so excluding them would empty the index. The exclusion register 
 `containers/address/src/build_job.rs`, with the reason beside each entry; on 2026-10-02 it holds six layers:
 `us/ca/mono` (CC BY-SA 4.0), `us/or/city_of_tigard` (CC BY-SA 4.0), `us/wa/jefferson` (ODbL 1.0),
 `us/wa/spokane` (CC BY-NC-SA 4.0), and both `us/mi/semcog` layers (a bespoke copyright licence
-agreement). Twenty-six layers record only an indemnification clause — San Diego County, Fulton County
+agreement). A re-read of the source records on 2026-11-13 added two layers that had appeared or changed since: `us/tx/capcog` (CC BY-SA) and `us/or/portland_metro` (RLIS Open Database End User License, recorded share-alike); the Texas and Oregon statewide layers still cover both areas. Twenty-six layers record only an indemnification clause — San Diego County, Fulton County
 and San Antonio among them — and are included. This policy is the owner's to confirm (see _Owner
 flags_). Every build writes an attribution manifest — each included source, layer and job — beside the
 index.

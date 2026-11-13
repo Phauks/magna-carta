@@ -210,7 +210,7 @@
     completeFailure = stated(
       outcome.failure,
       "The intake could not be completed.",
-      "Nothing answered. The intake is unchanged.",
+      "Couldn't connect. The intake is unchanged.",
     );
   }
 

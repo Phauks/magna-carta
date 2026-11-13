@@ -104,9 +104,12 @@ and never calls external services.
   stands on conflicts**. Computed from rows at read time, stores nothing, writes nothing. Also the
   shared readers of a stored check row (`parseCheckScope`, `parseCheckInputs`, `reportedSourcesFor`),
   so the posture read and the check read can never explain the same row differently
-- `src/report-text.ts` — `describeCheck`: the pure statement list for one check — what ran with what
-  settings over how many entities, what did not run and why, and what surfaced. Zero hits ends
-  `"0 results."`
+- `src/report-text.ts` — `describeCheck`: the pure account of one check as keyed sections (`ReportSection`:
+  Searched, Names and identifiers, Relationships, Firm Employees, one per place beyond the Directory,
+  Not searched, Results), each a heading and plain sentences with no dashes, `attention` set on a
+  section saying the search was narrower than asked or stopped short. Zero hits ends the Results
+  section `"0 results."`. The web files the place sections under their places by key, never by
+  parsing a sentence
 - `src/sources.ts` — the one home for what a check can search, what it cannot, and why:
   `availabilityOf` (the write side), `unavailabilityReason` and `displayNameForSource` (the read side)
 - `src/topics.ts` — the two outbox topics this package publishes, as one frozen set:

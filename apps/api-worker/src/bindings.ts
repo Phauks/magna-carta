@@ -226,6 +226,13 @@ export type Bindings = {
   // absence is real; the gate, not the type, is what makes them present in a deployment.
   CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  // A Cloudflare API token that can only READ Workers Logs (Account > Workers Observability > Read),
+  // for the System Status page's Recent Errors (system-status/recent-errors.ts). Its own token,
+  // never the provisioner's: that one can create and destroy firm resources, and an error list has
+  // no business holding that power. Optional, and absent is the shipped state: without it the
+  // Recent Errors read answers not-configured. Production sets it with
+  // `wrangler secret put OBSERVABILITY_API_TOKEN`. Never logged, never echoed to a caller.
+  OBSERVABILITY_API_TOKEN?: string;
   // The account-scoped R2 S3 API token the presigner signs upload/download URLs with — the bytes
   // bypass the Worker, so it holds only this signing credential. Production secrets (placeholder
   // values in .dev.vars to satisfy the secrets.required gate).
@@ -358,6 +365,11 @@ export type Bindings = {
   // echoed to a caller: Smarty takes them in the query string, so the adapter never quotes a URL.
   SMARTY_AUTH_ID?: string;
   SMARTY_AUTH_TOKEN?: string;
+  // The Google Places API key behind address autocomplete (address-lookup/address-lookup-engine.ts).
+  // Optional, and absent is the shipped state. Set with `wrangler secret put GOOGLE_PLACES_API_KEY`;
+  // while it is set, Google answers every country ahead of the platform's index and Smarty, and every
+  // lookup is billed by Google. Sent only in a request header, never a URL; never logged.
+  GOOGLE_PLACES_API_KEY?: string;
   // The Telnyx API key behind the call record's "Look up caller ID" (caller-lookup/
   // caller-lookup-engine.ts). Optional, and ABSENT IS THE SHIPPED STATE: without it the record shows
   // the free Directory match and area-code region and offers no paid lookup at all. Production sets

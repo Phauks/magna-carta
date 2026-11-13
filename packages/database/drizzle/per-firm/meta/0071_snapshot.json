@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8ac81bcc-62db-4a9b-8a7a-fe2313f12d90",
-  "prevId": "2b15559c-e580-4511-94c0-04f760157a3c",
+  "id": "0a3cd76d-9214-489e-8b48-8bdebcbbc04c",
+  "prevId": "c4149ddc-ae0a-4640-81f0-1d2e1868ceda",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -21441,6 +21441,14 @@
           "autoincrement": false,
           "default": 1
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'one'"
+        },
         "opened_at": {
           "name": "opened_at",
           "type": "text",
@@ -21547,6 +21555,10 @@
           "name": "meeting_poll_max_choices_check",
           "value": "\"meeting_poll\".\"max_choices\" BETWEEN 1 AND 10"
         },
+        "meeting_poll_kind_check": {
+          "name": "meeting_poll_kind_check",
+          "value": "\"meeting_poll\".\"kind\" IN ('one', 'multiple', 'ranking', 'score')"
+        },
         "meeting_poll_question_length_check": {
           "name": "meeting_poll_question_length_check",
           "value": "length(\"meeting_poll\".\"question\") > 0 AND length(\"meeting_poll\".\"question\") <= 500"
@@ -21591,6 +21603,13 @@
         "participant_id": {
           "name": "participant_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -21642,6 +21661,10 @@
         "meeting_poll_answer_participant_shape_check": {
           "name": "meeting_poll_answer_participant_shape_check",
           "value": "(\"meeting_poll_answer\".\"participant_kind\" IS NULL AND \"meeting_poll_answer\".\"participant_id\" IS NULL)\n        OR (\"meeting_poll_answer\".\"participant_kind\" IS NOT NULL AND \"meeting_poll_answer\".\"participant_id\" IS NOT NULL)"
+        },
+        "meeting_poll_answer_rank_check": {
+          "name": "meeting_poll_answer_rank_check",
+          "value": "\"meeting_poll_answer\".\"rank\" IS NULL OR \"meeting_poll_answer\".\"rank\" BETWEEN 1 AND 10"
         },
         "meeting_poll_answer_participant_kind_check": {
           "name": "meeting_poll_answer_participant_kind_check",
