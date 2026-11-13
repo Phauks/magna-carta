@@ -388,3 +388,30 @@ describe("GET /api/v1/reports/work-in-progress", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("GET /api/v1/reports/realization", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/realization?${query}`;
+
+  it("answers the Owner, saying the standard value is live", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as { standardValueIsLive: boolean };
+    expect(report.standardValueIsLive).toBe(true);
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

@@ -793,3 +793,125 @@ export async function readWorkInProgressBreakdown(
     })),
   };
 }
+
+// REALIZATION OVER A PERIOD, per matter: what the time recorded was worth at standard rates, what was
+// billed, what was credited or written off, and what was applied against the bills.
+//
+// Three legs are as-of reproducible and one is not, and the row says which is which by name:
+//
+//   - BILLED: `invoice_matter_balance.total_minor` of bills issued in the period and finalized by the
+//     knowledge instant. A finalized bill is frozen by trigger, so this never moves.
+//   - CREDITED: credit notes and write-offs effective in the period and recorded by the instant, less
+//     reversals of them on the same axes.
+//   - APPLIED: payments, trust transfers and client credits set against bills, on the same terms.
+//     "Applied", never "collected": the platform records what was set against a bill, and no payment
+//     rail records cash arriving.
+//   - STANDARD VALUE (live): time entries worked in the period, not voided, at their recorded value.
+//     Time entries are mutable until billed and carry no stamp of when they changed, so this leg is
+//     the value as the entries stand now, and a reader is told so beside the other three.
+//
+// The direction of every application is its KIND, as on the running column: a reversal moves its
+// original's leg back, so it is attributed through `reverses_application_id` to that leg.
+export const MAXIMUM_REALIZATION_ROWS = 5000;
+
+export interface RealizationQuery {
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly knownAsOf: string;
+}
+
+export interface RealizationRow {
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly clientEntityId: string | null;
+  readonly clientName: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+  readonly standardValueMinor: number;
+  readonly billedMinor: number;
+  readonly creditedMinor: number;
+  readonly appliedMinor: number;
+}
+
+export interface RealizationBreakdown {
+  readonly rows: readonly RealizationRow[];
+  readonly truncated: boolean;
+}
+
+export async function readRealizationBreakdown(
+  database: SqlDatabase,
+  query: RealizationQuery,
+): Promise<RealizationBreakdown> {
+  const { results } = await database
+    .prepare(
+      `WITH application_leg AS (
+         SELECT a.matter_id,
+                CASE WHEN COALESCE(o.kind, a.kind) IN ('credit_note', 'write_off') THEN 'credited' ELSE 'applied' END AS leg,
+                CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END AS amount_minor
+           FROM invoice_application a
+           LEFT JOIN invoice_application o ON o.id = a.reverses_application_id
+          WHERE a.effective_date BETWEEN ?1 AND ?2 AND a.applied_at <= ?3
+       ),
+       leg AS (
+         SELECT b.matter_id, 0 AS standard_value_minor, b.total_minor AS billed_minor,
+                0 AS credited_minor, 0 AS applied_minor
+           FROM invoice i JOIN invoice_matter_balance b ON b.invoice_id = i.id
+          WHERE i.status = 'final' AND i.issue_date BETWEEN ?1 AND ?2 AND i.finalized_at <= ?3
+         UNION ALL
+         SELECT matter_id, 0, 0,
+                CASE WHEN leg = 'credited' THEN amount_minor ELSE 0 END,
+                CASE WHEN leg = 'applied' THEN amount_minor ELSE 0 END
+           FROM application_leg
+         UNION ALL
+         SELECT t.matter_id, t.amount_minor, 0, 0, 0
+           FROM time_entry t
+          WHERE t.work_date BETWEEN ?1 AND ?2 AND t.status <> 'void' AND t.amount_minor IS NOT NULL
+       )
+       SELECT l.matter_id, m.title AS matter_title, m.matter_number,
+              (SELECT MIN(p.entity_id) FROM matter_party p
+                WHERE p.matter_id = l.matter_id AND p.role = 'client') AS client_entity_id,
+              m.client_display_name AS client_name,
+              m.location_id, loc.name AS location_name,
+              SUM(l.standard_value_minor) AS standard_value_minor,
+              SUM(l.billed_minor) AS billed_minor,
+              SUM(l.credited_minor) AS credited_minor,
+              SUM(l.applied_minor) AS applied_minor
+         FROM leg l
+         JOIN matter m ON m.id = l.matter_id
+         LEFT JOIN location loc ON loc.id = m.location_id
+        GROUP BY l.matter_id
+        ORDER BY l.matter_id
+        LIMIT ?4`,
+    )
+    .bind(query.periodStart, query.periodEnd, query.knownAsOf, MAXIMUM_REALIZATION_ROWS + 1)
+    .all<{
+      matter_id: string;
+      matter_title: string;
+      matter_number: string | null;
+      client_entity_id: string | null;
+      client_name: string | null;
+      location_id: string | null;
+      location_name: string | null;
+      standard_value_minor: number;
+      billed_minor: number;
+      credited_minor: number;
+      applied_minor: number;
+    }>();
+  return {
+    truncated: results.length > MAXIMUM_REALIZATION_ROWS,
+    rows: results.slice(0, MAXIMUM_REALIZATION_ROWS).map((row) => ({
+      matterId: row.matter_id,
+      matterTitle: row.matter_title,
+      matterNumber: row.matter_number,
+      clientEntityId: row.client_entity_id,
+      clientName: row.client_name,
+      locationId: row.location_id,
+      locationName: row.location_name,
+      standardValueMinor: row.standard_value_minor,
+      billedMinor: row.billed_minor,
+      creditedMinor: row.credited_minor,
+      appliedMinor: row.applied_minor,
+    })),
+  };
+}

@@ -1711,6 +1711,57 @@ export type WorkInProgressReport = {
     }>;
 };
 
+export type RealizationReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    standardValueIsLive: true;
+    standardValueStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        standardValueMinor: number;
+        billedMinor: number;
+        creditedMinor: number;
+        appliedMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            standardValueMinor: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            standardValueMinor: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                standardValueMinor: number;
+                billedMinor: number;
+                creditedMinor: number;
+                appliedMinor: number;
+            };
+        }>;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -15188,6 +15239,52 @@ export type ReportsWorkInProgressResponses = {
 };
 
 export type ReportsWorkInProgressResponse = ReportsWorkInProgressResponses[keyof ReportsWorkInProgressResponses];
+
+export type ReportsRealizationData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/realization';
+};
+
+export type ReportsRealizationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more matters had activity than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsRealizationError = ReportsRealizationErrors[keyof ReportsRealizationErrors];
+
+export type ReportsRealizationResponses = {
+    /**
+     * The realization for this period
+     */
+    200: RealizationReport;
+};
+
+export type ReportsRealizationResponse = ReportsRealizationResponses[keyof ReportsRealizationResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

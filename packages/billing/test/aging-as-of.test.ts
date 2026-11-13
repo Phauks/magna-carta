@@ -11,6 +11,7 @@ import { finalizeInvoice } from "../src/finalize.ts";
 import {
   readAccountsReceivableAging,
   readAccountsReceivableAgingAsOf,
+  readRealizationBreakdown,
   type AccountsReceivableAgingAsOf,
 } from "../src/queries.ts";
 import {
@@ -246,5 +247,57 @@ describe("the accounts-receivable aging as of a date", () => {
     // Only the Washoe bill was issued by 5 April, and its write-off was in force (the reversal was
     // effective on the 10th): 50,000 less 10,000, 35 days past due.
     expect(inApril.buckets.map((bucket) => bucket.unpaidMinor)).toEqual([0, 0, 40_000, 0, 0]);
+  });
+});
+
+describe("the realization breakdown over a period", () => {
+  const legs = async (
+    fixture: BillingFixture,
+    periodStart: string,
+    periodEnd: string,
+    knownAsOf: string,
+  ) => {
+    const { rows, truncated } = await readRealizationBreakdown(fixture.database, {
+      periodStart,
+      periodEnd,
+      knownAsOf,
+    });
+    expect(truncated).toBe(false);
+    return {
+      standardValue: totalOf(rows.map((row) => row.standardValueMinor)),
+      billed: totalOf(rows.map((row) => row.billedMinor)),
+      credited: totalOf(rows.map((row) => row.creditedMinor)),
+      applied: totalOf(rows.map((row) => row.appliedMinor)),
+    };
+  };
+
+  it("counts a bill in the period it was issued and a write-off in the period it took effect", async () => {
+    const fixture = await book();
+    expect(await legs(fixture, "2026-07-01", "2026-07-31", "2026-08-05T15:00:00.000Z")).toEqual({
+      standardValue: 0,
+      billed: 120_000,
+      credited: 20_000,
+      applied: 0,
+    });
+  });
+
+  it("does not let a write-off recorded after the knowledge instant reach back into the period", async () => {
+    const fixture = await book();
+    const july = await legs(fixture, "2026-07-01", "2026-07-31", "2026-07-31T23:59:59.999Z");
+    expect(july.credited).toBe(0);
+  });
+
+  it("nets a reversed write-off to nothing inside one period", async () => {
+    const fixture = await book();
+    const april = await legs(fixture, "2026-04-01", "2026-04-30", "2026-08-05T15:00:00.000Z");
+    expect(april.credited).toBe(0);
+  });
+
+  it("values the time worked in the period at its recorded value, billed or not", async () => {
+    const fixture = await book();
+    // Every fixture entry was worked on 1 August and all three have since been billed.
+    const august = await legs(fixture, "2026-08-01", "2026-08-31", "2026-08-05T15:00:00.000Z");
+    expect(august.standardValue).toBe(250_000);
+    expect(august.billed).toBe(0);
   });
 });
