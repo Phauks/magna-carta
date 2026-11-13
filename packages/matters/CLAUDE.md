@@ -21,6 +21,12 @@ list/consultations queries. Validates in memory and composes statements into @ma
   rendered-string collision only this package's partial unique indexes can see. `matterSequenceOf`
   is the only reader; everything else about a sequence is `purposeOf(purpose)` on the register
 - `src/matter-service.ts` — `createMatter`/`openMatter`/`closeMatter`/`reopenMatter`/`renumberMatter`/`updateMatter`
+- `src/transferred-matter.ts` — `composeTransferredMatter`: a matter arriving from the system a firm
+  is leaving. It keeps the source's number (no counter draw, no allocation row), takes its opening
+  and closing instants from the source, writes its client and parties in the same batch, and
+  returns NO outbox messages, so no conflicts check or notification follows. Its one caller is
+  `@magna-carta/record-transfer`. Do not route a transfer through `createMatter`: that would draw
+  a new number and stamp today as the opening
 - `src/close-preconditions.ts` — the close-precondition hook: a `check` plus an optional in-batch `commitGuard`
 - `src/close-advisories.ts` — the close-ADVISORY hook: a `notice` and nothing else. Deliberately a
   separate mechanism, not a precondition with a softer flag — one boolean away from each other, a

@@ -2904,6 +2904,9 @@ importers:
 
   packages/record-transfer:
     dependencies:
+      '@magna-carta/civil-time':
+        specifier: workspace:*
+        version: link:../civil-time
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
@@ -2913,6 +2916,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
     devDependencies:
       '@magna-carta/database':
         specifier: workspace:*

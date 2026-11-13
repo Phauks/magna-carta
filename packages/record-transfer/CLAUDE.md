@@ -1,6 +1,6 @@
 # @magna-carta/record-transfer — CLAUDE.md
 
-**Purpose.** The record transfer: bringing a firm's records in from the practice-management system it is leaving. Today it holds the run a transfer is recorded under, the files a run was given, the reader that turns a delimited-text file into numbered rows, the link from each source record to the record here that it became, and the first record kind: the mapping rules and the loader for Directory people and organizations. The statement builders, the reader and the mapping rules are pure. The loader is the one module that commits, through the Directory's own executor with the database and clock it is handed; nothing here holds a binding.
+**Purpose.** The record transfer: bringing a firm's records in from the practice-management system it is leaving. Today it holds the run a transfer is recorded under, the files a run was given, the reader that turns a delimited-text file into numbered rows, the link from each source record to the record here that it became, and the first record kinds: the mapping rules and the loaders for Directory people and organizations, and for matters with their parties. The statement builders, the reader and the mapping rules are pure. The loaders are the only modules that commit, with the database and clock they are handed; nothing here holds a binding.
 
 **White paper:** _LEAP migration_ — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md).
 **Spec:** [`docs/specs/2026-11-10-record-transfer-framework-design.md`](../../docs/specs/2026-11-10-record-transfer-framework-design.md). (ADR-0021; `docs/decisions/pending/a-transferred-record-is-linked-to-its-source-in-one-table.md`; `docs/decisions/pending/a-transfers-staging-store-is-the-source-file-itself.md`.)
@@ -15,6 +15,8 @@
 - `src/delimited-text-reader.ts` — `readDelimitedText`, the reader for comma-, tab-, semicolon- or pipe-separated text with a header row
 - `src/directory-mapping.ts` — the mapping rules for people and organizations: `mapPersonRow`, `mapOrganizationRow`, `columnsMissingFrom` (the rules checked against a header) and `calendarDateFrom` (a date in a stated order)
 - `src/directory-transfer.ts` — `transferPerson` and `transferOrganization`: read the link, and when there is none write the record and its link in one commit
+- `src/matter-mapping.ts` — the mapping rules for matters: `mapMatterRow` and `matterColumnsMissingFrom`. The client and parties stay as source keys in the draft
+- `src/matter-transfer.ts` — `transferMatter`: read the link, resolve the client and parties to live Directory records, and write the matter, its parties and its link in one commit
 
 ## Local conventions
 
@@ -31,6 +33,9 @@
 - **A rejection loses the row; a finding loses one value.** A row with no name produces no record. A malformed email, phone or date is left out of an otherwise good record and returned as a `MappingFinding` naming its column, never dropped silently.
 - **A date's order is stated in the rules, never inferred from the values.** `03/04/2021` is two different days in two countries' exports.
 - **A record is written by its owning package's compose function.** The loader never builds a Directory row itself: it takes `composePersonRecord` / `composeCreateOrganization` statements and adds the link, so a transferred record has the same history and audit rows as a typed one.
+- **A record waits for the records it names.** A matter whose client or party has no live Directory record is not written; the outcome lists what is missing. Because a second run never updates, a record written without a reference would never get it back.
+- **A transferred record announces nothing.** `composeTransferredMatter` returns no outbox messages, so no conflicts check or notification follows an arrival. Do not add one to a loader: telling the product about transferred records belongs to accepting a run.
+- **A reference is a source key and is not trimmed.** `valueOf` trims a field; a column that holds another record's key is read exactly, because it must equal the key that record was linked under.
 - **A new reader adds its format to `SOURCE_FILE_FORMATS`.** A file registered under a format nothing reads is refused before the database is asked.
 
 ## Invariants that apply here
@@ -42,7 +47,7 @@
 
 ## Dependencies & contracts
 
-- Depends on `@magna-carta/data-access` for the `SqlDatabase` / `SqlStatement` surface, on `@magna-carta/identifiers` for its identifier types, and on `@magna-carta/directory` for the compose functions and input types a transferred person or organization is written with.
+- Depends on `@magna-carta/data-access` for the `SqlDatabase` / `SqlStatement` surface, on `@magna-carta/identifiers` for its identifier types, on `@magna-carta/directory` for the compose functions and input types a transferred person or organization is written with, on `@magna-carta/matters` for `composeTransferredMatter`, and on `@magna-carta/civil-time` to turn a file's day into a stored instant.
 - Nothing in the product calls it yet. The upload route and the pass that reads a file and drives the mapping rules and the loader are its first callers.
 
 ## Gotchas

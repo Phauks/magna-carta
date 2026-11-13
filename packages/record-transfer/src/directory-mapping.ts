@@ -178,7 +178,10 @@ export function mapOrganizationRow(
 // A value as a record field: trimmed, and absent when there is nothing left. The reader hands on a
 // value's exact characters; this is the first point at which leading and trailing space is judged
 // to carry no meaning, and it is judged so only for the fields mapped here.
-function valueOf(fields: ReadonlyMap<string, string>, column: string | undefined): string | null {
+export function valueOf(
+  fields: ReadonlyMap<string, string>,
+  column: string | undefined,
+): string | null {
   if (column === undefined) return null;
   const trimmed = (fields.get(column) ?? "").trim();
   return trimmed === "" ? null : trimmed;

@@ -130,7 +130,7 @@ Detail belongs to each slice. This table fixes the targets so slices do not drif
 1. **Runs and links** (this slice).
 2. **Staging store and the first reader** (built, section 11). The reader is for delimited text, because LEAP's CSV reports are the files the owner can produce without LEAP's help.
 3. **Directory**: people, organizations and contact details are built (section 13). Duplicate handling is not.
-4. **Matters and parties**, with the matter-type and role lookups.
+4. **Matters and parties**, with the matter-type and role lookups (built, section 14).
 5. **Rehearsal report**, once there are two record kinds to count.
 6. **Documents and emails.**
 7. **Money**: the per-matter money handling, view-only history and opening balances, the transfer-only path for live entries, the trust gate.
@@ -228,3 +228,33 @@ Built 2026-11-13. Two modules in `@magna-carta/record-transfer`, and two seams i
 - **Sealed identifiers.** Bank, tax and identity numbers are not mapped. They go through the Directory's protected-field path, and the rules for them wait on seeing which columns an extract carries them in.
 - **Edges and joint cards.** A person's employer, and a LEAP card that holds two people, are not mapped.
 - **The pass that drives it.** Nothing yet reads a file from object storage, runs each row through the rules and the loader, and records the rejections and findings. That pass arrives with the rehearsal report and the operator's screens.
+
+## 14. The fourth slice: matters and parties
+
+Built 2026-11-13. Two modules in `@magna-carta/record-transfer`, and one in `@magna-carta/matters`.
+
+**A transferred matter is its own composition.** `composeTransferredMatter` in `@magna-carta/matters` differs from `createMatter` in three ways, each of them a fact about a matter that existed before it arrived.
+
+- **It keeps its number.** The number the firm, its clients and the courts already quote is written as given. No counter is drawn and no allocation row is written, exactly as for a number entered by hand. The number must pass the same rule a hand-entered number does (letters, digits, and `.` `_` `~` `-`), because it rides in addresses.
+- **It was opened, and perhaps closed, in the past.** Both instants come from the source. A close written this way runs no close precondition: those ask whether a matter still holds money or property here, and a matter being written for the first time holds none.
+- **It announces nothing.** A matter created here asks for a conflicts check and may notify people. Several thousand arriving in an afternoon must do neither (section 12), so the composition writes no outbox message. Telling the rest of the product that the matters exist belongs to accepting a finished run, which is not built.
+
+Its audit events are `matter.transferred` and `matter.party_transferred`, so the trail never reads as though somebody typed the matter in.
+
+**The mapping rules** (`matter-mapping.ts`) state the columns for the title, the number, the opening and closing dates, the client and each party, and two lookups the operator fills in by hand: the source's words for a matter type to the matter types here, and the source's words for a member of staff to the members here.
+
+- **The file gives a day and the matter stores an instant**, so the rules state the time zone the file's dates are days in, as well as their order. The instant stored is the moment that day began in that zone.
+- **A matter with a closing date arrives closed.** A closing date that cannot be read rejects the row: leaving it out would bring a closed matter in as an open one, which is a wrong record and not a missing value. A source that marks a closed matter some other way (a status column with no date) needs a rule this slice does not have, to be added when a sample file shows the need.
+- **An unknown matter type is a finding** and the matter arrives without a type. **An unknown member of staff** falls to a member the rules name and is a finding, or rejects the row when the rules name nobody. Who that member should be for staff who have left is section 10's open question.
+- **The client and the parties are named by the source's own keys**, with the kind they were transferred under. Mapping resolves nothing.
+
+**The loader** (`matter-transfer.ts`, `transferMatter`) reads the link first, as every loader does.
+
+- **A matter waits for the records it names.** If its client or any party has no live Directory record, nothing is written and the outcome lists what is missing. A matter created without one of its parties would lose a fact, and because a second run leaves an existing matter alone, the fact would never be put back. The matter arrives on the run after those records do.
+- **A record merged since it arrived resolves to the survivor.** The link still names the record that arrived (section 5); the new party goes on the one that is live.
+- **A number another matter already wears is refused**, and so is a number with a character a matter number may not hold. Both are outcomes for the rehearsal report, not faults.
+- The matter, its parties, its audit rows and its link are one commit.
+
+**For the cutover runbook.** New matters draw their numbers from the firm's counter, and a draw that lands on a transferred number steps past it, but only a few times before it gives up. Before the firm opens its first new matter, the numbering scheme's counter must be set above the highest transferred number of the same shape.
+
+**Not in this slice.** The matter's office, its staff beyond the responsible member, the paper file's retention date, and matter details (custom fields) are not mapped. Party roles are taken from the rules as written and are not checked against the firm's catalogue of roles. Consultations and intakes are not transferred: every transferred matter is one the firm took on.
