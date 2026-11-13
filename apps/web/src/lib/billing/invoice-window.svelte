@@ -234,7 +234,7 @@
     if (row.summary.status === "final" && row.summary.issueDate !== null) {
       events.push({
         id: `${row.summary.id}-finalized`,
-        action: `Finalized as ${row.summary.invoiceNumber ?? "an invoice"}`,
+        action: `Finalized as ${row.summary.invoiceNumber ?? "a bill"}`,
         at: `${row.summary.issueDate}T00:00:00Z`,
         source: "The firm",
       });
@@ -354,7 +354,7 @@
           {@render fact(
             "Matters",
             matterCount === 1 ? "One matter" : `${matterCount} matters`,
-            "A bill belongs to a client and may charge several of that client's matters; each one is named below with the way into it.",
+            "A bill belongs to one client and can cover several of their matters. Each is listed below.",
           )}
         {/if}
         {#if share !== null}
@@ -379,7 +379,7 @@
                   ? 'font-semibold text-status-danger-subtle-foreground'
                   : ''}"
                 title={late > 0
-                  ? "Overdue is worked out from the date at the moment of asking; it is never a stored flag."
+                  ? "Overdue is calculated from today's date."
                   : undefined}
               >
                 {formatDate(row.summary.dueDate)}{late > 0 ? ` · ${late} days past due` : ""}
@@ -400,7 +400,7 @@
         {@render fact(
           "Finalized By",
           "Not carried by this read",
-          "Who drew the number is on the firm's audit trail; the invoice read does not carry it.",
+          "Who assigned the number is on the firm's audit trail.",
         )}
       </dl>
 
@@ -475,14 +475,13 @@
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
           <FieldLabel as="h3">Revisions</FieldLabel>
           <p class="text-xs text-text-muted">
-            An adjustment to a finalized bill lands here as a numbered, reasoned revision: what
-            changed, who changed it, and when. The number never changes.
+            Adjustments to a finalized bill appear here as numbered revisions: what changed, who changed it, and when. The bill number stays the same.
           </p>
           <SoonAffordance reason={BILL_DEPENDENCIES.adjustment} reasonPlacement="line">
             {#snippet control(soon)}
               <Button variant="secondary" size="sm" {...soon}>
                 <SquarePen class="size-16" aria-hidden="true" />
-                Adjust Invoice
+                Adjust Bill
               </Button>
             {/snippet}
           </SoonAffordance>
@@ -543,7 +542,7 @@
             </ul>
           {/if}
           <p class="text-xs text-text-subtle">
-            The draft total is computed from its claims; balances are created at finalization.
+            The draft total comes from its claimed entries. Balances are set when it's finalized.
           </p>
         </section>
 
@@ -620,8 +619,7 @@
             </Card.Header>
             <Card.Content class="px-12">
               <p class="text-xs text-text-muted">
-                A fee is a flat charge recorded by hand on the Fees tab, and a draft bill claims it
-                like any work in progress. The record it claims is not served yet.
+                A fee is a flat charge entered on the Fees tab, and a draft bill claims it like any other work.
               </p>
             </Card.Content>
           </Card.Root>
@@ -693,7 +691,7 @@
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
           {isDraft
-            ? "A draft takes no applications; balances are created at finalization."
+            ? "A draft has no payments yet. Balances are set when it's finalized."
             : "A voided draft never owed anything."}
         </span>
       </p>
@@ -735,8 +733,7 @@
           <p class="text-xs text-text-muted">Nothing has been applied to this bill.</p>
         {:else}
           <p class="text-xs text-text-muted">
-            {money(row.summary.appliedMinor)} has been applied. Which applications made it up — trust
-            transfers, credit notes, write-offs — and who made each of them is not read here yet.
+            {money(row.summary.appliedMinor)} has been applied. The breakdown of trust transfers, credit notes and write-offs isn't shown here yet.
           </p>
         {/if}
         <SoonAffordance reason={BILL_DEPENDENCIES.applications} reasonPlacement="line">
@@ -771,8 +768,7 @@
             </Card.Root>
           {/each}
           <p class="text-xs text-text-muted">
-            A credit note stands beside the bill forever. The bill keeps its number, its lines and
-            its wording; only what is owed on it moved.
+            The credit note stays with the bill permanently. The bill keeps its number, lines and wording; only the amount owed changes.
           </p>
         </section>
       {/if}
@@ -790,13 +786,10 @@
               </Card.Header>
               <Card.Content class="flex flex-col gap-4 px-12">
                 <p class="text-xs text-text-subtle">
-                  Opened {formatInstantDate(credit.openedAt)} by the credit note against this bill. The firm
-                  holds money it has said is not its own; the matter will not close while this is
-                  open.
+                  Opened {formatInstantDate(credit.openedAt)} by the credit note against this bill. The firm is holding money that belongs to the client, so the matter can't close while this is open.
                 </p>
                 <p class="text-xs text-text-subtle">
-                  Three exits: set it against a later bill of this client, refund it from operating,
-                  or return it to the client&rsquo;s trust ledger.
+                  Three options: apply it to a later bill for this client, refund it from operating, or return it to the client&rsquo;s trust ledger.
                 </p>
               </Card.Content>
             </Card.Root>
@@ -850,7 +843,7 @@
       loading={isFinal && deliveries === null}
       loadingMessage="Reading this bill's delivery record"
       emptyMessage={isFinal
-        ? "No delivery of this bill has been recorded. The platform records deliveries the firm made; it sends nothing itself."
+        ? "No delivery of this bill has been recorded. Magna Carta records deliveries the firm made; it doesn't send bills."
         : "Only a finalized bill can be delivered."}
     />
   </div>
@@ -906,7 +899,7 @@
     { key: "delivery", label: "Delivery", count: deliveryEvents.length, content: deliveryTab },
   ] satisfies RecordWindowTab[]}
   defaultTab="money"
-  editDisabledReason={"An invoice is not edited in place. A draft changes by claiming and releasing work; a finalized bill is adjusted from the action bar, and the edit is recorded as a revision."}
+  editDisabledReason={"A bill isn't edited directly. Change a draft by adding or releasing work; adjust a finalized bill from the action bar, which records a revision."}
   onPrint={() => (printOpen = true)}
 />
 

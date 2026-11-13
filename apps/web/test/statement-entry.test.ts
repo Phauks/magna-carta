@@ -159,8 +159,8 @@ describe("the sentence about a statement that does not add up", () => {
     const totals = statementTotals(DRAFT.openingBalanceText, DRAFT.lines);
     const sentence = closingDifferenceSentence(totals, "11,000.00", money);
     expect(sentence).toBe(
-      "The lines add up to 1130000 cents and the closing balance entered is 1100000 cents. Both " +
-        "are recorded as they stand: the difference is what a reconciliation of this period finds.",
+      "The lines add up to 1130000 cents but the closing balance entered is 1100000 cents. Both " +
+        "are saved as entered, and the difference shows up when this period is reconciled.",
     );
   });
 

@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./google": "./src/google.ts",
     "./port": "./src/port.ts",
     "./routed": "./src/routed.ts",
     "./self-hosted": "./src/self-hosted.ts",

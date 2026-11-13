@@ -17,7 +17,7 @@ import {
   readMeetingPollEntry,
 } from "../src/poll-service.ts";
 import { insertAnonymousAnswerStatement } from "../src/poll-statements.ts";
-import { MAX_MEETING_POLL_QUESTION_LENGTH } from "../src/poll-types.ts";
+import { MAX_MEETING_POLL_QUESTION_LENGTH, type MeetingPollKind } from "../src/poll-types.ts";
 import {
   CROWD,
   GUEST,
@@ -72,6 +72,7 @@ async function open(
     options: readonly string[];
     anonymous: boolean;
     maxChoices: number;
+    kind: MeetingPollKind;
   }> = {},
 ) {
   const opened = await openMeetingPoll(
@@ -82,6 +83,7 @@ async function open(
       options: input.options ?? ["The fourteenth", "The twenty-first", "The twenty-eighth"],
       anonymous: input.anonymous ?? false,
       maxChoices: input.maxChoices ?? 1,
+      kind: input.kind ?? ((input.maxChoices ?? 1) > 1 ? "multiple" : "one"),
     },
     options,
   );
@@ -145,7 +147,13 @@ describe("opening a poll", () => {
       openMeetingPoll(
         database.database,
         meetingId,
-        { question: "Lunch?", options: ["Yes", "No"], anonymous: false, maxChoices: 1 },
+        {
+          question: "Lunch?",
+          options: ["Yes", "No"],
+          anonymous: false,
+          maxChoices: 1,
+          kind: "one",
+        },
         optionsFor(GUEST),
       ),
     ).rejects.toMatchObject({ code: "meeting-not-host" });
@@ -166,6 +174,9 @@ describe("opening a poll", () => {
       [{ options: ["Fine", "y".repeat(201)] }, "options"],
       [{ maxChoices: 4 }, "maxChoices"],
       [{ maxChoices: 0 }, "maxChoices"],
+      [{ kind: "one", maxChoices: 2 }, "maxChoices"],
+      [{ kind: "ranking", maxChoices: 2 }, "maxChoices"],
+      [{ kind: "score", options: ["1", "3"] }, "options"],
     ];
     for (const [input, field] of cases) {
       await expect(open(database, meetingId, input)).rejects.toMatchObject({
@@ -313,6 +324,7 @@ describe("answering a poll", () => {
             id: "meetingPollAnswer_crossedPoll0000" as MeetingPollAnswerId,
             pollId: poll.id,
             optionId: (other.options[0]?.optionId ?? "") as MeetingPollOptionId,
+            rank: null,
           }),
         ],
         outboxMessages: [],
@@ -381,6 +393,49 @@ describe("a poll that does not show names", () => {
     await expect(
       readAttributedPollAnswers(database.database, meetingId, poll.id, { limit: 10 }, options),
     ).rejects.toMatchObject({ code: "meeting-poll-answers-not-attributed" });
+  });
+});
+
+describe("a ranking and a score", () => {
+  it("keeps each option's place on a ranking, anonymous or not, and averages it", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    await join(database, meetingId);
+    const poll = await open(database, meetingId, {
+      kind: "ranking",
+      maxChoices: 3,
+      anonymous: true,
+    });
+    expect(poll.kind).toBe("ranking");
+    const [first, second, third] = poll.options.map((option) => option.optionId);
+
+    // Every option, in order; fewer is refused.
+    await expect(
+      answer(database, meetingId, poll.id, [third ?? "", first ?? ""]),
+    ).rejects.toMatchObject({ code: "meeting-poll-invalid", field: "optionIds" });
+    await answer(database, meetingId, poll.id, [third ?? "", first ?? "", second ?? ""]);
+
+    const entry = await readMeetingPollEntry(database.database, meetingId, poll.id, options);
+    const places = new Map(entry.options.map((option) => [option.optionId, option.averageRank]));
+    expect(places.get(third ?? "")).toBe(1);
+    expect(places.get(first ?? "")).toBe(2);
+    expect(places.get(second ?? "")).toBe(3);
+  });
+
+  it("opens a score whose options are its scale, and leaves its places empty", async () => {
+    const database = fresh();
+    const meetingId = await startAndJoin(database);
+    await join(database, meetingId);
+    const poll = await open(database, meetingId, {
+      kind: "score",
+      options: ["1", "2", "3", "4", "5"],
+    });
+    const four = poll.options[3]?.optionId ?? "";
+    await answer(database, meetingId, poll.id, [four]);
+    const entry = await readMeetingPollEntry(database.database, meetingId, poll.id, options);
+    expect(entry.kind).toBe("score");
+    expect(entry.options[3]?.count).toBe(1);
+    expect(entry.options.every((option) => option.averageRank === null)).toBe(true);
   });
 });
 
@@ -492,12 +547,15 @@ describe("the audit rows", () => {
       expect(row.metadata).not.toContain("Counter at one hundred");
       // The explicit case: no answer's option ever reaches an audit row.
       for (const option of poll.options) expect(row.metadata).not.toContain(option.optionId);
-      // Every value is an identifier, an instant, a count or a flag — nothing a person typed.
+      // Every value is an identifier, an instant, a count, a flag or the poll's kind — nothing a
+      // person typed.
       const metadata = JSON.parse(row.metadata) as Record<string, unknown>;
       for (const value of Object.values(metadata)) {
         expect(["string", "number", "boolean"]).toContain(typeof value);
         if (typeof value === "string") {
-          expect(value).toMatch(/^(meeting[A-Za-z]*_[A-Za-z0-9_-]+|\d{4}-\d{2}-\d{2}T[\d:.]+Z)$/);
+          expect(value).toMatch(
+            /^(meeting[A-Za-z]*_[A-Za-z0-9_-]+|\d{4}-\d{2}-\d{2}T[\d:.]+Z|one|multiple|ranking|score)$/,
+          );
         }
       }
     }

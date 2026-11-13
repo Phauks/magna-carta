@@ -57,6 +57,20 @@ describe("addressLookup", () => {
     expect(asked).toEqual([["US", "14 Rose"]]);
   });
 
+  it("carries the provider's attribution through to the form", async () => {
+    const lookup = addressLookup(
+      ports({
+        suggest: () =>
+          Promise.resolve({ outcome: "suggestions", suggestions: [], attribution: "google-maps" }),
+      }),
+    );
+    expect(await lookup.suggest("US", "14 Rose")).toEqual({
+      kind: "offers",
+      offers: [],
+      attribution: "google-maps",
+    });
+  });
+
   it("sends the form's region as a bias only when it is a subdivision code", async () => {
     const asked: (string | undefined)[] = [];
     const lookup = addressLookup(

@@ -290,3 +290,29 @@ describe("the kinds of no offers", () => {
     expect(rows()).toEqual([ADDRESS_LOOKUP_SENTENCES.nothingMatched]);
   });
 });
+
+describe("a provider's name under its offers", () => {
+  it("shows Google Maps below Google's offers, untranslated and not choosable", async () => {
+    const lookup = lookupAnswering(
+      () => Promise.resolve({ kind: "offers", offers: [ROSEWOOD], attribution: "google-maps" }),
+      () =>
+        Promise.resolve({ kind: "address", parts: { street: "14 Rosewood Dr", country: "US" } }),
+    );
+    render(lookup);
+    type("14 Rose");
+    await settle();
+    expect(rows()).toEqual([ROSEWOOD.label, "Google Maps"]);
+    const attribution = [...document.querySelectorAll('[role="option"]')].at(-1);
+    expect(attribution?.hasAttribute("data-disabled")).toBe(true);
+    expect(attribution?.querySelector('[translate="no"]')?.textContent).toBe("Google Maps");
+    await chooseFirst();
+    expect(lookup.resolve).toHaveBeenCalledWith(ROSEWOOD.identifier);
+  });
+
+  it("shows no name when the provider's terms ask for none", async () => {
+    render(lookupAnswering(() => Promise.resolve({ kind: "offers", offers: [ROSEWOOD] })));
+    type("14 Rose");
+    await settle();
+    expect(rows()).toEqual([ROSEWOOD.label]);
+  });
+});

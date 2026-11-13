@@ -317,7 +317,7 @@
       targets,
       (id) => approveFee(fetch, id, writeKey()),
       targets.length === 1 ? "The fee" : "One of the fees",
-      `Approved ${targets.length} ${targets.length === 1 ? "fee" : "fees"}. ${targets.length === 1 ? "It is" : "They are"} billable on the next invoice.`,
+      `Approved ${targets.length} ${targets.length === 1 ? "fee" : "fees"}. ${targets.length === 1 ? "It is" : "They are"} billable on the next bill.`,
     );
   }
 
@@ -412,13 +412,13 @@
       label: "unbilled",
       value: money(position.unbilledMinor),
       caption:
-        "Billable fees no finalized invoice has taken up. A draft bill claims them on the Bills tab.",
+        "Billable fees not yet on a finalized bill. Add them to a draft bill on the Bills tab.",
     },
     {
       identifier: "billed",
       label: "billed",
       value: money(position.billedMinor),
-      caption: "Fees a finalized invoice has taken up.",
+      caption: "Fees on a finalized bill.",
     },
   ]);
 </script>

@@ -96,7 +96,7 @@ function row(
   return { summary: base, detail: detail(base, detailOverrides), creditNotes: [] };
 }
 
-describe("an invoice's standing", () => {
+describe("a bill's standing", () => {
   it("is the invoice's own word for a draft and a void", () => {
     expect(invoiceStanding(row({ status: "draft", invoiceNumber: null }))).toBe("draft");
     expect(invoiceStanding(row({ status: "void", invoiceNumber: null }))).toBe("void");

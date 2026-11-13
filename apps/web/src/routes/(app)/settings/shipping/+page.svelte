@@ -76,7 +76,7 @@
       return "The carrier is refusing the key this firm is connected with. Replacing it below restores postage.";
     }
     if (status === "degraded") {
-      return "The carrier has been failing intermittently. Postage still works; failures are being recorded.";
+      return "The carrier has been failing on and off. Postage still works, and failures are being logged.";
     }
     if (status === "disabled") return "This connection has been disabled.";
     return "Connected. Postage can be rated and bought.";
@@ -131,8 +131,7 @@
 <SettingsScrollRegion>
   <SettingsPlate heading="Carrier account">
     <SettingsDescription>
-      Postage is bought through the firm's own carrier-platform account. Connecting it here is what
-      lets a shipment be rated and a label bought; drafting a shipment never needs it.
+      Postage is bought through the firm's own carrier account. Connect it here to get rates and buy labels. You can draft shipments without it.
     </SettingsDescription>
 
     <LoadingRegion
@@ -144,8 +143,7 @@
     >
       {#snippet failure()}
         <p class="py-12 text-sm text-text-muted">
-          Whether an account is connected could not be read, so it is not stated rather than guessed
-          at.
+          Couldn't check whether an account is connected.
         </p>
       {/snippet}
 
@@ -189,8 +187,7 @@
   {#if connected && canChangeAccount}
     <SettingsPlate heading="Disconnect">
       <SettingsDescription>
-        Disconnecting stops every carrier operation for this firm and clears the stored key. Drafts
-        and the record of what has already been sent are untouched.
+        Disconnecting stops all carrier features for this firm and deletes the stored key. Drafts and sent shipments are kept.
       </SettingsDescription>
       <div class="flex items-center justify-end gap-8">
         {#if confirmingDisconnect}

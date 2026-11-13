@@ -241,7 +241,7 @@
 
       <LabelledField
         label="Purpose"
-        hint="Why the money was received. It is the line the ledger entry reads."
+        hint="Why the money was received. This becomes the ledger entry's description."
         error={fieldRefusal(serverProblem, "purpose")}
       >
         {#snippet children({ props })}

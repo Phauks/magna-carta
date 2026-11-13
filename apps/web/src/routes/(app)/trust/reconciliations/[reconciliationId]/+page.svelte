@@ -444,7 +444,7 @@
     title={workbench.notFound ? undefined : "The Reconciliation Could Not Be Read"}
     fallback={workbench.notFound
       ? undefined
-      : "The record itself is unaffected: nothing was changed by this failure, and every match and every figure the period carries is still on the firm's record."}
+      : "Nothing was changed. All matches and figures for this period are still on record."}
     onRetry={workbench.notFound
       ? undefined
       : () => workbench.retryReconciliation(fetch, data.reconciliationId)}
@@ -585,7 +585,7 @@
           <DataTable.Grid
             grid={matchGrid}
             cell={matchCell}
-            caption="Every match recorded on this reconciliation"
+            caption="All matches on this reconciliation"
             loading={workbench.matches === null}
             density="compact"
           />
