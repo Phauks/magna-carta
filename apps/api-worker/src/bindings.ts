@@ -160,6 +160,11 @@ export type Bindings = {
   // version shape as a static /__version file, and a deployment older than that file answers
   // index.html, which the probe reads as "unreported". Optional: absent in every test environment.
   WEB_SERVICE?: Fetcher;
+  // The community board's worker (magna-carta-community), for the aggregate version read alone; the
+  // board's data is the control plane's, never read through this binding. Optional, and NOT declared
+  // in wrangler.jsonc yet: a service binding to a worker the account does not have fails the deploy,
+  // so it is added once magna-carta-community has deployed. Until then its row reads "unbound".
+  COMMUNITY_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
   // environment today — while unset, resolveNaturalLanguageProvisioningPort returns the
@@ -221,6 +226,13 @@ export type Bindings = {
   // absence is real; the gate, not the type, is what makes them present in a deployment.
   CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  // A Cloudflare API token that can only READ Workers Logs (Account > Workers Observability > Read),
+  // for the System Status page's Recent Errors (system-status/recent-errors.ts). Its own token,
+  // never the provisioner's: that one can create and destroy firm resources, and an error list has
+  // no business holding that power. Optional, and absent is the shipped state: without it the
+  // Recent Errors read answers not-configured. Production sets it with
+  // `wrangler secret put OBSERVABILITY_API_TOKEN`. Never logged, never echoed to a caller.
+  OBSERVABILITY_API_TOKEN?: string;
   // The account-scoped R2 S3 API token the presigner signs upload/download URLs with — the bytes
   // bypass the Worker, so it holds only this signing credential. Production secrets (placeholder
   // values in .dev.vars to satisfy the secrets.required gate).

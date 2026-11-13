@@ -27,7 +27,8 @@ ADR-0059, ADR-0068, ADR-0051.)
 - `src/sync-port.ts` — `CalendarSyncPort`: what calendar sync needs from a member's own calendar
   account, in this package's vocabulary. An interface only; the adapters that implement it live in
   their provider's package (`packages/microsoft-graph`) and this package still calls no service. It
-  includes the provider's change watch (`watchChanges`, `renewWatch`, `stopWatch`) and the
+  includes reading and writing one changed day of a series (`listSeriesChangedDays`,
+  `updateSeriesDay`), the provider's change watch (`watchChanges`, `renewWatch`, `stopWatch`) and the
   `ProviderNotice` a provider's own reader turns a notice into
 - `src/sync-rule-statements.ts` / `src/sync-rule-service.ts` — calendar sync settings: the firm's
   limit on which event types may leave and with how much detail, and each member's own rules inside
@@ -50,7 +51,7 @@ ADR-0059, ADR-0068, ADR-0051.)
   time column can have
 - `src/validation.ts` — every refusal as a code the route maps to a problem type, plus the window and
   horizon caps
-- `src/time-zone.ts` — **the only calendar arithmetic in the package**: a civil date plus an optional
+- `@magna-carta/civil-time/time-zone` (`packages/civil-time/src/time-zone.ts`) — **the only calendar arithmetic the package uses**: a civil date plus an optional
   wall-clock time, read in a named zone, as a UTC instant
 - `src/overdue.ts` — the read-time comparison, and nothing else
 - `src/settings.ts` — the firm's calendar settings over the per-firm setting table: the day the

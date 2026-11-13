@@ -17,7 +17,7 @@
     padding-inline: var(--mc-space-12);
     border-style: solid;
     border-width: var(--mc-border-width-default);
-    border-color: var(--mc-border-default);
+    border-color: var(--mc-border-field);
     border-radius: var(--mc-radius-md);
     background-color: var(--mc-surface-field);
     color: var(--mc-text-default);
@@ -33,18 +33,40 @@
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
   }
+
+  /* The edge answers the pointer one step darker before the field is focused, so a box feels
+     live under the hand. Focus, a refusal and a disabled field each keep their own edge. */
+  .mc-select-trigger:hover:not(:focus-visible):not([data-disabled]):not([aria-invalid="true"]) {
+    border-color: var(--mc-border-field-hover);
+  }
+
   .mc-select-trigger[data-placeholder] {
     color: var(--mc-text-muted);
   }
   .mc-select-trigger:focus-visible {
-    border-color: var(--mc-focus-ring);
-    outline-color: var(--mc-focus-ring);
+    border-color: var(--mc-text-default);
+    outline-color: var(--mc-accent-strong);
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }
+
+  /*
+   * Invalid: the danger edge, and nothing else, as on the Input (see input.css). Declared after
+   * focus so a field that is both focused and invalid still reads as invalid.
+   */
+  .mc-select-trigger[aria-invalid="true"] {
+    border-color: var(--mc-status-danger);
+  }
+  .mc-select-trigger[aria-invalid="true"]:focus-visible {
+    border-color: var(--mc-status-danger);
+    outline-color: var(--mc-status-danger);
+  }
+
   .mc-select-trigger[data-disabled] {
-    background-color: var(--mc-action-disabled);
-    color: var(--mc-action-disabled-foreground);
+    background-color: var(--mc-surface-field-disabled);
+    border-style: dashed;
+    border-color: var(--mc-border-default);
+    color: var(--mc-text-subtle);
     cursor: not-allowed;
   }
   /* The trailing chevron; muted and held at a fixed size so it never shrinks under a long label. */

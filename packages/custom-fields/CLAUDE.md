@@ -21,7 +21,7 @@
 - `src/*-statements.ts` — the SQL statement builders for the atomic batch (field, value, option).
 - `src/fitness.ts` — `assertCustomFieldFitness` + per-invariant probe queries.
 
-Schema home: `packages/database/drizzle/per-firm/0013_custom-fields.sql` (the `custom_field`, `picklist_option`, `custom_field_value` tables, the one-value CHECK, and the one-current partial unique index). HTTP surface: `apps/api-worker/src/http/routes/firm/custom-fields.ts`.
+Schema home: `packages/database/drizzle/per-firm/20260908T000000_baseline.sql` (the `custom_field`, `picklist_option`, `custom_field_value` tables, the one-value CHECK, and the one-current partial unique index). HTTP surface: `apps/api-worker/src/http/routes/firm/custom-fields.ts`.
 
 ## Local conventions
 

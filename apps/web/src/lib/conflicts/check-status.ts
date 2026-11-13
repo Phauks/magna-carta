@@ -16,7 +16,13 @@
  * records with the place's name ("Messaging — ..."), so a line is filed under the place it names
  * and every other line is the Directory's.
  */
-import type { CheckWithHits, HitDetail, PlacesRequest, RunSummary } from "./conflicts-api.ts";
+import type {
+  CheckWithHits,
+  HitDetail,
+  PlacesRequest,
+  ReportSection,
+  RunSummary,
+} from "./conflicts-api.ts";
 import {
   FOUND_IN_VOCABULARY,
   MAGNUS_OPTION,
@@ -42,6 +48,8 @@ export interface StatusPlace {
   readonly summary: string;
   /** The place's own log, oldest first. */
   readonly lines: readonly string[];
+  /** The Directory's finished account, as blocks drawn one per row. Empty for every other place. */
+  readonly sections: readonly ReportSection[];
 }
 
 /** The word a place's state is announced by, for a reader who cannot see its mark. */
@@ -54,12 +62,12 @@ export const PLACE_STATE_LABELS: Readonly<Record<PlaceState, string>> = {
   "not-searched": "Not searched",
 };
 
-/** The name each place's sentences in the engine's account begin with. */
-const STATEMENT_LEADS: Readonly<Partial<Record<SearchLocation, string>>> = {
-  files: "Files —",
-  messaging: "Messaging —",
-  tasks: "Tasks —",
-  magnus: "Magnus —",
+/** The section of the engine's account each place beyond the Directory owns. */
+const PLACE_SECTIONS: Readonly<Partial<Record<SearchLocation, ReportSection["key"]>>> = {
+  files: "files",
+  messaging: "messaging",
+  tasks: "tasks",
+  magnus: "magnus",
 };
 
 /** Which place a result belongs to. */
@@ -119,7 +127,9 @@ function stagesSoFar(run: RunSummary): string[] {
     });
 }
 
-type PlaceReading = Omit<StatusPlace, "location" | "label">;
+type PlaceReading = Omit<StatusPlace, "location" | "label" | "sections"> & {
+  readonly sections?: readonly ReportSection[];
+};
 
 /** How a run that did not finish reads, in every place it was searching. */
 function unfinished(run: RunSummary): PlaceReading | null {
@@ -137,11 +147,12 @@ function unfinished(run: RunSummary): PlaceReading | null {
   return null;
 }
 
-function statementFor(location: SearchLocation, statement: readonly string[]): string[] {
-  const lead = STATEMENT_LEADS[location];
-  if (lead !== undefined) return statement.filter((line) => line.startsWith(lead));
-  const leads = Object.values(STATEMENT_LEADS);
-  return statement.filter((line) => !leads.some((other) => line.startsWith(other)));
+/** The sections of the engine's account that belong to a place: its own, or for the Directory, the rest. */
+function sectionsFor(location: SearchLocation, report: readonly ReportSection[]): ReportSection[] {
+  const own = PLACE_SECTIONS[location];
+  if (own !== undefined) return report.filter((entry) => entry.key === own);
+  const placeKeys = new Set(Object.values(PLACE_SECTIONS));
+  return report.filter((entry) => !placeKeys.has(entry.key));
 }
 
 function directoryPlace(run: RunSummary, record: CheckWithHits | null): PlaceReading {
@@ -159,9 +170,10 @@ function directoryPlace(run: RunSummary, record: CheckWithHits | null): PlaceRea
   return {
     state: "done",
     summary: resultCountText(hits),
-    // The engine's own sentences, in the order it wrote them. A firm defending its procedure
-    // quotes these, so nothing here rewrites them.
-    lines: statementFor("directory", record?.statement ?? []),
+    // The engine's own sections, in the order it wrote them. A firm defending its procedure quotes
+    // these, so nothing here rewrites them.
+    lines: [],
+    sections: sectionsFor("directory", record?.report ?? []),
   };
 }
 
@@ -201,7 +213,7 @@ function recordsPlace(
   return {
     state: "done",
     summary: resultCountText(hits),
-    lines: statementFor(location, record?.statement ?? []),
+    lines: sectionsFor(location, record?.report ?? []).flatMap((entry) => entry.lines),
   };
 }
 
@@ -210,11 +222,13 @@ export function statusPlaces(run: RunSummary, record: CheckWithHits | null): Sta
   const places = run.askedScope?.places ?? null;
   return SEARCH_LOCATIONS.map((entry) => {
     const named = { location: entry.location, label: entry.label };
-    if (entry.location === "directory") return { ...named, ...directoryPlace(run, record) };
-    if (!entry.searchable || !placeWasAsked(entry.location, places)) {
-      return { ...named, state: "not-searched" as const, summary: "Not searched", lines: [] };
-    }
-    return { ...named, ...recordsPlace(entry.location, run, record) };
+    const reading =
+      entry.location === "directory"
+        ? directoryPlace(run, record)
+        : !entry.searchable || !placeWasAsked(entry.location, places)
+          ? { state: "not-searched" as const, summary: "Not searched", lines: [] }
+          : recordsPlace(entry.location, run, record);
+    return { ...named, ...reading, sections: reading.sections ?? [] };
   });
 }
 

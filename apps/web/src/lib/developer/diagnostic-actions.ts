@@ -67,6 +67,10 @@ export const DIAGNOSTIC_ACTIONS: readonly DiagnosticAction[] = [
       "database",
       "upload readiness",
       "what is running",
+      "system status",
+      "features",
+      "errors",
+      "feature flags",
     ],
     // Always: the panel is on every screen, signed in or out. The Versions settings page renders the
     // same report at page size and is already searchable through the settings-section registry, so

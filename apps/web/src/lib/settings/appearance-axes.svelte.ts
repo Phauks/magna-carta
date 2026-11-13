@@ -31,7 +31,11 @@ import {
   type Mode,
   type MotionPreference,
   type ScrollEdgeHintPreference,
+  type TextSizePreference,
   type TypefacePreference,
+  DEFAULT_TEXT_SIZE,
+  TEXT_SIZE_MAXIMUM,
+  TEXT_SIZE_MINIMUM,
 } from "@magna-carta/design-system/internal/theme-preference";
 
 interface AppearanceValues {
@@ -42,6 +46,7 @@ interface AppearanceValues {
   contrast: ContrastPreference;
   scrollEdgeHints: ScrollEdgeHintPreference;
   typeface: TypefacePreference;
+  textSize: TextSizePreference;
 }
 
 function readInitialValues(): AppearanceValues {
@@ -55,6 +60,7 @@ function readInitialValues(): AppearanceValues {
       contrast: "system",
       scrollEdgeHints: "shown",
       typeface: "atkinson",
+      textSize: DEFAULT_TEXT_SIZE,
     };
   }
   return readThemePreference();
@@ -71,6 +77,7 @@ function persistAndApply(): void {
     values.contrast,
     values.scrollEdgeHints,
     values.typeface,
+    values.textSize,
   );
 }
 
@@ -207,7 +214,7 @@ export const MOTION_AXIS: AppearanceAxis = {
   set: (value) => (values.motion = value as MotionPreference),
 };
 
-// ─── Text page axis (the reading face: how interface text reads is the person's own, never the
+// ─── Text page axes (the reading face: how interface text reads is the person's own, never the
 //     firm's — the firm owns the brand, the individual owns how they read). ─────────────────────
 
 /*
@@ -221,12 +228,14 @@ export const TYPEFACE_DEFINITION: SettingDefinition = {
   description:
     "The reading typeface across the interface. Page titles and the firm's mark keep their own faces.",
   kind: "select",
+  // The face's name alone (owner-directed, 2026-11-13): the Text page draws each option IN its
+  // own face, so the face shows what it is and a line describing it is noise.
   options: [
-    { value: "atkinson", label: "Atkinson Hyperlegible — built for legibility (default)" },
-    { value: "lexend", label: "Lexend — built for reading endurance" },
-    { value: "opendyslexic", label: "OpenDyslexic — for dyslexic readers" },
-    { value: "serif", label: "Literata — a serif for long reading" },
-    { value: "system", label: "System — your device's own face" },
+    { value: "atkinson", label: "Atkinson Hyperlegible" },
+    { value: "lexend", label: "Lexend" },
+    { value: "opendyslexic", label: "OpenDyslexic" },
+    { value: "serif", label: "Literata" },
+    { value: "system", label: "System" },
   ],
   defaultValue: "atkinson",
   sensitivity: "open",
@@ -237,6 +246,40 @@ export const TYPEFACE_AXIS: AppearanceAxis = {
   definition: TYPEFACE_DEFINITION,
   current: () => values.typeface,
   set: (value) => (values.typeface = value as TypefacePreference),
+};
+
+/*
+ * Text Size is a percentage of the browser's own root size, 50% to 200% (owner-directed: a number,
+ * not named steps). It becomes the root font size, so every rem type size follows; spacing and
+ * control floors are px and stay put (packages/design-tokens/test/units-policy.test.ts). Offered
+ * in steps of ten, which the field narrows as a percentage is typed.
+ */
+const TEXT_SIZE_STEP = 10;
+
+function textSizeOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  for (let percent = TEXT_SIZE_MINIMUM; percent <= TEXT_SIZE_MAXIMUM; percent += TEXT_SIZE_STEP) {
+    options.push({ value: String(percent), label: `${percent}%` });
+  }
+  return options;
+}
+
+export const TEXT_SIZE_DEFINITION: SettingDefinition = {
+  id: "text.text-size",
+  sectionId: "text",
+  label: "Text Size",
+  description: "The size interface text renders at, across every screen.",
+  kind: "select",
+  options: textSizeOptions(),
+  defaultValue: String(DEFAULT_TEXT_SIZE),
+  sensitivity: "open",
+};
+
+export const TEXT_SIZE_AXIS: AppearanceAxis = {
+  sectionId: "text",
+  definition: TEXT_SIZE_DEFINITION,
+  current: () => String(values.textSize),
+  set: (value) => (values.textSize = Number(value)),
 };
 
 /*

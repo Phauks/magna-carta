@@ -371,6 +371,9 @@ export type MetaVersionsResponse = {
         buildTime: string | null;
     };
     services: Array<ServiceVersion>;
+    connectedServices: Array<ConnectedServiceStatus>;
+    features: Array<FeatureStatus>;
+    featureRequirements: Array<FeatureRequirements> | null;
     observedAt: string;
 };
 
@@ -382,6 +385,25 @@ export type ServiceVersion = {
     commitTime: string | null;
     buildTime: string | null;
     latencyMilliseconds: number | null;
+};
+
+export type ConnectedServiceStatus = {
+    id: 'realtime';
+    state: 'connected' | 'not-configured' | 'refused' | 'unreachable';
+    latencyMilliseconds: number | null;
+};
+
+export type FeatureStatus = {
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    state: 'working' | 'not-set-up' | 'fault';
+};
+
+export type FeatureRequirements = {
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    alternatives: Array<Array<{
+        name: string;
+        present: boolean;
+    }>>;
 };
 
 export type DatabaseHealthResponse = {
@@ -496,6 +518,27 @@ export type SetComponentOverride = {
 
 export type ClearComponentOverride = {
     componentId: string;
+};
+
+export type RecentErrorsResponse = {
+    state: 'read' | 'not-configured' | 'refused' | 'unreachable';
+    windowStart: string | null;
+    windowEnd: string | null;
+    total: number | null;
+    truncated: boolean;
+    groups: Array<RecentErrorGroup>;
+};
+
+export type RecentErrorGroup = {
+    latestErrorId: string | null;
+    service: string | null;
+    eventName: string;
+    where: string | null;
+    errorName: string | null;
+    messageHead: string | null;
+    count: number;
+    firstSeen: string;
+    lastSeen: string;
 };
 
 export type ReportIncidentResponse = {
@@ -2574,6 +2617,7 @@ export type FileHistoryItem = {
 export type PlayableCopyStatus = {
     versionId: string;
     state: 'none' | 'pending' | 'ready' | 'unavailable';
+    fileId: string | null;
     reason: 'unsupported' | 'malformed' | 'too-large' | 'source-missing' | null;
     streamUrl: string | null;
     contentType: 'video/mp4';
@@ -5481,6 +5525,7 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
+    trigramMatching?: boolean;
     places?: {
         messaging: Array<'calls' | 'texts' | 'email'>;
         tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
@@ -5579,6 +5624,7 @@ export type ConflictsRunSummary = {
     askedScope: {
         sources: Array<string>;
         strictness: string;
+        trigramMatching: boolean;
         places: {
             messaging: Array<'calls' | 'texts' | 'email'>;
             tasks: Array<'consultations' | 'open' | 'closed' | 'archived'>;
@@ -5602,7 +5648,12 @@ export type ConflictsRunProgress = {
 
 export type ConflictsCheckRecord = {
     check: ConflictsCheckDetail;
-    statement: Array<string>;
+    report: Array<{
+        key: 'searched' | 'names' | 'relationships' | 'employees' | 'messaging' | 'tasks' | 'magnus' | 'files' | 'not_searched' | 'results';
+        heading: string;
+        lines: Array<string>;
+        attention: boolean;
+    }>;
     hits: Array<ConflictsHitDetail>;
 } | null;
 
@@ -5628,6 +5679,7 @@ export type ConflictsMatchingRecord = {
     nameKeys: Array<string>;
     phoneticSchemes: Array<string>;
     nameRoles: Array<string> | null;
+    trigramMatching: boolean;
 } | null;
 
 export type ConflictsTraversalRecord = {
@@ -11347,6 +11399,39 @@ export type PlatformStatusClearComponentOverrideResponses = {
 };
 
 export type PlatformStatusClearComponentOverrideResponse = PlatformStatusClearComponentOverrideResponses[keyof PlatformStatusClearComponentOverrideResponses];
+
+export type PlatformRecentErrorsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/recent-errors';
+};
+
+export type PlatformRecentErrorsErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformRecentErrorsError = PlatformRecentErrorsErrors[keyof PlatformRecentErrorsErrors];
+
+export type PlatformRecentErrorsResponses = {
+    /**
+     * The recent failures, or why they could not be read
+     */
+    200: RecentErrorsResponse;
+};
+
+export type PlatformRecentErrorsResponse = PlatformRecentErrorsResponses[keyof PlatformRecentErrorsResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;

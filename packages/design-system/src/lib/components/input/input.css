@@ -1,16 +1,16 @@
 @layer components {
   /*
-   * Input (Tier 1). A styled native <input> at the control height. Hairline border from the
-   * border-width token; on :focus-visible the border shifts to border.focus and the tokenized
-   * focus ring is painted (same outline geometry as the Button). The component layers `w-full`
-   * so the control fills its field; the recipe owns the rest. Disabled mirrors the Button's
-   * disabled treatment.
+   * Input (Tier 1). A styled native <input> at the control height. The hairline edge is
+   * border.field, held to 3:1 so the box can be found; it darkens under the pointer, and on
+   * :focus-visible turns to ink with the gold ring outside it (the ring every control shares). The
+   * component layers `w-full` so the control fills its field; the recipe owns the rest. Disabled
+   * is flat and dashed on field-disabled, so it never reads as a button.
    */
   .mc-input {
     padding-inline: var(--mc-space-12);
     border-style: solid;
     border-width: var(--mc-border-width-default);
-    border-color: var(--mc-border-default);
+    border-color: var(--mc-border-field);
     border-radius: var(--mc-radius-md);
     background-color: var(--mc-surface-field);
     color: var(--mc-text-default);
@@ -25,6 +25,13 @@
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
   }
+
+  /* The edge answers the pointer one step darker before the field is focused, so a box feels
+     live under the hand. Focus, a refusal and a disabled field each keep their own edge. */
+  .mc-input:hover:not(:focus-visible):not(:disabled):not([aria-invalid="true"]) {
+    border-color: var(--mc-border-field-hover);
+  }
+
   /* Sizes — the same control scale the Button uses, through the density aliases. min-block-size,
      not block-size, so OS/browser text-only scaling can grow the value without clipping it. */
   .mc-input-sm {
@@ -46,14 +53,29 @@
    * (The Button has no resting border, so it keeps the detached offset ring.)
    */
   .mc-input:focus-visible {
-    border-color: var(--mc-focus-ring);
-    outline-color: var(--mc-focus-ring);
+    border-color: var(--mc-text-default);
+    outline-color: var(--mc-accent-strong);
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }
+  /*
+   * Invalid: the danger edge, and nothing else. A field's error is never printed under it (owner
+   * ruling 2026-11-13, in labelled-field.svelte); the edge is how a sighted reader finds the field,
+   * and the error stays the control's accessible description. Declared after focus so a field that
+   * is both focused and invalid still reads as invalid.
+   */
+  .mc-input[aria-invalid="true"] {
+    border-color: var(--mc-status-danger);
+  }
+  .mc-input[aria-invalid="true"]:focus-visible {
+    border-color: var(--mc-status-danger);
+    outline-color: var(--mc-status-danger);
+  }
   .mc-input:disabled {
-    background-color: var(--mc-action-disabled);
-    color: var(--mc-action-disabled-foreground);
+    background-color: var(--mc-surface-field-disabled);
+    border-style: dashed;
+    border-color: var(--mc-border-default);
+    color: var(--mc-text-subtle);
     cursor: not-allowed;
   }
   /* Drop the native number spin buttons so a number field reads the same as the text fields. */

@@ -53,6 +53,8 @@ export interface CheckDraftValues {
   /** Whether it looks for the firm's own people, by identity. */
   readonly searchOwnPeople: boolean;
   readonly nameMatching: Strictness;
+  /** Whether names are also found by trigram overlap. Over-inclusive always runs it. */
+  readonly trigramMatching: boolean;
   /** The calls, texts and email to search. Empty is Messaging not asked for. */
   readonly messaging: readonly MessagingChannel[];
   /** The matter statuses whose tasks are searched. Empty is Tasks not asked for. */
@@ -106,6 +108,7 @@ export const OPENING_DRAFT: CheckDraftValues = {
   searchRelationships: true,
   searchOwnPeople: true,
   nameMatching: "balanced",
+  trigramMatching: true,
   messaging: ["calls", "texts", "email"],
   tasks: ["consultations", "open", "closed", "archived"],
   magnus: true,
@@ -160,6 +163,9 @@ export function composeCheck(values: CheckDraftValues, surface: CheckSurface): C
       scope: {
         sources: sourcesFor(values),
         strictness: values.nameMatching,
+        ...(values.nameMatching === "balanced" && !values.trigramMatching
+          ? { trigramMatching: false }
+          : {}),
         places: placesFor(values),
       },
     },
@@ -191,6 +197,7 @@ function hasBeenTouched(values: CheckDraftValues): boolean {
     values.searchRelationships !== OPENING_DRAFT.searchRelationships ||
     values.searchOwnPeople !== OPENING_DRAFT.searchOwnPeople ||
     values.nameMatching !== OPENING_DRAFT.nameMatching ||
+    values.trigramMatching !== OPENING_DRAFT.trigramMatching ||
     !sameMembers(values.messaging, OPENING_DRAFT.messaging) ||
     !sameMembers(values.tasks, OPENING_DRAFT.tasks) ||
     !sameMembers(values.files, OPENING_DRAFT.files) ||

@@ -334,6 +334,39 @@ export class SfuClient {
     );
   }
 
+  /**
+   * Whether this deployment's application can actually open a session, for the Build Information
+   * panel: a session is opened and its id thrown away, because nothing short of that proves the id
+   * and the secret are the pair the service holds. An unused session carries no media and costs
+   * nothing; the service lets it lapse. A 401, 403 or 404 is the service refusing the application
+   * (a wrong secret, or an id it does not hold); anything else that is not an answer is the service
+   * not answering. Like `call`, nothing of the upstream body is carried out.
+   */
+  async probe(timeoutMilliseconds: number): Promise<"connected" | "refused" | "unreachable"> {
+    try {
+      const response = await this.options.fetch(
+        `${REALTIME_BASE_URL}/${encodeURIComponent(this.options.appId)}/sessions/new`,
+        {
+          method: "POST",
+          headers: { authorization: `Bearer ${this.options.appSecret}` },
+          signal: AbortSignal.timeout(timeoutMilliseconds),
+        },
+      );
+      if (response.status === 401 || response.status === 403 || response.status === 404) {
+        return "refused";
+      }
+      if (!response.ok) return "unreachable";
+      const body: unknown = await response.json();
+      const sessionId =
+        body !== null && typeof body === "object" && !Array.isArray(body)
+          ? stringField(body as Record<string, unknown>, "sessionId")
+          : undefined;
+      return sessionId === undefined ? "unreachable" : "connected";
+    } catch {
+      return "unreachable";
+    }
+  }
+
   // The one place a request leaves this Worker. The bearer credential is set here and nowhere else,
   // and a non-2xx or unreadable answer becomes the one opaque error before any caller sees it.
   private async call(
@@ -507,7 +540,9 @@ export function setSfuFetchForTests(fetchImplementation: typeof fetch | null): v
  * half-finished configuration that would fail at the first publish, deep inside a browser's
  * connection, instead of at the door.
  */
-export function sfuClientForEnv(env: Bindings): SfuClient | null {
+export function sfuClientForEnv(
+  env: Pick<Bindings, "REALTIME_SFU_APP_ID" | "REALTIME_SFU_APP_SECRET">,
+): SfuClient | null {
   const appId = env.REALTIME_SFU_APP_ID;
   const appSecret = env.REALTIME_SFU_APP_SECRET;
   // The environment is read FIRST and the seam only afterwards, so a deployment's answer is never

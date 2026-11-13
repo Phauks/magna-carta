@@ -1,29 +1,31 @@
 <script lang="ts">
   /*
-   * A recording in the details panel's Preview tab: the compact player, or the sentence saying why
-   * it will not play here with the download beside it. The same question the watch page asks — the
+   * A recording in the details panel's Preview tab: the compact player, or the notice saying why
+   * it will not play here, with the download and, where a copy can cure it, Convert to MP4. The same question the watch page asks — the
    * preview grant — asked again for the file in the panel, so the panel and the page never disagree
    * about whether a recording plays.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
-  import Button from "@magna-carta/design-system/button";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import VideoPlayer from "@magna-carta/design-system/video-player";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import {
-    CANNOT_PLAY_TITLE,
-    cannotPlaySentence,
-    type CannotPlayCause,
-  } from "$lib/documents/video-playback.ts";
-  import { openBeside, opensBeside } from "$lib/navigation/open-beside.ts";
+  import UnreadableMediaNotice from "$lib/documents/unreadable-media-notice.svelte";
+  import { type CannotPlayCause } from "$lib/documents/video-playback.ts";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import { fileDownloadUrl, readPreviewGrant, type PreviewGrant } from "./matter-file-api.ts";
 
   let {
     fileId,
     name,
+    contentType = null,
     media = "video",
-  }: { fileId: string; name: string; media?: "video" | "audio" } = $props();
+  }: {
+    fileId: string;
+    name: string;
+    /** The sniffed content type: what decides whether Convert to MP4 is offered. */
+    contentType?: string | null;
+    media?: "video" | "audio";
+  } = $props();
 
   let asking = $state(true);
   let grant = $state<PreviewGrant | null>(null);
@@ -86,13 +88,7 @@
   {/snippet}
 
   {#if cannotPlay !== null}
-    <Alert.Root variant="info">
-      <Alert.Title>{CANNOT_PLAY_TITLE}</Alert.Title>
-      <Alert.Description>{cannotPlaySentence(cannotPlay)}</Alert.Description>
-      <Button variant="secondary" size="sm" href={fileDownloadUrl(fileId)} {...opensBeside("file")}>
-        Download
-      </Button>
-    </Alert.Root>
+    <UnreadableMediaNotice {fileId} {contentType} cause={cannotPlay} />
   {:else if grant?.streamUrl !== undefined}
     <VideoPlayer
       variant="compact"

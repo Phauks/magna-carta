@@ -168,4 +168,27 @@ export const CONTRAST_PAIRS: ReadonlyArray<ContrastPair> = [
     background: "surface-default",
     minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
   },
+  // A field is identified by its edge, so the edge holds 3:1 against the field's own face and
+  // against the page the field sits on, at rest and under the pointer.
+  {
+    foreground: "border-field",
+    background: "surface-field",
+    minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "border-field",
+    background: "surface-default",
+    minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "border-field-hover",
+    background: "surface-field",
+    minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
+  },
+  // A disabled field still names its value, so its text reads on the flatter disabled face.
+  {
+    foreground: "text-subtle",
+    background: "surface-field-disabled",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
 ];

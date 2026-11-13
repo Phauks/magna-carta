@@ -116,6 +116,7 @@ function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
             ? "Every role the corpus holds"
             : check.matching.nameRoles.join(", "),
       },
+      { label: "Trigram Matching", value: check.matching.trigramMatching ? "On" : "Off" },
     );
   }
   if (check.traversal === null) {
@@ -267,15 +268,15 @@ export function checkReportSheet(
   result: CheckWithHits,
   context: ReportContext,
 ): PrintSheetDocument {
-  const { check, statement, hits } = result;
+  const { check, report, hits } = result;
   const sections: PrintSheetSection[] = [
-    {
-      id: "search",
+    // The engine's own account, one printed section per part, in the order it wrote them.
+    ...report.map((part): PrintSheetSection => ({
+      id: `search-${part.key}`,
       kind: "text",
-      title: "What The Search Did",
-      // The engine's own sentences, in the order it wrote them.
-      text: statement.join("\n"),
-    },
+      title: part.heading,
+      text: part.lines.join("\n"),
+    })),
     {
       id: "run",
       kind: "fields",

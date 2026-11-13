@@ -9,7 +9,7 @@
  */
 import type { DirectoryEdgeType, DirectoryNameRole, PronounSet } from "./directory-api.ts";
 import type { CreateDirectoryPersonRequest } from "./directory-api.ts";
-import type { ContactDraft } from "./contact-draft.ts";
+import type { ContactDraft, ContactKind } from "./contact-draft.ts";
 import { contactKindLabel, contactRequestsFrom, contactRowFromDraft } from "./contact-draft.ts";
 import { EDGE_TYPES, nameRoleLabel } from "./directory-vocabulary.ts";
 import { formatDate } from "@magna-carta/design-system/formatters";
@@ -32,7 +32,30 @@ export interface PersonNameDraft {
 
 export interface OtherNameDraft extends PersonNameDraft {
   readonly id: string;
-  readonly nameRole: DirectoryNameRole;
+  nameRole: DirectoryNameRole;
+}
+
+/** A blank other name, as the Add Other Name button opens it. */
+export function blankOtherName(): OtherNameDraft {
+  return {
+    id: crypto.randomUUID(),
+    prefix: "",
+    given: "",
+    middle: "",
+    family: "",
+    suffix: "",
+    nameRole: "former",
+  };
+}
+
+/**
+ * The other names that hold something to answer to. A block opened and left empty is not a name:
+ * it is not counted, summarised or sent, the same rule the add row it replaced applied.
+ */
+export function filledOtherNames(draft: PersonDraft): readonly OtherNameDraft[] {
+  return draft.otherNames.filter(
+    (other) => other.given.trim() !== "" || other.family.trim() !== "",
+  );
 }
 
 /** The sets most people state, offered first; "Another set…" opens the five forms. */
@@ -163,7 +186,7 @@ export function personSectionCounts(draft: PersonDraft): readonly PersonSectionC
   // an address is a form of its own and its own rail item, beside the one-line ways to reach them.
   const addresses = draft.contacts.filter((contact) => contact.kind === "address").length;
   return [
-    { id: "names", label: "Names", count: currentName + draft.otherNames.length },
+    { id: "names", label: "Names", count: currentName + filledOtherNames(draft).length },
     { id: "contact", label: "Contact", count: draft.contacts.length - addresses },
     { id: "address", label: "Address", count: addresses },
     // Pronouns and the life dates share one section: each is a single answer, and a section of one
@@ -197,7 +220,20 @@ function displayName(name: PersonNameDraft): string {
 export interface PersonSummaryLine {
   readonly label: string;
   readonly value: string;
+  /** What kind of fact the line is, so the read-back can mark it: a glyph per kind, not per label. */
+  readonly mark: PersonSummaryMark;
 }
+
+/** The kinds of fact the read-back marks apart. */
+export type PersonSummaryMark =
+  | "name"
+  | "other-name"
+  | ContactKind
+  | "pronouns"
+  | "born"
+  | "died"
+  | "identifier"
+  | "organization";
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -212,36 +248,43 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
    */
   const lines: PersonSummaryLine[] = [];
   const name = displayName(draft.name);
-  if (name !== "") lines.push({ label: "Name", value: name });
-  for (const other of draft.otherNames) {
+  if (name !== "") lines.push({ label: "Name", value: name, mark: "name" });
+  for (const other of filledOtherNames(draft)) {
     const otherName = displayName(other);
-    if (otherName !== "") lines.push({ label: nameRoleLabel(other.nameRole), value: otherName });
+    if (otherName !== "")
+      lines.push({ label: nameRoleLabel(other.nameRole), value: otherName, mark: "other-name" });
   }
   // Ways to reach them first and addresses after, because that is the order of the sections.
   const reach = draft.contacts.filter((contact) => contact.kind !== "address");
   const addresses = draft.contacts.filter((contact) => contact.kind === "address");
   for (const contact of [...reach, ...addresses]) {
     const row = contactRowFromDraft(contact, contact.id);
-    if (row.value !== "") lines.push({ label: contactKindLabel(contact.kind), value: row.value });
+    if (row.value !== "")
+      lines.push({ label: contactKindLabel(contact.kind), value: row.value, mark: contact.kind });
   }
   if (draft.pronouns !== null) {
     lines.push({
       label: "Pronouns",
       value: `${draft.pronouns.subject} / ${draft.pronouns.object} / ${draft.pronouns.possessivePronoun}`,
+      mark: "pronouns",
     });
   }
-  if (draft.dateOfBirth !== "") lines.push({ label: "Born", value: formatDate(draft.dateOfBirth) });
-  if (draft.dateOfDeath !== "") lines.push({ label: "Died", value: formatDate(draft.dateOfDeath) });
+  if (draft.dateOfBirth !== "")
+    lines.push({ label: "Born", value: formatDate(draft.dateOfBirth), mark: "born" });
+  if (draft.dateOfDeath !== "")
+    lines.push({ label: "Died", value: formatDate(draft.dateOfDeath), mark: "died" });
   if (draft.identifiers.length > 0) {
     lines.push({
       label: "Identifiers",
       value: plural(draft.identifiers.length, "sealed", "sealed"),
+      mark: "identifier",
     });
   }
   for (const organization of draft.organizations) {
     lines.push({
       label: organization.role.trim() === "" ? "Organization" : organization.role.trim(),
       value: organization.organizationName,
+      mark: "organization",
     });
   }
   return lines;
@@ -281,7 +324,7 @@ export function personDraftWarning(draft: PersonDraft): string | null {
 export function personDraftStarted(draft: PersonDraft): boolean {
   return (
     displayName(draft.name) !== "" ||
-    draft.otherNames.length > 0 ||
+    filledOtherNames(draft).length > 0 ||
     draft.pronouns !== null ||
     draft.dateOfBirth !== "" ||
     draft.dateOfDeath !== "" ||
@@ -309,8 +352,9 @@ export function personCreateRequest(draft: PersonDraft): CreateDirectoryPersonRe
   // Absent rather than empty: a person with one name has no family name, which is a different
   // fact from a family name recorded as nothing at all.
   if (family !== "") request.family = family;
-  if (draft.otherNames.length > 0) {
-    request.otherNames = draft.otherNames.map((name) => ({
+  const otherNames = filledOtherNames(draft);
+  if (otherNames.length > 0) {
+    request.otherNames = otherNames.map((name) => ({
       given: name.given.trim(),
       family: name.family.trim(),
       nameRole: name.nameRole,

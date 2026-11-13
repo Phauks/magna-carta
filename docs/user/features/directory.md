@@ -21,11 +21,16 @@ need that, and stays a list of names on the day you do not. When something is na
 The search finds a record by any name it has ever held: a maiden name, a former trading name or a
 typo still finds the right record, and the results say which name matched.
 
+A field with something wrong in it turns red rather than printing a message under itself, so the
+form never shifts while you type; hover over the field to read what is wrong.
+
 Press **New** to record a person or an organization. A person is recorded whole, on one form that
 scrolls: their names, the ways to reach them, an address, an About section for their pronouns and
-dates, sealed identifiers and the organizations they belong to, one under another. Press **Tab**
-to move through every field in order. The list down the left side jumps to a section, shows how
-many entries each one holds, and highlights the section you are in. On the right, as you type
+dates, sealed identifiers and the organizations they belong to, one under another. The parts most people leave empty (an address, an identifier, an organization) start as an **Add** button and open their fields when pressed. Press **Tab**
+to move through every field in order. Each section is a card with its name and how many entries it
+holds at the top; press that header to fold the card away, and press it again to open it. The list
+down the left side jumps to a section (opening it if it was folded), shows how many entries each one
+holds, and highlights the section you are in. On the right, as you type
 the name, the Directory shows records that may already be the same person, with a way to open each
 beside your draft, so the same client does not end up in the book twice under two spellings. Below
 that, the record is read back as it will read, with the email address and the address themselves,
@@ -35,8 +40,8 @@ Save, or not at all.
 ## A record
 
 A record opens in a window over whatever you were doing, and it looks the way it did when it was
-recorded: one page that scrolls, with every section of the record one under another, and the list
-down the left side jumping between them. A person's pronouns and dates of birth and death are
+recorded: one page that scrolls, with every section of the record one under another in cards that fold
+from their headers, and the list down the left side jumping between them. A person's pronouns and dates of birth and death are
 under their name at the top. A long list, such as the matters a record is on, shows its first few
 lines and a **Show All** button. Close the window and you are back exactly where you
 were, with nothing to retrace. It is the same window from the Directory's list, from a party on a
@@ -84,21 +89,26 @@ A record answers the questions the firm keeps an answer to:
   with a prefix and any number of suffixes chosen from a list you can add to — somebody who is both
   Jr. and Esq. is recorded as both. Only the first name is required: a person who has one name is
   recorded under it, with a note on screen saying that is what the firm will file and search them
-  under.
+  under. When you record a new person, **Add Other Name** opens a second full set of name fields
+  (prefix, first, middle and last name, suffixes) for a maiden name or an alias, with its kind beside
+  it; add as many as you need, and one left empty is ignored.
 - **Contact**: one line per way to reach them. Choose the kind first — Email, Telephone or Fax — and
   the fields follow: an email address is checked as you type; a number takes its country from the
   dial code and is formatted as you type it, so a Chicago number reads as (312) 555-0148 and a London
-  one as +44 20 7946 0000. Each line shows what it is used for, whether the person asked the firm not
+  one as +44 20 7946 0000. Each line has a **Type** (work, home, mobile and so on), and shows whether the person asked the firm not
   to use it, and which one they prefer. A number that turned out to be disconnected, or mail that
   came back, is recorded as failed rather than deleted, so the next person does not ring it again.
   A value entered wrongly is corrected in place: press the pencil on its line and it comes back into
   the fields it was entered in, so a mistyped digit does not cost you the whole line and everything
   recorded against it.
 - **Address**: the postal addresses the firm holds, entered in the shape the country actually uses.
-  Choose the country first and the rest of the form follows it — an Irish address asks for a county
+  Press **Add Address** to open the form. The country is the last field and starts as the United
+  States; choosing another re-arranges the boxes above it — an Irish address asks for a county
   and an Eircode, a German one puts the postal code before the town, a Japanese one starts with the
   postal code and reads down to the street, and none of them is asked for a state that does not
   exist. Nothing is required: an address the firm holds half of is still worth recording.
+  In the United States, typing the ZIP code first fills in the city and the state, leaving anything
+  you have already typed in those boxes as it is.
   Where address suggestions are available, the street box offers real addresses as you type, and
   choosing one fills in the town, the state or province and the postal code while keeping any
   apartment or suite you had already typed. A building with several units is offered once, with how
@@ -108,11 +118,10 @@ A record answers the questions the firm keeps an answer to:
   published by states, counties and cities, so a very new street, or the unit number in some
   buildings, may not be there yet. The offers are only a shortcut: what you type is what is kept,
   whether or not you choose one. If a postal code does not look like one for
-  the chosen country, a note beneath it says so and the address saves anyway, and the state or
-  province box offers the country's list without refusing a name that is not on it. Each
-  address also says what it is for and whether the place physically exists, which is the difference
-  between somewhere a document can be served and a delivery point that cannot. Addresses are
-  corrected in place, the same way.
+  the chosen country, its box turns red (hover over it to read why) and the address saves anyway,
+  and the state or province box offers the country's list without refusing a name that is not on
+  it. Each address has a **Type**, such as business or residential. Addresses are corrected in
+  place, the same way.
 - **About**, on a person: the pronouns they stated, and their dates of birth and death.
 - **Identifiers**: sealed values such as a social security number, a driver's licence, a bar
   number or an account. The type decides what is asked for: nine digits for a social security

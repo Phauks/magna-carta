@@ -70,3 +70,15 @@ export function openBeside(href: string, reason: OpenBesideReason): void {
   void reason;
   globalThis.open(href, "_blank", "noopener,noreferrer");
 }
+
+/**
+ * Reserves a blank tab beside the reader, inside a press, for a destination whose address a write
+ * has not answered yet (a meeting started or a room opened: the browser lets a page open a tab only
+ * while a press is in progress). It is NOT isolated, because this page has to point the tab once the
+ * address is known; that is safe only because the destination is this application's own. Answers
+ * null where the browser blocked the tab.
+ */
+export function reserveBeside(reason: OpenBesideReason): Window | null {
+  void reason;
+  return globalThis.open("about:blank", "_blank");
+}

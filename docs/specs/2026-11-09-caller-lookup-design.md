@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-09 · **Status:** built · **Area:** Communications
 **Builds on:** [`2026-09-07-call-and-text-log-design.md`](2026-09-07-call-and-text-log-design.md)
-**Decision:** `docs/decisions/pending/caller-id-is-a-paid-lookup-a-member-presses-for.md`
+**Decision:** `docs/decisions/0500-caller-id-is-a-paid-lookup-a-member-presses-for.md`
 
 ## 1. The problem
 

@@ -27,6 +27,17 @@
  *
  * Pure over plain values and free of Svelte, so the node-pool tests exercise each section directly.
  */
+import {
+  FEATURES_SECTION_LABEL,
+  featureName,
+  featureStateLabel,
+  missingRequirements,
+  sortFeatures,
+} from "./features-model.ts";
+import {
+  CONNECTED_SERVICES_SECTION_LABEL,
+  connectedServiceRow,
+} from "./connected-services-model.ts";
 import type { Problem } from "$lib/api/request.ts";
 import {
   entry,
@@ -200,6 +211,31 @@ function deploymentSection(state: PanelReportState): ReportSection | null {
   return section(DEPLOYMENT_SECTION_LABEL, rows);
 }
 
+/**
+ * Every feature and its state, broken ones first. A platform operator's paste also says which
+ * settings each one that is not set up still needs, because that is the next step; a member's paste
+ * carries no setting names, matching what their screen showed.
+ */
+function featuresSection(state: PanelReportState): ReportSection | null {
+  const features = state.deployment.value?.features ?? [];
+  if (features.length === 0) return null;
+  const requirements = state.deployment.value?.featureRequirements ?? null;
+  return section(
+    FEATURES_SECTION_LABEL,
+    sortFeatures(features).map((feature) => {
+      const missing =
+        requirements === null || feature.state !== "not-set-up"
+          ? []
+          : missingRequirements(requirements.find((candidate) => candidate.id === feature.id));
+      const label = featureStateLabel(feature.state);
+      return entry(
+        featureName(feature.id),
+        missing.length === 0 ? label : `${label} — needs ${missing.join(", ")}`,
+      );
+    }),
+  );
+}
+
 /** The rest of the fleet, every silent one included — an omission here reads as health. */
 function workersSection(state: PanelReportState): ReportSection | null {
   const { value } = state.deployment;
@@ -207,6 +243,16 @@ function workersSection(state: PanelReportState): ReportSection | null {
   const rest = partitionDeploymentRows(value.services).rest;
   if (rest.length === 0) return null;
   return section(FLEET_SECTION_LABEL, rest.map(serviceEntry));
+}
+
+/** The outside services the deployment depends on, each with whether it accepts this deployment. */
+function connectedServicesSection(state: PanelReportState): ReportSection | null {
+  const services = state.deployment.value?.connectedServices ?? [];
+  if (services.length === 0) return null;
+  return section(
+    CONNECTED_SERVICES_SECTION_LABEL,
+    services.map((service) => healthEntry(connectedServiceRow(service))),
+  );
 }
 
 /** Whether this session can reach and use its firm's own data. */
@@ -270,7 +316,9 @@ export const PANEL_REPORT_SECTIONS: readonly ((state: PanelReportState) => Repor
     buildSection,
     environmentSection,
     deploymentSection,
+    featuresSection,
     workersSection,
+    connectedServicesSection,
     databaseSection,
     readinessSection,
   ];
