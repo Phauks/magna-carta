@@ -26,6 +26,7 @@ import {
   guestMeetingSummary,
   guestSendMessage,
   meetingsInviteGuest,
+  meetingsInviteGuestByAddress,
   meetingsListGuests,
   meetingsRevokeGuestLink,
   meetingsRotateGuestLink,
@@ -260,6 +261,26 @@ export function inviteMeetingGuest(
     meetingsInviteGuest({
       path: { meetingId },
       body: { entityId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/**
+ * Invite somebody by the name and address the host typed. The address is matched to the Directory
+ * entity that holds it, or a person marked as needing review is made for it; either way they are put
+ * on the meeting's event and sent the same link `inviteMeetingGuest` sends.
+ */
+export function inviteMeetingGuestByAddress(
+  meetingId: string,
+  name: string,
+  emailAddress: string,
+): Promise<MeetingWrite<MeetingGuestInvitation>> {
+  return outcomeOf(() =>
+    meetingsInviteGuestByAddress({
+      path: { meetingId },
+      body: { name, emailAddress },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
     }),

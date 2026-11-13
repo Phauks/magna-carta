@@ -7,7 +7,10 @@
   "exports": {
     "./source-record": "./src/source-record.ts",
     "./transfer-run-statements": "./src/transfer-run-statements.ts",
-    "./source-record-link-statements": "./src/source-record-link-statements.ts"
+    "./source-record-link-statements": "./src/source-record-link-statements.ts",
+    "./source-file": "./src/source-file.ts",
+    "./transfer-source-file-statements": "./src/transfer-source-file-statements.ts",
+    "./delimited-text-reader": "./src/delimited-text-reader.ts"
   },
   "scripts": {
     "test": "vp test run"

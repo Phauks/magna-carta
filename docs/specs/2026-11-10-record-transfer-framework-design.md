@@ -1,8 +1,8 @@
 # Record transfer framework (LEAP first) — design
 
-**Date:** 2026-11-10 · **Status:** Accepted (framework and first slice); later slices proposed · **Area:** Platform / Core domain
+**Date:** 2026-11-10 · **Status:** Accepted (framework, first and second slices); later slices proposed · **Area:** Platform / Core domain
 **Builds on:** the white paper's _LEAP migration_ topic and ADR-0021 (migration deferred, legacy identifiers required, trust reconciliation as the cutover gate)
-**Decisions:** `docs/decisions/pending/a-transferred-record-is-linked-to-its-source-in-one-table.md`
+**Decisions:** `docs/decisions/pending/a-transferred-record-is-linked-to-its-source-in-one-table.md`, `docs/decisions/pending/a-firm-chooses-per-matter-whether-transferred-money-is-view-only.md`, `docs/decisions/pending/a-transfers-staging-store-is-the-source-file-itself.md`
 **Owner rulings:** 2026-11-10, in the project thread that produced this document, listed in section 2
 
 ## 1. Scope
@@ -48,7 +48,7 @@ A vendor extract will probably name its columns differently from the API. The en
 | Part                  | What it does                                                                                                                                                   | Depends on the source's file format |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | 1. Readers            | One per kind of source file (a table of a database extract, a CSV report, a folder of documents). Each turns its input into staged rows and interprets nothing | Yes                                 |
-| 2. Staging store      | Holds every source row unchanged, with the file and row it came from, apart from the firm's live data                                                          | No                                  |
+| 2. Staging store      | Keeps every source file unchanged in the firm's object storage, apart from the firm's live data. A row is named by its file and its number in it (section 11)  | No                                  |
 | 3. Mapping rules      | One set per record kind, plus lookup lists the operator edits: matter types, party roles, staff                                                                | Field names only                    |
 | 4. Source-record link | Remembers which source record became which record here. Makes every run repeatable and every record traceable                                                  | No                                  |
 | 5. Loader             | Writes mapped records through the firm-scoped data-access layer, in dependency order                                                                           | No                                  |
@@ -128,7 +128,7 @@ Detail belongs to each slice. This table fixes the targets so slices do not drif
 ## 8. Build order
 
 1. **Runs and links** (this slice).
-2. **Staging store and the first reader**, proved on LEAP's CSV reports because those are the files the owner can produce without LEAP's help.
+2. **Staging store and the first reader** (built, section 11). The reader is for delimited text, because LEAP's CSV reports are the files the owner can produce without LEAP's help.
 3. **Directory**: people, organizations, contact details, duplicate handling.
 4. **Matters and parties**, with the matter-type and role lookups.
 5. **Rehearsal report**, once there are two record kinds to count.
@@ -156,3 +156,27 @@ From reading LEAP's reference. Each is either adopted here or already held by `d
 4. Which definable-table fields and matter types are worth carrying?
 5. Do precedents transfer, or are the ones in use rebuilt?
 6. How long a freeze on entry in LEAP is acceptable at cutover?
+
+## 11. The second slice: source files and the first reader
+
+Built 2026-11-13. One per-firm table, and three modules in `@magna-carta/record-transfer`.
+
+**The staging store is the file.** Section 4 first described staging as a table holding every source row. It is built differently, and the reason is what an extract contains. A LEAP card carries a bank account, and an extract will carry tax and identity numbers in whatever column LEAP put them. Copying every row into the firm's database would put those values there in the clear, in a table whose columns nobody can name in advance, which is what the protected-field rule in `docs/conventions/invariants.md` exists to prevent. It would also put bulk content in the database, which belongs in object storage. So a source file is kept whole and unchanged in the firm's object storage, and the database holds only the facts about it.
+
+A row is still individually nameable, which is what staging was for. A reader turns the same bytes into the same numbered rows every time, so "row 4,112 of this file" means one source row for as long as the file is held, and the file's SHA-256 digest says which bytes those were after they are gone.
+
+**`transfer_source_file`** — one file a run was given: `id`, `transfer_run_id`, `source_kind` (what it holds: `matter-list`), `format` (how it is read: `delimited-text`), `file_name`, `object_key`, `byte_length`, `content_sha256`, `key_column`, `row_count`, `registered_at`, `read_at`, `removed_at`.
+
+- The object key is `transfers/{run}/{file}`, built from the two identifiers and never from the file's name.
+- The same bytes given twice to one run are refused by a unique index on run and digest.
+- `key_column` names the column holding the source system's key for a row, when the file has one. It is the operator's statement about the file, so no LEAP column name is assumed anywhere in the code. The column names of LEAP's reports are known only from a third-party description until a sample file is uploaded.
+- `row_count` and `read_at` are written once, by the first complete read.
+- `removed_at` records that the bytes were released after cutover. The row stays, because the run's report still names the file.
+
+**The reader for delimited text** (`readDelimitedText`) reads comma-, tab-, semicolon- or pipe-separated text with a header row, following RFC 4180's quoting. It takes text as it arrives and holds one row at a time, so a file's size is not a limit. It changes no value: nothing is trimmed, nothing is read as a number or a date. Each row carries its row number, which links and rejections cite, and the line it starts on, which a person opening the file needs.
+
+- A file that cannot be read as rows is refused with one of four named faults: no header, a blank column name, a repeated column name, or a file that ends inside a quoted value.
+- A row with too few or too many values is read and reported, never padded or trimmed, and never a reason to stop. It is a finding for the rehearsal report.
+- Fault messages come from a fixed table and hold nothing from the file.
+
+**Not in this slice.** Nothing uploads a file yet. The upload route, the object storage write and the pass that reads a file belong with the operator's screens and the loader. A reader for a database extract is written when the form of LEAP's extract is known.

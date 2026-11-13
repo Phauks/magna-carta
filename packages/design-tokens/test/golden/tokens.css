@@ -169,6 +169,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -177,6 +179,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -458,6 +462,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -466,6 +472,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -747,6 +755,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -755,6 +765,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1036,6 +1048,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -1044,6 +1058,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1325,6 +1341,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -1333,6 +1351,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1614,6 +1634,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -1622,6 +1644,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -1903,6 +1927,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -1911,6 +1937,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -2192,6 +2220,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -2200,6 +2230,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -2481,6 +2513,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -2489,6 +2523,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -2770,6 +2806,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -2778,6 +2816,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -3059,6 +3099,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -3067,6 +3109,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
@@ -3348,6 +3392,8 @@
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
+  /* How wide the record window's side panel stands when a kind of record has one: a conversation that stays in view beside the record and its tabs rather than hiding behind a tab. Fixed rather than flexible, because a running thread reads at a column's width and gains nothing from more, and narrower than size.record-context so the tabs keep the larger share of the spare width. */
+  --mc-size-record-aside: 360px;
   /* How wide the record window's right pane asks to be — the tabs standing beside the record. It is a starting width rather than a cap: attachments, history and the chain each read better with room, so this side is the one that takes whatever width is left once the record has stopped at size.record-pane. While the window is too narrow for both, this width is what decides the two panes' share of it. */
   --mc-size-record-context: 400px;
   /* How wide the record's own pane gets when it carries the section rail down its left side, as New Person and the record window do: size.record-pane for the fields plus the rail beside them (11rem and its 16px gap). Without the extra the rail is paid for out of the fields, and a three-column name row is squeezed into the width of two. */
@@ -3356,6 +3402,8 @@
   --mc-size-record-pane: 640px;
   /* How wide a record opens before it stops growing. Wider than a reading measure on purpose: the left pane stops at size.record-pane and everything past that goes to the tabs beside it, which is room that side can actually use. The expanded state deliberately ignores this — that is what expanding is for. */
   --mc-size-record-window: 1280px;
+  /* How wide a record window with a side panel opens before it stops growing: size.record-window plus size.record-aside, so the panel is added beside the record and its tabs rather than paid for out of them. The expanded state ignores this, as it ignores size.record-window. */
+  --mc-size-record-window-wide: 1640px;
   --mc-size-sidebar: 256px;
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */

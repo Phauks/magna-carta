@@ -84,6 +84,12 @@ const ARTEFACTS = [
     bindings: "noise_suppression_core.js",
   },
   {
+    crate: "mls-core",
+    pkg: "packages/mls",
+    wasm: "mls_core_bg.wasm",
+    bindings: "mls_core.js",
+  },
+  {
     crate: "pdf-compose-core",
     pkg: "packages/pdf-compose",
     wasm: "pdf_compose_core_bg.wasm",

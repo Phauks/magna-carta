@@ -405,6 +405,39 @@ describe("a meeting has a medium, and it is decided once", () => {
     ).toBe("video");
   });
 
+  it("seals a room only when asked, and keeps what the first Start chose", async () => {
+    const database = fresh();
+    const sealed = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT, encrypted: true },
+      options,
+    );
+    await commit(database.database, sealed.effect);
+    expect(
+      (await readMeetingSummary(database.database, sealed.meetingId, visibility))?.encrypted,
+    ).toBe(true);
+    const again = await createMeeting(
+      database.database,
+      { eventKind: "matter", eventId: MATTER_EVENT, encrypted: false },
+      options,
+    );
+    expect(again.created).toBe(false);
+    expect(
+      (await readMeetingSummary(database.database, sealed.meetingId, visibility))?.encrypted,
+    ).toBe(true);
+
+    // A caller that has not heard of encryption gets a room in the clear, as before.
+    const clear = await createMeeting(
+      database.database,
+      { eventKind: "firm", eventId: FIRM_EVENT },
+      options,
+    );
+    await commit(database.database, clear.effect);
+    expect(
+      (await readMeetingSummary(database.database, clear.meetingId, visibility))?.encrypted,
+    ).toBe(false);
+  });
+
   it("does not change a room's medium when somebody presses Start again asking for the other", async () => {
     const database = fresh();
     const call = await createMeeting(

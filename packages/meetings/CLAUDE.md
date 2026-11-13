@@ -68,6 +68,16 @@ unchanged — the first Start decides, and `created: false` is what says so. The
 other half (a picture published into a call is refused there, not here): this package holds no
 socket.
 
+## Encryption is chosen when the room opens, and never changed
+
+`meeting.encrypted` says whether the room's pictures and sound are sealed end to end. It is read
+like the lobby (only by the request that opens the room) and kept like the medium (no statement
+changes it), because the browsers build their key group on arrival and a meeting that changed its
+mind would have members on both sides. `CreateMeetingInput.encrypted` and
+`OpenPersonalRoomInput.encrypted` default to false: what the product's default is, and whether the
+deployment allows it at all, is the Worker's to decide. A recording, captions or dial-in pause the
+sealing in the key group; they never clear this column.
+
 ## Attendance is a row per stay, and the roster is derived from it
 
 Somebody whose connection drops and who dials back in was in the room twice; a flag per person would
@@ -121,6 +131,39 @@ Identifiers and instants. There is nothing else: the meeting stores no title, no
 above all nothing anybody said — audio, video and screen share are routed between browsers and never
 reach this platform's storage at all. That is a property of the architecture rather than a rule this
 package enforces, which is why nothing here has a redaction step.
+
+## A personal room is a standing link, and every session is an ordinary meeting
+
+`personal-room-types.ts` / `personal-room-statements.ts` / `personal-room-service.ts` are the trio.
+`meeting_personal_room` holds one room per member (unique `owner_user_id`) with its link code and the
+medium and lobby its sessions open with. **A session is nothing new downstream**: opening the room
+writes an ordinary firm event (or a matter event, when a matter is named) with the owner on it, and
+an ordinary meeting on that event with `meeting.personal_room_id` set. Every rule above about a
+meeting hanging from its event still holds, so recording, attendance and the lists needed no change.
+
+Four rules travel with it.
+
+**One open session per room is a partial unique index**
+(`meeting_personal_room_open_session_unique_index`, on `personal_room_id` where the meeting is not
+ended), so two Opens racing produce one session and the loser's batch rolls back.
+
+**A session nobody is in ends on the NEXT Open, at the last departure.** There is no sweep: the
+service reads the open session, and when nobody is in the room or at its door it ends that meeting at
+the latest `left_at` across both stay tables (`readPersonalRoomOpenSession`), stops any recording on
+it, and opens a fresh one in the same batch. `sessionEventSettlement` gives the session's event its
+end in the event's own zone and marks it `occurred`; `endMeeting` composes the same statements, so a
+host's End settles the event too.
+
+**Arriving by link puts the member on the session's EVENT**, because the meeting's join asks whether
+the member is on the event. That is the whole of what the link grants; a closed room grants nothing
+and a replaced link names nothing.
+
+**Moving onto a matter is one guarded batch, one way.** A matter event is written copying the firm
+event and its participants, the meeting is re-pointed only while it still names the firm event
+(`MOVE_TO_MATTER_GUARD`), and the firm event is deleted only once no meeting references it
+(`MOVE_DELETE_EVENT_GUARD`). The meeting keeps its id, so nobody in the room is disturbed. Only the
+room's owner or a live host grant may move it, and the matter must be visible to the caller
+(`readVisibleMatter`); refusals are `MeetingPersonalRoomRefusedError`, a vocabulary of its own.
 
 ## Not built here, and where each one lands
 
@@ -321,6 +364,14 @@ the roster read, the lobby list and ending a meeting all go through them, so a g
 `MAX_MEETING_PARTICIPANTS` and `MAX_MEETING_LOBBY` exactly as a member does. A fitness test in
 `test/guests.test.ts` enumerates every table carrying the stay columns and fails when one is not in
 the list — a third kind of stay would otherwise be invisible to every count.
+
+**A guest typed by name and address still names a Directory entity.** `guest-by-address.ts`
+(`addGuestByAddress`) matches the address to the entity that holds it (`findEntitiesByEmailAddress`,
+first in handle order) or composes a Directory person marked `needs_review` with that address as its
+primary e-mail, and puts the entity on the meeting's event. It does NOT invite: the route commits that
+batch and then calls `inviteGuest` unchanged, because the invitation's reads must see those rows. A
+retry needs no key of its own, since the second call finds the person by the address the first wrote.
+The typed name and the address are never in a refusal or an audit row.
 
 **The link proves possession of a mailbox and nothing more.** A guest always waits at the door, the
 lobby setting notwithstanding; what the host reads there is the name typed at the door beside the

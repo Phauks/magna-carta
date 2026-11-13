@@ -78,6 +78,7 @@ import {
 } from "./lobby.ts";
 import { browserBackgroundSeams } from "../effects/background-processor.ts";
 import { browserNoiseSeams } from "../effects/noise-processor.ts";
+import { browserFrameEncryptionSeams } from "../effects/frame-encryption-processor.ts";
 import { backgroundEffects } from "./background-effects.ts";
 import { noiseRemoval } from "./noise-removal.ts";
 import {
@@ -132,6 +133,8 @@ import {
   type MeetingTrack,
   type MeetingTrackKind,
 } from "./signaling.ts";
+import type { GroupEpoch, GroupStanding } from "./encryption-group.ts";
+import { type FrameEncryptionSeams, MeetingEncryption } from "./meeting-encryption.ts";
 import {
   MeetingSubscriptions,
   RECONCILE_DEBOUNCE_MILLISECONDS,
@@ -179,6 +182,14 @@ export const SOCKET_CLOSED_REASON = "socket-closed";
  * remedy.
  */
 export const PROTOCOL_MISMATCH_REASON = "protocol-mismatch";
+/**
+ * The meeting is end-to-end encrypted and this browser cannot seal and open its frames: nothing it
+ * sent would reach anybody, and nothing anybody sent would open here. Said before anything is
+ * captured, with no Rejoin beside it, because the same browser would meet the same answer.
+ */
+export const ENCRYPTION_UNSUPPORTED_REASON = "encryption-unsupported";
+/** The engine that agrees the meeting's keys could not be loaded. A Rejoin may get further. */
+export const ENCRYPTION_FAILED_REASON = "encryption-failed";
 
 /**
  * The reason a socket is closed because the SAME member opened a newer one: a second tab, or a
@@ -319,6 +330,11 @@ export interface MeetingJoinRequest {
    * blurred once is blurred every time on this machine without opening the panel again.
    */
   readonly effects?: MediaEffectSettings;
+  /**
+   * Whether the meeting's pictures and sound are sealed end to end, as the meeting's record says.
+   * Fixed when the room was opened; this browser builds its key group only where it is true.
+   */
+  readonly encrypted?: boolean;
 }
 
 /**
@@ -351,6 +367,11 @@ export interface MeetingClientSeams {
    * channel anyway: the banner and the live region carry the announcement whatever this does.
    */
   createRecordingSounds?: () => MeetingRecordingSounds;
+  /**
+   * The browser's half of an end-to-end encrypted meeting: the key-group engine and the frame
+   * transform. Left out, this client cannot be in an encrypted meeting, and says so at the door.
+   */
+  createFrameEncryption?: () => FrameEncryptionSeams;
 }
 
 /** The seams as a real browser supplies them. */
@@ -383,6 +404,8 @@ export function browserMeetingSeams(): MeetingClientSeams {
     // the device itself, so this room's teardown gives back its own hold and never closes the device
     // a press into the next room has just woken.
     createRecordingSounds: () => pageRecordingSounds.hold(),
+    // Made only when an encrypted meeting is joined; nothing is loaded until then.
+    createFrameEncryption: () => browserFrameEncryptionSeams(),
   };
 }
 
@@ -529,6 +552,17 @@ export class MeetingClient {
   participantId = $state<string | null>(null);
   /** The meeting being attended. */
   meetingId = $state<string | null>(null);
+  /** Whether this meeting's pictures and sound are sealed end to end, as its record says. */
+  encrypted = $state(false);
+  /**
+   * Where this browser stands in the meeting's key group: `off` in a meeting in the clear, `loading`
+   * while the engine loads, then the group's own `joining`, `member` or `failed`.
+   */
+  encryptionStanding = $state<"off" | "loading" | GroupStanding>("off");
+  /** The digits every screen in the same key group shows, while this browser is in it. */
+  securityCode = $state<string | null>(null);
+  /** Whether the group says a recording, captions or a phone caller has paused the sealing. */
+  encryptionPaused = $state(false);
   /**
    * What this room carries, as the join stated it. It decides what is captured and what is offered,
    * and it never changes while a meeting is open — the room refuses a picture published into a call,
@@ -753,6 +787,13 @@ export class MeetingClient {
   #questions: MeetingQuestionRelay = NO_QUESTION_RELAY;
   /** The stage every capture passes through on its way to the room. */
   readonly #effects: MediaEffectsStage;
+  /**
+   * This browser's half of an end-to-end encrypted meeting, or null in a meeting that is not
+   * encrypted: the key group and the frame transform. Built by `join` for an encrypted meeting;
+   * otherwise the key-group frames have nowhere to go, which is right, because the room refuses them
+   * in a meeting opened in the clear.
+   */
+  #encryption: MeetingEncryption | null = null;
 
   constructor(
     seams: MeetingClientSeams,
@@ -873,6 +914,9 @@ export class MeetingClient {
         // The announcement is the frame's whole content, so it is read whole and handed on; what it
         // means for the mark and whether it is news is the recording module's to decide.
         recording: (frame) => this.recording.noteFrame(readRecordingAnnouncement(frame)),
+        // An encrypted meeting's key-group frames, for the group client alone. A meeting that is not
+        // encrypted holds no group client and is never sent one.
+        group: (frame) => this.#encryption?.receive(frame),
         ended: () => {
           this.#leaving = true;
           this.state = "ended";
@@ -926,7 +970,66 @@ export class MeetingClient {
       isLive: () => this.state === "live",
       send: (frame) => this.#signaling.send(frame),
     });
-    this.#signaling.open(request.socketUrl);
+    if (request.encrypted !== true) {
+      this.#signaling.open(request.socketUrl);
+      return;
+    }
+    this.#joinEncrypted(request.socketUrl);
+  }
+
+  /**
+   * An encrypted meeting is joined with the engine loaded first, so the welcome finds it ready and
+   * nothing is published before the frames it carries can be sealed. A browser that cannot run the
+   * frame transform is told so here, before anything is captured.
+   */
+  #joinEncrypted(socketUrl: string): void {
+    this.encrypted = true;
+    const seams = this.#seams.createFrameEncryption?.();
+    const encryption =
+      seams === undefined
+        ? null
+        : new MeetingEncryption(seams, {
+            send: (frame) => this.#signaling.send(frame),
+            onStanding: (standing) => {
+              this.encryptionStanding = standing;
+              if (standing !== "member") this.securityCode = null;
+            },
+            onEpoch: (epoch) => this.#noteEpoch(epoch),
+          });
+    if (encryption === null || !encryption.supported()) {
+      encryption?.close();
+      this.#fail(ENCRYPTION_UNSUPPORTED_REASON);
+      return;
+    }
+    this.#encryption = encryption;
+    this.encryptionStanding = "loading";
+    encryption.load().then(
+      () => {
+        // A Leave pressed while the engine loaded is the end of this join.
+        if (this.#encryption !== encryption || this.state === "ended" || this.state === "failed") {
+          return;
+        }
+        this.#signaling.open(socketUrl);
+      },
+      () => this.#fail(ENCRYPTION_FAILED_REASON),
+    );
+  }
+
+  /** The group moved to a new epoch: what the screen says about it. The key went to the transform. */
+  #noteEpoch(epoch: GroupEpoch): void {
+    this.securityCode = epoch.securityCode;
+    this.encryptionPaused = epoch.pause !== 0;
+  }
+
+  /**
+   * Put the frame transform on every section that does not carry it yet, in an encrypted meeting.
+   * `screen` names the screen share's track where the caller holds it before the client does.
+   */
+  #coverFrames(peerConnection: RTCPeerConnection, screen?: MediaStreamTrack): void {
+    this.#encryption?.cover(
+      peerConnection,
+      screen ?? this.screenStream?.getVideoTracks()[0] ?? null,
+    );
   }
 
   /**
@@ -1158,6 +1261,7 @@ export class MeetingClient {
       const offered = offerCapturedTracks(peerConnection, this.localStream ?? stream, wantsPicture);
       this.#cameraSender =
         offered.find((entry) => entry.kind === "video")?.transceiver.sender ?? null;
+      this.#coverFrames(peerConnection);
       const sessionDescription = await this.#negotiation.offer(peerConnection);
       // Read AFTER the local description, like every other mid here: a transceiver has none until
       // the browser has described the connection it sits on.
@@ -1376,6 +1480,7 @@ export class MeetingClient {
     // otherwise collide with.
     await this.#negotiation.enqueue("Your screen was not offered to the room.", async () => {
       const transceiver = offerScreenTrack(peerConnection, track);
+      this.#coverFrames(peerConnection, track);
       const sessionDescription = await this.#negotiation.offer(peerConnection);
       this.#screenMid = transceiver.mid;
       this.#signaling.send({
@@ -1415,6 +1520,7 @@ export class MeetingClient {
         // The section the microphone last went up is reused, so a member muted and unmuted twenty
         // times over an hour leaves the description exactly as long as it started.
         const transceiver = await offerMicrophoneTrack(peerConnection, track, this.#microphoneMid);
+        this.#coverFrames(peerConnection);
         const sessionDescription = await this.#negotiation.offer(peerConnection);
         this.#microphoneMid = transceiver.mid;
         this.#signaling.send({
@@ -1563,6 +1669,11 @@ export class MeetingClient {
     // running the meeting — which is what the room sends them.
     this.lobbyList = readWaitingParticipants(frame.waiting);
     this.#adoptRoster(readParticipants(frame.roster));
+    // In an encrypted meeting, the welcome is what lets this stay ask to be let into the key group:
+    // the room answers no socket still at the door.
+    if (this.#encryption !== null && this.meetingId !== null && this.participantId !== null) {
+      this.#encryption.start(this.meetingId, this.participantId);
+    }
     // The recording running as this socket arrived — the "and on arrival" half of the consent
     // ruling. Absent is "not recording", which is what a welcome without the field always meant.
     this.recording.noteWelcome(readRecordingAnnouncement(frame.recording));
@@ -1629,6 +1740,8 @@ export class MeetingClient {
     stated: readonly MeetingParticipant[] = participants,
   ): void {
     this.participants = participants;
+    // An encrypted meeting's committer removes from the key group whoever the roster no longer holds.
+    this.#encryption?.noteLiveStays(participants.map((one) => one.participantId));
     this.#adoptPresenceFrom(participants, stated);
     this.#subscriptions.forgetWhatTheRosterNoLongerNames(participants);
     this.#subscriptions.schedule();
@@ -1867,6 +1980,8 @@ export class MeetingClient {
       return;
     }
     await peerConnection.setRemoteDescription(offer);
+    // Before the answer, so no frame on a new section is shown before it is opened.
+    this.#coverFrames(peerConnection);
 
     // The mids are only meaningful once the offer is applied: before it, the transceivers the
     // unit's media sections map onto do not exist on this connection at all.
@@ -1894,6 +2009,13 @@ export class MeetingClient {
     const reason = readString(frame, "reason") ?? "refused";
     if (FATAL_REFUSAL_REASONS.has(reason)) {
       this.#fail(reason);
+      return;
+    }
+    // The key group's two refusals are about the group's order, not about this meeting: a commit
+    // another member's beat, or a stay the group has not admitted yet. The group client recovers from
+    // both by itself, and nothing about them is the member's to read.
+    if (reason === "stale-epoch" || reason === "not-in-group") {
+      this.#encryption?.refused(reason);
       return;
     }
     // A directive from a socket holding no grant is not a fault in the wire and does not belong in
@@ -1938,6 +2060,7 @@ export class MeetingClient {
     const peerConnection = this.#negotiation.connection;
     if (peerConnection === null || sessionDescription === null) return;
     await peerConnection.setRemoteDescription(sessionDescription);
+    this.#coverFrames(peerConnection);
     this.#signaling.send({
       type: "renegotiate",
       sessionDescription: await this.#negotiation.answer(peerConnection),
@@ -2029,6 +2152,9 @@ export class MeetingClient {
     this.remoteScreens = new Map();
     this.#negotiation.close();
     this.#signaling.close();
+    // The keys go with the meeting they sealed.
+    this.#encryption?.close();
+    this.#encryption = null;
   }
 
   #reset(): void {
@@ -2065,5 +2191,11 @@ export class MeetingClient {
     this.#presence.stop();
     this.reactions.clear();
     this.diagnostics.clear();
+    this.#encryption?.close();
+    this.#encryption = null;
+    this.encrypted = false;
+    this.encryptionStanding = "off";
+    this.securityCode = null;
+    this.encryptionPaused = false;
   }
 }

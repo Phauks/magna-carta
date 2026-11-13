@@ -45,6 +45,32 @@ describe("cookieless preview surface — standing fitness guard", () => {
     expect(res.headers.get("Content-Type")).toBe("video/mp4");
   });
 
+  it("grants CORS read access to an app page under the same parent, and to nobody else", async () => {
+    const filesOrigin = env.FILES_ORIGIN;
+    if (filesOrigin === undefined) throw new Error("test env must set FILES_ORIGIN");
+    const r2Key = "files/cors/v1";
+    await env.R2.put(r2Key, "preview-bytes-cors");
+    const token = await mintPreviewDeliveryToken(env.AUTH_SECRET, {
+      r2Key,
+      bucket: "test-bucket",
+      sniffedContentType: "video/mp4",
+      verdict: "playable",
+      exp: Math.floor(Date.now() / 1000) + 300,
+    });
+    const appPage = `https://smith-law.${filesOrigin.replace(/^[^.]+\./, "")}`;
+    const ours = await SELF.fetch(`https://${filesOrigin}/api/files-preview/${token}`, {
+      headers: { Origin: appPage, Range: "bytes=0-3" },
+    });
+    expect(ours.status).toBe(206);
+    expect(ours.headers.get("Access-Control-Allow-Origin")).toBe(appPage);
+    await ours.arrayBuffer();
+    const theirs = await SELF.fetch(`https://${filesOrigin}/api/files-preview/${token}`, {
+      headers: { Origin: "https://elsewhere.test" },
+    });
+    expect(theirs.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    await theirs.arrayBuffer();
+  });
+
   it("a non-preview path on the files host does not leak the SPA shell", async () => {
     const res = await SELF.fetch(`https://${env.FILES_ORIGIN}/some/other/path`);
     const body = await res.text();

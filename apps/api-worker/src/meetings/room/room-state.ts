@@ -324,6 +324,10 @@ export interface MeetingSocketAttachment {
   // Whether arrivals wait, read off the meeting row by the route exactly as the lock is. It seeds
   // the room's own copy.
   readonly lobby?: MeetingLobbyMode;
+  // Whether the meeting's pictures and sound are sealed end to end, read off the meeting row by the
+  // route. Fixed for the meeting's life, so the frozen attachment is the right home for it: the room
+  // carries a key group only where this is true.
+  readonly encrypted?: boolean;
   // WHETHER THIS SOCKET IS AT THE DOOR OR IN THE ROOM, derived by the route off the stay it just
   // authorized the upgrade against — never named by the browser, like every other value here. A
   // waiting socket is admitted to the LOBBY state: it is stored under `waiting:`, it is sent `lobby`

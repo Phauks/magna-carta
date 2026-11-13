@@ -97,5 +97,12 @@ package deliberately does not depend on.
   `AWAITING_THE_BROWSER` in `test/frames-have-handlers.test.ts` names `captions` and `caption` while the
   caption strip is unbuilt; the room-side and builder checks still read them, and the register fails
   the moment the browser names one — so the entry comes off in the change that wires it.
+- **The encrypted meeting's group frames carry bytes the room cannot read.** `mls-key-package`,
+  `mls-commit` and `mls-proposal` go both ways and `mls-welcome` comes from the room; the bytes are
+  base64 of MLS messages from `crates/mls-core`, and the only plain facts are the ones the room routes
+  by (the epoch, and the stays a commit adds and removes). They reach the sockets of stays in the group
+  and nobody else. `stale-epoch` and `not-in-group` are their two refusals, both non-fatal. A welcome
+  at the room's ceiling of three hundred is about 80 KB of base64, which is why
+  `MAX_MEETING_FRAME_BYTES` is a quarter of a megabyte.
 - **The version is stated, never negotiated.** `MEETING_PROTOCOL_VERSION` rides on every frame in
   both directions and is bumped only when a shape changes incompatibly.

@@ -62,6 +62,27 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   reduction off, so the two never fight over the same sound, and publishes the filtered track in the
   microphone's place by the same `replaceTrack` swap. A filter that fails mid-meeting turns itself
   off and hands the member back to the browser's reduction with the reason in the panel.
+- `encryption-group.ts` — this browser's place in an end-to-end encrypted meeting's MLS key group,
+  over the engine in `@magna-carta/mls` (a seam, so a test drives the real WebAssembly engine): the
+  key package on arrival, founding when the room says so, the committer's one commit that admits
+  everybody waiting and removes everybody the roster no longer holds, applying other commits in the
+  room's order and discarding its own when another won (`stale-epoch`), and a host's pause as a
+  proposal. It hands each epoch's key to the frame cipher; membership and the pause are read from
+  the group state it verified, never from the room.
+- `meeting-encryption.ts` — what the client composes for an encrypted meeting (`join` with
+  `encrypted: true`, from the meeting's record): the engine loaded BEFORE the socket opens, the group
+  started on the welcome, every epoch's key handed to the transform, and `cover`, which puts the
+  transform on every sender and receiver without one before each offer this browser makes and after
+  each offer it applies, with video held to VP8. The browser is reached through
+  `FrameEncryptionSeams` (`MeetingClientSeams.createFrameEncryption`, real edges in
+  `effects/frame-encryption-processor.ts`). A browser without `RTCRtpScriptTransform`, or a client
+  given no seam, fails the join `encryption-unsupported` before anything is captured.
+- `frame-encryption.ts` and `frame-encryption.worker.ts` — the frame cipher (SFrame, RFC 9605) as
+  the `RTCRtpScriptTransform` runs it: a VP8 frame keeps its first bytes readable for the routing
+  service (ten on a keyframe, one otherwise) and authenticated, Opus is sealed whole, a frame that
+  does not open is DROPPED, and a frame in the clear is shown only while the group says encryption
+  is paused. Security code: the worker only moves frames and keys; the rules are in the pure module,
+  tested byte for byte in `test/meeting-encryption.test.ts`.
 - `host-controls.ts` — running the meeting from inside it: the four directives a host sends, the
   reader for what the room says about itself, and the two sentences a member reads when a host acts on
   them. A concern is a module, so none of it is a set of fields on the client.
@@ -221,8 +242,18 @@ contract, chat's three and the calls for polls and questions included, with the 
 records take), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings
 page), `meeting-attendance.ts` / `meeting-attendance-panel.svelte` (who was in an ended meeting,
 members and guests in one record), `meeting-guests-panel.svelte` (the host's Guests panel: who on
-the event may be sent a link, and the send, replace and withdraw acts), and
+the event may be sent a link, the send, replace and withdraw acts, and Invite somebody by e-mail for a
+guest typed by name and address), and
 `meeting-entry-action.svelte` (Start or Join, and Guests, on a calendar entry).
+
+**A member's own room:** `personal-room-api.ts` (the room's calls: made, changed, a new link,
+opened, arrived at by link, and a session moved onto a matter), `my-room-card.svelte` (the card on
+the Meetings page, drawn only for `meetings:host`; nothing is made until Set Up is pressed, and Get a
+New Link asks first) and `move-to-matter-dialog.svelte` (offered in the room's header for a
+personal-room session still on a firm event, during the meeting or after it, over the calendar's own
+matter list). The link page is `src/routes/(app)/meetings/rooms/[linkCode]/+page.svelte`: a closed
+room is read again every ten seconds, and Join arrives, then goes to the ordinary room screen. Every
+press that leads into a room unlocks `pageRecordingSounds` first, as the entry action does.
 
 **The guest's side, outside the application:** `guest-api.ts` (the guest's own calls on the link's
 token or the arrival's grant, the host's four guest calls, the chat seams for a guest, and the one

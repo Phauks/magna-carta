@@ -109,9 +109,11 @@ task, turn off **Repeats** first.
 
 ## Comments
 
-The **Comments** tab in a task's window is where colleagues talk about the work: a question for
-whoever picks it up, a note that the client called back, an answer. Comments read top to bottom in
-the order they were written, and there are no replies to replies.
+The **Comments** column on the right of a task's window is where colleagues talk about the work: a
+question for whoever picks it up, a note that the client called back, an answer. It stays in view
+beside the task's details and its attachments, so you can read the conversation while you work.
+Comments read top to bottom in the order they were written, and there are no replies to replies. A
+task you are still creating has no comments yet; the column appears once it is saved.
 
 To name a colleague, type **@** or press **Name Someone** and pick them. Their name shows in bold,
 and they are told. The line under the box says who else will be told: everyone the task is assigned

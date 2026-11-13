@@ -144,6 +144,7 @@ import type {
   MeetingRecordingTrackId,
   MeetingTranscriptId,
   MeetingTranscriptSegmentId,
+  MeetingPersonalRoomId,
   MeetingSummaryId,
   MeetingSummaryActionItemId,
   MemberLocationId,
@@ -178,6 +179,7 @@ import type {
   TimeEntryId,
   TrackingEventId,
   TransferRunId,
+  TransferSourceFileId,
   TrustAccountId,
   TrustAuthorizationPolicyId,
   TrustBankStatementId,
@@ -1242,6 +1244,20 @@ export const fileVersion = sqliteTable(
     }),
     exportR2Key: text("export_r2_key"),
     exportSizeBytes: integer("export_size_bytes"),
+    // A copy of a video version that every browser plays: H.264 pictures and AAC sound in a
+    // faststart MP4, made on request by the Rust transcode engine when the browser in front of a
+    // member cannot play the original (HEVC on Firefox, Matroska on Safari, 10-bit or 4:2:2
+    // pictures, MP3 or PCM sound). Null until somebody asks. `pending` from the request until the
+    // copy is written, with `playable_copy_requested_at` saying when, so a request whose conversion
+    // died can be asked for again; `ready` with the copy's key and size; `unavailable` with the
+    // engine's reason when the original holds something the engine does not decode.
+    playableCopyState: text("playable_copy_state", {
+      enum: ["pending", "ready", "unavailable"],
+    }),
+    playableCopyR2Key: text("playable_copy_r2_key"),
+    playableCopySizeBytes: integer("playable_copy_size_bytes"),
+    playableCopyReason: text("playable_copy_reason"),
+    playableCopyRequestedAt: text("playable_copy_requested_at"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
@@ -8810,10 +8826,30 @@ export const meeting = sqliteTable(
     lockedByUserId: text("locked_by_user_id")
       .$type<UserId>()
       .references(() => member.userId),
+    // THE PERSONAL ROOM THIS MEETING IS A SESSION OF, or null for a meeting somebody started on an
+    // event. A session still hangs from an ordinary event like every other meeting; this column is
+    // only what lets the room find its open session, and what lets a session — and nothing else — be
+    // moved onto a matter after it was opened without one.
+    personalRoomId: text("personal_room_id")
+      .$type<MeetingPersonalRoomId>()
+      .references((): AnySQLiteColumn => meetingPersonalRoom.id),
+    // WHETHER THE PICTURES AND SOUND ARE SEALED END TO END, so the routing service carries frames it
+    // cannot read. Fixed when the room is opened and never changed, on the medium's reasoning: the
+    // people in the room agreed to one kind of meeting, and the browsers' key group is built on
+    // arrival. A recording, captions or dial-in pause the sealing for everybody with a visible
+    // warning; they do not clear this. False for every row that predates the column, which is what
+    // those meetings were.
+    encrypted: integer("encrypted", { mode: "boolean" }).notNull().default(false),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
+    // ONE OPEN SESSION PER PERSONAL ROOM. Opening a room is find-or-open, and two tabs pressing Open
+    // in the same second must end in one session; a read-then-write cannot hold that, so the index
+    // does. Ended sessions are the room's history and are many.
+    uniqueIndex("meeting_personal_room_open_session_unique_index")
+      .on(table.personalRoomId)
+      .where(sql`${table.personalRoomId} IS NOT NULL AND ${table.status} <> 'ended'`),
     // ONE MEETING PER EVENT, held by the database rather than by the create path. Creating a meeting
     // is idempotent — two members pressing Start in the same second must end up in the same room,
     // not in two rooms neither of them can see the other in — and an idempotency that lives only in
@@ -8851,6 +8887,49 @@ export const meeting = sqliteTable(
     check(
       "meeting_locked_shape_check",
       sql`(${table.lockedAt} IS NULL) = (${table.lockedByUserId} IS NULL)`,
+    ),
+  ],
+);
+
+// A MEMBER'S PERSONAL ROOM: a room they always have, reached by a link that does not change, so a
+// colleague can be told "come to my room" without anybody first recording a calendar event. The room
+// is the standing link and its defaults and nothing more. Each time its owner opens it, an ordinary
+// event and an ordinary meeting are written (`meeting.personal_room_id` names the room), so every
+// part of meetings that reads an event reads a session exactly as it reads any other meeting.
+export const meetingPersonalRoom = sqliteTable(
+  "meeting_personal_room",
+  {
+    id: text("id").primaryKey().$type<MeetingPersonalRoomId>(), // meetingPersonalRoom_ handle
+    // One room per member, made the first time it is asked for.
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    // The address inside the firm. Not a secret — every route that reads it is behind sign-in — but
+    // replaceable, because a code pasted into the wrong message is a nuisance worth one click to end.
+    linkCode: text("link_code").notNull(),
+    // What a session opens with. A session's own medium and lobby are the meeting's, and a host can
+    // still change the lobby inside one; these are the owner's standing choices.
+    medium: text("medium", { enum: ["video", "audio"] })
+      .notNull()
+      .default("video"),
+    // On by default, unlike an event's meeting: a standing link travels further than an invitation
+    // to one event, so the owner sees who is at the door before they come in.
+    lobby: text("lobby", { enum: ["off", "on"] })
+      .notNull()
+      .default("on"),
+    linkReplacedAt: text("link_replaced_at"), // ISO-8601 instant
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("meeting_personal_room_owner_unique_index").on(table.ownerUserId),
+    uniqueIndex("meeting_personal_room_link_code_unique_index").on(table.linkCode),
+    check("meeting_personal_room_medium_check", sql`${table.medium} IN ('video', 'audio')`),
+    check("meeting_personal_room_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
+    check(
+      "meeting_personal_room_link_code_shape_check",
+      sql`length(${table.linkCode}) = 10 AND ${table.linkCode} NOT GLOB '*[^a-z0-9]*'`,
     ),
   ],
 );
@@ -12860,6 +12939,69 @@ export const sourceRecordLink = sqliteTable(
     check(
       "source_record_link_nonempty_check",
       sql`length(${table.sourceKind}) > 0 AND length(${table.sourceId}) > 0 AND length(${table.localTable}) > 0 AND length(${table.localId}) > 0`,
+    ),
+  ],
+);
+
+// One file a transfer was given: a report, a table of an extract, an export. The file itself is the
+// staging store. Its bytes are kept unchanged in the firm's object storage under `object_key`, and a
+// reader turns them into numbered rows the same way every time, so "row 4,112 of this file" names
+// one source row for as long as the file is held. Nothing of the file's content is copied into this
+// database: an extract carries bank account numbers and tax identifiers in whatever column the
+// source put them, and a row of this table is only the facts about the file.
+//
+// `source_kind` says what the file holds (`matter-list`, `card-details`) and `format` how it is read
+// (`delimited-text`). Both are open slugs validated where the row is written, not column enums: a
+// later table will reference this one, and a referenced table cannot have a CHECK widened.
+//
+// `row_count` and `read_at` are set together, by the first complete read. `removed_at` records that
+// the bytes were released after the transfer was finished with; the row stays, because the run's
+// report still names the file.
+export const transferSourceFile = sqliteTable(
+  "transfer_source_file",
+  {
+    id: text("id").primaryKey().$type<TransferSourceFileId>(), // transferSourceFile_ handle
+    transferRunId: text("transfer_run_id")
+      .notNull()
+      .$type<TransferRunId>()
+      .references(() => transferRun.id),
+    sourceKind: text("source_kind").notNull(),
+    format: text("format").notNull(),
+    fileName: text("file_name").notNull(), // as the operator's computer named it; display only
+    objectKey: text("object_key").notNull(), // server-minted, never derived from file_name
+    byteLength: integer("byte_length").notNull(),
+    contentSha256: text("content_sha256").notNull(), // lower-case hex of the bytes as received
+    // The column whose value is the source system's key for a row, when the file has one. A file
+    // without one (a balances report keyed by two columns) is mapped by its own rule.
+    keyColumn: text("key_column"),
+    rowCount: integer("row_count"),
+    registeredAt: text("registered_at").notNull(),
+    readAt: text("read_at"),
+    removedAt: text("removed_at"),
+  },
+  (table) => [
+    uniqueIndex("transfer_source_file_object_key_unique").on(table.objectKey),
+    // The same bytes given twice to one run are one file. A second run may hold them again.
+    uniqueIndex("transfer_source_file_run_content_unique").on(
+      table.transferRunId,
+      table.contentSha256,
+    ),
+    check(
+      "transfer_source_file_slug_shape_check",
+      sql`length(${table.sourceKind}) > 0 AND ${table.sourceKind} = lower(trim(${table.sourceKind})) AND length(${table.format}) > 0 AND ${table.format} = lower(trim(${table.format}))`,
+    ),
+    check(
+      "transfer_source_file_nonempty_check",
+      sql`length(trim(${table.fileName})) > 0 AND length(${table.objectKey}) > 0 AND (${table.keyColumn} IS NULL OR length(${table.keyColumn}) > 0)`,
+    ),
+    check("transfer_source_file_byte_length_check", sql`${table.byteLength} >= 0`),
+    check(
+      "transfer_source_file_content_sha256_shape_check",
+      sql`length(${table.contentSha256}) = 64 AND ${table.contentSha256} NOT GLOB '*[^0-9a-f]*'`,
+    ),
+    check(
+      "transfer_source_file_read_together_check",
+      sql`(${table.rowCount} IS NULL) = (${table.readAt} IS NULL) AND (${table.rowCount} IS NULL OR ${table.rowCount} >= 0)`,
     ),
   ],
 );

@@ -8,7 +8,7 @@ import type { PreviewGrant } from "$lib/file-manager/matter-file-api.ts";
 /** Why a recording is offered as a download instead of playing. */
 export type CannotPlayCause = Pick<PreviewGrant, "verdict" | "reason"> | "browser-refused";
 
-export const CANNOT_PLAY_TITLE = "This Video Cannot Play in the Browser";
+export const CANNOT_PLAY_TITLE = "This Recording Cannot Play in the Browser";
 
 /** The sentence under the title: what is true about this recording, then what to do. */
 export function cannotPlaySentence(cause: CannotPlayCause): string {
@@ -50,4 +50,18 @@ export function startSecondOf(search: URLSearchParams): number {
 export function momentHref(origin: string, fileId: string, seconds: number): string {
   const second = Math.max(0, Math.floor(seconds));
   return `${origin}/documents/${encodeURIComponent(fileId)}/watch?t=${second}`;
+}
+
+/**
+ * What a still taken from a recording is saved as: the recording's own name without its extension,
+ * and the moment, so a folder of stills from one deposition sorts and reads in order. The moment is
+ * written with hyphens because a colon is not allowed in a file name on Windows.
+ */
+export function screenshotFileName(recordingName: string, seconds: number): string {
+  const stem = recordingName.replace(/\.[^./\\]+$/u, "") || "Recording";
+  const whole = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(whole / 3600);
+  const minutes = String(Math.floor((whole % 3600) / 60)).padStart(2, "0");
+  const rest = String(whole % 60).padStart(2, "0");
+  return `${stem} at ${String(hours)}-${minutes}-${rest}.png`;
 }

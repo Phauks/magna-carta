@@ -406,6 +406,12 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "who shut the door on a meeting, and when, is part of what the record says happened — the line ended_by_user_id sits on",
   },
   {
+    table: "meeting_personal_room",
+    subjectKey: "owner_user_id",
+    action: "retain-under-matter",
+    note: "whose standing room a session was held in is part of what the record says about every meeting opened from it — the line created_by_user_id sits on",
+  },
+  {
     table: "meeting_attendance",
     subjectKey: "user_id",
     action: "retain-under-matter",
@@ -1535,6 +1541,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // and when it started and ended. started_by is administrative provenance on an operational act —
   // who ran the import — the same line integration_connection and scoped_setting sit on.
   "transfer_run",
+  // The facts about one file a record transfer was given: what it holds, its size and digest, and
+  // where its bytes are kept. The bytes are an extract of the firm's whole client base and live in
+  // object storage under a key built from identifiers alone; nothing of their content is in this
+  // row. file_name is what the operator's computer called the export, display text about a file.
+  "transfer_source_file",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

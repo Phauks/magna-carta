@@ -1,3 +1,5 @@
+import { endToEndEncryptionEnabled } from "../../../meetings/encryption-switch.ts";
+import { IceServer, StartMeetingRequest } from "./meeting-schemas.ts";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
@@ -185,27 +187,6 @@ const PUBLIC_RESOLUTION_SERVER = { urls: "stun:stun.cloudflare.com:3478" } as co
 
 // ---- request/response contracts ----
 
-const StartMeetingRequest = z
-  .object({
-    eventKind: z.enum(MEETING_EVENT_KINDS),
-    // Not an identifier-typed field: the handle is a matter event's or a firm event's depending on
-    // the kind beside it, and a schema that named one would refuse the other. The read through the
-    // visibility gate is what decides whether it names anything at all.
-    eventId: z.string().min(1).max(64),
-    // Sound alone, or sound and pictures. Optional and defaulted to a video meeting, so a caller
-    // that predates calls keeps getting what it always got. It is read ONLY when this request opens
-    // the room: one meeting per event, so the first Start decides and a second one asking for the
-    // other medium gets the room that exists rather than changing it under the people in it.
-    medium: z.enum(MEETING_MEDIA).default("video"),
-    // Whether arrivals wait at a door. Read on the same terms as the medium beside it — only when
-    // this request opens the room — but UNLIKE the medium a host may change it afterwards: a medium
-    // is what the people in the room agreed to, and a lobby is a standing decision about who may
-    // come in. Off by default, because every participant today is a firm member arriving at an
-    // event they are on.
-    lobby: z.enum(MEETING_LOBBY_MODES).default("off"),
-  })
-  .openapi("StartMeetingRequest");
-
 const MeetingSummaryResponse = z
   .object({
     id: z.string(),
@@ -241,8 +222,7 @@ const MeetingSummaryResponse = z
     // host-only read: it is a list of people a host has not yet decided about, and a fifty-row list
     // must not carry it.
     lobby: z.enum(MEETING_LOBBY_MODES),
-    // Whether this deployment can route a meeting's media at all. A fact about the deployment, not
-    // about the meeting or the member — a surface reads it to decide whether to offer a way in.
+    // Whether this deployment can route meeting media at all, so a surface knows to offer a way in.
     configured: z.boolean(),
     // THE ROOM'S RECORDING, in one word: `none` when it has never been recorded, otherwise the state
     // of its most recent recording — so a list row can carry the mark and a room screen can tell a
@@ -253,19 +233,15 @@ const MeetingSummaryResponse = z
     // the precedent of `configured` beside it — a fact about configuration, read so the screen never
     // offers an act the route would answer 503.
     recordingConfigured: z.boolean(),
-    // Whether live captions can be shown. Always false until the captions slice lands; carried now so
-    // a screen built against this shape does not change when it does.
+    // Whether live captions can be shown; always false until the captions slice lands.
     captionsAvailable: z.boolean(),
+    // A personal-room session, which alone can be moved onto a matter while it runs or afterwards.
+    personalRoomSession: z.boolean(),
+    // WHETHER THE PICTURES AND SOUND ARE SEALED END TO END, fixed when the room was opened. A screen
+    // says so before Join, and the room's browsers build their key group only where it is true.
+    encrypted: z.boolean(),
   })
   .openapi("MeetingSummary");
-
-export const IceServer = z
-  .object({
-    urls: z.union([z.string(), z.array(z.string())]),
-    username: z.string().optional(),
-    credential: z.string().optional(),
-  })
-  .openapi("MeetingIceServer");
 
 const JoinedMeeting = z
   .object({
@@ -1827,7 +1803,7 @@ export function registerMeetingsRoutes(
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
-      const { eventKind, eventId, medium, lobby } = c.req.valid("json");
+      const { eventKind, eventId, medium, lobby, encrypted } = c.req.valid("json");
 
       let outcome;
       try {
@@ -1838,7 +1814,13 @@ export function registerMeetingsRoutes(
           async () => {
             const started = await createMeeting(
               firm.firmDatabase,
-              { eventKind: eventKind, eventId, medium, lobby },
+              {
+                eventKind: eventKind,
+                eventId,
+                medium,
+                lobby,
+                encrypted: encrypted && endToEndEncryptionEnabled(c.env),
+              },
               serviceOptions(userId),
             );
             return {
@@ -2687,6 +2669,7 @@ export function registerMeetingsRoutes(
           // asking the firm's database once per socket.
           locked: meeting.locked_at !== null,
           lobby: meeting.lobby,
+          encrypted: meeting.encrypted === 1,
           // DERIVED FROM THE STAY THE UPGRADE WAS JUST AUTHORIZED AGAINST, never named by the
           // browser: the row says whether this person is at the door or in the room, and it is what
           // sends the socket into the lobby state rather than into the room.

@@ -67,7 +67,16 @@ export const MEETING_PROTOCOL_VERSION = 1;
 // kilobytes is far above any offer observed and far below anything that would make a room's parse a
 // cost worth thinking about; it is applied BEFORE parsing, so a participant cannot make the room
 // parse arbitrary volume.
-export const MAX_MEETING_FRAME_BYTES = 64 * 1024;
+//
+// RAISED FROM SIXTY-FOUR TO TWO HUNDRED AND FIFTY-SIX KILOBYTES for the encrypted meeting's welcome.
+// A welcome carries the whole group's tree so a newcomer needs nothing else, and at the room's
+// ceiling of three hundred it measured 59,737 bytes, about 80 KB once base64 encoded (the
+// measurement is `the_sizes_at_three_hundred_fit_one_frame` in crates/mls-core/src/tests.rs). A commit admitting a
+// burst of arrivals at the top of the hour adds an encrypted secret per newcomer on top. A quarter of
+// a megabyte holds that with room to spare, stays a quarter of the runtime's own one-megabyte message
+// limit, and is still checked before the parse. The frame budget below is what bounds how often a
+// socket may send one.
+export const MAX_MEETING_FRAME_BYTES = 256 * 1024;
 
 // WHEN A ROSTER IS CHEAPER WHOLE THAN AS A DIFFERENCE. Below this many participants the full list
 // is smaller than the bookkeeping a difference costs on both ends, and a browser that has the whole
@@ -451,6 +460,79 @@ const diagnosticReportFrame = z.object({
 /** The measurement a `diagnostic-report` carries, as both ends read it. */
 export type MeetingDiagnosticSample = z.infer<typeof diagnosticReportFrame>["sample"];
 
+// ---------------------------------------------------------------------------------------------
+// The encrypted meeting's group keys
+//
+// AN ENCRYPTED MEETING AGREES ITS KEYS IN AN MLS GROUP (RFC 9420), and the room is the group's
+// delivery service: it carries the four kinds of handshake message below between browsers, puts
+// commits in one order, and can read none of them. What each one says is decided and checked in the
+// browser by the engine in crates/mls-core; the room sees opaque bytes and the few plain facts it
+// needs to route them — which epoch a commit was made from, and whom it adds and removes.
+//
+// WHY THE ROOM'S ROUTING FACTS ARE SAFE TO TRUST IT WITH. `added` and `removed` tell the room whom
+// to send a welcome to and whose sockets stop hearing the group. A browser never takes them on the
+// room's word: it reads who is in the group from the commit it has itself verified. A room that
+// misrouted could withhold a welcome, which is a person who cannot join, never a person who can
+// listen.
+//
+// THE BYTES TRAVEL AS BASE64, because the socket is JSON text and the parse surface stays one
+// function wide (see the note at the top of this file).
+// ---------------------------------------------------------------------------------------------
+
+/** The most bytes of base64 one handshake message may carry. A welcome at three hundred is about 80 KB. */
+export const MAX_MLS_MESSAGE_BASE64_LENGTH = 240 * 1024;
+
+/** The most stays one commit may add or remove: the room's ceiling, and a burst can be all of it. */
+export const MAX_MLS_COMMIT_STAYS = 300;
+
+const mlsMessage = z
+  .string()
+  .min(4)
+  .max(MAX_MLS_MESSAGE_BASE64_LENGTH)
+  .regex(/^[A-Za-z0-9+/]+={0,2}$/);
+
+// An epoch is a counter the group advances on every commit. Bounded by the largest integer a
+// browser's number holds exactly, which no meeting reaches.
+const mlsEpoch = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+
+/**
+ * THIS BROWSER WANTS TO BE IN THE GROUP: its key package, which names its stay and carries the keys
+ * a welcome is sealed to. Public by construction, so the room relays it to every socket in the group
+ * and the committer adds it. If there is no group yet, the room answers the sender with a welcome
+ * that carries none, which tells it to found the group.
+ */
+const mlsKeyPackageRequest = z.object({
+  ...versioned,
+  type: z.literal("mls-key-package"),
+  keyPackage: mlsMessage,
+});
+
+/**
+ * A COMMIT, made from `epoch`. The room accepts the first commit made from the epoch it holds and
+ * refuses every other `stale-epoch`, which is how a group with more than one would-be committer still
+ * advances in one order. `welcome` is present exactly when `added` is not empty.
+ */
+const mlsCommitRequest = z.object({
+  ...versioned,
+  type: z.literal("mls-commit"),
+  epoch: mlsEpoch,
+  commit: mlsMessage,
+  welcome: mlsMessage.optional(),
+  added: z.array(participantHandle).max(MAX_MLS_COMMIT_STAYS),
+  removed: z.array(participantHandle).max(MAX_MLS_COMMIT_STAYS),
+});
+
+/**
+ * A PROPOSAL, made at `epoch` — today only a host asking for encryption to pause or resume, which
+ * the committer then commits. Relayed to the group; refused `stale-epoch` if the group has moved on.
+ */
+const mlsProposalRequest = z.object({
+  ...versioned,
+  type: z.literal("mls-proposal"),
+  epoch: mlsEpoch,
+  proposal: mlsMessage,
+});
+
 // The ping is the byte-exact frame the runtime answers without waking the room, and it carries no
 // version field for that reason: the auto-response matches the bytes, so adding one would make every
 // keepalive a wake. Accepted here as well, because a browser that pretty-printed its ping still
@@ -474,6 +556,9 @@ export const MeetingClientFrame = z.union([
   spotlightFrame,
   captionsFrame,
   diagnosticReportFrame,
+  mlsKeyPackageRequest,
+  mlsCommitRequest,
+  mlsProposalRequest,
   pingFrame,
 ]);
 
@@ -549,6 +634,13 @@ export const MEETING_ROOM_FRAME_TYPES = Object.freeze([
   // and never sent twice: a browser that misses one draws the next. Whether captions are on rides
   // `room-state`, not a frame of its own.
   "caption",
+  // THE ENCRYPTED MEETING'S GROUP KEYS, to the sockets of stays in the MLS group and to nobody else
+  // — never to the lobby, and never to a welcomed socket the group has not yet admitted, except for
+  // the `mls-welcome` that admits it. See the note above the client frames of the same names.
+  "mls-key-package",
+  "mls-commit",
+  "mls-welcome",
+  "mls-proposal",
   "ended",
   "refused",
   "pong",
@@ -642,6 +734,18 @@ export const MEETING_REFUSAL_REASONS = Object.freeze([
   // the meeting changed, and the host's screen says why the control did nothing. Also why captions
   // that were running are turned off by the room itself, which `room-state` then announces.
   "captions-unavailable",
+  // A COMMIT OR PROPOSAL MADE FROM AN EPOCH THE GROUP HAS LEFT. NON-FATAL, socket open: another
+  // commit was sequenced first, and the browser discards its own, applies the one that won, and
+  // tries again from there. It is how one order is kept without anybody holding a lock.
+  "stale-epoch",
+  // A COMMIT OR PROPOSAL FROM A SOCKET WHOSE STAY IS NOT IN THE MEETING'S GROUP. NON-FATAL, socket
+  // open: the browser has not been welcomed yet, or was removed, and sends its key package to be
+  // added again.
+  "not-in-group",
+  // A KEY-GROUP FRAME IN A MEETING THAT IS NOT ENCRYPTED. NON-FATAL, socket open: the room carries a
+  // group only for a meeting opened encrypted, and a browser that sent one anyway is out of step
+  // with the meeting it is in. Nothing about the meeting changed.
+  "not-encrypted",
   // The meeting closed while this socket was open.
   "meeting-ended",
 ] as const);
@@ -1096,6 +1200,43 @@ export function waitingFrame(participants: readonly WaitingParticipant[]): strin
 /** The meeting is over. Sent to every socket, which then closes normally. */
 export function endedFrame(endedAt: string): string {
   return frame({ type: "ended", endedAt });
+}
+
+/**
+ * Somebody's key package, relayed to the group so its committer can add them. `from` is the stay that
+ * sent it, which the committer checks against the stay the key package's own credential names.
+ */
+export function mlsKeyPackageFrame(from: string, keyPackage: string): string {
+  return frame({ type: "mls-key-package", from, keyPackage });
+}
+
+/**
+ * A commit the room has sequenced, to every socket in the group as it stood before it — the
+ * committer's own included, which is how the committer learns its commit won. `epoch` is the one it
+ * was made from.
+ */
+export function mlsCommitFrame(
+  from: string,
+  epoch: number,
+  commit: string,
+  added: readonly string[],
+  removed: readonly string[],
+): string {
+  return frame({ type: "mls-commit", from, epoch, commit, added, removed });
+}
+
+/**
+ * THE ONE FRAME THAT ADMITS A SOCKET TO THE GROUP, to that socket alone. `epoch` is the epoch the
+ * welcome joins at. A `welcome` of null is the room telling the only stay with a key package in an
+ * empty group to found it, at epoch zero.
+ */
+export function mlsWelcomeFrame(epoch: number, welcome: string | null): string {
+  return frame({ type: "mls-welcome", epoch, welcome });
+}
+
+/** A proposal, relayed to the rest of the group for its committer to carry. */
+export function mlsProposalFrame(from: string, epoch: number, proposal: string): string {
+  return frame({ type: "mls-proposal", from, epoch, proposal });
 }
 
 /**

@@ -2,8 +2,12 @@
 // packages/database, so the diff that renames one never touches this package.
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import * as perFirmSchema from "@magna-carta/database/per-firm-schema";
-import { sourceRecordLink, transferRun } from "@magna-carta/database/per-firm-schema";
-import type { TransferRunId, UserId } from "@magna-carta/identifiers/types";
+import {
+  sourceRecordLink,
+  transferRun,
+  transferSourceFile,
+} from "@magna-carta/database/per-firm-schema";
+import type { TransferRunId, TransferSourceFileId, UserId } from "@magna-carta/identifiers/types";
 import { is } from "drizzle-orm";
 import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
@@ -25,6 +29,14 @@ import {
   selectTransferRunStatement,
   selectTransferRunsStatement,
 } from "../src/transfer-run-statements.ts";
+import {
+  TRANSFER_SOURCE_FILE_TABLE,
+  insertTransferSourceFileStatement,
+  recordTransferSourceFileReadStatement,
+  recordTransferSourceFileRemovedStatement,
+  selectTransferSourceFileStatement,
+  selectTransferSourceFilesStatement,
+} from "../src/transfer-source-file-statements.ts";
 
 // Fitness function (the ledger pattern): the raw SQL in this package must track
 // @magna-carta/database's schema. Renaming a table or a column there fails here, not in production.
@@ -85,6 +97,7 @@ describe("schema name sync (record-transfer SQL pinned to @magna-carta/database)
   it("the table name constants match the drizzle schema", () => {
     expect(getTableConfig(transferRun).name).toBe(TRANSFER_RUN_TABLE);
     expect(getTableConfig(sourceRecordLink).name).toBe(SOURCE_RECORD_LINK_TABLE);
+    expect(getTableConfig(transferSourceFile).name).toBe(TRANSFER_SOURCE_FILE_TABLE);
   });
 
   it("every name the transfer-run SQL uses is the table or one of its columns", () => {
@@ -121,6 +134,36 @@ describe("schema name sync (record-transfer SQL pinned to @magna-carta/database)
       selectSourcesOfLocalRecordStatement(stub, "matter", "x"),
       countLinksByTransferRunStatement(stub, RUN_ID),
       countLinksBySourceSystemStatement(stub, "leap"),
+    ];
+    for (const statement of statements) {
+      const unknown = identifiersIn(sqlOf(statement)).filter((name) => !known.has(name));
+      expect(unknown, sqlOf(statement)).toEqual([]);
+    }
+  });
+
+  it("every name the transfer-source-file SQL uses is the table or one of its columns", () => {
+    const stub = stubDatabase();
+    const known = new Set([TRANSFER_SOURCE_FILE_TABLE, ...columnsOf(transferSourceFile)]);
+    const fileId = "transferSourceFile_x" as TransferSourceFileId;
+    const statements = [
+      insertTransferSourceFileStatement(
+        stub,
+        {
+          id: fileId,
+          transferRunId: RUN_ID,
+          sourceKind: "matter-list",
+          format: "delimited-text",
+          fileName: "x.csv",
+          byteLength: 1,
+          contentSha256: "a".repeat(64),
+          keyColumn: null,
+        },
+        NOW,
+      ),
+      selectTransferSourceFileStatement(stub, fileId),
+      selectTransferSourceFilesStatement(stub, RUN_ID),
+      recordTransferSourceFileReadStatement(stub, fileId, 1, NOW),
+      recordTransferSourceFileRemovedStatement(stub, fileId, NOW),
     ];
     for (const statement of statements) {
       const unknown = identifiersIn(sqlOf(statement)).filter((name) => !known.has(name));

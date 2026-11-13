@@ -168,7 +168,6 @@
   } = $props();
 
   const creating = $derived(task === null);
-  const COMMENTS_TAB_KEY = "comments";
 
   // A NEW task's fields. An existing task is read straight from the record and written field by field.
   let titleText = $state("");
@@ -1037,17 +1036,25 @@
   </div>
 {/snippet}
 
-{#snippet commentsTab()}
+<!-- The comment thread stands in its own column on the right, always in view, rather than behind a
+     tab: a conversation about the work is read alongside the work, not instead of its attachments. -->
+{#snippet commentsPanel()}
   {#if task !== null}
-    <TaskComments
-      {task}
-      {viewerUserId}
-      members={assignableMembers}
-      {teams}
-      {nameOf}
-      {writeRefusal}
-      bind:count={commentCount}
-    />
+    <div class="flex flex-col gap-12">
+      <h3 class="text-sm font-semibold">
+        Comments
+        {#if commentCount > 0}<span class="font-normal text-text-subtle tabular-nums">{commentCount}</span>{/if}
+      </h3>
+      <TaskComments
+        {task}
+        {viewerUserId}
+        members={assignableMembers}
+        {teams}
+        {nameOf}
+        {writeRefusal}
+        bind:count={commentCount}
+      />
+    </div>
   {/if}
 {/snippet}
 
@@ -1136,10 +1143,6 @@
   menu={task === null ? undefined : menu}
   editControl={false}
   tabs={[
-    // A new task has no thread yet: comments are about work that exists.
-    ...(task === null
-      ? []
-      : [{ key: COMMENTS_TAB_KEY, label: "Comments", count: commentCount, content: commentsTab }]),
     {
       key: ATTACHMENTS_TAB_KEY,
       label: "Attachments",
@@ -1147,7 +1150,9 @@
       content: attachmentsTab,
     },
   ] satisfies RecordWindowTab[]}
-  defaultTab={task === null ? ATTACHMENTS_TAB_KEY : COMMENTS_TAB_KEY}
+  defaultTab={ATTACHMENTS_TAB_KEY}
+  aside={task === null ? undefined : commentsPanel}
+  asideLabel="Comments"
   editDisabledReason={writeRefusal}
   saveDisabledReason={saveRefusal}
   {unsavedChanges}
