@@ -62,9 +62,9 @@
     {/each}
   </div>
 {:else}
-  <EmptyState title="Meetings Are Not Turned On">
-    Meetings have not been turned on for this firm, so there is nothing to list here and no room can
-    be opened. An administrator is who puts that right.
+  <EmptyState title="Meetings Are Not Connected">
+    The video service that carries meetings is not connected to this site yet, so there is nothing to
+    list here and no room can be opened.
     {#snippet actions()}
       <Button variant="secondary" href="/calendar">Go to the Calendar</Button>
     {/snippet}
