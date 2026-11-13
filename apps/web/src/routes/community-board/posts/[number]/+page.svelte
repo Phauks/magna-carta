@@ -22,7 +22,10 @@
     deletePost,
     readPost,
     report,
+    setStatus,
+    acceptAnswer,
   } from "$lib/community/board-client.ts";
+  import type { StatusUpdate } from "$lib/community/team-triage-panel.svelte";
 
   const board = boardSession();
   const number = $derived(Number(page.params.number));
@@ -83,6 +86,12 @@
     }
   }
 
+  async function triage(update: StatusUpdate): Promise<boolean> {
+    const taken = await act(setStatus(number, update));
+    if (taken) toast.success("Status saved.");
+    return taken;
+  }
+
   async function flag(reason: FlagReason, commentId?: string): Promise<void> {
     if (await act(report(number, reason, commentId))) {
       toast.success("Reported. The Magna Carta team will read it.");
@@ -111,6 +120,9 @@
     onDeletePost={() => void removePost()}
     onDeleteComment={(id) => void act(deleteComment(id))}
     onReport={(reason, commentId) => void flag(reason, commentId)}
+    isTeam={board.session?.profile?.isTeam === true}
+    onSetStatus={triage}
+    onAcceptAnswer={(commentId) => void act(acceptAnswer(number, commentId))}
   />
 {:else if loadFailure !== null}
   <div class="flex min-h-screen flex-col bg-surface-sunken">

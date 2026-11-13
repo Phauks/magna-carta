@@ -11,6 +11,7 @@ import {
   listBoard,
   moderate,
   readBoardSummary,
+  readModerationQueue,
   readPost,
   saveDisplayName,
   setStatus,
@@ -359,6 +360,33 @@ describe("the team", () => {
     const read = await readPost(database, number, undefined);
     expect(read.ok && read.value.post.status).toBe("answered");
     expect(read.ok && read.value.comments[0]?.isAcceptedAnswer).toBe(true);
+  });
+});
+
+describe("the moderation queue", () => {
+  it("lists held and hidden contributions with what the reports say, for the team only", async () => {
+    const number = await publishedRequest(dana);
+    const held = await addComment(database, priya, number, "Same need here.", LATER);
+    await flag(database, priya, { number, reason: "confidential" }, LATER);
+    expect(await readModerationQueue(database, dana)).toEqual({ ok: false, refusal: "not-team" });
+    const queue = await readModerationQueue(database, team);
+    expect(queue.ok && queue.value.items).toEqual([
+      expect.objectContaining({
+        target: "post",
+        number,
+        commentId: null,
+        moderationState: "hidden",
+        reports: { confidential: 1 },
+      }),
+      expect.objectContaining({
+        target: "comment",
+        number,
+        commentId: held.ok ? held.value.id : null,
+        postTitle: "Split one invoice across two trust accounts",
+        heldReason: "first-post",
+        reports: {},
+      }),
+    ]);
   });
 });
 

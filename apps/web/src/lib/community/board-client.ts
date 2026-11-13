@@ -7,6 +7,7 @@ import type {
   BoardCommentView,
   BoardPostView,
   BoardSummary,
+  ModerationItem,
 } from "@magna-carta/community/board-service";
 import type { ConfidentialityFinding } from "@magna-carta/community/confidentiality-detector";
 import type {
@@ -162,4 +163,9 @@ export function moderate(
   commentId?: string,
 ): Promise<ApiOutcome<Record<string, never>>> {
   return call(`/api/posts/${number}/moderate`, "POST", { decision, commentId });
+}
+
+/** The team's queue: everything held for review or hidden by reports. Anyone else is refused. */
+export function readModerationQueue(): Promise<ApiOutcome<{ items: ModerationItem[] }>> {
+  return call("/api/moderation-queue");
 }
