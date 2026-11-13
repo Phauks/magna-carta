@@ -196,10 +196,11 @@
 - id: directory.legacy-id
   name: Legacy source-system ID
   scope: A legacy source-system identifier on every entity for LEAP migration traceability.
-  status: not-started
+  status: partial
+  surface: internal
   adrs: ADR-0021
-  evidence: no legacy/source-system column found in packages/directory or the per-firm schema
-  notes: LEAP migration itself is deferred (ADR-0021); this lands with that slice.
+  evidence: source_record_link and transfer_run in packages/database/src/per-firm-schema.ts; statement builders in packages/record-transfer/src/source-record-link-statements.ts
+  notes: Built as one link table for every kind of record, not a column per entity (docs/decisions/pending/a-transferred-record-is-linked-to-its-source-in-one-table.md). Partial because nothing writes a link yet; the loader in docs/specs/2026-11-10-record-transfer-framework-design.md is its first writer.
 
 - id: matters
   name: Matters

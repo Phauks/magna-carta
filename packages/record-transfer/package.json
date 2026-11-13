@@ -1,0 +1,38 @@
+{
+  "name": "@magna-carta/record-transfer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./source-record": "./src/source-record.ts",
+    "./transfer-run-statements": "./src/transfer-run-statements.ts",
+    "./source-record-link-statements": "./src/source-record-link-statements.ts",
+    "./source-file": "./src/source-file.ts",
+    "./transfer-source-file-statements": "./src/transfer-source-file-statements.ts",
+    "./delimited-text-reader": "./src/delimited-text-reader.ts",
+    "./directory-mapping": "./src/directory-mapping.ts",
+    "./directory-transfer": "./src/directory-transfer.ts",
+    "./matter-mapping": "./src/matter-mapping.ts",
+    "./matter-transfer": "./src/matter-transfer.ts",
+    "./transfer-pass": "./src/transfer-pass.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/matters": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/encryption": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}
