@@ -26,6 +26,7 @@ import { isPollParticipationConflict } from "@magna-carta/meetings/poll-statemen
 import {
   MAX_MEETING_POLL_ANSWER_PAGE_SIZE,
   MAX_MEETING_POLL_OPTIONS,
+  MEETING_POLL_KINDS,
   MAX_MEETING_POLL_OPTION_LENGTH,
   MAX_MEETING_POLL_PAGE_SIZE,
   MAX_MEETING_POLL_QUESTION_LENGTH,
@@ -95,6 +96,9 @@ const OpenPollRequest = z
     anonymous: z.boolean(),
     // How many options one participant may choose. One is an ordinary poll.
     maxChoices: z.number().int().default(1),
+    // What kind of question: pick one, pick several, put them all in order, or give a score (whose
+    // options are the scale's points, "1" upward). Without it, the kind follows `maxChoices`.
+    kind: z.enum(MEETING_POLL_KINDS).optional(),
   })
   .openapi("OpenMeetingPollRequest");
 
@@ -113,6 +117,8 @@ const MeetingPollOption = z
     label: z.string(),
     // How many chose it. Every option is present, including the ones nobody chose.
     count: z.number().int(),
+    // On a ranking, the average place given this option (1 is first); null on every other kind.
+    averageRank: z.number().nullable(),
   })
   .openapi("MeetingPollOption");
 
@@ -124,6 +130,7 @@ export const MeetingPoll = z
     question: z.string(),
     anonymous: z.boolean(),
     maxChoices: z.number().int(),
+    kind: z.enum(MEETING_POLL_KINDS),
     openedAt: z.string(),
     // A closed poll takes no answers; the two are set together or not at all.
     closedAt: z.string().nullable(),
@@ -466,6 +473,7 @@ function snapshotOf(poll: MeetingPollEntry): MeetingPollSnapshot {
     question: poll.question,
     anonymous: poll.anonymous,
     maxChoices: poll.maxChoices,
+    kind: poll.kind,
     openedAt: poll.openedAt,
     closedAt: poll.closedAt,
     closedByUserId: poll.closedByUserId,
@@ -632,7 +640,11 @@ export function registerMeetingPollRoutes(
           const opened = await openMeetingPoll(
             firm.firmDatabase,
             meetingId as MeetingId,
-            body,
+            {
+              ...body,
+              // A caller that predates kinds says only how many may be chosen.
+              kind: body.kind ?? (body.maxChoices > 1 ? "multiple" : "one"),
+            },
             pollOptions(c),
           );
           return {
@@ -788,6 +800,7 @@ export function registerMeetingPollRoutes(
             counts: poll.options.map((option) => ({
               optionId: option.optionId,
               count: option.count,
+              averageRank: option.averageRank,
             })),
             respondents: poll.respondents,
           },
@@ -850,6 +863,7 @@ export function registerMeetingPollRoutes(
           counts: poll.options.map((option) => ({
             optionId: option.optionId,
             count: option.count,
+            averageRank: option.averageRank,
           })),
           respondents: poll.respondents,
           readAt,
