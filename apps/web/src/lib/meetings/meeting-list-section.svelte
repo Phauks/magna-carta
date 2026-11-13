@@ -13,6 +13,7 @@
    * stated. A failed read replaces the table with the notice, because a table standing empty over a
    * failure says the firm has no meetings when nobody asked it.
    */
+  import { meetingTabName } from "./meeting-tab.ts";
   import { untrack } from "svelte";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
@@ -151,6 +152,7 @@
         variant="secondary"
         size="sm"
         href={meetingAddress(row)}
+        target={meetingTabName(row.id)}
         onclick={() => pageRecordingSounds.unlock()}
       >
         {#if row.medium === "audio"}
