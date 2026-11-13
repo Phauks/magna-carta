@@ -187,3 +187,12 @@ describe("the board switch", () => {
     expect(await response.json()).toMatchObject({ title: "board-off" });
   });
 });
+
+describe("the build identity", () => {
+  it("answers the app's version probe, uncached and still noindex", async () => {
+    const response = await SELF.fetch(`${ORIGIN}/__version`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("X-Robots-Tag")).toContain("noindex");
+  });
+});

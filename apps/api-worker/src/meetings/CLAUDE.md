@@ -17,7 +17,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - `meeting-room.ts` — the Durable Object, and an ORCHESTRATOR only: it accepts the upgrade, builds
   the `RoomContext` every module takes, and hands each event to the module that owns it. It also
   holds the door the routes knock on — `meetingSocketRequest`, `meetingSocketRequestUrl` and the
-  socket attachment shape — because that is the surface `routes/meetings.ts` imports.
+  socket attachment shape — because that is the surface `http/routes/communications/meetings.ts` imports.
 - `room/room-state.ts` — the two places a fact may live in a hibernating room: the object's storage
   (`StoredParticipant`, `StoredRoom`, the ended marker, the keys, the reads and writes) and the
   per-socket attachment (`attachmentOf`, `socketsFor`, `broadcast`, `refuseAndClose`). `RoomContext`
@@ -184,7 +184,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   between sends nothing, and a run refused at the same call as the one before it — after every earlier
   call answered — fails (`model_failure_call`). Nothing here logs a line, a sentence of the answer, a name
   or the instruction; the scan in `packages/meetings/test/no-transcript-text-escape.test.ts` reads this
-  module too. Its routes are `../routes/meeting-summary.ts`: the read (audited, withheld exactly when the
+  module too. Its routes are `../http/routes/communications/meeting-summary.ts`: the read (audited, withheld exactly when the
   transcript's lines are), a host's re-run (refused while the document is withheld), and an action item
   made into a task through `createMatterTask`; both POSTs take a path fingerprint, so a retry with the same
   key is answered by reading the record afresh. A test hands the consumer its own port (and, for the
@@ -200,7 +200,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   skips the staging clean-up.
 - `sink-token.ts` — the signed per-track address the routing service dials, its own secret
   (`MEETING_SINK_SIGNING_KEY`) and the test seam for it; the route that admits the dial is
-  `routes/meeting-sink.ts`, outside the chokepoint.
+  `meeting-sink-route.ts`, outside the chokepoint.
 - `meeting-captioner.ts` — `MeetingCaptioner`, one per MEETING (`firmId:meetingId`), NOT hibernating
   while a session is open: LIVE CAPTIONS. A sibling of the recorder rather than a part of it (the
   recording spec's A81 has the arithmetic — captions are the meeting's and run with or without a
@@ -230,7 +230,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   tracks, and the WebSocket adapter's open and close), and the test seam a meeting-room test installs a
   fake through.
 - `sfu/turn-credentials.ts` — minting relay credentials from Realtime's TURN service, shared with
-  `routes/tools-turn-credentials.ts`.
+  `http/routes/tools/tools-turn-credentials.ts`.
 - `sfu/realtime-failure.ts` — one failure through the standard pipeline, answering with the Error ID
   the member is shown.
 
@@ -239,10 +239,10 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - **The firm's four meeting switches have one writer, and it is not in this directory.**
   `meetings.recordingEnabled`, `captionsEnabled`, `summariesEnabled` and `recordedTrackCeiling`
   (`packages/meetings/src/settings.ts`) are read here and by the start route, and written only by
-  `../routes/meeting-settings.ts` (`GET`/`PATCH /api/v1/firm/meetings/settings`, behind
+  `../http/routes/communications/meeting-settings.ts` (`GET`/`PATCH /api/v1/firm/meetings/settings`, behind
   `meetings:manageSettings`, Owner/Admin by seed, audited as `firm.meeting_settings_updated`). That
   route also reports `recordingServiceConfigured` from `recordingDeploymentConfigured` in
-  `../routes/meetings.ts` — the same bindings check the start route's 503 reads — so a new binding the
+  `../http/routes/communications/meetings.ts` — the same bindings check the start route's 503 reads — so a new binding the
   recorder needs goes into that one function and both answers move together. Nothing here writes a
   setting, and a reader added here reads through `readFirmSetting`, never a cached copy.
 - **The frames come from the protocol package, never from here.** Every schema, builder, refusal
@@ -339,7 +339,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
   open. `hostingChanged` is the only writer of truth here after the first welcome, and the welcome's
   own lobby list is decided from the same answer.
 - **An act that somebody could later ask about is a route, not a frame.** Removing a participant,
-  shutting the door and changing who is hosting are `routes/meeting-hosting.ts` with audit rows
+  shutting the door and changing who is hosting are `http/routes/communications/meeting-hosting.ts` with audit rows
   through the firm-scoped data-access layer. A mute, a request to unmute and a spotlight are frames:
   each is about this moment, a mute is undone by the member a second later, and an audit row for
   each would fill a matter's log with the mechanics of a conversation — which is the one thing this
@@ -422,7 +422,7 @@ half:** [`apps/web/src/lib/meetings`](../../../web/src/lib/meetings/CLAUDE.md).
 - **An operator's read is the platform-operator guard, never a firm permission — and it is
   AUDITED.** A capability that let a member read the room's internals would be a capability to read
   a colleague's connection quality and their place in the meeting.
-  `routes/meeting-inspect.ts` runs in the same lane `routes/platform-status.ts` does, and names the
+  `http/routes/communications/meeting-inspect.ts` runs in the same lane `http/routes/platform/platform-status.ts` does, and names the
   firm in the query because there is no session firm to read — the one meeting route that does, and
   only because its caller belongs to no firm. Because nothing else in this platform lets one person
   see into another firm's live conversation, the read writes an `auth_audit` row — on the control

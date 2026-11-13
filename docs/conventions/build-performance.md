@@ -804,6 +804,32 @@ its branch to produce the `gate` check. When the Actions budget is exhausted non
 `gate` from the required checks until it resets, and the weekly docs-sync routine or a session runs the
 assemblers by hand ([`docs/maintenance/README.md`](../maintenance/README.md)).
 
+## Merging main — the recurring fixes
+
+Several threads land on `main` every day, so merging `main` into a branch hits the same handful of repairs. Each is a known shape, not a new break.
+
+- **Lockfile.** After a merge, check `pnpm install --frozen-lockfile` passes before pushing: Workers Builds installs frozen, and `main` is production. A non-frozen install can pull upstream `vite@8` back in as a peer (svelte-check then fails on `apps/web/vite.config.ts`); `pnpm dedupe` removes it, and `grep -c "vite@8" pnpm-lock.yaml` should print 0. An unscoped `pnpm-workspace.yaml` override on a package that is also a catalog dependency rewrites every `catalog:` specifier; scope overrides as `"carrier>package"`.
+- **Generated contracts.** Re-run `emit-domain-operations` and `emit-openapi` in `apps/api-worker` and `generate` in `packages/api-client`. `emit-domain-operations` reformats `src/http/routes/developer/operations.ts` spuriously; keep `main`'s copy or run `vp fmt` on it.
+- **Per-firm migrations.** When `main` gains a per-firm migration while yours is open, `node tooling/resolve-journal/index.mjs per-firm` re-stamps and regenerates the bundle; restore `main`'s snapshot file, then `pnpm --filter @magna-carta/database run refresh-per-firm-snapshot`.
+- **A new package** fails typecheck ("project-reference graph in sync") until `node tooling/tsconfig-refs/index.mjs`, and resolves only after `pnpm install`.
+- **The route-shape ratchet** (`route-shape-ratchet.test.ts`) needs its ledger raised when a branch that predates it grows a route file.
+- **A restarted branch** cannot be force-pushed from a cloud session. Join the old merged history with `git merge -s ours origin/<branch>` and push normally.
+
+### Checks a new route, read or settings screen trips
+
+Run `pnpm check:scoped` early on a slice that adds one; these otherwise fail late.
+
+- A route under `apps/api-worker/src/http/routes/` may not import `src/background/`; share a constant through the subsystem directory.
+- A route module may build at most four inline `z.object(` bodies. Bodies go in `packages/<domain>/src/contract.ts` as zod named with `.meta({ id })`, exported from the package's `package.json` (then `pnpm install`).
+- A firm's Durable Object SQLite refuses a compound SELECT of more than five terms. Plain SQLite in a package test does not, so only a Workers-pool test catches it.
+- Background work a route asks for goes on the firm's outbox (`outboxMessages`) with a row in `PER_FIRM_CONSUMERS`, not a new queue or binding.
+- A new `logger.count("...")` name needs a `defineMetric` entry and a `CATALOG` row in `packages/telemetry/src/metrics.ts`.
+- A settings page rendering `DataTable.Grid` needs an entry in `REGISTER_PAGES` (`tooling/lint-settings-scroll/index.mjs`).
+- A new status-register word can make an unrelated file fail `lint:one-ui` (status-tone); the precedent is an allowance in `tooling/lint-one-ui/registry.json` with its reason. A new status vocabulary needs a title in `VOCABULARY_TITLES` (`apps/web/src/routes/developer-console/record-window/+page.svelte`).
+- A `roadmap.d/` node with `status: partial` needs a `surface:` line.
+- `lint:screen-data` holds a budget of hand-written transport modules in `apps/web` that only falls: a new read goes through the generated `@magna-carta/api-client` with `outcomeOf` from `$lib/api/api-client.ts`. A web test over the generated client needs `client.setConfig({ baseUrl })`, and its fetch fake receives a `Request`.
+- `indexed` is a reserved word in SQLite; `lint:control-characters` refuses a raw U+FFFD.
+
 ## To formalize (later)
 
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.

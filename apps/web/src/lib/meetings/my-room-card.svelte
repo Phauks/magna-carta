@@ -26,7 +26,7 @@
   import Label from "@magna-carta/design-system/label";
   import Switch from "@magna-carta/design-system/switch";
   import { toast } from "@magna-carta/design-system/toast";
-  import { goto } from "$app/navigation";
+  import { reserveMeetingTab } from "./meeting-tab.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
   import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
@@ -95,15 +95,18 @@
   async function enter(): Promise<void> {
     if (busy) return;
     pageRecordingSounds.unlock();
+    // The meeting's own tab, reserved now while the press still lets a page open one.
+    const tab = reserveMeetingTab();
     busy = true;
     writeFailure = null;
     const outcome = await openPersonalRoom();
     busy = false;
     if (outcome.kind !== "ok") {
+      tab.cancel();
       writeFailure = outcome.failure;
       return;
     }
-    await goto(`/meetings/${outcome.value.meetingId}`);
+    tab.open(outcome.value.meetingId);
   }
 
   let replacing = $state(false);

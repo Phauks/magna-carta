@@ -4,7 +4,7 @@
  *
  * Usage: node tooling/lint-page-inset/index.mjs
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { auditPageInset } from "./page-inset.mjs";
@@ -28,10 +28,21 @@ function svelteFilesUnder(directory) {
   return found;
 }
 
-const files = svelteFilesUnder(ROUTES_ROOT).map((file) => ({
-  path: relative(file),
-  source: readFileSync(file, "utf8"),
-}));
+// A page whose load answers `shell: "none"` renders alone in the viewport (the (app) layout draws no
+// shell for it), so it never lands in <main> and owes its own inset. Its `+page.ts` says so.
+const SHELLLESS = /\bshell:\s*"none"/;
+function declinesTheShell(file) {
+  if (!file.endsWith(`${path.sep}+page.svelte`)) return false;
+  const load = path.join(path.dirname(file), "+page.ts");
+  return existsSync(load) && SHELLLESS.test(readFileSync(load, "utf8"));
+}
+
+const files = svelteFilesUnder(ROUTES_ROOT)
+  .filter((file) => !declinesTheShell(file))
+  .map((file) => ({
+    path: relative(file),
+    source: readFileSync(file, "utf8"),
+  }));
 
 if (!files.some((file) => file.path === SHELL_LAYOUT)) {
   console.error(
