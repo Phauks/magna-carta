@@ -15,6 +15,8 @@ export interface MagnusTurnSubmittedPayload {
   readonly conversationId: string;
   readonly magnusTurnId: string;
   readonly memberTurnId: string;
+  readonly modelId?: string;
+  readonly effort?: string | null;
 }
 
 // Parses the outbox payload defensively: a row that does not carry the two identifiers the job needs
@@ -40,7 +42,19 @@ export function parseMagnusTurnSubmittedPayload(
   ) {
     return null;
   }
-  return { conversationId, magnusTurnId, memberTurnId };
+  // The member's choice of model and effort is optional, and a malformed one is dropped rather than
+  // refusing the job: the answer then comes from the firm's model, which is what it would have been.
+  const modelId = record["modelId"];
+  const effort = record["effort"];
+  return {
+    conversationId,
+    magnusTurnId,
+    memberTurnId,
+    ...(typeof modelId === "string" && {
+      modelId,
+      effort: typeof effort === "string" ? effort : null,
+    }),
+  };
 }
 
 export function magnusTurnJobFrom(
@@ -53,6 +67,10 @@ export function magnusTurnJobFrom(
     conversationId: payload.conversationId,
     magnusTurnId: payload.magnusTurnId,
     outboxId,
+    ...(payload.modelId !== undefined && {
+      modelId: payload.modelId,
+      effort: payload.effort ?? null,
+    }),
   };
 }
 

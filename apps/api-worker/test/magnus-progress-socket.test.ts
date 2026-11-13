@@ -143,6 +143,7 @@ describe("MagnusConversation push", () => {
         inputTokens: 3,
         outputTokens: 4,
         contextTruncated: false,
+        effort: null,
       },
     );
     expect(completion.ok).toBe(true);

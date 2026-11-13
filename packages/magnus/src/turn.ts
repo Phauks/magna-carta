@@ -32,6 +32,10 @@ export interface SubmitTurnInput {
   // record.
   readonly nextSequence: number;
   readonly disclosureVersion: number;
+  // The model and effort the member chose in the composer, already checked by the caller against the
+  // catalog. Absent, the answer comes from the firm's model at that model's own default effort. Both
+  // are labels, not content, so they ride the outbox payload to the consumer.
+  readonly choice?: { readonly modelId: string; readonly effort: string | null };
 }
 
 export type SubmitTurnResult =
@@ -97,6 +101,9 @@ export function submitTurn(
             conversationId: input.conversationId,
             magnusTurnId,
             memberTurnId,
+            ...(input.choice === undefined
+              ? {}
+              : { modelId: input.choice.modelId, effort: input.choice.effort }),
           },
           aggregateKey: input.conversationId,
         },
@@ -114,6 +121,8 @@ export interface CompleteTurnInput {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly contextTruncated: boolean;
+  // The effort the answer was asked for, or null where none was sent.
+  readonly effort: string | null;
 }
 
 export type CompleteTurnResult =
@@ -142,6 +151,7 @@ export function completeTurn(
           inputTokens: input.inputTokens,
           outputTokens: input.outputTokens,
           contextTruncated: input.contextTruncated,
+          effort: input.effort,
           now,
         }),
         turnCompletedAudit(database, context, {

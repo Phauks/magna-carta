@@ -1,5 +1,6 @@
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
+import type { ReasoningEffort } from "./catalog.ts";
 
 // InferencePort is named in OUR domain vocabulary — never a vendor's API, never the gateway's. It is
 // the single chokepoint every AI feature reaches a model through. Every operation returns a typed
@@ -93,6 +94,11 @@ export interface ConversationInput {
   // form; a third-party model is sent no such field on this path, and the caller's own strict reading
   // of the answer remains the guard there. Absent: the answer is prose.
   readonly answerFormat?: "json-object";
+  // How much thinking and output the answer may spend. Optional: absent, the provider applies the
+  // model's own default (the catalog's defaultEffort). Sent to a third-party model as its effort
+  // control (output_config.effort). A model hosted on Cloudflare is sent nothing: the chat request its
+  // published input schema takes has no effort field, so it answers at its own default.
+  readonly effort?: ReasoningEffort;
 }
 
 // Speech to text, platform-fixed like embedding: there is deliberately NO modelId field. A firm does
