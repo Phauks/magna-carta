@@ -16,44 +16,44 @@ const EM_DASH = "—";
 
 describe("the sentence", () => {
   it("states that the capability is not built, and names what it waits on", () => {
-    expect(soonDependencySentence("the conversion engine")).toBe(
-      "Not built yet. Waiting on the conversion engine.",
-    );
+    expect(soonDependencySentence("file conversion")).toBe("Not built yet: file conversion.");
   });
 
   it("words every dependency identically, so only the dependency differs", () => {
-    const first = soonDependencySentence("the archive-extraction engine");
-    const second = soonDependencySentence("client-portal document sharing");
-    expect(first.replace("the archive-extraction engine", "")).toBe(
-      second.replace("client-portal document sharing", ""),
+    const first = soonDependencySentence("archive extraction");
+    const second = soonDependencySentence("document sharing in the client portal");
+    expect(first.replace("archive extraction", "")).toBe(
+      second.replace("document sharing in the client portal", ""),
     );
   });
 
   it("uses no em dash", () => {
-    expect(soonDependencySentence("the conversion engine")).not.toContain(EM_DASH);
+    expect(soonDependencySentence("file conversion")).not.toContain(EM_DASH);
   });
 });
 
 describe("the attributes handed to the wrapped control", () => {
   it("disables the control rather than leaving it live", () => {
-    expect(soonControlProperties("the conversion engine", "reason-1").disabled).toBe(true);
+    expect(soonControlProperties("file conversion", "reason-1").disabled).toBe(true);
   });
 
   it("puts the sentence on the hover", () => {
-    expect(soonControlProperties("the conversion engine", "reason-1").title).toBe(
-      soonDependencySentence("the conversion engine"),
+    expect(soonControlProperties("file conversion", "reason-1").title).toBe(
+      soonDependencySentence("file conversion"),
     );
   });
 
   it("also points at the description, so a disabled control still says why to a reader", () => {
-    expect(soonControlProperties("the conversion engine", "reason-1")["aria-describedby"]).toBe(
+    expect(soonControlProperties("file conversion", "reason-1")["aria-describedby"]).toBe(
       "reason-1",
     );
   });
 
   it("hands over nothing else, so a call site cannot quietly widen what Soon means", () => {
-    expect(
-      Object.keys(soonControlProperties("the conversion engine", "reason-1")).toSorted(),
-    ).toEqual(["aria-describedby", "disabled", "title"]);
+    expect(Object.keys(soonControlProperties("file conversion", "reason-1")).toSorted()).toEqual([
+      "aria-describedby",
+      "disabled",
+      "title",
+    ]);
   });
 });

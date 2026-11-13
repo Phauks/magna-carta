@@ -36,6 +36,9 @@ export const ENTITY_PREFIXES = {
   incident: "incident",
   integrationConnection: "integrationConnection",
   integrationCredential: "integrationCredential",
+  // One run of the record transfer that brings a firm's data in from the system it is leaving.
+  transferRun: "transferRun",
+  transferSourceFile: "transferSourceFile",
   // AI-text detection metering — tracks usage of the AI-text detection tool across the firm.
   aiDetectionUsage: "aiDetectionUsage",
   repairProvenance: "repairProvenance",

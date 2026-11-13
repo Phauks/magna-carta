@@ -419,7 +419,7 @@
     kind="form"
     unsavedChanges={false}
     {fields}
-    commitSoon={{ reason: "a trust account being served for this firm" }}
+    commitSoon={{ reason: "choosing a trust account" }}
     onCommit={succeed}
   />
 {/snippet}
@@ -850,7 +850,7 @@
 
     await step("It says what it waits on, as the control's own description", () => {
       expect(commit).toHaveAccessibleDescription(
-        "Not built yet. Waiting on a trust account being served for this firm.",
+        "Not built yet: choosing a trust account.",
       );
     });
 

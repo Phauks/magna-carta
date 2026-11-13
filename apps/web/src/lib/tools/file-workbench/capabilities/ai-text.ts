@@ -22,7 +22,7 @@ export const aiTextCapability: CapabilityModule = {
   timing: "on-request",
   scope: "single",
   description: "Estimate whether a passage was written by AI.",
-  awaiting: "text extraction, and the consent step that has to precede it",
+  awaiting: "text extraction",
   applies(file) {
     if (carriesText(file)) return APPLIES;
     if (isImage(file) || isPdf(file)) {
