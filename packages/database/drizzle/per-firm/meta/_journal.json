@@ -460,12 +460,26 @@
     {
       "idx": 65,
       "version": "6",
+      "when": 1794298767966,
+      "tag": "20261113T210918_magnus-folders-and-pins",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "6",
+      "when": 1794513676302,
+      "tag": "20261113T210918_magnus-turn-effort",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
       "when": 1794300441180,
       "tag": "20261113T211402_transfer-run-and-source-record-link",
       "breakpoints": true
     },
     {
-      "idx": 66,
+      "idx": 68,
       "version": "6",
       "when": 1794604542947,
       "tag": "20261113T211542_transfer-source-file",

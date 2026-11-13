@@ -266,6 +266,21 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent conversation; a reference to a file, holding nothing of it",
   },
+  // A member's own folders and where they keep each conversation. Both arrange that member's list and
+  // nothing else: no other member reads them and the firm relies on neither, so they go with the
+  // member. A folder's name is free text the member typed about their own work.
+  {
+    table: "magnus_folder",
+    subjectKey: "member_id",
+    action: "hard-delete",
+    note: "a member's own folder names; delete the member's magnus_conversation_shelf rows first, which point at them",
+  },
+  {
+    table: "magnus_conversation_shelf",
+    subjectKey: "member_id",
+    action: "hard-delete",
+    note: "where a member keeps each conversation they read; holds no conversation content",
+  },
   // A record custodian is whose ELECTRONIC RECORDS were loaded into a review set — a person or an
   // organization named by the firm or by a production. It is the one discovery table with a
   // structured subject column: the optional Directory link, which resolves the custodian to an

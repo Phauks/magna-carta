@@ -430,9 +430,11 @@ export const ENTITY_PREFIXES = {
   // thread a member started, kept as a firm record; a `magnusTurn` is one message inside it, from
   // either the member or Magnus, ordered by an explicit sequence rather than by its timestamp. The
   // member acknowledgement of the disclosure is keyed by the member's own `user_id` and needs no
-  // handle of its own.
+  // handle of its own. A `magnusFolder` is one member's own named shelf for their conversations: it
+  // arranges that member's list and decides nothing about who may read a conversation.
   magnusConversation: "magnusConversation",
   magnusTurn: "magnusTurn",
+  magnusFolder: "magnusFolder",
   // Discovery — the corpus of documents under review on a matter. A `reviewSet` is one named corpus
   // with its own index, lifecycle, and access story; a `recordCustodian` is whose electronic records
   // the material was (two words, always — the physical safekeeping register keeps `custody*`, and

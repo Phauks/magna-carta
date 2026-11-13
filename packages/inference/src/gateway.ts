@@ -606,7 +606,12 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
           : {}),
       };
     }
-    return { system: input.systemPrompt, messages, ...length };
+    return {
+      system: input.systemPrompt,
+      messages,
+      ...length,
+      ...(input.effort === undefined ? {} : { output_config: { effort: input.effort } }),
+    };
   }
 
   return {

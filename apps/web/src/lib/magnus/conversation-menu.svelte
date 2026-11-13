@@ -10,17 +10,22 @@
    * conversation, which is why the page menu's own link cannot serve: the workspace's address is the
    * whole workspace, and only this menu knows which conversation is open.
    *
-   * Then the conversation's own acts: rename, save it to a different matter (whose dialog warns that
-   * the matter decides who can read it), download its transcript, and delete it, last and set apart.
-   * Only live acts are here. Sharing, pinning and folders are in the owner's ruling and have no
-   * record behind them yet, and a seam behind a glyph is a seam nobody sees
-   * (docs/conventions/design-corrections.md), so they arrive with their tables, not before.
+   * Then the conversation's own acts in the ruling's order: pin it, rename it, move it to one of the
+   * reader's folders, save it to a different matter (whose dialog warns that the matter decides who can read it),
+   * download its transcript, and delete it, last and set apart. Pinning and folders are the
+   * reader's own and change nothing for anyone else; they are offered only where the rail shows
+   * folders. Only live acts are here. Sharing is in the owner's ruling and has no record behind it
+   * yet, and a seam behind a glyph is a seam nobody sees (docs/conventions/design-corrections.md),
+   * so it arrives with its tables, not before.
    */
   import Download from "@lucide/svelte/icons/download";
   import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
+  import Folder from "@lucide/svelte/icons/folder";
   import FolderInput from "@lucide/svelte/icons/folder-input";
   import Link from "@lucide/svelte/icons/link";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
+  import Pin from "@lucide/svelte/icons/pin";
+  import PinOff from "@lucide/svelte/icons/pin-off";
   import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { buttonClasses } from "@magna-carta/design-system/button";
@@ -30,11 +35,17 @@
   import { page } from "$app/state";
   import { openBeside } from "$lib/navigation/open-beside.ts";
   import { conversationLink } from "./conversation-link.ts";
+  import type { MagnusFolder } from "./magnus-api.ts";
+
+  /** The value the folder choice uses for General, which is no folder. */
+  const GENERAL = "general";
 
   let {
     conversationId,
     disabled = false,
     downloading = false,
+    shelf = null,
+    onShelve,
     onRename,
     onMove,
     onDownload,
@@ -46,6 +57,16 @@
     disabled?: boolean;
     /** True while a transcript download is being assembled, so a second press does not start another. */
     downloading?: boolean;
+    /**
+     * Where the reader keeps this conversation and the folders they could move it to. Null where
+     * the rail shows no folders, and then Pin and Move to a Folder are not offered.
+     */
+    shelf?: {
+      folders: readonly MagnusFolder[];
+      folderId: string | null;
+      pinned: boolean;
+    } | null;
+    onShelve?: (next: { folderId: string | null; pinned: boolean }) => void;
     onRename: () => void;
     onMove: () => void;
     onDownload: () => void;
@@ -113,10 +134,47 @@
       Open in New Tab
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
+    {#if shelf !== null && onShelve !== undefined}
+      {@const current = shelf}
+      <DropdownMenu.Item
+        onSelect={() => onShelve({ folderId: current.folderId, pinned: !current.pinned })}
+      >
+        {#if current.pinned}
+          <PinOff class="size-16 shrink-0" aria-hidden="true" />
+          Unpin
+        {:else}
+          <Pin class="size-16 shrink-0" aria-hidden="true" />
+          Pin
+        {/if}
+      </DropdownMenu.Item>
+    {/if}
     <DropdownMenu.Item {disabled} onSelect={() => (renameOnClose = true)}>
       <PencilLine class="size-16 shrink-0" aria-hidden="true" />
       Rename
     </DropdownMenu.Item>
+    {#if shelf !== null && onShelve !== undefined}
+      {@const current = shelf}
+      <DropdownMenu.Sub>
+        <DropdownMenu.SubTrigger>
+          <Folder class="size-16 shrink-0" aria-hidden="true" />
+          Move to a Folder
+        </DropdownMenu.SubTrigger>
+        <DropdownMenu.SubContent>
+          <DropdownMenu.RadioGroup
+            value={current.folderId ?? GENERAL}
+            onValueChange={(value) => {
+              const folderId = value === GENERAL ? null : value;
+              if (folderId !== current.folderId) onShelve({ folderId, pinned: current.pinned });
+            }}
+          >
+            <DropdownMenu.RadioItem value={GENERAL}>General</DropdownMenu.RadioItem>
+            {#each current.folders as folder (folder.id)}
+              <DropdownMenu.RadioItem value={folder.id}>{folder.name}</DropdownMenu.RadioItem>
+            {/each}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.SubContent>
+      </DropdownMenu.Sub>
+    {/if}
     <DropdownMenu.Item {disabled} onSelect={onMove}>
       <FolderInput class="size-16 shrink-0" aria-hidden="true" />
       Save to a Different Matter
