@@ -49,6 +49,7 @@
 
   let {
     open = $bindable(false),
+    inline = false,
     draft = $bindable(""),
     messages,
     unread = 0,
@@ -62,6 +63,8 @@
     readFailure,
     writeFailure,
   }: {
+    /** Drawn in the room's side panel rather than as a popover from the band. */
+    inline?: boolean;
     /** Whether the panel is showing. Bindable, so the band and the count agree about it. */
     open?: boolean;
     /** What is typed and not yet said. Bindable, so it survives the panel being closed. */
@@ -174,23 +177,9 @@
   </Conversation.Transcript>
 {/snippet}
 
-<Popover.Root bind:open>
-  <Popover.Trigger class={buttonClasses({ variant: "secondary", size: "default" })}>
-    <MessageSquare class="size-16" aria-hidden="true" />
-    Chat
-    {#if unread > 0}
-      <!-- The count is how a member learns something was said while they were watching the room
-           rather than the panel. It goes when the panel opens, because then they have seen it. -->
-      <Badge variant="primary">{unread}</Badge>
-    {/if}
-  </Popover.Trigger>
-
-  <Popover.Content
-    class="flex flex-col gap-8"
-    style="inline-size: var(--mc-size-record-context); max-block-size: var(--bits-floating-available-height)"
-  >
+{#snippet panelBody()}
     <div class="flex flex-col gap-4">
-      <h2 class="text-sm font-medium">Chat</h2>
+      {#if !inline}<h2 class="text-sm font-medium">Chat</h2>{/if}
       <!-- The one fact a reader needs to read the rest correctly: this is not the room, it is the
            record. Said once, where the decision to type is made. -->
       <p class="text-xs text-text-muted">
@@ -219,7 +208,7 @@
          popover is drawn on: in a dark theme those are two different neutrals, so the foot of the
          panel would otherwise be a shade darker than the transcript above it. The gutters go for
          the same reason — the popover already has its own. -->
-    <Conversation.Composer class="bg-surface-overlay px-0">
+    <Conversation.Composer class="{inline ? '' : 'bg-surface-overlay'} px-0">
       <Label for="meeting-chat-message">Your message</Label>
       <Textarea
         id="meeting-chat-message"
@@ -242,5 +231,30 @@
         </Button>
       {/snippet}
     </Conversation.Composer>
+{/snippet}
+
+{#if inline}
+  <!-- Drawn in the room's side panel, beside the picture rather than over it. -->
+  <div class="flex min-h-0 flex-1 flex-col gap-8">
+    {@render panelBody()}
+  </div>
+{:else}
+<Popover.Root bind:open>
+  <Popover.Trigger class={buttonClasses({ variant: "secondary", size: "default" })}>
+    <MessageSquare class="size-16" aria-hidden="true" />
+    Chat
+    {#if unread > 0}
+      <!-- The count is how a member learns something was said while they were watching the room
+           rather than the panel. It goes when the panel opens, because then they have seen it. -->
+      <Badge variant="primary">{unread}</Badge>
+    {/if}
+  </Popover.Trigger>
+
+  <Popover.Content
+    class="flex flex-col gap-8"
+    style="inline-size: var(--mc-size-record-context); max-block-size: var(--bits-floating-available-height)"
+  >
+    {@render panelBody()}
   </Popover.Content>
 </Popover.Root>
+{/if}

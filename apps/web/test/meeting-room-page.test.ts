@@ -641,6 +641,7 @@ describe("a large room", () => {
     // Sixteen tiles of forty people: the gallery says so rather than silently showing a fraction.
     expect(rendered.textContent).toContain("Page 1 of 3");
     expect(rendered.textContent).toContain("Showing 17 of 40");
-    expect(rendered.textContent).toContain("In the Room (40)");
+    // The roster is the side panel's People tab, which carries the room's size on its own control.
+    expect(rendered.textContent).toMatch(/People\s*40/u);
   });
 });
