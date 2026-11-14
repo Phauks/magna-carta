@@ -473,10 +473,14 @@ administrator of the firm's Google Workspace:
    once only; copy it at creation.
 7. **Create two secrets in the Cloudflare Secrets Store** (dashboard, **Secrets Store → Create
    secret**, scope _Workers_), named exactly `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-   `apps/api-worker/wrangler.jsonc` already binds both names, so the Worker reads them within a few
-   minutes and no deploy is needed. Both being present is what switches the feature on; there is no
-   other flag. A per-Worker secret of the same name is the fallback
-   ([`docs/conventions/operations.md`](conventions/operations.md), _Secrets Store_). Both are
+8. **Bind them to the app Worker** in a small pull request: two `secrets_store_secrets` entries in
+   `apps/api-worker/wrangler.jsonc`, named `SECRETS_STORE_GOOGLE_CLIENT_ID` and
+   `SECRETS_STORE_GOOGLE_CLIENT_SECRET`. The binding comes after the secret exists, the order
+   [`docs/conventions/operations.md`](conventions/operations.md) gives under _Secrets Store_. The
+   Worker already looks for both names (`apps/api-worker/src/stored-secret-names.ts`). To switch
+   the feature on without waiting for that pull request, set the same two names as secrets on the
+   Worker itself (**Worker → Settings → Variables and Secrets**); the Worker reads either place.
+   Both being present is what switches the feature on; there is no other flag, and both are
    deliberately absent from `wrangler.jsonc`'s `secrets.required`.
 
 Magna Carta asks members for two permissions and no others: `calendar.events` and

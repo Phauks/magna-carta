@@ -167,16 +167,6 @@
       "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
       "secret_name": "GOOGLE_PLACES_API_KEY",
     },
-    {
-      "binding": "SECRETS_STORE_GOOGLE_CLIENT_ID",
-      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
-      "secret_name": "GOOGLE_CLIENT_ID",
-    },
-    {
-      "binding": "SECRETS_STORE_GOOGLE_CLIENT_SECRET",
-      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
-      "secret_name": "GOOGLE_CLIENT_SECRET",
-    },
   ],
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
   // The platform-status KV namespace: holds the operator-authored document (status:authored, written by
