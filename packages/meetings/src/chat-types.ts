@@ -1,9 +1,4 @@
-import type {
-  FileId,
-  MeetingId,
-  MeetingMessageId,
-  UserId,
-} from "@magna-carta/identifiers/types";
+import type { FileId, MeetingId, MeetingMessageId, UserId } from "@magna-carta/identifiers/types";
 
 // WHOSE STAY A MESSAGE WAS SAID FROM. Two kinds because there are two stay TABLES: a firm member's is
 // a `meeting_attendance` row and an external guest's is a `meeting_guest_stay` row, which is why the

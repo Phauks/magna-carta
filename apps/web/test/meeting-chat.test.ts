@@ -88,7 +88,10 @@ class Seams implements MeetingChatSeams {
 
   readonly shared: (string | null)[] = [];
 
-  send(body: string, attachedFileId: string | null): Promise<{ kind: "ok"; value: MeetingMessage }> {
+  send(
+    body: string,
+    attachedFileId: string | null,
+  ): Promise<{ kind: "ok"; value: MeetingMessage }> {
     this.said.push(body);
     this.shared.push(attachedFileId);
     return Promise.resolve({ kind: "ok" as const, value: this.sent });

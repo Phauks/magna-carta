@@ -1463,7 +1463,7 @@
             subject="This meeting"
             title="The File Was Not Shared"
             fallback={chatFileRefusal.reason}
-            whenSilent="Nothing answered, so the file was not uploaded."
+            whenSilent="Couldn't connect. Check your connection, then upload the file again."
           />
         {:else}
           <p class="text-sm text-text-muted" role="status">{chatFileRefusal.reason}</p>

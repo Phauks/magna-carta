@@ -116,7 +116,8 @@ export async function uploadMeetingFile(
       return {
         kind: "refused",
         failure: null,
-        reason: "The file was uploaded to the matter but did not pass the check, so it was not shared.",
+        reason:
+          "The file was uploaded to the matter but did not pass the check, so it was not shared.",
       };
     case "cancelled":
       return { kind: "refused", failure: null, reason: "The upload was cancelled." };

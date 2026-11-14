@@ -42,7 +42,9 @@ function seams(
     createFolder: (input) => {
       created.push(input.name);
       return Promise.resolve(
-        options.createRefused === true ? REFUSED : { kind: "ok", value: { folderId: "folder_made" } },
+        options.createRefused === true
+          ? REFUSED
+          : { kind: "ok", value: { folderId: "folder_made" } },
       );
     },
     upload: (request) => {
@@ -62,8 +64,13 @@ const ROOT_FOLDER: FolderSummary = {
 
 describe("the Meeting files folder", () => {
   it("is used where the matter already has it at its root", async () => {
-    const edges = seams([[{ ...ROOT_FOLDER, id: "folder_nested", parentFolderId: "folder_x" }, ROOT_FOLDER]]);
-    expect(await meetingFilesFolder(edges, MATTER)).toEqual({ kind: "ok", value: "folder_meeting" });
+    const edges = seams([
+      [{ ...ROOT_FOLDER, id: "folder_nested", parentFolderId: "folder_x" }, ROOT_FOLDER],
+    ]);
+    expect(await meetingFilesFolder(edges, MATTER)).toEqual({
+      kind: "ok",
+      value: "folder_meeting",
+    });
     expect(edges.created).toEqual([]);
   });
 
@@ -75,7 +82,10 @@ describe("the Meeting files folder", () => {
 
   it("is found again when the make loses to somebody else's", async () => {
     const edges = seams([[], [ROOT_FOLDER]], { createRefused: true });
-    expect(await meetingFilesFolder(edges, MATTER)).toEqual({ kind: "ok", value: "folder_meeting" });
+    expect(await meetingFilesFolder(edges, MATTER)).toEqual({
+      kind: "ok",
+      value: "folder_meeting",
+    });
   });
 });
 
@@ -84,7 +94,10 @@ describe("uploading a file from a meeting", () => {
 
   it("files it in Meeting files and answers its handle", async () => {
     const edges = seams([[ROOT_FOLDER]]);
-    expect(await uploadMeetingFile(edges, MATTER, FILE)).toEqual({ kind: "filed", fileId: "file_new" });
+    expect(await uploadMeetingFile(edges, MATTER, FILE)).toEqual({
+      kind: "filed",
+      fileId: "file_new",
+    });
     expect(edges.uploadedInto).toEqual(["folder_meeting"]);
   });
 
@@ -92,7 +105,10 @@ describe("uploading a file from a meeting", () => {
     const edges = seams([[ROOT_FOLDER]], {
       upload: { kind: "flagged", fileId: "file_new", reason: "malware" },
     });
-    expect(await uploadMeetingFile(edges, MATTER, FILE)).toMatchObject({ kind: "refused", failure: null });
+    expect(await uploadMeetingFile(edges, MATTER, FILE)).toMatchObject({
+      kind: "refused",
+      failure: null,
+    });
   });
 
   it("uploads nothing where the folder cannot be reached", async () => {

@@ -654,7 +654,9 @@ describe("a file shared in a meeting's chat", () => {
       name: "Exhibit list.pdf",
     });
 
-    database.raw.exec(`UPDATE file SET deleted_at = '2026-09-18T12:10:00.000Z' WHERE id = '${FILE}'`);
+    database.raw.exec(
+      `UPDATE file SET deleted_at = '2026-09-18T12:10:00.000Z' WHERE id = '${FILE}'`,
+    );
     expect((await readMeetingMessage(database.database, meetingId, kept))?.attachedFile).toBe(null);
   });
 });

@@ -39,7 +39,7 @@
 
 <ActionDialog
   bind:open
-  heading="Share a File"
+  heading="Attach a File"
   commitLabel="Share"
   commitBusyLabel="Sharing"
   commitRefusal={refusal}
