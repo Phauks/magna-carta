@@ -57,7 +57,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   // the recording state on a meeting's summary. Their bodies belong in packages/meetings/src/contract.ts.
   "calendar/calendar.ts": { lines: 3607, shapes: 4 },
   "communications/communications.ts": { lines: 1034, shapes: 9 },
-  "communications/meeting-chat.ts": { lines: 634, shapes: 3 },
+  "communications/meeting-chat.ts": { lines: 597, shapes: 3 },
   "communications/meeting-hosting.ts": { lines: 598, shapes: 5 },
   "communications/meeting-inspect.ts": { lines: 243, shapes: 9 },
   "communications/meeting-lobby.ts": { lines: 564, shapes: 7 },
