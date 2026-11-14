@@ -23,6 +23,9 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
   intake, conflicts check and custody numbers), written as a list of parts with one counter; which
   parts restart the count; the preview; the numbers whose shape is fixed; why a number already drawn
   is frozen; and setting one matter's number by hand.
+- [Record Transfer](record-transfer.md) — bringing people, organizations and matters in from the
+  system the firm is leaving: starting a run, uploading a file, saying what each column has in it,
+  running it, and reading the report of what arrived and what did not.
 - [Event types](event-types.md) — the vocabulary a setting is classified under: the platform's
   shipped types (recategorized or retired, never renamed), the firm's own (added, renamed, retired),
   and why retiring is one way.
@@ -52,6 +55,7 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [Opening files](opening-files.md) — what the one Open gesture does for every kind of file: the
   six ways a file can open, the families and extensions under each, and why the page is a routing
   table with nothing to change yet.
+- [Deleted files](deleted-files.md): how long a deleted file waits in a matter's Trash, and whether it then moves to archive storage.
 - [File safety and scanning](file-safety-and-scanning.md) — how deep every upload is scanned (Core,
   Extended or Full, and what each means), the engine that scans it, the suspicion threshold, what
   the firm may do with a flagged file, and who can change any of it.

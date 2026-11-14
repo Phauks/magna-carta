@@ -106,8 +106,8 @@ matter, the row names the matter and links back to it.
 Every meeting has its own address ending in nine digits, such as magnacarta.esq/meeting/482-917-305.
 That is what the address bar shows once you are in the room, and what **Copy Link** in the room
 copies. The nine digits are easy to read out on a call; anybody at the firm who may join the meeting
-can type the address with or without the dashes. Links in the older form, ending in the meeting's
-long reference, still work and show the nine-digit address once the room opens.
+can type the address with or without the dashes. Every **Join**, **Start** and **Open** in the
+application opens this address too, so the address bar shows it from the start.
 
 ## Your own room
 
@@ -136,7 +136,28 @@ meeting on their calendar too.
 When everybody has left, the meeting ends by itself the next time you open your room, and its
 calendar entry is closed at the time the last person left.
 
-Your room's address does not change, even if your name does.
+**Rename Room**, in the same menu, gives your room a name of its own, such as Trial Prep. Its
+address follows the new name (magnacarta.esq/room/trial-prep), and the old address stops working, so
+send colleagues the new link. **Use My Name** puts your room back to being called by your name, at
+its first address. Otherwise your room's address does not change, even if your name does.
+
+### Rooms the firm shares
+
+Besides everybody's own room, the firm can keep rooms named for a place or a purpose, such as Red
+Room or Large Conference Room, for when people gather in that space and others join from elsewhere.
+They are listed on the **Shared Rooms** card.
+
+- **New Room** sets one up. Give it a name; its address is made from the name, such as
+  magnacarta.esq/room/red-room.
+- **Open Room** starts a meeting in it and takes you in. The meeting goes on your calendar, titled
+  with the room's name. If the room is already open, the button reads **Go to Room**.
+- The **...** menu on each room has **Rename Room** (the address follows the new name and the old
+  one stops working), **Hold arrivals in a lobby**, **Open as an audio call**, and **Remove Room**.
+  Removing a room takes it off the list and its link stops working; a meeting already running in it
+  carries on.
+
+Anybody who can host meetings can set up, open, change and remove a shared room. Anybody else at the
+firm sees the list, can copy a room's link, and can **Join** while it is open.
 
 ### Everybody's rooms
 
@@ -208,7 +229,9 @@ everybody tells you that you are breaking up, this is where you find out whether
 - **Picture**: the size of the picture you are sending, in pixels.
 - **Camera Size**: your camera is sent at full, half and quarter size, and each person receives
   the size their screen shows you at. This row names the size whose picture is shown above, with
-  its own rate.
+  its own rate. Together the three sizes stay under about 1.7 Mb/s. While nobody else is in the
+  room, only the quarter size is sent, so your upload drops to a small fraction; the other sizes
+  come back the moment somebody joins, or a recording starts.
 - **Upload** and **Download**: everything your connection is sending and receiving, all streams
   together.
 - **Packets Lost** and **Round Trip**: how much of what you send goes missing, and how long a
@@ -255,6 +278,25 @@ accordingly.
 message for whoever is running the meeting. The words go and the line stays, saying that a message
 was taken back. Nothing is deleted outright, because the record is an account of what happened, and
 that something was said and then removed is part of what happened.
+
+### Sharing a file in chat
+
+In a meeting kept on a matter, the paperclip beside **Send** shares one of the matter's files. It
+offers two choices:
+
+- **Existing File** picks a file already on the matter, from the same list you pick documents from
+  elsewhere.
+- **Upload File** takes a file from your computer, puts it on the matter in a folder called
+  **Meeting files** (made the first time somebody uploads from a meeting), and then shares it.
+
+Anything typed in the message box goes with the file. The line in chat names the file, and choosing
+it opens the file the way it opens anywhere on the matter, under the same checks and permissions. A
+file the check refuses is left on the matter and not shared. If the file is later deleted from the
+matter, or the line is taken back, the line stops linking to it.
+
+A meeting that is not kept on a matter (a firm event, or your own room before you move it onto a
+matter) has nowhere to file anything, so it offers no paperclip. Guests see that a file was shared,
+by its name, but cannot open it from the chat.
 
 ## Raising your hand and reacting
 
@@ -891,6 +933,8 @@ room.
   in to the firm. A guest from outside is still invited to a particular meeting.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
+- **Files in a meeting with no matter, and files for guests.** Only a meeting kept on a matter can
+  share files in chat, and a guest cannot open one from the chat.
 - **A gallery of ready-made backgrounds.** **Image** uses a picture you choose from your own
   computer; there is no built-in set to pick from yet.
 

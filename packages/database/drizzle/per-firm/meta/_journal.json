@@ -544,8 +544,36 @@
     {
       "idx": 77,
       "version": "6",
-      "when": 1794620158775,
-      "tag": "20261114T013558_trust-check-printing",
+      "when": 1794619761435,
+      "tag": "20261114T012921_shared-meeting-rooms",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "6",
+      "when": 1794620197334,
+      "tag": "20261114T013637_magnus-turn-thinking",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "6",
+      "when": 1794609037955,
+      "tag": "20261114T020728_documents-can-be-sent-for-signature",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "6",
+      "when": 1794622275087,
+      "tag": "20261114T021115_meeting-chat-files",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "6",
+      "when": 1794624303096,
+      "tag": "20261114T024503_trust-check-printing",
       "breakpoints": true
     }
   ]

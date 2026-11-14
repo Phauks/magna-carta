@@ -17,6 +17,8 @@ export interface TurnProgressState {
   // conversation. Told rather than hidden: silent truncation produces a confidently wrong answer
   // built on a premise the member believes was in scope.
   readonly truncatedContext?: boolean;
+  // The summary of the model's thinking so far, once the model has returned some.
+  readonly thinking?: string;
 }
 
 // A turn the caller asked for by id that does not exist in this firm. Reported as a state rather than
@@ -29,6 +31,7 @@ function stateFor(row: {
   content: string | null;
   failureLabel: TurnFailureLabel | null;
   contextTruncated: boolean;
+  thinking: string | null;
 }): TurnProgressState {
   return {
     turnId: row.id,
@@ -38,6 +41,7 @@ function stateFor(row: {
     // Present only when it is true: a client that never sees the field is looking at an answer built
     // on the whole conversation.
     ...(row.contextTruncated && { truncatedContext: true }),
+    ...(row.thinking !== null && { thinking: row.thinking }),
   };
 }
 

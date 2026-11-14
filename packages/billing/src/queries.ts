@@ -690,6 +690,12 @@ export async function readAccountsReceivableAgingAsOf(
 // be billed and what is already on a bill being reviewed.
 export const MAXIMUM_WORK_IN_PROGRESS_ROWS = 5000;
 
+// WHAT "UNBILLED" MEANS, stated once and read by both work-in-progress reads below, so the breakdown
+// and the aging cannot disagree about which entries are still to be billed. A time entry with no
+// value on it (no rate) is not work in progress in money and is left out of both.
+const UNBILLED_TIME_PREDICATE = "t.status NOT IN ('billed', 'void') AND t.amount_minor IS NOT NULL";
+const UNBILLED_COST_PREDICATE = "c.status NOT IN ('billed', 'void')";
+
 export interface WorkInProgressBreakdownRow {
   readonly kind: "time" | "cost";
   readonly matterId: string;
@@ -746,14 +752,14 @@ export async function readWorkInProgressBreakdown(
                 COUNT(*) AS entry_count, SUM(t.duration_minutes) AS minutes,
                 SUM(t.amount_minor) AS amount_minor
            FROM time_entry t
-          WHERE t.status NOT IN ('billed', 'void') AND t.amount_minor IS NOT NULL
+          WHERE ${UNBILLED_TIME_PREDICATE}
           GROUP BY t.matter_id, t.timekeeper_user_id, on_draft
          UNION ALL
          SELECT 'cost' AS kind, c.matter_id, NULL AS timekeeper_user_id,
                 CASE WHEN c.invoice_id IS NULL THEN 0 ELSE 1 END AS on_draft,
                 COUNT(*) AS entry_count, 0 AS minutes, SUM(c.amount_minor) AS amount_minor
            FROM cost_entry c
-          WHERE c.status NOT IN ('billed', 'void')
+          WHERE ${UNBILLED_COST_PREDICATE}
           GROUP BY c.matter_id, on_draft
        )
        SELECT w.kind, w.matter_id, m.title AS matter_title, m.matter_number,
@@ -912,6 +918,375 @@ export async function readRealizationBreakdown(
       billedMinor: row.billed_minor,
       creditedMinor: row.credited_minor,
       appliedMinor: row.applied_minor,
+    })),
+  };
+}
+
+// THE INVOICE REGISTER — every bill issued in a period, one row per bill and matter, with what had
+// been credited and applied against that matter's share by the end of the period.
+//
+// Issued in the period and finalized by the knowledge instant, as the realization read's billed leg
+// is, so a register and a realization over the same period agree on what was billed. Credited and
+// applied are the applications effective on or before the period's last day and recorded by the
+// instant, split the way the realization read splits them: a credit note or a write-off is a credit,
+// everything else is applied, and a reversal moves its original's leg back. That is the same set the
+// as-of aging read sets against a bill, so a bill's unpaid share here equals the aging's at that day.
+export const MAXIMUM_INVOICE_REGISTER_ROWS = 5000;
+
+export interface InvoiceRegisterQuery {
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly knownAsOf: string;
+}
+
+export interface InvoiceRegisterRow {
+  readonly invoiceId: string;
+  readonly invoiceNumber: string | null;
+  readonly issueDate: string;
+  readonly dueDate: string | null;
+  readonly clientEntityId: string;
+  readonly clientName: string | null;
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+  readonly billedMinor: number;
+  readonly creditedMinor: number;
+  readonly appliedMinor: number;
+}
+
+export interface InvoiceRegister {
+  readonly rows: readonly InvoiceRegisterRow[];
+  readonly truncated: boolean;
+}
+
+export async function readInvoiceRegister(
+  database: SqlDatabase,
+  query: InvoiceRegisterQuery,
+): Promise<InvoiceRegister> {
+  const { results } = await database
+    .prepare(
+      `WITH application_leg AS (
+         SELECT a.invoice_id, a.matter_id,
+                CASE WHEN COALESCE(o.kind, a.kind) IN ('credit_note', 'write_off') THEN 'credited' ELSE 'applied' END AS leg,
+                CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END AS amount_minor
+           FROM invoice_application a
+           LEFT JOIN invoice_application o ON o.id = a.reverses_application_id
+          WHERE a.effective_date <= ?2 AND a.applied_at <= ?3
+       )
+       SELECT i.id AS invoice_id, i.invoice_number, i.issue_date, i.due_date, i.client_entity_id,
+              COALESCE(directory_person.display_name, directory_organization.display_name,
+                       directory_organization.legal_name) AS client_name,
+              b.matter_id, m.title AS matter_title, m.matter_number,
+              m.location_id, loc.name AS location_name,
+              b.total_minor AS billed_minor,
+              COALESCE((SELECT SUM(l.amount_minor) FROM application_leg l
+                         WHERE l.invoice_id = i.id AND l.matter_id = b.matter_id AND l.leg = 'credited'), 0)
+                AS credited_minor,
+              COALESCE((SELECT SUM(l.amount_minor) FROM application_leg l
+                         WHERE l.invoice_id = i.id AND l.matter_id = b.matter_id AND l.leg = 'applied'), 0)
+                AS applied_minor
+         FROM invoice i
+         JOIN invoice_matter_balance b ON b.invoice_id = i.id
+         JOIN matter m ON m.id = b.matter_id
+         LEFT JOIN location loc ON loc.id = m.location_id
+         LEFT JOIN directory_person
+                ON directory_person.id = i.client_entity_id AND directory_person.deleted_at IS NULL
+         LEFT JOIN directory_organization
+                ON directory_organization.id = i.client_entity_id AND directory_organization.deleted_at IS NULL
+        WHERE i.status = 'final' AND i.issue_date BETWEEN ?1 AND ?2 AND i.finalized_at <= ?3
+        ORDER BY i.issue_date, i.invoice_number, i.id, b.matter_id
+        LIMIT ?4`,
+    )
+    .bind(query.periodStart, query.periodEnd, query.knownAsOf, MAXIMUM_INVOICE_REGISTER_ROWS + 1)
+    .all<{
+      invoice_id: string;
+      invoice_number: string | null;
+      issue_date: string;
+      due_date: string | null;
+      client_entity_id: string;
+      client_name: string | null;
+      matter_id: string;
+      matter_title: string;
+      matter_number: string | null;
+      location_id: string | null;
+      location_name: string | null;
+      billed_minor: number;
+      credited_minor: number;
+      applied_minor: number;
+    }>();
+  return {
+    truncated: results.length > MAXIMUM_INVOICE_REGISTER_ROWS,
+    rows: results.slice(0, MAXIMUM_INVOICE_REGISTER_ROWS).map((row) => ({
+      invoiceId: row.invoice_id,
+      invoiceNumber: row.invoice_number,
+      issueDate: row.issue_date,
+      dueDate: row.due_date,
+      clientEntityId: row.client_entity_id,
+      clientName: row.client_name,
+      matterId: row.matter_id,
+      matterTitle: row.matter_title,
+      matterNumber: row.matter_number,
+      locationId: row.location_id,
+      locationName: row.location_name,
+      billedMinor: row.billed_minor,
+      creditedMinor: row.credited_minor,
+      appliedMinor: row.applied_minor,
+    })),
+  };
+}
+
+// THE APPLICATIONS IN A PERIOD — every payment, trust transfer, client credit, credit note,
+// write-off and reversal set against a bill, effective in the period and recorded by the knowledge
+// instant, one row each. A reversal is its own row, negative, naming the kind it reverses: the
+// correction stands beside what it corrects and nothing is netted away. "Applied", never "received":
+// no payment rail records cash arriving, only what was set against a bill.
+export const MAXIMUM_APPLICATION_REGISTER_ROWS = 5000;
+
+export type ApplicationKind =
+  | "trust_transfer"
+  | "payment"
+  | "credit_note"
+  | "client_credit"
+  | "write_off"
+  | "reversal";
+
+export interface ApplicationRegisterRow {
+  readonly applicationId: string;
+  readonly kind: ApplicationKind;
+  /** For a reversal, the kind of the application it unwinds; null for every other kind. */
+  readonly reversesKind: Exclude<ApplicationKind, "reversal"> | null;
+  readonly effectiveDate: string;
+  /** Signed: a reversal is negative. */
+  readonly amountMinor: number;
+  readonly reason: string | null;
+  readonly invoiceId: string;
+  readonly invoiceNumber: string | null;
+  readonly clientEntityId: string;
+  readonly clientName: string | null;
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+}
+
+export interface ApplicationRegister {
+  readonly rows: readonly ApplicationRegisterRow[];
+  readonly truncated: boolean;
+}
+
+export async function readApplicationRegister(
+  database: SqlDatabase,
+  query: InvoiceRegisterQuery,
+): Promise<ApplicationRegister> {
+  const { results } = await database
+    .prepare(
+      `SELECT a.id AS application_id, a.kind, o.kind AS reverses_kind, a.effective_date,
+              CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END AS amount_minor,
+              a.reason, a.invoice_id, i.invoice_number, i.client_entity_id,
+              COALESCE(directory_person.display_name, directory_organization.display_name,
+                       directory_organization.legal_name) AS client_name,
+              a.matter_id, m.title AS matter_title, m.matter_number,
+              m.location_id, loc.name AS location_name
+         FROM invoice_application a
+         JOIN invoice i ON i.id = a.invoice_id
+         JOIN matter m ON m.id = a.matter_id
+         LEFT JOIN invoice_application o ON o.id = a.reverses_application_id
+         LEFT JOIN location loc ON loc.id = m.location_id
+         LEFT JOIN directory_person
+                ON directory_person.id = i.client_entity_id AND directory_person.deleted_at IS NULL
+         LEFT JOIN directory_organization
+                ON directory_organization.id = i.client_entity_id AND directory_organization.deleted_at IS NULL
+        WHERE a.effective_date BETWEEN ?1 AND ?2 AND a.applied_at <= ?3
+        ORDER BY a.effective_date, a.applied_at, a.id
+        LIMIT ?4`,
+    )
+    .bind(
+      query.periodStart,
+      query.periodEnd,
+      query.knownAsOf,
+      MAXIMUM_APPLICATION_REGISTER_ROWS + 1,
+    )
+    .all<{
+      application_id: string;
+      kind: ApplicationKind;
+      reverses_kind: Exclude<ApplicationKind, "reversal"> | null;
+      effective_date: string;
+      amount_minor: number;
+      reason: string | null;
+      invoice_id: string;
+      invoice_number: string | null;
+      client_entity_id: string;
+      client_name: string | null;
+      matter_id: string;
+      matter_title: string;
+      matter_number: string | null;
+      location_id: string | null;
+      location_name: string | null;
+    }>();
+  return {
+    truncated: results.length > MAXIMUM_APPLICATION_REGISTER_ROWS,
+    rows: results.slice(0, MAXIMUM_APPLICATION_REGISTER_ROWS).map((row) => ({
+      applicationId: row.application_id,
+      kind: row.kind,
+      reversesKind: row.kind === "reversal" ? row.reverses_kind : null,
+      effectiveDate: row.effective_date,
+      amountMinor: row.amount_minor,
+      reason: row.reason,
+      invoiceId: row.invoice_id,
+      invoiceNumber: row.invoice_number,
+      clientEntityId: row.client_entity_id,
+      clientName: row.client_name,
+      matterId: row.matter_id,
+      matterTitle: row.matter_title,
+      matterNumber: row.matter_number,
+      locationId: row.location_id,
+      locationName: row.location_name,
+    })),
+  };
+}
+
+// THE CAPTIONS OF A KNOWN SET OF MATTERS, in the shape the breakdown reads above print them: the
+// title and number, the client (the lower client party, as every breakdown here attributes it) and
+// the office. For a report that gathers matters from more than one domain's figures and needs one
+// caption for each. The ids travel as one JSON parameter, so the read is one statement however many
+// matters it names.
+export interface MatterCaption {
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly clientEntityId: string | null;
+  readonly clientName: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+}
+
+export async function readMatterCaptions(
+  database: SqlDatabase,
+  matterIds: readonly string[],
+): Promise<readonly MatterCaption[]> {
+  if (matterIds.length === 0) return [];
+  const { results } = await database
+    .prepare(
+      `SELECT m.id AS matter_id, m.title AS matter_title, m.matter_number,
+              (SELECT MIN(p.entity_id) FROM matter_party p
+                WHERE p.matter_id = m.id AND p.role = 'client') AS client_entity_id,
+              m.client_display_name AS client_name,
+              m.location_id, l.name AS location_name
+         FROM matter m
+         LEFT JOIN location l ON l.id = m.location_id
+        WHERE m.id IN (SELECT value FROM json_each(?1))
+        ORDER BY m.id`,
+    )
+    .bind(JSON.stringify(matterIds))
+    .all<{
+      matter_id: string;
+      matter_title: string;
+      matter_number: string | null;
+      client_entity_id: string | null;
+      client_name: string | null;
+      location_id: string | null;
+      location_name: string | null;
+    }>();
+  return results.map((row) => ({
+    matterId: row.matter_id,
+    matterTitle: row.matter_title,
+    matterNumber: row.matter_number,
+    clientEntityId: row.client_entity_id,
+    clientName: row.client_name,
+    locationId: row.location_id,
+    locationName: row.location_name,
+  }));
+}
+
+// WORK IN PROGRESS BY AGE — the same unbilled time and costs as the breakdown above (one predicate,
+// UNBILLED_TIME_PREDICATE and UNBILLED_COST_PREDICATE), placed by how long ago the work was done: a
+// time entry by its work date, a cost by the day it was incurred, counted from `asOfDate`. Work on a
+// draft bill is still unbilled and is counted. Buckets: 0 to 30 days, 31 to 60, 61 to 90, over 90.
+// The bucketing happens in SQL, one row per matter, kind and bucket.
+export const WORK_IN_PROGRESS_AGE_DAYS = [30, 60, 90] as const;
+
+export interface WorkInProgressAgeRow {
+  readonly kind: "time" | "cost";
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly clientEntityId: string | null;
+  readonly clientName: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+  // 0: 0 to 30 days old, 1: 31 to 60, 2: 61 to 90, 3: over 90.
+  readonly bucketIndex: number;
+  readonly entryCount: number;
+  readonly amountMinor: number;
+}
+
+export async function readWorkInProgressByAge(
+  database: SqlDatabase,
+  asOfDate: string,
+): Promise<{ readonly rows: readonly WorkInProgressAgeRow[]; readonly truncated: boolean }> {
+  const bucket = (dateColumn: string) => `CASE
+      WHEN julianday(?1) - julianday(${dateColumn}) <= ${WORK_IN_PROGRESS_AGE_DAYS[0]} THEN 0
+      WHEN julianday(?1) - julianday(${dateColumn}) <= ${WORK_IN_PROGRESS_AGE_DAYS[1]} THEN 1
+      WHEN julianday(?1) - julianday(${dateColumn}) <= ${WORK_IN_PROGRESS_AGE_DAYS[2]} THEN 2
+      ELSE 3 END`;
+  const { results } = await database
+    .prepare(
+      `WITH work AS (
+         SELECT 'time' AS kind, t.matter_id, ${bucket("t.work_date")} AS bucket_index,
+                COUNT(*) AS entry_count, SUM(t.amount_minor) AS amount_minor
+           FROM time_entry t
+          WHERE ${UNBILLED_TIME_PREDICATE}
+          GROUP BY t.matter_id, bucket_index
+         UNION ALL
+         SELECT 'cost' AS kind, c.matter_id, ${bucket("c.incurred_date")} AS bucket_index,
+                COUNT(*) AS entry_count, SUM(c.amount_minor) AS amount_minor
+           FROM cost_entry c
+          WHERE ${UNBILLED_COST_PREDICATE}
+          GROUP BY c.matter_id, bucket_index
+       )
+       SELECT w.kind, w.matter_id, m.title AS matter_title, m.matter_number,
+              (SELECT MIN(p.entity_id) FROM matter_party p
+                WHERE p.matter_id = w.matter_id AND p.role = 'client') AS client_entity_id,
+              m.client_display_name AS client_name,
+              m.location_id, l.name AS location_name,
+              w.bucket_index, w.entry_count, w.amount_minor
+         FROM work w
+         JOIN matter m ON m.id = w.matter_id
+         LEFT JOIN location l ON l.id = m.location_id
+        ORDER BY w.matter_id, w.kind, w.bucket_index
+        LIMIT ?2`,
+    )
+    .bind(asOfDate, MAXIMUM_WORK_IN_PROGRESS_ROWS + 1)
+    .all<{
+      kind: "time" | "cost";
+      matter_id: string;
+      matter_title: string;
+      matter_number: string | null;
+      client_entity_id: string | null;
+      client_name: string | null;
+      location_id: string | null;
+      location_name: string | null;
+      bucket_index: number;
+      entry_count: number;
+      amount_minor: number;
+    }>();
+  return {
+    truncated: results.length > MAXIMUM_WORK_IN_PROGRESS_ROWS,
+    rows: results.slice(0, MAXIMUM_WORK_IN_PROGRESS_ROWS).map((row) => ({
+      kind: row.kind,
+      matterId: row.matter_id,
+      matterTitle: row.matter_title,
+      matterNumber: row.matter_number,
+      clientEntityId: row.client_entity_id,
+      clientName: row.client_name,
+      locationId: row.location_id,
+      locationName: row.location_name,
+      bucketIndex: row.bucket_index,
+      entryCount: row.entry_count,
+      amountMinor: row.amount_minor,
     })),
   };
 }

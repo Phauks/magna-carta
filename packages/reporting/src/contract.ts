@@ -181,3 +181,182 @@ export const OperationalCostCount = z.object({
   disbursementClass: z.enum(["hard", "soft"]),
   count: z.number().int(),
 });
+
+// INVOICES. One bill's money, and the number of distinct bills a group holds.
+export const InvoiceFigures = z.object({
+  invoiceCount: z.number().int(),
+  billedMinor: z.number().int(),
+  creditedMinor: z.number().int(),
+  appliedMinor: z.number().int(),
+  unpaidMinor: z.number().int(),
+});
+
+export const InvoiceOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: InvoiceFigures,
+});
+
+export const InvoiceMatterRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: InvoiceFigures,
+});
+
+export const InvoiceRow = z.object({
+  invoiceId: z.string(),
+  invoiceNumber: z.string().nullable(),
+  issueDate: z.string(),
+  dueDate: z.string().nullable(),
+  figures: InvoiceFigures,
+  matters: z.array(InvoiceMatterRow),
+});
+
+export const InvoiceClientRow = z.object({
+  clientEntityId: z.string(),
+  clientName: z.string().nullable(),
+  figures: InvoiceFigures,
+  invoices: z.array(InvoiceRow),
+});
+
+// PAYMENTS APPLIED. Signed: a reversal is negative, and keeps its own kind.
+export const ApplicationKinds = z.enum([
+  "trust_transfer",
+  "payment",
+  "credit_note",
+  "client_credit",
+  "write_off",
+  "reversal",
+]);
+
+export const AppliedFigures = z.object({
+  entryCount: z.number().int(),
+  paymentMinor: z.number().int(),
+  trustTransferMinor: z.number().int(),
+  clientCreditMinor: z.number().int(),
+  creditNoteMinor: z.number().int(),
+  writeOffMinor: z.number().int(),
+  reversalMinor: z.number().int(),
+  totalMinor: z.number().int(),
+});
+
+export const AppliedOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AppliedFigures,
+});
+
+export const AppliedClientRow = z.object({
+  clientEntityId: z.string(),
+  clientName: z.string().nullable(),
+  figures: AppliedFigures,
+});
+
+export const AppliedEntry = z.object({
+  applicationId: z.string(),
+  kind: ApplicationKinds,
+  reversesKind: ApplicationKinds.exclude(["reversal"]).nullable(),
+  effectiveDate: z.string(),
+  amountMinor: z.number().int(),
+  reason: z.string().nullable(),
+  invoiceId: z.string(),
+  invoiceNumber: z.string().nullable(),
+  clientEntityId: z.string(),
+  clientName: z.string().nullable(),
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+});
+
+// MATTER BALANCES. Three facts per matter, never added to one another.
+export const MatterBalanceFigures = z.object({
+  unbilledMinor: z.number().int(),
+  owedMinor: z.number().int(),
+  trustMinor: z.number().int(),
+});
+
+export const MatterBalanceOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: MatterBalanceFigures,
+});
+
+export const MatterBalanceMatterRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: MatterBalanceFigures,
+});
+
+export const MatterBalanceClientRow = z.object({
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  figures: MatterBalanceFigures,
+  matters: z.array(MatterBalanceMatterRow),
+});
+
+// MATTERS LIST. Counts and captions, never money.
+export const MatterStatusCounts = z.object({
+  matterCount: z.number().int(),
+  openCount: z.number().int(),
+  heldCount: z.number().int(),
+  closedCount: z.number().int(),
+});
+
+export const MatterListOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  counts: MatterStatusCounts,
+});
+
+export const MatterListRow = z.object({
+  matterId: z.string(),
+  matterNumber: z.string().nullable(),
+  matterTitle: z.string(),
+  status: z.enum(["open", "hold", "closed"]),
+  matterTypeName: z.string().nullable(),
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  responsibleMemberId: z.string(),
+  responsibleName: z.string().nullable(),
+  openedAt: z.string().nullable(),
+  closedAt: z.string().nullable(),
+});
+
+// AGED WORK IN PROGRESS. Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days
+// since the work was done.
+export const AgedWorkFigures = z.object({
+  unbilledMinor: z.array(z.number().int()).length(4),
+  totalMinor: z.number().int(),
+});
+
+export const AgedWorkOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkMatterRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkClientRow = z.object({
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  figures: AgedWorkFigures,
+  matters: z.array(AgedWorkMatterRow),
+});

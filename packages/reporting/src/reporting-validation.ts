@@ -25,7 +25,9 @@ export type ReportingValidationCode =
   | "reporting-cushion-journal-truncated"
   | "reporting-holds-truncated"
   // A breakdown with more rows than one report lists. The remedy is a narrower scope (an office).
-  | "reporting-breakdown-truncated";
+  | "reporting-breakdown-truncated"
+  // Money in a currency the report does not state. Refused rather than left out of a column.
+  | "reporting-currency-not-reported";
 
 export class ReportingValidationError extends Error {
   constructor(

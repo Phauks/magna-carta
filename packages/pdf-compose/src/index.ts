@@ -89,7 +89,21 @@ export type ComposeBlock =
       readonly rows: readonly (readonly string[])[];
       /** Shade every other row in place of ruling between rows. */
       readonly banded?: boolean;
+      /**
+       * How each row is set, by position: `total` is bold under a darker rule, `child` is gray
+       * with its first cell stepped in, `muted` is gray. `null`, or no entry, is a plain row.
+       */
+      readonly rowStyles?: readonly (ComposeRowStyle | null)[];
     }
+  /** Summary figures in columns of one width, six to a line at most. */
+  | { readonly type: "figures"; readonly figures: readonly ComposeFigure[] }
+  /**
+   * One or two words set very large and centred: the label of a cover sheet. `spaceAbove` is
+   * kept at the top of a page, where a `space` block is dropped.
+   */
+  | { readonly type: "display"; readonly text: string; readonly spaceAbove?: number }
+  /** Lines to sign on, two to a row, each with what it is for beneath it. */
+  | { readonly type: "signatureLines"; readonly lines: readonly string[] }
   | {
       readonly type: "fields";
       readonly fields: readonly {
@@ -133,6 +147,18 @@ export type ComposeBlock =
   | { readonly type: "rule" }
   | { readonly type: "space"; readonly height: number }
   | { readonly type: "pageBreak" };
+
+/** How one row of a table is set apart from the others. */
+export type ComposeRowStyle = "total" | "child" | "muted";
+
+/** One summary figure: what it counts, the figure, and a line about it. */
+export interface ComposeFigure {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string;
+  /** Draw the figure in red, in a document that has an accent colour. */
+  readonly alert?: boolean;
+}
 
 export interface ComposeDocument {
   /** Recorded in the file's metadata. It is not drawn: add a `title` block to show one. */

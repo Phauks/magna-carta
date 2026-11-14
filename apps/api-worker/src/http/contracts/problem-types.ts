@@ -690,6 +690,9 @@ export const PROBLEM_TYPES = {
   // long thing on the file as a document — and because a message silently truncated to fit would be
   // a record of something nobody said.
   "meeting-message-too-long": "meeting-message-too-long",
+  // A FILE a meeting's chat cannot point at (HTTP 404): not on the meeting's matter, deleted, or a
+  // meeting kept on no matter at all. Absent rather than forbidden, so a guessed handle learns nothing.
+  "meeting-message-file-unavailable": "meeting-message-file-unavailable",
   // A POLL nothing can reach (HTTP 404) — a handle naming no poll, and a poll in another meeting, on
   // the chat message's reasoning.
   "meeting-poll-not-found": "meeting-poll-not-found",
@@ -804,6 +807,24 @@ export const PROBLEM_TYPES = {
   // MP4, QuickTime or Matroska video, stored in a form it cannot read directly, or flagged by a scan.
   // DISTINCT from a copy the engine tried and could not make, which is a 200 with state unavailable.
   "playable-copy-not-a-candidate": "playable-copy-not-a-candidate",
+  // A signing request a member tried to change, send or cancel when its state does not allow it
+  // (HTTP 409), or a draft that cannot be sent yet (HTTP 422); the detail names which, in words the
+  // member can act on. DISTINCT from `signing-request-moved`, where the read was right but another
+  // write landed first.
+  "signing-request-refused": "signing-request-refused",
+  // Another write changed the signing request between this one's read and its commit (HTTP 409), so
+  // nothing was written. Opening the request again and retrying is the answer.
+  "signing-request-moved": "signing-request-moved",
+  // A file sent for signature is not a PDF, or its PDF cannot be opened (HTTP 422).
+  "signing-not-a-pdf": "signing-not-a-pdf",
+  // A signing link the firm sent that cannot be used now: replaced by a corrected one, past the
+  // request's last day, or for a request that is no longer out for signing (HTTP 410).
+  "signing-link-not-valid": "signing-link-not-valid",
+  "signing-link-expired": "signing-link-expired",
+  "signing-request-closed": "signing-request-closed",
+  // The signer is ahead of their own steps: not yet their turn, the code not yet entered, the
+  // agreement to sign electronically not yet given, or a field left empty (HTTP 409 or 422).
+  "signing-step-refused": "signing-step-refused",
   // The one-time link to the community board cannot be minted because this deployment holds no
   // COMMUNITY_HANDOFF_SECRET (HTTP 503). A fact about configuration, not about the member.
   "community-sign-in-not-configured": "community-sign-in-not-configured",

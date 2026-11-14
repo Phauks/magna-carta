@@ -131,7 +131,7 @@
     );
     showing = null;
     if (outcome.kind === "refused") {
-      shownRefusal = outcome.detail ?? "The change was not saved. Nothing changed.";
+      shownRefusal = outcome.detail ?? "The change wasn't saved. Nothing changed.";
       return;
     }
     queryClient.setQueryData<CalendarSyncSettings>(calendarSyncReadMineQueryKey(), outcome.value);
@@ -205,7 +205,7 @@
       }),
     );
     if (outcome.kind === "refused") {
-      refusal = outcome.detail ?? "The change was not saved. Nothing changed.";
+      refusal = outcome.detail ?? "The change wasn't saved. Nothing changed.";
       return "refused";
     }
     queryClient.setQueryData<CalendarSyncSettings>(calendarSyncReadMineQueryKey(), outcome.value);

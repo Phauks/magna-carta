@@ -1,7 +1,7 @@
 /*
  * The Search page's state: one question, asked of every matter the reader may see.
  *
- * THREE READS, ONE ANSWER. Records (notes, time, costs, calls, file names) come from the search
+ * THREE READS, ONE ANSWER. Records (notes, time, costs, invoices, parties, calls, custody packets, file names) come from the search
  * across matters, which answers a group per place. Matters and people are found by name through
  * the reads their own screens already use, the matters listing and the directory's name search,
  * so a name is matched here exactly as it is matched there. The page presents the three as one
@@ -25,7 +25,11 @@ import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
 import type { DirectorySearchHit, DirectorySearchResult } from "$lib/directory/directory-api.ts";
 import { readDirectoryNameMatches } from "$lib/directory/directory-search-place.ts";
 import { listMatters, type MatterSummary } from "$lib/matters/matters-api.ts";
-import { presentationFor } from "$lib/matters/matter-search-presentation.ts";
+import {
+  emptyGroupLine,
+  presentationFor,
+  skippedBadge,
+} from "$lib/matters/matter-search-presentation.ts";
 import { LatestOnly } from "../api/latest-only.ts";
 import {
   searchAcrossMatters,
@@ -95,6 +99,12 @@ export interface UnsearchedPlace {
   readonly mark: string;
   /** Why, as a sentence a reader can act on. */
   readonly reason: string;
+  /**
+   * Whether the reason is written out under the list. True where it tells a reader what to do
+   * next or names something that changes from one search to another, which a mark of two words
+   * cannot carry.
+   */
+  readonly writtenOut?: boolean;
 }
 
 function standingOf<Value>(outcome: ApiOutcome<Value>): NameReadStanding {
@@ -127,9 +137,23 @@ const PEOPLE_NOT_SEARCHED: NameGroup<DirectorySearchHit> = {
   standing: "not-searched",
 };
 
-/** Whether a group is a place this search reads at all, as opposed to one it names and skips. */
+/**
+ * Whether a group is a place this search read, as opposed to one it names and says why not. A
+ * question too short for a place is still a place that was asked: typing more answers it.
+ */
 function answersAcrossMatters(group: AcrossMattersGroup): boolean {
-  return group.skipped !== "one-matter-only" && group.skipped !== "permission";
+  return group.skipped === null || group.skipped === "query-too-short";
+}
+
+/**
+ * Why a place asked one matter at a time did not answer, as something a reader can act on. The
+ * number is the server's own, from the answer.
+ */
+export function tooManyMattersLine(label: string, fewMattersLimit: number): string {
+  return (
+    `${label} is searched when a search reaches ${fewMattersLimit} matters or fewer. ` +
+    `Choose fewer matters under Search In, or open a matter and use its own search.`
+  );
 }
 
 function shownOf<Row>(group: NameGroup<Row>): number | null {
@@ -212,6 +236,34 @@ export function unsearchedPlaces(overview: SearchOverview | null): readonly Unse
           label,
           mark: "No Access",
           reason: `Your role does not include reading ${label}.`,
+        },
+      ];
+    }
+    if (group.skipped === "too-many-matters") {
+      return [
+        {
+          key: group.source,
+          label,
+          mark: "Fewer Matters",
+          reason: tooManyMattersLine(label, overview?.records?.fewMattersLimit ?? 0),
+          writtenOut: true,
+        },
+      ];
+    }
+    // A place whose own index is off, not part of this deployment or not answering, in the words
+    // a matter's own search uses for the same thing.
+    if (
+      group.skipped === "not-indexed" ||
+      group.skipped === "engine-not-connected" ||
+      group.skipped === "engine-unavailable"
+    ) {
+      return [
+        {
+          key: group.source,
+          label,
+          mark: skippedBadge(group.skipped),
+          reason: emptyGroupLine(group.skipped, group.source),
+          writtenOut: true,
         },
       ];
     }

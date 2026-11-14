@@ -1717,9 +1717,8 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const request = c.req.valid("json");
-      // The kind comes from the handle, and the body must match it. The domain throws a bare Error
-      // on a mismatched shape — a 500 for what is a caller mistake — so the shape is settled here,
-      // where the caller gets a 422 naming the fields the entity it addressed actually takes.
+      // The kind comes from the handle and the body must match it: a mismatch is a caller mistake,
+      // so it is a 422 naming the fields that entity takes, not the domain's bare Error and a 500.
       const isPerson = id.startsWith("directoryPerson_");
       if (isPerson && (request.given === undefined || request.family === undefined)) {
         return problemJson(c, {
@@ -1754,6 +1753,7 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
                 displayName: request.displayName ?? null,
               },
           writeOptions(userId, idempotency),
+          request.correction === true ? "correction" : "change",
         );
         return c.json({ ok: true } as z.infer<typeof AckResponse>, 200);
       } catch (caught) {

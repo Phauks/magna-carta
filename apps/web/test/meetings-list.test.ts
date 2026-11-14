@@ -94,8 +94,9 @@ describe("what a row says", () => {
   });
 
   it("names the room by the meeting rather than letting an identifier shape the address", () => {
-    expect(meetingAddress(meeting())).toBe("/meetings/meeting_1");
-    expect(meetingAddress(meeting({ id: "a/b" }))).toBe("/meetings/a%2Fb");
+    expect(meetingAddress(meeting())).toBe("/meeting/482-917-305");
+    // Only a meeting with no code falls back to its long reference, escaped.
+    expect(meetingAddress(meeting({ id: "a/b", joinCode: null }))).toBe("/meetings/a%2Fb");
   });
 
   it("marks a meeting as being recorded only while it is live and its recording is running", () => {
@@ -178,15 +179,15 @@ describe("a section of the screen", () => {
   it("names itself and offers the room on every live row", () => {
     const rendered = draw({
       scope: "live",
-      meetings: [meeting(), meeting({ id: "meeting_2" })],
+      meetings: [meeting(), meeting({ id: "meeting_2", joinCode: "100200300" })],
     });
 
     expect(rendered.querySelector("h2")?.textContent?.trim()).toBe(MEETING_SECTIONS.live.heading);
     expect(rendered.textContent).toContain("Hearing preparation");
-    expect(rendered.querySelector('a[href="/meetings/meeting_1"]')?.textContent?.trim()).toBe(
+    expect(rendered.querySelector('a[href="/meeting/482-917-305"]')?.textContent?.trim()).toBe(
       "Join Meeting",
     );
-    expect(rendered.querySelector('a[href="/meetings/meeting_2"]')).not.toBeNull();
+    expect(rendered.querySelector('a[href="/meeting/100-200-300"]')).not.toBeNull();
     // The matter is reached from the row it is named on.
     expect(rendered.querySelector('a[href="/matters/matter_1/overview"]')).not.toBeNull();
   });
@@ -197,7 +198,7 @@ describe("a section of the screen", () => {
       meetings: [meeting({ medium: "audio" })],
     });
 
-    expect(rendered.querySelector('a[href="/meetings/meeting_1"]')?.textContent?.trim()).toBe(
+    expect(rendered.querySelector('a[href="/meeting/482-917-305"]')?.textContent?.trim()).toBe(
       "Join Call",
     );
     // The kind is on the row itself, where a reader meets the event's name — and it is named for
@@ -229,7 +230,7 @@ describe("a section of the screen", () => {
 
     // Walking a reader through the room screen to be refused there is two screens spent saying
     // what one word says on the row they are already reading.
-    expect(rendered.querySelector('a[href="/meetings/meeting_1"]')).toBeNull();
+    expect(rendered.querySelector('a[href="/meeting/482-917-305"]')).toBeNull();
     expect(rendered.textContent).toContain("Locked");
   });
 
@@ -245,7 +246,7 @@ describe("a section of the screen", () => {
       ],
     });
 
-    expect(rendered.querySelector('a[href="/meetings/meeting_1"]')).toBeNull();
+    expect(rendered.querySelector('a[href="/meeting/482-917-305"]')).toBeNull();
     expect(
       rendered.querySelector('a[href="/matters/matter_1/calendar?entry=matterEvent_1"]'),
     ).not.toBeNull();
@@ -407,7 +408,7 @@ describe("the press on a row's Join", () => {
     // The navigation itself is the router's; what is pinned is what the press does before it.
     rendered.addEventListener("click", (event) => event.preventDefault());
 
-    rendered.querySelector<HTMLAnchorElement>('a[href="/meetings/meeting_1"]')?.click();
+    rendered.querySelector<HTMLAnchorElement>('a[href="/meeting/482-917-305"]')?.click();
     expect(made).toHaveLength(1);
     expect(made[0]?.resumes).toBe(1);
   });

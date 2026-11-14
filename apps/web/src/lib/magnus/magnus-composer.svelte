@@ -121,8 +121,7 @@
         class="flex flex-wrap items-center justify-between gap-8 rounded-md border border-border-default bg-surface-sunken px-12 py-8 text-sm"
       >
         <span>
-          Editing your message. Sending it asks Magnus again from there; the replies after it are
-          set aside.
+          Editing your message. Sending it asks Magnus again from here and sets aside the replies after it.
         </span>
         <Button variant="ghost" size="sm" onclick={() => onCancelEdit?.()}>Cancel Edit</Button>
       </p>
@@ -233,8 +232,7 @@
     </div>
     {#if allowanceSpent}
       <p class="text-sm text-text-muted">
-        The firm&rsquo;s daily allowance for Magnus is spent. It resets tomorrow, and an
-        administrator can raise it in the firm&rsquo;s settings.
+        The firm&rsquo;s daily allowance for Magnus is spent. It resets tomorrow. An administrator can raise it in the firm&rsquo;s settings.
       </p>
     {:else if allowanceWorthSaying && remainingDailyTurns !== undefined}
       <p class="text-sm text-text-muted">

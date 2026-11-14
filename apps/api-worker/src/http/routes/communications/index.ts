@@ -6,6 +6,7 @@ import { registerMeetingsRoutes } from "./meetings.ts";
 import { registerMeetingByCodeRoutes } from "./meeting-by-code.ts";
 import { registerMeetingChatRoutes } from "./meeting-chat.ts";
 import { registerMeetingPersonalRoomRoutes } from "./meeting-personal-rooms.ts";
+import { registerMeetingSharedRoomRoutes } from "./meeting-shared-rooms.ts";
 import { registerMeetingHostingRoutes } from "./meeting-hosting.ts";
 import { registerMeetingInspectRoutes } from "./meeting-inspect.ts";
 import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
@@ -42,6 +43,7 @@ export function mountCommunications(
   // Ahead of the meeting routes so its literal paths (`/meetings/personal-room`, `/meetings/rooms/…`)
   // are matched before the meeting-id pattern beside them.
   registerMeetingPersonalRoomRoutes(domain, chokepoint);
+  registerMeetingSharedRoomRoutes(domain, chokepoint);
   // A meeting by its nine-digit address, ahead of the meeting-id pattern for the same reason.
   registerMeetingByCodeRoutes(domain, chokepoint);
   registerMeetingsRoutes(domain, chokepoint);

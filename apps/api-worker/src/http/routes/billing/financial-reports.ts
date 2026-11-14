@@ -1,6 +1,9 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { identifierField } from "@magna-carta/identifiers/field";
 import {
+  AgedWorkClientRow,
+  AgedWorkFigures,
+  AgedWorkOfficeRow,
   AgingClientRow,
   AgingOfficeRow,
   AgingTotals,
@@ -12,6 +15,7 @@ import {
   WorkInProgressOfficeRow,
   WorkInProgressTimekeeperRow,
 } from "@magna-carta/reporting/contract";
+import { assembleAgedWorkInProgress } from "@magna-carta/reporting/financial/aged-work-in-progress";
 import { assembleAccountsReceivableAging } from "@magna-carta/reporting/financial/accounts-receivable-aging";
 import { assembleRealization } from "@magna-carta/reporting/financial/realization";
 import { assembleWorkInProgress } from "@magna-carta/reporting/financial/work-in-progress";
@@ -170,6 +174,58 @@ const workInProgressRoute = defineOpenAPIRoute(
   },
 );
 
+const AgedWorkInProgressResponse = z
+  .object({
+    computedAt: z.string(),
+    asOfDate: z.string(),
+    reproducible: z.literal(false),
+    statement: z.string(),
+    locationId: z.string().nullable(),
+    currency: z.literal("USD"),
+    completeness: ReportCompleteness,
+    totals: AgedWorkFigures,
+    offices: z.array(AgedWorkOfficeRow),
+    clients: z.array(AgedWorkClientRow),
+  })
+  .openapi("AgedWorkInProgressReport");
+
+const agedWorkInProgressRoute = defineOpenAPIRoute(
+  { ...agingMeta, operationId: "reports.agedWorkInProgress" },
+  {
+    method: "get",
+    path: "/api/v1/reports/aged-work-in-progress",
+    description:
+      "Unbilled time and costs by how long ago the work was done (0 to 30, 31 to 60, 61 to 90 and over 90 days, a time entry by its work date and a cost by the day it was incurred), per office, client and matter. The same entries as the work-in-progress report, so the buckets add up to its total. Live only, for the same reason: it takes no date, counts age from the day it is produced, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+    request: { query: workInProgressQuery },
+    responses: {
+      200: {
+        description: "The work in progress by age now",
+        content: { "application/json": { schema: AgedWorkInProgressResponse } },
+      },
+      401: {
+        description: "No valid session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "The session member lacks reports:financial",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      404: {
+        description: "The firm is unreachable or the member is deactivated",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      422: {
+        description: "More matters have unbilled work than one report can list",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
+
 const RealizationResponse = z
   .object({
     periodStart: z.string(),
@@ -234,6 +290,14 @@ export function reportingRefusal(
     return problemJson(c, {
       type: "report-period-too-large",
       title: "This report holds more than one document can carry",
+      status: 422,
+      detail: error.message,
+    });
+  }
+  if (error.code === "reporting-currency-not-reported") {
+    return problemJson(c, {
+      type: "report-cannot-be-produced",
+      title: "This report holds money in a currency it does not state",
       status: 422,
       detail: error.message,
     });
@@ -314,6 +378,29 @@ export function registerFinancialReportsRoutes(app: ReportsApp, chokepoint: Chok
           { computedAt },
         );
         return c.json(report as unknown as z.infer<typeof RealizationResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    {
+      ...agedWorkInProgressRoute,
+      middleware: chokepointMiddleware(chokepoint, agedWorkInProgressRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleAgedWorkInProgress(
+          firm.firmDatabase,
+          { locationId: query.locationId ?? null },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof AgedWorkInProgressResponse>, 200);
       } catch (caught) {
         if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
         throw caught;

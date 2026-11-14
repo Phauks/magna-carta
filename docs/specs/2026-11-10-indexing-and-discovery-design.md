@@ -353,18 +353,24 @@ and composes the visible-matter predicate in its place, before the limit. A sour
 declaration is not run and is reported as `one-matter-only`, so the page can say what it did not
 look at.
 
-| Place        | Across matters                                  | Why not, where not                                         |
-| ------------ | ----------------------------------------------- | ---------------------------------------------------------- |
-| Files        | File names and folder names                     |                                                            |
-| Inside Files | No                                              | The file contents index is one corpus per matter           |
-| Time         | Narratives, through the record index            |                                                            |
-| Costs        | Descriptions, through the record index          |                                                            |
-| Billing      | No                                              | A substring scan of one matter's invoice lines and numbers |
-| Parties      | No                                              | A substring scan; a person is found through the directory  |
-| Calendar     | No                                              | Open with the owner (section 6)                            |
-| Notes        | A note's current text, through the record index |                                                            |
-| Custodian    | No                                              | Substring scans of one matter's packets                    |
-| Messaging    | What was said and the caller's name             | A telephone number is matched inside a matter, not across  |
+| Place        | Across matters                                  | Why not, where not                                        |
+| ------------ | ----------------------------------------------- | --------------------------------------------------------- |
+| Files        | File names and folder names                     |                                                           |
+| Inside Files | Where the search reaches 25 matters or fewer    | One index a matter, asked one at a time (section 4.5)     |
+| Time         | Narratives, through the record index            |                                                           |
+| Costs        | Descriptions, through the record index          |                                                           |
+| Billing      | Invoice line descriptions and invoice numbers   |                                                           |
+| Parties      | Party names and the capacity each acts in       |                                                           |
+| Calendar     | No                                              | Open with the owner (section 6)                           |
+| Notes        | A note's current text, through the record index |                                                           |
+| Custodian    | Packet names and custody numbers                |                                                           |
+| Messaging    | What was said and the caller's name             | A telephone number is matched inside a matter, not across |
+
+Billing, Parties and Custodian were added on 2026-11-14. Each reads its own table, as file names
+do, and each keeps its own permission: `billing:read`, none, and `custody:read`. A party answers
+once for each matter they are on, newest first, which is a different question from the directory's
+search for the person. A packet held for no matter, or on the holding matter the register keeps,
+is not in the answer, because the visible-matter predicate admits neither.
 
 **What it costs is bounded before it runs.** Inside a matter the record index is narrowed by the
 matter's token, so a common word costs what that one matter holds. Across matters there is no such
@@ -391,6 +397,32 @@ broad; a cap of 10,000 cost thirteen more. File and folder names read no index. 
 substring match over the firm's file table, which cost between 21 and 71 ms on 200,000 files, and
 that cost grows with the number of files a firm holds. A name index is the step to take for a firm
 several times that size, measured first.
+
+**The three places added on 2026-11-14 read their own tables, and two were reshaped by the
+measurement.** The same script now adds 50,000 parties over 25,000 people, 200,000 invoice lines
+on 20,000 invoices and 1,000 packets. On the machine that built this:
+
+| Question                                    | As first written | As built |
+| ------------------------------------------- | ---------------- | -------- |
+| Parties, a name nobody has                  | 97.6 ms          | 4.5 ms   |
+| Parties, two letters in many names          | 120.3 ms         | 20.1 ms  |
+| Invoice lines, a word no line has           | 79.4 ms          | 49.5 ms  |
+| Invoice lines, a word one line in 100 holds | 95.5 ms          | 51.5 ms  |
+| Invoice lines, a word every line holds      | 380.6 ms         | 249.2 ms |
+| Custody packets, either question            | 0.2 ms           | 0.2 ms   |
+
+Inside a matter the party table leads and each name is a lookup. With no matter that shape looks
+up every party's name to test it, so across matters the people and organizations the text names
+are found first and their party rows are reached through the entity index, with a second statement
+for a match on the capacity alone. Invoice lines join their invoice once, where the one-matter
+statement looks it up for the match and again for the second line.
+
+**Invoice lines are the one read here with a known ceiling.** A line's description is prose, and a
+word on every line (a firm that writes "Professional services" on each) is sorted in full: about a
+quarter of a second at 200,000 lines, and about 50 ms for a word few lines hold. That is acceptable
+at the sizes firms hold today and is the first thing to move when one approaches that size. The
+move is to declare invoice lines as a ninth source of the record index, which caps the read like
+the other prose sources and takes a migration that puts triggers on `invoice_line`.
 
 **Matters and people are found by the reads their own screens use.** The page asks the matters
 listing for its title, number and client match and the directory for its name match, beside the
@@ -525,9 +557,9 @@ cheaper narrowed, because the narrowing drives the read.
 Not Searched with the mark Firm-Wide. Matters are asked through the matters listing, which takes
 the same two narrowings (`mine`, `clientEntityId` on `GET /api/v1/matters`).
 
-**One matter is that matter's own search.** It reaches more of the matter than this page does (the
-words inside its files, parties, calendar, billing, custody), so choosing a matter goes there with
-the question in the address. A fourth reading here would have been the weaker of two searches of
+**One matter is that matter's own search.** It reaches more of the matter than this page does
+(calendar, deleted files, a telephone number), so choosing a matter goes there with the question in
+the address. A fourth reading here would have been the weaker of two searches of
 the same matter.
 
 **The row sits beneath the field.** The proposal drew the choice inside the field. The screen
@@ -537,6 +569,57 @@ choices need a second field (which client, which matter), so the row is its own 
 No migration, no new permission and no new route: two optional query parameters on
 `GET /api/v1/search` and the same two on `GET /api/v1/matters`.
 
+### 4.5 The words inside files, across matters
+
+Built on 2026-11-14 for a search that reaches few matters, and not for one that reaches many.
+
+**There is no index of every matter's files, and that is kept.** Each matter's files are indexed
+apart (section 4). The engine is handed one corpus's split keys with a token that reaches no
+other, which is what keeps a review set's text out of a matter search and lets one matter's index
+be rebuilt or removed alone. So a search across matters asks the matters one at a time
+(`runKeywordSearchOverMatters` in `apps/api-worker/src/search/keyword-search.ts`), each through the
+same path its own search uses, and puts the answers together afterwards. Nothing about the
+isolation changes: a question still names one corpus.
+
+**So the cost is the number of matters asked, and it is bounded two ways.** The source answers
+only where the search reaches 25 matters or fewer, the same number section 4.4 measured for the
+record index, so a reader is told one thing about how few "few" is. That covers a client's matters,
+a member's own where they are few, and a small firm's every matter, since the count is of the
+matters the reader may see and chose, narrowed or not. And one catalog read
+(`listMattersWithLiveSplits`) says which of those hold anything indexed, so a matter with no
+indexed file is not asked. A search reaching more is told `too-many-matters`, with the number on
+the wire (`fewMattersLimit`) so the page keeps no copy of it.
+
+**What is said first is what a reader can least change.** No search service, the firm's switch
+being off and the service failing are each reported before "too many matters", so nobody narrows a
+search to be told then that nothing could be asked. A matter whose index fails fails the whole
+place: an answer put together from the matters that happened to answer would read as complete.
+
+**The indexes name candidates and nothing more**, as inside a matter. The files they name are
+re-read from the firm's own table under the visible-matter predicate, which already carries the
+reader's narrowing, and a result is filed on the matter the database says. The sentence a result
+quotes is read through that matter's own check. The lists are merged by the engine's score. Each
+index scores against its own documents, so the scores are not on one scale, and the order claims
+no more than that the strongest passages come first.
+
+**The rest of the answer does not wait for a slow engine.** Inside a matter the reader asked about
+that matter's files and waits for them. Here the files are one place of ten in one answer, and an
+engine starting from cold would hold the notes and the time back with it. So the wait is five
+seconds (`matterFileContentsSearcherFor`), a late engine is reported as one that could not be
+searched just now, and the question it was sent has started it for the next search.
+
+**Not measured, and it has to be.** The engine cannot run in a cloud session, so what 25 questions
+in one request cost a firm's search instance is not known, and neither is how long a cold one takes
+to answer. They are sent together to the one instance a firm's questions go to
+(`apps/search-worker/src/search-shard.ts`). The first production firm with files indexed on many
+matters is where both are read. The remedies are a smaller limit for this source alone, asking a
+few matters at a time, a different wait, or the warm cron `apps/search-worker/wrangler.jsonc`
+leaves off while no firm has indexing on.
+
+**What reaching every matter would take** is the per-split word summary of step 6c: a short record
+beside each split of which words it holds, read from the firm's database, so that a firm-wide
+question asks only the matters that can answer it.
+
 ## 5. Build order
 
 | Step | What                                                                                        | State                                                                                         |
@@ -544,7 +627,7 @@ No migration, no new permission and no new route: two optional query parameters 
 | 1    | This specification and its decision record                                                  | Built                                                                                         |
 | 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                         |
 | 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index              |
-| 4    | Search across matters from the top bar, snippets shown                                      | Built for five places, matters and people by name, words marked, Search In (4.2-4.4)          |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for nine places (inside files where few matters are reached), Search In (4.2-4.5)       |
 | 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                         |
 | 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers for a firm that has turned indexing on                                         |
 | 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; bound 2026-11-13; two checks left in [`../deploy-queue.md`](../deploy-queue.md) |

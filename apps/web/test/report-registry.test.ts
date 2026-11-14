@@ -61,9 +61,14 @@ describe("the report registry", () => {
       ["trust-compliance", { trustAccount: true, office: false, period: "span" }],
       ["accounts-receivable-aging", { trustAccount: false, office: true, period: "date" }],
       ["work-in-progress", { trustAccount: false, office: true, period: "none" }],
+      ["aged-work-in-progress", { trustAccount: false, office: true, period: "none" }],
       ["realization", { trustAccount: false, office: true, period: "span" }],
+      ["invoices", { trustAccount: false, office: true, period: "span" }],
+      ["payments-applied", { trustAccount: false, office: true, period: "span" }],
+      ["matter-balances", { trustAccount: false, office: true, period: "none" }],
       ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
+      ["matters-list", { trustAccount: false, office: true, period: "none" }],
     ]);
     expect(reportById("trust-compliance")?.permission).toBe("reports:trustCompliance");
   });
@@ -74,9 +79,14 @@ describe("the report registry", () => {
       "trust-compliance": "bitemporal",
       "accounts-receivable-aging": "bitemporal",
       "work-in-progress": "live-only",
+      "aged-work-in-progress": "live-only",
       realization: "bitemporal",
+      invoices: "bitemporal",
+      "payments-applied": "bitemporal",
+      "matter-balances": "live-only",
       "timekeeper-productivity": "live-only",
       "operational-volumes": "bitemporal",
+      "matters-list": "live-only",
     });
   });
 

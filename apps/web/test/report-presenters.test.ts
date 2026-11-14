@@ -9,11 +9,13 @@ import { describe, expect, it } from "vitest";
 import {
   clientOffice,
   presentAccountsReceivableAging,
+  presentAgedWorkInProgress,
   presentRealization,
   presentWorkInProgress,
   SEVERAL_OFFICES,
 } from "../src/lib/reports/financial-presenters.ts";
 import {
+  presentMattersList,
   presentOperationalVolumes,
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
@@ -21,6 +23,8 @@ import { moneyText } from "../src/lib/reports/report-cells.ts";
 import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleAgedWorkInProgress,
+  sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
   sampleTimekeeperProductivity,
@@ -120,5 +124,62 @@ describe("the other presenters", () => {
       ["Litigation", { text: "4", number: 4 }, { text: "2", number: 2 }],
     ]);
     expect(matters?.note).toBe(sampleOperationalVolumes().liveSectionsStatement);
+  });
+});
+
+describe("the matters list presenter", () => {
+  const report = sampleMattersList();
+  const presentation = presentMattersList(report);
+
+  it("opens with the payload's counts by status, the whole as the total", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [
+        report.totals.openCount,
+        report.totals.heldCount,
+        report.totals.closedCount,
+        report.totals.matterCount,
+      ].map(String),
+    );
+    expect(tiles[3]?.tone).toBe("total");
+  });
+
+  it("rules the by-office table off with the payload's totals", () => {
+    const offices = presentation.sections.find((section) => section.id === "by-office");
+    expect(offices?.totalRow?.[0]).toBe("Firm total");
+    expect(numberOf(offices?.totalRow?.[4])).toBe(report.totals.matterCount);
+  });
+
+  it("puts every matter on its own row, in the payload's order, with its status in words", () => {
+    const matters = presentation.sections.find((section) => section.id === "matters");
+    expect(matters?.rows).toHaveLength(report.matters.length);
+    expect(matters?.rows.map((row) => row[5])).toEqual(["Open", "On hold", "Closed"]);
+    expect(matters?.rows[0]?.[7]).toBe("-");
+  });
+});
+
+describe("the aged work in progress presenter", () => {
+  const report = sampleAgedWorkInProgress();
+  const presentation = presentAgedWorkInProgress(report);
+
+  it("opens with a tile per age and the payload's total, old work in the attention tone", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual([
+      ...report.totals.unbilledMinor.map((amount) => moneyText(amount)),
+      moneyText(report.totals.totalMinor),
+    ]);
+    expect(tiles[3]?.tone).toBe("attention");
+    expect(tiles[4]?.tone).toBe("total");
+  });
+
+  it("rules the by-office table off with the payload's total and opens each client onto matters", () => {
+    const offices = presentation.sections.find((section) => section.id === "by-office");
+    expect(numberOf(offices?.totalRow?.[5])).toBe(
+      spreadsheetNumber(fromMinor(report.totals.totalMinor, USD)),
+    );
+    const clients = presentation.sections.find((section) => section.id === "by-client");
+    expect(clients?.rowDetails?.map((matters) => matters.length)).toEqual(
+      report.clients.map((client) => client.matters.length),
+    );
   });
 });

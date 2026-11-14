@@ -5,7 +5,15 @@
  * The engine and its several megabytes load inside the worker only, and only once the reader asks
  * for a change, so opening the editor costs nothing more than opening the reader does.
  */
+import type {
+  BatesStampOptions,
+  FormField,
+  FormFillValues,
+  SecureOptions,
+  WatermarkOptions,
+} from "@magna-carta/pdf";
 import type { ArrangementPlan } from "./page-arrangement.ts";
+import type { DocumentReadings } from "./secure.ts";
 
 /** One operation the worker can run. Each later tool adds its own variant here. */
 export type PdfOperation =
@@ -23,6 +31,36 @@ export type PdfOperation =
       /** Make one new document per plan, each from the original's pages (`page-arrangement.ts`). */
       readonly kind: "arrange";
       readonly plans: readonly ArrangementPlan[];
+    }
+  | {
+      /** Stamp a Bates label on every page (`bates.ts`). */
+      readonly kind: "bates";
+      readonly options: BatesStampOptions;
+    }
+  | {
+      /** Draw a text or image watermark on the pages (`watermark.ts`). */
+      readonly kind: "watermark";
+      readonly options: WatermarkOptions;
+    }
+  | {
+      /** Count what the file carries, for the Secure tab. Makes no document. */
+      readonly kind: "inspect";
+    }
+  | {
+      /** Optionally scrub hidden data, then encrypt with a password and permissions (`secure.ts`). */
+      readonly kind: "secure";
+      readonly options: SecureOptions;
+      readonly scrubFirst: boolean;
+    }
+  | {
+      /** Read the form's fields and their current values (`forms.ts`). Makes no document. */
+      readonly kind: "readForm";
+    }
+  | {
+      /** Write the reader's answers into the form, and optionally flatten it. */
+      readonly kind: "fillForm";
+      readonly values: FormFillValues;
+      readonly flatten: boolean;
     };
 
 export interface PdfOperationRequest {
@@ -52,6 +90,10 @@ export type PdfOperationReply =
       readonly documents: readonly Uint8Array[];
       /** How many pages the operation touched, for the result line. */
       readonly pagesChanged: number;
+      /** What the file carries, counted. Present for an inspection only. */
+      readonly readings?: DocumentReadings;
+      /** The form's fields. Present for a form reading only. */
+      readonly fields?: readonly FormField[];
     }
   | {
       readonly kind: "failed";
@@ -64,19 +106,19 @@ export type PdfOperationReply =
 export function describeOperationFailure(reason: PdfOperationFailure, message: string): string {
   switch (reason) {
     case "decompression-bomb":
-      return "The document expands far past what a page is expected to hold, so the engine stopped rather than changing it.";
+      return "The document is too large to change safely.";
     case "locked":
-      return "The document is locked with a password. Unlock it in the File Workbench first, then try again.";
+      return "This document has a password. Unlock it in the File Workbench first, then try again.";
     case "refused":
       return message === ""
-        ? "The engine could not produce a safe copy of this document."
-        : `The engine could not produce a safe copy: ${message}.`;
+        ? "Couldn't make a safe copy of this document."
+        : `Couldn't make a safe copy: ${message}.`;
     case "crashed":
       return "The background worker stopped before it finished. Nothing was saved.";
     case "unsupported":
-      return "This operation is not available in this version of the app. Reload the page.";
+      return "This action isn't available in this version of the app. Reload the page.";
     default:
-      return "The document could not be changed.";
+      return "Couldn't change the document.";
   }
 }
 

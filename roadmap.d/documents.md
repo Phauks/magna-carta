@@ -348,21 +348,22 @@
   scope: Soft-delete trash window (Standard) then IA cold retention then policy-driven destruction blocked by holds; default retention indefinite.
   status: partial
   adrs: ADR-0049
-  evidence: Soft-delete/restore statements exist; no trash-expiry IA transition or destruction lever found in the tree.
+  evidence: Trash and restore and the trash-expiry move to Infrequent Access are built; policy-driven destruction is not.
 
 - id: documents.versioning.deleted-lifecycle.trash
   name: Trash & restore
   scope: Soft-delete hides the record from the File Manager (firm-scoped state change, bytes untouched); restore clears the flag in place.
   status: shipped
-  surface: awaiting-screen
-  evidence: softDeleteFileStatement + undelete in packages/file-manager/src/file-statements.ts; deleted_at filters in queries.ts.
+  surface: screen
+  evidence: softDeleteFileStatement + undelete in packages/file-manager/src/file-statements.ts; deleted_at filters in queries.ts. The matter file manager's Deleted Files view lists and restores them, with a Leaves Trash column.
 
 - id: documents.versioning.deleted-lifecycle.cold-retention
   name: Trash-expiry IA transition
   scope: After the trash window, deleted objects transition Standard to IA in place via the same server-side copy used for superseded versions.
-  status: not-started
+  status: shipped
+  surface: screen
   adrs: ADR-0049
-  evidence: tiering-sweep.ts documents that it only touches superseded versions, never deletes.
+  evidence: apps/api-worker/src/background/editing/tiering-sweep.ts also moves every version of a file deleted longer ago than the firm's trash window (listExpiredTrashVersions in packages/file-manager/src/queries.ts) when the firm's deleted-file policy says archive. The policy is the per-firm setting in packages/file-manager/src/deleted-file-settings.ts (default 30 days, then archive), read and written at /api/v1/firm/deleted-file-policy and set on Settings, Deleted Files; each matter's Deleted Files list shows when a file leaves Trash. No migration: the setting rides the per-firm key/value table.
 
 - id: documents.versioning.deleted-lifecycle.destruction
   name: Policy-driven destruction
@@ -370,6 +371,7 @@
   status: not-started
   adrs: ADR-0049
   evidence: No hard-delete path for file bytes in the tree; decision recorded in ADR-0049.
+  notes: Blocked on a hold to honour. Custody holds exist (custody_hold, on packets) and discovery holds its own sets, but there is no legal hold on a matter or a file, and the firm's settings promise destruction never happens under one.
 
 - id: documents.preview
   name: Inline file preview
@@ -540,9 +542,11 @@
 - id: documents.conversion.convert-ui
   name: Convert-to menu / converter UI
   scope: Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
-  status: designed
+  status: shipped
+  surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: Design on main; the Convert panel is built in the workbench (capability-panels.ts) and offers the formats a selection can reach, awaiting the conversion container to execute. The separate file-converter tool row it was originally drawn for is retired — the capability tab is the surface.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch.
+  notes: The "Convert With Options" entry from the file manager rulings is not built; every target converts with the engine's defaults.
 
 - id: documents.pdf
   name: PDF services
@@ -689,7 +693,7 @@
   scope: User-facing PDF tools (redact, Bates, forms, secure, etc.) in a PDF Editor beside the reader and a PDF tab in the File Workbench.
   status: partial
   surface: screen
-  evidence: apps/web/src/lib/pdf-editor (the PDF Editor at /documents/[id]/pdf; Pages is built, reordering, turning and deleting pages saved as a new version, with extract and split filing new files; Redact is built, filing a redacted copy and a redaction log beside the original); Bates, Watermark, Secure, Forms, inserting pages from another file, and the workbench PDF tab are next.
+  evidence: apps/web/src/lib/pdf-editor (the PDF Editor at /documents/[id]/pdf; Pages is built, reordering, turning and deleting pages saved as a new version, with extract and split filing new files; Bates is built, filing a numbered copy beside the original; Watermark is built, words or an image on all or some pages, filed beside the original; Secure is built, counting what the file carries and saving an AES-256 protected copy with permissions, optionally scrubbed first; Forms is built, filling a form's answers and optionally flattening it, saved as a new version; Redact is built, filing a redacted copy and a redaction log beside the original); a per-matter running Bates counter, inserting pages from another file, and the workbench PDF tab are next.
 
 - id: documents.esignature
   name: E-signature
@@ -716,8 +720,10 @@
 - id: documents.esignature.signing-flow
   name: Signing flow & adoption UI
   scope: Client-side field placement, signing UI, signature adoption (type/draw/upload).
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-11-13-signing-flow-design.md
+  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. the hourly reminder and expiry pass in apps/api-worker/src/signing/signing-sweep.ts. Sealing on completion and in-app signing for firm members are next.
 
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion
@@ -731,8 +737,9 @@
 - id: documents.esignature.attribution
   name: Attribution assurance tiers
   scope: Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  surface: screen
+  evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the emailed link and the emailed six-digit code are checked on the signer lane (apps/api-worker/src/signing/signer-service.ts). Signing in to the firm is chosen but not yet signable. SMS codes, ID checks and portal sign-in are not offered.
 
 - id: documents.esignature.vendor-port
   name: Vendor adapter seam
@@ -781,13 +788,13 @@
   slices: ocr-engine
   adrs: ADR-0060
   spec: docs/specs/2026-07-09-ocr-engine-design.md
-  evidence: crates/ocr-core + containers/ocr + apps/ocr-worker + apps/api-worker/src/http/routes/files/ocr.ts on main; UI deferred; deploy verification is the named next step.
+  evidence: crates/ocr-core + containers/ocr + apps/ocr-worker + apps/api-worker/src/http/routes/files/ocr.ts on main; the File Workbench Text Recognition tab is the screen; deploy verification is the named next step.
 
 - id: documents.ocr.engine
   name: ocr-core engine
   scope: PP-OCR ONNX model pipeline (small tier) through Rust ort, with pinned SHA-256-guarded model set.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0060
   evidence: crates/ocr-core + containers/ocr.
   notes: ADR-0060 selected PP-OCRv5; the built engine runs PP-OCRv6 per the status fragment.
@@ -796,7 +803,7 @@
   name: OCR API
   scope: POST /api/v1/ocr behind the tools:ocr permission.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: apps/api-worker/src/http/routes/files/ocr.ts; OCR_SERVICE forwarding via apps/ocr-worker.
   notes: Answers 503 until magna-carta-ocr is deployed. That worker appears in no deploy record — not the Workers Builds connection list, not the placeholder list, not the deploy queue — and a service binding naming a missing Worker rejects the whole app-worker deploy, so confirming it exists is now the first item in docs/deploy-queue.md.
 
@@ -811,8 +818,10 @@
 - id: documents.ocr.ui
   name: OCR tool UI
   scope: User-facing OCR tool surface.
-  status: not-started
-  evidence: Status fragment: UI deferred.
+  status: shipped
+  surface: screen
+  evidence: The File Workbench's Text Recognition tab (apps/web/src/lib/tools/file-workbench/panels/text-recognition-panel.svelte) sends the file to POST /api/v1/ocr on request, lists each page as already text, recognized or low confidence, shows a page's text beside the list, and saves a searchable PDF through POST /api/v1/ocr/searchable or the text alone.
+  notes: Answers 503 until magna-carta-ocr is deployed; the tab says the engine is not running yet.
 
 - id: documents.ocr.desktop-local
   name: Local OCR on desktop
@@ -827,21 +836,21 @@
   status: partial
   slices: file-repair-salvage
   spec: docs/specs/2026-06-28-file-repair-salvage-design.md
-  evidence: crates/recovery-core + containers/file-repair + apps/file-repair-worker + apps/api-worker/src/http/routes/files/file-repair.ts; UI and deploy smoke test deferred.
+  evidence: crates/recovery-core + containers/file-repair + apps/file-repair-worker + apps/api-worker/src/http/routes/files/file-repair.ts; the File Workbench Repair tab is the screen; deploy smoke test deferred.
   notes: Decision fragments file-repair-single-container-lane and engine-host-r2-optional pending assembly (unnumbered).
 
 - id: documents.file-repair.format-pillars
   name: Format repair pillars
   scope: ZIP/OOXML, CFB/OLE2, PDF xref-rebuild, and content-carving repair pillars in pure Rust (native-only).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: crates/recovery-core; per-pillar plans in docs/specs/ (plan-2 zip-ooxml through plan-5 carving).
 
 - id: documents.file-repair.stateless-api
   name: Stateless repair API
   scope: /api/v1/file-repair/{diagnose,repair,carve}; reconstructed output re-scanned and withheld if flagged.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: apps/api-worker/src/http/routes/files/file-repair.ts + apps/file-repair-worker + FILE_REPAIR_SERVICE binding per the status fragment.
 
 - id: documents.file-repair.attach-to-matter
@@ -855,8 +864,10 @@
 - id: documents.file-repair.ui
   name: File repair UI
   scope: User-facing repair/salvage surface.
-  status: not-started
-  evidence: Status fragment: UI deferred post-shell; magna-carta-file-repair Worker not yet connected to Workers Builds.
+  status: shipped
+  surface: screen
+  evidence: The File Workbench's Repair tab (apps/web/src/lib/tools/file-workbench/panels/repair-panel.svelte) diagnoses on request, then repairs or carves a copy through /api/v1/file-repair/{repair,carve}, shows the loss list item by item, and offers each copy to save or to put on the bench.
+  notes: Saving a repaired copy straight into a matter (the attach routes) is not on this tab; the workbench files nothing. Answers 503 until magna-carta-file-repair is deployed.
 
 - id: documents.decryption
   name: File unlock & password recovery

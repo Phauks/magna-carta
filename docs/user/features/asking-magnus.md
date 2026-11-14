@@ -99,13 +99,14 @@ shows the time it was sent, and the copy button beneath it puts that message's w
 clipboard.
 
 The open conversation's name sits at the top with the matter it is kept on in small print beneath
-it, or "Not kept on a matter". Inside a matter's own Magnus section the matter is already named at
+it, or "Not on a matter". Inside a matter's own Magnus section the matter is already named at
 the top of the page, so that line is left out.
 
 ## Editing or Removing Your Own Message
 
 Under each message you sent there are two more buttons beside the copy button. They are there only
-in a conversation you started, and only when Magnus is not in the middle of an answer.
+in a conversation you started. You can use them while Magnus is still answering: editing or removing
+a message stops that answer, and an edit asks again with the new version.
 
 - **Edit and Ask Again** (the pencil) puts your message back in the box so you can change it. Press
   **Send Edit** and Magnus answers the new version. Your old message and everything after it leave
@@ -171,6 +172,12 @@ conversation. To keep it on the matter, download it and add it to the matter's f
 
 Press **Enter** to send your question; **Shift+Enter** starts a new line instead. Your question is recorded the moment you send it, and the answer arrives underneath when it is ready.
 You can leave the page; the conversation is there when you come back.
+
+While Magnus works on an answer, a **Thinking** section under its name shows a summary of what it is
+considering, and it grows as Magnus goes. The model writes this summary of its own reasoning; it is
+not the reasoning word for word. When the answer arrives, the section folds shut above it as
+**Thinking summary**, and you can open it again at any time. It is kept with the answer, and it
+leaves only when the whole conversation is deleted.
 
 Sometimes an answer does not come, and Magnus says which of these happened rather than only that
 something failed:

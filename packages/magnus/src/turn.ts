@@ -14,6 +14,7 @@ import {
   completeTurnStatement,
   failTurnStatement,
   insertTurnStatement,
+  recordTurnThinkingStatement,
   removeTurnPairStatement,
   supersedeTurnsFromStatement,
 } from "./statements.ts";
@@ -46,7 +47,12 @@ export interface SubmitTurnInput {
   // Present when this submission EDITS an earlier member turn: that turn and every turn after it are
   // set aside (kept on the record, no longer read by the model), and the new pair is appended naming
   // the turn it replaces. Editing re-asks from that point rather than rewriting history in place.
-  readonly replaces?: { readonly turnId: MagnusTurnId; readonly sequence: number };
+  readonly replaces?: {
+    readonly turnId: MagnusTurnId;
+    readonly sequence: number;
+    // The answer still being written in the conversation, when there is one: the edit cancels it.
+    readonly cancelling?: MagnusTurnId | null;
+  };
 }
 
 export type SubmitTurnResult =
@@ -78,6 +84,12 @@ export function submitTurn(
         ...(input.replaces === undefined
           ? []
           : [
+              ...(input.replaces.cancelling == null
+                ? []
+                : cancelPendingAnswer(database, context, {
+                    conversationId: input.conversationId,
+                    magnusTurnId: input.replaces.cancelling,
+                  })),
               supersedeTurnsFromStatement(database, {
                 conversationId: input.conversationId,
                 fromSequence: input.replaces.sequence,
@@ -225,6 +237,19 @@ export function settleTurnFailure(
   };
 }
 
+// Write the summary of the model's thinking so far onto a pending Magnus turn, so a reader polling the
+// turn watches it arrive. Not audited: it is progress on an answer whose submission and settlement
+// are both audited, and it changes nothing once the turn settles.
+export async function recordTurnThinking(
+  database: SqlDatabase,
+  input: { readonly magnusTurnId: MagnusTurnId; readonly thinking: string },
+): Promise<void> {
+  await recordTurnThinkingStatement(database, {
+    id: input.magnusTurnId,
+    thinking: input.thinking,
+  }).run();
+}
+
 // The label a removal's batch is refused under when the pair was set aside or removed between the
 // route's read and the commit; the route answers it as "already-gone".
 export const TURN_REMOVE_GUARD = "magnus.turn.remove";
@@ -234,18 +259,35 @@ export type TurnChangeRefusal =
   // Not a member's message: an answer is removed with its question, never on its own.
   | "not-yours"
   // Already removed, or already set aside by an earlier edit.
-  | "already-gone"
-  // An answer is still being written somewhere in the conversation; changing the record under it
-  // would leave that answer built on a question that no longer stands.
-  | "answer-pending";
+  | "already-gone";
 
 // Whether a member turn may be edited or removed. The caller has already established that the member
 // owns the conversation: only its author asks in it, so every member turn in it is theirs.
-export function turnChangeRefusal(turn: TurnRow, anyPending: boolean): TurnChangeRefusal | null {
+// An answer still being written does not stop a change (owner ruling, 2026-11-14): the change cancels
+// it instead (`cancelPendingAnswer`), because an answer built on a question that no longer stands
+// would mislead.
+export function turnChangeRefusal(turn: TurnRow): TurnChangeRefusal | null {
   if (turn.speaker !== "member") return "not-yours";
   if (turn.removedAt !== null || turn.supersededAt !== null) return "already-gone";
-  if (anyPending) return "answer-pending";
   return null;
+}
+
+// Settle the answer still being written in a conversation as cancelled, in the same batch as the
+// edit or removal that made it moot. Guarded on `status = 'pending'` like every settlement, so an
+// answer that landed first is left as it is. The consumer reads the turn again after the model
+// answers and keeps nothing but the token meter for a cancelled one (magnus-consumer.ts).
+function cancelPendingAnswer(
+  database: SqlDatabase,
+  context: MagnusWriteContext,
+  input: { readonly conversationId: MagnusConversationId; readonly magnusTurnId: MagnusTurnId },
+): EffectWrite["statements"] {
+  return settleTurnFailure(database, context, {
+    conversationId: input.conversationId,
+    magnusTurnId: input.magnusTurnId,
+    status: "refused",
+    failureLabel: "cancelled",
+    modelId: null,
+  }).statements;
 }
 
 // Removes a member turn. Its answer stays in the conversation where the member can still read it
@@ -261,11 +303,19 @@ export function removeTurn(
     readonly memberTurnId: MagnusTurnId;
     // The Magnus turn answering it, when there is one. It is named in the audit row and not stamped.
     readonly magnusTurnId: MagnusTurnId | null;
+    // The answer still being written in the conversation, when there is one: it is cancelled.
+    readonly cancelling?: MagnusTurnId | null;
   },
 ): EffectWrite {
   const turnIds = [input.memberTurnId];
   return {
     statements: [
+      ...(input.cancelling == null
+        ? []
+        : cancelPendingAnswer(database, context, {
+            conversationId: input.conversationId,
+            magnusTurnId: input.cancelling,
+          })),
       guarded(
         removeTurnPairStatement(database, {
           conversationId: input.conversationId,
@@ -274,7 +324,11 @@ export function removeTurn(
         }),
         TURN_REMOVE_GUARD,
       ),
-      turnRemovedAudit(database, context, input),
+      turnRemovedAudit(database, context, {
+        conversationId: input.conversationId,
+        memberTurnId: input.memberTurnId,
+        magnusTurnId: input.magnusTurnId,
+      }),
     ],
     outboxMessages: [],
   };

@@ -18,12 +18,12 @@ import type {
   BillingArrangementId,
   CalendarEventLinkId,
   ClientCreditId,
+  CommunicationId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
   ConflictsRecheckRequestId,
   CostEntryId,
-  FeeEntryId,
   CreditNoteId,
   CreditNoteLineId,
   CustodyDestructionRequestId,
@@ -51,14 +51,14 @@ import type {
   DirectoryPhoneId,
   DiscoveryLoadId,
   DocumentAssemblyId,
+  DocumentCheckoutId,
   DocumentTemplateFieldMappingId,
   DocumentTemplateId,
   DocumentTemplateVersionId,
   DocumentTypeId,
-  DocumentCheckoutId,
+  DownloadItemId,
   EmailAttachmentId,
   EmailAutoFileDecisionId,
-  CommunicationId,
   EmailAutoFileRuleId,
   EmailCaptureAddressId,
   EmailMatterLinkId,
@@ -66,6 +66,10 @@ import type {
   EmailParticipantId,
   EmailThreadId,
   EntityMergeId,
+  ExhibitReferenceId,
+  ExhibitSetId,
+  ExhibitSetMemberId,
+  FeeEntryId,
   FileId,
   FileVersionId,
   FirmEventId,
@@ -78,10 +82,11 @@ import type {
   IdempotencyRecordId,
   IncidentId,
   IndexSplitId,
+  IntakeProcedureId,
+  IntakeProcedureStepId,
   IntegrationConnectionId,
   IntegrationCredentialId,
   InvoiceApplicationId,
-  DownloadItemId,
   InvoiceDeliveryId,
   InvoiceId,
   InvoiceLineId,
@@ -92,15 +97,11 @@ import type {
   LedgerLineId,
   LocationAddressId,
   LocationId,
+  MagnusArtifactId,
   MagnusConversationId,
   MagnusFolderId,
-  MagnusArtifactId,
   MagnusTurnId,
   MatterAssetDocumentId,
-  MatterExhibitId,
-  ExhibitSetId,
-  ExhibitSetMemberId,
-  ExhibitReferenceId,
   MatterAssetEncumbranceId,
   MatterAssetId,
   MatterAssetIdentifierId,
@@ -110,28 +111,27 @@ import type {
   MatterAssignmentId,
   MatterCourtCaseId,
   MatterDeadlineId,
-  MatterNoteDocumentId,
-  MatterNoteId,
   MatterEstateId,
   MatterEventId,
   MatterEventParticipantId,
   MatterEventTypeId,
+  MatterExhibitId,
   MatterId,
+  MatterIntakeStepRecordId,
+  MatterNoteDocumentId,
+  MatterNoteId,
   MatterPartyId,
   MatterPlanTaskTemplateId,
   MatterPlanTemplateId,
-  IntakeProcedureId,
-  IntakeProcedureStepId,
-  MatterIntakeStepRecordId,
   MatterRecoveryId,
-  MatterTaskDocumentId,
-  MatterTaskDeletionId,
-  MatterTaskExternalLinkId,
   MatterTaskAssigneeId,
   MatterTaskChecklistItemId,
+  MatterTaskCommentId,
+  MatterTaskDeletionId,
+  MatterTaskDocumentId,
+  MatterTaskExternalLinkId,
   MatterTaskId,
   MatterTaskLinkId,
-  MatterTaskCommentId,
   MatterTypeId,
   MeetingAttendanceId,
   MeetingGuestInvitationId,
@@ -139,6 +139,7 @@ import type {
   MeetingHostId,
   MeetingId,
   MeetingMessageId,
+  MeetingPersonalRoomId,
   MeetingPollAnswerId,
   MeetingPollId,
   MeetingPollOptionId,
@@ -148,11 +149,10 @@ import type {
   MeetingRecordingId,
   MeetingRecordingNoticeId,
   MeetingRecordingTrackId,
+  MeetingSummaryActionItemId,
+  MeetingSummaryId,
   MeetingTranscriptId,
   MeetingTranscriptSegmentId,
-  MeetingPersonalRoomId,
-  MeetingSummaryId,
-  MeetingSummaryActionItemId,
   MemberLocationId,
   MemberRoleId,
   NarrativeTemplateId,
@@ -174,14 +174,21 @@ import type {
   ReviewDocumentOccurrenceId,
   ReviewDocumentTagId,
   ReviewSetAccessId,
+  ReviewSetId,
   ReviewTagEventId,
   ReviewTagGroupId,
   ReviewTagId,
-  ReviewSetId,
   RoleId,
   RolePermissionId,
   ShipmentId,
   ShipmentLabelId,
+  SigningEventId,
+  SigningFieldId,
+  SigningRequestId,
+  SigningSignerId,
+  TaskListId,
+  TaskListStatusId,
+  TaskTeamId,
   TimeEntryId,
   TrackingEventId,
   TransferRunId,
@@ -209,9 +216,6 @@ import type {
   UploadSessionId,
   UserId,
   UtbmsCodeId,
-  TaskListId,
-  TaskListStatusId,
-  TaskTeamId,
 } from "@magna-carta/identifiers/types";
 
 // PER-FIRM LINEAGE. Every tenant firm's D1 carries these tables; drizzle-kit generates per-firm
@@ -9079,17 +9083,36 @@ export const meetingPersonalRoom = sqliteTable(
     // changed when the owner's name is, because a link that moves is a link that stops working. The
     // link code beside it still works, and Get a New Link still replaces it.
     addressName: text("address_name"),
+    // A MEMBER'S OWN ROOM, or a ROOM THE FIRM SHARES (a conference room, "Red Room"). A member has at
+    // most one room of their own; a shared room is set up by a member who holds `meetings:host`
+    // (`owner_user_id` is who set it up) and is opened by anybody who does.
+    kind: text("kind", { enum: ["personal", "shared"] })
+      .notNull()
+      .default("personal"),
+    // The room's name. A shared room always has one; a member's own room is called "<name>'s Room"
+    // until they give it a name of their own.
+    title: text("title"),
+    // When a shared room was taken off the firm's list. Its sessions stay on the record; its address
+    // names nothing and is free to be given to another room.
+    retiredAt: text("retired_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("meeting_personal_room_owner_unique_index").on(table.ownerUserId),
+    uniqueIndex("meeting_personal_room_owner_unique_index")
+      .on(table.ownerUserId)
+      .where(sql`${table.kind} = 'personal'`),
     uniqueIndex("meeting_personal_room_address_name_unique_index")
       .on(table.addressName)
       .where(sql`${table.addressName} IS NOT NULL`),
     uniqueIndex("meeting_personal_room_link_code_unique_index").on(table.linkCode),
     check("meeting_personal_room_medium_check", sql`${table.medium} IN ('video', 'audio')`),
     check("meeting_personal_room_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
+    check("meeting_personal_room_kind_check", sql`${table.kind} IN ('personal', 'shared')`),
+    check(
+      "meeting_personal_room_title_check",
+      sql`${table.title} IS NULL OR length(${table.title}) BETWEEN 1 AND 80`,
+    ),
     check(
       "meeting_personal_room_address_name_shape_check",
       sql`${table.addressName} IS NULL OR (length(${table.addressName}) BETWEEN 1 AND 40 AND ${table.addressName} NOT GLOB '*[^a-z0-9-]*')`,
@@ -10278,6 +10301,11 @@ export const magnusTurn = sqliteTable(
     // thought. Null on a member turn, on a failed turn, and where no effort was sent (a model that
     // takes none answers at its own default).
     effort: text("effort"),
+    // A readable summary of the model's thinking on a Magnus turn, written while the answer is pending
+    // so the reader watches it arrive, and kept beside the answer. The provider returns a summary,
+    // never the raw reasoning. Free text about the member's work, erased with the conversation like
+    // `content`. Null on a member turn and where the model returned none.
+    thinking: text("thinking"),
     // When the author removed this member turn and its answer from the conversation. The text is
     // KEPT: a transcript is work product, erased only when the whole conversation is deleted, so a
     // removal hides the pair from the reader and from the model behind a marker that says so.
@@ -12270,6 +12298,13 @@ export const meetingMessage = sqliteTable(
       .$type<UserId>()
       .references(() => member.userId),
     createdAt: text("created_at").notNull(),
+    // A FILE SHARED IN THE CHAT: one of the matter's own files, chosen from the matter or uploaded
+    // from the meeting into its "Meeting files" folder. The message points at the file and holds no
+    // bytes, so the file keeps its scan, its versions and its access rules, and the chat stays a
+    // record of what was said and shown rather than a second filing path. Null on an ordinary line.
+    attachedFileId: text("attached_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
   },
   (table) => [
     // THE READ AND THE KEYSET IN ONE INDEX: one meeting's messages, oldest first, walked by
@@ -13698,5 +13733,258 @@ export const exhibitReference = sqliteTable(
       table.matterExhibitId,
     ),
     check("exhibit_reference_occurrence_check", sql`${table.occurrenceCount} >= 1`),
+  ],
+);
+
+// SIGNING — a document sent for electronic signature, who signs it, where, and what happened.
+//
+// A request names the exact file version it was sent on and that version's SHA-256, recorded at
+// send, so the seal can refuse bytes that are not what the signers were shown. Nothing here is ever
+// deleted: a cancelled or declined request is a state, because what was asked of whom, and what
+// they did, is part of the matter's record. The signature images themselves are objects in the
+// firm's bucket, never rows.
+export const signingRequest = sqliteTable(
+  "signing_request",
+  {
+    id: text("id").primaryKey().$type<SigningRequestId>(), // signingRequest_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    fileVersionId: text("file_version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    // Lowercase hex SHA-256 of the sent version's bytes; null while a draft.
+    documentHashSha256: text("document_hash_sha256"),
+    title: text("title").notNull(),
+    subject: text("subject").notNull(),
+    message: text("message").notNull().default(""),
+    signingOrder: text("signing_order", { enum: ["in-order", "all-at-once"] })
+      .notNull()
+      .default("in-order"),
+    status: text("status", {
+      enum: ["draft", "sent", "completed", "declined", "voided", "expired"],
+    })
+      .notNull()
+      .default("draft"),
+    expiresAt: text("expires_at").notNull(), // ISO-8601 instant
+    // Null means never remind.
+    remindEveryDays: integer("remind_every_days"),
+    lastRemindedAt: text("last_reminded_at"), // ISO-8601 instant
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    sentAt: text("sent_at"), // ISO-8601 instant
+    completedAt: text("completed_at"), // ISO-8601 instant
+    sealedAt: text("sealed_at"), // ISO-8601 instant
+    voidedReason: text("voided_reason"),
+    // The version the sealed copy was filed as, and the certificate filed beside it.
+    signedFileVersionId: text("signed_file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    certificateFileId: text("certificate_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("signing_request_file_index").on(table.fileId, table.createdAt),
+    index("signing_request_status_index").on(table.status, table.expiresAt),
+    check(
+      "signing_request_signing_order_check",
+      sql`${table.signingOrder} IN ('in-order', 'all-at-once')`,
+    ),
+    check(
+      "signing_request_status_check",
+      sql`${table.status} IN ('draft', 'sent', 'completed', 'declined', 'voided', 'expired')`,
+    ),
+    check("signing_request_title_check", sql`length(${table.title}) > 0`),
+    check(
+      "signing_request_hash_check",
+      sql`${table.documentHashSha256} IS NULL OR length(${table.documentHashSha256}) = 64`,
+    ),
+    check(
+      "signing_request_sent_check",
+      sql`${table.status} = 'draft' OR (${table.sentAt} IS NOT NULL AND ${table.documentHashSha256} IS NOT NULL)`,
+    ),
+    check(
+      "signing_request_remind_check",
+      sql`${table.remindEveryDays} IS NULL OR ${table.remindEveryDays} BETWEEN 1 AND 30`,
+    ),
+  ],
+);
+
+export const signingSigner = sqliteTable(
+  "signing_signer",
+  {
+    id: text("id").primaryKey().$type<SigningSignerId>(), // signingSigner_ handle
+    requestId: text("request_id")
+      .notNull()
+      .$type<SigningRequestId>()
+      .references(() => signingRequest.id),
+    position: integer("position").notNull(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    attributionLevel: text("attribution_level", {
+      enum: ["email-link", "access-code", "firm-authenticated"],
+    }).notNull(),
+    // The member who signs, for 'firm-authenticated' only.
+    userId: text("user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    status: text("status", {
+      enum: ["waiting", "notified", "opened", "signed", "declined"],
+    })
+      .notNull()
+      .default("waiting"),
+    notifiedAt: text("notified_at"), // ISO-8601 instant
+    openedAt: text("opened_at"), // ISO-8601 instant
+    signedAt: text("signed_at"), // ISO-8601 instant
+    declinedAt: text("declined_at"), // ISO-8601 instant
+    declineReason: text("decline_reason"),
+    // Outside signers only: SHA-256 of the link's secret, lowercase hex, and its version, which a
+    // correction increments so every older link stops at once. Never the secret, never the token.
+    tokenSecretHash: text("token_secret_hash"),
+    secretVersion: integer("secret_version").notNull().default(1),
+    // 'access-code' only: SHA-256 of the six digits last sent, when they stop working, and how many
+    // wrong tries have been made against them.
+    accessCodeHash: text("access_code_hash"),
+    accessCodeExpiresAt: text("access_code_expires_at"), // ISO-8601 instant
+    accessCodeAttempts: integer("access_code_attempts").notNull().default(0),
+    identityVerifiedAt: text("identity_verified_at"), // ISO-8601 instant
+    consentDisclosureVersion: text("consent_disclosure_version"),
+    consentedAt: text("consented_at"), // ISO-8601 instant
+    adoption: text("adoption", { enum: ["typed", "drawn", "uploaded"] }),
+    // Object keys in the firm's bucket for the adopted signature and initials (PNG).
+    signatureObjectKey: text("signature_object_key"),
+    initialsObjectKey: text("initials_object_key"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("signing_signer_request_position_unique_index").on(table.requestId, table.position),
+    index("signing_signer_user_index").on(table.userId, table.status),
+    check("signing_signer_position_check", sql`${table.position} >= 1`),
+    check("signing_signer_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "signing_signer_attribution_check",
+      sql`${table.attributionLevel} IN ('email-link', 'access-code', 'firm-authenticated')`,
+    ),
+    check(
+      "signing_signer_status_check",
+      sql`${table.status} IN ('waiting', 'notified', 'opened', 'signed', 'declined')`,
+    ),
+    // A firm member is named by user id and holds no link; an outside signer is the reverse.
+    check(
+      "signing_signer_member_check",
+      sql`(${table.attributionLevel} = 'firm-authenticated') = (${table.userId} IS NOT NULL)`,
+    ),
+    check(
+      "signing_signer_secret_hash_check",
+      sql`${table.tokenSecretHash} IS NULL OR length(${table.tokenSecretHash}) = 64`,
+    ),
+    check("signing_signer_secret_version_check", sql`${table.secretVersion} >= 1`),
+    check("signing_signer_attempts_check", sql`${table.accessCodeAttempts} >= 0`),
+    check(
+      "signing_signer_adoption_check",
+      sql`${table.adoption} IS NULL OR ${table.adoption} IN ('typed', 'drawn', 'uploaded')`,
+    ),
+  ],
+);
+
+export const signingField = sqliteTable(
+  "signing_field",
+  {
+    id: text("id").primaryKey().$type<SigningFieldId>(), // signingField_ handle
+    requestId: text("request_id")
+      .notNull()
+      .$type<SigningRequestId>()
+      .references(() => signingRequest.id),
+    signerId: text("signer_id")
+      .notNull()
+      .$type<SigningSignerId>()
+      .references(() => signingSigner.id),
+    kind: text("kind", {
+      enum: ["signature", "initials", "date-signed", "full-name", "text", "checkbox"],
+    }).notNull(),
+    // Counted from 1, as the PDF engine counts pages. The rect is in hundredths of a PDF point from
+    // the page's bottom left corner (the convention the redaction and seal code use, scaled to whole
+    // numbers because no column here is a float).
+    page: integer("page").notNull(),
+    rectLeftE2: integer("rect_left_e2").notNull(),
+    rectBottomE2: integer("rect_bottom_e2").notNull(),
+    rectRightE2: integer("rect_right_e2").notNull(),
+    rectTopE2: integer("rect_top_e2").notNull(),
+    required: integer("required", { mode: "boolean" }).notNull().default(true),
+    // A text or checkbox answer, set when the signer finishes. Signatures are images, never here.
+    valueText: text("value_text"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("signing_field_request_index").on(table.requestId, table.signerId),
+    check(
+      "signing_field_kind_check",
+      sql`${table.kind} IN ('signature', 'initials', 'date-signed', 'full-name', 'text', 'checkbox')`,
+    ),
+    check("signing_field_page_check", sql`${table.page} >= 1`),
+    check(
+      "signing_field_rect_check",
+      sql`${table.rectRightE2} > ${table.rectLeftE2} AND ${table.rectTopE2} > ${table.rectBottomE2}`,
+    ),
+  ],
+);
+
+// Append-only. Every line was observed by the server: the address and browser are the request's
+// own, never what a body claimed. The Certificate of Completion prints these as its audit log.
+export const signingEvent = sqliteTable(
+  "signing_event",
+  {
+    id: text("id").primaryKey().$type<SigningEventId>(), // signingEvent_ handle
+    requestId: text("request_id")
+      .notNull()
+      .$type<SigningRequestId>()
+      .references(() => signingRequest.id),
+    // Null for a step the system took itself, such as sealing.
+    signerId: text("signer_id")
+      .$type<SigningSignerId>()
+      .references(() => signingSigner.id),
+    kind: text("kind", {
+      enum: [
+        "created",
+        "sent",
+        "delivered",
+        "viewed",
+        "identity-verified",
+        "consented",
+        "signed",
+        "declined",
+        "reassigned",
+        "reminded",
+        "voided",
+        "completed",
+        "sealed",
+      ],
+    }).notNull(),
+    at: text("at").notNull(), // ISO-8601 instant
+    actor: text("actor"),
+    observedIp: text("observed_ip"),
+    userAgent: text("user_agent"),
+    // A short qualifier, such as the address a request was sent to. Never document content.
+    detail: text("detail"),
+  },
+  (table) => [
+    index("signing_event_request_index").on(table.requestId, table.at),
+    check(
+      "signing_event_kind_check",
+      sql`${table.kind} IN ('created', 'sent', 'delivered', 'viewed', 'identity-verified', 'consented', 'signed', 'declined', 'reassigned', 'reminded', 'voided', 'completed', 'sealed')`,
+    ),
   ],
 );

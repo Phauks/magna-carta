@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4c3c88e4-0674-401e-a463-b56034eefe17",
+  "id": "a9aebf75-7f93-4675-accd-01d798b4f192",
   "prevId": "67290fbd-348e-453d-9de1-c0f5f6bf233b",
   "tables": {
     "account_balance": {
@@ -22437,6 +22437,28 @@
           "notNull": false,
           "autoincrement": false
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'personal'"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -22458,7 +22480,8 @@
           "columns": [
             "owner_user_id"
           ],
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"meeting_personal_room\".\"kind\" = 'personal'"
         },
         "meeting_personal_room_address_name_unique_index": {
           "name": "meeting_personal_room_address_name_unique_index",
@@ -22501,6 +22524,14 @@
         "meeting_personal_room_lobby_check": {
           "name": "meeting_personal_room_lobby_check",
           "value": "\"meeting_personal_room\".\"lobby\" IN ('off', 'on')"
+        },
+        "meeting_personal_room_kind_check": {
+          "name": "meeting_personal_room_kind_check",
+          "value": "\"meeting_personal_room\".\"kind\" IN ('personal', 'shared')"
+        },
+        "meeting_personal_room_title_check": {
+          "name": "meeting_personal_room_title_check",
+          "value": "\"meeting_personal_room\".\"title\" IS NULL OR length(\"meeting_personal_room\".\"title\") BETWEEN 1 AND 80"
         },
         "meeting_personal_room_address_name_shape_check": {
           "name": "meeting_personal_room_address_name_shape_check",
@@ -30925,393 +30956,6 @@
         "trust_bank_statement_line_source_row_check": {
           "name": "trust_bank_statement_line_source_row_check",
           "value": "\"trust_bank_statement_line\".\"source_row_number\" IS NULL OR \"trust_bank_statement_line\".\"source_row_number\" > 0"
-        }
-      }
-    },
-    "trust_check": {
-      "name": "trust_check",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "trust_account_id": {
-          "name": "trust_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "check_number": {
-          "name": "check_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "movement_id": {
-          "name": "movement_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "stock_id": {
-          "name": "stock_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payee": {
-          "name": "payee",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "effective_date": {
-          "name": "effective_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "numbered_by": {
-          "name": "numbered_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "numbered_at": {
-          "name": "numbered_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "trust_check_account_number_unique_index": {
-          "name": "trust_check_account_number_unique_index",
-          "columns": [
-            "trust_account_id",
-            "check_number"
-          ],
-          "isUnique": true
-        },
-        "trust_check_movement_index": {
-          "name": "trust_check_movement_index",
-          "columns": [
-            "movement_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "trust_check_trust_account_id_trust_account_id_fk": {
-          "name": "trust_check_trust_account_id_trust_account_id_fk",
-          "tableFrom": "trust_check",
-          "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "trust_check_movement_id_trust_movement_id_fk": {
-          "name": "trust_check_movement_id_trust_movement_id_fk",
-          "tableFrom": "trust_check",
-          "tableTo": "trust_movement",
-          "columnsFrom": [
-            "movement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "trust_check_stock_id_trust_check_stock_id_fk": {
-          "name": "trust_check_stock_id_trust_check_stock_id_fk",
-          "tableFrom": "trust_check",
-          "tableTo": "trust_check_stock",
-          "columnsFrom": [
-            "stock_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "trust_check_number_positive_check": {
-          "name": "trust_check_number_positive_check",
-          "value": "\"trust_check\".\"check_number\" > 0"
-        },
-        "trust_check_effective_date_shape_check": {
-          "name": "trust_check_effective_date_shape_check",
-          "value": "\"trust_check\".\"effective_date\" IS NULL OR \"trust_check\".\"effective_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "trust_check_shape_check": {
-          "name": "trust_check_shape_check",
-          "value": "(\"trust_check\".\"movement_id\" IS NOT NULL AND \"trust_check\".\"payee\" IS NOT NULL AND \"trust_check\".\"amount_minor\" > 0 AND length(\"trust_check\".\"currency\") = 3 AND \"trust_check\".\"effective_date\" IS NOT NULL)\n        OR (\"trust_check\".\"movement_id\" IS NULL AND \"trust_check\".\"payee\" IS NULL AND \"trust_check\".\"amount_minor\" IS NULL AND \"trust_check\".\"currency\" IS NULL AND \"trust_check\".\"effective_date\" IS NULL AND \"trust_check\".\"stock_id\" IS NULL)"
-        }
-      }
-    },
-    "trust_check_event": {
-      "name": "trust_check_event",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "check_id": {
-          "name": "check_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "trust_check_event_check_index": {
-          "name": "trust_check_event_check_index",
-          "columns": [
-            "check_id",
-            "recorded_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "trust_check_event_check_id_trust_check_id_fk": {
-          "name": "trust_check_event_check_id_trust_check_id_fk",
-          "tableFrom": "trust_check_event",
-          "tableTo": "trust_check",
-          "columnsFrom": [
-            "check_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "trust_check_event_kind_check": {
-          "name": "trust_check_event_kind_check",
-          "value": "\"trust_check_event\".\"kind\" IN ('printed', 'spoiled', 'voided')"
-        },
-        "trust_check_event_reason_check": {
-          "name": "trust_check_event_reason_check",
-          "value": "\"trust_check_event\".\"kind\" = 'printed' OR length(\"trust_check_event\".\"reason\") > 0"
-        }
-      }
-    },
-    "trust_check_stock": {
-      "name": "trust_check_stock",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "trust_account_id": {
-          "name": "trust_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "page_layout": {
-          "name": "page_layout",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "fields": {
-          "name": "fields",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "shift_x_mils": {
-          "name": "shift_x_mils",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "shift_y_mils": {
-          "name": "shift_y_mils",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "starting_check_number": {
-          "name": "starting_check_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scan_object_key": {
-          "name": "scan_object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "scan_sha256": {
-          "name": "scan_sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "saved_by": {
-          "name": "saved_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "saved_at": {
-          "name": "saved_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "trust_check_stock_account_version_unique_index": {
-          "name": "trust_check_stock_account_version_unique_index",
-          "columns": [
-            "trust_account_id",
-            "version"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "trust_check_stock_trust_account_id_trust_account_id_fk": {
-          "name": "trust_check_stock_trust_account_id_trust_account_id_fk",
-          "tableFrom": "trust_check_stock",
-          "tableTo": "trust_account",
-          "columnsFrom": [
-            "trust_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "trust_check_stock_version_positive_check": {
-          "name": "trust_check_stock_version_positive_check",
-          "value": "\"trust_check_stock\".\"version\" > 0"
-        },
-        "trust_check_stock_name_nonempty_check": {
-          "name": "trust_check_stock_name_nonempty_check",
-          "value": "length(\"trust_check_stock\".\"name\") > 0"
-        },
-        "trust_check_stock_page_layout_check": {
-          "name": "trust_check_stock_page_layout_check",
-          "value": "\"trust_check_stock\".\"page_layout\" IN ('check_top', 'check_middle', 'check_bottom', 'three_per_page')"
-        },
-        "trust_check_stock_starting_number_check": {
-          "name": "trust_check_stock_starting_number_check",
-          "value": "\"trust_check_stock\".\"starting_check_number\" > 0"
-        },
-        "trust_check_stock_scan_together_check": {
-          "name": "trust_check_stock_scan_together_check",
-          "value": "(\"trust_check_stock\".\"scan_object_key\" IS NULL) = (\"trust_check_stock\".\"scan_sha256\" IS NULL)"
         }
       }
     },

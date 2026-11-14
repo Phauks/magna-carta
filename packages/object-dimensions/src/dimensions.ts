@@ -60,6 +60,10 @@ export type MatterScopedObjectClass =
   | "playable-copy"
   // A purchased carrier label, when the shipment it belongs to names a matter.
   | "shipping-label"
+  // A signature or initials a signer adopted on a signing request (a PNG), kept under the request
+  // until its signed copy is sealed. A RECORD of what the signer adopted, belonging to the matter of
+  // the document they signed.
+  | "signing-mark"
   // The frozen list of review documents one bulk coding act executed against, resolved once at
   // initiation. It is a list of handles and nothing else — no content, no names — and it belongs to
   // the one matter its review set does. A RECORD rather than a cache: "which documents did that act
@@ -133,7 +137,13 @@ export type FirmScopedObjectClass =
   | "directory-photo"
   // A straightened scan of one BLANK check from a trust account's stock, shown behind the layout
   // editor and never printed. It belongs to the account, not to any matter.
-  | "check-stock-scan";
+  | "check-stock-scan"
+
+  // A file a firm gave a record transfer, kept unchanged, and the report of a pass over one. Both
+  // belong to the firm and to no matter: a source file is a list of many matters or of none, and
+  // a report names rows of such a file.
+  | "transfer-source-file"
+  | "transfer-pass-report";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -148,6 +158,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "export-copy",
   "playable-copy",
   "shipping-label",
+  "signing-mark",
   "review-coding-selection",
   "search-split",
   "review-extracted-text",
@@ -169,6 +180,8 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "member-photo",
   "directory-photo",
   "check-stock-scan",
+  "transfer-source-file",
+  "transfer-pass-report",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [

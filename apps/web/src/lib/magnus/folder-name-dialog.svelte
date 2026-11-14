@@ -37,7 +37,7 @@
   const refusal = $derived.by((): string | undefined => {
     if (trimmed === "") return "Give the folder a name.";
     if (trimmed.length > FOLDER_NAME_MAX_LENGTH) {
-      return `A folder's name is at most ${FOLDER_NAME_MAX_LENGTH} characters.`;
+      return `A folder name can be at most ${FOLDER_NAME_MAX_LENGTH} characters.`;
     }
     if (folder !== null && trimmed === folder.name) return "The name is unchanged.";
     return undefined;
@@ -55,10 +55,10 @@
     if (outcome.kind === "ok") return "committed";
     failure = stated(
       outcome.failure,
-      folder === null ? "The folder was not made." : "The folder was not renamed.",
+      folder === null ? "The folder wasn't added." : "The folder wasn't renamed.",
       folder === null
-        ? "Nothing answered, so no folder was made."
-        : "Nothing answered, so the folder keeps its name.",
+        ? "Couldn't connect. The folder wasn't added. Try again."
+        : "Couldn't connect. The folder wasn't renamed. Try again.",
     );
     return "refused";
   }

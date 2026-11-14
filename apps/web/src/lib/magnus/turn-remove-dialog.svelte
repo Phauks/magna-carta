@@ -37,8 +37,8 @@
         ? null
         : stated(
             outcome.failure,
-            "The message was not removed.",
-            "Nothing answered. The message was not removed and is unchanged.",
+            "The message wasn't removed.",
+            "Couldn't connect. The message wasn't removed. Try again.",
           );
     return "refused";
   }
@@ -66,13 +66,17 @@
   {/snippet}
 
   {#snippet fields()}
+    {#if session.pendingTurn !== null}
+      <p class="text-sm">
+        Your message is removed from this conversation, and a note marks where it was. Magnus is still answering, and removing the message stops that answer. Magnus won't read the message again.
+      </p>
+    {:else}
+      <p class="text-sm">
+        Your message is removed from this conversation, and a note marks where it was. Magnus&rsquo;s answer stays visible, but Magnus won&rsquo;t read either one again.
+      </p>
+    {/if}
     <p class="text-sm">
-      Your message leaves this conversation and a note shows where it was. Magnus&rsquo;s answer to it
-      stays where you can read it, but Magnus no longer reads either one when it answers you.
-    </p>
-    <p class="text-sm">
-      Neither is erased. They stay on the firm&rsquo;s record, where a colleague allowed to read
-      every conversation can still see them, until the whole conversation is deleted.
+      Neither is deleted. They stay on the firm&rsquo;s record until the whole conversation is deleted, and staff allowed to read every conversation can still see them.
     </p>
   {/snippet}
 </ActionDialog>

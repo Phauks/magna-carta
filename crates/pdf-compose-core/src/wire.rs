@@ -9,8 +9,8 @@
 use serde::Deserialize;
 
 use crate::model::{
-    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
-    Paragraph, Placed, Rgb, RunningLine, Span, Table, Timestamp, Typeface,
+    Alignment, Block, Column, ComposedDocument, Field, Figure, ImageBlock, Letterhead, PageSetup,
+    Paragraph, Placed, Rgb, RowStyle, RunningLine, Span, Table, Timestamp, Typeface,
 };
 use crate::{compose, ComposeError, ComposeOutput, FontFamily};
 
@@ -110,6 +110,24 @@ struct WireRunningLine {
     right: String,
 }
 
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+enum WireRowStyle {
+    Total,
+    Child,
+    Muted,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct WireFigure {
+    label: String,
+    value: String,
+    note: Option<String>,
+    #[serde(default)]
+    alert: bool,
+}
+
 #[derive(Deserialize, Default, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 enum WireAlignment {
@@ -193,6 +211,20 @@ enum WireBlock {
         rows: Vec<Vec<String>>,
         #[serde(default)]
         banded: bool,
+        /// One entry per row: `total`, `child`, `muted`, or null for a plain row.
+        #[serde(default)]
+        row_styles: Vec<Option<WireRowStyle>>,
+    },
+    Figures {
+        figures: Vec<WireFigure>,
+    },
+    Display {
+        text: String,
+        #[serde(default)]
+        space_above: f32,
+    },
+    SignatureLines {
+        lines: Vec<String>,
     },
     Fields {
         fields: Vec<WireField>,
@@ -320,8 +352,18 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                 columns,
                 rows,
                 banded,
+                row_styles,
             } => Block::Table(Table {
                 banded,
+                row_styles: row_styles
+                    .into_iter()
+                    .map(|style| match style {
+                        None => RowStyle::Plain,
+                        Some(WireRowStyle::Total) => RowStyle::Total,
+                        Some(WireRowStyle::Child) => RowStyle::Child,
+                        Some(WireRowStyle::Muted) => RowStyle::Muted,
+                    })
+                    .collect(),
                 columns: columns
                     .into_iter()
                     .map(|column| Column {
@@ -352,6 +394,19 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             WireBlock::PageBreak => Block::PageBreak,
             WireBlock::CardStart { title } => Block::CardStart { title },
             WireBlock::CardEnd => Block::CardEnd,
+            WireBlock::Figures { figures } => Block::Figures(
+                figures
+                    .into_iter()
+                    .map(|figure| Figure {
+                        label: figure.label,
+                        value: figure.value,
+                        note: figure.note,
+                        alert: figure.alert,
+                    })
+                    .collect(),
+            ),
+            WireBlock::Display { text, space_above } => Block::Display { text, space_above },
+            WireBlock::SignatureLines { lines } => Block::SignatureLines(lines),
             WireBlock::Placed {
                 x,
                 y,

@@ -25,8 +25,8 @@ Under the search box, **Search In** chooses which matters are asked.
 | **One Client**           | The matters one person or organization is a client on. Pick the client. |
 | **One Matter**           | Pick a matter, and its own search opens with your words already in it   |
 
-A matter's own search reaches more of that matter than this page does, including the words inside
-its files, which is why **One Matter** takes you there.
+A matter's own search reaches more of that matter than this page does, such as its calendar and
+its deleted files, which is why **One Matter** takes you there.
 
 **My Matters** and **One Client** search fewer matters and nothing else changes: you still see only
 what you are allowed to see. A link that names a client shows a colleague only the matters of that
@@ -40,17 +40,36 @@ Your choice stays as you type a new question. Changing it starts again at **All 
 
 ## What is searched
 
-| Place         | What is searched                                            |
-| ------------- | ----------------------------------------------------------- |
-| **Matters**   | Title, matter number and client name                        |
-| **People**    | Every name the directory holds, current and former          |
-| **Files**     | File names and folder names                                 |
-| **Time**      | What the timekeeper wrote about the work                    |
-| **Costs**     | What the cost was for                                       |
-| **Notes**     | What each note says                                         |
-| **Messaging** | What was said on a call or in a text, and the caller's name |
+| Place            | What is searched                                               |
+| ---------------- | -------------------------------------------------------------- |
+| **Matters**      | Title, matter number and client name                           |
+| **People**       | Every name the directory holds, current and former             |
+| **Files**        | File names and folder names                                    |
+| **Inside Files** | The words inside files, on 25 matters or fewer (see below)     |
+| **Time**         | What the timekeeper wrote about the work                       |
+| **Costs**        | What the cost was for                                          |
+| **Billing**      | What each line of an invoice says, and the invoice's number    |
+| **Parties**      | The names of the parties on a matter, and the capacity of each |
+| **Notes**        | What each note says                                            |
+| **Custodian**    | Packet names and custody numbers                               |
+| **Messaging**    | What was said on a call or in a text, and the caller's name    |
 
 Every result from a matter names the matter it is on, and opens in its own section of that matter.
+
+**People** finds a person or an organization once, as the directory holds them. **Parties** finds
+them once for each matter they are a party on, most recently added first, so a name answers the
+question of which matters somebody is on. A party is found by the name the directory shows for them
+today.
+
+**Inside Files** finds a file by the words in it, best match first, and names the pages they are
+on. Each matter's files are searched separately, so this place answers when your search reaches 25
+matters or fewer: **One Client**, **My Matters** when those are few, or **Everything I Can See**
+at a firm with few matters. With more, the page lists it under **Not Searched** as **Fewer
+Matters**. Searching inside files has to be turned on for the firm first. See
+[Searching inside files](searching-a-matter.md#searching-inside-files).
+
+**Billing** finds an invoice by a line on it or by its number, and shows the invoice's number and
+where it stands. An invoice that has not been given a number yet reads **Draft**.
 
 **Matters** lists the firm's working docket, which is the matters that have a number. An intake or
 a consultation that has not been given one yet is found from the Intake and Matters screens.
@@ -79,8 +98,13 @@ reads only as far as it shows, and says when there is more.
 Under **Not Searched** the page lists the places it did not look, and why:
 
 - **In A Matter** means the place is searched with that matter's own search and not across matters.
-  Today that is the words inside files, Parties, Calendar, Custodian and Billing. Open the matter
-  and use the search at its top right.
+  Today that is Calendar. Open the matter and use the search at its top right.
+- **Fewer Matters** means the place is searched one matter at a time, and your search reaches more
+  than 25. Today that is Inside Files. Choose fewer matters under **Search In**.
+- **Off** means searching inside files is turned off for the firm. An administrator turns it on in
+  Settings, under Search and Indexing.
+- **Soon** means the part of the application that reads inside files is not switched on yet, and
+  **Unavailable** means it did not answer just now. File and folder names were still searched.
 - **No Access** means your role does not include reading that place.
 - **Firm-Wide** means the place belongs to the whole firm and is searched only when **Search In**
   reads **Everything I Can See**. Today that is People.
@@ -102,6 +126,6 @@ matter you cannot see contributes nothing: no result, and no count.
 
 ## Related
 
-- [Searching a matter](searching-a-matter.md) searches one matter more deeply, including the words
-  inside its files.
+- [Searching a matter](searching-a-matter.md) searches one matter more deeply, including its
+  calendar and its deleted files.
 - [Searching the screen you are on](searching-a-screen.md) narrows the list in front of you.

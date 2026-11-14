@@ -43,6 +43,7 @@
   import { conversationAuthor } from "./conversation-author.svelte.ts";
   import type { ConversationSession } from "./conversation-session.svelte.ts";
   import MarkedText from "$lib/search/marked-text.svelte";
+  import TurnThinking from "./turn-thinking.svelte";
   import { findMarks, shownTurns } from "./conversation-find.ts";
   import { versionsWrittenBy } from "./artifact-text.ts";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -84,8 +85,11 @@
     const target = document.querySelector(`[data-turn-id="${CSS.escape(currentMatchId)}"]`);
     target?.scrollIntoView({ block: "center" });
   });
-  /** Nothing in the conversation is being answered, so a message may be changed. */
-  const settled = $derived((turns ?? []).every((turn) => turn.status !== "pending"));
+  /*
+   * An answer is being written somewhere in the conversation. A message may still be changed (owner
+   * ruling, 2026-11-14): the change stops that answer, and the controls say so.
+   */
+  const answering = $derived((turns ?? []).some((turn) => turn.status === "pending"));
 
   /* Who asked, named the same way the surface names a downloaded transcript. */
   const author = conversationAuthor(() => session.conversation?.createdBy ?? null);
@@ -116,7 +120,7 @@
     } catch {
       // Some embedded and locked-down browsers refuse the clipboard. The words are still on the
       // screen to select by hand, so the sentence says which way is left.
-      toast.error("Your browser would not copy it. Select the words and copy them instead.");
+      toast.error("Your browser couldn't copy it. Select the text and copy it instead.");
     }
   }
 
@@ -132,6 +136,7 @@
       snapshotId: null,
       contextTruncated: false,
       effort: null,
+      thinking: null,
       removedAt: null,
       supersededAt: null,
       replacesTurnId: null,
@@ -149,6 +154,7 @@
       snapshotId: null,
       contextTruncated: false,
       effort: null,
+      thinking: null,
       removedAt: null,
       supersededAt: null,
       replacesTurnId: null,
@@ -192,9 +198,12 @@
           {#if turn.removedAt !== null}
             <Conversation.TurnNote tone="quiet">
               {turn.speaker === "member"
-                ? `${name} removed this message. It is kept on the firm's record, and Magnus no longer reads it or the answer to it.`
+                ? `${name} removed this message. It stays on the firm's record, and Magnus no longer reads it or its answer.`
                 : "Removed with the message it answered."}
             </Conversation.TurnNote>
+          {/if}
+          {#if turn.speaker === "magnus" && turn.removedAt === null}
+            <TurnThinking thinking={turn.thinking} pending={turn.status === "pending"} />
           {/if}
           {#if turn.content !== null}
             <!-- No whitespace inside the body: it keeps the author's line breaks, so any would show. -->
@@ -228,24 +237,12 @@
               </button>
             {/each}
           {/if}
-          {#if turn.status === "pending"}
-            {#if session.answerIsSlow}
-              <Conversation.TurnNote tone="warning">
-                Magnus is still answering. This is taking longer than it should. The question is on
-                the record and the answer appears here if it arrives; you can ask something else in
-                the meantime, or come back to this conversation later.
-              </Conversation.TurnNote>
-            {:else}
-              <Conversation.TurnNote tone="quiet">Magnus is answering.</Conversation.TurnNote>
-            {/if}
-          {/if}
           {#if failureSentence !== null}
             <Conversation.TurnNote tone="warning">{failureSentence}</Conversation.TurnNote>
           {/if}
           {#if turn.contextTruncated}
             <Conversation.TurnNote tone="warning">
-              This answer was built from part of the conversation: the earlier messages did not
-              fit. If what was dropped bears on the answer, restate it and ask again.
+              The earlier messages didn't fit, so this answer used only part of the conversation. If something left out matters, restate it and ask again.
             </Conversation.TurnNote>
           {/if}
           {#if turn.content !== null && turn.status !== "pending" && turn.removedAt === null}
@@ -282,7 +279,6 @@
                           {...props}
                           variant="ghost"
                           size="icon-sm"
-                          disabled={!settled}
                           aria-label="Edit your message from {formatInstant(turn.createdAt)}"
                           onclick={() => onEdit?.(turn)}
                         >
@@ -291,7 +287,7 @@
                       {/snippet}
                     </Tooltip.Trigger>
                     <Tooltip.Content>
-                      {settled ? "Edit and Ask Again" : "Wait for the answer to finish"}
+                      {answering ? "Edit and Ask Again (Stops the Answer)" : "Edit and Ask Again"}
                     </Tooltip.Content>
                   </Tooltip.Root>
                 {/if}
@@ -303,7 +299,6 @@
                           {...props}
                           variant="ghost"
                           size="icon-sm"
-                          disabled={!settled}
                           aria-label="Remove your message from {formatInstant(turn.createdAt)}"
                           onclick={() => onRemove?.(turn)}
                         >
@@ -312,7 +307,7 @@
                       {/snippet}
                     </Tooltip.Trigger>
                     <Tooltip.Content>
-                      {settled ? "Remove" : "Wait for the answer to finish"}
+                      {answering ? "Remove (Stops the Answer)" : "Remove"}
                     </Tooltip.Content>
                   </Tooltip.Root>
                 {/if}
@@ -342,8 +337,8 @@
     <!-- A conversation is written when the first question is sent, so this is the narrow case
          where the record was created and the question that would have filled it was not. -->
     <div class="flex min-h-0 flex-1 items-center justify-center px-24">
-      <EmptyState title="Nothing In This Conversation">
-        This conversation was started and nothing was asked in it. Type a question below.
+      <EmptyState title="Nothing in This Conversation">
+        Nothing has been asked yet. Type a question below.
       </EmptyState>
     </div>
   {/snippet}
@@ -351,8 +346,8 @@
     {#if session.failure !== null}
       <FailureNotice
         failure={session.failure}
-        title="This Conversation Could Not Be Read"
-        fallback="The messages in this conversation could not be read."
+        title="Couldn't Load This Conversation"
+        fallback="Couldn't load the messages in this conversation."
         onRetry={() => session.reload()}
       />
     {/if}
@@ -369,8 +364,8 @@
     <div class="px-24">
       <FailureNotice
         failure={session.failure}
-        title="The Rest Of This Conversation Could Not Be Read"
-        fallback="More of this conversation could not be read. What is shown was read and stands."
+        title="Couldn't Load the Rest of This Conversation"
+        fallback="Couldn't load more of this conversation. What's shown is complete up to here."
         onRetry={() => session.resumePolling()}
       />
     </div>

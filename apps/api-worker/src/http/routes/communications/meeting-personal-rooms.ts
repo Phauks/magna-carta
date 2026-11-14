@@ -7,6 +7,7 @@ import {
   moveSessionToMatter,
   openPersonalRoom,
   readPersonalRoomAtLink,
+  renameRoom,
   replacePersonalRoomLink,
   updatePersonalRoomDefaults,
 } from "@magna-carta/meetings/personal-room-service";
@@ -27,13 +28,15 @@ import {
 } from "@magna-carta/meetings/personal-room-contract";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
+import { assertPermission } from "@magna-carta/access-control/registry";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
+  requireChokepointPermissions,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
-import { commit, roomBody, serviceOptions } from "./meeting-personal-room-commit.ts";
+import { arrivalBody, commit, roomBody, serviceOptions } from "./meeting-personal-room-commit.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
@@ -308,12 +311,24 @@ export function registerMeetingPersonalRoomRoutes(
       const userId = requireChokepointUserId(c);
       const body = c.req.valid("json");
       const outcome = await commit(c, async () => {
-        const { effect } = await updatePersonalRoomDefaults(
+        const options = serviceOptions(userId);
+        const defaults = await updatePersonalRoomDefaults(
           firm.firmDatabase,
-          body,
-          serviceOptions(userId),
+          { medium: body.medium, lobby: body.lobby },
+          options,
         );
-        return { value: { updated: true }, effect };
+        // The name is its own act with its own guard, committed in the same batch.
+        const renamed =
+          body.title === undefined
+            ? undefined
+            : await renameRoom(firm.firmDatabase, "own", body.title, options);
+        return {
+          value: { updated: true },
+          effect: {
+            statements: [...defaults.effect.statements, ...(renamed?.effect.statements ?? [])],
+            outboxMessages: [],
+          },
+        };
       });
       if (!outcome.ok) return outcome.problem;
       const room = await readPersonalRoomForOwner(firm.firmDatabase, userId);
@@ -347,6 +362,7 @@ export function registerMeetingPersonalRoomRoutes(
       const body = c.req.valid("json");
       const outcome = await commit<{
         meetingId: string;
+        joinCode: string | null;
         created: boolean;
         endedMeetingId: string | null;
       }>(c, async () => {
@@ -362,6 +378,7 @@ export function registerMeetingPersonalRoomRoutes(
         return {
           value: {
             meetingId: opened.meetingId,
+            joinCode: opened.joinCode,
             created: opened.created,
             endedMeetingId: opened.endedMeetingId,
           },
@@ -375,7 +392,14 @@ export function registerMeetingPersonalRoomRoutes(
       if (outcome.executed && ended !== null) {
         await meetingRoomFor(c.env, firmId, ended).end(new Date().toISOString());
       }
-      return c.json({ meetingId: outcome.value.meetingId, created: outcome.value.created }, 200);
+      return c.json(
+        {
+          meetingId: outcome.value.meetingId,
+          joinCode: outcome.value.joinCode,
+          created: outcome.value.created,
+        },
+        200,
+      );
     },
   );
 
@@ -393,6 +417,7 @@ export function registerMeetingPersonalRoomRoutes(
             name: row.display_name,
             linkCode: row.link_code,
             addressName: row.link_code === null ? null : (row.address_name ?? row.link_code),
+            title: row.title,
             medium: row.medium,
             openMeetingId: row.open_meeting_id,
             inTheRoom: row.live_count,
@@ -412,21 +437,11 @@ export function registerMeetingPersonalRoomRoutes(
       const userId = requireChokepointUserId(c);
       const { linkCode } = c.req.valid("param");
       try {
-        const arrival = await readPersonalRoomAtLink(
-          firm.firmDatabase,
-          linkCode,
-          serviceOptions(userId),
-        );
-        return c.json(
-          {
-            state: arrival.state,
-            ownerDisplayName: arrival.ownerDisplayName,
-            isOwner: arrival.isOwner,
-            addressName: arrival.addressName,
-            meetingId: arrival.state === "open" ? arrival.meetingId : null,
-          },
-          200,
-        );
+        const arrival = await readPersonalRoomAtLink(firm.firmDatabase, linkCode, {
+          ...serviceOptions(userId),
+          mayHost: requireChokepointPermissions(c).has(assertPermission(HOST)),
+        });
+        return c.json(arrivalBody(arrival), 200);
       } catch (caught) {
         // Reading a link can only fail one way: it names no room the caller can follow.
         if (caught instanceof MeetingPersonalRoomRefusedError) {
@@ -450,21 +465,11 @@ export function registerMeetingPersonalRoomRoutes(
       const userId = requireChokepointUserId(c);
       const { linkCode } = c.req.valid("param");
       const outcome = await commit<z.infer<typeof PersonalRoomAtLinkResponse>>(c, async () => {
-        const { arrival, effect } = await arriveAtPersonalRoom(
-          firm.firmDatabase,
-          linkCode,
-          serviceOptions(userId),
-        );
-        return {
-          value: {
-            state: arrival.state,
-            ownerDisplayName: arrival.ownerDisplayName,
-            isOwner: arrival.isOwner,
-            addressName: arrival.addressName,
-            meetingId: arrival.state === "open" ? arrival.meetingId : null,
-          },
-          effect,
-        };
+        const { arrival, effect } = await arriveAtPersonalRoom(firm.firmDatabase, linkCode, {
+          ...serviceOptions(userId),
+          mayHost: requireChokepointPermissions(c).has(assertPermission(HOST)),
+        });
+        return { value: arrivalBody(arrival), effect };
       });
       if (!outcome.ok) return outcome.problem;
       return c.json(outcome.value, 200);

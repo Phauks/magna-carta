@@ -34,7 +34,11 @@ export interface TurnToAccept {
   readonly modelId?: string | undefined;
   readonly effort?: string | undefined;
   // The member turn an edit rewrites, and where it sits.
-  readonly replaces?: { readonly turnId: MagnusTurnId; readonly sequence: number };
+  readonly replaces?: {
+    readonly turnId: MagnusTurnId;
+    readonly sequence: number;
+    readonly cancelling?: MagnusTurnId | null;
+  };
 }
 
 function tooLarge(c: Context) {

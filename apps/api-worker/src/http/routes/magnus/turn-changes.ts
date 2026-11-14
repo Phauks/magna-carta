@@ -4,7 +4,7 @@ import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch"
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import type { MagnusConversationId, MagnusTurnId } from "@magna-carta/identifiers/types";
 import { RemovedTurn, SubmitTurnRequest, SubmittedTurn } from "@magna-carta/magnus/contract";
-import { hasPendingTurn, readTurn, readTurnAtSequence } from "@magna-carta/magnus/statements";
+import { readPendingAnswer, readTurn, readTurnAtSequence } from "@magna-carta/magnus/statements";
 import {
   TURN_REMOVE_GUARD,
   removeTurn,
@@ -120,8 +120,6 @@ const REFUSAL_DETAIL: Record<TurnChangeRefusal, string> = {
   "not-yours":
     "Only a member's own message can be changed. An answer is removed with its question.",
   "already-gone": "This message was already removed, or replaced by an edit.",
-  "answer-pending":
-    "An answer is still being written in this conversation. Try again once it settles.",
 };
 
 function refuse(c: Context, refusal: TurnChangeRefusal) {
@@ -141,12 +139,14 @@ async function changeableTurn(
 ): Promise<
   | { kind: "missing" }
   | { kind: "refused"; refusal: TurnChangeRefusal }
-  | { kind: "ok"; turn: TurnRow }
+  | { kind: "ok"; turn: TurnRow; cancelling: MagnusTurnId | null }
 > {
   const turn = await readTurn(database, turnId);
   if (turn === undefined || turn.conversationId !== conversationId) return { kind: "missing" };
-  const refusal = turnChangeRefusal(turn, await hasPendingTurn(database, conversationId));
-  return refusal === null ? { kind: "ok", turn } : { kind: "refused", refusal };
+  const refusal = turnChangeRefusal(turn);
+  if (refusal !== null) return { kind: "refused", refusal };
+  // An answer still being written is cancelled by the change rather than refusing it.
+  return { kind: "ok", turn, cancelling: await readPendingAnswer(database, conversationId) };
 }
 
 export function registerMagnusTurnChangeRoutes(app: MagnusApp, chokepoint: Chokepoint): void {
@@ -170,7 +170,7 @@ export function registerMagnusTurnChangeRoutes(app: MagnusApp, chokepoint: Choke
         content,
         modelId,
         effort,
-        replaces: { turnId, sequence: target.turn.sequence },
+        replaces: { turnId, sequence: target.turn.sequence, cancelling: target.cancelling },
       });
     },
   );
@@ -211,7 +211,12 @@ export function registerMagnusTurnChangeRoutes(app: MagnusApp, chokepoint: Choke
             write: removeTurn(
               firm.firmDatabase,
               { clock: { now: () => nowIso }, actorUserId: userId },
-              { conversationId, memberTurnId: turnId, magnusTurnId: answerId },
+              {
+                conversationId,
+                memberTurnId: turnId,
+                magnusTurnId: answerId,
+                cancelling: target.cancelling,
+              },
             ),
             responseCode: 200,
             responseBody: canonicalJsonStringify({

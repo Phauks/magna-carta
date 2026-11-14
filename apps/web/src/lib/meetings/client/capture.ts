@@ -22,14 +22,81 @@ import type { MeetingTrackKind } from "./signaling.ts";
  * of what it is handed.
  */
 function cameraSimulcastEncodings(): RTCRtpEncodingParameters[] {
-  return [
-    // The ceilings keep the three together under about 1.7 Mbit/s. Left to itself Chrome sends the
-    // full size alone at around 2.5 Mbit/s, which is more than a 720p face needs and more than many
-    // home uploads carry comfortably beside everything else on the line.
-    { rid: "f", scaleResolutionDownBy: 1, maxBitrate: 1_200_000 },
-    { rid: "h", scaleResolutionDownBy: 2, maxBitrate: 350_000 },
-    { rid: "q", scaleResolutionDownBy: 4, maxBitrate: 120_000 },
-  ];
+  return CAMERA_LAYERS.map(({ rid, scaleResolutionDownBy, maxBitrate }) => ({
+    rid,
+    scaleResolutionDownBy,
+    maxBitrate,
+  }));
+}
+
+/**
+ * The three layers and their ceilings. The ceilings keep the three together under about 1.7 Mbit/s.
+ * Left to itself Chrome sends the full size alone at around 2.5 Mbit/s, which is more than a 720p
+ * face needs and more than many home uploads carry comfortably beside everything else on the line.
+ */
+const CAMERA_LAYERS = [
+  { rid: "f", scaleResolutionDownBy: 1, maxBitrate: 1_200_000 },
+  { rid: "h", scaleResolutionDownBy: 2, maxBitrate: 350_000 },
+  { rid: "q", scaleResolutionDownBy: 4, maxBitrate: 120_000 },
+] as const;
+
+const QUARTER = CAMERA_LAYERS[2];
+
+/**
+ * The camera's encodings as they should stand now, or null where they already do.
+ *
+ * THE CEILINGS ARE WRITTEN AGAIN AFTER NEGOTIATION, not trusted from `addTransceiver`. A live meeting
+ * in Chrome reported the full layer going out at 2.55 Mbit/s, over twice its ceiling: what the
+ * transceiver was asked for does not survive every negotiation, and `setParameters` on the sender is
+ * the one call the browser holds itself to. A connection that came back with ONE encoding (the far
+ * end took no layers) is held to the full layer's ceiling all the same.
+ *
+ * ALONE, ONLY THE QUARTER LAYER GOES OUT. Nobody is watching, so there is nothing to send the large
+ * pictures to; the quarter keeps the track alive at about a tenth of the cost, and the next person
+ * through the door turns the others back on.
+ */
+export function cameraEncodingsFor(
+  current: readonly RTCRtpEncodingParameters[],
+  alone: boolean,
+): RTCRtpEncodingParameters[] | null {
+  if (current.length === 0) return null;
+  const wanted: RTCRtpEncodingParameters[] =
+    current.length === 1
+      ? current.map((encoding) => ({
+          ...encoding,
+          active: true,
+          scaleResolutionDownBy: alone ? QUARTER.scaleResolutionDownBy : 1,
+          maxBitrate: alone ? QUARTER.maxBitrate : CAMERA_LAYERS[0].maxBitrate,
+        }))
+      : current.map((encoding) => {
+          const layer = CAMERA_LAYERS.find((each) => each.rid === encoding.rid);
+          if (layer === undefined) return encoding;
+          return {
+            ...encoding,
+            active: !alone || layer.rid === QUARTER.rid,
+            maxBitrate: layer.maxBitrate,
+          };
+        });
+  const unchanged = wanted.every(
+    (encoding, position) =>
+      encoding.active === current[position]?.active &&
+      encoding.maxBitrate === current[position]?.maxBitrate &&
+      encoding.scaleResolutionDownBy === current[position]?.scaleResolutionDownBy,
+  );
+  return unchanged ? null : wanted;
+}
+
+/** Hold the camera's sender to `cameraEncodingsFor`. Best effort: a refusal leaves it as it was. */
+export async function applyCameraSendBudget(sender: RTCRtpSender, alone: boolean): Promise<void> {
+  try {
+    const parameters = sender.getParameters();
+    const encodings = cameraEncodingsFor(parameters.encodings ?? [], alone);
+    if (encodings === null) return;
+    await sender.setParameters({ ...parameters, encodings });
+  } catch {
+    // The browser refused the change (a negotiation in flight, or a sender already stopped). The
+    // next roster or answer asks again.
+  }
 }
 
 /** The seams capture reaches the browser through. A subset of the client's own. */

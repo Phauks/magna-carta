@@ -253,6 +253,32 @@ pub struct Table {
     /// Shade every other row in place of ruling between rows: easier to follow across a wide
     /// table of many short rows.
     pub banded: bool,
+    /// How each row is set, by position. A table with fewer entries than rows sets the rest
+    /// plainly.
+    pub row_styles: Vec<RowStyle>,
+}
+
+/// How one row of a table is set apart from the others.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum RowStyle {
+    #[default]
+    Plain,
+    /// A sum of the rows above: bold, under a darker rule.
+    Total,
+    /// A part of the row above it: gray, its first cell stepped in.
+    Child,
+    /// Kept for the record but no longer in force: gray.
+    Muted,
+}
+
+/// One figure of a summary row: what it counts, the figure, and a line about it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Figure {
+    pub label: String,
+    pub value: String,
+    pub note: Option<String>,
+    /// Draw the figure in the alert colour: something a reader should not pass over.
+    pub alert: bool,
 }
 
 /// A labelled value, the unit of a record sheet.
@@ -320,6 +346,18 @@ pub enum Block {
     },
     /// Closes the open card. Without one it does nothing.
     CardEnd,
+    /// A row of summary figures in columns of one width, six to a line at most.
+    Figures(Vec<Figure>),
+    /// One or two words set very large and centred: the label of a cover sheet.
+    Display {
+        text: String,
+        /// How far down the page the label starts when it is the first thing on it. A `Space`
+        /// block is dropped at the top of a page; this is kept, which is what sets a cover
+        /// sheet's label in the middle of the sheet.
+        space_above: f32,
+    },
+    /// Lines to sign on, two to a row, each with what it is for beneath it.
+    SignatureLines(Vec<String>),
     /// Text at a fixed place on the current page; see [`Placed`].
     Placed(Placed),
 }

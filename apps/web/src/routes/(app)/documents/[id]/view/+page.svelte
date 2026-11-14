@@ -315,7 +315,7 @@
     if (outcome.kind !== "ok") {
       readFailure = stated(
         outcome.failure,
-        "The document could not be read.",
+        "Couldn't load the document.",
         "Couldn't connect while reading the document.",
       );
       opening = false;
@@ -464,7 +464,7 @@
   <FailureNotice
     failure={data.failure}
     subject="The document"
-    fallback="The document could not be read."
+    fallback="Couldn't load the document."
     whenSilent="Couldn't connect while reading the document."
     onRetry={() => void invalidateAll()}
   />

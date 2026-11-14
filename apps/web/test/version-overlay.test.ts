@@ -474,13 +474,13 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).not.toMatch(/"magna-carta-[a-z-]+"/);
   });
 
-  it("leads with the pair that serves the app's address, then the fleet below a separator", () => {
+  it("leads with the pair that serves the app's address, then the features and what they run on", () => {
     expect(chip).toMatch(/rowKey: "page",\s*name: PAGE_BUILD_ROW_NAME/);
     expect(chip).toMatch(/rowKey: "api",\s*name: API_WORKER_UNIT_NAME/);
     expect(chip).toContain("partitionDeploymentRows(value.services)");
     expect(chip).toContain("syncStateLabel(syncState)");
     // Order: magna-carta, then magna-carta-web (the front partition), then the sync badge that
-    // reads the pair, then the separator, then the rest of the fleet.
+    // reads the pair, then the features table, whose rows carry the rest of the fleet.
     // Read the MARKUP alone: the script derives the same split for the headings' counts, and a
     // whole-file search finds that declaration long before the rows it is asserting the order of.
     const markup = chip.slice(chip.indexOf("</script>"));
@@ -489,7 +489,7 @@ describe("the chip's row identities and refresh", () => {
       markup.indexOf("syncStateLabel(syncState)"),
     );
     expect(markup.indexOf("syncStateLabel(syncState)")).toBeLessThan(
-      markup.indexOf("deploymentRows.rest"),
+      markup.indexOf("{@render featureTable()}"),
     );
   });
 
@@ -727,16 +727,13 @@ describe("the fleet fold", () => {
   const panelSection = stripComments(source("lib/versions/version-panel-section.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
-  it("folds only the Workers beneath the pair that serves the app's address", () => {
-    // The fold is the section component's now (version-panel-section.svelte), so what this file
-    // decides is WHICH fold each section is handed. Workers takes the fleet's.
-    expect(chip).toMatch(
-      /label=\{FLEET_SECTION_LABEL\}\s*preference=\{PANEL_SECTION_FOLDS\.fleet\}[\s\S]*deploymentRows\.rest/,
-    );
-    // The leading pair and its sync badge sit in the section above, which has a fold of its own.
-    expect(chip.indexOf("syncStateLabel(syncState)")).toBeLessThan(
-      chip.indexOf("PANEL_SECTION_FOLDS.fleet"),
-    );
+  it("puts each fleet Worker beside the features it powers, and still lists every other one", () => {
+    // The page's Workers tab joined its Features tab: a Worker reads on the row of the feature it
+    // backs (feature-dependencies-model.ts), and the Workers no feature names are listed below
+    // the table, so the tab still accounts for the whole fleet.
+    expect(chip).toContain("featureDependencyChips(feature");
+    expect(chip).toContain("workersOutsideFeatures(value.services, WEB_WORKER_ROW_ID)");
+    expect(chip).toMatch(/\{#each otherWorkers as service \(service\.id\)\}/);
   });
 
   it("is a disclosure: its own label names it and aria-expanded carries the state", () => {
@@ -751,9 +748,6 @@ describe("the fleet fold", () => {
     // stops a later section from inventing a different idea of what a disclosure is.
     expect(panelSection).toContain("collapsed={preference.collapsed}");
     expect(panelSection).toContain("toggle={() => preference.toggle()}");
-    expect(chip).toMatch(
-      /label=\{FLEET_SECTION_LABEL\}\s*preference=\{PANEL_SECTION_FOLDS\.fleet\}/,
-    );
     expect(FLEET_SECTION_LABEL).toBe("Workers");
   });
 
@@ -799,8 +793,6 @@ describe("the fleet fold", () => {
     // Each heading counts only the Workers ITS OWN fold hides. Workers is its own section now
     // rather than a drawer inside Deployment, so one count over the whole read would have both
     // headings claiming the same silent Worker.
-    expect(chip).toContain("pills={workersPills}");
-    expect(chip).toMatch(/workersPills = \$derived\([\s\S]*?deploymentRows\.rest/);
     expect(chip).toContain("pills={deploymentPills}");
     expect(chip).toMatch(/deploymentPills = \$derived\([\s\S]*?deploymentRows\.front/);
   });

@@ -135,8 +135,13 @@ package enforces, which is why nothing here has a redaction step.
 ## A personal room is a standing link, and every session is an ordinary meeting
 
 `personal-room-types.ts` / `personal-room-statements.ts` / `personal-room-service.ts` are the trio.
-`meeting_personal_room` holds one room per member (unique `owner_user_id`) with its link code and the
-medium and lobby its sessions open with. **A session is nothing new downstream**: opening the room
+`meeting_personal_room` holds two kinds of room (`kind`). A `personal` room is one per member (the
+owner index is partial, on `kind = 'personal'`); a `shared` room ("Red Room") is any number, set up
+and opened by any member who may host, with `owner_user_id` naming who set it up and `title` always
+set. Both carry a link code and the medium and lobby their sessions open with. A shared room is
+removed by `retired_at`, which also clears `address_name` so the name is free again; every reader of
+a link skips a retired room. Who may open a room is `mayOpen` in `personal-room-service.ts`: the
+owner for a personal room, `mayHost` (read off the session by the route) for a shared one. **A session is nothing new downstream**: opening the room
 writes an ordinary firm event (or a matter event, when a matter is named) with the owner on it, and
 an ordinary meeting on that event with `meeting.personal_room_id` set. Every rule above about a
 meeting hanging from its event still holds, so recording, attendance and the lists needed no change.
@@ -154,8 +159,11 @@ it, and opens a fresh one in the same batch. `sessionEventSettlement` gives the 
 end in the event's own zone and marks it `occurred`; `endMeeting` composes the same statements, so a
 host's End settles the event too.
 
-**A room has two addresses, and a meeting has one more.** `address_name` (/room/trevor) is made with
-the room by `roomAddressNames` and `freeRoomAddressName` in `meeting-addresses.ts` and never changed;
+**A room has two addresses, and a meeting has one more.** `address_name` (/room/trevor) is made from the
+room's `title` (`roomAddressFromTitle`) or, with no title, its owner's name (`roomAddressNames`), and
+picked free by `freeRoomAddressName` in `meeting-addresses.ts`. **Renaming moves the address**
+(`renameRoom`, guarded on the address it read), and the old one names nothing: there are no
+redirects;
 `readPersonalRoomByAddressName` is the only way a link reaches a room, and `link_code` is no longer
 an address. Every meeting
 carries `join_code`, nine digits written by `insertMeetingStatement` (`newMeetingJoinCode`) and read
@@ -309,6 +317,13 @@ falls out of the author comparison rather than needing a branch, and there is de
 redaction act. And **removal is a redaction, never a delete**:
 the body is blanked and the row stays, guarded so the batch rolls back whole, and a second removal
 produces no statements rather than moving an instant somebody's record already carries.
+
+**A line may point at one file, and only at one of the meeting's own matter's.** `attached_file_id`
+references `file`; `readShareableMeetingFile` accepts a live file on the matter of the meeting's
+matter event and nothing else, so a meeting on a firm event shares no file, and every other answer is
+`meeting-message-file-unavailable` (a 404, so a guessed handle learns nothing). The read names the
+file only while the line is not taken back and the file is not deleted. A guest posts no file, and
+the guest routes blank `attachedFile` on what they read, because the file's route is a member's.
 
 ## Polls and the question queue are content on chat's terms, and a poll's anonymity is two tables
 

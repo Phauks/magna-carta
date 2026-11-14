@@ -454,6 +454,15 @@ export const ENTITY_PREFIXES = {
   magnusConversation: "magnusConversation",
   magnusTurn: "magnusTurn",
   magnusFolder: "magnusFolder",
+  // Signing — a document sent for electronic signature. A `signingRequest` is one request on one
+  // file version (the certificate calls it the envelope); a `signingSigner` is one person asked to
+  // sign it, in an order; a `signingField` is one box on one page that one signer completes; a
+  // `signingEvent` is one append-only line of what happened, which the Certificate of Completion
+  // prints as its audit log.
+  signingRequest: "signingRequest",
+  signingSigner: "signingSigner",
+  signingField: "signingField",
+  signingEvent: "signingEvent",
   magnusArtifact: "magnusArtifact",
   // Discovery — the corpus of documents under review on a matter. A `reviewSet` is one named corpus
   // with its own index, lifecycle, and access story; a `recordCustodian` is whose electronic records

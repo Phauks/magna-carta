@@ -199,7 +199,7 @@
     if (outcome.kind === "problem") attemptKey = null;
     formFailure = stated(
       outcome.failure,
-      editing === null ? "The resource was not added." : "The change was not saved.",
+      editing === null ? "The resource was not added." : "The change wasn't saved.",
       "Couldn't connect. Nothing changed. Try again.",
     );
     return "refused";

@@ -18,6 +18,7 @@
    * (artifact-view.svelte).
    */
   import { failureToast } from "$lib/diagnostics/failure-toast.ts";
+  import * as SegmentedControl from "@magna-carta/design-system/segmented-control";
   import Download from "@lucide/svelte/icons/download";
   import Eye from "@lucide/svelte/icons/eye";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -80,18 +81,6 @@
     { value: "artifacts", label: "Artifacts" },
   ];
 
-  /* The arrow keys move between the three sections, as a tab list's do. */
-  function stepTab(event: KeyboardEvent): void {
-    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-    event.preventDefault();
-    const index = PANE_TABS.findIndex((entry) => entry.value === tab);
-    const step = event.key === "ArrowRight" ? 1 : -1;
-    const next = PANE_TABS[(index + step + PANE_TABS.length) % PANE_TABS.length];
-    if (next === undefined) return;
-    tab = next.value;
-    document.getElementById(`pane-tab-${next.value}`)?.focus();
-  }
-
   /* Download from the card saves the newest version as Markdown, the way the document reads. */
   async function downloadLatest(
     artifactId: string,
@@ -106,7 +95,7 @@
     if (outcome.kind !== "ok") {
       failureToast(
         outcome.failure,
-        "The document could not be read, so nothing was downloaded. Try again.",
+        "Couldn't load the document, so nothing was downloaded. Try again.",
       );
       return;
     }
@@ -127,7 +116,7 @@
     const outcome = await session.setPermission("own-matter-conversations", granted);
     changingPermission = false;
     if (outcome !== null && outcome.kind !== "ok") {
-      failureToast(outcome.failure, "Nothing changed. The permission is as it was.");
+      failureToast(outcome.failure, "Nothing changed.");
     }
   }
 
@@ -135,8 +124,8 @@
     if (openDocument === null) return false;
     const outcome = await session.restoreVersion(openDocument.artifactId, versionNumber);
     if (outcome === null || outcome.kind !== "ok") {
-      if (outcome === null) toast.error("The version was not restored. Nothing changed.");
-      else failureToast(outcome.failure, "The version was not restored. Nothing changed.");
+      if (outcome === null) toast.error("The version wasn't restored. Nothing changed.");
+      else failureToast(outcome.failure, "The version wasn't restored. Nothing changed.");
       return false;
     }
     return true;
@@ -209,29 +198,19 @@
 {/snippet}
 
 {#snippet tabList()}
-  <!-- The three sections as one segmented control, as the board draws them. -->
-  <div
-    class="grid flex-1 grid-cols-3 gap-2 rounded-md bg-surface-selected p-2"
-    role="tablist"
+  <!-- The three sections as the shared segmented control, the same one the rail's orders use. The
+       pane is the sunken surface, the same tint as the control's track, so the track is raised here
+       to stay visible. -->
+  <SegmentedControl.Root
+    class="flex-1 bg-surface-raised"
+    value={tab}
+    onValueChange={(next) => (tab = next as PaneTab)}
     aria-label="Pane sections"
-    tabindex="-1"
-    onkeydown={stepTab}
   >
     {#each PANE_TABS as entry (entry.value)}
-      <button
-        type="button"
-        role="tab"
-        id="pane-tab-{entry.value}"
-        aria-controls="pane-panel-{entry.value}"
-        aria-selected={tab === entry.value}
-        tabindex={tab === entry.value ? 0 : -1}
-        class="rounded-sm px-8 py-4 text-xs text-text-muted aria-selected:bg-surface-raised aria-selected:font-semibold aria-selected:text-text-default aria-selected:shadow-elevation-1"
-        onclick={() => (tab = entry.value)}
-      >
-        {entry.label}
-      </button>
+      <SegmentedControl.Item value={entry.value}>{entry.label}</SegmentedControl.Item>
     {/each}
-  </div>
+  </SegmentedControl.Root>
 {/snippet}
 
 <aside
@@ -265,9 +244,8 @@
     </div>
 
     <div
-      id="pane-panel-{tab}"
-      role="tabpanel"
-      aria-labelledby="pane-tab-{tab}"
+      role="region"
+      aria-label={PANE_TABS.find((entry) => entry.value === tab)?.label}
       class="flex min-h-0 flex-1 flex-col gap-16 mc-scrollbar overflow-y-auto px-16 pt-4 pb-16"
     >
       {#if tab === "context"}
@@ -354,14 +332,14 @@
           <div class="flex items-baseline justify-between gap-8 pb-4">
             <FieldLabel as="h3" id="pane-this-matter">This Matter</FieldLabel>
             <span class="truncate text-xs text-text-muted">
-              {matterLine ?? "Not kept on a matter"}
+              {matterLine ?? "Not on a matter"}
             </span>
           </div>
           <div class="flex items-start justify-between gap-12 border-b border-border-default py-8">
             <span class="flex min-w-0 flex-col gap-2">
               <span class="text-sm font-medium">Attached Files</span>
               <span class="text-xs text-text-muted">
-                Always on. Magnus reads the files attached to this conversation, and no others.
+                Always on. Magnus reads only the files attached to this conversation.
               </span>
             </span>
           </div>
@@ -372,11 +350,11 @@
               </span>
               <span class="text-xs text-text-muted">
                 {#if matterLine === null}
-                  Keep this conversation on a matter to turn this on.
+                  Move this conversation to a matter to turn this on.
                 {:else}
-                  Off unless turned on. When on, Magnus reads the latest messages of up to five of
+                  Off unless you turn it on. When on, Magnus reads the latest messages of up to five of
                   {readerIsAuthor ? "your" : `${memberName}'s`} most recent other conversations on
-                  this matter. Never a colleague's.
+                  this matter. Never another staff member's.
                 {/if}
               </span>
             </span>
@@ -389,8 +367,7 @@
           </div>
         </section>
         <p class="text-xs text-text-muted">
-          Firm records, the client's other matters, research services and the firm library are not
-          read. Each appears here once Magnus can search it, off until it is turned on.
+          Firm records, the client's other matters, research services and the firm library aren't read. Each shows here, off, once Magnus can search it.
         </p>
       {:else}
         {#if session.artifacts.length === 0}

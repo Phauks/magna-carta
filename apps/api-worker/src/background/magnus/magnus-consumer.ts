@@ -12,6 +12,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { catalogEntryFor } from "@magna-carta/inference/catalog";
+import type { InferencePort } from "@magna-carta/inference/port";
 import {
   extractDocuments,
   layOutCurrentDocuments,
@@ -26,7 +27,7 @@ import {
   readRecentTurns,
   readTurn,
 } from "@magna-carta/magnus/statements";
-import { completeTurn, settleTurnFailure } from "@magna-carta/magnus/turn";
+import { completeTurn, recordTurnThinking, settleTurnFailure } from "@magna-carta/magnus/turn";
 import {
   listConversationPermissions,
   readEarlierConversations,
@@ -143,6 +144,9 @@ export interface MagnusConsumerPorts {
   // The reader of attached files' text. Injectable because the production reader reaches the firm's
   // bucket and the extraction engines, neither of which a unit of the consumer's own logic needs.
   readonly attachments?: AttachmentTextReader;
+  // The model port. Injectable so a test can act while an answer is being written; production
+  // resolves it from the deployment (inference-port-binding.ts).
+  readonly inference?: InferencePort;
 }
 
 // The author's own other conversations on the same matter, when the author turned that permission on
@@ -170,6 +174,39 @@ async function conversationAuthor(
   const conversation = await readConversation(firmDatabase, conversationId as MagnusConversationId);
   if (conversation === undefined) throw new Error("magnus conversation missing at settle");
   return conversation.createdBy;
+}
+
+// How often the summary of the thinking is written while it grows, at most.
+const THINKING_WRITE_INTERVAL_MILLISECONDS = 1000;
+
+function pendingThinkingWriter(
+  firmDatabase: Parameters<typeof recordTurnThinking>[0],
+  magnusTurnId: MagnusTurnId,
+): { heard: (thinkingSoFar: string) => Promise<void>; flush: () => Promise<void> } {
+  let latest = "";
+  let written = "";
+  let lastWriteAt = 0;
+  const write = async (): Promise<void> => {
+    if (latest === written) return;
+    const thinking = latest;
+    try {
+      await recordTurnThinking(firmDatabase, { magnusTurnId, thinking });
+      written = thinking;
+    } catch {
+      // Dropped on purpose: see the caller. Nothing is logged, because the summary is the member's
+      // work product.
+    }
+  };
+  return {
+    async heard(thinkingSoFar) {
+      latest = thinkingSoFar;
+      const now = Date.now();
+      if (now - lastWriteAt < THINKING_WRITE_INTERVAL_MILLISECONDS) return;
+      lastWriteAt = now;
+      await write();
+    },
+    flush: write,
+  };
 }
 
 export async function handleMagnusTurnJob(
@@ -241,7 +278,7 @@ export async function handleMagnusTurnJob(
     return;
   }
 
-  const port = resolveMagnusInferencePort(env);
+  const port = ports.inference ?? resolveMagnusInferencePort(env);
   if (port === null) {
     // The deployment names no model port. The question is settled as unanswered, never answered by
     // the stub, and the misconfiguration is reported once through the standard pipeline.
@@ -254,7 +291,13 @@ export async function handleMagnusTurnJob(
     );
     return;
   }
+  // The model's thinking, as a readable summary, written onto the pending answer while it arrives so
+  // the reader watches it instead of a bare "answering" note. Written at most once a second (the
+  // reader polls once a second), and once more with the whole summary before the answer settles. A
+  // write that fails is dropped: the summary is progress, and losing it must never lose the answer.
+  const thinkingWriter = pendingThinkingWriter(firmDatabase, job.magnusTurnId as MagnusTurnId);
   const result = await port.generateConversation({
+    onThinking: thinkingWriter.heard,
     modelId,
     firmId: job.firmId as FirmId,
     // Platform-authored and structurally separate from the conversation: a member cannot occupy this
@@ -263,6 +306,8 @@ export async function handleMagnusTurnJob(
     messages: window.messages,
     ...(effort !== null && { effort }),
   });
+
+  await thinkingWriter.flush();
 
   if (!result.ok) {
     // A retryable problem (transient gateway overload, a timeout) throws so the queue redelivers and
@@ -283,6 +328,31 @@ export async function handleMagnusTurnJob(
   // One timestamp for the whole batch, so the metering bucket day and the dedup row are provably
   // consistent — no latent UTC-midnight split between reading the day and writing the rows.
   const nowIso = new Date().toISOString();
+
+  // The member edited or removed the question while this answer was being written, which settled
+  // the turn as cancelled (packages/magnus/src/turn.ts). The tokens were spent and are metered; the
+  // answer, its documents and its completion audit are not kept, because they answer a question that
+  // no longer stands.
+  const settledMeanwhile = await readTurn(firmDatabase, job.magnusTurnId as MagnusTurnId);
+  if (settledMeanwhile === undefined || settledMeanwhile.status !== "pending") {
+    await commitEffectBatch(
+      firmDatabase,
+      {
+        statements: [
+          ...tokenUsageCommitStatements(
+            firmDatabase,
+            tokenUsageKeyForDay(nowIso, slot, modelId),
+            result.value.usage.inputTokens,
+            result.value.usage.outputTokens,
+          ),
+          ...inferenceDedupStatements(firmDatabase, magnusTurnDedupKey(job.outboxId), nowIso),
+        ],
+        outboxMessages: [],
+      },
+      { now: () => nowIso },
+    );
+    return;
+  }
   const context: MagnusWriteContext = { clock: { now: () => nowIso }, actorUserId: null };
 
   // The documents in the answer are kept as versions of the conversation's documents; the answer

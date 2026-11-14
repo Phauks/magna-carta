@@ -237,6 +237,8 @@ Two things are outside them. Deleting a **folder** cannot be undone; when you de
 says so and points you at **Deleted Files**, where the documents it held can still be brought back
 one by one. And undo does not survive a reload: it is for the change you just made.
 
+A deleted file waits in **Deleted Files** for as long as your firm has chosen, 30 days unless it chose otherwise, and the **Leaves Trash** column says when that is. After it the file moves to cheaper archive storage and the column says **Archived**, but it can still be brought back the same way. Nothing in Deleted Files is ever destroyed. See [Deleted files](../admin/deleted-files.md).
+
 ### Where you are in the folders
 
 The strip above the list is the path to the folder you are in, starting at the home icon. Home is
@@ -385,6 +387,14 @@ The panel asks how the bundle should be made. The defaults suit most bundles, so
 - **Include a contents list with each file's hash**: adds a list of every file with its fingerprint, so whoever receives the bundle can check nothing changed on the way.
 
 A small bundle downloads straight away. A large one is built in the background: a note above the list says so, it downloads when it is ready, and it is in the download tray at the top of the screen in the meantime. Documents edited in the browser go into the bundle with every tracked change accepted, the same as a single download.
+
+## Converting a document to another format
+
+Right-click a file and open **Convert**. The list shows what that kind of file can become, by its ending: **To pdf**, **To odt**, **To txt** and so on. Where one ending covers two kinds, the second says which, as in **To pdf (Searchable PDF)**.
+
+Choose one, and a note above the list follows the file while it is read, sent and converted. The converted copy is then filed in the same folder as the original, through the same upload and safety check as any file you add, so it appears in the upload tray. If the folder already holds a file with that name, both are kept. The original is never changed.
+
+Convert is offered on one file at a time. To convert many files at once, use the **Convert** tab on the File Workbench.
 
 ## Archives
 
