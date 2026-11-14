@@ -1,7 +1,7 @@
 /*
  * The Search page's state: one question, asked of every matter the reader may see.
  *
- * THREE READS, ONE ANSWER. Records (notes, time, costs, calls, file names) come from the search
+ * THREE READS, ONE ANSWER. Records (notes, time, costs, invoices, parties, calls, custody packets, file names) come from the search
  * across matters, which answers a group per place. Matters and people are found by name through
  * the reads their own screens already use, the matters listing and the directory's name search,
  * so a name is matched here exactly as it is matched there. The page presents the three as one

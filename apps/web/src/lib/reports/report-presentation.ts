@@ -12,10 +12,12 @@
  * moment one sums a column it has become a second answer to a question the ledger already
  * answered, which is the one thing the reporting design forbids.
  */
-import type {
-  TabularExportCell,
-  TabularExportDocument,
-  TabularExportSection,
+import {
+  CHILD_ROW_INDENT,
+  type TabularExportCell,
+  type TabularExportDocument,
+  type TabularExportFigure,
+  type TabularExportSection,
 } from "$lib/export/tabular-export.ts";
 
 /** One cell: text, or a figure with the text a reader sees and the number a spreadsheet sums. */
@@ -113,10 +115,16 @@ export function reportExportDocument(
   const sections: TabularExportSection[] = presentation.sections.map((section) => ({
     title: section.title,
     headers: section.headers,
-    rows: exportRowsOf(section),
+    ...exportRowsOf(section),
     ...(section.endAlignedColumns === undefined
       ? {}
       : { endAlignedColumns: section.endAlignedColumns }),
+  }));
+  const summary = presentation.summary?.map((tile): TabularExportFigure => ({
+    label: tile.label,
+    value: tile.value,
+    ...(tile.detail === null ? {} : { note: tile.detail }),
+    ...(tile.tone === "attention" ? { alert: true as const } : {}),
   }));
   return {
     title:
@@ -125,27 +133,40 @@ export function reportExportDocument(
         : `${presentation.title} - ${presentation.subtitle}`,
     generatedAt,
     sections,
+    ...(summary === undefined || summary.length === 0 ? {} : { summary }),
   };
 }
 
 /**
  * A section's rows as the file prints them: each row with its detail rows under it, the first cell
- * indented so a reader of the file sees which client a matter belongs to, then the total row.
+ * indented so a reader of the file sees which client a matter belongs to, then the total row. The
+ * kinds say the same for the PDF, which steps a child in and sets the total in bold itself.
  */
-function exportRowsOf(section: ReportSection): readonly (readonly ReportCell[])[] {
+function exportRowsOf(section: ReportSection): {
+  readonly rows: readonly (readonly ReportCell[])[];
+  readonly rowKinds?: readonly ("total" | "child" | null)[];
+} {
   const rows: (readonly ReportCell[])[] = [];
+  const rowKinds: ("total" | "child" | null)[] = [];
   section.rows.forEach((row, rowIndex) => {
     rows.push(row);
+    rowKinds.push(null);
     for (const detail of section.rowDetails?.[rowIndex] ?? []) {
       rows.push(detail.map((cell, columnIndex) => (columnIndex === 0 ? indented(cell) : cell)));
+      rowKinds.push("child");
     }
   });
-  if (section.totalRow !== undefined) rows.push(section.totalRow);
-  return rows;
+  if (section.totalRow !== undefined) {
+    rows.push(section.totalRow);
+    rowKinds.push("total");
+  }
+  return rowKinds.some((kind) => kind !== null) ? { rows, rowKinds } : { rows };
 }
 
 function indented(cell: ReportCell): ReportCell {
-  return typeof cell === "string" ? `    ${cell}` : { ...cell, text: `    ${cell.text}` };
+  return typeof cell === "string"
+    ? `${CHILD_ROW_INDENT}${cell}`
+    : { ...cell, text: `${CHILD_ROW_INDENT}${cell.text}` };
 }
 
 /** How the completeness declaration reads on the cover. */

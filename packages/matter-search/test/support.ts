@@ -126,6 +126,29 @@ export function seedParty(
   );
 }
 
+// One line of a draft invoice. The invoice carries the client and no matter; the line carries the
+// matter, which is the only thing a search can reach it by.
+export function seedInvoiceLine(
+  raw: Raw,
+  options: { id: string; invoiceId: string; matterId: string; description: string },
+): void {
+  raw.exec(
+    `INSERT OR IGNORE INTO invoice (id, client_entity_id, currency, status, created_at, updated_at) ` +
+      `VALUES ('${options.invoiceId}', 'directoryPerson_billed', 'USD', 'draft', '${INSTANT}', '${INSTANT}')`,
+  );
+  const lineIndex = (
+    raw
+      .prepare(`SELECT COUNT(*) AS lines FROM invoice_line WHERE invoice_id = ?`)
+      .get(options.invoiceId) as { lines: number }
+  ).lines;
+  raw.exec(
+    `INSERT INTO invoice_line (id, invoice_id, line_index, matter_id, kind, description, ` +
+      `amount_minor, currency, created_at) VALUES ('${options.id}', '${options.invoiceId}', ` +
+      `${String(lineIndex)}, '${options.matterId}', 'fee', ${quote(options.description)}, 12500, ` +
+      `'USD', '${INSTANT}')`,
+  );
+}
+
 // The standard fixture: the matter under test, plus a decoy of every kind on a second matter
 // carrying the SAME search words, plus one on the holding matter.
 export function seededDatabase() {
