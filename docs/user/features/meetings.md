@@ -229,7 +229,9 @@ everybody tells you that you are breaking up, this is where you find out whether
 - **Picture**: the size of the picture you are sending, in pixels.
 - **Camera Size**: your camera is sent at full, half and quarter size, and each person receives
   the size their screen shows you at. This row names the size whose picture is shown above, with
-  its own rate.
+  its own rate. Together the three sizes stay under about 1.7 Mb/s. While nobody else is in the
+  room, only the quarter size is sent, so your upload drops to a small fraction; the other sizes
+  come back the moment somebody joins, or a recording starts.
 - **Upload** and **Download**: everything your connection is sending and receiving, all streams
   together.
 - **Packets Lost** and **Round Trip**: how much of what you send goes missing, and how long a
