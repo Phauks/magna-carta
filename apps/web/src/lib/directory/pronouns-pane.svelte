@@ -110,7 +110,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The pronouns could not be recorded.",
+      "Couldn't save the pronouns.",
       "The set on file is unchanged.",
     );
   }
@@ -169,7 +169,7 @@
   {#if failure !== null}
     <FailureNotice
       failure={failure.failure}
-      title="The Pronouns Could Not Be Recorded"
+      title="Couldn't Save Pronouns"
       fallback={failure.fallback}
       whenSilent={failure.whenSilent}
     />

@@ -82,7 +82,7 @@ describe("what one search becomes", () => {
   it("is failed when the search rejected, never an empty answer", async () => {
     const outcome = await runEntitySearch(
       async () => {
-        throw new Error("The directory could not be searched.");
+        throw new Error("Couldn't search the directory.");
       },
       "Pem",
       new AbortController().signal,

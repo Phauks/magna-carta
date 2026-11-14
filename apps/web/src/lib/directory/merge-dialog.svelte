@@ -96,7 +96,7 @@
    */
   const refusal = $derived.by((): string | undefined => {
     if (plan.refusal !== null) return plan.refusal;
-    if (!mayEdit) return editDisabledReason ?? "You cannot change this record.";
+    if (!mayEdit) return editDisabledReason ?? "You can't change this record.";
     if (!acknowledged) return "Tick the acknowledgement to fold the records.";
     return undefined;
   });
@@ -134,7 +134,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The records could not be folded together.",
+      "Couldn't merge the records.",
       "Neither record was changed.",
     );
     return "refused";
@@ -158,7 +158,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Records Were Not Folded Together"
+        title="Records Not Merged"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />
@@ -238,7 +238,7 @@
       </ul>
 
       <Alert.Root variant="danger">
-        <Alert.Title>This Cannot Be Undone Here</Alert.Title>
+        <Alert.Title>This Can't Be Undone</Alert.Title>
         <Alert.Description>{MERGE_IRREVERSIBLE_STATEMENT}</Alert.Description>
       </Alert.Root>
 

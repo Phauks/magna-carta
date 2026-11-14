@@ -50,9 +50,6 @@
     "em-dash": 3,
     "nothing-answered": 1
   },
-  "apps/web/src/lib/directory/edges-pane.svelte": {
-    "nothing-answered": 1
-  },
   "apps/web/src/lib/documents/document-loop-availability.ts": {
     "em-dash": 1
   },
@@ -171,9 +168,6 @@
   },
   "apps/web/src/routes/(app)/costs/+page.svelte": {
     "em-dash": 1
-  },
-  "apps/web/src/routes/(app)/directory/+page.svelte": {
-    "nothing-answered": 1
   },
   "apps/web/src/routes/(app)/fees/+page.svelte": {
     "em-dash": 1
