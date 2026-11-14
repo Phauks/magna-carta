@@ -18,7 +18,7 @@ export const repairCapability: CapabilityModule = {
   timing: "on-request",
   scope: "single",
   description: "Repair and salvage a damaged or corrupted file.",
-  awaiting: "the file-repair container",
+  awaiting: "file repair",
   applies: () => APPLIES,
   pendingAction: "Repair a Copy",
 };

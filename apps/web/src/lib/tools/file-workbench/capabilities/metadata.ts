@@ -24,7 +24,7 @@ export const metadataCapability: CapabilityModule = {
   timing: "on-arrival",
   scope: "single",
   description: "Inspect and strip hidden metadata from a file.",
-  awaiting: "the metadata engine moving off its base64 request body",
+  awaiting: "metadata reading",
   applies(file) {
     const label = detectedLabelOf(file);
     if (label === null) return APPLIES;

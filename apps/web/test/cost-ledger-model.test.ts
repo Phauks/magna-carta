@@ -157,7 +157,7 @@ describe("the ledger's columns", () => {
   it("says what an unserved column waits on rather than showing a value nobody recorded", () => {
     for (const identifier of Object.keys(UNSERVED_COST_COLUMNS)) {
       expect(isUnservedColumn(identifier)).toBe(true);
-      expect(unservedCellTitle(identifier)).toMatch(/^.+ is not served yet\. Waiting on .+\.$/);
+      expect(unservedCellTitle(identifier)).toMatch(/^Not built yet: .+\.$/);
       expect(columnById(identifier).text?.(cost())).toBe("");
     }
   });
@@ -356,7 +356,7 @@ describe("the words", () => {
     for (const name of Object.keys(COST_LEDGER_GAPS)) {
       const gap = name as keyof typeof COST_LEDGER_GAPS;
       expect(gapReason(gap)).toBe(COST_LEDGER_GAPS[gap].waitsOn);
-      expect(gapCellTitle(gap)).toContain(COST_LEDGER_GAPS[gap].field);
+      expect(gapCellTitle(gap)).toContain(COST_LEDGER_GAPS[gap].waitsOn);
     }
   });
 });

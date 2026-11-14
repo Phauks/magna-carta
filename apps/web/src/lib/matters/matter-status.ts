@@ -97,5 +97,4 @@ export const HOLD_AT_CREATION_REASON =
   "An active matter is put on hold from its status window. While on hold, no work can start on it.";
 
 /** What creating a matter already closed waits on, as a noun phrase the Soon affordance completes. */
-export const CLOSED_AT_CREATION_DEPENDENCY =
-  "the create operation accepting a closed status, which today takes only Intake, Consultation or Active";
+export const CLOSED_AT_CREATION_DEPENDENCY = "creating a matter as closed";

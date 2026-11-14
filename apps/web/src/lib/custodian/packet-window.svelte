@@ -101,11 +101,11 @@
   } = $props();
 
   /** What the movement form and the release capture form are waiting on, said the same way twice. */
-  const MOVEMENT_FORM = "the movement form, which records who has the property and when it is due back";
+  const MOVEMENT_FORM = "the movement form";
   const RELEASE_FORM =
-    "the release capture form, which records the authority a release is made on and the identity check made before the property leaves";
+    "the release form";
   const DESTRUCTION_FORM =
-    "the destruction request form, which records the basis a second person then approves or refuses";
+    "the destruction request form";
   const PACKET_FORM = "the packet form";
 
   let packet = $state<CustodyPacketDetail | null>(null);
@@ -602,7 +602,7 @@
     { key: "history", label: "History", content: historyTab },
   ] satisfies RecordWindowTab[]}
   defaultTab="history"
-  editDisabledReason={`Not built yet. Waiting on ${PACKET_FORM}.`}
+  editDisabledReason={`Not built yet: ${PACKET_FORM}.`}
   onPrint={() => (printOpen = true)}
 />
 

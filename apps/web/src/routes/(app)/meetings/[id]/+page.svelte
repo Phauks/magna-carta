@@ -105,7 +105,6 @@
   import MessageSquare from "@lucide/svelte/icons/message-square";
   import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
   import MeetingPollsPanel from "$lib/meetings/screen/meeting-polls-panel.svelte";
-  import MeetingQuestionsPanel from "$lib/meetings/screen/meeting-questions-panel.svelte";
   import { MeetingPolls, membersWhoCanAnswer } from "$lib/meetings/client/polls.svelte.ts";
   import {
     MAX_MEETING_QUESTION_LENGTH,
@@ -823,9 +822,9 @@
   client.relayPollsTo(polls);
   client.relayQuestionsTo(questions);
   const pollsOpen = $derived(sideOpen && sideTab === "polls");
-  const questionsOpen = $derived(sideOpen && sideTab === "questions");
+  // Questions are drawn in the chat, so the chat being open is the queue being seen.
+  const questionsOpen = $derived(sideOpen && sideTab === "chat");
   /** What is typed and not yet asked. Held by the screen, so closing the panel does not lose it. */
-  let questionDraft = $state("");
 
   /**
    * The socket went away underneath a member still on the room's screen: the surface that says the
@@ -1178,6 +1177,31 @@
   );
 
   /*
+   * The view changing shape goes into the diagnostics, so a flash a member reports can be lined up
+   * against what the screen did at that moment. Words only, never whose picture it was.
+   */
+  let lastView: { large: string | null; layout: string; share: boolean; mirror: boolean } | null =
+    null;
+  $effect(() => {
+    const view = {
+      large: spotlight?.key ?? null,
+      layout: viewPreference.current.layout,
+      share: sharedScreen !== null,
+      mirror: viewPreference.current.mirrorSelf,
+    };
+    const before = lastView;
+    lastView = view;
+    if (before === null) return;
+    const changes = [
+      before.layout === view.layout ? null : `layout ${view.layout}`,
+      before.share === view.share ? null : view.share ? "a screen share began" : "the share ended",
+      before.mirror === view.mirror ? null : view.mirror ? "mirror on" : "mirror off",
+      before.large === view.large || before.layout !== view.layout ? null : "speaker changed",
+    ].filter((change) => change !== null);
+    if (changes.length > 0) client.diagnostics.note({ kind: "view", detail: changes.join(", ") });
+  });
+
+  /*
    * The meeting is over when the room says so, and also when the record already said so before this
    * browser arrived — somebody following a link to a meeting that ended last Tuesday.
    */
@@ -1320,7 +1344,29 @@
     canTakeBack={mayTakeBack}
     onSend={(body) => chat.send(body)}
     onTakeBack={(messageId) => void chat.redact(messageId)}
+    questions={questions.queue}
+    hosting={myRole !== null}
+    asking={questions.asking}
+    upvoting={questions.upvoting}
+    questionNameOf={(question) => nameOfStay(question.participantId, question.userId)}
+    isMyQuestion={askedByMe}
+    onAsk={(body) => questions.ask(body)}
+    onToggleUpvote={(questionId) => void questions.toggleUpvote(questionId)}
+    onMarkAnswered={(questionId, answered) => void questions.markAnswered(questionId, answered)}
+    onRedactQuestion={(questionId) => void questions.redact(questionId)}
   >
+    {#snippet questionFailure()}
+      {#if questions.writeFailure !== null}
+        <FailureNotice
+          failure={questions.writeFailure}
+          subject="This meeting"
+          title={questionWriteTitle}
+          fallback={questionWriteSentence}
+          whenSilent="Nothing answered, so nothing changed in this meeting's questions."
+        />
+      {/if}
+    {/snippet}
+
     {#snippet readFailure()}
       {#if chat.readFailure !== null}
         <FailureNotice
@@ -1687,6 +1733,8 @@
                 : client.pin(participantId)}
             hostMenu={myRole === null ? undefined : tileMenu}
             mirrorSelf={viewPreference.current.mirrorSelf}
+            onPictureAttached={(where) =>
+              client.diagnostics.note({ kind: "picture", detail: where })}
           />
         </div>
         {#if sideOpen}
@@ -1699,7 +1747,6 @@
               peopleCount={client.participants.length}
               onClose={() => (sideOpen = false)}
               chat={chatControl}
-              questions={questionsTab}
               polls={pollsTab}
             >
               {#snippet people()}
@@ -1752,7 +1799,6 @@
         onChangeEffects={changeEffects}
         onChooseBackgroundImage={(file) => void chooseBackgroundImage(file)}
         onOpenPolls={() => toggleSide("polls")}
-        onOpenQuestions={() => toggleSide("questions")}
         onOpenPeople={() => toggleSide("people")}
         sideTab={sideOpen ? sideTab : null}
         peopleCount={client.participants.length}
@@ -1904,51 +1950,6 @@
       </MeetingPollsPanel>
       {/snippet}
 
-      <!-- What the room has asked, in the order a host works it. -->
-      {#snippet questionsTab()}
-      <MeetingQuestionsPanel
-        inline
-        bind:draft={questionDraft}
-        subject={endSubject}
-        queue={questions.queue}
-        hosting={myRole !== null}
-        loading={questions.reading}
-        failed={questions.readFailure !== null && questions.questions.length === 0}
-        asking={questions.asking}
-        upvoting={questions.upvoting}
-        nameOf={(question) => nameOfStay(question.participantId, question.userId)}
-        isMine={askedByMe}
-        onAsk={(body) => questions.ask(body)}
-        onToggleUpvote={(questionId) => void questions.toggleUpvote(questionId)}
-        onMarkAnswered={(questionId, answered) => void questions.markAnswered(questionId, answered)}
-        onRedact={(questionId) => void questions.redact(questionId)}
-      >
-        {#snippet readFailure()}
-          {#if questions.readFailure !== null}
-            <FailureNotice
-              failure={questions.readFailure}
-              subject="This meeting"
-              title="Nothing Could Be Read"
-              fallback="The questions asked in this meeting could not be read."
-              whenSilent="Nothing answered. The questions asked in this meeting could not be read."
-              onRetry={() => void questions.refresh()}
-            />
-          {/if}
-        {/snippet}
-
-        {#snippet writeFailure()}
-          {#if questions.writeFailure !== null}
-            <FailureNotice
-              failure={questions.writeFailure}
-              subject="This meeting"
-              title={questionWriteTitle}
-              fallback={questionWriteSentence}
-              whenSilent="Nothing answered, so nothing changed in this meeting's questions."
-            />
-          {/if}
-        {/snippet}
-      </MeetingQuestionsPanel>
-      {/snippet}
 
       <!-- Who is at the door. Opened from a control that is absent for everybody who is not running
            the meeting, and it would have nothing to draw for them either: the room sends the list

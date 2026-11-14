@@ -66,6 +66,7 @@
     fit = "cover",
     onPin,
     menu,
+    onPictureAttached,
     class: className = "",
     style = undefined,
   }: {
@@ -135,6 +136,8 @@
      * happen here at all.
      */
     menu?: Snippet;
+    /** Told each time the tile starts playing a different stream, for the diagnostics. */
+    onPictureAttached?: () => void;
     class?: string;
     /** The size the gallery worked out for this tile, where it worked one out. */
     style?: string;
@@ -143,11 +146,22 @@
   /** The element the picture is played through. There is none where no picture was asked for. */
   let element = $state<HTMLVideoElement | null>(null);
 
+  /*
+   * THE PICTURE IS HANDED OVER ONLY WHEN IT IS A DIFFERENT ONE. Setting `srcObject` makes the browser
+   * start the element over, which draws one empty frame before the first new one: a flash. So a
+   * tile re-rendered with the same stream leaves the element alone, and the element is emptied only
+   * when it goes, never between one stream and the next.
+   */
   $effect(() => {
     const media = element;
     const source = stream;
-    if (media === null) return;
+    if (media === null || media.srcObject === source) return;
     media.srcObject = source;
+    onPictureAttached?.();
+  });
+  $effect(() => {
+    const media = element;
+    if (media === null) return;
     return () => {
       media.srcObject = null;
     };
@@ -175,12 +189,15 @@
     <!-- svelte-ignore a11y_media_has_caption -->
     <!-- A live camera has no caption track to offer: nothing is transcribing the room in this slice,
          and an empty track element would assert captions that do not exist. Muted whoever it
-         belongs to — every voice in the room is played once, elsewhere. -->
+         belongs to — every voice in the room is played once, elsewhere. It sits on its own
+         compositing layer whether or not it is mirrored, so turning the mirror on, or a tile
+         changing size, never moves the picture from one drawing path to another mid-call: Chrome on
+         Windows shows one empty frame when it does. -->
     <video
       bind:this={element}
-      class="h-full w-full {fit === 'contain' ? 'object-contain' : 'object-cover'} {mirrored
-        ? '-scale-x-100'
-        : ''}"
+      class="h-full w-full will-change-transform {fit === 'contain'
+        ? 'object-contain'
+        : 'object-cover'} {mirrored ? '-scale-x-100' : ''}"
       autoplay
       playsinline
       muted

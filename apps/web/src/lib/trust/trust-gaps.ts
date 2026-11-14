@@ -25,13 +25,11 @@ export interface TrustLedgerGap {
 export const TRUST_LEDGER_GAPS = {
   disbursementRequest: {
     field: "Disbursement Request",
-    waitsOn:
-      "a route that reads one disbursement request by its identifier, so the request a payment " +
-      "was approved from can open",
+    waitsOn: "opening the request a payment was approved from",
   },
   history: {
     field: "History",
-    waitsOn: "an endpoint that serves a trust movement's recorded events",
+    waitsOn: "trust movement history",
   },
 } as const satisfies Readonly<Record<string, TrustLedgerGap>>;
 
@@ -46,7 +44,7 @@ export type TrustLedgerGapName = keyof typeof TRUST_LEDGER_GAPS;
  */
 export function gapCellTitle(name: TrustLedgerGapName): string {
   const gap = TRUST_LEDGER_GAPS[name];
-  return `${gap.field} is not served yet. Waiting on ${gap.waitsOn}.`;
+  return `Not built yet: ${gap.waitsOn}.`;
 }
 
 /** What a control waits on, as the noun phrase the Soon composition takes. */

@@ -245,6 +245,9 @@
       "path": "packages/property-links/tsconfig.build.json"
     },
     {
+      "path": "packages/record-transfer/tsconfig.build.json"
+    },
+    {
       "path": "packages/reporting/tsconfig.build.json"
     },
     {
