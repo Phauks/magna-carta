@@ -9,7 +9,7 @@ import { applyMigrations, loadMigrationsFromDisk } from "../src/node-sqlite.ts";
  * to members' own rooms. Seed rooms at the schema before it, apply it, and check every existing room
  * became a member's own room, that a member still has only one, and that shared rooms are not capped.
  */
-const TAG = "20261114T010019_shared-meeting-rooms";
+const TAG = "20261114T012921_shared-meeting-rooms";
 const NOW = "2026-11-14T12:00:00.000Z";
 const OWNER = "user_trevorgoldsmith00000000";
 

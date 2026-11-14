@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7931c0da-3af2-4312-8619-6ad5c6966863",
+  "id": "67290fbd-348e-453d-9de1-c0f5f6bf233b",
   "prevId": "6915558e-97bb-40ed-9dcd-551fabe981b6",
   "tables": {
     "account_balance": {
@@ -22437,28 +22437,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'personal'"
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "retired_at": {
-          "name": "retired_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -22480,8 +22458,7 @@
           "columns": [
             "owner_user_id"
           ],
-          "isUnique": true,
-          "where": "\"meeting_personal_room\".\"kind\" = 'personal'"
+          "isUnique": true
         },
         "meeting_personal_room_address_name_unique_index": {
           "name": "meeting_personal_room_address_name_unique_index",
@@ -22524,14 +22501,6 @@
         "meeting_personal_room_lobby_check": {
           "name": "meeting_personal_room_lobby_check",
           "value": "\"meeting_personal_room\".\"lobby\" IN ('off', 'on')"
-        },
-        "meeting_personal_room_kind_check": {
-          "name": "meeting_personal_room_kind_check",
-          "value": "\"meeting_personal_room\".\"kind\" IN ('personal', 'shared')"
-        },
-        "meeting_personal_room_title_check": {
-          "name": "meeting_personal_room_title_check",
-          "value": "\"meeting_personal_room\".\"title\" IS NULL OR length(\"meeting_personal_room\".\"title\") BETWEEN 1 AND 80"
         },
         "meeting_personal_room_address_name_shape_check": {
           "name": "meeting_personal_room_address_name_shape_check",
@@ -25809,6 +25778,87 @@
         "notification_swept_unread_count_nonnegative_check": {
           "name": "notification_swept_unread_count_nonnegative_check",
           "value": "\"notification_swept_unread\".\"unread_count\" >= 0"
+        }
+      }
+    },
+    "number_reservation": {
+      "name": "number_reservation",
+      "columns": {
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drawn_value": {
+          "name": "drawn_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "holder_user_id": {
+          "name": "holder_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reserved_at": {
+          "name": "reserved_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "number_reservation_token_unique_index": {
+          "name": "number_reservation_token_unique_index",
+          "columns": [
+            "token"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "number_reservation_purpose_scope_key_drawn_value_pk": {
+          "columns": [
+            "purpose",
+            "scope_key",
+            "drawn_value"
+          ],
+          "name": "number_reservation_purpose_scope_key_drawn_value_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "number_reservation_held_together_check": {
+          "name": "number_reservation_held_together_check",
+          "value": "(\"number_reservation\".\"token\" IS NULL) = (\"number_reservation\".\"holder_user_id\" IS NULL) AND (\"number_reservation\".\"token\" IS NULL) = (\"number_reservation\".\"expires_at\" IS NULL)"
         }
       }
     },

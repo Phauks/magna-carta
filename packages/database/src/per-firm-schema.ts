@@ -13213,6 +13213,41 @@ export const transferSourceFile = sqliteTable(
   ],
 );
 
+// A number held for a record that is still being filled in, one row per {purpose, scope_key,
+// drawn_value}. Every sequence on the numbering register shares this one table, because what a hold
+// IS does not change with the sequence: a value the counter has already moved past, kept for one
+// person's open panel until they save, cancel, or walk away. The draw planner in
+// @magna-carta/sequence-numbering reads it before the counter, so a value given back is the next one
+// handed out and a cancelled panel leaves no gap.
+//
+// A row with a token is HELD, by its holder, until expires_at. A row with no token was GIVEN BACK and
+// waits for the next record in its scope; an expired hold reads the same. The row is deleted in the
+// same batch that writes the record taking its value, so a value never sits here and on a record at
+// once — and the owning sequence's allocation primary key stays the backstop if a race ever tried.
+export const numberReservation = sqliteTable(
+  "number_reservation",
+  {
+    // The register's purpose value (matter, intake, conflicts_check, ...). Two purposes may share a
+    // counter table under different scope prefixes, and the scope key alone already carries that
+    // prefix, so this column keeps the purposes apart for a reader rather than for uniqueness.
+    purpose: text("purpose").notNull(),
+    scopeKey: text("scope_key").notNull(), // the counter row this value came from
+    drawnValue: integer("drawn_value").notNull(), // the counter value being held
+    // An opaque bearer for the hold, handed to the panel that asked; null once given back.
+    token: text("token"),
+    holderUserId: text("holder_user_id"), // who holds it; null once given back
+    reservedAt: text("reserved_at").notNull(),
+    expiresAt: text("expires_at"), // when an abandoned hold lapses; null once given back
+  },
+  (table) => [
+    primaryKey({ columns: [table.purpose, table.scopeKey, table.drawnValue] }),
+    uniqueIndex("number_reservation_token_unique_index").on(table.token),
+    check(
+      "number_reservation_held_together_check",
+      sql`(${table.token} IS NULL) = (${table.holderUserId} IS NULL) AND (${table.token} IS NULL) = (${table.expiresAt} IS NULL)`,
+    ),
+  ],
+);
 // One pass over one source file for one kind of record: what was asked for, and how it came out.
 // The mapping rules are kept with the pass, as the operator stated them, so a report can always be
 // read beside the rules that produced it and a pass can be run again unchanged. The rules name

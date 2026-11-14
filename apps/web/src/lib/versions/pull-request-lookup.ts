@@ -1,7 +1,6 @@
 /*
  * Which merged pull request a deployed commit is, and how far apart two deployed commits are, read
- * from the merged-pull-request ledger this build carries (docs/pull-request-ledger.json, the same
- * rows the Changelog page shows).
+ * from the merged-pull-request ledger this build carries (docs/pull-request-ledger.json).
  *
  * The ledger is large, so only the System Status page reaches this module, and it does so through
  * a dynamic import: the header chip is on every screen and must not carry it.

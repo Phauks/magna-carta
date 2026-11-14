@@ -84,6 +84,11 @@
   // how the bucket resolver (src/files/firm-bucket.ts) proves that the bucket a presigned URL addresses
   // is the same one this Worker reads through. Keep it byte-identical to the r2_buckets bucket_name.
   "vars": {
+    // Which model port Magnus answers through: "gateway" reaches the firm's chosen model over the AI
+    // binding. Kept here so every deploy carries it (a dashboard value is replaced by the next deploy).
+    // A firm still sends nothing until its own two consent settings are open. `.dev.vars` sets "stub"
+    // for the local run and the test pool. See apps/api-worker/src/magnus/inference-port-binding.ts.
+    "MAGNUS_INFERENCE_ADAPTER": "gateway",
     "FILES_ORIGIN": "files.magnacartausercontent.com",
     "R2_BUCKET_NAME": "magna-carta-production-platform-files",
     // What the two anonymous writes (registration, invitation redemption) do while NO Turnstile

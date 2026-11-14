@@ -3483,6 +3483,87 @@
           "segments"
         ]
       },
+      "NumberReservationResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "token",
+          "number",
+          "expiresAt"
+        ]
+      },
+      "NumberReservationRequest": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "matter",
+              "consultation",
+              "intake",
+              "conflicts_check",
+              "custody_packet",
+              "communication"
+            ]
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "locationCode": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "matterTypeCode": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "clientCode": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "staffInitials": {
+                "type": "string",
+                "maxLength": 16
+              },
+              "clientName": {
+                "type": "string",
+                "maxLength": 300
+              }
+            }
+          }
+        },
+        "required": [
+          "purpose"
+        ]
+      },
       "ScanPolicyResponse": {
         "type": "object",
         "properties": {
@@ -16163,6 +16244,12 @@
               "open"
             ]
           },
+          "numberReservation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number."
+          },
           "description": {
             "type": [
               "string",
@@ -25807,6 +25894,12 @@
           },
           "scope": {
             "$ref": "#/components/schemas/ConflictsScopeRequest"
+          },
+          "numberReservation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number."
           }
         },
         "required": [
@@ -25896,17 +25989,6 @@
         "required": [
           "sources",
           "strictness"
-        ]
-      },
-      "NextConflictsCheckNumberResponse": {
-        "type": "object",
-        "properties": {
-          "checkNumber": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "checkNumber"
         ]
       },
       "ConflictsCheckPage": {
@@ -33131,6 +33213,11 @@
               "mms"
             ]
           },
+          "numberReservation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
           "direction": {
             "type": "string",
             "enum": [
@@ -36583,6 +36670,12 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          },
+          "numberReservation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number."
           }
         },
         "required": [
@@ -52603,6 +52696,173 @@
           },
           "422": {
             "description": "The scheme is invalid, or a scoping/value segment has no value in the sample context",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/number-reservations": {
+      "post": {
+        "description": "Holds the draft number a create panel shows, or renews the one it holds. The number is kept for the panel until it saves (the record takes exactly that number), cancels (the number is given back for the next record), or goes quiet for fifteen minutes (the hold lapses and the number is given back). A run never keeps a gap: the next record in the scope takes the lowest number given back before the counter moves.",
+        "operationId": "numbering.holdDraftNumber",
+        "tags": [
+          "numbering"
+        ],
+        "x-mc-operationId": "numbering.holdDraftNumber",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:viewNumbering",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "numbering"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NumberReservationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The number held, or nulls where nothing can be held yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumberReservationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks matters:viewNumbering",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/number-reservations/{token}": {
+      "delete": {
+        "description": "Gives a held draft number back, because its panel was cancelled. Only the member holding it can; a token already saved, already given back, or held by somebody else changes nothing.",
+        "operationId": "numbering.releaseDraftNumber",
+        "tags": [
+          "numbering"
+        ],
+        "x-mc-operationId": "numbering.releaseDraftNumber",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:viewNumbering",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "numbering.holdDraftNumber"
+        },
+        "x-mc-tags": [
+          "numbering"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "required": true,
+            "name": "token",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The number is no longer held by this member"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks matters:viewNumbering",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -93234,70 +93494,6 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/conflicts/checks/next-number": {
-      "get": {
-        "description": "The number the next check this firm opens would draw. A preview rather than a reservation: two members opening a check at the same moment both see it, and one of them draws the number after it. Shown on the New Check panel so a check is identified before it is saved.",
-        "operationId": "conflicts.nextCheckNumber",
-        "tags": [
-          "conflicts"
-        ],
-        "x-mc-operationId": "conflicts.nextCheckNumber",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "conflicts:read",
-        "x-mc-resource": "firm",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "conflicts"
-        ],
-        "x-mc-deprecated": false,
-        "responses": {
-          "200": {
-            "description": "The next check number",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NextConflictsCheckNumberResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks the required permission",
             "content": {
               "application/problem+json": {
                 "schema": {

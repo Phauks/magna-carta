@@ -47,7 +47,7 @@ function conversation(pairs: number, contentLength = 10): TurnRow[] {
 }
 
 describe("the conversation window", () => {
-  it("leaves out a removed pair and the turns an edit set aside", () => {
+  it("leaves out a removed message, the answer to it, and the turns an edit set aside", () => {
     const turns = conversation(2);
     const removed = { ...turns[0]!, removedAt: "2026-08-06T01:00:00.000Z" };
     const setAside = { ...turns[2]!, supersededAt: "2026-08-06T01:00:00.000Z" };
@@ -55,7 +55,10 @@ describe("the conversation window", () => {
     const contents = window.messages.map((message) => message.content);
     expect(contents).not.toContain(turns[0]?.content);
     expect(contents).not.toContain(turns[2]?.content);
-    expect(contents).toContain(turns[1]?.content);
+    // The answer stays readable in the transcript, but the model is not handed a reply to a
+    // question it cannot see.
+    expect(contents).not.toContain(turns[1]?.content);
+    expect(contents).toContain(turns[3]?.content);
   });
 
   it("keeps a short conversation whole and reports no truncation", () => {
