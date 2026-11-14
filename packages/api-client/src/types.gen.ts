@@ -3030,7 +3030,9 @@ export type DocumentSealResponse = {
                 level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
                 observedIp?: string;
                 userAgent?: string;
+                location?: string;
                 proofReference?: string;
+                codeDestination?: string;
             };
         }>;
         envelope?: {
@@ -21034,7 +21036,16 @@ export type EsignSealData = {
             attribution: {
                 level: 'email-link' | 'access-code' | 'id-verified' | 'portal-authenticated' | 'firm-authenticated';
                 proofReference?: string;
+                codeDestination?: string;
             };
+            signatureImages?: Array<{
+                imageBase64: string;
+                pages?: Array<number>;
+            }>;
+            initialsImages?: Array<{
+                imageBase64: string;
+                pages?: Array<number>;
+            }>;
         }>;
         documentTitle?: string;
         seal?: {

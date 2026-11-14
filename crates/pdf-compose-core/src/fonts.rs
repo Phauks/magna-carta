@@ -74,6 +74,33 @@ impl FontFamily {
         }
     }
 
+    /// Atkinson Hyperlegible Next, compiled into the library and licensed under the SIL Open
+    /// Font License (`fonts/AtkinsonHyperlegibleNext-LICENSE.txt`). It covers Latin only.
+    #[cfg(feature = "bundled-fonts")]
+    pub fn atkinson_hyperlegible() -> Self {
+        Self {
+            regular: Arc::new(
+                include_bytes!("../fonts/AtkinsonHyperlegibleNext-Regular.ttf").to_vec(),
+            ),
+            bold: Arc::new(include_bytes!("../fonts/AtkinsonHyperlegibleNext-Bold.ttf").to_vec()),
+            italic: Arc::new(
+                include_bytes!("../fonts/AtkinsonHyperlegibleNext-Italic.ttf").to_vec(),
+            ),
+            bold_italic: Arc::new(
+                include_bytes!("../fonts/AtkinsonHyperlegibleNext-BoldItalic.ttf").to_vec(),
+            ),
+        }
+    }
+
+    /// The compiled-in family a document names as its typeface.
+    #[cfg(feature = "bundled-fonts")]
+    pub fn bundled_as(typeface: crate::Typeface) -> Self {
+        match typeface {
+            crate::Typeface::LiberationSans => Self::bundled(),
+            crate::Typeface::AtkinsonHyperlegible => Self::atkinson_hyperlegible(),
+        }
+    }
+
     pub(crate) fn data(&self, face: Face) -> Arc<Vec<u8>> {
         Arc::clone(match face {
             Face::Regular => &self.regular,
