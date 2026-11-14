@@ -108,7 +108,7 @@
     }
     readFailure = stated(
       outcome.failure,
-      "The document could not be read.",
+      "Couldn't load the document.",
       "Couldn't connect while reading the document.",
     );
   }

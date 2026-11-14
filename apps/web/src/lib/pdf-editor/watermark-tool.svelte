@@ -113,7 +113,7 @@
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
       file,
-      "This document is locked with a password. Unlock it in the File Workbench, save the unlocked copy, and mark that.",
+      "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and mark that.",
     );
     if (gone) {
       if (opened.kind === "ready") opened.source.close();
@@ -225,7 +225,7 @@
 {:else if phase.kind === "refused"}
   <div class="p-24">
     <Alert.Root variant="warning">
-      <Alert.Title>This Document Cannot Be Marked Here</Alert.Title>
+      <Alert.Title>This Document Can't Be Marked Here</Alert.Title>
       <Alert.Description>{phase.message}</Alert.Description>
     </Alert.Root>
   </div>
@@ -398,7 +398,7 @@
           {/snippet}
         </LabelledField>
       </FieldRow>
-      <LabelledField label="Pages" hint="Leave empty for every page, or write pages like 1-3, 7" error={problems.pages}>
+      <LabelledField label="Pages" hint="Leave empty for all pages, or write pages like 1-3, 7" error={problems.pages}>
         {#snippet children({ props })}
           <Input {...props} value={settings.pages} placeholder="All pages" oninput={(event) => update({ pages: event.currentTarget.value })} />
         {/snippet}
@@ -414,7 +414,7 @@
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">
             <Alert.Title>Not Filed</Alert.Title>
-            <Alert.Description>The marked copy was made but could not be filed on the matter. Download it now; nothing was saved.</Alert.Description>
+            <Alert.Description>The marked copy was made but couldn't be saved to the matter. Download it now; nothing was saved.</Alert.Description>
             <Button variant="secondary" size="sm" class="self-start" href={result.filed.url} download={result.filed.name}>Download</Button>
           </Alert.Root>
         {:else if result.kind === "failed"}

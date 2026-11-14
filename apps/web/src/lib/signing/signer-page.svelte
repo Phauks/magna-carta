@@ -81,8 +81,8 @@
     if (problem === null || problem === undefined) return null;
     if (![404, 409, 410].includes(problem.status)) return null;
     return {
-      title: problem.title ?? "This Link Does Not Work",
-      sentence: problem.detail ?? "Ask whoever sent it for a new link.",
+      title: problem.title ?? "This Link Doesn't Work",
+      sentence: problem.detail ?? "Ask the sender for a new link.",
     };
   }
 
@@ -95,7 +95,7 @@
     const outcome = await readSigning(token);
     if (gone) return;
     if (outcome.kind === "failed") {
-      settleFailure(outcome.failure, "The document to sign could not be read.");
+      settleFailure(outcome.failure, "Couldn't load the document to sign.");
       return;
     }
     phase = { kind: "ready", view: outcome.value };
@@ -107,7 +107,7 @@
     const opened = await openSigning(token);
     if (gone) return;
     if (opened.kind === "failed") {
-      settleFailure(opened.failure, "The document to sign could not be opened.");
+      settleFailure(opened.failure, "Couldn't open the document to sign.");
       return;
     }
     await read();
@@ -137,7 +137,7 @@
     const outcome = await sendAccessCode(token);
     codeBusy = false;
     if (outcome.kind === "failed") {
-      codeFailure = stated(outcome.failure, "The code was not sent.");
+      codeFailure = stated(outcome.failure, "The code wasn't sent.");
       return;
     }
     codeSentTo = outcome.value.sentTo;
@@ -158,7 +158,7 @@
       }
       const closed = closedBy(outcome.failure);
       if (closed !== null) phase = { kind: "closed", closed };
-      else codeFailure = stated(outcome.failure, "The code could not be checked.");
+      else codeFailure = stated(outcome.failure, "Couldn't check the code.");
       return;
     }
     await read();
@@ -179,7 +179,7 @@
     const outcome = await giveConsent(token);
     consentBusy = false;
     if (outcome.kind === "failed") {
-      consentFailure = stated(outcome.failure, "Your agreement was not recorded.");
+      consentFailure = stated(outcome.failure, "Your agreement wasn't recorded.");
       return;
     }
     consentedAt = new Date().toISOString();
@@ -213,7 +213,7 @@
     if (outcome.kind === "failed") {
       documentState = {
         kind: "failed",
-        sentence: outcome.failure.problem?.detail ?? "The document could not be read. Reload the page to try again.",
+        sentence: outcome.failure.problem?.detail ?? "Couldn't load the document. Reload the page to try again.",
       };
       return;
     }
@@ -221,7 +221,7 @@
     const refused = await source.open(outcome.value);
     if (gone) return;
     if (refused !== null) {
-      documentState = { kind: "failed", sentence: "The document could not be shown in this browser." };
+      documentState = { kind: "failed", sentence: "This browser can't show the document." };
       return;
     }
     pageCanvases = source.pages.map(() => null);
@@ -312,7 +312,7 @@
     if (outcome.kind === "failed") {
       const closed = closedBy(outcome.failure);
       if (closed !== null && outcome.failure.problem?.status === 410) phase = { kind: "closed", closed };
-      else finishFailure = stated(outcome.failure, "Your signature was not recorded.");
+      else finishFailure = stated(outcome.failure, "Your signature wasn't recorded.");
       return;
     }
     phase = { kind: "finished", status: outcome.value.status };
@@ -326,7 +326,7 @@
     declineFailure = null;
     const outcome = await declineSigning(token, declineReason.trim());
     if (outcome.kind === "failed") {
-      declineFailure = stated(outcome.failure, "Your decline was not recorded.");
+      declineFailure = stated(outcome.failure, "Your decline wasn't recorded.");
       return "refused";
     }
     phase = { kind: "finished", status: "declined" };
@@ -395,23 +395,22 @@
       {#if phase.kind === "closed"}
         {@render closedCard(phase.closed)}
       {:else if phase.kind === "unread"}
-        <AuthPanel title="The Document Could Not Be Read">
+        <AuthPanel title="Couldn't Load the Document">
           <FailureNotice failure={phase.failure.failure} fallback={phase.failure.fallback} onRetry={() => void begin()} />
         </AuthPanel>
       {:else if phase.kind === "finished"}
         <AuthPanel title={phase.status === "signed" ? "You Have Signed" : "You Declined to Sign"}>
           <p class="text-sm">
             {phase.status === "signed"
-              ? "Your signature is recorded. You will be emailed a copy of the signed document once everyone has signed. You can close this page."
-              : "Your decline is recorded and whoever sent the document has been told. You can close this page."}
+              ? "Your signature is recorded. You'll get a copy of the signed document by email once everyone has signed. You can close this page."
+              : "Your decline is recorded and the sender has been told. You can close this page."}
           </p>
         </AuthPanel>
       {:else if view !== null && view.needsCode}
         <AuthPanel title="Confirm It Is You">
           <div class="flex flex-col gap-16">
             <p class="text-sm">
-              {view.firmName} asked us to check that it is you before you sign. We will email a six-digit code to
-              {view.codeSentTo ?? "your email address"}.
+              {view.firmName} asked us to confirm it's you before you sign. We'll email a six-digit code to {view.codeSentTo ?? "your email address"}.
             </p>
             {#if codeFailure !== null}
               <FailureNotice failure={codeFailure.failure} fallback={codeFailure.fallback} />
@@ -426,7 +425,7 @@
               </div>
               {#if codeWrong}
                 <Alert.Root variant="warning">
-                  <Alert.Description>That code is not right. Check the latest email and try again.</Alert.Description>
+                  <Alert.Description>That code isn't right. Check the latest email and try again.</Alert.Description>
                 </Alert.Root>
               {/if}
               <div class="flex gap-8">
@@ -466,7 +465,7 @@
       {:else if view !== null}
         {#if documentState.kind === "failed"}
           <Alert.Root variant="warning" class="max-w-prose">
-            <Alert.Title>The Document Could Not Be Shown</Alert.Title>
+            <Alert.Title>Couldn't Show the Document</Alert.Title>
             <Alert.Description>{documentState.sentence}</Alert.Description>
           </Alert.Root>
         {:else if documentState.kind === "shown"}
@@ -600,8 +599,7 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-8">
       <p class="text-sm">
-        Declining ends this request for everyone, and {view?.senderName ?? "the sender"} is told. Nothing you have
-        filled in is kept.
+        Declining ends this request for everyone, and {view?.senderName ?? "the sender"} is told. Anything you filled in is discarded.
       </p>
       <Label for="signer-decline-reason">Why (optional)</Label>
       <Textarea id="signer-decline-reason" bind:value={declineReason} maxlength={500} disabled={busy} />
