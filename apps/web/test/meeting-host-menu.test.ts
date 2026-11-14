@@ -182,7 +182,7 @@ describe("putting somebody out of the room", () => {
     expect(asked).toEqual([]);
     const panel = document.body.querySelector('[role="alertdialog"]');
     expect(panel).not.toBeNull();
-    expect(panel?.textContent).toContain("cannot come back into this meeting");
+    expect(panel?.textContent).toContain("can't come back into this meeting");
 
     const commit = [...document.body.querySelectorAll("button")].find(
       (control) => control.textContent?.trim() === "Remove",

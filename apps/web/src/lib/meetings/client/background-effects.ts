@@ -54,11 +54,11 @@ export interface BackgroundSeams {
 }
 
 /** What a background that could not be started reads as. */
-export const BACKGROUND_REFUSED = "Your background could not be changed in this browser.";
+export const BACKGROUND_REFUSED = "Couldn't change your background in this browser.";
 
 /** What a background that stopped working reads as. */
 export const BACKGROUND_STOPPED =
-  "Your background stopped working, so your camera is being sent as it is.";
+  "Your background stopped working, so your camera is sent without it.";
 
 /** What choosing "Image" before any picture reads as. The panel asks for one first, so this is a backstop. */
 export const BACKGROUND_IMAGE_MISSING = "Choose a picture first.";

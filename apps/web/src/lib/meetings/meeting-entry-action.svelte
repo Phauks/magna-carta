@@ -165,8 +165,8 @@
   const locked = $derived(running !== null && running.locked);
   const lockedReason = $derived(
     running?.medium === "audio"
-      ? "A host has locked this call, so nobody else can come in."
-      : "A host has locked this meeting, so nobody else can come in.",
+      ? "A host locked this call, so nobody else can join."
+      : "A host locked this meeting, so nobody else can join.",
   );
 
   /*
@@ -181,7 +181,7 @@
 {#if canJoin && configured && canHost && running !== null}
   <Button
     variant="secondary"
-    title="Who from outside the firm may come to this meeting"
+    title="Who from outside the firm can join this meeting"
     onclick={() => (guestsOpen = true)}
   >
     <UsersRound class="size-16" aria-hidden="true" />
@@ -246,7 +246,7 @@
         <Button
           variant="secondary"
           disabled={starting !== null}
-          title="Open a call on this entry and go into it — sound only, no cameras"
+          title="Open a call on this entry and go into it. Sound only, no cameras."
           onclick={() => void start("audio")}
         >
           <Phone class="size-16" aria-hidden="true" />
@@ -273,8 +273,8 @@
           failure={startFailure}
           subject="This meeting"
           title="Nothing Was Opened"
-          fallback="The room was not opened."
-          whenSilent="Nothing answered. The room was not opened."
+          fallback="The room wasn't opened."
+          whenSilent="Couldn't connect. The room wasn't opened. Try again."
           onRetry={() => void start(lastAttempt)}
         />
       {/if}

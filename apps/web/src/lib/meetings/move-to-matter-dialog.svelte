@@ -74,16 +74,15 @@
       <FailureNotice
         {failure}
         subject="This meeting"
-        title="The Meeting Did Not Move"
-        fallback="The meeting is where it was."
-        whenSilent="Nothing answered, so the meeting is where it was."
+        title="Meeting Not Moved"
+        fallback="The meeting wasn't moved."
+        whenSilent="Couldn't connect. The meeting wasn't moved. Try again."
       />
     {/if}
   {/snippet}
   {#snippet fields()}
     <p class="text-sm">
-      The meeting's calendar entry moves onto the matter with everybody on it. The meeting keeps its
-      address, so nobody in the room is disturbed. It cannot be moved back.
+      The meeting's calendar entry moves to the matter with everyone on it. The meeting keeps its address, so nobody in the room is interrupted. This can't be undone.
     </p>
     <div class="flex flex-col gap-8">
       <Label for="move-to-matter-matter">Matter</Label>

@@ -217,7 +217,7 @@
       await navigator.clipboard.writeText(text);
       toast.success("Diagnostics copied. Paste them into a message.");
     } catch {
-      toast.error("Could not copy the diagnostics.");
+      toast.error("Couldn't copy the diagnostics.");
     }
   }
 
@@ -234,7 +234,7 @@
       await navigator.clipboard.writeText(link);
       toast.success("Link copied. It opens this meeting for people at the firm.");
     } catch {
-      toast.error("Could not copy the link. Copy it from the address bar instead.");
+      toast.error("Couldn't copy the link. Copy it from the address bar instead.");
     }
   }
 
@@ -256,7 +256,7 @@
     try {
       image = await keepBackgroundImage(file);
     } catch {
-      client.noteEffectsRefusal("That file is not a picture this browser can show.");
+      client.noteEffectsRefusal("This browser can't show that file as a picture.");
       return;
     }
     effectsPreference.set({ ...effectsPreference.current, background: "image" });
@@ -565,7 +565,7 @@
     }
     if (myRole === null || arrivalAnnounced || lobbyOpen) return;
     arrivalAnnounced = true;
-    toast("Somebody is waiting to be let in.");
+    toast("Someone is waiting to be let in.");
   });
 
   /**
@@ -803,23 +803,23 @@
   /** What a refused message reads as: the two refusals with words of their own, and the rest. */
   const chatWriteTitle = $derived.by(() => {
     if (refusedAs(chat.writeFailure, "meeting-message-too-long")) return "That Message Is Too Long";
-    if (refusedAs(chat.writeFailure, "meeting-not-joined")) return "You Are Not in This Meeting";
+    if (refusedAs(chat.writeFailure, "meeting-not-joined")) return "You Aren't in This Meeting";
     if (refusedAs(chat.writeFailure, "meeting-message-file-unavailable")) {
-      return "That File Cannot Be Shared Here";
+      return "That File Can't Be Shared Here";
     }
     return "Nothing Was Said";
   });
   const chatWriteSentence = $derived.by(() => {
     if (refusedAs(chat.writeFailure, "meeting-message-too-long")) {
-      return `A message holds ${String(MAX_MEETING_MESSAGE_LENGTH)} characters at most, and this one is longer.`;
+      return `A message can be at most ${String(MAX_MEETING_MESSAGE_LENGTH)} characters. This one is longer.`;
     }
     if (refusedAs(chat.writeFailure, "meeting-not-joined")) {
-      return "Your stay in this meeting has closed, so nothing can be said in it from here.";
+      return "You've left this meeting, so you can't send messages from here.";
     }
     if (refusedAs(chat.writeFailure, "meeting-message-file-unavailable")) {
-      return "Only a file on this meeting's matter can be shared in its chat, and that one is not, or has been deleted.";
+      return "Only a file on this meeting's matter can be shared in its chat. That one isn't, or it was deleted.";
     }
-    return "That did not reach this meeting's record.";
+    return "That wasn't saved to this meeting's record.";
   });
 
   /*
@@ -966,10 +966,10 @@
   const pollWriteTitle = $derived.by(() => {
     if (refusedAs(polls.writeFailure, "meeting-poll-closed")) return "That Poll Is Closed";
     if (refusedAs(polls.writeFailure, "meeting-poll-already-answered")) {
-      return "You Have Answered This Poll";
+      return "You've Answered This Poll";
     }
-    if (refusedAs(polls.writeFailure, "meeting-not-host")) return "You Are Not Hosting This Meeting";
-    if (refusedAs(polls.writeFailure, "meeting-not-joined")) return "You Are Not in This Meeting";
+    if (refusedAs(polls.writeFailure, "meeting-not-host")) return "You Aren't Hosting This Meeting";
+    if (refusedAs(polls.writeFailure, "meeting-not-joined")) return "You Aren't in This Meeting";
     return "Nothing Changed";
   });
   const pollWriteSentence = $derived.by(() => {
@@ -977,15 +977,15 @@
       return "A host closed this poll, so it takes no more answers.";
     }
     if (refusedAs(polls.writeFailure, "meeting-poll-already-answered")) {
-      return "An answer cannot be changed once it is given.";
+      return "An answer can't be changed once it's given.";
     }
     if (refusedAs(polls.writeFailure, "meeting-not-host")) {
-      return "Only somebody hosting this meeting can open or close a poll.";
+      return "Only a host can open or close a poll.";
     }
     if (refusedAs(polls.writeFailure, "meeting-not-joined")) {
-      return "Your stay in this meeting has closed, so nothing can be answered from here.";
+      return "You've left this meeting, so you can't answer from here.";
     }
-    return "That did not reach this meeting's record.";
+    return "That wasn't saved to this meeting's record.";
   });
 
   const questionWriteTitle = $derived.by(() => {
@@ -996,21 +996,21 @@
       return "This Meeting Has Too Many Questions";
     }
     if (refusedAs(questions.writeFailure, "meeting-not-joined")) {
-      return "You Are Not in This Meeting";
+      return "You Aren't in This Meeting";
     }
     return "Nothing Changed";
   });
   const questionWriteSentence = $derived.by(() => {
     if (refusedAs(questions.writeFailure, "meeting-question-too-long")) {
-      return `A question holds ${String(MAX_MEETING_QUESTION_LENGTH)} characters at most, and this one is longer.`;
+      return `A question can be at most ${String(MAX_MEETING_QUESTION_LENGTH)} characters. This one is longer.`;
     }
     if (refusedAs(questions.writeFailure, "meeting-question-limit-reached")) {
       return "No more questions can be asked in this meeting.";
     }
     if (refusedAs(questions.writeFailure, "meeting-not-joined")) {
-      return "Your stay in this meeting has closed, so nothing can be asked from here.";
+      return "You've left this meeting, so you can't ask from here.";
     }
-    return "That did not reach this meeting's record.";
+    return "That wasn't saved to this meeting's record.";
   });
 
   /*
@@ -1042,9 +1042,9 @@
     if (summary.eventKind === "firm") {
       return summary.personalRoomSession
         ? "Move this meeting to a matter to record it."
-        : "A meeting on a firm event cannot be recorded.";
+        : "A meeting on a firm event can't be recorded.";
     }
-    if (!recordingIsConfigured(summary)) return "Recording is not switched on for this firm yet.";
+    if (!recordingIsConfigured(summary)) return "Recording isn't turned on for this firm yet.";
     return null;
   });
 
@@ -1428,7 +1428,7 @@
           subject="This meeting"
           title={questionWriteTitle}
           fallback={questionWriteSentence}
-          whenSilent="Nothing answered, so nothing changed in this meeting's questions."
+          whenSilent="Couldn't connect. Nothing changed in this meeting's questions. Try again."
         />
       {/if}
     {/snippet}
@@ -1439,8 +1439,8 @@
           failure={chat.readFailure}
           subject="This meeting"
           title="Nothing Could Be Read"
-          fallback="What has been said in this meeting could not be read."
-          whenSilent="Nothing answered. What has been said in this meeting could not be read."
+          fallback="Couldn't load the chat for this meeting."
+          whenSilent="Couldn't connect. Couldn't load the chat for this meeting. Try again."
           onRetry={() => void chat.refresh()}
         />
       {/if}
@@ -1453,7 +1453,7 @@
           subject="This meeting"
           title={chatWriteTitle}
           fallback={chatWriteSentence}
-          whenSilent="Nothing answered, so nothing was said in this meeting."
+          whenSilent="Couldn't connect. Your message wasn't sent. Try again."
         />
       {/if}
       {#if chatFileRefusal !== null}
@@ -1461,7 +1461,7 @@
           <FailureNotice
             failure={chatFileRefusal.failure}
             subject="This meeting"
-            title="The File Was Not Shared"
+            title="File Not Shared"
             fallback={chatFileRefusal.reason}
             whenSilent="Couldn't connect. Check your connection, then upload the file again."
           />
@@ -1488,8 +1488,8 @@
       failure={hostingRefusal}
       subject="This meeting"
       title="Nothing Changed"
-      fallback="That did not happen."
-      whenSilent="Nothing answered, so nothing changed in this meeting."
+      fallback="That didn't happen."
+      whenSilent="Couldn't connect. Nothing changed in this meeting. Try again."
     />
   {/if}
 {/snippet}
@@ -1612,29 +1612,28 @@
       <FailureNotice
         failure={failureOf(summaryRead.error)}
         subject="This meeting"
-        fallback="This meeting could not be read."
-        whenSilent="Nothing answered. This meeting could not be read."
+        fallback="Couldn't load this meeting."
+        whenSilent="Couldn't connect. Couldn't load this meeting. Try again."
         onRetry={() => void summaryRead.refetch()}
       />
     {/snippet}
 
     {#if unconfigured}
       <EmptyState title="Meetings Are Not Connected">
-        The video service that carries meetings is not connected to this site yet, so a room cannot
-        be opened here.
+        Video meetings aren't connected to this site yet, so a room can't be opened here.
         {#snippet actions()}
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         {/snippet}
       </EmptyState>
     {:else if over}
       <EmptyState title="Meeting Ended">
-        The room is closed. Who was in it and for how long stays on the record.
+        The room is closed. The meeting's record shows who was in it and for how long.
         {#snippet actions()}
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         {/snippet}
       </EmptyState>
     {:else if denied}
-      <EmptyState title="You Were Not Let Into This Meeting">
+      <EmptyState title="You Weren't Let Into This Meeting">
         {DENIED_STATEMENT}
         {#snippet actions()}
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
@@ -1642,8 +1641,7 @@
       </EmptyState>
     {:else if removed}
       <EmptyState title="You Were Removed From This Meeting">
-        A host took you out of the room. You cannot come back into this meeting, and the record
-        keeps when your stay began and when it ended.
+        A host removed you from the room. You can't come back into this meeting. The meeting's record shows when you joined and when you left.
         {#snippet actions()}
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
         {/snippet}
@@ -1652,9 +1650,9 @@
       <FailureNotice
         failure={joinFailure}
         subject="This meeting"
-        title="You Are Not in the Room"
-        fallback="You were not joined to this meeting."
-        whenSilent="Nothing answered. You were not joined to this meeting."
+        title="You Aren't in the Room"
+        fallback="You weren't joined to this meeting."
+        whenSilent="Couldn't connect. You weren't joined to this meeting. Try again."
       />
     {:else if atTheDoor}
       <!-- NOT THE ROOM WITH THINGS MISSING. A waiting socket holds no roster and this browser has
@@ -1692,8 +1690,7 @@
           <Alert.Root variant="warning">
             <Alert.Title>This Page Is Out of Date</Alert.Title>
             <Alert.Description>
-              This page was open while the meeting service was updated, so it no longer understands
-              what the room is sending. Reload the page to join.
+              This page was open while meetings were updated, so it can't follow the room anymore. Reload the page to join.
             </Alert.Description>
           </Alert.Root>
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
@@ -1701,10 +1698,9 @@
       {:else if cannotEncrypt}
         <div class="flex flex-col items-start gap-8">
           <Alert.Root variant="warning">
-            <Alert.Title>This Browser Cannot Join an Encrypted Meeting</Alert.Title>
+            <Alert.Title>This Browser Can't Join an Encrypted Meeting</Alert.Title>
             <Alert.Description>
-              This meeting's pictures and sound are sealed end to end, and this browser cannot seal
-              or open them. Join from a current version of Chrome, Edge, Firefox or Safari.
+              This meeting is encrypted end to end, and this browser can't encrypt or decrypt it. Join from a current version of Chrome, Edge, Firefox or Safari.
             </Alert.Description>
           </Alert.Root>
           <Button variant="secondary" href={backAddress}>Back to the Event</Button>
@@ -1714,7 +1710,7 @@
           <Alert.Root variant="warning">
             <Alert.Title>The Room Stopped Answering</Alert.Title>
             <Alert.Description>
-              The connection to the room ended and nothing is being sent or received.
+              The connection to the room ended. Nothing is being sent or received.
             </Alert.Description>
           </Alert.Root>
           <Button variant="secondary" onclick={rejoin}>Rejoin</Button>
@@ -1735,7 +1731,7 @@
       {#if client.lastRefusal !== null}
         <FailureBand
           variant="warning"
-          title="Something Did Not Reach the Room"
+          title="Something Didn't Reach the Room"
           message={refusalStatement(client.lastRefusal)}
           errorId={client.lastRefusal.errorId}
         />
@@ -1756,7 +1752,7 @@
           subject="This meeting"
           title={recordingWriteRefusal.title}
           fallback={recordingWriteRefusal.sentence}
-          whenSilent="Nothing answered, so the recording did not stop."
+          whenSilent="Couldn't connect. The recording didn't stop. Try again."
         />
       {/if}
 
@@ -1778,7 +1774,7 @@
           <Alert.Root variant="info">
             <Alert.Title>A Host Asked You to Unmute</Alert.Title>
             <Alert.Description>
-              Nothing has changed. Your microphone stays off until you turn it on.
+              Nothing changed. Your microphone stays off until you turn it on.
             </Alert.Description>
           </Alert.Root>
           <div class="flex flex-wrap items-center gap-8">
@@ -1922,12 +1918,12 @@
               failure={endRefusal}
               subject="This meeting"
               title={refusedAs(endRefusal, "meeting-not-host")
-                ? "You Are Not Hosting This Meeting"
+                ? "You Aren't Hosting This Meeting"
                 : "Nothing Changed"}
               fallback={refusedAs(endRefusal, "meeting-not-host")
-                ? "Only somebody hosting this meeting can end it."
-                : "The meeting was not ended."}
-              whenSilent="Nothing answered. The meeting was not ended and is still running."
+                ? "Only a host can end this meeting."
+                : "The meeting wasn't ended."}
+              whenSilent="Couldn't connect. The meeting is still running. Try again."
             />
             {#if refusedAs(endRefusal, "meeting-not-host") && canClaim}
               <Button variant="secondary" onclick={claimHosting}>Claim Hosting</Button>
@@ -1957,16 +1953,14 @@
                 subject="This meeting"
                 title={recordingWriteRefusal.title}
                 fallback={recordingWriteRefusal.sentence}
-                whenSilent="Nothing answered, so the recording did not start."
+                whenSilent="Couldn't connect. The recording didn't start. Try again."
               />
             {/if}
           {/snippet}
 
           {#snippet fields()}
             <p class="text-sm">
-              Everybody in the room, guests included, is told at once that the meeting is being
-              recorded, and so is anybody who joins while it runs. The recording is kept on the
-              matter.
+              Everyone in the room, guests included, is told at once that the meeting is being recorded, and so is anyone who joins while it runs. The recording is saved to the matter.
             </p>
           {/snippet}
         </ActionDialog>
@@ -2010,8 +2004,8 @@
               failure={polls.readFailure}
               subject="This meeting"
               title="Nothing Could Be Read"
-              fallback="This meeting's polls could not be read."
-              whenSilent="Nothing answered. This meeting's polls could not be read."
+              fallback="Couldn't load this meeting's polls."
+              whenSilent="Couldn't connect. Couldn't load this meeting's polls. Try again."
               onRetry={() => void polls.refresh()}
             />
           {/if}
@@ -2024,7 +2018,7 @@
               subject="This meeting"
               title={pollWriteTitle}
               fallback={pollWriteSentence}
-              whenSilent="Nothing answered, so nothing changed in this meeting's polls."
+              whenSilent="Couldn't connect. Nothing changed in this meeting's polls. Try again."
             />
           {/if}
         {/snippet}
@@ -2055,7 +2049,7 @@
               subject="This meeting"
               title="Nobody Moved"
               fallback="Nothing changed at the door."
-              whenSilent="Nothing answered, so nothing changed at the door."
+              whenSilent="Couldn't connect. Nothing changed at the door. Try again."
               onRetry={() => void refreshLobby(meetingId)}
             />
           {:else if doorShortfall !== null}
@@ -2089,8 +2083,8 @@
             <FailureNotice
               failure={hostsFailure}
               subject="This meeting"
-              fallback="Who is hosting this meeting could not be read."
-              whenSilent="Nothing answered. Who is hosting this meeting could not be read."
+              fallback="Couldn't load who is hosting this meeting."
+              whenSilent="Couldn't connect. Couldn't load who is hosting this meeting. Try again."
               onRetry={() => void refreshHosts()}
             />
           {/if}
@@ -2132,8 +2126,8 @@
             <FailureNotice
               failure={noticesFailure}
               subject="This recording"
-              fallback="Who was told about this recording could not be read."
-              whenSilent="Nothing answered. Who was told about this recording could not be read."
+              fallback="Couldn't load who was told about this recording."
+              whenSilent="Couldn't connect. Couldn't load who was told about this recording. Try again."
               onRetry={() => (noticesFor === null ? undefined : void readNotices(noticesFor, null))}
             />
           {:else}

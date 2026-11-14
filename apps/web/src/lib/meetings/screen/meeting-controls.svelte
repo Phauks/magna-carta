@@ -687,7 +687,7 @@
               variant={speakerView ? "secondary" : "ghost"}
               size="icon"
               aria-pressed={speakerView}
-              aria-label={speakerView ? "Show everybody" : "Show whoever is talking, large"}
+              aria-label={speakerView ? "Show everybody" : "Show Who Is Talking, Large"}
               onclick={onToggleSpeakerView}
             >
               <Presentation class="size-16" aria-hidden="true" />
@@ -879,8 +879,7 @@
 
     {#snippet fields()}
       <p class="text-sm">
-        Everybody is taken out of the room and the {roomNoun} closes. The record keeps who was in
-        it and for how long.
+        Everyone is removed from the room and the {roomNoun} closes. The meeting's record shows who was in it and for how long.
       </p>
     {/snippet}
   </ActionDialog>

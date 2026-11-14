@@ -159,12 +159,12 @@ describe("the page, read by a firm Owner", () => {
 
     const captions = rowText("meetings.captions-enabled");
     expect(captions).toContain("Live Captions");
-    expect(captions).toContain("while a meeting is live");
+    expect(captions).toContain("during a live meeting");
 
     const ceiling = rowText("meetings.recorded-track-ceiling");
     expect(ceiling).toContain("People Recorded at Once");
     expect(ceiling).toContain("from 1 to 11");
-    expect(ceiling).toContain("as many as the recorder can hold in memory");
+    expect(ceiling).toContain("the most the recorder can handle");
   });
 
   it("states the ceiling's maximum from the read, not from the page", async () => {
@@ -184,9 +184,7 @@ describe("the page, read by a firm Owner", () => {
 
   it("says the recording service is not configured, beneath the recording switch, only while it is not", async () => {
     await mountAs([MANAGE_MEETING_SETTINGS_PERMISSION], FRESH_FIRM);
-    expect(plateTextAfter("meetings.recording-enabled")).toContain(
-      "recording service is not configured yet",
-    );
+    expect(plateTextAfter("meetings.recording-enabled")).toContain("recording isn't set up yet");
     void unmount(instance as Record<string, unknown>);
     instance = undefined;
     target.innerHTML = "";
@@ -206,7 +204,7 @@ describe("the page, read by a firm Owner", () => {
     const link = note?.querySelector<HTMLAnchorElement>('a[href="/settings/ai"]');
     expect(link?.textContent?.trim()).toBe("AI and the Assistant");
     expect(words(note?.textContent)).toContain("which is off");
-    expect(words(note?.textContent)).toContain("no summary is written");
+    expect(words(note?.textContent)).toContain("No summary is written");
     void unmount(instance as Record<string, unknown>);
     instance = undefined;
     target.innerHTML = "";

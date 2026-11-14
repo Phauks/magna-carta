@@ -152,7 +152,7 @@ describe("a gap in the transcript", () => {
       transcriptGapSentence(
         line({ kind: "gap", endedMs: 7_000, text: "", speaker: { ...ROSALIND, displayName: " " } }),
       ),
-    ).toBe("Somebody's audio is missing for 2 seconds.");
+    ).toBe("Someone's audio is missing for 2 seconds.");
   });
 });
 

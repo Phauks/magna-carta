@@ -145,7 +145,7 @@ describe("how a recording stopped", () => {
     expect(recordingStopWord({ ...nobody, stopReason: "abandoned" })).toBe(
       "It stopped when nobody had been heard for a while",
     );
-    expect(recordingStopWord({ ...nobody, stopReason: "start-failed" })).toBe("It could not start");
+    expect(recordingStopWord({ ...nobody, stopReason: "start-failed" })).toBe("It couldn't start");
   });
 
   it("no longer calls a start that failed an interruption, nor reads two machine reasons alike", () => {
@@ -497,7 +497,7 @@ describe("the recordings panel", () => {
     expect(text).toContain("Being Put Together");
     expect(text).toContain("Error ID: err_ABC123");
     expect(text).toContain("The sound was lost");
-    expect(text).toContain("It could not start");
+    expect(text).toContain("It couldn't start");
     expect(text).not.toContain("Interrupted");
     // The placeholder that stood here until a recording could be opened is gone.
     expect(text).not.toContain("Play");

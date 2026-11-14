@@ -45,7 +45,7 @@
       await navigator.clipboard.writeText(personalRoomAddress(room.addressName, origin));
       toast.success(`${room.name}'s room link copied.`);
     } catch {
-      toast.error("Your browser would not copy it. Open the room and copy its address instead.");
+      toast.error("Your browser couldn't copy it. Open the room and copy its address instead.");
     }
   }
 </script>
@@ -54,7 +54,7 @@
   <Card.Header>
     <Card.Title>Firm Rooms</Card.Title>
     <Card.Description>
-      Everyone's standing room. Copy a link to send it ahead of time, or join a room that is open.
+      Your standing room. Copy a link to send ahead of time, or join a room that's open.
     </Card.Description>
   </Card.Header>
   <Card.Content>
@@ -63,8 +63,8 @@
         failure={failureOf(read.error)}
         subject="The firm's rooms"
         title="Rooms Not Read"
-        fallback="The firm's rooms could not be read."
-        whenSilent="Nothing answered, so the rooms could not be listed."
+        fallback="Couldn't load the firm's rooms."
+        whenSilent="Couldn't connect. Couldn't load the rooms. Try again."
       />
     {:else if read.isPending}
       <p class="text-sm text-text-muted">Reading the firm's rooms</p>

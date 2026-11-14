@@ -285,8 +285,8 @@
       <FailureNotice
         failure={failureOf(recordingsRead.error)}
         subject="This meeting"
-        fallback="This meeting's recordings could not be read."
-        whenSilent="Nothing answered. This meeting's recordings could not be read."
+        fallback="Couldn't load this meeting's recordings."
+        whenSilent="Couldn't connect. Couldn't load this meeting's recordings. Try again."
         onRetry={() => void recordingsRead.refetch()}
       />
     {:else}
