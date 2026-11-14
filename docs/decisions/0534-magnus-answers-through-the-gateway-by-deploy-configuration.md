@@ -1,8 +1,9 @@
 ---
+number: 534
 slug: magnus-answers-through-the-gateway-by-deploy-configuration
 status: Accepted
-area: AI / Inference
 date: 2026-11-14
+area: AI / Inference
 summary: "The deploy switch that lets Magnus reach a model, MAGNUS_INFERENCE_ADAPTER, is set to gateway in the committed wrangler.jsonc, and the stub is chosen only by name in .dev.vars for the local run and the test pool. Any other value selects no port, and the question is settled as unanswered with the misconfiguration reported, instead of answered by the stub. The owner chose this on 2026-11-14 after production answered every question with the stub."
 ---
 
