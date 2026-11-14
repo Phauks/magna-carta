@@ -64,8 +64,8 @@ report from inside Magna Carta, which reaches the team privately, never on the b
 ## Changelog
 
 **Changelog** lists what changed in Magna Carta, newest first, written for the people who use it.
-Like the rest of the board, anyone can read it without signing in. The same page is at
-`changelog.magnacarta.esq`, a shorter address to share.
+Like the rest of the board, anyone can read it without signing in, at
+`community.magnacarta.esq/changelog`.
 
 ## For the Magna Carta team
 
