@@ -44,6 +44,7 @@ import { MeetingDiagnostics } from "./diagnostics.svelte.ts";
 import { MeetingClock } from "./meeting-clock.svelte.ts";
 import {
   captureScreenShare,
+  applyCameraSendBudget,
   offerCapturedTracks,
   offerMicrophoneTrack,
   offerScreenTrack,
@@ -901,7 +902,10 @@ export class MeetingClient {
         published: (frame) =>
           void this.#negotiation.enqueue(
             "The room's answer to what you are sending was not applied.",
-            () => this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription)),
+            async () => {
+              await this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription));
+              await this.#budgetCamera();
+            },
           ),
         subscribed: (frame) =>
           void this.#negotiation.enqueue("Somebody else's picture and sound did not come in.", () =>
@@ -931,7 +935,11 @@ export class MeetingClient {
         },
         // The announcement is the frame's whole content, so it is read whole and handed on; what it
         // means for the mark and whether it is news is the recording module's to decide.
-        recording: (frame) => this.recording.noteFrame(readRecordingAnnouncement(frame)),
+        recording: (frame) => {
+          this.recording.noteFrame(readRecordingAnnouncement(frame));
+          // A recording started while alone wants the full picture back.
+          void this.#budgetCamera();
+        },
         // An encrypted meeting's key-group frames, for the group client alone. A meeting that is not
         // encrypted holds no group client and is never sent one.
         group: (frame) => this.#encryption?.receive(frame),
@@ -1782,6 +1790,21 @@ export class MeetingClient {
     this.#adoptPresenceFrom(participants, stated);
     this.#subscriptions.forgetWhatTheRosterNoLongerNames(participants);
     this.#subscriptions.schedule();
+    void this.#budgetCamera();
+  }
+
+  /**
+   * Hold the camera to its ceilings, and to the quarter layer alone while nobody else is in the room
+   * to see it (`cameraEncodingsFor`). Not while a recording runs: the recording is made from what the
+   * room receives, and it should not be a thumbnail of somebody waiting for others to arrive.
+   */
+  async #budgetCamera(): Promise<void> {
+    const sender = this.#cameraSender;
+    if (sender === null) return;
+    const alone =
+      this.recording.running === null &&
+      this.participants.every((participant) => participant.participantId === this.participantId);
+    await applyCameraSendBudget(sender, alone);
   }
 
   /**
