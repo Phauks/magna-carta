@@ -20,6 +20,27 @@ export function meetingRoomAddress(meetingId: string): string {
   return `/meetings/${encodeURIComponent(meetingId)}`;
 }
 
+/**
+ * The meeting's own address, by its nine digits in three groups: /meeting/482-917-305. It is what a
+ * member copies and sends; Join and Start open `meetingRoomAddress`, which shows this one in its place.
+ */
+export function meetingCodeAddress(joinCode: string): string {
+  return `/meeting/${formatMeetingCode(joinCode)}`;
+}
+
+/** Nine digits as they are read aloud: 482-917-305. */
+export function formatMeetingCode(joinCode: string): string {
+  return /^\d{9}$/.test(joinCode)
+    ? `${joinCode.slice(0, 3)}-${joinCode.slice(3, 6)}-${joinCode.slice(6)}`
+    : joinCode;
+}
+
+/** The nine digits in an address or a typed code, with the dashes and spaces taken out. */
+export function parseMeetingCode(typed: string): string | undefined {
+  const digits = typed.replaceAll(/[\s-]/g, "");
+  return /^\d{9}$/.test(digits) ? digits : undefined;
+}
+
 /** The name a meeting's tab is opened under, so a second press finds the first tab. */
 export function meetingTabName(meetingId: string): string {
   return `meeting-${meetingId}`;

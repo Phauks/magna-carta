@@ -76,3 +76,54 @@ export function cropSource(
     side,
   };
 }
+
+/**
+ * The picture formats a record's photo may be chosen from, in the order the screen names them.
+ *
+ * Every one is a format every current browser decodes on its own, which is all a choice needs: the
+ * picture is drawn onto a canvas and only the cut square is sent, as a JPEG, so the server never
+ * sees the chosen file and the list cannot drift from what it accepts. HEIC and TIFF are absent
+ * because only Safari reads them; a file the browser cannot decode is refused when it fails to draw.
+ * SVG is here for organizations' logos; drawn through an image element it runs no script and loads
+ * nothing outside itself.
+ */
+export const PHOTO_FORMATS: readonly {
+  label: string;
+  mediaType: string;
+  extensions: readonly string[];
+}[] = [
+  { label: "JPEG", mediaType: "image/jpeg", extensions: [".jpg", ".jpeg"] },
+  { label: "PNG", mediaType: "image/png", extensions: [".png"] },
+  { label: "WebP", mediaType: "image/webp", extensions: [".webp"] },
+  { label: "GIF", mediaType: "image/gif", extensions: [".gif"] },
+  { label: "AVIF", mediaType: "image/avif", extensions: [".avif"] },
+  { label: "BMP", mediaType: "image/bmp", extensions: [".bmp"] },
+  { label: "SVG", mediaType: "image/svg+xml", extensions: [".svg"] },
+];
+
+/**
+ * The picker's `accept` filter. Media types AND extensions, because a system picker filters by
+ * whichever it understands and some name a WebP or an AVIF by extension alone.
+ */
+export const PHOTO_ACCEPT = PHOTO_FORMATS.flatMap((format) => [
+  format.mediaType,
+  ...format.extensions,
+]).join(",");
+
+/**
+ * The largest file that may be chosen. Generous on purpose: only the cut square is uploaded, so the
+ * ceiling guards the browser's memory while decoding, not the server.
+ */
+export const MAXIMUM_PHOTO_SOURCE_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Whether a chosen file is one of the formats offered. The media type decides where the browser
+ * gave one; an empty type (some systems give none for AVIF or WebP) falls back to the extension.
+ */
+export function isOfferedPhotoFormat(file: { name: string; type: string }): boolean {
+  if (file.type !== "") return PHOTO_FORMATS.some((format) => format.mediaType === file.type);
+  const name = file.name.toLowerCase();
+  return PHOTO_FORMATS.some((format) =>
+    format.extensions.some((extension) => name.endsWith(extension)),
+  );
+}

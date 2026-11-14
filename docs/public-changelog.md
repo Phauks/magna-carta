@@ -15,6 +15,55 @@ behind it.
 
 Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 
+## 2026-11-14
+
+### Added
+
+- The New Check panel's Advanced Settings has a **Trigram matching** box, on by default. Clearing it stops the check from finding names that only share a few letters with a party's, which is the noisiest kind of result. Widest always keeps it on. A check run without it says so in its Details and its report.
+- **Read a saved email and keep it as a PDF.** Drop an `.eml` or `.msg` file on the File Workbench and open the **Email** tab to see who sent it and to whom, when, whether the sending domain signed it, the mail servers it passed through in order, its text and its attachments. An attachment opens on the workbench as a file of its own, or saves to your computer. **Save as PDF** writes the message as a PDF with an attachment list, and **Include every header** adds a page with every header line. All of it happens in your browser; nothing is uploaded.
+- **See what a document or photo is hiding, and send a clean copy.** Open a Word document, JPEG or PNG on the File Workbench's **Metadata** tab to see its tracked changes, comments, hidden text, author and editing details, attached data and a photo's camera and location details, each in its own table. Untick anything you want to keep, then save a clean copy or put it on the workbench to check first. The copy is read again as soon as it is made, and the original is never changed. Everything happens in your browser.
+- Magnus can now write drafts as documents you keep in the conversation, with every version, and can
+  read your own earlier conversations on the same matter when you turn that on.
+- **When a meeting's video stutters or freezes, open Connection Details and press Copy Diagnostics.** It copies what each picture did over the last few minutes, so you can paste it into a message to whoever is helping. It contains numbers only, no names and nothing anyone said.
+- When you open a poll in a meeting you now choose its Poll Type. One and Multiple work as before. Ranking asks everyone to put the answers in order and shows the room's order. Score asks for a number on a scale and shows the average.
+- **Long dropdowns can be searched.** When a dropdown has more than seven choices, open it and start typing: the list keeps only the choices that contain what you typed, anywhere in the name, and Enter picks the top one. Backspace widens the list again, and Escape clears your search.
+- **Text Size now works, and Font Family shows each typeface in itself.** In Settings, then Text, you can set interface text anywhere from 50% to 200% of its normal size; it changes at once and stays your choice on this browser. The Font Family list now shows each typeface in that typeface, so you can see it before you pick it.
+
+### Changed
+
+- On a conflicts check, the Directory row of the Status section now opens onto blocks, one per row. They say when and by whom the search ran, how names and identifiers were compared, how far relationships were followed, how Firm Employees were checked, what was not searched and why, and what turned up. Anything not searched, or a part of the search that stopped short, is tinted so it stands out. The printed report has the same parts.
+- **When a page crashes, the error screen now shows a short Cause line beside the Error ID**, so a report says which part of the app failed, not just when.
+- **Dropdowns are easier to scan.** Options now line up with the text in the field above them, the one you have chosen is marked with a tick at the end of its row, and group headings stand out from the options under them. Every dropdown shows the same arrow, whether or not you can type in it.
+- **Forms are easier to read and fill in.** Every text box, dropdown and date field now has a clear outline, darkens slightly when you point at it, and shows a gold ring where you are typing. A field you cannot change has a dashed outline instead of looking like a button, and secondary buttons such as Cancel are outlined so the main action in a window stands out.
+- **Videos and sound recordings play in the browser.** Recordings now stream on the site instead of
+  offering only the download.
+- **The "..." menus open only when you click them.** Moving the pointer over a "..." button no longer drops its menu over the page; click it, or press Enter on it, to open it. Menus with a name, such as Money on a matter, still open when you point at them.
+- Meeting links are shorter and easier to read out. A meeting's address now ends in nine digits, like /meeting/482-917-305, and your own room's address is your name, like /room/trevor.
+- **Connection Details in a meeting is easier to read.** It now opens as a wider panel in two columns (your own connection on the left, everyone else and recent events on the right) instead of a narrow strip running off the screen.
+- Connection Details in a meeting are easier to read. They show which Cloudflare site your meeting runs through, your picture size in pixels, your upload and download, and what Good, Fair and Poor mean. Your camera now uses less upload: about 1.7 Mbit/s at most, down from about 2.5 Mbit/s.
+- **Leave now always sits in the bottom-right corner of a meeting**, and the panel on the right stands out more clearly from the meeting picture.
+- Questions in a meeting now live in the chat. Tick Ask as a question to ask one, and use Questions at the top of the chat to see only the questions. We also fixed a brief flash in the meeting picture, and Copy Diagnostics now notes what the screen did with the pictures, so a flash that still happens can be traced.
+- **Chat, Q&A, polls and the list of people are now one panel on the right of the meeting, with a tab for each.** It opens on Chat, a second press on the same control closes it, and someone's raised hand shows beside their name under People. The controls along the bottom are grouped: your microphone, camera and effects on the left; presenting, raising a hand, reactions and recording in the middle (with the host's options behind a "..." menu); and the panel's tabs and Leave on the right.
+- **Meetings open in speaker view, with the gallery one press away.** Your choice is remembered in this browser. Pictures keep the camera's wide shape, so two people on a laptop sit side by side, and whoever is talking gets a clear ring and a speaking mark beside their name. A Share button in the meeting copies its link for people at the firm and lets a host invite guests. Effects has a new Mirror My Video switch, on by default: it flips only your own preview, and everybody else still sees you the right way round.
+- The Meetings page now lists everybody's room, so you can copy a colleague's link ahead of time or join when they are in. Your own room's settings are tucked into a "..." menu, and the History list shows which matter each meeting was filed on and whether it was recorded.
+- **Each part of a person's record is a card you can fold away.** On New Person and in a record's window, every section sits in its own card with its name and how many entries it holds at the top; press the header to fold it, and choose it in the list on the left to open it again. Beside New Person, the Directory check says plainly whether anyone similar is already recorded, and below it the person is shown the way their record will open, photo and name first.
+- **Clearer "Soon" hints.** Features that aren't built yet now say plainly what's missing, such as "Not built yet: recording payments."
+- **Clearer matter, file and tool screens.** Help text across matters, files, documents, calendar, discovery, custody, reports and the tools is shorter and plainer.
+- **Clearer settings and billing screens.** Help text on the settings pages and on bills, trust, time, costs and fees is shorter and plainer, and the app now says "bill" consistently instead of switching between "bill" and "invoice".
+- **Looking at a client's photo no longer starts editing it, and contact details are easier to change.** Press a photo in a Directory record to see it large on the same screen; press Edit Photo to change or remove it, all in one window. Photos can now be JPEG, PNG, WebP, GIF, AVIF, BMP or SVG, and the window lists what it takes. The Preferred star on an email, number or address can now be turned off again, and jumping to the last section of a record no longer leaves you unable to scroll back up. To change a record's email addresses and numbers, press Edit on its Contact section to change every line at once and save it in one go. The Relationship list is now in alphabetical order under headings, with family ties such as Parent, Child and Spouse in a Family group of their own.
+- **Shorter, plainer messages.** When a save or a load can't reach Magna Carta, the message now says "Couldn't connect." and what didn't happen. Long help lines on matter sections, settings, billing, trust, the calendar, files, discovery and sign-in were cut down to what you need to act.
+- **Settings › Versions is now System Status, and it starts with what works.** The page opens on a
+  count of features, deployment, workers and recent errors. Below that, tabs list every feature as
+  Working, Not set up or Not working, along with the build you are on, the platform's services, your
+  firm's records and your feature flags. The version chip at the top of the screen is shorter: it
+  shows the build, any feature that is not working, and a button to the full page.
+- **System Status is one press away.** A pulse icon beside Customize at the bottom of the sidebar
+  opens the System Status page.
+
+### Fixed
+
+- **A table's Columns list stays open while you choose several columns.** You can tick and untick as many columns as you like, including the one whose heading you right-clicked, and the list closes when you press Escape or click elsewhere.
+
 ## 2026-11-13
 
 ### Added

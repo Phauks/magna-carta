@@ -23,9 +23,12 @@ import type { MeetingTrackKind } from "./signaling.ts";
  */
 function cameraSimulcastEncodings(): RTCRtpEncodingParameters[] {
   return [
-    { rid: "f", scaleResolutionDownBy: 1 },
-    { rid: "h", scaleResolutionDownBy: 2 },
-    { rid: "q", scaleResolutionDownBy: 4 },
+    // The ceilings keep the three together under about 1.7 Mbit/s. Left to itself Chrome sends the
+    // full size alone at around 2.5 Mbit/s, which is more than a 720p face needs and more than many
+    // home uploads carry comfortably beside everything else on the line.
+    { rid: "f", scaleResolutionDownBy: 1, maxBitrate: 1_200_000 },
+    { rid: "h", scaleResolutionDownBy: 2, maxBitrate: 350_000 },
+    { rid: "q", scaleResolutionDownBy: 4, maxBitrate: 120_000 },
   ];
 }
 

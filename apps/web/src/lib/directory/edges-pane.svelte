@@ -46,7 +46,12 @@
     type DirectoryEdgeType,
     type DirectoryEntityKind,
   } from "./directory-api.ts";
-  import { EDGE_TYPES, edgeTypeLabel, type EdgeTypeEntry } from "./directory-vocabulary.ts";
+  import {
+    EDGE_TYPES,
+    edgeTypeLabel,
+    groupedEdgeTypes,
+    type EdgeTypeEntry,
+  } from "./directory-vocabulary.ts";
   import { directoryPickerSearch } from "./directory-picker-source.ts";
   import {
     edgeDraftRefusal,
@@ -101,19 +106,19 @@
       heading: "Relationships",
       caption: "How this record connects to others in the firm's book",
       emptyTitle: "Nothing Connected To This Record",
-      readFailure: "This record's relationships could not be read.",
+      readFailure: "Couldn't load this record's relationships.",
     },
     people: {
       heading: "People",
       caption: "The people inside this organization",
       emptyTitle: "Nobody Recorded In This Organization",
-      readFailure: "The people in this organization could not be read.",
+      readFailure: "Couldn't load the people in this organization.",
     },
     organizations: {
       heading: "Organizations",
       caption: "The organizations this person is inside",
       emptyTitle: "No Organization Recorded For This Person",
-      readFailure: "This person's organizations could not be read.",
+      readFailure: "Couldn't load this person's organizations.",
     },
   };
   const words = $derived(PANE_WORDS[filter]);
@@ -280,8 +285,14 @@
     if (needle === "") return offered;
     return offered.filter((entry) => entry.label.toLowerCase().includes(needle));
   });
+  /** The matching types under their headings, family first and apart from assigned roles. */
+  const typeGroups = $derived(groupedEdgeTypes(matchingTypes));
+  // The combobox's own item list follows the order the groups draw in, so arrow keys walk the
+  // choices in the order the reader sees them.
   const typeItems = $derived(
-    matchingTypes.map((entry) => ({ value: entry.edgeType, label: entry.label })),
+    typeGroups.flatMap((section) =>
+      section.entries.map((entry) => ({ value: entry.edgeType, label: entry.label })),
+    ),
   );
 
   const refusal = $derived(edgeDraftRefusal(kind, { picked, entry: chosenEntry }));
@@ -341,8 +352,8 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "The relationship could not be recorded.",
-      "Nothing answered. The relationship was not recorded.",
+      "Couldn't save the relationship.",
+      "Couldn't connect. The relationship wasn't saved.",
     );
   }
 </script>
@@ -401,7 +412,7 @@
         {#if writeFailure !== null}
           <FailureNotice
             failure={writeFailure.failure}
-            title="The Relationship Was Not Recorded"
+            title="Relationship Not Saved"
             fallback={writeFailure.fallback}
             whenSilent={writeFailure.whenSilent}
           />
@@ -442,8 +453,13 @@
                   oninput={(event) => (typeQuery = event.currentTarget.value)}
                 />
                 <Combobox.Content>
-                  {#each matchingTypes as entry (entry.edgeType)}
-                    <Combobox.Item value={entry.edgeType} label={entry.label} />
+                  {#each typeGroups as section (section.group)}
+                    <Combobox.Group>
+                      <Combobox.GroupHeading>{section.heading}</Combobox.GroupHeading>
+                      {#each section.entries as entry (entry.edgeType)}
+                        <Combobox.Item value={entry.edgeType} label={entry.label} />
+                      {/each}
+                    </Combobox.Group>
                   {/each}
                 </Combobox.Content>
               </Combobox.Root>

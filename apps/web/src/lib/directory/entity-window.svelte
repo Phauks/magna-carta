@@ -149,7 +149,7 @@
         failure = null;
         return;
       }
-      failure = stated(outcome.failure, "This record could not be read.");
+      failure = stated(outcome.failure, "Couldn't load this record.");
     })();
     return () => {
       cancelled = true;
@@ -240,7 +240,7 @@
       await navigator.clipboard.writeText(recordLink());
       toast.success("Link copied");
     } catch {
-      toast.error("The link could not be copied. The browser refused the clipboard.");
+      toast.error("Couldn't copy the link. The browser blocked the clipboard.");
     }
   }
 
@@ -263,7 +263,7 @@
       readContactCardPhoto(fetch, entityId),
     ]);
     if (outcome.kind !== "ok") {
-      toast.error("The contact card could not be made, because the contact details could not be read.");
+      toast.error("Couldn't make the contact card because the contact details didn't load.");
       return;
     }
     await saveExport(contactCard(shown, outcome.value, picture), contactCardFilename(shown), CONTACT_CARD_CONTENT_TYPE);
@@ -278,7 +278,7 @@
     if (shown === null) return;
     const parts = await readRecordPrintoutParts(fetch, shown, entityId);
     if (parts === null) {
-      toast.error("The record could not be downloaded, because part of it could not be read.");
+      toast.error("Couldn't download the record because part of it didn't load.");
       return;
     }
     const printout = recordPrintout(parts);
@@ -291,7 +291,7 @@
       await saveExport(file, exportFilename(printout, "pdf"), "application/pdf");
     } catch (error) {
       toast.error(
-        error instanceof RemoteRenderError ? error.message : "The PDF could not be made. Try again.",
+        error instanceof RemoteRenderError ? error.message : "Couldn't make the PDF. Try again.",
       );
     }
   }
@@ -401,7 +401,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="This Record Could Not Be Read"
+        title="Couldn't Load This Record"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
         onRetry={reread}
@@ -413,8 +413,7 @@
       <Alert.Root variant="info">
         <Alert.Title>This Record Was Folded Into Another</Alert.Title>
         <Alert.Description>
-          It is archived and no longer stands on its own. Everything recorded against it moved to
-          the surviving record, and the names it carried still find it.
+          This record is archived. Everything on it moved to the surviving record, and its names still find it.
           <Button variant="secondary" size="sm" class="mt-8" onclick={() => openEntity(mergedInto)}>
             Open the surviving record
           </Button>

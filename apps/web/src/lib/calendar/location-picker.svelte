@@ -284,7 +284,7 @@
           <Combobox.GroupHeading>More match than are shown. Type more to narrow.</Combobox.GroupHeading>
         {/if}
         {#if directoryFailed}
-          <Combobox.GroupHeading>The directory could not be searched.</Combobox.GroupHeading>
+          <Combobox.GroupHeading>Couldn't search the directory.</Combobox.GroupHeading>
         {/if}
       </Combobox.Group>
     {/if}

@@ -8,7 +8,7 @@ Every document and photo carries metadata alongside its visible content. In a Wo
 
 The Metadata Inspector shows you a clear list of what a file contains, grouped by risk. The Metadata Scrubber produces a cleaned copy with the metadata you choose removed. The original file is never changed.
 
-Nothing you upload is stored. The tool works on the file, shows you the results, and discards it. No copy is retained in Magna Carta after you close or navigate away.
+Nothing is uploaded. The file is read in your own browser, and the clean copy is made there too. Closing the page clears both.
 
 ## When to use it
 
@@ -16,12 +16,12 @@ Use it before sending any file outside the firm — before attaching a document 
 
 ## Supported file types
 
-| Type                     | Formats                           |
-| ------------------------ | --------------------------------- |
-| Word documents           | `.docx`                           |
-| Excel workbooks          | `.xlsx`                           |
-| PowerPoint presentations | `.pptx`                           |
-| Photos and images        | `.jpg` / `.jpeg`, `.png`, `.tiff` |
+| Type              | Formats                  |
+| ----------------- | ------------------------ |
+| Word documents    | `.docx`                  |
+| Photos and images | `.jpg` / `.jpeg`, `.png` |
+
+Excel workbooks, PowerPoint presentations, PDF files and TIFF and HEIC photos are not read on this tab yet.
 
 ## Common tasks
 
@@ -30,24 +30,17 @@ Use it before sending any file outside the firm — before attaching a document 
 1. Open **File Workbench** in the sidebar, under **Firm**.
 2. Drop in the file, or use **Add Files**.
 3. Open the **Metadata** tab.
-4. The Inspector shows the findings grouped by category — identifying metadata, tracked changes, comments, hidden content, custom properties, a stored preview image of the first page, embedded data attached to the document, stored settings such as a mail-merge data source or template location, editing history, and (for images) camera data, GPS location, editing-software markers, and any data appended after the end of the picture. Each finding shows a risk level and a count.
+4. Each kind of hidden content it found has a table of its own: **Tracked Changes**, **Comments**, **Hidden Text**, **Document Properties** (the author and organization, dates, the editing history, a stored preview of the first page, and settings such as a mail-merge data source or template location), **Custom Data** (custom properties and data a document-management system attached), and **Picture Metadata** (camera details, location, editing software, and anything stored after the end of the picture). Each row says how many there are. The badges along the top name the kinds that matter most.
 
-**Make a file safe to send — one click**
+**Make a clean copy**
 
-1. Inspect the file as above.
-2. Select **Make safe to send**.
-3. Download the cleaned file. The scrubbed copy has all tracked changes accepted, all comments deleted, all hidden text removed, all identifying document properties and custom properties cleared, the stored preview image and any embedded data removed, the editing history and stored settings cleared, and all image metadata stripped.
-
-**Remove specific findings only**
-
-1. Inspect the file.
-2. In the findings list, toggle off any items you want to keep.
-3. Select **Download clean copy**.
-4. The scrubbed file reflects only the changes you chose.
+1. Inspect the file as above. Every table's box starts ticked.
+2. Untick any table you want to keep. The line beside the buttons says how many kinds will be removed.
+3. Choose **Save a Clean Copy** to save it to your computer, or **Put the Copy on the Bench** to add it to the workbench list so you can check it on the other tabs before sending it.
 
 **Confirm the file is clean**
 
-After scrubbing, the tool re-inspects the output and shows you the result. A clean file shows no remaining findings for the categories you chose to remove.
+The copy is read again as soon as it is made. The tab says either that it carries none of what you ticked, or how many of the ticked kinds are still there. To see the full reading, put the copy on the bench and open its **Metadata** tab.
 
 ## Tips and edge cases
 
@@ -56,10 +49,10 @@ After scrubbing, the tool re-inspects the output and shows you the result. A cle
 - **A document can carry a picture of its own first page.** Word saves a small preview image inside the file. It is a picture, so it still shows tracked changes, comments, and hidden text exactly as they looked when it was saved — even after that markup has been cleaned out of the text. The Inspector reports it and the cleaned copy does not include it.
 - **A photo can carry a whole other file after the end of the picture.** Motion photos from a phone keep a short video there, and files are sometimes combined this way deliberately. Nothing shows it on screen, and it travels with the photo when you send it. The Inspector reports it and the cleaned copy ends at the end of the picture.
 - **The file size limit applies.** Very large files are refused with a clear message. If a file exceeds the limit, consider splitting it or, for documents, saving a PDF rendition first.
-- **File types not listed above are not yet supported.** If you upload an unsupported type, the tool tells you clearly. For HEIC photos (common on iPhones), convert to JPEG first using the File Converter tool, then run the scrubber.
-- **The scrubbed copy downloads with the same file name.** Rename it before sending to avoid confusion with the original.
+- **File types not listed above are not yet supported.** If you upload an unsupported type, the tool tells you clearly. For HEIC photos (common on iPhones), convert it to JPEG first on the **Convert** tab, then open the copy's **Metadata** tab.
+- **The copy is named after the original with (clean) added**, such as `Engagement Letter (clean).docx`.
 
 ## Related features
 
-- **File Converter** — convert an unsupported file type (for example, HEIC to JPEG) before scrubbing.
+- **Convert** on the File Workbench: turn a file type this tab does not read into one it does.
 - **File Workbench** — inspecting and scrubbing is the **Metadata** tab there, alongside every other thing the firm can do to a file.
