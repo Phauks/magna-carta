@@ -410,6 +410,9 @@ importers:
       '@magna-carta/file-type':
         specifier: workspace:*
         version: link:../../packages/file-type
+      '@magna-carta/google-calendar':
+        specifier: workspace:*
+        version: link:../../packages/google-calendar
       '@magna-carta/government-links':
         specifier: workspace:*
         version: link:../../packages/government-links
@@ -2299,6 +2302,31 @@ importers:
       '@magna-carta/trust':
         specifier: workspace:*
         version: link:../trust
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/google-calendar:
+    dependencies:
+      '@magna-carta/calendar':
+        specifier: workspace:*
+        version: link:../calendar
+      '@magna-carta/civil-time':
+        specifier: workspace:*
+        version: link:../civil-time
+      '@magna-carta/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

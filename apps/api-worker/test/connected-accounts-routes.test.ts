@@ -33,15 +33,24 @@ const CALLBACK_URL = `${ORIGIN}/api/v1/integrations/microsoft/callback`;
 const REGISTERED_CALLBACK_URL = `${env.APP_BASE_URL}/api/v1/integrations/microsoft/callback`;
 const ATTEMPT_COOKIE = "__Host-calendar-sign-in";
 
+const GOOGLE_START_URL = `${ORIGIN}/api/v1/me/connected-accounts/google/sign-in`;
+const GOOGLE_CALLBACK_URL = `${ORIGIN}/api/v1/integrations/google/callback`;
+const GOOGLE_SCOPES =
+  "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly";
+
 const PROVISIONED = {
   ...env,
   MICROSOFT_CLIENT_ID: "client-1",
   MICROSOFT_CLIENT_SECRET: "secret-1",
+  GOOGLE_CALENDAR_CLIENT_ID: "google-client-1",
+  GOOGLE_CALENDAR_CLIENT_SECRET: "google-secret-1",
 };
 const UNPROVISIONED = {
   ...env,
   MICROSOFT_CLIENT_ID: undefined,
   MICROSOFT_CLIENT_SECRET: undefined,
+  GOOGLE_CALENDAR_CLIENT_ID: undefined,
+  GOOGLE_CALENDAR_CLIENT_SECRET: undefined,
 };
 
 // Microsoft, as a script. `token` and `calendars` are swapped per test; every request is kept so a
@@ -56,19 +65,37 @@ const app = createApp({
     http: {
       request: (input) => {
         microsoftCalls.push(input);
-        const answer = input.url.startsWith("https://login.microsoftonline.com/")
-          ? tokenAnswer
-          : input.url.startsWith("https://graph.microsoft.com/v1.0/me/calendars")
-            ? calendarsAnswer
-            : {
-                status: 200,
-                body: { mail: "jane@firm.example", userPrincipalName: "jane_1@tenant.example" },
-              };
+        const answer =
+          googleAnswerFor(input) ??
+          (input.url.startsWith("https://login.microsoftonline.com/")
+            ? tokenAnswer
+            : input.url.startsWith("https://graph.microsoft.com/v1.0/me/calendars")
+              ? calendarsAnswer
+              : {
+                  status: 200,
+                  body: { mail: "jane@firm.example", userPrincipalName: "jane_1@tenant.example" },
+                });
         return Promise.resolve({ status: answer.status, json: () => Promise.resolve(answer.body) });
       },
     },
   },
 });
+
+// Google, as a script beside it. `googleTokenAnswer` is swapped per test.
+let googleTokenAnswer: { status: number; body: unknown };
+function googleAnswerFor(input: HttpRequest): { status: number; body: unknown } | undefined {
+  if (input.url === "https://oauth2.googleapis.com/token") return googleTokenAnswer;
+  if (!input.url.startsWith("https://www.googleapis.com/calendar/v3/")) return undefined;
+  if (input.url.includes("/users/me/calendarList/primary")) {
+    return { status: 200, body: { id: "jane@gmail.example" } };
+  }
+  return {
+    status: 200,
+    body: {
+      items: [{ id: "jane@gmail.example", summary: "Jane", primary: true, accessRole: "owner" }],
+    },
+  };
+}
 
 let firmId: FirmId;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
@@ -103,9 +130,12 @@ async function list(cookie: string, environment: object = PROVISIONED): Promise<
 
 // Starts a sign-in and answers what the browser would then hold: the state Microsoft will echo and
 // the attempt cookie.
-async function start(cookie: string): Promise<{ state: string; attempt: string; url: URL }> {
+async function start(
+  cookie: string,
+  startUrl: string = START_URL,
+): Promise<{ state: string; attempt: string; url: URL }> {
   const response = await app.request(
-    START_URL,
+    startUrl,
     { method: "POST", headers: headers(cookie) },
     PROVISIONED,
   );
@@ -120,9 +150,10 @@ async function comeBack(
   cookie: string,
   query: Record<string, string>,
   attempt?: string,
+  callbackUrl: string = CALLBACK_URL,
 ): Promise<Response> {
   return app.request(
-    `${CALLBACK_URL}?${new URLSearchParams(query).toString()}`,
+    `${callbackUrl}?${new URLSearchParams(query).toString()}`,
     { headers: headers(cookie, attempt) },
     PROVISIONED,
   );
@@ -165,6 +196,15 @@ beforeAll(async () => {
 
 beforeEach(() => {
   microsoftCalls.length = 0;
+  googleTokenAnswer = {
+    status: 200,
+    body: {
+      access_token: "google-access-1",
+      refresh_token: "google-refresh-1",
+      expires_in: 3599,
+      scope: GOOGLE_SCOPES,
+    },
+  };
   tokenAnswer = {
     status: 200,
     body: {
@@ -184,7 +224,10 @@ beforeEach(() => {
 describe("the shipped state: no Microsoft application registered", () => {
   it("offers no provider, starts no sign-in, and asks Microsoft nothing", async () => {
     const body = await list(memberCookie, UNPROVISIONED);
-    expect(body.providers).toEqual([{ provider: "microsoft", available: false }]);
+    expect(body.providers).toEqual([
+      { provider: "microsoft", available: false },
+      { provider: "google", available: false },
+    ]);
     expect(body.accounts).toEqual([]);
 
     const response = await app.request(
@@ -194,12 +237,25 @@ describe("the shipped state: no Microsoft application registered", () => {
     );
     expect(response.status).toBe(501);
     expect(setCookies(response).some((entry) => entry.name === ATTEMPT_COOKIE)).toBe(false);
+    const google = await app.request(
+      GOOGLE_START_URL,
+      { method: "POST", headers: headers(memberCookie) },
+      UNPROVISIONED,
+    );
+    expect(google.status).toBe(501);
     expect(microsoftCalls).toHaveLength(0);
   });
 
   it("treats half a registration as none", async () => {
-    const body = await list(memberCookie, { ...PROVISIONED, MICROSOFT_CLIENT_SECRET: undefined });
-    expect(body.providers).toEqual([{ provider: "microsoft", available: false }]);
+    const body = await list(memberCookie, {
+      ...PROVISIONED,
+      MICROSOFT_CLIENT_SECRET: undefined,
+      GOOGLE_CALENDAR_CLIENT_ID: undefined,
+    });
+    expect(body.providers).toEqual([
+      { provider: "microsoft", available: false },
+      { provider: "google", available: false },
+    ]);
   });
 });
 
@@ -431,5 +487,106 @@ describe("disconnecting", () => {
       PROVISIONED,
     );
     expect(again.status).toBe(404);
+  });
+});
+
+// Runs after the member has disconnected Outlook above, so they begin with no account.
+describe("a Google account, through the same routes", () => {
+  function providerOf(response: Response): string | null {
+    return new URL(response.headers.get("location") ?? "", ORIGIN).searchParams.get("provider");
+  }
+
+  it("sends the browser to Google asking for the calendar and nothing else", async () => {
+    const { url } = await start(memberCookie, GOOGLE_START_URL);
+    expect(`${url.origin}${url.pathname}`).toBe("https://accounts.google.com/o/oauth2/v2/auth");
+    expect(url.searchParams.get("scope")).toBe(GOOGLE_SCOPES);
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      `${env.APP_BASE_URL}/api/v1/integrations/google/callback`,
+    );
+    expect(url.searchParams.get("access_type")).toBe("offline");
+    expect(url.toString()).not.toContain("google-secret-1");
+    expect(microsoftCalls).toHaveLength(0);
+  });
+
+  it("refuses a sign-in started at one provider and returned to the other's address", async () => {
+    const { state, attempt } = await start(memberCookie, START_URL);
+    const response = await comeBack(
+      memberCookie,
+      { code: "code-1", state },
+      attempt,
+      GOOGLE_CALLBACK_URL,
+    );
+    expect(outcomeOf(response)).toBe("expired");
+    expect(microsoftCalls).toHaveLength(0);
+  });
+
+  it("records nothing when the member unticked one of the two permissions", async () => {
+    googleTokenAnswer = {
+      status: 200,
+      body: {
+        access_token: "a",
+        refresh_token: "r",
+        expires_in: 3599,
+        scope: "https://www.googleapis.com/auth/calendar.events",
+      },
+    };
+    const { state, attempt } = await start(memberCookie, GOOGLE_START_URL);
+    expect(
+      outcomeOf(
+        await comeBack(memberCookie, { code: "code-1", state }, attempt, GOOGLE_CALLBACK_URL),
+      ),
+    ).toBe("declined");
+    expect((await list(memberCookie)).accounts).toEqual([]);
+  });
+
+  it("connects the account, named by its own primary calendar, and audits which provider", async () => {
+    const { state, attempt } = await start(memberCookie, GOOGLE_START_URL);
+    const response = await comeBack(
+      memberCookie,
+      { code: "code-1", state },
+      attempt,
+      GOOGLE_CALLBACK_URL,
+    );
+    expect(outcomeOf(response)).toBe("connected");
+    expect(providerOf(response)).toBe("google");
+
+    const { accounts } = await list(memberCookie);
+    expect(accounts).toMatchObject([
+      { provider: "google", accountLabel: "jane@gmail.example", status: "connected" },
+    ]);
+    const row = await firmDatabase
+      .prepare("SELECT adapter_id AS adapterId FROM integration_connection WHERE id = ?1")
+      .bind(accounts[0]?.id)
+      .first<{ adapterId: string }>();
+    expect(row?.adapterId).toBe("google-calendar");
+    const audit = await firmDatabase
+      .prepare(
+        "SELECT metadata FROM audit_log WHERE event = 'calendar_sync.account_connected' AND subject_id = ?1 ORDER BY rowid DESC",
+      )
+      .bind(accounts[0]?.id)
+      .first<{ metadata: string }>();
+    expect(audit?.metadata).toContain("google");
+    expect(audit?.metadata).not.toContain("jane@gmail.example");
+  });
+
+  it("refuses an Outlook account while the Google one is connected, and spends no code", async () => {
+    const { state, attempt } = await start(memberCookie, START_URL);
+    microsoftCalls.length = 0;
+    const response = await comeBack(memberCookie, { code: "code-9", state }, attempt);
+    expect(outcomeOf(response)).toBe("other-account");
+    expect(providerOf(response)).toBe("microsoft");
+    expect(microsoftCalls).toHaveLength(0);
+    expect((await list(memberCookie)).accounts).toMatchObject([{ provider: "google" }]);
+  });
+
+  it("disconnects it like any other account", async () => {
+    const account = (await list(memberCookie)).accounts[0];
+    const response = await app.request(
+      `${LIST_URL}/${account?.id}`,
+      { method: "DELETE", headers: headers(memberCookie) },
+      PROVISIONED,
+    );
+    expect(response.status).toBe(200);
+    expect((await list(memberCookie)).accounts).toEqual([]);
   });
 });

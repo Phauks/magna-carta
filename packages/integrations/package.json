@@ -14,6 +14,7 @@
     "./registry": "./src/registry.ts",
     "./manifest": "./src/manifest.ts",
     "./http": "./src/http.ts",
+    "./oauth-sign-in": "./src/oauth-sign-in.ts",
     "./safe-target": "./src/safe-target.ts"
   },
   "scripts": {

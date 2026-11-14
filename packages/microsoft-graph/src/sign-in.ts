@@ -1,6 +1,10 @@
 import { z } from "zod";
-import type { OAuthCredential } from "@magna-carta/integrations/credentials";
 import type { HttpClient } from "@magna-carta/integrations/http";
+import type {
+  AccountOutcome,
+  TokenOutcome,
+  TokenRequestDependencies,
+} from "@magna-carta/integrations/oauth-sign-in";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
 
 // Signing a member in to their own Microsoft 365 account: the authorization-code flow with a proof
@@ -24,30 +28,6 @@ export interface MicrosoftApplication {
   readonly clientSecret: string;
   readonly redirectUri: string;
   readonly tenant?: string;
-}
-
-function base64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-// The proof key's secret half. 32 random bytes encode to 43 characters, the shortest verifier the
-// proof-key standard allows; fewer bytes would be refused by the provider rather than merely weaker.
-export const CODE_VERIFIER_BYTE_LENGTH = 32;
-
-export function codeVerifierFrom(randomBytes: Uint8Array): string {
-  if (randomBytes.length < CODE_VERIFIER_BYTE_LENGTH) {
-    throw new RangeError(
-      `a code verifier needs at least ${CODE_VERIFIER_BYTE_LENGTH} random bytes`,
-    );
-  }
-  return base64Url(randomBytes);
-}
-
-export async function codeChallengeFor(codeVerifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
-  return base64Url(new Uint8Array(digest));
 }
 
 function endpoint(application: MicrosoftApplication, leaf: "authorize" | "token"): string {
@@ -100,23 +80,6 @@ const SIGN_IN_AGAIN_ERRORS: ReadonlySet<string> = new Set([
   "consent_required",
   "login_required",
 ]);
-
-export type TokenOutcome =
-  | {
-      readonly ok: true;
-      readonly credential: OAuthCredential & {
-        readonly accessToken: string;
-        readonly expiresAt: string;
-      };
-      // What Microsoft says was actually granted, which can be less than what was asked.
-      readonly grantedScopes: readonly string[];
-    }
-  | { readonly ok: false; readonly problem: IntegrationProblem };
-
-export interface TokenRequestDependencies {
-  readonly http: HttpClient;
-  readonly now: () => Date;
-}
 
 async function requestToken(
   dependencies: TokenRequestDependencies,
@@ -250,10 +213,6 @@ const accountSchema = z.object({
   mail: z.string().nullish(),
   userPrincipalName: z.string().nullish(),
 });
-
-export type AccountOutcome =
-  | { readonly ok: true; readonly address: string }
-  | { readonly ok: false; readonly problem: IntegrationProblem };
 
 // Which account the member just signed in to, as Microsoft names it. A member with a work account
 // and a personal one has to be able to see which of them is connected. The mailbox address is
