@@ -1,16 +1,12 @@
 import type { CalendarSyncPort, ProviderCalendar } from "@magna-carta/calendar/sync-port";
 import type { CredentialStore } from "@magna-carta/integrations/credentials";
 import type { HttpClient } from "@magna-carta/integrations/http";
-import { createMicrosoftCalendarAdapter } from "@magna-carta/microsoft-graph/calendar-sync";
-import {
-  refreshAccessToken,
-  type MicrosoftApplication,
-} from "@magna-carta/microsoft-graph/sign-in";
+import type { CalendarProviderApplication } from "./calendar-providers.ts";
 
 // A connected member's calendars, as their provider lists them at this moment.
 //
 // The stored token is the long-lived one only, so every call here first trades it for a short-lived
-// access token. Microsoft may answer that trade with a replacement long-lived token; when it does,
+// access token. A provider may answer that trade with a replacement long-lived token; when it does,
 // the replacement is stored before anything else happens, so the newest token is always the one
 // held.
 
@@ -25,7 +21,7 @@ export type MemberCalendarsOutcome =
 export interface MemberCalendarsInput {
   readonly http: HttpClient;
   readonly now: () => Date;
-  readonly application: MicrosoftApplication;
+  readonly application: CalendarProviderApplication;
   readonly credentials: CredentialStore;
   readonly credentialRef: string;
 }
@@ -45,9 +41,8 @@ export async function openMemberCalendarPort(
   // A connection whose token is gone cannot act for anybody; signing in again stores a new one.
   if (stored === null || stored.kind !== "oauth") return { kind: "sign-in-again" };
 
-  const refreshed = await refreshAccessToken(
+  const refreshed = await input.application.refresh(
     { http: input.http, now: input.now },
-    input.application,
     stored.refreshToken,
   );
   if (!refreshed.ok) {
@@ -63,9 +58,9 @@ export async function openMemberCalendarPort(
   }
   return {
     kind: "open",
-    port: createMicrosoftCalendarAdapter({ http: input.http }).create({
-      credential: refreshed.credential,
-    }),
+    port: input.application
+      .adapter({ http: input.http, now: input.now })
+      .create({ credential: refreshed.credential }),
   };
 }
 

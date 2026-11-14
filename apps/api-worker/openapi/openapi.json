@@ -89,6 +89,12 @@
           "retryAfterSeconds": {
             "type": "integer",
             "minimum": 0
+          },
+          "operation": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string"
           }
         },
         "required": [
@@ -1276,6 +1282,7 @@
               "networkPacketLoss",
               "callerLookup",
               "outlookCalendarSync",
+              "googleCalendarSync",
               "outgoingEmail",
               "notificationDigest",
               "emailCapture",
@@ -1327,6 +1334,7 @@
               "networkPacketLoss",
               "callerLookup",
               "outlookCalendarSync",
+              "googleCalendarSync",
               "outgoingEmail",
               "notificationDigest",
               "emailCapture",
@@ -1877,6 +1885,13 @@
             "type": "string",
             "enum": [
               "read",
+              "unreachable"
+            ]
+          },
+          "backgroundState": {
+            "type": "string",
+            "enum": [
+              "read",
               "not-configured",
               "refused",
               "unreachable"
@@ -1912,6 +1927,7 @@
         },
         "required": [
           "state",
+          "backgroundState",
           "windowStart",
           "windowEnd",
           "total",
@@ -1922,6 +1938,14 @@
       "RecentErrorGroup": {
         "type": "object",
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "server",
+              "browser",
+              "background"
+            ]
+          },
           "latestErrorId": {
             "type": [
               "string",
@@ -1934,10 +1958,19 @@
               "null"
             ]
           },
-          "eventName": {
-            "type": "string"
-          },
           "where": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"
@@ -1966,15 +1999,152 @@
           }
         },
         "required": [
+          "source",
           "latestErrorId",
           "service",
-          "eventName",
           "where",
+          "status",
+          "title",
           "errorName",
           "messageHead",
           "count",
           "firstSeen",
           "lastSeen"
+        ]
+      },
+      "ErrorLookupResponse": {
+        "type": "object",
+        "properties": {
+          "record": {
+            "$ref": "#/components/schemas/ErrorRecord"
+          },
+          "mintedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mintedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "record",
+          "mintedAt",
+          "mintedBy"
+        ]
+      },
+      "ErrorRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "errorId": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "server",
+              "browser"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "operation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "problemType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "messageHead": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "build": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correlationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "errorId",
+          "recordedAt",
+          "source",
+          "service",
+          "operation",
+          "status",
+          "problemType",
+          "title",
+          "errorName",
+          "messageHead",
+          "location",
+          "build",
+          "firmId",
+          "userId",
+          "correlationId"
         ]
       },
       "ReportIncidentResponse": {
@@ -2066,6 +2236,56 @@
           "breadcrumbs",
           "description",
           "context"
+        ]
+      },
+      "RecordClientErrorResponse": {
+        "type": "object",
+        "properties": {
+          "errorId": {
+            "type": "string"
+          },
+          "recorded": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "errorId",
+          "recorded"
+        ]
+      },
+      "RecordClientErrorRequest": {
+        "type": "object",
+        "properties": {
+          "errorId": {
+            "type": "string",
+            "pattern": "^client_[0-9A-HJKMNP-TV-Z]{8}$"
+          },
+          "route": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "errorName": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "build": {
+            "type": "string",
+            "maxLength": 60
+          }
+        },
+        "required": [
+          "errorId",
+          "route",
+          "errorName",
+          "build"
         ]
       },
       "FirmUsageResponse": {
@@ -29593,6 +29813,18 @@
           "statusReason"
         ]
       },
+      "ConnectedAccountSignInStart": {
+        "type": "object",
+        "properties": {
+          "authorizationUrl": {
+            "type": "string",
+            "description": "The provider's own sign-in page. The browser is sent to it as a whole page."
+          }
+        },
+        "required": [
+          "authorizationUrl"
+        ]
+      },
       "ConnectedAccountList": {
         "type": "object",
         "properties": {
@@ -29620,7 +29852,8 @@
           "provider": {
             "type": "string",
             "enum": [
-              "microsoft"
+              "microsoft",
+              "google"
             ]
           },
           "available": {
@@ -29642,7 +29875,8 @@
           "provider": {
             "type": "string",
             "enum": [
-              "microsoft"
+              "microsoft",
+              "google"
             ]
           },
           "accountLabel": {
@@ -29671,18 +29905,6 @@
           "accountLabel",
           "status",
           "connectedAt"
-        ]
-      },
-      "ConnectedAccountSignInStart": {
-        "type": "object",
-        "properties": {
-          "authorizationUrl": {
-            "type": "string",
-            "description": "The provider's own sign-in page. The browser is sent to it as a whole page."
-          }
-        },
-        "required": [
-          "authorizationUrl"
         ]
       },
       "ConnectedAccountDisconnectAck": {
@@ -29718,7 +29940,8 @@
               "provider": {
                 "type": "string",
                 "enum": [
-                  "microsoft"
+                  "microsoft",
+                  "google"
                 ]
               },
               "accountLabel": {
@@ -50257,7 +50480,7 @@
     },
     "/api/v1/platform/recent-errors": {
       "get": {
-        "description": "The deployment's recent failures, read back from Workers Logs: every error.captured and operation.failed event across the account's Workers over the last 24 hours, folded into one row per Worker, place and error name with its count, first and last sighting and newest Error ID. state says why there are no rows when the read could not be made: not-configured (no account id or log-read token), refused (the token was not accepted) or unreachable.",
+        "description": "The deployment's failures over the last 24 hours, folded into one row per source, Worker, place, status and error name with its count, first and last sighting and newest Error ID. Requests and browser crashes come from the control plane's error record; background failures come from Workers Logs, and backgroundState says why they are missing when the log read could not be made: not-configured (no account id or log-read token), refused or unreachable.",
         "operationId": "platform.recentErrors",
         "tags": [
           "platform"
@@ -50298,6 +50521,92 @@
           },
           "403": {
             "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/errors/{errorId}": {
+      "get": {
+        "description": "What one Error ID was: the recorded failure (the operation, the answer, the error kind, the scrubbed message head, the firm and member ids), kept for thirty days. An ID with no record still answers what a server-minted ID says about itself — when and by which Worker.",
+        "operationId": "platform.errorLookup",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.errorLookup",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^(error|client)_[A-Za-z0-9]+$"
+            },
+            "required": true,
+            "name": "errorId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record, or what the ID says about itself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorLookupResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not the shape of an Error ID",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -50392,6 +50701,100 @@
           },
           "422": {
             "description": "The body failed validation (over-cap breadcrumbs/errorIds, empty description, …)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client-errors": {
+      "post": {
+        "description": "Keeps a crash in the browser against the client_ Error ID its crash screen shows, so the ID can be looked up in System Status. Carries the route template, the error kind, the first stack frame and the build; a message only for the engine's own kinds (TypeError, ReferenceError, RangeError), scrubbed. A second send of one ID is a no-op.",
+        "operationId": "clientErrors.record",
+        "tags": [
+          "clientErrors"
+        ],
+        "x-mc-operationId": "clientErrors.record",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:reportIncident",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "client-error",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "clientErrors"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordClientErrorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The crash is recorded (or already was)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordClientErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:reportIncident",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable, or the session member is deactivated — absent, never an existence oracle",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -98692,70 +99095,6 @@
         }
       }
     },
-    "/api/v1/me/connected-accounts": {
-      "get": {
-        "description": "The session member's own connected accounts, and which providers this deployment can connect.",
-        "operationId": "connectedAccounts.list",
-        "tags": [
-          "connectedAccounts"
-        ],
-        "x-mc-operationId": "connectedAccounts.list",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": null,
-        "x-mc-resource": "firm",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "connectedAccounts"
-        ],
-        "x-mc-deprecated": false,
-        "responses": {
-          "200": {
-            "description": "The member's connected accounts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectedAccountList"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the member has no such account",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/me/connected-accounts/microsoft/sign-in": {
       "post": {
         "description": "Starts connecting the session member's own Microsoft 365 account for calendar sync, and answers the address of Microsoft's sign-in page. The request asks Microsoft for the member's calendars and nothing about their mail. Nothing is stored until the member returns.",
@@ -98808,7 +99147,7 @@
             }
           },
           "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the member has no such account",
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -98902,6 +99241,247 @@
           },
           "403": {
             "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/connected-accounts/google/sign-in": {
+      "post": {
+        "description": "Starts connecting the session member's own Google account for calendar sync, and answers the address of Google's sign-in page. The request asks Google for the member's calendars and nothing about their mail. Nothing is stored until the member returns.",
+        "operationId": "connectedAccounts.startGoogleSignIn",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.startGoogleSignIn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Where to send the browser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectedAccountSignInStart"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "This deployment is not registered with the provider, so no account can connect",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/google/callback": {
+      "get": {
+        "description": "Where Google returns the member's browser after sign-in. Records the connection when the return matches a sign-in this browser started, and always redirects to the Connected Accounts screen with one word saying what happened. Not called by a client.",
+        "operationId": "connectedAccounts.finishGoogleSignIn",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.finishGoogleSignIn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "code",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "error",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Back to the Connected Accounts screen, naming the outcome"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/connected-accounts": {
+      "get": {
+        "description": "The session member's own connected accounts, and which providers this deployment can connect.",
+        "operationId": "connectedAccounts.list",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's connected accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectedAccountList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -99932,6 +100512,73 @@
           },
           "422": {
             "description": "The address or the validation token is not one this route could have issued",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar-sync/provider-notices/google/{firmId}/{connectionId}": {
+      "post": {
+        "description": "Receives Google's notice that something in a member's connected calendar changed. Called by Google and by nothing in this platform. The notice has no body: it is acted on only when its `X-Goog-Channel-Token` header carries the secret that account gave Google, and every request is answered alike whether or not it was believed.",
+        "operationId": "calendarSync.receiveGoogleNotice",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.receiveGoogleNotice",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "provider-notice",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "connectionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The notice was received"
+          },
+          "422": {
+            "description": "The address is not one this route could have issued",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -141718,6 +142365,9 @@
     },
     {
       "name": "calendarSync"
+    },
+    {
+      "name": "clientErrors"
     },
     {
       "name": "communications"

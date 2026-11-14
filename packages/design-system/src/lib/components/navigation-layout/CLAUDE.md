@@ -93,9 +93,10 @@ one and the rows are not.
   label, not a control in a row of its own — it keeps its own voice rather than dressing as a
   button, its hit target is the whole width, and the chevron points down while open and toward the
   inline start while folded. `Sidebar.GroupTrigger` says the same thing in the chrome register.
-- **It composes `mc-field-label` rather than restating the caps voice**, the way the sidebar's
-  trigger composes `mc-sidebar-group-label`. A recipe that retyped the register would be the second
-  copy of it that FieldLabel exists to prevent.
+- **It composes `mc-field-label` rather than restating the label voice** (small, medium, muted,
+  sentence case since 2026-11-14), the way the sidebar's trigger composes `mc-sidebar-group-label`.
+  A recipe that retyped the register would be the second copy of it that FieldLabel exists to
+  prevent.
 - **Two levels, and the indent stagger is the recipe's**: `band` (a glyph, firmer ink, the column's
   rule under it) over `group` (a step in, quieter) over the rows (a step further). The settings
   column had that stagger in utilities and an inline `padding-inline-start`; it is one recipe now,

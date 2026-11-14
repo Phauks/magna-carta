@@ -20,6 +20,7 @@ import {
   sortFeatures,
 } from "../src/lib/versions/features-model.ts";
 import {
+  describeBackgroundState,
   describeRecentErrorsState,
   recentErrorsTile,
 } from "../src/lib/versions/recent-errors-model.ts";
@@ -168,7 +169,9 @@ describe("feature states", () => {
 describe("recent errors words", () => {
   it("says why there are no rows, and nothing when the read worked", () => {
     expect(describeRecentErrorsState("read")).toBeNull();
-    expect(describeRecentErrorsState("not-configured")).toContain("Not set up");
+    expect(describeRecentErrorsState("unreachable")).toContain("could not be read");
+    expect(describeBackgroundState("read")).toBeNull();
+    expect(describeBackgroundState("not-configured")).toContain("read-only token");
   });
 
   it("the tile counts errors and marks a truncated read", () => {
@@ -176,6 +179,7 @@ describe("recent errors words", () => {
     expect(
       recentErrorsTile({
         state: "read",
+        backgroundState: "read",
         windowStart: null,
         windowEnd: null,
         total: 500,

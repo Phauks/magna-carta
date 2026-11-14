@@ -4,12 +4,17 @@
  */
 import {
   connectedAccountsDisconnect,
+  connectedAccountsStartGoogleSignIn,
   connectedAccountsStartMicrosoftSignIn,
 } from "@magna-carta/api-client";
+import type { CalendarProvider } from "./connected-accounts.ts";
 
-/** Where to send the browser to sign in at Microsoft, or undefined when that could not be started. */
-export async function startOutlookSignIn(): Promise<string | undefined> {
-  const { data } = await connectedAccountsStartMicrosoftSignIn();
+/** Where to send the browser to sign in at the provider, or undefined when that could not be started. */
+export async function startCalendarSignIn(provider: CalendarProvider): Promise<string | undefined> {
+  const { data } =
+    provider === "google"
+      ? await connectedAccountsStartGoogleSignIn()
+      : await connectedAccountsStartMicrosoftSignIn();
   return data?.authorizationUrl;
 }
 

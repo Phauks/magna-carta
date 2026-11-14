@@ -148,7 +148,9 @@
 </script>
 
 <div class="flex min-w-0 gap-16" style={RECORD_PANEL_BODY_STYLE} data-record-rail>
-  <nav aria-label={label} class="mc-scrollbar flex shrink-0 flex-col gap-4 overflow-y-auto" style="width: 11rem">
+  <!-- The rail steps aside on a narrow screen, where it would take half the width from the
+       sections it lists; every section still opens and closes from its own heading. -->
+  <nav aria-label={label} class="mc-scrollbar flex shrink-0 max-md:hidden flex-col gap-4 overflow-y-auto" style="width: 11rem">
     {#each sections as entry (entry.id)}
       <NavigationLayoutRow current={entry.id === lit} onclick={() => jump(entry.id)}>
         {entry.label}

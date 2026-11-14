@@ -4,12 +4,11 @@
  * record is clearer and fully type-checked.
  *
  * Two registers: the SOLID action chips (primary/secondary/destructive/outline) for strong labels,
- * and the PALE-TINT status pills (neutral/success/warning/danger/info/accent) — a pale same-hue tint
- * with deep same-hue text, the calm register for status on a work surface (a matter's Open/Pending/
- * Closed, a "Trust held" gold chip). Statuses use the status.*-subtle token pairs; accent is the gold.
+ * and the STATUS MARKS (neutral/success/warning/danger/info/accent) — a dot in the status hue before
+ * a plain word, the calm register for status on a work surface (a matter's Open/Pending/Closed).
  *
- * `caps` is orthogonal to both registers: it puts the badge's word in the platform's letterspaced
- * small-caps voice, for a badge that labels a standing rather than counting something.
+ * `caps` is retired: badges read in sentence case with every other label. The option is kept so
+ * existing call sites compile, and its class changes nothing.
  */
 
 export type BadgeVariant =

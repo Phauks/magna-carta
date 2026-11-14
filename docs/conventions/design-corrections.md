@@ -300,6 +300,26 @@ is usually the fastest way to understand the rule.
   reads as an error. A disabled field is a dashed edge on a pale fill and never shares a fill with
   a button. A secondary button is outlined, so it never looks like a disabled primary.
   _(app visual refresh, 2026-11-13)_
+- **Every label speaks in one voice.** A form label and the label over a read-only fact are the
+  same type: small, medium weight, muted, in sentence case, never small capitals with tracking.
+  A fold heading in a navigation column composes the same voice.
+  _(app visual refresh, 2026-11-14)_
+- **A date is typed the way it is said, and read back in words.** "Nov 13", "11/13", "today",
+  "fri" all work; at rest the field shows "Fri, Nov 13, 2026", so the reader checks the weekday. A
+  date the field cannot read keeps its text with the red edge, and the value does not move.
+  _(app visual refresh, 2026-11-14)_
+- **The reading face is Inter.** Atkinson Hyperlegible's slashed zero made every date and amount
+  read as code ("2Ø26"), and the face has no plain zero to switch to. Atkinson stays a choice under
+  Settings > Text. _(app visual refresh, 2026-11-14)_
+- **No tracked capitals for structure.** Table column headers, filter headings, the grid's scope
+  line and the sidebar's group headings take the label voice in their own case; the fill, the rule
+  and the position already say they are structure. A table row's title link is plain ink that
+  underlines under the pointer, not a column of underlines. The scroll-edge rule is neutral: gold is
+  kept for what is active or focused. _(app visual refresh, 2026-11-14)_
+- **Two to four choices are shown, not hidden in a list.** A closed choice that small is a
+  `SegmentedControl`, every option on screen and the chosen one raised; five or more is a Select.
+  A choice not built yet stays in the track, refused, with its reason on hover. It takes a row of
+  its own when its words would not fit a column. _(app visual refresh, 2026-11-14)_
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
   column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
@@ -1653,6 +1673,18 @@ The owner, on the person record window:
   on) as their own relationship types.
 - **"clicked the bottom left item and i couldn't go back up."** Jumping to the last section lifted the
   whole window out of its frame; a jump now scrolls only the content pane.
+- **"since a directory record puts the image at the top left, we should also match that. adding a
+  person and editing a person should honestly be the same screen."** New Person carries the picture
+  at the top left of its header, as the record does, and the heading becomes the typed name. Both
+  use the same rail and section cards, and the name fields come in the same order (first, middle,
+  last, then prefix and suffix).
+- **"changing names should be easier, data changes should be inline, like addresses."** Edit Name and
+  Add Other Name open their fields inside the Names card with Cancel and Save, never a window over
+  the record. Correcting a typing mistake without keeping the old spelling as a former name is not
+  built: names are kept, never overwritten, and dropping that needs the owner's word.
+- Found while checking at phone width: the section rail and a side column squeezed the form to a
+  sliver. Below the medium breakpoint the rail steps aside and a panel's side column stands under
+  the form (`ActionDialog`), so nothing scrolls sideways.
 
 ### 2026-11-13 — the app's visual refresh: fields, choices and buttons first
 
@@ -1668,9 +1700,19 @@ The owner, asked to pick one of three directions for the app as a whole:
 - **"Don't auto-open ... menu on hover."** Every "..." menu opened under a resting pointer, because
   hover opening was on for every DropdownMenu. A trigger with no words now opens only when pressed.
   Promoted to _Controls and patterns_.
-- **Still to come in later passes:** one choice field in place of Select and Combobox (search, the
-  tick on the right), a typed date, a segmented control for two to four choices, one label voice,
-  and the shell and tables in direction A.
+- **Labels in two voices.** The label over a read-only fact was tiny tracked capitals while a form
+  label was plain words, so the same fact looked different on a record and in its edit window.
+  Both now read the same. Promoted to _Data entry_.
+- **Billing was a dropdown of two or three words.** The time, cost and fee windows now show the
+  choices side by side in a segmented control. Promoted to _Data entry_.
+- **"Atkinson's slashed zero makes dates and money look like code."** No plain zero exists in the
+  face, so the default became Inter (the direction A body face), and dates became typed. Promoted to
+  _Data entry_.
+- **Capitals, underlines and a gold edge on every list.** Column headers, sidebar groups and
+  filter headings were tracked capitals, every matter title was underlined, and the scroll-edge
+  rule drew a gold line down the table's side. Promoted to _Data entry_.
+- **Statuses are a dot and a word, not a tinted pill.** The status tones of `Badge` (neutral, success, warning, danger, info, accent) draw a small disc in the status hue before the word in the reading colour. The `caps` option is retired and changes nothing.
+- **Still to come in later passes:** the top bar, and the near-identical greys.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 

@@ -81,7 +81,7 @@
   } = $props();
 
   const EDIT_REFUSAL =
-    "The conflicts log is append-only. A hit is never edited; answering it records a new row.";
+    "Results are never edited. Answering a result adds a new entry.";
 
   // The matched party comes ON the hit — the check read resolves every hit's entity — so this window
   // takes no name of its own to be told. It used to, and a caller could hand it one that disagreed
@@ -129,7 +129,7 @@
         trail = outcome.value.dispositions;
         return;
       }
-      trailFailure = stated(outcome.failure, "This hit's answers could not be read.");
+      trailFailure = stated(outcome.failure, "Couldn't load this result's answers.");
     })();
   }
 
@@ -147,7 +147,7 @@
   const TRAIL_FIXTURE: readonly EventRailEvent[] = [
     {
       id: "fixture-surfaced",
-      action: "Surfaced by the check",
+      action: "Found by the check",
       at: sampleInstant(1),
       source: "The conflicts engine",
       detail: "Surname and given name matched; date of birth matched",
@@ -173,7 +173,7 @@
     const rail: EventRailEvent[] = [
       {
         id: `${hit.id}-surfaced`,
-        action: "Surfaced by the check",
+        action: "Found by the check",
         at: hit.createdAt,
         source: "The conflicts engine",
         detail: hit.matchedFields.join("; "),
@@ -276,8 +276,7 @@
             </dd>
           </div>
           <p class="text-xs text-text-subtle">
-            About the same party, on an earlier check. Whether it answers this one is yours to
-            decide — this hit is unanswered until you answer it.
+            About the same party, on an earlier check. You decide whether it applies here. This result is unanswered until you answer it.
           </p>
         {/if}
         {@render fact("Kind", entityKindText(hit.entityId))}
@@ -353,7 +352,7 @@
   {#if hit !== null}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <FieldLabel as="h3">Every Channel That Fired</FieldLabel>
+        <FieldLabel as="h3">Every Search That Matched</FieldLabel>
         <!-- Verbatim, and every one of them: the engine records each comparison that matched rather
              than only the one that set the tier, because that is what a reviewer adjudicates on and
              what an auditor reads years later. -->
@@ -362,7 +361,7 @@
             <li>{field}</li>
           {:else}
             <li class="text-text-muted">
-              No channel is recorded on this hit, which is why it sits at the weakest tier.
+              No search is recorded on this result, so it's shown as the weakest match.
             </li>
           {/each}
         </ul>
@@ -396,7 +395,7 @@
                 <span>
                   <Badge
                     variant="neutral"
-                    title="The relationship had already ended when the check read the corpus. It is traversed rather than skipped, because the rules that most often decide a conflict are about former relationships."
+                    title="This relationship had already ended when the check ran. It's still followed, because former relationships often decide a conflict."
                   >
                     Ended before the check
                   </Badge>
@@ -439,7 +438,7 @@
       loading={trailLoading}
       failed={trailFailure !== null}
       empty={trail.length === 0}
-      label="Reading every answer on this hit"
+      label="Reading all answers on this result"
       onRetry={readTrail}
       class="flex min-h-0 flex-1 flex-col gap-8"
     >
@@ -461,7 +460,7 @@
         <EventRail
           events={TRAIL_FIXTURE}
           label="This hit's adjudication"
-          note="2 answers, oldest first. An answer is never edited — a reviewer who changes their mind records another, and both stay on the log."
+          note="2 answers, oldest first. Answers are never edited; a reviewer who changes their mind records a new one, and both are kept."
         />
       {/snippet}
       {#snippet emptyState()}
@@ -469,13 +468,13 @@
              the hit. What is empty is the reviewers' side of the record, and the rail's own note
              says so. -->
         {@render trailRail(
-          "No reviewer has answered this hit. That is a fact about the hit, not about whether an interest is adverse.",
+          "No reviewer has answered this result yet. That says nothing about whether an interest is adverse.",
         )}
       {/snippet}
       <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
       {@render trailRail(
         trail.length > 1
-          ? `${String(trail.length)} answers, oldest first. An answer is never edited — a reviewer who changes their mind records another, and both stay on the log.`
+          ? `${String(trail.length)} answers, oldest first. Answers are never edited; a reviewer who changes their mind records a new one, and both are kept.`
           : undefined,
       )}
     </LoadingRegion>
@@ -485,7 +484,7 @@
 {#snippet actions()}
   <span class="mr-auto flex items-center gap-4 text-xs text-text-muted">
     <Gavel class="size-12" aria-hidden="true" />
-    An answer names whoever records it.
+    Each answer names the person who records it.
   </span>
   <Button variant="secondary" onclick={() => (open = false)}>Close</Button>
   <Button variant="primary" onclick={onAnswer}>Answer this hit</Button>

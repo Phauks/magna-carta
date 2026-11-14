@@ -51,6 +51,22 @@ export function formatDate(value: CivilDateInput, options: CivilDateOptions = {}
 }
 
 /**
+ * A calendar day with its weekday — "Fri, Nov 13, 2026" — for a date FIELD at rest, where the
+ * weekday is what a reader checks a typed date against ("fri" should land on a Friday).
+ */
+export function formatDateWithWeekday(
+  value: CivilDateInput,
+  options: CivilDateOptions = {},
+): string {
+  return civilFormatter(options.locale, {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(asUtcDate(value));
+}
+
+/**
  * A SPAN of calendar days — "Sep 2 – 15, 2026", "Dec 28, 2026 – Jan 3, 2027".
  *
  * The locale's own range formatter, which repeats only what differs between the ends: the month

@@ -11,7 +11,8 @@ random bytes, so every branch runs in a test with no network.
 
 - `src/sign-in.ts` — the authorization-code flow with a proof key: the address a member's browser
   is sent to, trading the returned code for tokens, and refreshing. `MICROSOFT_CALENDAR_SCOPES` is
-  the whole calendar grant
+  the whole calendar grant. The proof key itself and the outcome shapes are shared with the other
+  providers, in `packages/integrations/src/oauth-sign-in.ts`
 - `src/calendar-sync-adapter.ts` — `CalendarSyncPort` (defined in `packages/calendar/src/sync-port.ts`)
   over Microsoft Graph. Every event it writes carries `WRITTEN_COPY_PROPERTY_ID`, and the read back
   asks for events carrying it and nothing else, so no event the member made is ever read. Changing
