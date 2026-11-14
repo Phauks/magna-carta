@@ -225,7 +225,7 @@ describe("the status section", () => {
     );
     expect(dormant[1]?.state).toBe("not-searched");
     expect(dormant[1]?.lines).toEqual([
-      "No file's text was read. File indexing is not turned on for this firm, or the file index could not be reached. An administrator turns it on in Settings, under Search and Indexing.",
+      "No file text was searched. File indexing is off for this firm, or the file index couldn't be reached. An administrator can turn it on in Settings, under Search and Indexing.",
     ]);
   });
 
