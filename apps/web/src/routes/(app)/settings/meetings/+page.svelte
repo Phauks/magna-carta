@@ -57,18 +57,17 @@
   {#if draft.committed !== null}
     {#if definition.id === RECORDING_ENABLED_DEFINITION.id && !draft.committed.recordingServiceConfigured}
       <SettingsPlateNote>
-        The platform's recording service is not configured yet, so no meeting can start a
-        recording until it is, whatever this switch says.
+        Meeting recording isn't set up yet, so no meeting can be recorded, whatever this switch says.
       </SettingsPlateNote>
     {:else if definition.id === SUMMARIES_ENABLED_DEFINITION.id}
       <SettingsPlateNote>
         {#if draft.committed.aiProcessingEligible}
-          A summary also needs third-party AI processing, which is on in
+          A summary also needs third-party AI, which is on in
           <a class="underline underline-offset-2" href="/settings/ai">AI and the Assistant</a>.
         {:else}
-          A summary also needs third-party AI processing, which is off in
-          <a class="underline underline-offset-2" href="/settings/ai">AI and the Assistant</a>, so no
-          summary is written until it is switched on there.
+          A summary also needs third-party AI, which is off in
+          <a class="underline underline-offset-2" href="/settings/ai">AI and the Assistant</a>. No
+          summary is written until it's turned on there.
         {/if}
       </SettingsPlateNote>
     {/if}
@@ -78,14 +77,14 @@
 <SettingsPage
   sectionId={MEETINGS_SECTION_ID}
   title="Meetings"
-  meta="Whether the firm's meetings may be recorded, summarized and captioned, and how many people one recording hears. Each switch is off until the firm turns it on."
+  meta="Whether the firm's meetings can be recorded, summarized and captioned, and how many people one recording can hear. Each switch is off until the firm turns it on."
   {draft}
   {definitions}
   {canEdit}
   readLabel="Reading the firm's meeting settings"
-  readFailureTitle="The Meeting Settings Could Not Be Read"
-  readFailureFallback="The firm's meeting settings were not read."
-  saveFailureFallback="The meeting settings are unchanged. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the meeting settings are unchanged. What you chose is still staged."
+  readFailureTitle="Couldn't Load the Meeting Settings"
+  readFailureFallback="Couldn't load the firm's meeting settings."
+  saveFailureFallback="The meeting settings weren't saved. Your changes are still here."
+  saveFailureWhenSilent="Couldn't connect. The meeting settings weren't saved. Your changes are still here."
   {afterRow}
 />

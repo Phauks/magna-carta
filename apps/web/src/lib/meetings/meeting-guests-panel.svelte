@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * Who from outside the firm may come to this meeting, and the three things a host does about it.
+   * Who from outside the firm can join this meeting, and the three things a host does about it.
    *
    * A GUEST IS SOMEBODY ALREADY ON THE EVENT. The list is the event's own participants who are a
    * person or an organization in the Directory — never an address typed into a box — because the
@@ -348,9 +348,9 @@
     subject="This meeting"
     title={refusedAs(failure, "guest-not-invitable") ? "Nobody Was Invited" : "Nothing Changed"}
     fallback={refusedAs(failure, "guest-not-invitable")
-      ? "That person cannot be sent a link. Check the name and address, or invite them from the list."
-      : "That did not happen."}
-    whenSilent="Nothing answered, so nothing changed for this meeting's guests."
+      ? "Couldn't send that person a link. Check the name and address, or invite them from the list."
+      : "That didn't happen."}
+    whenSilent="Couldn't connect. Nothing changed for this meeting's guests. Try again."
   />
 {/snippet}
 
@@ -365,7 +365,7 @@
     <LoadingRegion
       class="flex flex-col gap-12"
       {loading}
-      label="Reading who may come to this meeting"
+      label="Reading who can join this meeting"
       failed={readFailure !== null}
     >
       {#snippet failure()}
@@ -373,8 +373,8 @@
           <FailureNotice
             failure={readFailure}
             subject="This meeting"
-            fallback="Who may come to this meeting could not be read."
-            whenSilent="Nothing answered. Who may come to this meeting could not be read."
+            fallback="Couldn't load who can join this meeting."
+            whenSilent="Couldn't connect. Couldn't load who can join this meeting. Try again."
             onRetry={() => {
               void eventRead.refetch();
               void refreshInvitations();
@@ -421,7 +421,7 @@
                     variant="secondary"
                     size="sm"
                     disabled
-                    title="Only somebody in the Directory can be sent a link."
+                    title="Only someone in the Directory can be sent a link."
                   >
                     <Mail class="size-16" aria-hidden="true" />
                     Invite
@@ -510,7 +510,7 @@
           {/if}
         </div>
         <p class="text-xs text-text-muted">
-          If nobody in the Directory has this address, a person is added there for somebody to review.
+          If nobody in the Directory has this address, a person is added there for review.
         </p>
         <div class="flex justify-end">
           <Button type="submit" variant="secondary" size="sm" disabled={!typedReady || typedBusy}>
@@ -542,8 +542,7 @@
   {/snippet}
   {#snippet fields()}
     <p class="text-sm">
-      A new link is e-mailed and the old one stops working at once. Anybody in the meeting on the
-      old link is taken out of it.
+      A new link is emailed and the old one stops working at once. Anyone in the meeting on the old link is removed from it.
     </p>
   {/snippet}
 </ActionDialog>
@@ -566,8 +565,7 @@
   {/snippet}
   {#snippet fields()}
     <p class="text-sm">
-      The link stops working at once, and anybody in the meeting on it is taken out. Inviting them
-      again sends a new link.
+      The link stops working at once, and anyone in the meeting on it is removed. Invite them again to send a new link.
     </p>
   {/snippet}
 </ActionDialog>

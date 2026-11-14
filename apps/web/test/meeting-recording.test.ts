@@ -893,7 +893,7 @@ describe("starting and stopping", () => {
     expect(await recording.start()).toBe("refused");
     expect(recording.refusedAct).toBe("start");
     expect(recordingRefusal(recording.writeFailure, "start").sentence).toBe(
-      "Recording is not switched on for this firm yet.",
+      "Recording isn't turned on for this firm yet.",
     );
   });
 
@@ -1261,7 +1261,7 @@ describe("the Record control", () => {
 
     const control = buttonsReading("Record")[0];
     expect(control?.disabled).toBe(true);
-    expect(target.textContent).toContain("Recording is not switched on for this firm yet.");
+    expect(target.textContent).toContain("Recording isn't turned on for this firm yet.");
     control?.click();
     await settle();
     expect(requests.filter((request) => request.path.endsWith("/recording"))).toHaveLength(0);
@@ -1289,7 +1289,7 @@ describe("the Record control", () => {
       ?.click();
     await settle();
 
-    expect(panel?.textContent).toContain("Recording is not switched on for this firm yet.");
+    expect(panel?.textContent).toContain("Recording isn't turned on for this firm yet.");
     expect(mark()).toBeNull();
   });
 });

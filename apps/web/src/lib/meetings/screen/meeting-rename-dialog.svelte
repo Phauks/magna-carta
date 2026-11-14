@@ -77,8 +77,7 @@
       />
     </div>
     <p class="text-sm text-text-muted">
-      This name is for this meeting only. Everybody in the room also sees the name you joined with,
-      {originalName}, and the meeting's record keeps that name.
+      This name is for this meeting only. Everyone in the room also sees the name you joined with, {originalName}, and the meeting's record shows that name.
     </p>
     <div>
       <Button variant="secondary" size="sm" disabled={!renamed} onclick={reset}>

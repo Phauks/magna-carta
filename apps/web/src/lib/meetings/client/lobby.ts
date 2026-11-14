@@ -78,11 +78,11 @@ export const NOT_ADMITTED_REASON = "not-admitted";
 
 /** What somebody reads when a host turns them away. */
 export const DENIED_STATEMENT =
-  "A host did not let you into this meeting. You cannot come back into it, and the record keeps when you arrived and when your stay closed.";
+  "A host didn't let you into this meeting. You can't come back in. The meeting's record shows when you arrived and when you left.";
 
 /** What somebody at the door reads when the room refuses something they asked for. */
 export const NOT_ADMITTED_NOTICE =
-  "You are still waiting to be let in, so that did not happen. A host has to admit you first.";
+  "You're still waiting to be let in, so that didn't happen. A host has to admit you first.";
 
 /**
  * A count off the wire, or zero where the frame carried something that is not one.

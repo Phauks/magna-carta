@@ -151,7 +151,7 @@ describe("the Effects control", () => {
     openEffects();
 
     expect(document.body.textContent).toContain(
-      "Background blur is on, set in your computer's own settings.",
+      "Background blur is on in your computer's settings.",
     );
     expect(buttonReading("Blur")).toBeUndefined();
   });
@@ -269,9 +269,7 @@ describe("the Effects control", () => {
     flushSync();
     openEffects();
 
-    expect(document.body.textContent).toContain(
-      "Your browser decides this and does not report it.",
-    );
+    expect(document.body.textContent).toContain("Your browser decides this and doesn't report it.");
   });
 
   it("states a refusal in the panel's own band", () => {
@@ -279,7 +277,7 @@ describe("the Effects control", () => {
       target,
       props: bar({
         appliedEffects: applied({
-          refusal: "Your browser did not change how it treats your microphone.",
+          refusal: "Your browser didn't change how it handles your microphone.",
         }),
       }),
     });
@@ -287,7 +285,7 @@ describe("the Effects control", () => {
     openEffects();
 
     expect(document.body.textContent).toContain(
-      "Your browser did not change how it treats your microphone.",
+      "Your browser didn't change how it handles your microphone.",
     );
   });
 });

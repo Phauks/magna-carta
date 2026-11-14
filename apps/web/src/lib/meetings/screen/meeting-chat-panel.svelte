@@ -454,8 +454,7 @@
       <!-- The one fact a reader needs to read the rest correctly: this is not the room, it is the
            record. Said once, where the decision to type is made. -->
       <p class="text-xs text-text-muted">
-        What is said here is kept on the meeting&rsquo;s record. Taking a message back leaves a
-        mark where it was.
+        Messages here are saved to the meeting&rsquo;s record. A deleted message leaves a mark where it was.
       </p>
     </div>
 

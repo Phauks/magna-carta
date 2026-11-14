@@ -188,7 +188,7 @@ describe("what the browser reports about the microphone", () => {
         autoGainControl: null,
         voiceIsolation: null,
       }),
-    ).toBe("Your browser decides this and does not report it.");
+    ).toBe("Your browser decides this and doesn't report it.");
   });
 });
 

@@ -343,8 +343,8 @@ export interface GuestRefusal {
 
 /** The one answer for a link that is not a link: nothing about what it might have been. */
 export const UNUSABLE_LINK: GuestRefusal = {
-  title: "This Link Cannot Be Used",
-  sentence: "This link does not open anything.",
+  title: "This Link Can't Be Used",
+  sentence: "This link doesn't open anything.",
   retryable: false,
 };
 
@@ -408,7 +408,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
   [
     "guest-name-not-valid",
     {
-      title: "That Name Cannot Be Used",
+      title: "That Name Can't Be Used",
       // The field already refuses what the server refuses, so this is only reached by a name the two
       // count differently; the door stays and the person can type it again.
       sentence: `Enter a name of ${String(MAX_GUEST_NAME_LENGTH)} characters or fewer.`,
@@ -431,7 +431,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
       // The same words a member's Join control says for the same state, and the link is not spent:
       // the host may open the room again, and the guest can simply press Join once they have.
       sentence:
-        "A host has locked this meeting, so nobody else can come in. Your link still works, so you can try again once the host opens it.",
+        "A host locked this meeting, so nobody else can join. Your link still works. Try again once the host unlocks it.",
       retryable: true,
     },
   ],
@@ -440,7 +440,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
     {
       title: "Too Many People Are Waiting",
       sentence:
-        "Too many people are already waiting to be let into this meeting. Your link still works, so you can try again in a few minutes.",
+        "Too many people are already waiting to join this meeting. Your link still works. Try again in a few minutes.",
       retryable: true,
     },
   ],
@@ -455,7 +455,7 @@ const REFUSALS: ReadonlyMap<GuestRefusalSlug, GuestRefusal> = new Map<
   [
     "meeting-not-admitted",
     {
-      title: "You Were Not Let Into This Meeting",
+      title: "You Weren't Let Into This Meeting",
       sentence: `A host did not let you into this meeting, so this link cannot bring you back to its door. ${ASK_FOR_A_NEW_ONE}`,
       retryable: false,
     },

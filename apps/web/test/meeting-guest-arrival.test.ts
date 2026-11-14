@@ -769,7 +769,7 @@ describe("after pressing Join", () => {
     pressJoin();
     await settle();
 
-    expect(target.textContent).toContain("A host has locked this meeting");
+    expect(target.textContent).toContain("A host locked this meeting");
     expect(nameField()).not.toBeNull();
   });
 });
@@ -779,8 +779,8 @@ describe("a link that cannot be used", () => {
     serve({ summary: { status: 404, body: null } });
     const rendered = await draw();
 
-    expect(rendered.textContent).toContain("This Link Cannot Be Used");
-    expect(rendered.textContent).toContain("This link does not open anything.");
+    expect(rendered.textContent).toContain("This Link Can't Be Used");
+    expect(rendered.textContent).toContain("This link doesn't open anything.");
     expect(rendered.textContent).not.toContain("Ask the firm");
     expect(nameField()).toBeNull();
     expect(captures).toHaveLength(0);
@@ -799,7 +799,7 @@ describe("a link that cannot be used", () => {
       serve({ summary: { status, body } });
       const rendered = await draw();
 
-      expect(rendered.textContent).toContain("This link does not open anything.");
+      expect(rendered.textContent).toContain("This link doesn't open anything.");
       expect(rendered.textContent).not.toContain("Ask the firm");
       expect(nameField()).toBeNull();
     },

@@ -371,8 +371,8 @@ export function doorDecisionStatement(
   const full = missed.filter((decision) => decision.outcome === "room-full").length;
   if (full > 0) {
     return full === 1
-      ? "1 person did not get in: the room is full."
-      : `${full} people did not get in: the room is full.`;
+      ? "1 person didn't get in. The room is full."
+      : `${full} people didn't get in. The room is full.`;
   }
   return missed.length === 1
     ? "1 person was no longer waiting, so nothing changed for them."
