@@ -413,7 +413,7 @@
               two are the same picture and they are not the same fact.
             -->
             <Combobox.Item value={NOTE_ROW_VALUE} label="" disabled class="mc-entity-picker-note">
-              The directory could not be searched.
+              Couldn't search the directory.
             </Combobox.Item>
             <Combobox.Item value={RETRY_ROW_VALUE} label="Try Again" class="mc-entity-picker-retry">
               Try Again

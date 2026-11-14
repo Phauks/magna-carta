@@ -31,12 +31,21 @@ export type ContrastPreference = "standard" | "high" | "system";
 export type ScrollEdgeHintPreference = "shown" | "hidden";
 /**
  * The user typeface axis — the reading face (design language: a curated set, all open-licensed and
- * self-hosted). "atkinson" is the default and the primitive truth; "serif" is the one serif
+ * self-hosted). "inter" is the default and the primitive truth (owner, 2026-11-14: it has a plain
+ * zero, where Atkinson's slashed zero made dates and money read as code); Atkinson Hyperlegible
+ * stays a choice under a new stored value, so the old default's "atkinson" falls back to Inter
+ * rather than holding everyone on the face they never chose; "serif" is the one serif
  * reading profile; "system" is the operating system's own face and loads no web font at all.
  * No OS signal resolves this one: no platform reports a preferred reading face, so there is no
  * "system" seed to follow — "system" here names the FACE, not an unset encoding.
  */
-export type TypefacePreference = "atkinson" | "lexend" | "opendyslexic" | "serif" | "system";
+export type TypefacePreference =
+  | "inter"
+  | "atkinson-hyperlegible"
+  | "lexend"
+  | "opendyslexic"
+  | "serif"
+  | "system";
 /**
  * The user text-size axis — the base size interface text renders at, as a whole PERCENTAGE of the
  * browser's own root size, from TEXT_SIZE_MINIMUM to TEXT_SIZE_MAXIMUM (owner-directed: a
@@ -68,7 +77,7 @@ const DEFAULT_MOTION: MotionPreference = "system";
 const DEFAULT_DENSITY: DensityPreference = "comfortable";
 const DEFAULT_CONTRAST: ContrastPreference = "system";
 const DEFAULT_SCROLL_EDGE_HINTS: ScrollEdgeHintPreference = "shown";
-const DEFAULT_TYPEFACE: TypefacePreference = "atkinson";
+const DEFAULT_TYPEFACE: TypefacePreference = "inter";
 
 function isMode(value: string | null): value is Mode {
   return value === "light" || value === "dark" || value === "system";
@@ -92,7 +101,8 @@ function isScrollEdgeHintPreference(value: string | null): value is ScrollEdgeHi
 
 function isTypefacePreference(value: string | null): value is TypefacePreference {
   return (
-    value === "atkinson" ||
+    value === "inter" ||
+    value === "atkinson-hyperlegible" ||
     value === "lexend" ||
     value === "opendyslexic" ||
     value === "serif" ||
@@ -110,7 +120,7 @@ function parseTextSize(value: string | null): TextSizePreference | undefined {
 /**
  * Reads the persisted appearance preferences. Unset or unrecognized stored values fall back to
  * the defaults (theme "chancery", mode "system", motion "system", density "comfortable",
- * contrast "standard", typeface "atkinson", text size 100) rather than leaking garbage into the unions.
+ * contrast "standard", typeface "inter", text size 100) rather than leaking garbage into the unions.
  */
 export function readThemePreference(): {
   theme: string;
@@ -243,13 +253,13 @@ export function applyScrollEdgeHintsToDocument(preference: ScrollEdgeHintPrefere
 /**
  * Applies the reading face to the document WITHOUT persisting anything: sets `data-typeface` on
  * `<html>`, which the token overlay blocks (`:root[data-typeface="…"]`) key on to re-point
- * --mc-font-sans. "atkinson" removes the attribute (the primitive truth needs no overlay). Only
+ * --mc-font-sans. "inter" removes the attribute (the primitive truth needs no overlay). Only
  * the reading face moves: the display serif, the blackletter mark and the monospace face keep
  * their own variables.
  */
 export function applyTypefaceToDocument(typeface: TypefacePreference): void {
   const root = document.documentElement;
-  if (typeface === "atkinson") delete root.dataset.typeface;
+  if (typeface === "inter") delete root.dataset.typeface;
   else root.dataset.typeface = typeface;
 }
 
@@ -312,7 +322,7 @@ export function applyThemePreference(
   density: DensityPreference = "comfortable",
   contrast: ContrastPreference = "standard",
   scrollEdgeHints: ScrollEdgeHintPreference = "shown",
-  typeface: TypefacePreference = "atkinson",
+  typeface: TypefacePreference = "inter",
   textSize: TextSizePreference = DEFAULT_TEXT_SIZE,
 ): void {
   localStorage.setItem(THEME_STORAGE_KEY, theme);

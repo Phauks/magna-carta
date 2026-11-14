@@ -34,3 +34,10 @@ export function format(value: Money): string {
   // toDecimal returns string; the exact-value overload (ES2023.Intl) wants the numeric-string literal type.
   return formatter.format(toDecimal(value) as Intl.StringNumericLiteral);
 }
+
+// Spreadsheet boundary: the amount as a plain number of whole currency units, for a cell a reader's
+// spreadsheet should be able to sum. Display text goes through format(); this is the number BESIDE
+// that text, and it is lossy past 2^53 minor units the way every spreadsheet number is.
+export function spreadsheetNumber(value: Money): number {
+  return Number(toDecimal(value));
+}

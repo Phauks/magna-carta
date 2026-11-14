@@ -330,3 +330,139 @@ describe("the trust-account listing the report screen picks from", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("GET /api/v1/reports/accounts-receivable-aging", () => {
+  const agingUrl = (query: string) =>
+    `https://example.com/api/v1/reports/accounts-receivable-aging?${query}`;
+
+  it("answers the Owner with the aging at a date, stamped live when no knowledge instant is given", async () => {
+    const response = await SELF.fetch(agingUrl("asOfDate=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      asOfDate: string;
+      reproducibility: { reproducible: boolean };
+      totals: { unpaidMinor: number[]; invoiceCount: number[] | null };
+      offices: unknown[];
+      clients: unknown[];
+    };
+    expect(report.asOfDate).toBe("2026-07-31");
+    expect(report.reproducibility.reproducible).toBe(false);
+    expect(report.totals.unpaidMinor).toHaveLength(5);
+    expect(report.totals.invoiceCount).toHaveLength(5);
+  });
+
+  it("refuses a date that is not on the calendar", async () => {
+    const response = await SELF.fetch(agingUrl("asOfDate=2026-02-30"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(agingUrl("asOfDate=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/work-in-progress", () => {
+  const url = "https://example.com/api/v1/reports/work-in-progress";
+
+  it("answers the Owner with live work in progress, stamped with when it was computed", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      computedAt: string;
+      totals: { totalMinor: number };
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.computedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/realization", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/realization?${query}`;
+
+  it("answers the Owner, saying the standard value is live", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as { standardValueIsLive: boolean };
+    expect(report.standardValueIsLive).toBe(true);
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/timekeeper-productivity", () => {
+  const url = (query: string) =>
+    `https://example.com/api/v1/reports/timekeeper-productivity?${query}`;
+
+  it("answers the Owner with minutes recorded, live", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as { reproducible: boolean };
+    expect(report.reproducible).toBe(false);
+  });
+
+  it("does not accept a knowledge instant it could not honor", async () => {
+    const response = await SELF.fetch(
+      url("periodStart=2026-07-01&periodEnd=2026-07-31&knownAsOf=2026-08-01T00%3A00%3A00.000Z"),
+      { headers: { cookie: ownerCookie } },
+    );
+    // The parameter is not part of the contract; an unknown query key is ignored by the schema,
+    // and the answer stays live rather than pretending to be taken as at the instant.
+    expect(((await response.json()) as { reproducible: boolean }).reproducible).toBe(false);
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/operational-volumes", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/operational-volumes?${query}`;
+
+  it("answers the Owner, naming the sections that are live", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as { liveSections: string[] };
+    expect(report.liveSections).toEqual(["matters", "costs"]);
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

@@ -364,6 +364,8 @@ describe("end-to-end", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        // Bringing records in from the system the firm is leaving: Owner/Admin alone.
+        "firm:transferRecords",
         "incidents:viewDescription",
         // The four intake keys. intake:read and intake:record reach every seat that does firm work
         // (Admin, Attorney, Paralegal, Billing); intake:waive and intake:manageProcedures stop
@@ -627,7 +629,10 @@ const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
 // a firm, and acts only on a notice carrying the secret one connected account gave that provider
 // (asserted in calendar-sync-provider-notices.test.ts); every other request is answered alike and
 // changes nothing. Enumerated here so a second unauthenticated POST cannot arrive unnoticed.
-const PROVIDER_NOTICE_OPERATIONS = new Set(["calendarSync.receiveMicrosoftNotice"]);
+const PROVIDER_NOTICE_OPERATIONS = new Set([
+  "calendarSync.receiveGoogleNotice",
+  "calendarSync.receiveMicrosoftNotice",
+]);
 
 const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set([
   "meetings.inspect",

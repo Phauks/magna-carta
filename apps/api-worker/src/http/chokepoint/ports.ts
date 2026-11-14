@@ -103,6 +103,9 @@ export type AppVariables = ChokepointVariables & {
   // verified, without the secret. A guest route stashes this, the firm id and the firm context — and
   // never chokepointUserId, which is what keeps a guest out of every member handler structurally.
   chokepointGuestGrant?: ChokepointGuestGrant;
+  // Set by problemJson (and, first, by the error boundary): the problem this request answered, for
+  // the telemetry middleware to keep in the error record once the response is out.
+  answeredProblem?: import("../contracts/problem.ts").AnsweredProblem;
 };
 
 // resolveSession port: the cookie → { userId, firmId } resolver, bound to the per-env Better Auth

@@ -19,14 +19,14 @@ Under the counts, a tab answers each question:
 - **Deployment** shows the build each side is on and, when the page and the server differ, the changes that sit between them.
 - **Workers** lists every service under the name it is deployed as, and the outside services the platform connects to, as described below.
 - **This Firm** is the check on your firm's own records, described in [Checking your firm's database](#checking-your-firms-database).
-- **Recent Errors** lists the platform's failures over the last day, one row per kind of failure, with how many times it happened, when it was first and last seen, and the newest Error ID. Quote that Error ID to support and they can find the exact failure. This tab appears only for platform operators, because the rows cover every firm on the deployment.
+- **Recent Errors** lists the platform's failures over the last day, one row per kind of failure, with how many times it happened, when it was first and last seen, and the newest Error ID. At the top, **Look up an Error ID** takes any `error_` or `client_` reference a member quotes and shows what it was: the request or screen, the answer, the cause, the time, and the firm and member it happened to (as identifiers). Records are kept for 30 days. This tab appears only for platform operators, because the rows cover every firm on the deployment.
 - **Feature Flags** lists the flags your firm's release channel switches on or off, and marks any that differ from their default.
 
 ### For platform operators
 
 A platform operator sees more on the **Features** tab. A feature that is not set up names the settings it still needs and opens to a short list of steps that turn it on, with a link to the full steps in the deployment guide. A feature that is not working offers a link to the service in the hosting console. The page only ever says whether a setting is present. It never shows a setting's value to anyone.
 
-The **Recent Errors** tab needs one read-only token before it can show anything. Until it is set, the tab says **Not set up**, and **Recent errors** appears as a not-set-up row on the Features tab with the steps to add it.
+The **Recent Errors** tab shows failed requests and app crashes without any setup. Failures in the platform's background work (scheduled passes and queues) come from the hosting provider's logs, which need one read-only token. Until it is set, the tab says background failures are not shown, and **Background errors** appears as a not-set-up row on the Features tab with the steps to add it.
 
 ## What it does
 

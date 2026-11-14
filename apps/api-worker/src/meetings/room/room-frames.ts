@@ -26,6 +26,7 @@ import { giveUpWaiting } from "./room-lobby.ts";
 import { armAlarmFor } from "./room-lifecycle.ts";
 import { changeHand, relayPresence } from "./room-presence.ts";
 import { claimSignalSlot, relayReaction } from "./room-reactions.ts";
+import { renameParticipant } from "./room-naming.ts";
 import { namesOnlyRosterTracks, rosterFrom } from "./room-roster.ts";
 import {
   acceptClientReport,
@@ -137,6 +138,7 @@ type SignalingFrame = Exclude<
   | { type: "spotlight" }
   | { type: "lower-hands" }
   | { type: "captions" }
+  | { type: "rename" }
   | { type: "reaction" }
   | { type: "diagnostic-report" }
   | { type: "mls-key-package" }
@@ -495,6 +497,25 @@ async function routeClientFrame(
     // is: that reconciliation reads every key the room holds, twice, for a window a second away.
     if (dueAt !== null) await armAlarmFor(room, dueAt);
     return "reaction";
+  }
+
+  // WHAT THIS PERSON IS CALLED, answered here because it asks nothing of the routing service. Paced
+  // on the hand's window and REFUSED inside it, for the reason a reaction is: a rename is one act
+  // with nothing later to restate it, and every accepted one is a roster change to every socket.
+  if (parsed.frame.type === "rename") {
+    if (!(await claimSignalSlot(room, attachment.attendanceId, Date.now()))) {
+      await refuseAndRecord(
+        room,
+        socket,
+        attachment,
+        attachment.attendanceId,
+        "rate-limited",
+        "rename",
+      );
+      return "rename";
+    }
+    await renameParticipant(room, attachment.attendanceId, parsed.frame.displayName);
+    return "rename";
   }
 
   // Same claim, one frame earlier than the roster read and the upstream call it would make.

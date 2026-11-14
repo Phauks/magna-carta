@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@magna-carta/build-identity": "workspace:*",
+    "@magna-carta/house-document": "workspace:*",
     "@magna-carta/pdf": "workspace:*",
     "@magna-carta/pdf-compose": "workspace:*",
     "@magna-carta/signing": "workspace:*",

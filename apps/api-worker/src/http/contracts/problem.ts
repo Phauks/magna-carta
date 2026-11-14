@@ -53,6 +53,15 @@ export const Problem = z
     // rather than zero when the reply is not about a budget at all.
     attemptsRemaining: z.number().int().min(0).optional(),
     retryAfterSeconds: z.number().int().min(0).optional(),
+    // Which operation answered, as its method and route TEMPLATE ("POST /api/v1/meetings/:meetingId/join"),
+    // never the concrete path, which can carry a matter number. It is what lets a screen say which
+    // action failed without the screen having to know.
+    operation: z.string().optional(),
+    // What broke, on a server fault only: the exception's kind, and for the kinds the JavaScript
+    // engine writes itself ("TypeError: Cannot read properties of undefined (reading 'id')") its
+    // scrubbed message. Those messages name code, never what the code was holding. A message our
+    // own code or a library wrote is withheld, because it can carry what the code had in hand.
+    cause: z.string().optional(),
   })
   .openapi("Problem");
 
@@ -79,6 +88,46 @@ export interface ProblemOptions {
   // guard logs a denial cause against the id it then returns to the client (reworked onto the
   // telemetry pipeline in slice 0·6). Defaults to a fresh mint when omitted.
   errorId?: string;
+  // What broke, on a server fault. Built by the error boundary with publicCause() and nowhere else.
+  cause?: string;
+}
+
+// The facts about one problem reply that the error record keeps, stashed on the request by
+// problemJson and written by the telemetry middleware once the response is known to have gone out.
+export interface AnsweredProblem {
+  readonly errorId: string;
+  readonly status: number;
+  readonly type: ProblemTypeKey;
+  readonly title: string;
+  readonly operation: string | null;
+  readonly errorName: string | null;
+  readonly messageHead: string | null;
+}
+
+// The route template Hono matched, with its method — or null where nothing more specific than a
+// catch-all matched, which names no operation.
+export function answeredOperation(c: Context): string | null {
+  const template = c.req.routePath as string | undefined;
+  const method = c.req.method as string | undefined;
+  if (template === undefined || template === "" || template === "*" || template === "/*") {
+    return null;
+  }
+  if (method === undefined) return null;
+  return `${method} ${template}`;
+}
+
+// The kinds of exception whose message the JavaScript engine writes rather than our code. Their
+// messages name a property or a variable, never a value, which is why they are the only messages a
+// member's screen may show. A SyntaxError is left out: JSON.parse quotes the text it failed on.
+const ENGINE_KINDS: ReadonlySet<string> = new Set(["TypeError", "ReferenceError", "RangeError"]);
+const PUBLIC_CAUSE_LIMIT = 160;
+
+// What a server fault's screen may say about its cause. `scrubbedMessage` is the message after the
+// telemetry scrubber has run over it.
+export function publicCause(errorName: string, scrubbedMessage: string): string {
+  const kind = errorName === "" ? "Error" : errorName;
+  if (!ENGINE_KINDS.has(kind) || scrubbedMessage === "") return kind;
+  return `${kind}: ${scrubbedMessage.slice(0, PUBLIC_CAUSE_LIMIT)}`;
 }
 
 // The precisely-typed reply problemJson returns: a Response that ALSO carries the status literal in
@@ -114,12 +163,30 @@ export function problemJson<S extends ProblemStatusCode>(
   // the problem joins its redacted server trace. Read defensively (unknown context type) — absent
   // only outside a request, which no caller is today.
   const correlationId = c.get("correlationId") as string | undefined;
+  const operation = answeredOperation(c);
+  const errorId = options.errorId ?? newErrorId();
+  // Stashed, not written: the middleware records it after the response, off the request's path. The
+  // error boundary has already stashed the exception's name and message head; keep them.
+  // Read and written defensively, like the correlation id above: a context built outside a request
+  // (a unit test's stand-in) has no variable store, and a problem must still render there.
+  const canStash = typeof c.set === "function";
+  const earlier = canStash ? (c.get("answeredProblem") as AnsweredProblem | undefined) : undefined;
+  if (canStash)
+    c.set("answeredProblem", {
+      errorId,
+      status: options.status,
+      type: options.type,
+      title: options.title,
+      operation,
+      errorName: earlier?.errorId === errorId ? earlier.errorName : null,
+      messageHead: earlier?.errorId === errorId ? earlier.messageHead : null,
+    } satisfies AnsweredProblem);
   const body: ProblemBody = {
     type: problemType(options.type),
     title: options.title,
     status: options.status,
     ...(options.detail !== undefined && { detail: options.detail }),
-    errorId: options.errorId ?? newErrorId(),
+    errorId,
     ...(correlationId !== undefined && { correlationId }),
     instance: c.req.path,
     ...(options.errors !== undefined && { errors: options.errors }),
@@ -131,6 +198,8 @@ export function problemJson<S extends ProblemStatusCode>(
     ...(options.retryAfterSeconds !== undefined && {
       retryAfterSeconds: options.retryAfterSeconds,
     }),
+    ...(operation !== null && { operation }),
+    ...(options.cause !== undefined && { cause: options.cause }),
   };
   return c.json(body, options.status, {
     "content-type": "application/problem+json",

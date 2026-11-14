@@ -6,6 +6,7 @@
  * fit, and scope-honest totals. Pure functions here; the runes state lives in
  * data-table-grid-state.svelte.ts and the rendering in data-table-grid.svelte.
  */
+import type { Snippet } from "svelte";
 import { formatDate, formatMoney, formatNumber } from "./typed-columns.ts";
 
 /** The value a column accessor may produce. Dates may arrive as Date or an ISO/YYYY-MM-DD string. */
@@ -92,6 +93,19 @@ export interface GridCellContext<TRow> {
   column: GridColumn<TRow>;
   /** The column model's default display text for this cell ("" when the value is empty). */
   text: string;
+}
+
+/**
+ * The line at the foot of a band where a record is written in place (DataTable.Grid's `bandFoot`).
+ * `bandKey` is null where the rows are not banded.
+ */
+export interface GridBandFoot<TRow> {
+  /** Whether this band's line is open as a form: one cell per column rather than one across. */
+  editing: (bandKey: string | null) => boolean;
+  /** One cell of the open form. */
+  cell: Snippet<[{ column: GridColumn<TRow>; bandKey: string | null }]>;
+  /** The line at rest, across the table. `label` is the band's own, null where there are no bands. */
+  rest: Snippet<[{ bandKey: string | null; label: string | null }]>;
 }
 
 /** "end" for numeric/money columns (or an explicit `align`), else "start". */

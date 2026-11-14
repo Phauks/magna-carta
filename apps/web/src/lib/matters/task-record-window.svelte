@@ -99,9 +99,11 @@
     type TaskTeam,
   } from "./tasks-api.ts";
   import { formatRecurrence, type RecurrenceRule } from "@magna-carta/civil-time/recurrence";
-  import TaskRepeatField from "./task-repeat-field.svelte";
+  import TaskRepeatDialog from "./task-repeat-dialog.svelte";
+  import Repeat from "@lucide/svelte/icons/repeat";
+  import { writtenRecurrence } from "$lib/calendar/recurrence-sentence.ts";
   import TaskComments from "./task-comments.svelte";
-  import { storedRule } from "./task-recurrence.ts";
+  import { nextCopySentence, storedRule } from "./task-recurrence.ts";
 
   let {
     open = $bindable(false),
@@ -291,12 +293,47 @@
           : undefined,
   );
 
-  /** Whether the repeat being edited differs from the one the task has. */
-  const repeatChanged = $derived(
-    task !== null &&
-      ((repeatRule === null ? null : formatRecurrence(repeatRule)) !== (task.recurrence?.rule ?? null) ||
-        (repeatRule !== null && repeatMode !== (task.recurrence?.mode ?? "completed"))),
+  // THE REPEAT, as the window shows it: a sentence and a button. It is changed only in its own
+  // panel (task-repeat-dialog.svelte), so a stray click here can never reshape the series.
+  let repeatDialogOpen = $state(false);
+  const repeatDueOn = $derived(task === null ? dueOn : task.dueOn);
+  const repeatStartsOn = $derived(task === null ? startsOn : task.startsOn);
+  const repeats = $derived(task === null ? repeatRule !== null : task.recurrence !== null);
+  const repeatUnreadable = $derived(
+    task !== null && task.recurrence !== null && storedRule(task.recurrence.rule) === null,
   );
+  const repeatSentence = $derived.by((): string => {
+    if (repeatUnreadable) return "Repeats on a rule recorded in another calendar.";
+    if (repeatRule === null) return "";
+    const rule = `Repeats ${writtenRecurrence(repeatRule, repeatDueOn)}.`;
+    if (repeatDueOn === null) return rule;
+    const occurrenceOn = task?.recurrence?.occurrenceOn ?? repeatDueOn;
+    return `${rule} ${nextCopySentence(repeatRule, repeatMode, occurrenceOn, repeatDueOn, repeatStartsOn)}`;
+  });
+
+  /** Keeps a repeat: on a new task, until the task is saved; on a task, as its own write. */
+  async function saveRepeat(
+    rule: RecurrenceRule | null,
+    mode: TaskRecurrenceMode,
+  ): Promise<StatedFailure | null> {
+    const subject = task;
+    if (subject === null) {
+      repeatRule = rule;
+      repeatMode = mode;
+      return null;
+    }
+    const outcome = await setTaskRecurrence(
+      fetch,
+      subject.id,
+      rule === null ? null : formatRecurrence(rule),
+      mode,
+    );
+    if (outcome.kind !== "ok") return stated(outcome.failure, "The repeat was not changed.");
+    repeatRule = rule;
+    repeatMode = mode;
+    onSaved(subject.id);
+    return null;
+  }
 
   const taskList = $derived(task === null ? undefined : lists.find((list) => list.id === task.listId));
   const newList = $derived(lists.find((list) => list.id === listId));
@@ -711,44 +748,28 @@
 
     {#if (task === null && parent === null) || (task !== null && task.parentTaskId === null)}
       <!-- Whether the task repeats. A sub-task repeats with its parent, so it is not asked here. -->
-      <div class="flex flex-col gap-8">
-        <TaskRepeatField
-          bind:rule={repeatRule}
-          bind:mode={repeatMode}
-          dueOn={task === null ? dueOn : task.dueOn}
-          startsOn={task === null ? startsOn : task.startsOn}
-          occurrenceOn={task?.recurrence?.occurrenceOn ?? null}
-          unreadable={task !== null && task.recurrence !== null && storedRule(task.recurrence.rule) === null}
-          disabled={fieldsLocked}
-        />
-        {#if task !== null && repeatChanged}
-          <div class="flex gap-8">
-            <Button
-              size="sm"
-              disabled={fieldsLocked}
-              onclick={() =>
-                void act(
-                  (subject) =>
-                    setTaskRecurrence(
-                      fetch,
-                      subject.id,
-                      repeatRule === null ? null : formatRecurrence(repeatRule),
-                      repeatMode,
-                    ),
-                  "The repeat was not changed.",
-                )}>Save Repeat</Button
-            >
-            <Button
-              size="sm"
-              variant="ghost"
-              onclick={() => {
-                repeatRule = storedRule(task?.recurrence?.rule);
-                repeatMode = task?.recurrence?.mode ?? "completed";
-              }}>Discard</Button
-            >
-          </div>
-        {/if}
-      </div>
+      {#if repeats}
+        <div class="flex flex-wrap items-center gap-8 rounded-md border border-border-default bg-surface-sunken p-8">
+          <Repeat aria-hidden="true" class="size-16 shrink-0 text-text-muted" />
+          <span class="min-w-0 flex-1 text-sm">{repeatSentence}</span>
+          <Button size="sm" variant="secondary" disabled={fieldsLocked} onclick={() => (repeatDialogOpen = true)}>
+            Change Repeat
+          </Button>
+        </div>
+      {:else}
+        <div>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={fieldsLocked || repeatDueOn === null}
+            title={repeatDueOn === null ? "A task repeats from its due date. Give it one first." : "Make this task repeat"}
+            onclick={() => (repeatDialogOpen = true)}
+          >
+            <Repeat aria-hidden="true" />
+            Repeat
+          </Button>
+        </div>
+      {/if}
     {/if}
 
     <!-- The list, and on a new task the status it starts at. A sub-task shares its parent's list. -->
@@ -1164,3 +1185,16 @@
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />
 {/if}
+
+<TaskRepeatDialog
+  bind:open={repeatDialogOpen}
+  repeating={repeats}
+  rule={repeatRule}
+  mode={repeatMode}
+  dueOn={repeatDueOn}
+  startsOn={repeatStartsOn}
+  occurrenceOn={task?.recurrence?.occurrenceOn ?? null}
+  unreadable={repeatUnreadable}
+  onSave={saveRepeat}
+  onStop={() => saveRepeat(null, repeatMode)}
+/>

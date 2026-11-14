@@ -242,7 +242,7 @@
       // Three hits and the capped note, which rides the list as a row nobody can pick.
       await waitFor(() => expect(body.getAllByRole("option").length).toBe(4));
       await waitFor(() =>
-        expect(body.getByText("The firm holds more matches than are shown. These are the closest; narrowing the search reaches the rest.")).toBeVisible(),
+        expect(body.getByText("More matches exist than are shown. Narrow the search to see the rest.")).toBeVisible(),
       );
       await closeListbox(body);
     });
@@ -263,7 +263,7 @@
 
     await step("A search that could not run is stated, never shown as no matches", async () => {
       await userEvent.type(canvas.getByRole("combobox", { name: "Person or organization" }), "Ada");
-      await waitFor(() => expect(body.getByText("The directory could not be searched.")).toBeVisible());
+      await waitFor(() => expect(body.getByText("Couldn't search the directory.")).toBeVisible());
       expect(body.queryByText("No record matches that search.")).toBeNull();
       await expect(body.getByRole("option", { name: "Try Again" })).toBeVisible();
     });
@@ -271,7 +271,7 @@
     await step("Trying again asks the same question, and states the same answer", async () => {
       await userEvent.click(body.getByRole("option", { name: "Try Again" }));
       await waitFor(() => expect(body.getByText("Searching the directory")).toBeVisible());
-      await waitFor(() => expect(body.getByText("The directory could not be searched.")).toBeVisible());
+      await waitFor(() => expect(body.getByText("Couldn't search the directory.")).toBeVisible());
       await closeListbox(body);
     });
   }}

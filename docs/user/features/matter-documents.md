@@ -371,6 +371,21 @@ you give it one that works.
 Renaming a row in the list itself works the same way: press **F2**, or choose **Rename** from the
 row's right-click menu.
 
+## Downloading several files as one bundle
+
+Select the files and folders you want, right-click the selection and choose **Download as Bundle**. To bundle the whole matter, right-click the empty space under the list and choose **Download Matter as Bundle**.
+
+The panel asks how the bundle should be made. The defaults suit most bundles, so **Build Bundle** is usually the only press:
+
+- **Format**: Zip, which every computer opens, or 7z, which is smaller and can be split.
+- **Compression**: None, Normal or Smallest. Smallest takes longer to build.
+- **Password**: leave it empty for an ordinary bundle. With a password the bundle is encrypted with AES-256, and a 7z bundle hides the file names too. The password is not stored anywhere, so keep it somewhere safe and send it separately.
+- **Split Into Parts Of**: for a 7z bundle that has to fit an email or a disc. A password-protected bundle comes as one file, so it cannot also be split.
+- **Folders**: **Keep** puts the files in their folders; **Flatten** puts them all at the top.
+- **Include a contents list with each file's hash**: adds a list of every file with its fingerprint, so whoever receives the bundle can check nothing changed on the way.
+
+A small bundle downloads straight away. A large one is built in the background: a note above the list says so, it downloads when it is ready, and it is in the download tray at the top of the screen in the meantime. Documents edited in the browser go into the bundle with every tracked change accepted, the same as a single download.
+
 ## Archives
 
 Open a zip, a tar, a 7z or a rar and it shows what is inside it, folder by folder, without

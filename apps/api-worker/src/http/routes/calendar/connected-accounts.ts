@@ -1,9 +1,9 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import {
+  CALENDAR_PROVIDERS,
   ConnectedAccount,
   ConnectedAccountDisconnectAck,
   ConnectedAccountList,
-  ConnectedAccountSignInStart,
 } from "@magna-carta/calendar/sync-contract";
 import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
 import { deleteSyncIssuesStatement } from "@magna-carta/calendar/sync-issue-statements";
@@ -22,40 +22,25 @@ import {
 import { deleteIntegrationCredentialStatement } from "@magna-carta/data-access/integration-credential-statements";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import { fetchHttpClient, type HttpClient } from "@magna-carta/integrations/http";
-import { MICROSOFT_CALENDAR_ADAPTER_ID } from "@magna-carta/microsoft-graph/calendar-sync";
-import {
-  authorizationUrl,
-  CODE_VERIFIER_BYTE_LENGTH,
-  codeChallengeFor,
-  codeVerifierFrom,
-  MICROSOFT_CALENDAR_SCOPES,
-} from "@magna-carta/microsoft-graph/sign-in";
-import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { Bindings } from "../../../bindings.ts";
-import { connectMicrosoftAccount } from "../../../calendar-sync/connect-microsoft-account.ts";
-import { resolveMicrosoftApplication } from "../../../calendar-sync/microsoft-application.ts";
 import {
-  mintSignInAttempt,
-  readSignInAttempt,
-  SIGN_IN_ATTEMPT_COOKIE,
-  SIGN_IN_ATTEMPT_LIFETIME_SECONDS,
-} from "../../../calendar-sync/sign-in-attempt.ts";
-import { constantTimeStringEquals } from "../../../constant-time.ts";
+  calendarProviderOfAdapter,
+  resolveCalendarApplication,
+} from "../../../calendar-sync/calendar-providers.ts";
 import {
   integrationCredentialStoreForFirm,
   type CredentialStoreForFirm,
 } from "../../../plugins/credential-store.ts";
-import { protectedReadContext } from "../../../protected-read-context.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
-  requireChokepointFirmId,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
+import { registerConnectedAccountSignInRoutes } from "./connected-account-sign-in.ts";
 
 // A MEMBER'S OWN ACCOUNTS AT A CALENDAR PROVIDER. Each member connects their own; nobody connects
 // one for somebody else and the firm holds none. Every statement below is scoped to the session's
@@ -69,9 +54,12 @@ import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.t
 // their own calendar, so the capability to see the calendar is the one that fits: a firm that takes
 // calendar:read from a seat has, in the same act, decided that seat's events do not leave either.
 //
-// THE DEPLOYMENT MAY HAVE NO APPLICATION AT THE PROVIDER. That is the shipped state until somebody
+// THE DEPLOYMENT MAY HAVE NO APPLICATION AT A PROVIDER. That is the shipped state until somebody
 // registers one, and it is answered by name: the list says the provider is not available, the
 // sign-in route answers 501, and the return route sends the browser back saying so. Never a 500.
+//
+// Signing in and coming back are in connected-account-sign-in.ts; this module lists a member's
+// accounts and disconnects one.
 
 const PERMISSION = "calendar:read" as const;
 
@@ -82,16 +70,6 @@ export interface ConnectedAccountsRouteDeps {
   readonly http?: HttpClient;
   readonly credentialStoreForFirm?: CredentialStoreForFirm;
   readonly now?: () => Date;
-}
-
-// The screen a member is returned to, and the one word that tells it what happened. A word and
-// never a message: the address is visible, kept in history, and whatever the provider said may
-// carry the member's code.
-const RETURN_SCREEN_PATH = "/settings/connected-accounts";
-type SignInOutcome = "connected" | "declined" | "expired" | "unavailable" | "failed";
-
-function returnScreen(outcome: SignInOutcome): string {
-  return `${RETURN_SCREEN_PATH}?outcome=${outcome}`;
 }
 
 const errorResponses = {
@@ -112,10 +90,6 @@ const errorResponses = {
     description: "Rate limit exceeded",
     content: { "application/problem+json": { schema: Problem } },
   },
-  501: {
-    description: "This deployment is not registered with the provider, so no account can connect",
-    content: { "application/problem+json": { schema: Problem } },
-  },
 } as const;
 
 const listMeta: RouteMeta = {
@@ -127,30 +101,6 @@ const listMeta: RouteMeta = {
   permission: null,
   resource: "firm",
   audited: false,
-  idempotency: "optional",
-  rateLimit: "default",
-};
-
-const startMeta: RouteMeta = {
-  operationId: "connectedAccounts.startMicrosoftSignIn",
-  surface: "app",
-  authenticated: true,
-  permission: PERMISSION,
-  resource: "firm",
-  // Starting a sign-in changes nothing the firm holds: it hands the browser an address and a
-  // short-lived cookie. The connection is recorded, and audited, by the return route.
-  audited: false,
-  idempotency: "optional",
-  rateLimit: "default",
-};
-
-const finishMeta: RouteMeta = {
-  operationId: "connectedAccounts.finishMicrosoftSignIn",
-  surface: "app",
-  authenticated: true,
-  permission: PERMISSION,
-  resource: "firm",
-  audited: true,
   idempotency: "optional",
   rateLimit: "default",
 };
@@ -189,49 +139,6 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   },
 });
 
-const startRoute = defineOpenAPIRoute(startMeta, {
-  method: "post",
-  path: "/api/v1/me/connected-accounts/microsoft/sign-in",
-  description:
-    "Starts connecting the session member's own Microsoft 365 account for calendar sync, and " +
-    "answers the address of Microsoft's sign-in page. The request asks Microsoft for the member's " +
-    "calendars and nothing about their mail. Nothing is stored until the member returns.",
-  responses: {
-    200: {
-      description: "Where to send the browser",
-      content: { "application/json": { schema: ConnectedAccountSignInStart } },
-    },
-    401: errorResponses[401],
-    403: errorResponses[403],
-    404: errorResponses[404],
-    429: errorResponses[429],
-    501: errorResponses[501],
-  },
-});
-
-const finishRoute = defineOpenAPIRoute(finishMeta, {
-  method: "get",
-  path: "/api/v1/integrations/microsoft/callback",
-  description:
-    "Where Microsoft returns the member's browser after sign-in. Records the connection when the " +
-    "return matches a sign-in this browser started, and always redirects to the Connected " +
-    "Accounts screen with one word saying what happened. Not called by a client.",
-  request: {
-    query: z.object({
-      code: z.string().optional(),
-      state: z.string().optional(),
-      error: z.string().optional(),
-    }),
-  },
-  responses: {
-    302: { description: "Back to the Connected Accounts screen, naming the outcome" },
-    401: errorResponses[401],
-    403: errorResponses[403],
-    404: errorResponses[404],
-    429: errorResponses[429],
-  },
-});
-
 const disconnectRoute = defineOpenAPIRoute(disconnectMeta, {
   method: "delete",
   path: "/api/v1/me/connected-accounts/{id}",
@@ -264,9 +171,12 @@ export function registerConnectedAccountsRoutes(
   chokepoint: Chokepoint,
   deps: ConnectedAccountsRouteDeps = {},
 ): void {
-  const http = deps.http ?? fetchHttpClient();
-  const credentialStoreForFirm = deps.credentialStoreForFirm ?? integrationCredentialStoreForFirm;
   const now = deps.now ?? (() => new Date());
+  registerConnectedAccountSignInRoutes(app, chokepoint, {
+    http: deps.http ?? fetchHttpClient(),
+    credentialStoreForFirm: deps.credentialStoreForFirm ?? integrationCredentialStoreForFirm,
+    now,
+  });
 
   // GET /api/v1/me/connected-accounts
   app.openapi(
@@ -281,123 +191,27 @@ export function registerConnectedAccountsRoutes(
       ).all<ConnectionRow>();
       return c.json(
         {
-          providers: [
-            {
-              provider: "microsoft" as const,
-              available: resolveMicrosoftApplication(c.env, c.req.url) !== undefined,
-            },
-          ],
-          accounts: results
-            .filter((row) => row.adapter_id === MICROSOFT_CALENDAR_ADAPTER_ID)
-            .map((row) => ({
-              id: row.id,
-              provider: "microsoft" as const,
-              accountLabel: row.account_label,
-              status: row.status,
-              connectedAt: row.created_at,
-            })),
-        },
-        200,
-      );
-    },
-  );
-
-  // POST /api/v1/me/connected-accounts/microsoft/sign-in
-  app.openapi(
-    { ...startRoute, middleware: chokepointMiddleware(chokepoint, startRoute) },
-    async (c) => {
-      const userId = requireChokepointUserId(c);
-      const firmId = requireChokepointFirmId(c);
-      const application = resolveMicrosoftApplication(c.env, c.req.url);
-      if (application === undefined) {
-        return problemJson(c, {
-          type: "not-implemented",
-          title: "Outlook cannot be connected in this deployment",
-          status: 501,
-          detail:
-            "This deployment has not been registered with Microsoft, so no Outlook account can be connected. Nothing was changed.",
-        });
-      }
-      const codeVerifier = codeVerifierFrom(
-        crypto.getRandomValues(new Uint8Array(CODE_VERIFIER_BYTE_LENGTH)),
-      );
-      const state = codeVerifierFrom(
-        crypto.getRandomValues(new Uint8Array(CODE_VERIFIER_BYTE_LENGTH)),
-      );
-      const attempt = await mintSignInAttempt(
-        c.env.AUTH_SECRET,
-        { state, codeVerifier, userId, firmId },
-        now(),
-      );
-      // Lax, because the return from Microsoft is a top-level navigation from another site and a
-      // Strict cookie would not be sent with it. HttpOnly, so no script on the page reads the
-      // verifier.
-      setCookie(c, SIGN_IN_ATTEMPT_COOKIE, attempt, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "Lax",
-        path: "/",
-        maxAge: SIGN_IN_ATTEMPT_LIFETIME_SECONDS,
-      });
-      return c.json(
-        {
-          authorizationUrl: authorizationUrl({
-            application,
-            scopes: MICROSOFT_CALENDAR_SCOPES,
-            state,
-            codeChallenge: await codeChallengeFor(codeVerifier),
+          providers: CALENDAR_PROVIDERS.map((provider) => ({
+            provider,
+            available: resolveCalendarApplication(c.env, c.req.url, provider) !== undefined,
+          })),
+          accounts: results.flatMap((row) => {
+            const provider = calendarProviderOfAdapter(row.adapter_id);
+            return provider === undefined
+              ? []
+              : [
+                  {
+                    id: row.id,
+                    provider,
+                    accountLabel: row.account_label,
+                    status: row.status,
+                    connectedAt: row.created_at,
+                  },
+                ];
           }),
         },
         200,
       );
-    },
-  );
-
-  // GET /api/v1/integrations/microsoft/callback
-  app.openapi(
-    { ...finishRoute, middleware: chokepointMiddleware(chokepoint, finishRoute) },
-    async (c) => {
-      const userId = requireChokepointUserId(c);
-      const firmId = requireChokepointFirmId(c);
-      const firm = requireChokepointFirmContext(c);
-      const query = c.req.valid("query");
-
-      // The attempt is spent by being read, whatever happens next: a return is answered once.
-      const attempt = await readSignInAttempt(
-        c.env.AUTH_SECRET,
-        getCookie(c, SIGN_IN_ATTEMPT_COOKIE),
-        now(),
-      );
-      deleteCookie(c, SIGN_IN_ATTEMPT_COOKIE, { path: "/", secure: true });
-
-      const application = resolveMicrosoftApplication(c.env, c.req.url);
-      if (application === undefined) return c.redirect(returnScreen("unavailable"), 302);
-      if (attempt === null) return c.redirect(returnScreen("expired"), 302);
-      // Checked before anything the provider said is believed, the error included: a return that
-      // this browser did not start says nothing about this member.
-      if (
-        query.state === undefined ||
-        !(await constantTimeStringEquals(query.state, attempt.state)) ||
-        attempt.userId !== userId ||
-        attempt.firmId !== firmId
-      ) {
-        return c.redirect(returnScreen("expired"), 302);
-      }
-      // The member pressed Cancel at Microsoft, or an administrator there does not allow it.
-      if (query.error !== undefined) return c.redirect(returnScreen("declined"), 302);
-      if (query.code === undefined) return c.redirect(returnScreen("failed"), 302);
-
-      const outcome = await connectMicrosoftAccount({
-        http,
-        now,
-        application,
-        code: query.code,
-        codeVerifier: attempt.codeVerifier,
-        userId,
-        firmDatabase: firm.firmDatabase,
-        credentials: credentialStoreForFirm(protectedReadContext(c)),
-      });
-      return c.redirect(returnScreen(outcome), 302);
     },
   );
 
@@ -414,7 +228,7 @@ export function registerConnectedAccountsRoutes(
         firm.firmDatabase,
         CALENDAR_SYNC_CATEGORY,
         userId,
-      ).first<{ id: string; credential_ref: string }>();
+      ).first<{ id: string; adapter_id: string; credential_ref: string }>();
       if (existing === null || existing.id !== id) {
         return problemJson(c, {
           type: "not-found",
@@ -452,7 +266,7 @@ export function registerConnectedAccountsRoutes(
               subjectId: existing.id,
               actorUserId: userId,
               clock: { now: () => instant },
-              metadata: { provider: "microsoft" },
+              metadata: { provider: calendarProviderOfAdapter(existing.adapter_id) ?? "unknown" },
             }),
           ],
           outboxMessages: [],

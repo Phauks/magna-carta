@@ -1,3 +1,4 @@
+import { composeReadable } from "@magna-carta/house-document";
 import { createSealEngine, loadDocument } from "@magna-carta/pdf";
 import { composeDocument, ensureReady as ensureComposerReady } from "@magna-carta/pdf-compose";
 import {
@@ -89,20 +90,18 @@ export async function performSeal(
       certificateSheet(certificate, options),
       certificateSheetImages(options.signatureImages, options.initialsImages),
     );
-  const composeReadable = async (options: CertificateSheetOptions) => {
-    const first = await composeSheet(options);
-    return first.missingCharacters.length > 0
-      ? composeSheet({ ...options, typeface: "liberationSans" })
-      : first;
-  };
+  const composeSheetReadable = async (options: CertificateSheetOptions) =>
+    composeReadable((typeface) =>
+      composeSheet(typeface === undefined ? options : { ...options, typeface }),
+    );
   let sheet: Awaited<ReturnType<typeof composeSheet>>;
   const signatureImages = request.signatureImages ?? [];
   const initialsImages = request.initialsImages ?? [];
   try {
-    sheet = await composeReadable({ ...issuer, signatureImages, initialsImages });
+    sheet = await composeSheetReadable({ ...issuer, signatureImages, initialsImages });
   } catch (error) {
     if (signatureImages.length + initialsImages.length === 0) throw error;
-    sheet = await composeReadable(issuer);
+    sheet = await composeSheetReadable(issuer);
   }
   const sealedSheet = await sealDocument({
     pdf: sheet.pdf,

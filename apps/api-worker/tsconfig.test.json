@@ -112,6 +112,9 @@
       "path": "../../packages/file-type/tsconfig.build.json"
     },
     {
+      "path": "../../packages/google-calendar/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/government-links/tsconfig.build.json"
     },
     {
@@ -173,6 +176,9 @@
     },
     {
       "path": "../../packages/property-links/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/record-transfer/tsconfig.build.json"
     },
     {
       "path": "../../packages/reporting/tsconfig.build.json"

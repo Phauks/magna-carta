@@ -11,6 +11,7 @@
   import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
   import Grid from "../lib/components/data-table/data-table-grid.svelte";
   import LitigationGrid, { TIME_COLUMNS, TIME_ENTRIES } from "./support/litigation-grid.svelte";
+  import BandFootGrid from "./support/band-foot-grid.svelte";
 
   const { Story } = defineMeta({
     title: "Data Display/DataTableGrid",
@@ -383,27 +384,27 @@
       await closeMenu();
     });
 
-    await step("The date range filter narrows by the work date, typed into the segments", async () => {
+    await step("The date range filter narrows by the work date, typed into the field", async () => {
       await openFilter("Date");
-      // The date bound is the platform's DatePicker, not a native date input: a group of editable
-      // segments named by aria-label, since a range's two boxes have no room for a visible one.
-      const from = await body.findByLabelText("From");
-      await expect(from).toHaveAttribute("role", "group");
-      within(from).getAllByRole("spinbutton")[0]!.focus();
-      // en-US order: month, day, year. Bits advances to the next segment as each one fills.
-      await userEvent.keyboard("08102026");
+      // The date bound is the platform's DatePicker, not a native date input: a typed date named
+      // by aria-label, since a range's two boxes have no room for a visible one.
+      const from = await body.findByRole("textbox", { name: "From" });
+      from.focus();
+      await userEvent.keyboard("8/10/2026{Enter}");
       await waitFor(() => expect(bodyRows(table)).toHaveLength(6));
-      // A field inside a menu keeps its own keys — the digits did not run the menu's typeahead,
+      // A field inside a menu keeps its own keys: the digits did not run the menu's typeahead,
       // which would have taken focus out of the field and onto an item.
-      await expect(from).toContainElement(document.activeElement as HTMLElement);
+      await expect(from).toHaveFocus();
     });
 
     await step("Its calendar opens INSIDE the menu, and neither layer dismisses the other", async () => {
       // The sibling column filter records that a calendar nested in ITS popover crashed the
       // floating layer, so this is asserted rather than assumed: the popover opens, the filter
       // submenu survives it, and picking a day reaches the filter underneath.
-      const from = await body.findByLabelText("From");
-      await userEvent.click(within(from).getByRole("button", { name: "Open calendar" }));
+      const from = await body.findByRole("textbox", { name: "From" });
+      await userEvent.click(
+        within(from.parentElement as HTMLElement).getByRole("button", { name: "Open calendar" }),
+      );
       const grid = await body.findByRole("grid");
       // Focus really moved into the calendar. In a browser a member is using, that arrival is a
       // `focusin` the submenu's layer hears and used to answer by closing — and unmounting the
@@ -422,7 +423,7 @@
       // bound forward two days and takes two more rows out.
       await userEvent.click(within(grid).getByText("12"));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(4));
-      await expect(body.getByLabelText("From")).toHaveTextContent("12");
+      await expect(body.getByRole("textbox", { name: "From" })).toHaveValue("Wed, Aug 12, 2026");
       await expect(body.getByLabelText("To")).toBeVisible();
       await userEvent.click(body.getByRole("menuitem", { name: /Clear This Filter/ }));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(12));
@@ -1069,5 +1070,40 @@
 >
   {#snippet template()}
     <LitigationGrid grouping={BY_TIMEKEEPER} />
+  {/snippet}
+</Story>
+
+<!--
+  A BAND'S FOOT LINE. Each band ends in a line where a record is written in place. At rest it is one
+  cell across the table; opened, it is one cell per column, so each answer is typed in the column it
+  will be read in. It is not a record, so a count of the rows never includes it.
+-->
+<Story
+  name="An add line at each band's foot"
+  args={{}}
+  play={async ({ canvas, canvasElement, step }) => {
+    const table = canvas.getByRole("table");
+
+    await step("Every band ends in its own add line, and none is a record", async () => {
+      const feet = Array.from(canvasElement.querySelectorAll("tr[data-grid-band-foot]"));
+      await expect(feet.map((foot) => foot.getAttribute("data-grid-band-foot"))).toEqual([
+        "Marian Holt",
+        "Rosalind Chase",
+        "Edmund Voss",
+      ]);
+      await expect(bodyRows(table)).toHaveLength(TIME_ENTRIES.length);
+    });
+
+    await step("Opening one band's line lays it out in the table's columns", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Add an entry for Rosalind Chase" }));
+      const open = canvasElement.querySelector('tr[data-grid-band-foot="Rosalind Chase"]');
+      await expect(open?.getAttribute("data-editing")).toBe("true");
+      await expect(open?.querySelectorAll("td")).toHaveLength(TIME_COLUMNS.length);
+      await expect(canvas.getByRole("textbox", { name: "New entry title" })).toBeInTheDocument();
+    });
+  }}
+>
+  {#snippet template()}
+    <BandFootGrid grouping={BY_TIMEKEEPER} />
   {/snippet}
 </Story>

@@ -17,40 +17,20 @@
   "apps/web/src/lib/components/bug-report-dialog.svelte": {
     "em-dash": 1
   },
-  "apps/web/src/lib/conflicts/conflicts-gaps.ts": {
-    "old-soon-wording": 1
-  },
   "apps/web/src/lib/conflicts/conflicts-report.ts": {
-    "machinery": 2
-  },
-  "apps/web/src/lib/conflicts/conflicts-vocabulary.ts": {
-    "em-dash": 4,
     "machinery": 1
-  },
-  "apps/web/src/lib/conflicts/hit-columns.ts": {
-    "em-dash": 1
-  },
-  "apps/web/src/lib/conflicts/hit-window.svelte": {
-    "em-dash": 3,
-    "machinery": 1
-  },
-  "apps/web/src/lib/conflicts/posture-panel.svelte": {
-    "machinery": 4
   },
   "apps/web/src/lib/conflicts/run-progress.ts": {
     "em-dash": 1
   },
   "apps/web/src/lib/conflicts/scope-in-force.svelte": {
-    "machinery": 4
+    "machinery": 1
   },
   "apps/web/src/lib/custodian/packet-sheet.ts": {
     "em-dash": 1
   },
   "apps/web/src/lib/diagnostics/failure-trace.ts": {
     "em-dash": 3,
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/directory/edges-pane.svelte": {
     "nothing-answered": 1
   },
   "apps/web/src/lib/documents/document-loop-availability.ts": {
@@ -166,14 +146,8 @@
   "apps/web/src/lib/versions/upload-readiness-model.ts": {
     "em-dash": 1
   },
-  "apps/web/src/routes/(app)/conflicts/+page.svelte": {
-    "em-dash": 1
-  },
   "apps/web/src/routes/(app)/costs/+page.svelte": {
     "em-dash": 1
-  },
-  "apps/web/src/routes/(app)/directory/+page.svelte": {
-    "nothing-answered": 1
   },
   "apps/web/src/routes/(app)/fees/+page.svelte": {
     "em-dash": 1
@@ -186,10 +160,6 @@
   },
   "apps/web/src/routes/(app)/settings/ai/+page.svelte": {
     "machinery": 1
-  },
-  "apps/web/src/routes/(app)/settings/conflicts/+page.svelte": {
-    "em-dash": 1,
-    "machinery": 2
   },
   "apps/web/src/routes/(app)/settings/meetings/+page.svelte": {
     "machinery": 1,

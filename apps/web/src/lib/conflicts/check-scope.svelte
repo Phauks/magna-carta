@@ -60,7 +60,7 @@
   // Every place opens on its options: the reader sees what the check will search without a click.
   let openPlaces = $state<string[]>(SEARCH_LOCATIONS.map((entry) => entry.location));
 
-  const LOCKED = "Every check searches names and identifiers.";
+  const LOCKED = "All checks search names and identifiers.";
   const SOON = "Not searchable yet. The check records it as not searched.";
 
   /** The list with the key in or out, in the options' own order. */
