@@ -59,6 +59,6 @@ A Soon control's hover reads `Not built yet: <what is missing>.` in the reader's
 - "the platform" and "corpus" in copy (rule 7)
 - the old Soon wording, "Waiting on" or "is not served yet" (the Soon rule)
 
-The copy already in the product starts as a per-file baseline in `tooling/lint-ux-copy/baseline.json`, and the baseline only shrinks. A count that rises fails the lint. A count that falls is reported but doesn't fail, so fixing copy never turns a build red. Run `pnpm run lint:ux-copy --update` to write the lower number down, so the fix can't be quietly undone. New files start at zero.
+The copy already in the product starts as a baseline in `tooling/lint-ux-copy/baseline.json`, and the baseline only shrinks. The lint fails when a rule's total across the app rises, and names the files that grew. Copy moved from one file to another keeps the total and passes. A count that falls is reported but doesn't fail, so fixing copy never turns a build red. Run `pnpm run lint:ux-copy --update` to write the lower number down, so the fix can't be quietly undone.
 
 The lint can't judge length, tone or whether a word is the right one. Those are a reviewer's job, done against this file.

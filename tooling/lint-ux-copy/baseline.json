@@ -116,6 +116,9 @@
   "apps/web/src/lib/meetings/meeting-list-section.svelte": {
     "nothing-answered": 1
   },
+  "apps/web/src/lib/meetings/meeting-room-screen.svelte": {
+    "nothing-answered": 14
+  },
   "apps/web/src/lib/meetings/move-to-matter-dialog.svelte": {
     "is-where": 2,
     "nothing-answered": 1
@@ -175,10 +178,10 @@
   "apps/web/src/routes/(app)/fees/+page.svelte": {
     "em-dash": 1
   },
-  "apps/web/src/routes/(app)/meetings/[id]/+page.svelte": {
-    "nothing-answered": 14
+  "apps/web/src/routes/(app)/meeting/[code]/+page.svelte": {
+    "nothing-answered": 1
   },
-  "apps/web/src/routes/(app)/meetings/rooms/[linkCode]/+page.svelte": {
+  "apps/web/src/routes/(app)/room/[name]/+page.svelte": {
     "nothing-answered": 2
   },
   "apps/web/src/routes/(app)/settings/ai/+page.svelte": {

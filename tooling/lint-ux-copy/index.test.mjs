@@ -38,14 +38,20 @@ describe("each rule bites", () => {
 });
 
 describe("the baseline only shrinks", () => {
-  it("fails a rise and reports a fall", () => {
+  it("fails a rule whose total rises and names the file that grew", () => {
     const baseline = { "a.ts": { "em-dash": 2 }, "b.ts": { machinery: 1 } };
     const current = { "a.ts": { "em-dash": 3 }, "c.ts": { "is-where": 1 } };
     const { rose, fell } = compareWithBaseline(current, baseline);
     expect(rose).toEqual([
-      { file: "a.ts", rule: "em-dash", was: 2, now: 3 },
-      { file: "c.ts", rule: "is-where", was: 0, now: 1 },
+      { rule: "em-dash", was: 2, now: 3, files: ["a.ts"] },
+      { rule: "is-where", was: 0, now: 1, files: ["c.ts"] },
     ]);
     expect(fell).toEqual([{ file: "b.ts", rule: "machinery", was: 1, now: 0 }]);
+  });
+
+  it("passes copy that moved from one file to another", () => {
+    const baseline = { "old-screen.svelte": { "nothing-answered": 3 } };
+    const current = { "new-screen.svelte": { "nothing-answered": 3 } };
+    expect(compareWithBaseline(current, baseline).rose).toEqual([]);
   });
 });
