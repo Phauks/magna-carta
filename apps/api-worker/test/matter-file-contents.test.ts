@@ -249,6 +249,36 @@ describe("the search across matters' way to the file contents index", () => {
     expect(JSON.stringify(logged)).not.toContain("indemnify");
   });
 
+  it("does not hold the rest of the answer for an engine that is slow to answer", async () => {
+    await setIndexing(true);
+    const logged: unknown[] = [];
+    const logger: Logger = { log: (event) => void logged.push(event), count: () => undefined };
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const port: SearchIndexPort = {
+      index: () => Promise.reject(new Error("index not exercised here")),
+      remove: () => Promise.reject(new Error("remove not exercised here")),
+      compact: () => Promise.reject(new Error("compact not exercised here")),
+      // An engine starting from cold: it answers, and not yet.
+      query: async () => {
+        await held;
+        return found([hit("file_a", "page-0", 9)]);
+      },
+    };
+    const searcher = matterFileContentsSearcherFor(env, firmId, {
+      port,
+      logger,
+      acrossMattersDeadlineMilliseconds: 20,
+    });
+
+    expect(await searcher.queryMatters?.(QUESTION_OF_THREE)).toEqual({ kind: "unavailable" });
+    expect(logged).toHaveLength(1);
+    expect(JSON.stringify(logged)).not.toContain("indemnify");
+    release?.();
+  });
+
   it("asks no index for matters with nothing indexed, and answers that nothing matched", async () => {
     await setIndexing(true);
     const { port, asked } = portByCorpus({});

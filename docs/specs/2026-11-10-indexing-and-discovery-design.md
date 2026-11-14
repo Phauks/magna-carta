@@ -602,11 +602,19 @@ quotes is read through that matter's own check. The lists are merged by the engi
 index scores against its own documents, so the scores are not on one scale, and the order claims
 no more than that the strongest passages come first.
 
+**The rest of the answer does not wait for a slow engine.** Inside a matter the reader asked about
+that matter's files and waits for them. Here the files are one place of ten in one answer, and an
+engine starting from cold would hold the notes and the time back with it. So the wait is five
+seconds (`matterFileContentsSearcherFor`), a late engine is reported as one that could not be
+searched just now, and the question it was sent has started it for the next search.
+
 **Not measured, and it has to be.** The engine cannot run in a cloud session, so what 25 questions
-in one request cost a firm's search instance is not known. They are sent together to the one
-instance a firm's questions go to (`apps/search-worker/src/search-shard.ts`). The first production
-firm with files indexed on many matters is where that is read, and the remedy if it is slow is a
-smaller limit for this source alone or asking a few matters at a time.
+in one request cost a firm's search instance is not known, and neither is how long a cold one takes
+to answer. They are sent together to the one instance a firm's questions go to
+(`apps/search-worker/src/search-shard.ts`). The first production firm with files indexed on many
+matters is where both are read. The remedies are a smaller limit for this source alone, asking a
+few matters at a time, a different wait, or the warm cron `apps/search-worker/wrangler.jsonc`
+leaves off while no firm has indexing on.
 
 **What reaching every matter would take** is the per-split word summary of step 6c: a short record
 beside each split of which words it holds, read from the firm's database, so that a firm-wide

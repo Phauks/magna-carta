@@ -41,10 +41,25 @@ import { resolveSearchIndexPort } from "./search-engine.ts";
 //
 // A quote that cannot be read is never a failed search. Whatever goes wrong is reported once, with
 // no word of the question or the document, and the files are answered for without it.
+// How long a search across matters waits for the file contents index before it answers without it.
+//
+// Inside a matter the reader asked about that matter's files and waits for them. Across matters the
+// files are one place of ten in one answer, and an engine that is starting from cold would hold the
+// notes, the time and the parties back with it. So the wait is bounded, a late engine is reported as
+// one that could not be searched just now, and the question it was sent has by then started it for
+// the next search. The figure is a starting point and not a measurement: the engine cannot run in a
+// cloud session, so it is to be set against a warm engine's real answers once a firm has files
+// indexed on many matters.
+const ACROSS_MATTERS_DEADLINE_MILLISECONDS = 5000;
+
 export function matterFileContentsSearcherFor(
   env: Bindings,
   firmId: FirmId,
-  options: { readonly logger?: Logger; readonly port?: SearchIndexPort } = {},
+  options: {
+    readonly logger?: Logger;
+    readonly port?: SearchIndexPort;
+    readonly acrossMattersDeadlineMilliseconds?: number;
+  } = {},
 ): MatterFileContentsSearcher {
   const port =
     options.port ?? (env.SEARCH_SERVICE === undefined ? undefined : resolveSearchIndexPort(env));
@@ -88,9 +103,29 @@ export function matterFileContentsSearcherFor(
       const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
       if (!(await readSearchIndexingEnabled(database))) return { kind: "off" };
       if (matterIds.length === 0) return { kind: "passages", passages: [] };
-      return answerFrom(
-        await runKeywordSearchOverMatters(env, { firmId, matterIds, text: queryText, limit }, port),
-      );
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<"late">((resolve) => {
+        timer = setTimeout(
+          () => resolve("late"),
+          options.acrossMattersDeadlineMilliseconds ?? ACROSS_MATTERS_DEADLINE_MILLISECONDS,
+        );
+      });
+      const result = await Promise.race([
+        runKeywordSearchOverMatters(env, { firmId, matterIds, text: queryText, limit }, port),
+        late,
+      ]);
+      clearTimeout(timer);
+      if (result === "late") {
+        if (options.logger !== undefined) {
+          logOperationFailed(
+            options.logger,
+            "matterSearch.fileContents",
+            new Error("The file contents index did not answer a search across matters in time"),
+          );
+        }
+        return { kind: "unavailable" };
+      }
+      return answerFrom(result);
     },
     async excerpts({ matterId, readerText, files }) {
       const excerpts = new Map<string, string>();
