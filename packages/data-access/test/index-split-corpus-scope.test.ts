@@ -13,6 +13,7 @@ import {
   insertIndexSplitStatement,
   listCorporaWithLiveSplits,
   listLiveSplitsForCorpus,
+  listMattersWithLiveSplits,
   listStaleMembersForCorpus,
   markMembersStaleForDocumentStatement,
   type InsertIndexSplitRow,
@@ -124,6 +125,30 @@ describe("the compaction backstop enumerates corpora, not matters", () => {
     expect(corpora.map((corpus) => corpus.corpusId).sort()).toEqual([MATTER, REVIEW_SET].sort());
     // Each carries the matter it was published under, which is what the merged split is stamped with.
     for (const corpus of corpora) expect(corpus.matterId).toBe(MATTER);
+  });
+});
+
+describe("the matters a question across matters asks", () => {
+  const EMPTY_MATTER = "matter_test0000000000000000002" as MatterId;
+
+  it("names the matters with something indexed, and none of the others asked about", async () => {
+    const database = await seedBothCorpora();
+    expect(await listMattersWithLiveSplits(database, [EMPTY_MATTER, MATTER])).toEqual([MATTER]);
+    expect(await listMattersWithLiveSplits(database, [EMPTY_MATTER])).toEqual([]);
+    expect(await listMattersWithLiveSplits(database, [])).toEqual([]);
+  });
+
+  it("does not count a review set's splits as the matter's, though they sit on that matter", async () => {
+    const database = await freshFirmDatabase();
+    await insertIndexSplitStatement(
+      database,
+      reviewSetSplit("indexSplit_reviewSet00000000000001", "2026-08-19T02:00:00.000Z"),
+    ).run();
+    expect(await listMattersWithLiveSplits(database, [MATTER])).toEqual([]);
+    // And a review set cannot be asked for by handing its identifier in as a matter's.
+    expect(await listMattersWithLiveSplits(database, [REVIEW_SET as unknown as MatterId])).toEqual(
+      [],
+    );
   });
 });
 

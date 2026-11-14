@@ -128,6 +128,198 @@ describe("the matter search's way to the file contents index", () => {
   });
 });
 
+// The same question asked of several matters. What is pinned here is that each matter is asked
+// apart and of its own corpus, that a matter with nothing indexed is not asked at all, and that an
+// answer put together from several indexes is never a partial one passed off as whole.
+describe("the search across matters' way to the file contents index", () => {
+  const INDEXED = "matter_across000000000000000001" as MatterId;
+  const ALSO_INDEXED = "matter_across000000000000000002" as MatterId;
+  const NOTHING_INDEXED = "matter_across000000000000000003" as MatterId;
+  const REVIEW_SET = "reviewSet_across0000000000000001";
+  const QUESTION_OF_THREE = {
+    matterIds: [NOTHING_INDEXED, INDEXED, ALSO_INDEXED],
+    queryText: '+"indemnify"',
+    limit: 3,
+  };
+
+  function hit(fileId: string, chunkId: string, score: number) {
+    return { documentId: fileId as FileId, chunkId, score };
+  }
+
+  // A port that answers each corpus with its own list, or fails for the ones named.
+  function portByCorpus(
+    answers: Readonly<
+      Record<string, ReturnType<typeof found> | ReturnType<typeof searchAdapterError>>
+    >,
+  ): { port: SearchIndexPort; asked: SearchQueryInput[] } {
+    const asked: SearchQueryInput[] = [];
+    return {
+      asked,
+      port: {
+        index: () => Promise.reject(new Error("index not exercised here")),
+        remove: () => Promise.reject(new Error("remove not exercised here")),
+        compact: () => Promise.reject(new Error("compact not exercised here")),
+        query: (input) => {
+          asked.push(input);
+          return Promise.resolve(answers[input.corpus.id] ?? found([]));
+        },
+      },
+    };
+  }
+
+  beforeAll(async () => {
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const split = (id: string, matterId: MatterId, corpusKind: string, corpusId: string) =>
+      insertIndexSplitStatement(database, {
+        id: id as IndexSplitId,
+        matterId,
+        corpusKind,
+        corpusId,
+        documentId: null,
+        version: null,
+        objectKey: `search/${corpusId}/splits/${id}.split`,
+        documentCount: 4,
+        sizeBytes: 1,
+        schemaGeneration: 2,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
+    await database.batch([
+      split("indexSplit_across00000000000000001", INDEXED, "matter", INDEXED),
+      split("indexSplit_across00000000000000002", ALSO_INDEXED, "matter", ALSO_INDEXED),
+      // A review set on the matter with nothing of its own indexed. Its splits sit on that matter
+      // and are not that matter's.
+      split("indexSplit_across00000000000000003", NOTHING_INDEXED, "reviewSet", REVIEW_SET),
+    ]);
+  });
+
+  it("asks each matter with something indexed, of its own corpus, and no other matter", async () => {
+    await setIndexing(true);
+    const { port, asked } = portByCorpus({});
+    const searcher = matterFileContentsSearcherFor(env, firmId, { port });
+
+    await searcher.queryMatters?.(QUESTION_OF_THREE);
+
+    expect(
+      asked.map((question) => question.corpus).toSorted((a, b) => a.id.localeCompare(b.id)),
+    ).toEqual([
+      { kind: "matter", id: INDEXED },
+      { kind: "matter", id: ALSO_INDEXED },
+    ]);
+    for (const question of asked) {
+      expect(question.firmId).toBe(firmId);
+      expect(question.text).toBe('+"indemnify"');
+      // Each is handed its own corpus's splits and nothing of another's.
+      expect(question.splits.map((target) => target.objectKey)).toEqual([
+        expect.stringContaining(`search/${question.corpus.id}/`),
+      ]);
+    }
+  });
+
+  it("answers with the strongest passages of all of them, best first, up to the limit", async () => {
+    await setIndexing(true);
+    const { port } = portByCorpus({
+      [INDEXED]: found([hit("file_a", "page-0", 9), hit("file_b", "page-2", 2)]),
+      [ALSO_INDEXED]: found([hit("file_c", "page-5", 7), hit("file_d", "page-1", 1)]),
+    });
+    const searcher = matterFileContentsSearcherFor(env, firmId, { port });
+
+    expect(await searcher.queryMatters?.(QUESTION_OF_THREE)).toEqual({
+      kind: "passages",
+      passages: [
+        { fileId: "file_a", chunkId: "page-0" },
+        { fileId: "file_c", chunkId: "page-5" },
+        { fileId: "file_b", chunkId: "page-2" },
+      ],
+    });
+  });
+
+  it("says the files could not be searched when any one matter's index fails", async () => {
+    await setIndexing(true);
+    const logged: unknown[] = [];
+    const logger: Logger = { log: (event) => void logged.push(event), count: () => undefined };
+    const { port } = portByCorpus({
+      [INDEXED]: found([hit("file_a", "page-0", 9)]),
+      [ALSO_INDEXED]: searchAdapterError('could not parse +"indemnify"'),
+    });
+    const searcher = matterFileContentsSearcherFor(env, firmId, { port, logger });
+
+    // Never the one matter's passages alone: that would read as every matter's answer.
+    expect(await searcher.queryMatters?.(QUESTION_OF_THREE)).toEqual({ kind: "unavailable" });
+    expect(logged).toHaveLength(1);
+    expect(JSON.stringify(logged)).not.toContain("indemnify");
+  });
+
+  it("does not hold the rest of the answer for an engine that is slow to answer", async () => {
+    await setIndexing(true);
+    const logged: unknown[] = [];
+    const logger: Logger = { log: (event) => void logged.push(event), count: () => undefined };
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const port: SearchIndexPort = {
+      index: () => Promise.reject(new Error("index not exercised here")),
+      remove: () => Promise.reject(new Error("remove not exercised here")),
+      compact: () => Promise.reject(new Error("compact not exercised here")),
+      // An engine starting from cold: it answers, and not yet.
+      query: async () => {
+        await held;
+        return found([hit("file_a", "page-0", 9)]);
+      },
+    };
+    const searcher = matterFileContentsSearcherFor(env, firmId, {
+      port,
+      logger,
+      acrossMattersDeadlineMilliseconds: 20,
+    });
+
+    expect(await searcher.queryMatters?.(QUESTION_OF_THREE)).toEqual({ kind: "unavailable" });
+    expect(logged).toHaveLength(1);
+    expect(JSON.stringify(logged)).not.toContain("indemnify");
+    release?.();
+  });
+
+  it("asks no index for matters with nothing indexed, and answers that nothing matched", async () => {
+    await setIndexing(true);
+    const { port, asked } = portByCorpus({});
+    const searcher = matterFileContentsSearcherFor(env, firmId, { port });
+
+    expect(
+      await searcher.queryMatters?.({ ...QUESTION_OF_THREE, matterIds: [NOTHING_INDEXED] }),
+    ).toEqual({ kind: "passages", passages: [] });
+    expect(asked).toEqual([]);
+  });
+
+  it("named no matters, still says whether there is an index to ask", async () => {
+    const none = { ...QUESTION_OF_THREE, matterIds: [] };
+    const { port, asked } = portByCorpus({});
+
+    await setIndexing(true);
+    expect(
+      await matterFileContentsSearcherFor(
+        { ...env, SEARCH_SERVICE: undefined },
+        firmId,
+      ).queryMatters?.(none),
+    ).toEqual({ kind: "not-connected" });
+    expect(await matterFileContentsSearcherFor(env, firmId, { port }).queryMatters?.(none)).toEqual(
+      {
+        kind: "passages",
+        passages: [],
+      },
+    );
+    await setIndexing(false);
+    expect(await matterFileContentsSearcherFor(env, firmId, { port }).queryMatters?.(none)).toEqual(
+      {
+        kind: "off",
+      },
+    );
+    expect(
+      await matterFileContentsSearcherFor(env, firmId, { port }).queryMatters?.(QUESTION_OF_THREE),
+    ).toEqual({ kind: "off" });
+    expect(asked).toEqual([]);
+  });
+});
+
 // The sentence a result quotes. The text is the firm's own object, written by the index job; what is
 // pinned here is every check between the index naming a passage and a reader seeing its words.
 describe("the sentence a file result quotes", () => {

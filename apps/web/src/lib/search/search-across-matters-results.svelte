@@ -39,6 +39,7 @@
     OVERVIEW_LIMIT,
     PEOPLE_NOT_SEARCHED_REASON,
     PLACE_LIMIT,
+    tooManyMattersLine,
     type NameGroup,
     type SearchOverview,
   } from "$lib/search/search-across-matters.svelte.ts";
@@ -316,6 +317,8 @@
               {:else if group.skipped === "one-matter-only"}
                 {presentation.heading} is searched from inside a matter, with that matter's own
                 search.
+              {:else if group.skipped === "too-many-matters"}
+                {tooManyMattersLine(presentation.heading, overview.records?.fewMattersLimit ?? 0)}
               {:else}
                 {emptyGroupLine(group.skipped, group.source)}
               {/if}

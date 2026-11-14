@@ -484,6 +484,8 @@ export async function openPersonalRoom(
   options: MeetingServiceOptions,
 ): Promise<{
   meetingId: MeetingId;
+  // The nine digits the session is addressed by, so the caller can open /meeting/482-917-305.
+  joinCode: string | null;
   created: boolean;
   // The abandoned session this open ended on the way, which the caller tells the room about after
   // the commit; null when there was none.
@@ -528,6 +530,7 @@ async function openRoomSession(
   if (open !== undefined && isInUse(open)) {
     return {
       meetingId: open.id,
+      joinCode: open.join_code,
       created: false,
       endedMeetingId: null,
       effect: { statements: [], outboxMessages: [] },
@@ -660,6 +663,7 @@ async function openRoomSession(
   );
   return {
     meetingId: opened.meetingId,
+    joinCode: opened.joinCode,
     created: true,
     endedMeetingId: open?.id ?? null,
     effect: {
@@ -695,7 +699,11 @@ interface RoomAtLinkFacts {
 
 export type PersonalRoomArrival =
   | (RoomAtLinkFacts & { readonly state: "closed" })
-  | (RoomAtLinkFacts & { readonly state: "open"; readonly meetingId: MeetingId });
+  | (RoomAtLinkFacts & {
+      readonly state: "open";
+      readonly meetingId: MeetingId;
+      readonly joinCode: string | null;
+    });
 
 async function readLinkedRoom(database: SqlDatabase, linkCode: string) {
   // A string that cannot be a code is refused before any read, with the same answer an unknown code
@@ -727,7 +735,7 @@ export async function readPersonalRoomAtLink(
   };
   const open = await readPersonalRoomOpenSession(database, room.id);
   if (open === undefined || !isInUse(open)) return { ...facts, state: "closed" };
-  return { ...facts, state: "open", meetingId: open.id };
+  return { ...facts, state: "open", meetingId: open.id, joinCode: open.join_code };
 }
 
 /**

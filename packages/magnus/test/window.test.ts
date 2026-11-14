@@ -27,6 +27,7 @@ function turn(sequence: number, speaker: "member" | "magnus", content: string | 
     outputTokens: null,
     contextTruncated: false,
     effort: null,
+    thinking: null,
     removedAt: null,
     supersededAt: null,
     replacesTurnId: null,

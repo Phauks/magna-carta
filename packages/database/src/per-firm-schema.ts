@@ -10172,6 +10172,11 @@ export const magnusTurn = sqliteTable(
     // thought. Null on a member turn, on a failed turn, and where no effort was sent (a model that
     // takes none answers at its own default).
     effort: text("effort"),
+    // A readable summary of the model's thinking on a Magnus turn, written while the answer is pending
+    // so the reader watches it arrive, and kept beside the answer. The provider returns a summary,
+    // never the raw reasoning. Free text about the member's work, erased with the conversation like
+    // `content`. Null on a member turn and where the model returned none.
+    thinking: text("thinking"),
     // When the author removed this member turn and its answer from the conversation. The text is
     // KEPT: a transcript is work product, erased only when the whole conversation is deleted, so a
     // removal hides the pair from the reader and from the model behind a marker that says so.

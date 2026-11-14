@@ -43,6 +43,7 @@
   import { conversationAuthor } from "./conversation-author.svelte.ts";
   import type { ConversationSession } from "./conversation-session.svelte.ts";
   import MarkedText from "$lib/search/marked-text.svelte";
+  import TurnThinking from "./turn-thinking.svelte";
   import { findMarks, shownTurns } from "./conversation-find.ts";
   import { versionsWrittenBy } from "./artifact-text.ts";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -132,6 +133,7 @@
       snapshotId: null,
       contextTruncated: false,
       effort: null,
+      thinking: null,
       removedAt: null,
       supersededAt: null,
       replacesTurnId: null,
@@ -149,6 +151,7 @@
       snapshotId: null,
       contextTruncated: false,
       effort: null,
+      thinking: null,
       removedAt: null,
       supersededAt: null,
       replacesTurnId: null,
@@ -196,6 +199,9 @@
                 : "Removed with the message it answered."}
             </Conversation.TurnNote>
           {/if}
+          {#if turn.speaker === "magnus" && turn.removedAt === null}
+            <TurnThinking thinking={turn.thinking} pending={turn.status === "pending"} />
+          {/if}
           {#if turn.content !== null}
             <!-- No whitespace inside the body: it keeps the author's line breaks, so any would show. -->
             <Conversation.TurnBody
@@ -227,17 +233,6 @@
                 <span class="text-sm font-medium text-text-muted">Open</span>
               </button>
             {/each}
-          {/if}
-          {#if turn.status === "pending"}
-            {#if session.answerIsSlow}
-              <Conversation.TurnNote tone="warning">
-                Magnus is still answering. This is taking longer than it should. The question is on
-                the record and the answer appears here if it arrives; you can ask something else in
-                the meantime, or come back to this conversation later.
-              </Conversation.TurnNote>
-            {:else}
-              <Conversation.TurnNote tone="quiet">Magnus is answering.</Conversation.TurnNote>
-            {/if}
           {/if}
           {#if failureSentence !== null}
             <Conversation.TurnNote tone="warning">{failureSentence}</Conversation.TurnNote>
