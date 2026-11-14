@@ -462,9 +462,7 @@
                 </Button>
                 {#if disclosedLines.includes(line.id)}
                   <p class="text-xs text-text-muted">
-                    Not built yet. Waiting on {BILL_DEPENDENCIES.claims} — the entries this line
-                    consolidated are recorded as claims, and the invoice read carries the lines
-                    without them.
+                    Not built yet: {BILL_DEPENDENCIES.claims}.
                   </p>
                 {/if}
               </li>
@@ -531,7 +529,7 @@
                       variant="ghost"
                       size="icon"
                       disabled
-                      title="Not built yet. Waiting on {BILL_DEPENDENCIES.claims}. Releasing a claim returns the work to unbilled; the released claim stays on record."
+                      title="Not built yet: {BILL_DEPENDENCIES.claims}. Releasing work returns it to unbilled."
                       aria-label="Release this claim"
                     >
                       <X class="size-12" aria-hidden="true" />
@@ -611,7 +609,7 @@
           <Card.Root class="gap-8 py-12">
             <Card.Header class="flex-row items-baseline gap-8 px-12">
               <FieldLabel as="div" class="flex-1">Unbilled Fees</FieldLabel>
-              <SoonAffordance reason="the fee work-in-progress store and its claim path">
+              <SoonAffordance reason="billing work in progress">
                 {#snippet control(soon)}
                   <Button variant="ghost" size="sm" {...soon}>Claim all</Button>
                 {/snippet}

@@ -46,8 +46,7 @@
 
   /** What the trust side is waiting on, as the noun phrase the Soon sentence completes. */
   const TRUST_DEPENDENCY =
-    "a read of the firm's trust accounts: both the matter's trust ledger and the transfer itself " +
-    "name a trust account, and no route hands one out yet";
+    "choosing a trust account";
 
   /*
    * The bill being acted on, by its own number. The facts beside it are facts about THAT BILL — what

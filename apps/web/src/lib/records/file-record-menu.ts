@@ -121,11 +121,11 @@ export interface FileMenuContext {
 }
 
 /** What the product waits on before a file can be shared outside the firm. */
-const SHARING_DEPENDENCY = "client-portal document sharing";
+const SHARING_DEPENDENCY = "document sharing in the client portal";
 /** What the product waits on before a file's bytes can be rewritten as another format. */
-const CONVERSION_DEPENDENCY = "the conversion engine";
+const CONVERSION_DEPENDENCY = "file conversion";
 /** What the product waits on before anything can be written out of an archive. */
-const EXTRACTION_DEPENDENCY = "the archive-extraction engine";
+const EXTRACTION_DEPENDENCY = "archive extraction";
 
 const NOTHING_ON_THE_CLIPBOARD = "Nothing is on the clipboard yet.";
 const NO_CURRENT_FOLDER =

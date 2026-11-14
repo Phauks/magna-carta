@@ -6,8 +6,8 @@
  *
  * Each feature names its requirements as ALTERNATIVES: the feature is set up when every name in at
  * least one alternative is present in the environment. Address suggestions is the case that needs
- * two — the platform's own address engine, or the Smarty key pair — and every other feature has
- * one. A name is a binding, a secret or a variable on this Worker (`keyof Bindings`), so a renamed
+ * several — the Google key, the platform's own address engine, or the Smarty key pair — and every
+ * other feature has one. A name is a binding, a secret or a variable on this Worker (`keyof Bindings`), so a renamed
  * binding fails the type check here rather than leaving a row that can never turn green.
  *
  * Presence is all that is ever read. The value of a secret never leaves this module: the report
@@ -87,7 +87,11 @@ export const FEATURE_ROSTER = [
   { id: "naturalLanguageSearch", alternatives: [["AI_SEARCH", "AI_SEARCH_NAMESPACES"]] },
   {
     id: "addressSuggestions",
-    alternatives: [["ADDRESS_SERVICE"], ["SMARTY_AUTH_ID", "SMARTY_AUTH_TOKEN"]],
+    alternatives: [
+      ["GOOGLE_PLACES_API_KEY"],
+      ["ADDRESS_SERVICE"],
+      ["SMARTY_AUTH_ID", "SMARTY_AUTH_TOKEN"],
+    ],
     worker: "address",
   },
   // AI
@@ -184,7 +188,7 @@ export function featureStatuses(
       if (state === "refused" || state === "unreachable") return { id, state: "fault" };
       if (state === "not-configured") return { id, state: "not-set-up" };
     }
-    // Address suggestions can be set up through Smarty alone, so its Worker being unbound is not a
+    // Address suggestions can be set up through Google or Smarty alone, so its Worker being unbound is not a
     // fault; only a Worker that is bound and silent is.
     if (feature.worker !== undefined && probes.workers.get(feature.worker) === "unreachable") {
       return { id, state: "fault" };

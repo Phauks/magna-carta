@@ -105,7 +105,7 @@ export const DELIVERABLES: readonly Deliverable[] = [
     states: "What was produced in a volume, with a hash for every artifact in it.",
     scope: "review-set",
     stage: "soon",
-    waitsOn: "the production workflow",
+    waitsOn: "productions",
   },
   {
     id: "load-files",
@@ -114,7 +114,7 @@ export const DELIVERABLES: readonly Deliverable[] = [
       "The load files the receiving party's review tool needs, including the Custodian of Record and any fields the protocol requires.",
     scope: "review-set",
     stage: "soon",
-    waitsOn: "the production workflow",
+    waitsOn: "productions",
   },
 ];
 

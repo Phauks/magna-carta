@@ -90,20 +90,20 @@ export const SOON_RENDITIONS: readonly SoonRendition[] = [
     label: "The original",
     shows: "The document as it was produced, in the file manager's own safe viewer.",
     stage: "soon",
-    waitsOn: "the viewer being wired to the file manager's delivery path",
+    waitsOn: "the document viewer",
   },
   {
     id: "pages",
     label: "Pages",
     shows: "The document as page images, used for redaction.",
     stage: "soon",
-    waitsOn: "redaction in review",
+    waitsOn: "redaction",
   },
   {
     id: "recognized-overlay",
     label: "Recognized text",
     shows: "Text recognized off pages that are pixels, laid over the page it came from.",
     stage: "soon",
-    waitsOn: "the page renderer",
+    waitsOn: "page images",
   },
 ];

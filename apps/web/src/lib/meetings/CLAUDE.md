@@ -222,15 +222,22 @@ rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws ins
 `meeting-polls-panel.svelte` (the cards, the tally, and a host's New Poll form, Close and who
 answered) and `meeting-questions-panel.svelte` (the queue and the composer) are reading
 `ActionDialog`s on the lobby panel's precedent, where the design named a sheet.
-In the member's room all three, with the roster, are drawn `inline` as the tabs of
-`meeting-side-panel.svelte` (Chat, Q&A, Polls, People) beside the picture; the room page derives each
+In the member's room polls and the roster are drawn `inline` as tabs of
+`meeting-side-panel.svelte` (Chat, Polls, People) beside the picture, and QUESTIONS ARE PART OF
+CHAT: `meeting-chat-panel.svelte` takes the question queue and draws each question in the timeline
+(`screen/chat-timeline.ts`, merged by when each was said) with an All / Questions filter and an "Ask
+as a question" box; `meeting-questions-panel.svelte` remains for a screen without chat; the room page derives each
 one's "open", which drives its unseen count, from the panel's tab. The guest page still opens chat as
 a popover.
 `meeting-layout.ts` is the pure arithmetic that picks the gallery's column count for the largest
 16:9 tile in the measured space (tiles keep the camera's shape; speaker view, the default, puts the
 others in a strip along the top). `meeting-view-preference.svelte.ts` beside this directory keeps the
 member's layout and Mirror My Video choice per browser; the mirror flips only the local preview.
-`meeting-tiles.ts` projects the client's state into tile models and
+A tile hands its `<video>` a stream only when it is a different one and empties it only on teardown,
+and the element keeps one compositing layer (`will-change-transform`) mirrored or not: resetting
+`srcObject`, or a transform toggling the overlay path, draws one blank frame, which members saw as a
+flash. Tiles report a new picture, and the room page a change of view, as `picture` / `view`
+diagnostic events. `meeting-tiles.ts` projects the client's state into tile models and
 `meeting-connection.ts` projects its diagnostics into the connection surface's models;
 `meeting-grid.svelte`, `meeting-tile.svelte`, `meeting-roster.svelte`, `meeting-controls.svelte`,
 `meeting-quality-mark.svelte`, `meeting-connection-panel.svelte`, `meeting-chat-panel.svelte` and

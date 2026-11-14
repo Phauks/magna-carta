@@ -184,7 +184,7 @@
         </Row>
       </li>
       <li>
-        <Row href={null} title="Not built yet. Waiting on the county records connector.">
+        <Row href={null} title="Not built yet: county records.">
           {#snippet icon()}<FileText />{/snippet}
           Property Listing and Title Abstract
           {#snippet trailing()}<MaturityBadge stage="soon" />{/snippet}

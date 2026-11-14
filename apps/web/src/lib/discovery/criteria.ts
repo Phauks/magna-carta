@@ -254,7 +254,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     describes: "Words inside the document, not its name.",
     stage: "soon",
     shape: { kind: "text" },
-    waitsOn: "the search engine being deployed",
+    waitsOn: "search",
     willComposeInto: "the search index",
   },
   {
@@ -263,7 +263,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     describes: "The document's date. Documents with no date are left out when you narrow by date.",
     stage: "soon",
     shape: { kind: "date-range" },
-    waitsOn: "the document list gaining a date filter",
+    waitsOn: "a date filter on the document list",
     willComposeInto: "the document list",
   },
   {
@@ -272,7 +272,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     describes: "How the document has been coded, including uncoded and conflicting.",
     stage: "soon",
     shape: { kind: "choice", options: () => [] },
-    waitsOn: "the coding surface",
+    waitsOn: "coding",
     willComposeInto: "the document list",
   },
   {
@@ -281,7 +281,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     describes: "Documents that are nearly the same as one another.",
     stage: "soon",
     shape: { kind: "choice", options: () => [] },
-    waitsOn: "clustering over the fingerprints every document already carries",
+    waitsOn: "near-duplicate detection",
     willComposeInto: "the document list",
   },
 ];

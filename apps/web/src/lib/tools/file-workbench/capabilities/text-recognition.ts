@@ -20,7 +20,7 @@ export const textRecognitionCapability: CapabilityModule = {
   timing: "on-request",
   scope: "single",
   description: "Extract selectable text from a scanned document or image.",
-  awaiting: "the text-recognition container",
+  awaiting: "text recognition",
   applies(file) {
     if (isImage(file) || isPdf(file)) return APPLIES;
     if (carriesText(file)) {
