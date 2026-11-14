@@ -51,6 +51,7 @@
 @import "../components/checkbox/checkbox.css";
 @import "../components/radio-group/radio-group.css";
 @import "../components/choice-row/choice-row.css";
+@import "../components/segmented-control/segmented-control.css";
 @import "../components/avatar/avatar.css";
 @import "../components/progress/progress.css";
 @import "../components/slider/slider.css";

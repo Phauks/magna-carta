@@ -1,0 +1,68 @@
+@layer components {
+  /*
+   * SegmentedControl. A tinted track the height of a field, holding equal segments; the chosen
+   * segment is a tile with the control edge and the default ink, the rest are muted words on the
+   * track. The edge is what tells the chosen tile apart in dark mode, where the surfaces are close. The track is a field-height control, so it lines up with the fields beside it in a row.
+   * Focus is the shared merged edge, drawn on the segment that holds the tab stop.
+   */
+  .mc-segmented-control {
+    display: flex;
+    align-items: stretch;
+    gap: var(--mc-space-4);
+    padding: var(--mc-space-4);
+    min-block-size: var(--mc-density-control-md);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-selected);
+  }
+  .mc-segmented-control-item {
+    display: inline-flex;
+    flex: auto;
+    flex-basis: var(--mc-space-0);
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--mc-space-0);
+    padding-inline: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: transparent;
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-align: center;
+    cursor: pointer;
+    transition-property: background-color, border-color, color, box-shadow;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-segmented-control-item:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-segmented-control-item[data-state="checked"] {
+    border-color: var(--mc-border-control);
+    background-color: var(--mc-surface-overlay);
+    color: var(--mc-text-default);
+    box-shadow: var(--mc-elevation-1);
+  }
+  .mc-segmented-control-item:focus-visible {
+    outline-color: var(--mc-accent-strong);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  /* Disabled comes after checked so it wins at equal specificity: a refused choice reads muted at
+     rest, chosen or not. */
+  .mc-segmented-control-item:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-segmented-control[data-disabled] .mc-segmented-control-item[data-state="checked"] {
+    background-color: var(--mc-surface-field-disabled);
+    box-shadow: none;
+  }
+}

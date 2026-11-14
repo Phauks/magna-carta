@@ -30,6 +30,7 @@ import { nameLooksLikeBrowsableArchive } from "./archive-names.ts";
 export type FileMenuCommand =
   | "open"
   | "download"
+  | "downloadBundle"
   | "rescan"
   | "share"
   | "saveNewVersion"
@@ -155,6 +156,15 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
           ? files.length === 1
             ? "This file has no committed version yet, so there are no bytes to download."
             : "None of these files has a committed version yet."
+          : undefined,
+    },
+    {
+      kind: "item",
+      command: "downloadBundle",
+      label: "Download as Bundle",
+      disabledReason:
+        undownloadable > 0 && undownloadable === files.length && folders.length === 0
+          ? "Nothing selected has a committed version yet, so there is nothing to bundle."
           : undefined,
     },
     {
@@ -344,6 +354,9 @@ export function backgroundMenu(
       disabledReason: destinationReason,
     },
     { kind: "item", command: "upload", label: "Upload", disabledReason: destinationReason },
+    separator,
+    // Nothing is selected on the empty space, and an empty selection is the whole matter.
+    { kind: "item", command: "downloadBundle", label: "Download Matter as Bundle" },
     separator,
     {
       kind: "item",

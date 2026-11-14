@@ -68,7 +68,8 @@ describe("the root layout turns a render crash into the failure screen", () => {
     expect(text).toMatch(/client_[0-9A-HJKMNP-TV-Z]{8}/u);
     // The exception's own words never reach the screen (crash.ts says why).
     expect(text).not.toContain("Tooltip.Provider");
-    expect(text).toContain("PAGE /login");
+    // The request line waits behind Show details; the summary names the area instead.
+    expect(text).toContain("Login");
 
     const crumb = breadcrumbs().find((entry) => entry.label.startsWith("crash client_"));
     expect(crumb?.category).toBe("failure");

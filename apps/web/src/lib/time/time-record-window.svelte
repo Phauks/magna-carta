@@ -41,6 +41,7 @@
   import EventRail from "@magna-carta/design-system/event-rail";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import * as Combobox from "@magna-carta/design-system/combobox";
+  import * as SegmentedControl from "@magna-carta/design-system/segmented-control";
   import * as Alert from "@magna-carta/design-system/alert";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatDuration, formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
@@ -296,7 +297,6 @@
   let matterTasks = $state<readonly MatterTask[]>([]);
   let taskListOpen = $state(false);
   let billableChoice = $state("billable");
-  let billingListOpen = $state(false);
   let saving = $state(false);
   let saveFailure = $state<string | null>(null);
   let printOpen = $state(false);
@@ -714,12 +714,7 @@
     { value: "hold", label: "Billable, hold", waitsOn: gapReason("billingDisposition") },
   ] as const;
 
-  const billingLabel = $derived(
-    BILLING_CHOICES.find((choice) => choice.value === billableChoice)?.label ?? "",
-  );
-
-  function pickBilling(picked: string | string[]): void {
-    const next = Array.isArray(picked) ? (picked[0] ?? "") : picked;
+  function pickBilling(next: string): void {
     if (next === "billable" || next === "nonbillable") billableChoice = next;
   }
   const timekeeperName = $derived(
@@ -1353,40 +1348,31 @@
       </div>
     </div>
 
-    <div class="grid gap-12 @md:grid-cols-3">
-      <div class="flex flex-col gap-4">
-        <Label for="time-record-billing">Billing</Label>
-        <Combobox.Root
-          type="single"
-          value={billableChoice}
-          inputValue={billingLabel}
-          disabled={readOnly}
-          open={billingListOpen}
-          onValueChange={pickBilling}
-          onOpenChange={(opened) => (billingListOpen = opened)}
-        >
-          <Combobox.Input
-            id="time-record-billing"
-            fieldName="Billing"
-            readonly
-            onfocus={() => (billingListOpen = true)}
-            onclick={() => (billingListOpen = true)}
-          />
-          <Combobox.Content>
-            {#each BILLING_CHOICES as choice (choice.value)}
-              <Combobox.Item
-                value={choice.value}
-                label={choice.label}
-                disabled={choice.waitsOn !== null}
-                title={choice.waitsOn === null
-                  ? undefined
-                  : `Not built yet: ${choice.waitsOn}.`}
-              />
-            {/each}
-          </Combobox.Content>
-        </Combobox.Root>
-      </div>
+    <!-- Three dispositions are answered by looking, so they are shown side by side rather than
+         hidden in a list; the one not built yet stays visible and refused. -->
+    <div class="flex flex-col gap-4">
+      <span id="time-record-billing" class="mc-label">Billing</span>
+      <SegmentedControl.Root
+        aria-labelledby="time-record-billing"
+        value={billableChoice}
+        disabled={readOnly}
+        onValueChange={pickBilling}
+      >
+        {#each BILLING_CHOICES as choice (choice.value)}
+          <SegmentedControl.Item
+            value={choice.value}
+            disabled={choice.waitsOn !== null}
+            title={choice.waitsOn === null
+              ? undefined
+              : `Not built yet: ${choice.waitsOn}.`}
+          >
+            {choice.label}
+          </SegmentedControl.Item>
+        {/each}
+      </SegmentedControl.Root>
+    </div>
 
+    <div class="grid gap-12 @md:grid-cols-3">
       {@render codeField(
         "Category",
         "time-record-category",
@@ -1403,16 +1389,14 @@
         (picked) => (activityCodeId = picked),
         readOnly,
       )}
-    </div>
 
-    <!--
-      THE TASK THIS TIME WAS WORKED ON, and it is genuinely optional: most entries name none, and
-      the field's first option is the one that says so. Only this matter's OPEN tasks are offered,
-      because a task on another matter is refused by the server and a finished task is not work
-      somebody is still putting time into. Before a new entry has a matter there is nothing to
-      offer, so the field says that rather than presenting an empty list.
-    -->
-    <div class="grid gap-12 @md:grid-cols-3">
+      <!--
+        THE TASK THIS TIME WAS WORKED ON, and it is genuinely optional: most entries name none, and
+        the field's first option is the one that says so. Only this matter's OPEN tasks are offered,
+        because a task on another matter is refused by the server and a finished task is not work
+        somebody is still putting time into. Before a new entry has a matter there is nothing to
+        offer, so the field says that rather than presenting an empty list.
+      -->
       <div class="flex flex-col gap-4">
         <Label for="time-record-task">Task</Label>
         {#if readOnly}

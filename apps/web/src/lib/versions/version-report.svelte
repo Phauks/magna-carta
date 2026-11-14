@@ -147,14 +147,25 @@
     type FeatureStatus,
   } from "$lib/versions/features-model.ts";
   import {
+    ERROR_ID_SHAPE,
     RECENT_ERRORS_SECTION_LABEL,
+    describeBackgroundState,
     describeErrorPlace,
+    describeErrorWhat,
+    describeMissingRecord,
     describeRecentErrorsState,
     errorKindLabel,
+    errorRecordRows,
+    lookupErrorId,
     readRecentErrors,
     recentErrorsTile,
+    type ErrorLookupValue,
     type RecentErrorsValue,
   } from "$lib/versions/recent-errors-model.ts";
+  import Input from "@magna-carta/design-system/input";
+  import Label from "@magna-carta/design-system/label";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/problem.ts";
   import {
     FEATURE_FLAGS_SECTION_LABEL,
     featureFlagRows,
@@ -314,6 +325,28 @@
   let errorsValue = $state<RecentErrorsValue | null>(null);
   let errorsFailure = $state<PanelReadFailure | null>(null);
   let errorsLoading = $state(false);
+
+  // The Error ID lookup: what one ID a member quoted was, from the error record.
+  let lookupText = $state("");
+  let lookupValue = $state<ErrorLookupValue | null>(null);
+  let lookupFailure = $state<Failure | null>(null);
+  let lookupBusy = $state(false);
+  const lookupId = $derived(lookupText.trim());
+  const lookupShapeOk = $derived(ERROR_ID_SHAPE.test(lookupId));
+
+  async function lookUp(): Promise<void> {
+    if (!lookupShapeOk || lookupBusy) return;
+    lookupBusy = true;
+    const outcome = await lookupErrorId(fetch, lookupId);
+    lookupBusy = false;
+    if (outcome.kind === "ok") {
+      lookupValue = outcome.value;
+      lookupFailure = null;
+    } else {
+      lookupValue = null;
+      lookupFailure = outcome.failure;
+    }
+  }
 
   async function refreshErrors(): Promise<void> {
     if (!isPage || !isOperator) return;
@@ -984,66 +1017,143 @@
       </div>
     </div>
   {/if}
+  <!-- Look one Error ID up: what a member quoted, without a log search. -->
+  <form
+    class="flex flex-col gap-8 {rowPadding}"
+    onsubmit={(event) => {
+      event.preventDefault();
+      void lookUp();
+    }}
+  >
+    <Label for="error-id-lookup">Look up an Error ID</Label>
+    <div class="flex flex-wrap items-center gap-8">
+      <Input
+        id="error-id-lookup"
+        class="min-w-0 flex-1 font-mono"
+        placeholder="Error ID"
+        autocomplete="off"
+        spellcheck={false}
+        aria-invalid={lookupId !== "" && !lookupShapeOk}
+        bind:value={lookupText}
+      />
+      <Button type="submit" variant="primary" size="sm" disabled={!lookupShapeOk || lookupBusy}
+        >Look up</Button
+      >
+    </div>
+  </form>
+  {#if lookupFailure !== null}
+    <FailureNotice failure={lookupFailure} subject="The lookup" onRetry={() => void lookUp()} />
+  {:else if lookupValue !== null}
+    {#if lookupValue.record === null}
+      <!-- structured-empty-allow: an ID with no record is the whole answer to the lookup, not a list waiting for rows; there is no record whose facts could arrive into a frame. -->
+      <p class="text-sm text-text-default">{describeMissingRecord(lookupValue)}</p>
+    {:else}
+      {@const record = lookupValue.record}
+      <div class="flex flex-col gap-8 rounded-md border border-border-default p-12">
+        <div class="flex flex-col">
+          <span class="text-sm font-semibold text-text-default">
+            {describeErrorWhat({
+              source: record.source,
+              latestErrorId: record.errorId,
+              service: record.service,
+              where: record.operation,
+              status: record.status,
+              title: record.title,
+              errorName: record.errorName,
+              messageHead: record.messageHead,
+              count: 1,
+              firstSeen: record.recordedAt,
+              lastSeen: record.recordedAt,
+            })}
+            <span class="text-text-muted">in {record.operation ?? "an unnamed place"}</span>
+          </span>
+          <span class="text-xs text-text-muted">
+            {errorKindLabel(record.source)} · recorded {formatVersionTimestamp(record.recordedAt)}
+          </span>
+        </div>
+        <dl class="flex flex-col gap-4">
+          {#each errorRecordRows(record) as row (row.label)}
+            <div class="flex flex-wrap items-baseline justify-between gap-8">
+              <dt class="text-xs text-text-muted">{row.label}</dt>
+              <dd
+                class="min-w-0 text-end text-sm text-text-default {row.mono
+                  ? 'font-mono text-xs break-all'
+                  : ''}"
+              >
+                {row.value}
+              </dd>
+            </div>
+          {/each}
+        </dl>
+      </div>
+    {/if}
+  {/if}
+
   {#if errorsValue === null}
     {#if errorsFailure === null}
-      <p class="text-xs text-text-muted">Reading Workers Logs</p>
+      <p class="text-xs text-text-muted">Reading the error record</p>
     {/if}
   {:else if errorsValue.state !== "read"}
-    {@const why = describeRecentErrorsState(errorsValue.state)}
-    <div class="flex items-center justify-between gap-8">
-      <p class="text-sm text-text-default">{why}</p>
-      {#if errorsValue.state === "not-configured"}
-        <Button
-          variant="ghost"
-          size="sm"
-          onclick={() => {
-            tab = "features";
-            openSteps = { ...openSteps, recentErrors: true };
-          }}>Steps</Button
-        >
-      {/if}
-    </div>
-  {:else if errorsValue.groups.length === 0}
-    <p class="text-sm text-text-default">No errors in the last 24 hours.</p>
+    <p class="text-sm text-text-default">{describeRecentErrorsState(errorsValue.state)}</p>
   {:else}
-    <div class="flex flex-col divide-y divide-border-default">
-      {#each errorsValue.groups as group (`${group.service}:${group.eventName}:${group.where}:${group.errorName}`)}
-        {@const copyKey = `error:${group.latestErrorId ?? group.lastSeen}`}
-        <div class="flex items-start justify-between gap-8 {rowPadding}">
-          <div class="flex min-w-0 flex-col">
-            <span class="text-sm text-text-default">
-              {group.errorName ?? "Error"}
-              <span class="text-text-muted">in {describeErrorPlace(group)}</span>
-            </span>
-            {#if group.messageHead !== null}
-              <span class="truncate text-xs text-text-muted">{group.messageHead}</span>
-            {/if}
-            <span class="text-xs text-text-muted">
-              <span class="font-mono">{group.service ?? "unknown Worker"}</span>
-              · {errorKindLabel(group.eventName)} · last seen {formatVersionTimestamp(group.lastSeen)}
-            </span>
+    {@const backgroundWhy = describeBackgroundState(errorsValue.backgroundState)}
+    {#if backgroundWhy !== null}
+      <div class="flex items-center justify-between gap-8">
+        <p class="text-xs text-text-muted">{backgroundWhy}</p>
+        {#if errorsValue.backgroundState === "not-configured"}
+          <Button
+            variant="ghost"
+            size="sm"
+            onclick={() => {
+              tab = "features";
+              openSteps = { ...openSteps, recentErrors: true };
+            }}>Steps</Button
+          >
+        {/if}
+      </div>
+    {/if}
+    {#if errorsValue.groups.length === 0}
+      <p class="text-sm text-text-default">No errors in the last 24 hours.</p>
+    {:else}
+      <div class="flex flex-col divide-y divide-border-default">
+        {#each errorsValue.groups as group (`${group.source}:${group.service}:${group.where}:${group.status}:${group.errorName}`)}
+          {@const copyKey = `error:${group.latestErrorId ?? group.lastSeen}`}
+          <div class="flex flex-wrap items-start justify-between gap-8 {rowPadding}">
+            <div class="flex min-w-0 flex-col">
+              <span class="text-sm break-words text-text-default">
+                {describeErrorWhat(group)}
+                <span class="text-text-muted">in {describeErrorPlace(group)}</span>
+              </span>
+              {#if group.messageHead !== null}
+                <span class="truncate text-xs text-text-muted">{group.messageHead}</span>
+              {/if}
+              <span class="text-xs text-text-muted">
+                <span class="font-mono">{group.service ?? "unknown Worker"}</span>
+                · {errorKindLabel(group.source)} · last seen {formatVersionTimestamp(group.lastSeen)}
+              </span>
+            </div>
+            <div class="flex shrink-0 items-center gap-4">
+              <Badge variant="danger">{group.count}×</Badge>
+              {#if group.latestErrorId !== null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="font-mono text-xs {copiedNow(copyKey) ? 'bg-action-secondary-hover' : ''}"
+                  aria-label="Copy Error ID {group.latestErrorId}"
+                  onclick={() => void copyValue(copyKey, group.latestErrorId ?? "")}
+                >
+                  {group.latestErrorId}
+                </Button>
+              {/if}
+            </div>
           </div>
-          <div class="flex shrink-0 items-center gap-4">
-            <Badge variant="danger">{group.count}×</Badge>
-            {#if group.latestErrorId !== null}
-              <Button
-                variant="ghost"
-                size="sm"
-                class="font-mono text-xs {copiedNow(copyKey) ? 'bg-action-secondary-hover' : ''}"
-                aria-label="Copy Error ID {group.latestErrorId}"
-                onclick={() => void copyValue(copyKey, group.latestErrorId ?? "")}
-              >
-                {group.latestErrorId}
-              </Button>
-            {/if}
-          </div>
-        </div>
-      {/each}
-    </div>
-    {#if errorsValue.truncated}
-      <p class="text-xs text-text-muted">
-        Only the newest {errorsValue.total} events were read. Workers Logs holds more.
-      </p>
+        {/each}
+      </div>
+      {#if errorsValue.truncated}
+        <p class="text-xs text-text-muted">
+          Only the newest kinds of failure are shown. Look an Error ID up above to find any one.
+        </p>
+      {/if}
     {/if}
   {/if}
 {/snippet}

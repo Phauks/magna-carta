@@ -735,3 +735,33 @@ export const communityBoardSwitch = sqliteTable("community_board_switch", {
   changedAt: text("changed_at").notNull(), // ISO-8601 instant
   note: text("note"), // why, for the next operator
 });
+
+// One failure a member was shown, kept so the Error ID on their screen can be looked up later. The
+// API records every problem it answers (a fault, a refusal, a validation failure) except a signed-out
+// answer and a rate-limit answer, which arrive in floods and say nothing about a fault; the app
+// records a crash in the browser through POST /api/v1/client-errors. Every column is a label, a code
+// name or a handle, never content: the request is the route TEMPLATE, the message is the scrubbed
+// head an engine wrote, and the firm and member are ids. It lives in the control plane because the
+// platform operator reads it across every firm, and a crash before sign-in has no firm at all. Rows
+// older than thirty days are deleted by the daily pass.
+export const errorRecord = sqliteTable(
+  "error_record",
+  {
+    id: text("id").primaryKey(), // the Error ID: error_… (minted by a Worker) or client_… (by the app)
+    recordedAt: text("recorded_at").notNull(), // ISO-8601 instant
+    source: text("source").notNull(), // server | browser
+    service: text("service"), // the minting Worker's code (api, edt, …) or "web"
+    operation: text("operation"), // "POST /api/v1/meetings/:meetingId/join", or the page route
+    status: integer("status"), // the HTTP status answered; null for a browser crash
+    problemType: text("problem_type"), // the registered problem type key, where there is one
+    title: text("title"), // the problem's server-authored title
+    errorName: text("error_name"), // TypeError, RangeError, …
+    messageHead: text("message_head"), // scrubbed first slice of the message
+    location: text("location"), // file:line:column of the first stack frame (browser)
+    build: text("build"), // the app build that crashed (browser)
+    firmId: text("firm_id").$type<FirmId>(),
+    userId: text("user_id").$type<UserId>(),
+    correlationId: text("correlation_id"),
+  },
+  (table) => [index("error_record_recorded_at_index").on(table.recordedAt)],
+);

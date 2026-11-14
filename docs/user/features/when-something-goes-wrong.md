@@ -15,6 +15,20 @@ underneath. What changes is how much of the screen it takes:
 | The whole screen | The body says why. The sidebar and tabs stay live — you are never stranded. |
 | The app itself   | A plain screen with a reference and a way to reload.                        |
 
+## What failed, in one line
+
+Every failure leads with a short line naming three things:
+
+- **the area** of Magna Carta it happened in, such as Meetings or Trust
+- **the action** that failed, such as Join meeting or Change matter
+- **the kind of failure**: a fault on our side (with its technical name, such as TypeError), a refusal
+  (with the answer the service gave), no answer at all, or a fault in the app on your screen
+
+That line is usually enough to tell anyone helping you what went wrong. **Show details** opens the
+rest: the request, the service's answer, the cause, the time and the Error ID. **Copy details** is
+always beside it. A failure that appears as a short pop-up message has the same line under its
+message, and a **Copy details** button.
+
 ## The first thing it tells you
 
 Whether your record survived. A panel that will not load does not mean anything has been lost, and
@@ -25,15 +39,14 @@ Nothing that fails to load has changed anything. A read that fails is a read tha
 
 ## The Error ID
 
-Every failure carries one. It looks like `error_7FQ2K9XW`, and it is how we find your exact failure
-in our records rather than guessing from a description.
+Every failure carries one, under **Show details**. It looks like `error_0mwfnax8napiSlVeIBqj4`, and
+it is how we find your exact failure in our records rather than guessing from a description. Magna
+Carta keeps a record of each one for 30 days, so it can be looked up by the people who run your
+deployment.
 
-Press it to copy it. If you would rather not transcribe it, use **Copy details** instead — that puts
-the whole picture on your clipboard.
-
-Occasionally you will see a reference beginning `client_` instead. That means the failure happened
-in your browser and never reached us, so there is nothing on our side to look up yet. Send it anyway:
-it still identifies your report.
+Sometimes the reference begins `client_` instead. That means the failure happened in the app on your
+screen rather than in the service. When you are signed in, the app sends the technical facts of that
+failure (never anything you typed or any record's contents) so the reference can be looked up too.
 
 ## Copy details
 
@@ -90,4 +103,6 @@ panel, with a link to the service status page.
 
 - Send anything to a third-party error service. Reports go to your firm's pipeline and stop there.
 - Put your document names, client names, matter content or field values in a report.
-- Send a report you did not ask us to send. A crash offers to file one; it never files itself.
+- Send a report you did not ask us to send. A crash offers to file one; it never files itself. (The
+  technical record behind an Error ID is kept automatically, but it holds only the code-level facts
+  listed above and nothing you wrote.)

@@ -84,6 +84,11 @@
   // how the bucket resolver (src/files/firm-bucket.ts) proves that the bucket a presigned URL addresses
   // is the same one this Worker reads through. Keep it byte-identical to the r2_buckets bucket_name.
   "vars": {
+    // Which model port Magnus answers through: "gateway" reaches the firm's chosen model over the AI
+    // binding. Kept here so every deploy carries it (a dashboard value is replaced by the next deploy).
+    // A firm still sends nothing until its own two consent settings are open. `.dev.vars` sets "stub"
+    // for the local run and the test pool. See apps/api-worker/src/magnus/inference-port-binding.ts.
+    "MAGNUS_INFERENCE_ADAPTER": "gateway",
     "FILES_ORIGIN": "files.magnacartausercontent.com",
     "R2_BUCKET_NAME": "magna-carta-production-platform-files",
     // What the two anonymous writes (registration, invitation redemption) do while NO Turnstile
@@ -166,6 +171,16 @@
       "binding": "SECRETS_STORE_GOOGLE_PLACES_API_KEY",
       "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
       "secret_name": "GOOGLE_PLACES_API_KEY",
+    },
+    {
+      "binding": "SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_ID",
+      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
+      "secret_name": "GOOGLE_CALENDAR_CLIENT_ID",
+    },
+    {
+      "binding": "SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_SECRET",
+      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
+      "secret_name": "GOOGLE_CALENDAR_CLIENT_SECRET",
     },
   ],
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
