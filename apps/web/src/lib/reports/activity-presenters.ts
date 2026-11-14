@@ -1,5 +1,6 @@
 /*
- * The productivity reports (Timekeeper Productivity, Daily Time, Matter Productivity), the operational volumes and the
+ * The productivity reports (Timekeeper Productivity, Daily Time, Matter Productivity, Tasks by
+ * Person), the operational volumes and the
  * matters list and the client list, arranged for a screen and a file.
  *
  * Totals first, then tables, as the financial reports are. Productivity is minutes and never money:
@@ -33,6 +34,7 @@ import type {
   MatterStatusCounts,
   OperationalVolumes,
   ProductivityFigures,
+  TaskWorkload,
   TimekeeperProductivity,
 } from "./report-reads.ts";
 import type { ReportCaptions } from "./trust-compliance-presenter.ts";
@@ -302,6 +304,70 @@ export function presentMatterProductivity(
         sortable: true,
         aside: completenessLine(report.completeness),
         whenEmpty: "No time was recorded in this period.",
+      },
+    ],
+  };
+}
+
+// ---- tasks by person ------------------------------------------------------------------------------
+
+/**
+ * Tasks by Person: the firm's open, overdue and undated counts, then a member per row, sortable.
+ * Overdue reads in the attention tone. Counts only: the payload carries no task's words.
+ */
+export function presentTaskWorkload(
+  report: TaskWorkload,
+  captions: ReportCaptions,
+): ReportPresentation {
+  const summary: ReportSummaryTile[] = [
+    {
+      label: "Overdue",
+      value: formatNumber(report.totals.overdueCount),
+      detail: null,
+      tone: report.totals.overdueCount === 0 ? "plain" : "attention",
+    },
+    {
+      label: "No due date",
+      value: formatNumber(report.totals.undatedCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Open tasks",
+      value: formatNumber(report.totals.openCount),
+      detail: counted(
+        report.people.filter((person) => person.assigneeUserId !== null).length,
+        "person",
+        "people",
+      ),
+      tone: "total",
+    },
+  ];
+  return {
+    title: "Tasks by Person",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-person",
+        title: "By Person",
+        headers: ["Person", "Open", "Overdue", "No due date"],
+        rows: report.people.map((person) => [
+          person.assigneeUserId === null
+            ? "Nobody assigned"
+            : captionOr(person.assigneeName, captions.member(person.assigneeUserId)),
+          countCell(person.openCount),
+          countCell(person.overdueCount),
+          countCell(person.undatedCount),
+        ]),
+        endAlignedColumns: [1, 2, 3],
+        attentionColumns: [2],
+        sortable: true,
+        aside: completenessLine(report.completeness),
+        whenEmpty: "Nobody has an open task.",
       },
     ],
   };

@@ -21,7 +21,8 @@
     "./recurrence-service": "./src/recurrence-service.ts",
     "./comment-statements": "./src/comment-statements.ts",
     "./comment-service": "./src/comment-service.ts",
-    "./contract": "./src/contract.ts"
+    "./contract": "./src/contract.ts",
+    "./task-workload": "./src/task-workload.ts"
   },
   "scripts": {
     "test": "vp test run"

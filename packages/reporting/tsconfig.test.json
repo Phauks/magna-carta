@@ -43,6 +43,9 @@
       "path": "../money/tsconfig.build.json"
     },
     {
+      "path": "../tasks/tsconfig.build.json"
+    },
+    {
       "path": "../timekeeping/tsconfig.build.json"
     },
     {

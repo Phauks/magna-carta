@@ -1982,6 +1982,26 @@ export type OperationalVolumesReport = {
     }>;
 };
 
+export type TaskWorkloadReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        openCount: number;
+        overdueCount: number;
+        undatedCount: number;
+    };
+    people: Array<{
+        assigneeUserId: string | null;
+        assigneeName: string | null;
+        openCount: number;
+        overdueCount: number;
+        undatedCount: number;
+    }>;
+};
+
 export type InvoicesReport = {
     periodStart: string;
     periodEnd: string;
@@ -17068,6 +17088,49 @@ export type ReportsOperationalVolumesResponses = {
 };
 
 export type ReportsOperationalVolumesResponse = ReportsOperationalVolumesResponses[keyof ReportsOperationalVolumesResponses];
+
+export type ReportsTaskWorkloadData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/task-workload';
+};
+
+export type ReportsTaskWorkloadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsTaskWorkloadError = ReportsTaskWorkloadErrors[keyof ReportsTaskWorkloadErrors];
+
+export type ReportsTaskWorkloadResponses = {
+    /**
+     * Each member's open tasks now
+     */
+    200: TaskWorkloadReport;
+};
+
+export type ReportsTaskWorkloadResponse = ReportsTaskWorkloadResponses[keyof ReportsTaskWorkloadResponses];
 
 export type ReportsInvoicesData = {
     body?: never;

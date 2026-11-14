@@ -19,6 +19,7 @@ import type {
   PaymentsApplied,
   Realization,
   TimekeeperProductivity,
+  TaskWorkload,
   DailyTime,
   MatterProductivity,
   WorkInProgress,
@@ -820,6 +821,34 @@ export function sampleClientList(): ClientList {
         counts: counts(1, 0, 0),
         locationNames: [NORTH.locationName, MAIN.locationName],
       },
+    ],
+  };
+}
+
+export function sampleTaskWorkload(): TaskWorkload {
+  return {
+    computedAt: COMPUTED_AT,
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    completeness: { scope: "complete" },
+    totals: { openCount: 9, overdueCount: 2, undatedCount: 3 },
+    people: [
+      {
+        assigneeUserId: "user_sample_one",
+        assigneeName: samplePerson(0).name,
+        openCount: 6,
+        overdueCount: 2,
+        undatedCount: 1,
+      },
+      {
+        assigneeUserId: "user_sample_two",
+        assigneeName: samplePerson(1).name,
+        openCount: 2,
+        overdueCount: 0,
+        undatedCount: 1,
+      },
+      { assigneeUserId: null, assigneeName: null, openCount: 1, overdueCount: 0, undatedCount: 1 },
     ],
   };
 }

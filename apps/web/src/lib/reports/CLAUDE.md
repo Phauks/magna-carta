@@ -26,7 +26,7 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `trust-compliance-presenter.ts` — the pack's presenter; `trust-compliance-fixture.ts` its sample.
 - `report-reads.ts` — the financial, productivity and operational wire shapes and reads.
 - `financial-presenters.ts`, `billing-presenters.ts` (Invoices, Payments Applied, Matter Balances),
-  `activity-presenters.ts` (Timekeeper Productivity, Daily Time, Matter Productivity, operational volumes,
+  `activity-presenters.ts` (Timekeeper Productivity, Daily Time, Matter Productivity, Tasks by Person, operational volumes,
   Matters List, Client List) — their presenters; `report-samples.ts` their
   samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.
 - `report-summary.svelte` — the row of totals; `report-section-table.svelte` one section (a plain

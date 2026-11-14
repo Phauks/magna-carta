@@ -23,7 +23,8 @@
     "./financial/aged-work-in-progress": "./src/financial/aged-work-in-progress.ts",
     "./productivity/daily-time": "./src/productivity/daily-time.ts",
     "./productivity/matter-productivity": "./src/productivity/matter-productivity.ts",
-    "./operational/client-list": "./src/operational/client-list.ts"
+    "./operational/client-list": "./src/operational/client-list.ts",
+    "./productivity/task-workload": "./src/productivity/task-workload.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -38,6 +39,7 @@
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
+    "@magna-carta/tasks": "workspace:*",
     "@magna-carta/timekeeping": "workspace:*",
     "@magna-carta/trust": "workspace:*",
     "zod": "catalog:"

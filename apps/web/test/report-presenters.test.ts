@@ -20,6 +20,7 @@ import {
   presentMatterProductivity,
   presentMattersList,
   presentOperationalVolumes,
+  presentTaskWorkload,
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
 import { moneyText } from "../src/lib/reports/report-cells.ts";
@@ -33,6 +34,7 @@ import {
   sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
+  sampleTaskWorkload,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
 } from "../src/lib/reports/report-samples.ts";
@@ -268,5 +270,27 @@ describe("the client list presenter", () => {
     expect(clients?.rows.map((row) => numberOf(row[8]))).toEqual(
       report.clients.map((client) => client.counts.matterCount),
     );
+  });
+});
+
+describe("the tasks by person presenter", () => {
+  const report = sampleTaskWorkload();
+  const presentation = presentTaskWorkload(report, IDENTITY_CAPTIONS);
+
+  it("opens with the payload's counts, overdue in the attention tone", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [report.totals.overdueCount, report.totals.undatedCount, report.totals.openCount].map(String),
+    );
+    expect(tiles[0]?.tone).toBe("attention");
+    expect(tiles[2]?.tone).toBe("total");
+  });
+
+  it("puts every person on a row with their own counts, nobody assigned last", () => {
+    const people = presentation.sections.find((section) => section.id === "by-person");
+    expect(people?.rows.map((row) => numberOf(row[1]))).toEqual(
+      report.people.map((person) => person.openCount),
+    );
+    expect(people?.rows.at(-1)?.[0]).toBe("Nobody assigned");
   });
 });

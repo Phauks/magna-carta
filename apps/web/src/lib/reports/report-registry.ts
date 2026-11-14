@@ -38,6 +38,7 @@ import {
   presentMattersList,
   presentOperationalVolumes,
   presentDailyTime,
+  presentTaskWorkload,
   presentMatterProductivity,
   presentTimekeeperProductivity,
 } from "./activity-presenters.ts";
@@ -66,6 +67,7 @@ import {
   readPaymentsApplied,
   readRealization,
   readDailyTime,
+  readTaskWorkload,
   readMatterProductivity,
   readTimekeeperProductivity,
   readWorkInProgress,
@@ -79,6 +81,7 @@ import {
   type PaymentsApplied,
   type Realization,
   type DailyTime,
+  type TaskWorkload,
   type MatterProductivity,
   type TimekeeperProductivity,
   type WorkInProgress,
@@ -94,6 +97,7 @@ import {
   samplePaymentsApplied,
   sampleRealization,
   sampleDailyTime,
+  sampleTaskWorkload,
   sampleMatterProductivity,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
@@ -366,6 +370,21 @@ const matterProductivity = built<MatterProductivity>({
   samplePayload: sampleMatterProductivity,
 });
 
+const taskWorkload = built<TaskWorkload>({
+  id: "task-workload",
+  family: "productivity",
+  name: "Tasks by Person",
+  answers:
+    "How many open tasks each person has, how many are overdue, and how many have no due date.",
+  permission: PRODUCTIVITY_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readTaskWorkload(fetchImpl, { locationId: scope.office }),
+  present: presentTaskWorkload,
+  samplePayload: sampleTaskWorkload,
+});
+
 const operationalVolumes = built<OperationalVolumes>({
   id: "operational-volumes",
   family: "operational",
@@ -486,6 +505,7 @@ const REPORT_LIST = [
   timekeeperProductivity,
   dailyTime,
   matterProductivity,
+  taskWorkload,
   operationalVolumes,
   mattersList,
   clientList,
