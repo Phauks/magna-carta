@@ -1670,7 +1670,8 @@ The owner, asked to pick one of three directions for the app as a whole:
 - **Capitals, underlines and a gold edge on every list.** Column headers, sidebar groups and
   filter headings were tracked capitals, every matter title was underlined, and the scroll-edge
   rule drew a gold line down the table's side. Promoted to _Data entry_.
-- **Still to come in later passes:** dot statuses, the top bar, and the near-identical greys.
+- **Statuses are a dot and a word, not a tinted pill.** The status tones of `Badge` (neutral, success, warning, danger, info, accent) draw a small disc in the status hue before the word in the reading colour. The `caps` option is retired and changes nothing.
+- **Still to come in later passes:** the top bar, and the near-identical greys.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 
