@@ -39,13 +39,18 @@ import {
   presentRealization,
   presentWorkInProgress,
 } from "./financial-presenters.ts";
-import { presentInvoices, presentPaymentsApplied } from "./billing-presenters.ts";
+import {
+  presentInvoices,
+  presentMatterBalances,
+  presentPaymentsApplied,
+} from "./billing-presenters.ts";
 import {
   FINANCIAL_REPORTS_PERMISSION,
   OPERATIONAL_REPORTS_PERMISSION,
   PRODUCTIVITY_REPORTS_PERMISSION,
   readAccountsReceivableAging,
   readInvoices,
+  readMatterBalances,
   readOperationalVolumes,
   readPaymentsApplied,
   readRealization,
@@ -53,6 +58,7 @@ import {
   readWorkInProgress,
   type AccountsReceivableAging,
   type Invoices,
+  type MatterBalances,
   type OperationalVolumes,
   type PaymentsApplied,
   type Realization,
@@ -62,6 +68,7 @@ import {
 import {
   sampleAccountsReceivableAging,
   sampleInvoices,
+  sampleMatterBalances,
   sampleOperationalVolumes,
   samplePaymentsApplied,
   sampleRealization,
@@ -344,6 +351,21 @@ const paymentsApplied = built<PaymentsApplied>({
   samplePayload: samplePaymentsApplied,
 });
 
+const matterBalances = built<MatterBalances>({
+  id: "matter-balances",
+  family: "financial",
+  name: "Matter Balances",
+  answers:
+    "Where each matter stands now: its unbilled work, what its bills still owe, and what is held for it in trust, per office and client.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readMatterBalances(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentMatterBalances(payload),
+  samplePayload: sampleMatterBalances,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
@@ -351,6 +373,7 @@ const REPORT_LIST = [
   realization,
   invoices,
   paymentsApplied,
+  matterBalances,
   timekeeperProductivity,
   operationalVolumes,
 ] as const satisfies readonly ReportDeclaration[];

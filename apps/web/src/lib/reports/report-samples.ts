@@ -11,6 +11,7 @@ import type {
   AppliedFigures,
   InvoiceFigures,
   Invoices,
+  MatterBalances,
   OperationalVolumes,
   PaymentsApplied,
   Realization,
@@ -500,6 +501,43 @@ export function samplePaymentsApplied(): PaymentsApplied {
         0,
         MAIN,
       ),
+    ],
+  };
+}
+
+export function sampleMatterBalances(): MatterBalances {
+  const figures = (unbilledMinor: number, owedMinor: number, trustMinor: number) => ({
+    unbilledMinor,
+    owedMinor,
+    trustMinor,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    asOfDate: "2026-08-01",
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    currency: "USD",
+    completeness: { scope: "complete" },
+    totals: figures(1_245_000, 690_000, 1_150_000),
+    offices: [
+      { ...MAIN, figures: figures(830_000, 450_000, 800_000) },
+      { ...NORTH, figures: figures(415_000, 240_000, 350_000) },
+    ],
+    clients: [
+      {
+        ...client(0),
+        figures: figures(830_000, 450_000, 800_000),
+        matters: [
+          { ...matter(0, MAIN), figures: figures(830_000, 300_000, 500_000) },
+          { ...matter(2, MAIN), figures: figures(0, 150_000, 300_000) },
+        ],
+      },
+      {
+        ...client(1),
+        figures: figures(415_000, 240_000, 350_000),
+        matters: [{ ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) }],
+      },
     ],
   };
 }

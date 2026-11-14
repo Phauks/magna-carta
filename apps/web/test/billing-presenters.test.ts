@@ -1,5 +1,5 @@
 /*
- * The Invoices and Payments Applied presenters print the payload's figures and add none: the tiles
+ * The Invoices, Payments Applied and Matter Balances presenters print the payload's figures and add none: the tiles
  * are the payload's totals, the total rows are the same totals, every client, bill and entry reaches
  * a row, and a reversal is printed as its own negative entry naming what it reverses.
  */
@@ -9,11 +9,16 @@ import { describe, expect, it } from "vitest";
 import {
   entryKindText,
   presentInvoices,
+  presentMatterBalances,
   presentPaymentsApplied,
 } from "../src/lib/reports/billing-presenters.ts";
 import { moneyText } from "../src/lib/reports/report-cells.ts";
 import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
-import { sampleInvoices, samplePaymentsApplied } from "../src/lib/reports/report-samples.ts";
+import {
+  sampleInvoices,
+  sampleMatterBalances,
+  samplePaymentsApplied,
+} from "../src/lib/reports/report-samples.ts";
 
 const numberOf = (cell: ReportCell | undefined): number | null =>
   cell === undefined || typeof cell === "string" ? null : cell.number;
@@ -78,5 +83,40 @@ describe("the payments applied presenter", () => {
   it("rules the by-office table off with the payload's totals", () => {
     const offices = presentation.sections.find((section) => section.id === "by-office");
     expect(numberOf(offices?.totalRow?.[7])).toBe(dollars(report.totals.totalMinor));
+  });
+});
+
+describe("the matter balances presenter", () => {
+  const report = sampleMatterBalances();
+  const presentation = presentMatterBalances(report);
+
+  it("opens with the payload's three totals and never adds them together", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual([
+      moneyText(report.totals.unbilledMinor),
+      moneyText(report.totals.owedMinor),
+      moneyText(report.totals.trustMinor),
+    ]);
+    for (const section of presentation.sections) {
+      expect(section.headers.slice(-3)).toEqual(["Unbilled", "Owed", "In trust"]);
+    }
+  });
+
+  it("rules the by-office table off with the payload's totals", () => {
+    const offices = presentation.sections.find((section) => section.id === "by-office");
+    expect(offices?.totalRow?.[0]).toBe("Firm total");
+    expect(numberOf(offices?.totalRow?.[3])).toBe(dollars(report.totals.trustMinor));
+    expect(offices?.rows).toHaveLength(report.offices.length);
+  });
+
+  it("puts every client on a row and every matter under its client", () => {
+    const clients = presentation.sections.find((section) => section.id === "by-client");
+    expect(clients?.sortable).toBe(true);
+    expect(clients?.rowDetails?.map((matters) => matters.length)).toEqual(
+      report.clients.map((client) => client.matters.length),
+    );
+    expect(numberOf(clients?.rowDetails?.[0]?.[1]?.[4])).toBe(
+      dollars(report.clients[0]?.matters[1]?.figures.trustMinor ?? Number.NaN),
+    );
   });
 });

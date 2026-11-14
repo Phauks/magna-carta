@@ -1141,3 +1141,56 @@ export async function readApplicationRegister(
     })),
   };
 }
+
+// THE CAPTIONS OF A KNOWN SET OF MATTERS, in the shape the breakdown reads above print them: the
+// title and number, the client (the lower client party, as every breakdown here attributes it) and
+// the office. For a report that gathers matters from more than one domain's figures and needs one
+// caption for each. The ids travel as one JSON parameter, so the read is one statement however many
+// matters it names.
+export interface MatterCaption {
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly clientEntityId: string | null;
+  readonly clientName: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+}
+
+export async function readMatterCaptions(
+  database: SqlDatabase,
+  matterIds: readonly string[],
+): Promise<readonly MatterCaption[]> {
+  if (matterIds.length === 0) return [];
+  const { results } = await database
+    .prepare(
+      `SELECT m.id AS matter_id, m.title AS matter_title, m.matter_number,
+              (SELECT MIN(p.entity_id) FROM matter_party p
+                WHERE p.matter_id = m.id AND p.role = 'client') AS client_entity_id,
+              m.client_display_name AS client_name,
+              m.location_id, l.name AS location_name
+         FROM matter m
+         LEFT JOIN location l ON l.id = m.location_id
+        WHERE m.id IN (SELECT value FROM json_each(?1))
+        ORDER BY m.id`,
+    )
+    .bind(JSON.stringify(matterIds))
+    .all<{
+      matter_id: string;
+      matter_title: string;
+      matter_number: string | null;
+      client_entity_id: string | null;
+      client_name: string | null;
+      location_id: string | null;
+      location_name: string | null;
+    }>();
+  return results.map((row) => ({
+    matterId: row.matter_id,
+    matterTitle: row.matter_title,
+    matterNumber: row.matter_number,
+    clientEntityId: row.client_entity_id,
+    clientName: row.client_name,
+    locationId: row.location_id,
+    locationName: row.location_name,
+  }));
+}

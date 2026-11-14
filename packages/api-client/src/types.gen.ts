@@ -2056,6 +2056,51 @@ export type PaymentsAppliedReport = {
     }>;
 };
 
+export type MatterBalancesReport = {
+    computedAt: string;
+    asOfDate: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    currency: 'USD';
+    completeness: ReportCompleteness;
+    totals: {
+        unbilledMinor: number;
+        owedMinor: number;
+        trustMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            unbilledMinor: number;
+            owedMinor: number;
+            trustMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            unbilledMinor: number;
+            owedMinor: number;
+            trustMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                unbilledMinor: number;
+                owedMinor: number;
+                trustMinor: number;
+            };
+        }>;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -16460,6 +16505,49 @@ export type ReportsPaymentsAppliedResponses = {
 };
 
 export type ReportsPaymentsAppliedResponse = ReportsPaymentsAppliedResponses[keyof ReportsPaymentsAppliedResponses];
+
+export type ReportsMatterBalancesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/matter-balances';
+};
+
+export type ReportsMatterBalancesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters have a balance than one report can list, or a trust account in a currency other than US dollars holds money for a matter
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsMatterBalancesError = ReportsMatterBalancesErrors[keyof ReportsMatterBalancesErrors];
+
+export type ReportsMatterBalancesResponses = {
+    /**
+     * Each matter's balances now
+     */
+    200: MatterBalancesReport;
+};
+
+export type ReportsMatterBalancesResponse = ReportsMatterBalancesResponses[keyof ReportsMatterBalancesResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
