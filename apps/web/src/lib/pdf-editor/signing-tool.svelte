@@ -73,7 +73,7 @@
     const [opened, listed] = await Promise.all([
       openEditorDocument(
         file,
-        "This document is locked with a password. Unlock it in the File Workbench, save the unlocked copy, and send that for signature.",
+        "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and send that for signature.",
       ),
       listSigningRequests(fetch, file.id),
     ]);
@@ -88,7 +88,7 @@
     source = opened.source;
     pages = opened.pages;
     if (listed.kind !== "ok") {
-      phase = { kind: "unread", failure: stated(listed.failure, "The signing requests on this document could not be read.") };
+      phase = { kind: "unread", failure: stated(listed.failure, "Couldn't load the signing requests on this document.") };
       return;
     }
     const newest = listed.value.requests.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -99,7 +99,7 @@
     const read = await readSigningRequest(fetch, newest.id);
     if (gone) return;
     if (read.kind !== "ok") {
-      phase = { kind: "unread", failure: stated(read.failure, "The signing request could not be read.") };
+      phase = { kind: "unread", failure: stated(read.failure, "Couldn't load the signing request.") };
       return;
     }
     show(read.value);
@@ -130,7 +130,7 @@
     if (id === null) {
       const created = await createSigningRequest(fetch, file.id);
       if (created.kind !== "ok") {
-        failure = stated(created.failure, "The request could not be started.");
+        failure = stated(created.failure, "Couldn't start the request.");
         return null;
       }
       id = created.value.id;
@@ -138,7 +138,7 @@
     }
     const written = await saveSigningDraft(fetch, id, draftRequest(draft));
     if (written.kind !== "ok") {
-      failure = stated(written.failure, "The draft was not saved.");
+      failure = stated(written.failure, "The draft wasn't saved.");
       return null;
     }
     draft = draftFromDetail(written.value);
@@ -166,7 +166,7 @@
     const sent = await sendSigningRequest(fetch, id);
     busy = null;
     if (sent.kind !== "ok") {
-      failure = stated(sent.failure, "The request was not sent.");
+      failure = stated(sent.failure, "The request wasn't sent.");
       return;
     }
     show(sent.value);
@@ -187,7 +187,7 @@
 {:else if phase.kind === "refused"}
   <div class="p-24">
     <Alert.Root variant="warning">
-      <Alert.Title>This Document Cannot Be Sent for Signature Here</Alert.Title>
+      <Alert.Title>This Document Can't Be Sent for Signature Here</Alert.Title>
       <Alert.Description>{phase.message}</Alert.Description>
     </Alert.Root>
   </div>

@@ -471,7 +471,7 @@
       <Alert.Root variant="info">
         <Alert.Title>Place the Fields</Alert.Title>
         <Alert.Description>
-          Pick a signer, pick a field above the page, then click where it goes. Every signer needs at least one signature.
+          Pick a signer, pick a field above the page, then click where it goes. Each signer needs at least one signature.
         </Alert.Description>
       </Alert.Root>
     {/if}

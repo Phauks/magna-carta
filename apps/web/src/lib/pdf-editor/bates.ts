@@ -121,7 +121,7 @@ export function batesProblems(
       problems[field] = `Keep it to ${BATES_LIMITS.affixLength} characters.`;
     } else if (!printableInStandardFonts(value)) {
       problems[field] =
-        "Use plain letters, numbers and punctuation. Curly quotes and long dashes cannot be printed.";
+        "Use plain letters, numbers and punctuation. Curly quotes and long dashes can't be printed.";
     }
   }
   if (!Number.isInteger(settings.startNumber) || settings.startNumber < 0) {

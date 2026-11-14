@@ -95,7 +95,7 @@
         <Input {...props} {disabled} maxlength={200} value={draft.subject} oninput={(event) => (draft = { ...draft, subject: event.currentTarget.value })} />
       {/snippet}
     </LabelledField>
-    <LabelledField label="Message" hint="Optional. Shown to every signer above the link.">
+    <LabelledField label="Message" hint="Optional. Shown to signers above the link.">
       {#snippet children({ props })}
         <Textarea {...props} {disabled} rows={4} maxlength={4000} value={draft.message} oninput={(event) => (draft = { ...draft, message: event.currentTarget.value })} />
       {/snippet}
