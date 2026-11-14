@@ -154,6 +154,13 @@ it, and opens a fresh one in the same batch. `sessionEventSettlement` gives the 
 end in the event's own zone and marks it `occurred`; `endMeeting` composes the same statements, so a
 host's End settles the event too.
 
+**A room has two addresses, and a meeting has one more.** `address_name` (/room/trevor) is made with
+the room by `roomAddressNames` and `freeRoomAddressName` in `meeting-addresses.ts` and never changed;
+the link code beside it still works, and `readPersonalRoomByLinkCode` reads by either. Every meeting
+carries `join_code`, nine digits written by `insertMeetingStatement` (`newMeetingJoinCode`) and read
+back through the visibility gate by `readMeetingSummaryByJoinCode`; a clash on either unique index
+rolls the write back rather than sharing an address.
+
 **Arriving by link puts the member on the session's EVENT**, because the meeting's join asks whether
 the member is on the event. That is the whole of what the link grants; a closed room grants nothing
 and a replaced link names nothing.

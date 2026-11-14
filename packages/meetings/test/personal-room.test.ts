@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MeetingId } from "@magna-carta/identifiers/types";
 import { seededRandomSource } from "@magna-carta/identifiers/random";
 import { createMeeting, endMeeting, joinMeeting, leaveMeeting } from "../src/meeting-service.ts";
-import { readMeeting } from "../src/meeting-statements.ts";
+import { readMeeting, readMeetingSummaryByJoinCode } from "../src/meeting-statements.ts";
 import {
   arriveAtPersonalRoom,
   ensurePersonalRoom,
@@ -117,6 +117,46 @@ describe("a member's room", () => {
     await expect(
       readPersonalRoomAtLink(database.database, room.link_code, optionsFor(GUEST)),
     ).rejects.toBeInstanceOf(MeetingPersonalRoomRefusedError);
+  });
+});
+
+describe("a room's address by name", () => {
+  it("is the owner's first name, and the link reads by it as by the code", async () => {
+    const database = fresh();
+    const room = await makeRoom(database);
+    expect(room.address_name).toMatch(/^[a-z0-9-]+$/);
+    const byName = await readPersonalRoomAtLink(
+      database.database,
+      room.address_name ?? "",
+      optionsFor(GUEST),
+    );
+    const byCode = await readPersonalRoomAtLink(
+      database.database,
+      room.link_code,
+      optionsFor(GUEST),
+    );
+    expect(byName).toEqual(byCode);
+    expect(byName.addressName).toBe(room.address_name);
+  });
+});
+
+describe("a meeting's nine-digit address", () => {
+  it("is written with the session and finds it through the visibility gate", async () => {
+    const database = fresh();
+    await makeRoom(database);
+    const { meetingId } = await open(database);
+    const meeting = await readMeeting(database.database, meetingId, visibility);
+    expect(meeting?.join_code).toMatch(/^[1-9]\d{8}$/);
+    const found = await readMeetingSummaryByJoinCode(
+      database.database,
+      meeting?.join_code ?? "",
+      visibility,
+    );
+    expect(found?.id).toBe(meetingId);
+    expect(found?.joinCode).toBe(meeting?.join_code);
+    expect(
+      await readMeetingSummaryByJoinCode(database.database, "100000000", visibility),
+    ).toBeUndefined();
   });
 });
 

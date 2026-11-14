@@ -40,9 +40,9 @@
   const origin = globalThis.location?.origin ?? "";
 
   async function copyLink(room: FirmRoom): Promise<void> {
-    if (room.linkCode === null) return;
+    if (room.addressName === null) return;
     try {
-      await navigator.clipboard.writeText(personalRoomAddress(room.linkCode, origin));
+      await navigator.clipboard.writeText(personalRoomAddress(room.addressName, origin));
       toast.success(`${room.name}'s room link copied.`);
     } catch {
       toast.error("Your browser would not copy it. Open the room and copy its address instead.");
@@ -83,7 +83,7 @@
               class={status.open ? "text-sm text-text-default" : "text-sm text-text-muted"}
               >{status.text}</span
             >
-            {#if room.linkCode !== null}
+            {#if room.addressName !== null}
               <span class="flex items-center gap-4">
                 <Button
                   variant="ghost"
@@ -95,7 +95,7 @@
                   Copy Link
                 </Button>
                 {#if status.open && !room.isCaller}
-                  <Button variant="secondary" size="sm" href={`/meetings/rooms/${room.linkCode}`}>
+                  <Button variant="secondary" size="sm" href={`/room/${room.addressName}`}>
                     <Video aria-hidden="true" />
                     Join
                   </Button>

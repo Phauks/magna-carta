@@ -38,6 +38,7 @@ const ROOM_COLUMNS = [
   "medium",
   "lobby",
   "link_replaced_at",
+  "address_name",
   "created_at",
   "updated_at",
 ]
@@ -68,11 +69,32 @@ export async function readPersonalRoomByLinkCode(
         `(member.status = 'active') AS owner_active ` +
         `FROM ${MEETING_PERSONAL_ROOM_TABLE} ` +
         `JOIN member ON member.user_id = ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id ` +
-        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.link_code = ?`,
+        // Either address finds the room: the name (/room/trevor) or the link code it always had.
+        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.link_code = ?1 ` +
+        `OR ${MEETING_PERSONAL_ROOM_TABLE}.address_name = ?1`,
     )
     .bind(linkCode)
     .all<PersonalRoomAtLink>();
   return results[0];
+}
+
+/**
+ * Which of a room's candidate address names, and their numbered forms, another room already has.
+ */
+export async function readTakenRoomAddressNames(
+  database: SqlDatabase,
+  candidates: readonly string[],
+): Promise<ReadonlySet<string>> {
+  const base = candidates.at(-1) ?? "";
+  const { results } = await database
+    .prepare(
+      `SELECT address_name FROM ${MEETING_PERSONAL_ROOM_TABLE} ` +
+        `WHERE address_name IN (SELECT value FROM json_each(?1)) ` +
+        `OR address_name GLOB ?2`,
+    )
+    .bind(JSON.stringify(candidates), `${base}-[0-9]*`)
+    .all<{ address_name: string }>();
+  return new Set(results.map((row) => row.address_name));
 }
 
 /** The owner's display name, which the event's title is made from. */
@@ -98,16 +120,20 @@ export function insertPersonalRoomStatement(
     readonly id: MeetingPersonalRoomId;
     readonly ownerUserId: UserId;
     readonly linkCode: string;
+    // The room's address by name; the unique index refuses a name another room took in between,
+    // which rolls the make back to be tried again.
+    readonly addressName: string;
     readonly now: string;
   },
 ): SqlStatement {
   return database
     .prepare(
       `INSERT INTO ${MEETING_PERSONAL_ROOM_TABLE} (id, owner_user_id, link_code, medium, lobby, ` +
-        `link_replaced_at, created_at, updated_at) VALUES (?1, ?2, ?3, 'video', 'on', NULL, ?4, ?4) ` +
+        `link_replaced_at, address_name, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, 'video', 'on', NULL, ?5, ?4, ?4) ` +
         `ON CONFLICT (owner_user_id) DO NOTHING`,
     )
-    .bind(input.id, input.ownerUserId, input.linkCode, input.now);
+    .bind(input.id, input.ownerUserId, input.linkCode, input.now, input.addressName);
 }
 
 // A NEW LINK. Guarded by the caller on the code it read, so two replacements racing leave one code
@@ -394,6 +420,7 @@ export async function listFirmRooms(database: SqlDatabase): Promise<FirmRoomRow[
     .prepare(
       `SELECT member.user_id AS user_id, member.display_name AS display_name, ` +
         `${MEETING_PERSONAL_ROOM_TABLE}.link_code AS link_code, ` +
+        `${MEETING_PERSONAL_ROOM_TABLE}.address_name AS address_name, ` +
         `${MEETING_PERSONAL_ROOM_TABLE}.medium AS medium, ` +
         `open_session.id AS open_meeting_id, ` +
         `CASE WHEN open_session.id IS NULL THEN 0 ELSE ${inTheRoomCount("open_session.id")} END AS live_count ` +

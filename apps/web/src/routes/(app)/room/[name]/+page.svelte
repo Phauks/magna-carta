@@ -1,6 +1,7 @@
 <script lang="ts">
   /*
-   * A colleague's room, reached by its link.
+   * A colleague's room, reached by its address: /room/trevor. The room's older code address still
+   * reaches it, and the address bar then shows the name instead.
    *
    * CLOSED IS AN ORDINARY STATE, NOT A FAILURE. A link is standing, so most arrivals land while the
    * owner is not in; the page says so plainly and reads again on a short interval, so a member who
@@ -20,7 +21,7 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
@@ -32,7 +33,8 @@
   /** How often a closed room is read again while somebody waits at it. */
   const CLOSED_ROOM_READ_INTERVAL_MILLISECONDS = 10_000;
 
-  const linkCode = $derived(page.params.linkCode ?? "");
+  // The name or the older link code; the server answers either.
+  const linkCode = $derived(page.params.name ?? "");
 
   const read = createQuery(() => ({
     ...meetingsReadRoomLinkOptions({ path: { linkCode } }),
@@ -41,6 +43,11 @@
   }));
 
   const room = $derived(read.data ?? null);
+
+  $effect(() => {
+    const name = room?.addressName;
+    if (name !== undefined && name !== linkCode) replaceState(`/room/${name}`, {});
+  });
   const unknown = $derived(read.isError && refusedAs(failureOf(read.error), "personal-room-not-found"));
 
   let busy = $state(false);

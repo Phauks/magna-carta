@@ -57,7 +57,8 @@ const HOST = "meetings:host" as const;
 const linkCodeParam = z.object({
   linkCode: z
     .string()
-    .regex(/^[a-z0-9]{10}$/)
+    // A link code, or a room's address name (/room/trevor).
+    .regex(/^[a-z0-9-]{1,40}$/)
     .openapi({ param: { name: "linkCode", in: "path" } }),
 });
 
@@ -391,6 +392,7 @@ export function registerMeetingPersonalRoomRoutes(
             userId: row.user_id,
             name: row.display_name,
             linkCode: row.link_code,
+            addressName: row.link_code === null ? null : (row.address_name ?? row.link_code),
             medium: row.medium,
             openMeetingId: row.open_meeting_id,
             inTheRoom: row.live_count,
@@ -420,6 +422,7 @@ export function registerMeetingPersonalRoomRoutes(
             state: arrival.state,
             ownerDisplayName: arrival.ownerDisplayName,
             isOwner: arrival.isOwner,
+            addressName: arrival.addressName,
             meetingId: arrival.state === "open" ? arrival.meetingId : null,
           },
           200,
@@ -457,6 +460,7 @@ export function registerMeetingPersonalRoomRoutes(
             state: arrival.state,
             ownerDisplayName: arrival.ownerDisplayName,
             isOwner: arrival.isOwner,
+            addressName: arrival.addressName,
             meetingId: arrival.state === "open" ? arrival.meetingId : null,
           },
           effect,

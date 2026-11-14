@@ -7,6 +7,7 @@ function room(overrides: Partial<FirmRoom> = {}): FirmRoom {
     userId: "user_1",
     name: "Ada Park",
     linkCode: "abcde12345",
+    addressName: "ada",
     medium: "video",
     openMeetingId: null,
     inTheRoom: 0,
@@ -17,7 +18,7 @@ function room(overrides: Partial<FirmRoom> = {}): FirmRoom {
 
 describe("a row of the Firm Rooms list", () => {
   it("lists a member with no room, saying so", () => {
-    expect(firmRoomStatus(room({ linkCode: null, medium: null }))).toEqual({
+    expect(firmRoomStatus(room({ linkCode: null, addressName: null, medium: null }))).toEqual({
       text: "No room set up",
       open: false,
     });
