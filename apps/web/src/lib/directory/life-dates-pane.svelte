@@ -91,7 +91,7 @@
     }
     failure = stated(
       outcome.failure,
-      "These dates could not be recorded.",
+      "Couldn't save these dates.",
       "Nothing was recorded.",
     );
   }
@@ -134,7 +134,7 @@
   {#if failure !== null}
     <FailureNotice
       failure={failure.failure}
-      title="These Dates Could Not Be Recorded"
+      title="Couldn't Save These Dates"
       fallback={failure.fallback}
       whenSilent={failure.whenSilent}
     />

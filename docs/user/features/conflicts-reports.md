@@ -51,12 +51,23 @@ with no matter, **Assign to Matter** beside them files it on one: pick the matte
 own matters are listed first) and press **Assign**. The next run searches with that matter's
 parties too.
 
-**The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
-checked and under what settings, anything nobody has answered yet, and whether your firm has since
-widened what a check must cover. **New Check** at the top of the matter opens the same form with the
-matter already filled in, and **Re-check now** beside the standing runs your firm's floor without
-asking you anything. It is also where the intake checklist sends you, and it keeps working after the
-intake step is marked done — the record is most often wanted long after the box is ticked.
+**The Conflicts tab on a matter**, next to Intake, is that one matter's record. It has four
+sections that fold, laid out like a check's own report:
+
+- **Results**: what the matter's latest check surfaced, as the same cards and filters the check's
+  own screen shows. You can open a result and record a decision on it here, without leaving the
+  matter. **Open** with the check's number takes you to its full report, history and printout.
+- **Standing**: how many results nobody has reviewed yet, by how strong the evidence is, and what
+  has been answered and by whom. Anything the latest check could not search, or searched below your
+  firm's current policy, is tinted so it stands out.
+- **Checks**: every check filed on this matter, from the firm's log.
+- **Re-checks**: anything that has changed in the firm's records since the last check that could
+  change its answer, your firm's scheduled re-screening, and **Re-check Now**, which runs your
+  firm's floor without asking you anything.
+
+**New Check** at the top of the matter opens the same form with the matter already filled in. The
+tab is also where the intake checklist sends you, and it keeps working after the intake step is
+marked done, because the record is most often wanted long after the box is ticked.
 
 A conflicts check also appears on the matter's activity history, and opens the check it refers to.
 

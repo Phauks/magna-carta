@@ -124,15 +124,15 @@ function refusalFor(
   subordinate: DirectoryEntityDetail,
 ): string | null {
   if (entityDetailIdentifier(master) === entityDetailIdentifier(subordinate)) {
-    return "A record cannot be folded into itself.";
+    return "A record can't be merged into itself.";
   }
   if (master.kind !== subordinate.kind) {
-    return "A person and an organization are different kinds of record and cannot be folded together.";
+    return "A person and an organization can't be merged.";
   }
   const masterMerged =
     master.kind === "person" ? master.person.mergedIntoId : master.organization.mergedIntoId;
   if (masterMerged !== null) {
-    return "The surviving record has already been folded into another one. Open that record and merge there instead.";
+    return "The surviving record was already merged into another one. Open that record and merge there.";
   }
   const subordinateMerged =
     subordinate.kind === "person"
@@ -192,12 +192,11 @@ export function defaultMergeChoices(plan: MergePlan): Record<string, MergeFieldC
  * understanding a merge and fearing it.
  */
 export const MERGE_CONSEQUENCES: readonly string[] = [
-  "The folded record is archived, not deleted. Its row, its names and its identifiers are kept.",
-  "Every name either record holds stays searchable, and finding one now opens the surviving record.",
-  "Matter roles, relationships, categories and identifiers move to the surviving record. None are dropped, and none are chosen between.",
-  "A conflicts report that named either record stays reproducible, because nothing was removed from what the firm can match on.",
+  "The merged record is archived, not deleted. Its names and identifiers are kept.",
+  "All names on both records stay searchable and open the surviving record.",
+  "Matter roles, relationships, categories and identifiers all move to the surviving record.",
+  "Conflicts reports that named either record can still be reproduced.",
 ];
 
 /** The one sentence that has to be read before the act, stated once so no surface softens it. */
-export const MERGE_IRREVERSIBLE_STATEMENT =
-  "This cannot be undone from the app. Undoing a merge is only well defined while nothing has been recorded against the joined record, and the product does not offer it.";
+export const MERGE_IRREVERSIBLE_STATEMENT = "This can't be undone in the app.";

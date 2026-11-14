@@ -121,7 +121,7 @@
   import Badge from "../../lib/components/badge/index.ts";
   import * as DataTable from "../../lib/components/data-table/index.ts";
   import { createDataTableGrid } from "../../lib/components/data-table/index.ts";
-  import type { GridGrouping, GridRowMark } from "../../lib/components/data-table/index.ts";
+  import type { GridBandFoot, GridGrouping, GridRowMark } from "../../lib/components/data-table/index.ts";
 
   type Props = {
     rows?: TimeEntry[];
@@ -139,6 +139,8 @@
     grouping?: GridGrouping<TimeEntry> | null;
     /** What a band heading carries after its label and count. */
     bandDetail?: Snippet<[string]>;
+    /** The add line at each band's foot, passed through to the grid. */
+    bandFoot?: GridBandFoot<TimeEntry>;
     /**
      * Column widths to snapshot on mount, which also puts the table into its fixed layout.
      *
@@ -177,6 +179,7 @@
     rowDetail,
     grouping = null,
     bandDetail,
+    bandFoot,
     columnWidths,
     frameClass = "max-h-96",
     frameHeight,
@@ -219,6 +222,7 @@
     {density}
     {rowDetail}
     {bandDetail}
+    {bandFoot}
     {frame}
     class={frameClass}
   >

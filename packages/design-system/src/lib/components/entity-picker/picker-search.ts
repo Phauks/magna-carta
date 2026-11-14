@@ -100,7 +100,7 @@ export function offerableEntities(
 
 /** The one sentence for a capped answer, so every picker says it the same way. */
 export const CAPPED_SENTENCE =
-  "The firm holds more matches than are shown. These are the closest; narrowing the search reaches the rest.";
+  "More matches exist than are shown. Narrow the search to see the rest.";
 
 /*
  * Making the record the directory does not hold, from the field that failed to find it.

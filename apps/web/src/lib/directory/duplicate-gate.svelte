@@ -114,7 +114,7 @@
       <ScanSearch class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
       <span class="text-text-muted">
         {kind === "person"
-          ? "Once there is a first and last name, the Directory is checked for this person."
+          ? "Once there's a first and last name, the Directory is checked for this person."
           : "Once there is a name, the Directory is checked for this organization."}
       </span>
     {:else if checking}
@@ -142,8 +142,8 @@
   >
     {#snippet failure()}
       <Alert.Root variant="warning">
-        <Alert.Title>The Directory Could Not Be Checked</Alert.Title>
-        <Alert.Description>Nothing here says the firm holds nobody similar.</Alert.Description>
+        <Alert.Title>Couldn't Check the Directory</Alert.Title>
+        <Alert.Description>This doesn't mean there are no similar records.</Alert.Description>
       </Alert.Root>
     {/snippet}
     {#if candidates.length > 0}
