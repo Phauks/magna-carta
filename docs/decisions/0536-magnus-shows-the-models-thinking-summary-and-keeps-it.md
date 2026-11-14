@@ -1,8 +1,9 @@
 ---
+number: 536
 slug: magnus-shows-the-models-thinking-summary-and-keeps-it
 status: Accepted
-area: AI / Inference
 date: 2026-11-14
+area: AI / Inference
 summary: "While Magnus answers, the transcript shows the model's own summary of its thinking, streamed from the provider with the summarized display, written onto the pending turn about once a second and kept with the answer. It replaces the bare answering note and the 30-second slow-answer warning. The summary is work product like the answer: never logged, never sent back to the model, erased only with the conversation."
 ---
 
