@@ -1841,6 +1841,47 @@ export type RealizationReport = {
     }>;
 };
 
+export type AgedWorkInProgressReport = {
+    computedAt: string;
+    asOfDate: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    currency: 'USD';
+    completeness: ReportCompleteness;
+    totals: {
+        unbilledMinor: Array<number>;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            unbilledMinor: Array<number>;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            unbilledMinor: Array<number>;
+            totalMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                unbilledMinor: Array<number>;
+                totalMinor: number;
+            };
+        }>;
+    }>;
+};
+
 export type TimekeeperProductivityReport = {
     periodStart: string;
     periodEnd: string;
@@ -16644,6 +16685,49 @@ export type ReportsRealizationResponses = {
 };
 
 export type ReportsRealizationResponse = ReportsRealizationResponses[keyof ReportsRealizationResponses];
+
+export type ReportsAgedWorkInProgressData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/aged-work-in-progress';
+};
+
+export type ReportsAgedWorkInProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters have unbilled work than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsAgedWorkInProgressError = ReportsAgedWorkInProgressErrors[keyof ReportsAgedWorkInProgressErrors];
+
+export type ReportsAgedWorkInProgressResponses = {
+    /**
+     * The work in progress by age now
+     */
+    200: AgedWorkInProgressReport;
+};
+
+export type ReportsAgedWorkInProgressResponse = ReportsAgedWorkInProgressResponses[keyof ReportsAgedWorkInProgressResponses];
 
 export type ReportsTimekeeperProductivityData = {
     body?: never;

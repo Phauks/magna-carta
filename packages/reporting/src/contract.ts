@@ -331,3 +331,32 @@ export const MatterListRow = z.object({
   openedAt: z.string().nullable(),
   closedAt: z.string().nullable(),
 });
+
+// AGED WORK IN PROGRESS. Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days
+// since the work was done.
+export const AgedWorkFigures = z.object({
+  unbilledMinor: z.array(z.number().int()).length(4),
+  totalMinor: z.number().int(),
+});
+
+export const AgedWorkOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkMatterRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkClientRow = z.object({
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  figures: AgedWorkFigures,
+  matters: z.array(AgedWorkMatterRow),
+});
