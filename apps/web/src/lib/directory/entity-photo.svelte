@@ -9,6 +9,7 @@
    * Remove Photo. Somebody who may not edit sees the picture, and pressing it shows it full size.
    * Initials with nothing to offer are only initials.
    */
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
   import * as Avatar from "@magna-carta/design-system/avatar";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import { personInitials } from "@magna-carta/design-system/formatters";
@@ -77,7 +78,7 @@
     const outcome = await removeDirectoryEntityPhoto(fetch, entityId, crypto.randomUUID());
     busy = false;
     if (outcome.kind !== "ok") {
-      toast.error("The photo was not removed. Try again.");
+      failureToast(outcome.failure, "The photo was not removed. Try again.");
       return;
     }
     photo = null;

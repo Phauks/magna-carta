@@ -59,6 +59,16 @@ export interface Problem {
   readonly attemptsRemaining?: number;
   /** How long until the caller may try again, when the refusal came with a lockout. */
   readonly retryAfterSeconds?: number;
+  /**
+   * Which operation answered, as the method and route template the server matched
+   * ("POST /api/v1/meetings/:meetingId/join"). Never the concrete path.
+   */
+  readonly operation?: string;
+  /**
+   * What broke, on a server fault: the exception's kind, with the engine's own message for the
+   * kinds whose message names code rather than data. Absent on a refusal.
+   */
+  readonly cause?: string;
 }
 
 /**
@@ -136,6 +146,8 @@ export function problemOf(body: unknown, status: number): Problem {
     stepUpRequired: flag(record.stepUpRequired),
     attemptsRemaining: wholeNumber(record.attemptsRemaining),
     retryAfterSeconds: wholeNumber(record.retryAfterSeconds),
+    operation: text(record.operation),
+    cause: text(record.cause),
   };
 }
 

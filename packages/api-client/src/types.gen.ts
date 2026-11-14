@@ -23,6 +23,8 @@ export type Problem = {
     stepUpRequired?: boolean;
     attemptsRemaining?: number;
     retryAfterSeconds?: number;
+    operation?: string;
+    cause?: string;
 };
 
 export type ProblemFieldError = {
@@ -522,7 +524,8 @@ export type ClearComponentOverride = {
 };
 
 export type RecentErrorsResponse = {
-    state: 'read' | 'not-configured' | 'refused' | 'unreachable';
+    state: 'read' | 'unreachable';
+    backgroundState: 'read' | 'not-configured' | 'refused' | 'unreachable';
     windowStart: string | null;
     windowEnd: string | null;
     total: number | null;
@@ -531,16 +534,42 @@ export type RecentErrorsResponse = {
 };
 
 export type RecentErrorGroup = {
+    source: 'server' | 'browser' | 'background';
     latestErrorId: string | null;
     service: string | null;
-    eventName: string;
     where: string | null;
+    status: number | null;
+    title: string | null;
     errorName: string | null;
     messageHead: string | null;
     count: number;
     firstSeen: string;
     lastSeen: string;
 };
+
+export type ErrorLookupResponse = {
+    record: ErrorRecord;
+    mintedAt: string | null;
+    mintedBy: string | null;
+};
+
+export type ErrorRecord = {
+    errorId: string;
+    recordedAt: string;
+    source: 'server' | 'browser';
+    service: string | null;
+    operation: string | null;
+    status: number | null;
+    problemType: string | null;
+    title: string | null;
+    errorName: string | null;
+    messageHead: string | null;
+    location: string | null;
+    build: string | null;
+    firmId: string | null;
+    userId: string | null;
+    correlationId: string | null;
+} | null;
 
 export type ReportIncidentResponse = {
     id: string;
@@ -561,6 +590,20 @@ export type ReportIncidentRequest = {
         clientAt: string;
         deployment?: string;
     };
+};
+
+export type RecordClientErrorResponse = {
+    errorId: string;
+    recorded: boolean;
+};
+
+export type RecordClientErrorRequest = {
+    errorId: string;
+    route: string;
+    errorName: string;
+    message?: string;
+    location?: string;
+    build: string;
 };
 
 export type FirmUsageResponse = {
@@ -11499,6 +11542,45 @@ export type PlatformRecentErrorsResponses = {
 
 export type PlatformRecentErrorsResponse = PlatformRecentErrorsResponses[keyof PlatformRecentErrorsResponses];
 
+export type PlatformErrorLookupData = {
+    body?: never;
+    path: {
+        errorId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/errors/{errorId}';
+};
+
+export type PlatformErrorLookupErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Not the shape of an Error ID
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformErrorLookupError = PlatformErrorLookupErrors[keyof PlatformErrorLookupErrors];
+
+export type PlatformErrorLookupResponses = {
+    /**
+     * The record, or what the ID says about itself
+     */
+    200: ErrorLookupResponse;
+};
+
+export type PlatformErrorLookupResponse = PlatformErrorLookupResponses[keyof PlatformErrorLookupResponses];
+
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
     path?: never;
@@ -11539,6 +11621,47 @@ export type IncidentsReportResponses = {
 };
 
 export type IncidentsReportResponse = IncidentsReportResponses[keyof IncidentsReportResponses];
+
+export type ClientErrorsRecordData = {
+    body: RecordClientErrorRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/client-errors';
+};
+
+export type ClientErrorsRecordErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:reportIncident
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable, or the session member is deactivated — absent, never an existence oracle
+     */
+    404: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ClientErrorsRecordError = ClientErrorsRecordErrors[keyof ClientErrorsRecordErrors];
+
+export type ClientErrorsRecordResponses = {
+    /**
+     * The crash is recorded (or already was)
+     */
+    201: RecordClientErrorResponse;
+};
+
+export type ClientErrorsRecordResponse = ClientErrorsRecordResponses[keyof ClientErrorsRecordResponses];
 
 export type FirmUsageGetData = {
     body?: never;

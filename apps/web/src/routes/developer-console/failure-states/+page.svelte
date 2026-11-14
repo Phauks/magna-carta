@@ -13,6 +13,8 @@
   import * as Select from "@magna-carta/design-system/select";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
+  import Button from "@magna-carta/design-system/button";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import type { Failure, Problem } from "$lib/api/problem.ts";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -33,6 +35,32 @@
   }
 
   const cases: [FailureCase, ...FailureCase[]] = [
+    {
+      name: "A fault in our code",
+      note: "A 500 names the operation the server matched and, for the engine's own kinds, the cause.",
+      subject: "The meeting",
+      failure: failure("POST /meetings/meeting_7RT2/join", {
+        status: 500,
+        type: "https://api.magnacarta.esq/problems/internal",
+        title: "Internal error",
+        detail:
+          "Something went wrong on our side, and nothing you did caused it. The failure is recorded against the Error ID below.",
+        errorId: "error_0mwfnax8napiSlVeIBqj4",
+        operation: "POST /api/v1/meetings/{meetingId}/join",
+        cause: "TypeError: Cannot read properties of undefined (reading 'roomId')",
+      }),
+    },
+    {
+      name: "A crash in the browser",
+      note: "The client_ handle is recorded too, so System Status can look it up.",
+      subject: "This page",
+      failure: {
+        problem: { status: 500, errorId: "client_7K2M9QXA" },
+        request: "PAGE /meetings",
+        failedAt: FAILED_AT,
+        cause: "TypeError",
+      },
+    },
     {
       name: "A server fault",
       note: "Says nothing about the request, and carries the handle that makes it traceable.",
@@ -158,6 +186,21 @@
           />
         </div>
       {/each}
+    </section>
+
+    <section class="flex flex-col gap-8">
+      <h2 class="text-lg font-semibold">Toast — a failure with nowhere else to go</h2>
+      <p class="max-w-prose text-xs text-text-muted">
+        The surface's own sentence, the summary line beneath it, and Copy details.
+      </p>
+      <div>
+        <Button
+          variant="secondary"
+          onclick={() => failureToast(cases[0].failure, "The meeting could not be joined")}
+        >
+          Show the toast
+        </Button>
+      </div>
     </section>
 
     <section class="flex flex-col gap-16">

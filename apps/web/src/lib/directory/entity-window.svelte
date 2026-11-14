@@ -36,6 +36,7 @@
    * about to get and not a set of boxes standing in for it. The rail shows a person's sections
    * because the record's kind is one of the things being read.
    */
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
@@ -263,7 +264,10 @@
       readContactCardPhoto(fetch, entityId),
     ]);
     if (outcome.kind !== "ok") {
-      toast.error("The contact card could not be made, because the contact details could not be read.");
+      failureToast(
+        outcome.failure,
+        "The contact card could not be made, because the contact details could not be read.",
+      );
       return;
     }
     await saveExport(contactCard(shown, outcome.value, picture), contactCardFilename(shown), CONTACT_CARD_CONTENT_TYPE);
