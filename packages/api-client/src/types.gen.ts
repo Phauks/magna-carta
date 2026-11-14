@@ -2101,6 +2101,45 @@ export type MatterBalancesReport = {
     }>;
 };
 
+export type MattersListReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        matterCount: number;
+        openCount: number;
+        heldCount: number;
+        closedCount: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        counts: {
+            matterCount: number;
+            openCount: number;
+            heldCount: number;
+            closedCount: number;
+        };
+    }>;
+    matters: Array<{
+        matterId: string;
+        matterNumber: string | null;
+        matterTitle: string;
+        status: 'open' | 'hold' | 'closed';
+        matterTypeName: string | null;
+        clientEntityId: string | null;
+        clientName: string | null;
+        locationId: string | null;
+        locationName: string | null;
+        responsibleMemberId: string;
+        responsibleName: string | null;
+        openedAt: string | null;
+        closedAt: string | null;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -16564,6 +16603,49 @@ export type ReportsMatterBalancesResponses = {
 };
 
 export type ReportsMatterBalancesResponse = ReportsMatterBalancesResponses[keyof ReportsMatterBalancesResponses];
+
+export type ReportsMattersListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/matters-list';
+};
+
+export type ReportsMattersListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The firm has more matters than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsMattersListError = ReportsMattersListErrors[keyof ReportsMattersListErrors];
+
+export type ReportsMattersListResponses = {
+    /**
+     * The firm's matters now
+     */
+    200: MattersListReport;
+};
+
+export type ReportsMattersListResponse = ReportsMattersListResponses[keyof ReportsMattersListResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

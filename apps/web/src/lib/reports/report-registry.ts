@@ -33,7 +33,11 @@ import {
   type TrustCompliancePack,
 } from "./reports-api.ts";
 import { sampleTrustCompliancePack } from "./trust-compliance-fixture.ts";
-import { presentOperationalVolumes, presentTimekeeperProductivity } from "./activity-presenters.ts";
+import {
+  presentMattersList,
+  presentOperationalVolumes,
+  presentTimekeeperProductivity,
+} from "./activity-presenters.ts";
 import {
   presentAccountsReceivableAging,
   presentRealization,
@@ -51,6 +55,7 @@ import {
   readAccountsReceivableAging,
   readInvoices,
   readMatterBalances,
+  readMattersList,
   readOperationalVolumes,
   readPaymentsApplied,
   readRealization,
@@ -59,6 +64,7 @@ import {
   type AccountsReceivableAging,
   type Invoices,
   type MatterBalances,
+  type MattersList,
   type OperationalVolumes,
   type PaymentsApplied,
   type Realization,
@@ -69,6 +75,7 @@ import {
   sampleAccountsReceivableAging,
   sampleInvoices,
   sampleMatterBalances,
+  sampleMattersList,
   sampleOperationalVolumes,
   samplePaymentsApplied,
   sampleRealization,
@@ -366,6 +373,21 @@ const matterBalances = built<MatterBalances>({
   samplePayload: sampleMatterBalances,
 });
 
+const mattersList = built<MattersList>({
+  id: "matters-list",
+  family: "operational",
+  name: "Matters List",
+  answers:
+    "Every matter the firm has opened, with its client, type, office, responsible attorney and the days it opened and closed.",
+  permission: OPERATIONAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readMattersList(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentMattersList(payload),
+  samplePayload: sampleMattersList,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
@@ -376,6 +398,7 @@ const REPORT_LIST = [
   matterBalances,
   timekeeperProductivity,
   operationalVolumes,
+  mattersList,
 ] as const satisfies readonly ReportDeclaration[];
 
 /** Every report, in catalogue order. */

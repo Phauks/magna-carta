@@ -67,6 +67,7 @@ describe("the report registry", () => {
       ["matter-balances", { trustAccount: false, office: true, period: "none" }],
       ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
+      ["matters-list", { trustAccount: false, office: true, period: "none" }],
     ]);
     expect(reportById("trust-compliance")?.permission).toBe("reports:trustCompliance");
   });
@@ -83,6 +84,7 @@ describe("the report registry", () => {
       "matter-balances": "live-only",
       "timekeeper-productivity": "live-only",
       "operational-volumes": "bitemporal",
+      "matters-list": "live-only",
     });
   });
 

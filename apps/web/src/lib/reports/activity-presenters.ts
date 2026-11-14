@@ -1,12 +1,12 @@
 /*
- * The productivity and operational reports, arranged for a screen and a file.
+ * The productivity and operational reports, and the matters list, arranged for a screen and a file.
  *
  * Totals first, then tables, as the financial reports are. Productivity is minutes and never money:
  * what the time was worth is the realization report's, on a different permission. Operational
  * volumes are counts and never money. Every figure is the payload's; the tiles are its totals and
  * fields, and nothing here adds two counts.
  */
-import { formatNumber } from "@magna-carta/design-system/formatters";
+import { formatInstantDate, formatNumber } from "@magna-carta/design-system/formatters";
 import {
   completenessLine,
   type ReportCell,
@@ -22,8 +22,11 @@ import {
   shareCell,
   shareText,
 } from "./report-cells.ts";
-import { NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
+import { matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
 import type {
+  MatterListRow,
+  MattersList,
+  MatterStatusCounts,
   OperationalVolumes,
   ProductivityFigures,
   TimekeeperProductivity,
@@ -280,6 +283,104 @@ export function presentOperationalVolumes(report: OperationalVolumes): ReportPre
         ]),
         endAlignedColumns: [1],
         whenEmpty: "No cost was recorded in this period.",
+      },
+    ],
+  };
+}
+
+// ---- matters list -----------------------------------------------------------------------------------
+
+const MATTER_STATUS_TEXT: Record<MatterListRow["status"], string> = {
+  open: "Open",
+  hold: "On hold",
+  closed: "Closed",
+};
+
+function statusCountCells(counts: MatterStatusCounts): ReportCell[] {
+  return [
+    countCell(counts.openCount),
+    countCell(counts.heldCount),
+    countCell(counts.closedCount),
+    countCell(counts.matterCount),
+  ];
+}
+
+/** The day a moment fell on where the reader is, or a dash where there is none. */
+function instantDay(instant: string | null): string {
+  return instant === null ? "-" : formatInstantDate(instant);
+}
+
+/**
+ * Matters List: the counts by status, the table by office ruled off with the report's totals, then
+ * every matter on its own row, sortable, in the order the payload lists them.
+ */
+export function presentMattersList(report: MattersList): ReportPresentation {
+  const summary: ReportSummaryTile[] = [
+    { label: "Open", value: formatNumber(report.totals.openCount), detail: null, tone: "plain" },
+    { label: "On hold", value: formatNumber(report.totals.heldCount), detail: null, tone: "plain" },
+    {
+      label: "Closed",
+      value: formatNumber(report.totals.closedCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Matters",
+      value: formatNumber(report.totals.matterCount),
+      detail: null,
+      tone: "total",
+    },
+  ];
+  return {
+    title: "Matters List",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-office",
+        title: "By Office",
+        headers: ["Office", "Open", "On hold", "Closed", "Total"],
+        rows: report.offices.map((office) => [
+          captionOr(office.locationName, NO_OFFICE),
+          ...statusCountCells(office.counts),
+        ]),
+        endAlignedColumns: [1, 2, 3, 4],
+        totalRow: [
+          report.locationId === null ? "Firm total" : "Office total",
+          ...statusCountCells(report.totals),
+        ],
+        whenEmpty: "No matter has been opened.",
+      },
+      {
+        id: "matters",
+        title: "Matters",
+        headers: [
+          "Matter",
+          "Client",
+          "Type",
+          "Office",
+          "Responsible",
+          "Status",
+          "Opened",
+          "Closed",
+        ],
+        rows: report.matters.map((matter) => [
+          matterCaption(matter),
+          captionOr(matter.clientName, matter.clientEntityId ?? NO_CLIENT),
+          captionOr(matter.matterTypeName, "-"),
+          captionOr(matter.locationName, NO_OFFICE),
+          captionOr(matter.responsibleName, matter.responsibleMemberId),
+          MATTER_STATUS_TEXT[matter.status],
+          instantDay(matter.openedAt),
+          instantDay(matter.closedAt),
+        ]),
+        sortable: true,
+        subordinateColumns: [2, 3],
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No matter has been opened.",
       },
     ],
   };

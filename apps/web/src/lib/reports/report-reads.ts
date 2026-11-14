@@ -3,7 +3,7 @@
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
- * `reports.paymentsApplied` and `reports.matterBalances` in
+ * `reports.paymentsApplied`, `reports.matterBalances` and `reports.mattersList` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -14,6 +14,7 @@ import {
   reportsAccountsReceivableAging,
   reportsInvoices,
   reportsMatterBalances,
+  reportsMattersList,
   reportsOperationalVolumes,
   reportsPaymentsApplied,
   reportsRealization,
@@ -153,6 +154,40 @@ export interface MatterBalances {
       figures: MatterBalanceFigures;
     }[];
   }[];
+}
+
+export interface MatterStatusCounts {
+  matterCount: number;
+  openCount: number;
+  heldCount: number;
+  closedCount: number;
+}
+
+export interface MatterListRow {
+  matterId: string;
+  matterNumber: string | null;
+  matterTitle: string;
+  status: "open" | "hold" | "closed";
+  matterTypeName: string | null;
+  clientEntityId: string | null;
+  clientName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  responsibleMemberId: string;
+  responsibleName: string | null;
+  openedAt: string | null;
+  closedAt: string | null;
+}
+
+export interface MattersList {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: MatterStatusCounts;
+  offices: { locationId: string | null; locationName: string | null; counts: MatterStatusCounts }[];
+  matters: MatterListRow[];
 }
 
 export interface RealizationFigures {
@@ -424,6 +459,19 @@ export function readMatterBalances(
 ): Promise<ApiOutcome<MatterBalances>> {
   return outcome(() =>
     reportsMatterBalances({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+export function readMattersList(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<MattersList>> {
+  return outcome(() =>
+    reportsMattersList({
       fetch: fetchImpl,
       throwOnError: true,
       query: { locationId: present(query.locationId) },

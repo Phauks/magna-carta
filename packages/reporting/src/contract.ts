@@ -301,3 +301,33 @@ export const MatterBalanceClientRow = z.object({
   figures: MatterBalanceFigures,
   matters: z.array(MatterBalanceMatterRow),
 });
+
+// MATTERS LIST. Counts and captions, never money.
+export const MatterStatusCounts = z.object({
+  matterCount: z.number().int(),
+  openCount: z.number().int(),
+  heldCount: z.number().int(),
+  closedCount: z.number().int(),
+});
+
+export const MatterListOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  counts: MatterStatusCounts,
+});
+
+export const MatterListRow = z.object({
+  matterId: z.string(),
+  matterNumber: z.string().nullable(),
+  matterTitle: z.string(),
+  status: z.enum(["open", "hold", "closed"]),
+  matterTypeName: z.string().nullable(),
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  responsibleMemberId: z.string(),
+  responsibleName: z.string().nullable(),
+  openedAt: z.string().nullable(),
+  closedAt: z.string().nullable(),
+});

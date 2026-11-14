@@ -12,6 +12,7 @@ import type {
   InvoiceFigures,
   Invoices,
   MatterBalances,
+  MattersList,
   OperationalVolumes,
   PaymentsApplied,
   Realization,
@@ -539,5 +540,37 @@ export function sampleMatterBalances(): MatterBalances {
         matters: [{ ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) }],
       },
     ],
+  };
+}
+
+export function sampleMattersList(): MattersList {
+  const row = (
+    index: number,
+    office: { locationId: string; locationName: string },
+    status: "open" | "hold" | "closed",
+  ) => ({
+    ...matter(index, office),
+    ...client(index),
+    status,
+    matterTypeName: index % 2 === 0 ? "Litigation" : "Estate planning",
+    responsibleMemberId: `user_sample_${String(index)}`,
+    responsibleName: samplePerson(index).name,
+    openedAt: "2026-02-03T17:00:00.000Z",
+    closedAt: status === "closed" ? "2026-07-14T17:00:00.000Z" : null,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    reproducible: false,
+    statement:
+      "This report lists the firm's matters as they stood when it was produced, at 2026-08-01T15:00:00.000Z. " +
+      "A matter can be retyped, moved to another office, closed or reopened, so it is a live report and is not claimed to reproduce.",
+    locationId: null,
+    completeness: { scope: "complete" },
+    totals: { matterCount: 3, openCount: 1, heldCount: 1, closedCount: 1 },
+    offices: [
+      { ...MAIN, counts: { matterCount: 2, openCount: 1, heldCount: 0, closedCount: 1 } },
+      { ...NORTH, counts: { matterCount: 1, openCount: 0, heldCount: 1, closedCount: 0 } },
+    ],
+    matters: [row(0, MAIN, "open"), row(1, NORTH, "hold"), row(2, MAIN, "closed")],
   };
 }
