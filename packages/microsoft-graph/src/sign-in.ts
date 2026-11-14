@@ -1,9 +1,12 @@
 import { z } from "zod";
 import type { HttpClient } from "@magna-carta/integrations/http";
-import type {
-  AccountOutcome,
-  TokenOutcome,
-  TokenRequestDependencies,
+import {
+  applicationCredentialCheckFrom,
+  CREDENTIAL_CHECK_REFRESH_TOKEN,
+  type AccountOutcome,
+  type ApplicationCredentialCheck,
+  type TokenOutcome,
+  type TokenRequestDependencies,
 } from "@magna-carta/integrations/oauth-sign-in";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
 
@@ -270,4 +273,40 @@ export async function readSignedInAccount(
     };
   }
   return { ok: true, address };
+}
+
+// Asks Microsoft whether it accepts this deployment's application identifier and secret, without
+// any member's account: a refresh request with a refresh token that was never issued. Issues no
+// token and changes nothing at Microsoft.
+export async function checkApplicationCredentials(
+  http: HttpClient,
+  application: MicrosoftApplication,
+): Promise<ApplicationCredentialCheck> {
+  let response;
+  try {
+    response = await http.request({
+      method: "POST",
+      url: endpoint(application, "token"),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: application.clientId,
+        client_secret: application.clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: CREDENTIAL_CHECK_REFRESH_TOKEN,
+      }).toString(),
+    });
+  } catch {
+    return "unreachable";
+  }
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    json = undefined;
+  }
+  const failure = tokenErrorSchema.safeParse(json);
+  return applicationCredentialCheckFrom(
+    response.status,
+    failure.success ? failure.data.error : undefined,
+  );
 }

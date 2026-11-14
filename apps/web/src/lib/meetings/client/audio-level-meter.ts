@@ -43,6 +43,19 @@ const SPEECH_LEVEL = 0.05;
 /** How much history the analyser keeps per read. The smallest size the platform offers. */
 const ANALYSER_FFT_SIZE = 256;
 
+/** The presses a browser counts as letting a page start sound. */
+const GESTURES = ["pointerdown", "keydown"] as const;
+
+/**
+ * Whether this page may start an AudioContext now. A meeting opens in its own tab, and a tab opened
+ * by a press in another tab has had no press of its own, so the browser starts any context it makes
+ * suspended (with a console warning) and a suspended analyser reads silence: the person's own
+ * speaking mark would never light. Where the browser cannot say, assume it may.
+ */
+function pageMayStartSound(): boolean {
+  return navigator.userActivation?.hasBeenActive ?? true;
+}
+
 /** The seam as a real browser supplies it: an analyser over the captured track. */
 export function createBrowserAudioLevelMeter(track: MediaStreamTrack): AudioLevelMeter {
   let context: AudioContext | null = null;
@@ -50,11 +63,30 @@ export function createBrowserAudioLevelMeter(track: MediaStreamTrack): AudioLeve
   let speaking = false;
   /** When the level first crossed to the side it is now on, or null while it agrees with the answer. */
   let crossedAt: number | null = null;
+  /** Set while the meter waits for the page's first press before it starts measuring. */
+  let waitingForGesture: (() => void) | null = null;
 
-  return {
+  function stopWaiting(): void {
+    if (waitingForGesture === null) return;
+    for (const gesture of GESTURES) window.removeEventListener(gesture, waitingForGesture, true);
+    waitingForGesture = null;
+  }
+
+  const meter: AudioLevelMeter = {
     start(onSpeaking: (speaking: boolean) => void): void {
-      if (context !== null) return;
+      if (context !== null || waitingForGesture !== null) return;
+      if (!pageMayStartSound()) {
+        // The first press anywhere on the page starts the meter, and the meeting carries on meanwhile.
+        const begin = (): void => {
+          stopWaiting();
+          meter.start(onSpeaking);
+        };
+        waitingForGesture = begin;
+        for (const gesture of GESTURES) window.addEventListener(gesture, begin, true);
+        return;
+      }
       context = new AudioContext();
+      if (context.state === "suspended") void context.resume();
       const analyser = context.createAnalyser();
       analyser.fftSize = ANALYSER_FFT_SIZE;
       context.createMediaStreamSource(new MediaStream([track])).connect(analyser);
@@ -80,6 +112,7 @@ export function createBrowserAudioLevelMeter(track: MediaStreamTrack): AudioLeve
       }, FRAME_MILLISECONDS);
     },
     stop(): void {
+      stopWaiting();
       if (timer !== undefined) clearInterval(timer);
       timer = undefined;
       void context?.close();
@@ -88,4 +121,5 @@ export function createBrowserAudioLevelMeter(track: MediaStreamTrack): AudioLeve
       crossedAt = null;
     },
   };
+  return meter;
 }
