@@ -87,6 +87,44 @@ export interface EdgeTypeEntry {
   ends: { from: DirectoryEntityKind | "both"; to: DirectoryEntityKind | "both" };
   /** Whether the screen still offers this type for a NEW edge. A retired type keeps its label. */
   offered: boolean;
+  /** The heading the type is listed under when choosing one. */
+  group: EdgeTypeGroup;
+}
+
+/**
+ * The headings the relationship list is divided by, in the order they are listed. Family stands
+ * apart from everything else because a tie of blood or marriage is a different kind of fact from a
+ * role somebody was given: the owner asked that the two never be mixed in one run of choices.
+ */
+export const EDGE_TYPE_GROUPS = [
+  { group: "family", heading: "Family" },
+  { group: "personal", heading: "Personal" },
+  { group: "organization", heading: "Within an organization" },
+  { group: "legal", heading: "Legal and fiduciary" },
+  { group: "business", heading: "Business structure" },
+  { group: "other", heading: "Other" },
+] as const;
+
+export type EdgeTypeGroup = (typeof EDGE_TYPE_GROUPS)[number]["group"];
+
+/**
+ * Types grouped under their headings, in heading order, each group A to Z by label with any
+ * "Other ..." choice last. Empty groups are left out.
+ */
+export function groupedEdgeTypes(
+  entries: readonly EdgeTypeEntry[],
+): { group: EdgeTypeGroup; heading: string; entries: EdgeTypeEntry[] }[] {
+  const lastOfGroup = (entry: EdgeTypeEntry): number => (entry.label.startsWith("Other ") ? 1 : 0);
+  return EDGE_TYPE_GROUPS.map(({ group, heading }) => ({
+    group,
+    heading,
+    entries: entries
+      .filter((entry) => entry.group === group)
+      .sort(
+        (left, right) =>
+          lastOfGroup(left) - lastOfGroup(right) || left.label.localeCompare(right.label),
+      ),
+  })).filter((section) => section.entries.length > 0);
 }
 
 /**
@@ -102,6 +140,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is affiliated with",
     ends: { from: "person", to: "organization" },
     offered: false,
+    group: "other",
   },
   {
     edgeType: "relationship",
@@ -109,6 +148,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is related to",
     ends: { from: "person", to: "person" },
     offered: true,
+    group: "personal",
   },
   {
     edgeType: "corporate_parent",
@@ -116,6 +156,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is the parent of",
     ends: { from: "organization", to: "organization" },
     offered: true,
+    group: "business",
   },
   {
     edgeType: "corporate_subsidiary",
@@ -123,6 +164,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is a subsidiary of",
     ends: { from: "organization", to: "organization" },
     offered: true,
+    group: "business",
   },
   {
     edgeType: "corporate_successor",
@@ -130,6 +172,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is the successor to",
     ends: { from: "organization", to: "organization" },
     offered: true,
+    group: "business",
   },
   {
     edgeType: "representation",
@@ -137,6 +180,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "represents",
     ends: { from: "both", to: "both" },
     offered: true,
+    group: "legal",
   },
   {
     edgeType: "role_assignment",
@@ -144,6 +188,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "holds a role with",
     ends: { from: "both", to: "both" },
     offered: true,
+    group: "other",
   },
   {
     edgeType: "officer_of",
@@ -151,6 +196,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is an officer of",
     ends: { from: "person", to: "organization" },
     offered: true,
+    group: "organization",
   },
   {
     edgeType: "director_of",
@@ -158,6 +204,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is a director of",
     ends: { from: "person", to: "organization" },
     offered: true,
+    group: "organization",
   },
   {
     edgeType: "partner_of",
@@ -165,6 +212,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is a partner of",
     ends: { from: "person", to: "organization" },
     offered: true,
+    group: "organization",
   },
   {
     edgeType: "trustee_of",
@@ -172,6 +220,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is a trustee of",
     ends: { from: "both", to: "both" },
     offered: true,
+    group: "legal",
   },
   {
     edgeType: "personal_representative_of",
@@ -179,6 +228,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is the personal representative of",
     ends: { from: "person", to: "both" },
     offered: true,
+    group: "legal",
   },
   {
     edgeType: "agent_of",
@@ -186,6 +236,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is an agent of",
     ends: { from: "both", to: "both" },
     offered: true,
+    group: "legal",
   },
   {
     edgeType: "employment",
@@ -193,6 +244,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is employed by",
     ends: { from: "person", to: "organization" },
     offered: true,
+    group: "organization",
   },
   {
     edgeType: "member_of",
@@ -200,6 +252,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is a member of",
     ends: { from: "person", to: "organization" },
     offered: true,
+    group: "organization",
   },
   {
     edgeType: "shareholder_of",
@@ -207,6 +260,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is a shareholder of",
     ends: { from: "both", to: "organization" },
     offered: true,
+    group: "organization",
   },
   {
     edgeType: "beneficiary_of",
@@ -214,6 +268,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is a beneficiary of",
     ends: { from: "both", to: "both" },
     offered: true,
+    group: "legal",
   },
   {
     edgeType: "guardian_of",
@@ -221,6 +276,7 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is the guardian of",
     ends: { from: "person", to: "person" },
     offered: true,
+    group: "personal",
   },
   {
     edgeType: "point_of_contact_for",
@@ -228,6 +284,63 @@ export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
     reading: "is the point of contact for",
     ends: { from: "person", to: "organization" },
     offered: true,
+    group: "organization",
+  },
+  {
+    edgeType: "spouse_of",
+    label: "Spouse or partner",
+    reading: "is the spouse or partner of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+    group: "family",
+  },
+  {
+    edgeType: "parent_of",
+    label: "Parent",
+    reading: "is the parent of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+    group: "family",
+  },
+  {
+    edgeType: "child_of",
+    label: "Child",
+    reading: "is the child of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+    group: "family",
+  },
+  {
+    edgeType: "sibling_of",
+    label: "Sibling",
+    reading: "is the sibling of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+    group: "family",
+  },
+  {
+    edgeType: "grandparent_of",
+    label: "Grandparent",
+    reading: "is the grandparent of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+    group: "family",
+  },
+  {
+    edgeType: "grandchild_of",
+    label: "Grandchild",
+    reading: "is the grandchild of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+    group: "family",
+  },
+  {
+    edgeType: "family_member_of",
+    label: "Other family",
+    reading: "is family of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+    group: "family",
   },
 ];
 

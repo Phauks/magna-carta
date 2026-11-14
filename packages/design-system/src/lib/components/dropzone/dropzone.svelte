@@ -21,6 +21,7 @@
    * under, so the folder can be recreated at the other end. Without `onEntries`, drops behave as
    * they always did.
    */
+  import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
   import CloudUpload from "@lucide/svelte/icons/cloud-upload";
   import FileInput from "../file-input/file-input.svelte";
@@ -39,10 +40,12 @@
     accept,
     multiple = false,
     disabled = false,
+    invalid = false,
     onFiles,
     onEntries,
     ref = $bindable(null),
     class: className,
+    children,
     ...restProps
   }: WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLInputElement> & {
     /** Accessible name for the underlying file input (its label for keyboard/SR users). */
@@ -55,6 +58,14 @@
     multiple?: boolean;
     /** Disables the surface: drops are ignored and the input is muted and unfocusable. */
     disabled?: boolean;
+    /**
+     * The last file offered was refused. The surface turns to the danger register and says nothing
+     * more: a field in error is marked by its edge, not by a sentence under it. The input carries
+     * `aria-invalid` so assistive technology hears the same thing.
+     */
+    invalid?: boolean;
+    /** What the surface takes, under the control: the formats, a size. Quiet text, the caller's. */
+    children?: Snippet;
     /** Called with every dropped or picked file. Validation and upload are the consumer's. */
     onFiles?: (files: File[]) => void;
     /**
@@ -151,6 +162,7 @@
   class={mergeClasses("mc-dropzone w-full", className)}
   data-dragover={dragOver ? "true" : undefined}
   data-disabled={disabled ? "true" : undefined}
+  data-invalid={invalid ? "true" : undefined}
   {ondragenter}
   {ondragover}
   {ondragleave}
@@ -159,5 +171,16 @@
 >
   <CloudUpload class="mc-dropzone-icon" aria-hidden="true" />
   <p class="mc-dropzone-prompt">{prompt}</p>
-  <FileInput bind:ref {accept} {multiple} {disabled} aria-label={label} {onchange} />
+  <FileInput
+    bind:ref
+    {accept}
+    {multiple}
+    {disabled}
+    aria-label={label}
+    aria-invalid={invalid ? "true" : undefined}
+    {onchange}
+  />
+  {#if children !== undefined}
+    <div class="mc-dropzone-detail">{@render children()}</div>
+  {/if}
 </div>
