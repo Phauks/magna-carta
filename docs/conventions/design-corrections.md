@@ -1653,6 +1653,18 @@ The owner, on the person record window:
   on) as their own relationship types.
 - **"clicked the bottom left item and i couldn't go back up."** Jumping to the last section lifted the
   whole window out of its frame; a jump now scrolls only the content pane.
+- **"since a directory record puts the image at the top left, we should also match that. adding a
+  person and editing a person should honestly be the same screen."** New Person carries the picture
+  at the top left of its header, as the record does, and the heading becomes the typed name. Both
+  use the same rail and section cards, and the name fields come in the same order (first, middle,
+  last, then prefix and suffix).
+- **"changing names should be easier, data changes should be inline, like addresses."** Edit Name and
+  Add Other Name open their fields inside the Names card with Cancel and Save, never a window over
+  the record. Correcting a typing mistake without keeping the old spelling as a former name is not
+  built: names are kept, never overwritten, and dropping that needs the owner's word.
+- Found while checking at phone width: the section rail and a side column squeezed the form to a
+  sliver. Below the medium breakpoint the rail steps aside and a panel's side column stands under
+  the form (`ActionDialog`), so nothing scrolls sideways.
 
 ### 2026-11-13 — the app's visual refresh: fields, choices and buttons first
 

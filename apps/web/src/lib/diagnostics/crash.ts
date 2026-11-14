@@ -31,7 +31,8 @@ export const PAGE_CRASH_STEPS: readonly string[] = [
 /**
  * Mint the handle for a crash and record that it happened here. Returns the `client_…` Error ID
  * the screen quotes. Nothing is filed: a crash offers "Report a problem", it does not send one
- * (docs/conventions/error-logging.md — reporting is user-initiated).
+ * (docs/conventions/error-logging.md — reporting is user-initiated). Its code-shaped facts are kept
+ * on the server by the caller, through ./crash-record.ts, so the ID can be looked up.
  */
 export function noteCrash(error: unknown, route: string): string {
   const errorId = newClientErrorId();
@@ -68,6 +69,26 @@ export function crashSignature(error: unknown): string {
       : "";
   const where = firstFrame(error.stack);
   return `${kind}${message}${where === null ? "" : ` at ${where}`}`;
+}
+
+/** The kind, the engine's message where the engine wrote it, and the first frame, as separate facts. */
+export function crashFacts(error: unknown): {
+  errorName: string;
+  message?: string;
+  location?: string;
+} {
+  if (!(error instanceof Error)) return { errorName: `thrown ${typeof error}` };
+  const errorName = error.name === "" ? "Error" : error.name;
+  const message =
+    ENGINE_KINDS.has(errorName) && error.message !== ""
+      ? error.message.slice(0, ENGINE_MESSAGE_LIMIT)
+      : undefined;
+  const location = firstFrame(error.stack) ?? undefined;
+  return {
+    errorName,
+    ...(message === undefined ? {} : { message }),
+    ...(location === undefined ? {} : { location }),
+  };
 }
 
 /** The first stack frame as `file:line:column`, the file without its path or query. */

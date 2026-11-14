@@ -483,7 +483,9 @@
 {/snippet}
 
 {#snippet body()}
-  <div class="mc-modal-frame-body">
+  <!-- On a narrow screen the two panes stand one above the other and the body scrolls as one:
+       side by side at phone width, each got a sliver and the words broke a letter per line. -->
+  <div class="mc-modal-frame-body mc-scrollbar max-md:flex-col max-md:overflow-y-auto">
     <!-- A form, so that Enter commits (see the head of this file). `novalidate` because a refusal
          is the shell's — stated beside the commit, never a browser bubble over a field. The keydown
          listener does not make the form interactive: it hears a shortcut from a field that already
@@ -492,7 +494,7 @@
     <form
       id={formIdentifier}
       bind:this={pane}
-      class="mc-modal-frame-pane mc-action-dialog-fields mc-scrollbar"
+      class="mc-modal-frame-pane mc-action-dialog-fields mc-scrollbar max-md:w-full max-md:max-w-none max-md:flex-none max-md:overflow-visible"
       novalidate
       onsubmit={submit}
       onkeydown={commitOnModifiedEnter}
@@ -502,7 +504,9 @@
       {/if}
     </form>
     {#if context}
-      <div class="mc-modal-frame-context mc-action-dialog-context">
+      <div
+        class="mc-modal-frame-context mc-action-dialog-context max-md:w-full max-md:flex-none max-md:border-t max-md:border-s-0"
+      >
         <div class="mc-modal-frame-context-body mc-scrollbar">
           {@render context({ busy, done })}
         </div>
