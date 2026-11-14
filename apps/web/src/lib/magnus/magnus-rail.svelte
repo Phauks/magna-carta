@@ -23,6 +23,7 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import * as SegmentedControl from "@magna-carta/design-system/segmented-control";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
@@ -209,25 +210,18 @@
 
   {@render search?.()}
 
-  <!-- The three orders as one segmented control: each is one press, and the chosen one reads on
-       the control. -->
-  <div
-    class="flex gap-2 rounded-md bg-surface-sunken p-2"
-    role="radiogroup"
+  <!-- The orders as the shared segmented control, the same one the pane's sections use. -->
+  <SegmentedControl.Root
+    value={sort}
+    onValueChange={(next) => chooseSort(next as ConversationSort)}
     aria-label="Order conversations by"
   >
     {#each sorts as candidate (candidate)}
-      <button
-        type="button"
-        role="radio"
-        aria-checked={candidate === sort}
-        class="flex-1 rounded-sm px-4 py-4 text-xs whitespace-nowrap text-text-muted aria-checked:bg-surface-raised aria-checked:font-semibold aria-checked:text-text-default aria-checked:shadow-elevation-1"
-        onclick={() => chooseSort(candidate)}
-      >
+      <SegmentedControl.Item value={candidate} class="whitespace-nowrap">
         {candidate === "matter" ? "Matter #" : CONVERSATION_SORT_LABELS[candidate]}
-      </button>
+      </SegmentedControl.Item>
     {/each}
-  </div>
+  </SegmentedControl.Root>
 
   {#if shelf === undefined}
     <ConversationRows
