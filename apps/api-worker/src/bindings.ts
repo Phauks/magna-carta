@@ -358,7 +358,8 @@ export type Bindings = {
   MICROSOFT_TENANT?: string;
   // The Google application members sign in to their own Google account through, for calendar
   // sync: an OAuth client of type "Web application" in a Google Cloud project. The client id is
-  // public configuration and the secret is a secret (`wrangler secret put GOOGLE_CLIENT_SECRET`).
+  // public configuration and the secret is a secret. Both are kept in the Secrets Store and bound as
+  // SECRETS_STORE_GOOGLE_CLIENT_ID and SECRETS_STORE_GOOGLE_CLIENT_SECRET (wrangler.jsonc).
   // Optional, and dormant without them, exactly as the Microsoft pair above
   // (src/calendar-sync/google-application.ts).
   GOOGLE_CLIENT_ID?: string;

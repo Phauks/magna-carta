@@ -471,10 +471,13 @@ administrator of the firm's Google Workspace:
    ([create credentials](https://developers.google.com/workspace/guides/create-credentials)).
 6. **Copy the client ID and the client secret** from the client's page. The secret may be shown
    once only; copy it at creation.
-7. **Set two values on the app Worker** (**Worker → Settings → Variables and Secrets**, or
-   `wrangler secret put`): `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Setting both is what
-   switches the feature on; there is no other flag. Both are deliberately absent from
-   `wrangler.jsonc`'s `secrets.required`.
+7. **Create two secrets in the Cloudflare Secrets Store** (dashboard, **Secrets Store → Create
+   secret**, scope _Workers_), named exactly `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+   `apps/api-worker/wrangler.jsonc` already binds both names, so the Worker reads them within a few
+   minutes and no deploy is needed. Both being present is what switches the feature on; there is no
+   other flag. A per-Worker secret of the same name is the fallback
+   ([`docs/conventions/operations.md`](conventions/operations.md), _Secrets Store_). Both are
+   deliberately absent from `wrangler.jsonc`'s `secrets.required`.
 
 Magna Carta asks members for two permissions and no others: `calendar.events` and
 `calendar.calendarlist.readonly`. Nothing under Gmail.
