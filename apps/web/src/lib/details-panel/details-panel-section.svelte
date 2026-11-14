@@ -3,7 +3,7 @@
    * DetailsPanel.Section — a named group inside the body, separated from what precedes it by a
    * rule rather than by a gap alone.
    *
-   * The name is a FieldLabel, which is the platform's one caps register. Passing the label as a
+   * The name is a FieldLabel, which is the platform's one label voice. Passing the label as a
    * string rather than a snippet is deliberate: a section name is a name, and a section that wanted
    * markup in its heading would be a section doing something this shell should not quietly allow.
    */
