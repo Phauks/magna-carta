@@ -9,16 +9,28 @@
 import type { Failure } from "$lib/api/problem.ts";
 import type { FailureDetailRow } from "@magna-carta/design-system/failure-details";
 import { formatInstant } from "@magna-carta/design-system/formatters";
+import { areaForPath, failurePath } from "./failure-summary.ts";
 
-/** The facts a reader scans, in the order they answer "what failed, and when". */
+/** The facts a reader scans, in the order they answer "what failed, why, and when". */
 export function failureRows(failure: Failure): FailureDetailRow[] {
   const problem = failure.problem;
+  const area = areaForPath(failurePath(failure));
+  const cause = failure.cause ?? problem?.cause;
   return [
+    ...(area === null ? [] : [{ label: "Area", value: area }]),
     { label: "Request", value: failure.request, mono: true },
-    { label: "Answer", value: problem === null ? "Couldn't connect" : String(problem.status) },
+    {
+      label: "Answer",
+      value:
+        problem === null
+          ? "Couldn't connect"
+          : problem.title === undefined
+            ? String(problem.status)
+            : `${String(problem.status)} ${problem.title}`,
+    },
+    ...(cause === undefined ? [] : [{ label: "Cause", value: cause, mono: true }]),
     { label: "Time", value: formatInstant(failure.failedAt) },
     { label: "Error ID", value: problem?.errorId ?? "None issued", mono: true },
-    ...(failure.cause === undefined ? [] : [{ label: "Cause", value: failure.cause, mono: true }]),
   ];
 }
 

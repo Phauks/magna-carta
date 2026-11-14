@@ -15,9 +15,11 @@ import { errorCaptured, requestCompleted } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { MESSAGE_HEAD_LENGTH } from "@magna-carta/telemetry/operation";
+import { scrubText } from "@magna-carta/telemetry/scrub";
 import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "./chokepoint/ports.ts";
-import { problemJson } from "./contracts/problem.ts";
+import { answeredOperation, problemJson, publicCause } from "./contracts/problem.ts";
+import { recordAnsweredProblem } from "./error-record.ts";
 import { FirmBucketUnavailableError } from "../files/firm-bucket-fault.ts";
 
 type TelemetryEnv = { Bindings: Bindings; Variables: AppVariables };
@@ -35,6 +37,10 @@ export function telemetryMiddleware(
 
     const startMs = clock();
     await next();
+
+    // Every problem this request answered is kept against its Error ID, so the ID on the member's
+    // screen can be looked up. Off the request's path, and never able to fail it.
+    recordAnsweredProblem(c);
 
     // An exception was caught by Hono's compose and handled by telemetryErrorHandler (which logged
     // error.captured and produced the 500) — c.error is set. Do not also log request.completed: a
@@ -66,6 +72,7 @@ export function telemetryErrorHandler(
     const error = caught instanceof Error ? caught : new Error(String(caught));
     const correlationId = c.get("correlationId") ?? newCorrelationId();
     const errorId = newErrorId();
+    const messageHead = error.message.slice(0, MESSAGE_HEAD_LENGTH);
     c.get("logger")?.log(
       errorCaptured(
         { correlationId, now: new Date(clock()).toISOString() },
@@ -74,10 +81,23 @@ export function telemetryErrorHandler(
           route: c.req.routePath,
           method: c.req.method,
           errorName: error.name,
-          messageHead: error.message.slice(0, MESSAGE_HEAD_LENGTH),
+          messageHead,
         },
       ),
     );
+    // The scrubbed message, the same text the log line carries, for the error record and — for the
+    // engine's own kinds — the member's screen. problemJson keeps these when it stashes the reply.
+    const scrubbedHead = scrubText(messageHead).text;
+    c.set("answeredProblem", {
+      errorId,
+      status: 500,
+      type: "internal",
+      title: "Internal server error",
+      operation: answeredOperation(c),
+      errorName: error.name,
+      messageHead: scrubbedHead,
+    });
+    const cause = publicCause(error.name, scrubbedHead);
     // A KNOWN deployment fault is not an unexpected one. The firm's object storage being
     // unprovisioned or unbound is a configuration state with a named remedy, so it answers as a
     // retryable 503 saying what is misconfigured — still counted and still carrying an Error ID for
@@ -112,8 +132,11 @@ export function telemetryErrorHandler(
       type: "internal",
       status: 500,
       title: "Internal server error",
-      detail: "An unexpected error occurred. Quote the Error ID when reporting it.",
+      detail:
+        "Something went wrong on our side, and nothing you did caused it. The failure is recorded " +
+        "against the Error ID below.",
       errorId,
+      cause,
     });
   };
 }

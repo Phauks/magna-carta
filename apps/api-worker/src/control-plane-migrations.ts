@@ -21,6 +21,7 @@ import registrationCredentialSql from "@magna-carta/database/drizzle/control-pla
 import userNamePartsSql from "@magna-carta/database/drizzle/control-plane/20260908T013359_user-name-parts.sql";
 import communityBoardSql from "@magna-carta/database/drizzle/control-plane/20261110T020157_community-board.sql";
 import communitySignInAndSwitchSql from "@magna-carta/database/drizzle/control-plane/20261113T211423_community-sign-in-and-switch.sql";
+import errorRecordSql from "@magna-carta/database/drizzle/control-plane/20261114T002711_error-record.sql";
 
 export function controlPlaneMigrations(): Migration[] {
   return migrationsFromJournal(controlPlaneJournal, {
@@ -36,6 +37,7 @@ export function controlPlaneMigrations(): Migration[] {
     "20260908T013359_user-name-parts": userNamePartsSql,
     "20261110T020157_community-board": communityBoardSql,
     "20261113T211423_community-sign-in-and-switch": communitySignInAndSwitchSql,
+    "20261114T002711_error-record": errorRecordSql,
   });
 }
 
