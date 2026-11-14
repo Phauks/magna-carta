@@ -106,6 +106,15 @@ const failureOf = (reason: TransferPassFailureBody["reason"]): TransferPassFailu
   lineNumber: null,
 });
 
+// What a pass's row holds, read back. Null when the row holds something no request stored.
+export function statedTransferPassOf(rulesJson: string): StatedTransferPass | null {
+  try {
+    return statedFrom(rulesJson);
+  } catch {
+    return null;
+  }
+}
+
 function statedFrom(rulesJson: string): StatedTransferPass {
   try {
     const parsed = JSON.parse(rulesJson) as Partial<StatedTransferPass> | null;
