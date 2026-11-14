@@ -30,6 +30,7 @@
     "@magna-carta/feature-flags": "workspace:*",
     "@magna-carta/file-type": "workspace:*",
     "@magna-carta/government-links": "workspace:*",
+    "@magna-carta/house-document": "workspace:*",
     "@magna-carta/meeting-protocol": "workspace:*",
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
     "@magna-carta/metadata": "workspace:*",
