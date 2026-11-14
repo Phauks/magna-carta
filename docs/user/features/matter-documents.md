@@ -386,6 +386,14 @@ The panel asks how the bundle should be made. The defaults suit most bundles, so
 
 A small bundle downloads straight away. A large one is built in the background: a note above the list says so, it downloads when it is ready, and it is in the download tray at the top of the screen in the meantime. Documents edited in the browser go into the bundle with every tracked change accepted, the same as a single download.
 
+## Converting a document to another format
+
+Right-click a file and open **Convert**. The list shows what that kind of file can become, by its ending: **To pdf**, **To odt**, **To txt** and so on. Where one ending covers two kinds, the second says which, as in **To pdf (Searchable PDF)**.
+
+Choose one, and a note above the list follows the file while it is read, sent and converted. The converted copy is then filed in the same folder as the original, through the same upload and safety check as any file you add, so it appears in the upload tray. If the folder already holds a file with that name, both are kept. The original is never changed.
+
+Convert is offered on one file at a time. To convert many files at once, use the **Convert** tab on the File Workbench.
+
 ## Archives
 
 Open a zip, a tar, a 7z or a rar and it shows what is inside it, folder by folder, without

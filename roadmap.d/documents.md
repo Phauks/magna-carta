@@ -540,10 +540,11 @@
 - id: documents.conversion.convert-ui
   name: Convert-to menu / converter UI
   scope: Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
-  status: partial
+  status: shipped
   surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout is still marked Soon.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch.
+  notes: The "Convert With Options" entry from the file manager rulings is not built; every target converts with the engine's defaults.
 
 - id: documents.pdf
   name: PDF services

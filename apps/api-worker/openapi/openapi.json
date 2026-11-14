@@ -8893,6 +8893,220 @@
           "entries"
         ]
       },
+      "MatterBalancesReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "unbilledMinor": {
+                "type": "integer"
+              },
+              "owedMinor": {
+                "type": "integer"
+              },
+              "trustMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "unbilledMinor",
+              "owedMinor",
+              "trustMinor"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "unbilledMinor": {
+                      "type": "integer"
+                    },
+                    "owedMinor": {
+                      "type": "integer"
+                    },
+                    "trustMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "unbilledMinor",
+                    "owedMinor",
+                    "trustMinor"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "unbilledMinor": {
+                      "type": "integer"
+                    },
+                    "owedMinor": {
+                      "type": "integer"
+                    },
+                    "trustMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "unbilledMinor",
+                    "owedMinor",
+                    "trustMinor"
+                  ]
+                },
+                "matters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "matterTitle": {
+                        "type": "string"
+                      },
+                      "matterNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "figures": {
+                        "type": "object",
+                        "properties": {
+                          "unbilledMinor": {
+                            "type": "integer"
+                          },
+                          "owedMinor": {
+                            "type": "integer"
+                          },
+                          "trustMinor": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "unbilledMinor",
+                          "owedMinor",
+                          "trustMinor"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "matterId",
+                      "matterTitle",
+                      "matterNumber",
+                      "locationId",
+                      "locationName",
+                      "figures"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "figures",
+                "matters"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "asOfDate",
+          "reproducible",
+          "statement",
+          "locationId",
+          "currency",
+          "completeness",
+          "totals",
+          "offices",
+          "clients"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -60685,6 +60899,101 @@
           },
           "422": {
             "description": "The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was applied than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/matter-balances": {
+      "get": {
+        "description": "Where each matter stands now, by office and client: its unbilled time and costs, what its bills still owe, and what the firm holds for it in trust, three figures never added together. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Bills, payments and trust money count through the day it is produced. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.matterBalances",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.matterBalances",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Each matter's balances now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterBalancesReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "More matters have a balance than one report can list, or a trust account in a currency other than US dollars holds money for a matter",
             "content": {
               "application/problem+json": {
                 "schema": {
