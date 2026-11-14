@@ -22,6 +22,7 @@ import { requireChokepointFirmContext } from "../../chokepoint/context-accessors
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader } from "../../contracts/common.ts";
+import { cursorQuery } from "@magna-carta/data-access/pagination-contract";
 import { defineOpenAPIRoute } from "../../contracts/route-meta.ts";
 import {
   errors,
@@ -46,7 +47,7 @@ const listExhibitsRoute = defineOpenAPIRoute(readMeta("listExhibits"), {
     "Every exhibit on the matter, oldest first, with the sets each one appears in and the label it " +
     "carries in each. A draft set's label is computed from the current order; an issued set's is " +
     "the label it went out with.",
-  request: { params: matterIdParam },
+  request: { params: matterIdParam, query: cursorQuery },
   responses: {
     200: {
       description: "The matter's exhibits",
@@ -153,10 +154,12 @@ export function registerExhibitRoutes(
     async (c) => {
       const { matterId } = c.req.valid("param");
       const database = requireChokepointFirmContext(c).firmDatabase;
-      const exhibits = await listMatterExhibits(database, matterId as MatterId);
+      const { cursor } = c.req.valid("query");
+      const page = await listMatterExhibits(database, matterId as MatterId, { cursor });
       return c.json(
         {
-          data: exhibits.map((exhibit) => ({
+          nextCursor: page.nextCursor,
+          data: page.data.map((exhibit) => ({
             ...exhibit,
             appearances: exhibit.appearances.map((appearance) => ({ ...appearance })),
           })),

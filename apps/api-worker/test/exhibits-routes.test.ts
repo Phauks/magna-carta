@@ -230,6 +230,52 @@ describe("building and issuing an exhibit set", () => {
   });
 });
 
+describe("a set made from a folder", () => {
+  it("takes the folder's files and follows the folder while it is a draft", async () => {
+    const folderId = newIdentifier("folder");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO folder (id, matter_id, parent_folder_id, name, created_at, updated_at) VALUES (?1, ?2, NULL, 'Reply exhibits', ?3, ?3)",
+      )
+      .bind(folderId, matterId, now())
+      .run();
+    const putInFolder = async (name: string) => {
+      const fileId = await seedCleanFile(name);
+      await firmDatabase
+        .prepare("UPDATE file SET folder_id = ?1 WHERE id = ?2")
+        .bind(folderId, fileId)
+        .run();
+      return fileId;
+    };
+    await putInFolder("2 Declaration.pdf");
+    await putInFolder("1 Photograph.pdf");
+
+    const made = await send("POST", `/api/v1/matters/${matterId}/exhibit-sets/from-folder`, {
+      folderId,
+    });
+    expect(made.status).toBe(201);
+    const setId = ((await made.json()) as { id: string }).id;
+    expect((await readSet(setId)).members.map((member) => member.title)).toEqual([
+      "1 Photograph",
+      "2 Declaration",
+    ]);
+
+    await putInFolder("3 Invoice.pdf");
+    const followed = await send(
+      "POST",
+      `/api/v1/matters/${matterId}/exhibit-sets/${setId}/follow-folder`,
+      {},
+    );
+    expect(followed.status).toBe(200);
+    const after = await readSet(setId);
+    expect(after.members.map((member) => `${member.label} ${member.title}`)).toEqual([
+      "A 1 Photograph",
+      "B 2 Declaration",
+      "C 3 Invoice",
+    ]);
+  });
+});
+
 describe("the chokepoint in front of exhibits", () => {
   it("answers 401 without a session", async () => {
     const response = await SELF.fetch(`https://example.com/api/v1/matters/${matterId}/exhibits`, {

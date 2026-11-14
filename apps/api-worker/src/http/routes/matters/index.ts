@@ -1,5 +1,6 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerExhibitSetFolderRoutes } from "./exhibit-set-folder.ts";
 import { registerExhibitSetIssueRoutes } from "./exhibit-set-issue.ts";
 import { registerExhibitSetRoutes } from "./exhibit-sets.ts";
 import { registerExhibitRoutes } from "./exhibits.ts";
@@ -43,6 +44,8 @@ export function mountMatters(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   // Exhibits: a matter's documents put in order for a filing, with labels that follow the order
   // while the set is a draft and freeze when a member records that it went out.
   registerExhibitRoutes(domain, chokepoint);
+  // The literal from-folder path registers ahead of the set family's {setId} pattern.
+  registerExhibitSetFolderRoutes(domain, chokepoint);
   registerExhibitSetRoutes(domain, chokepoint);
   registerExhibitSetIssueRoutes(domain, chokepoint);
   app.route("/", domain);

@@ -31,6 +31,7 @@ import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader } from "../../contracts/common.ts";
 import { problemJson } from "../../contracts/problem.ts";
+import { cursorQuery } from "@magna-carta/data-access/pagination-contract";
 import { defineOpenAPIRoute } from "../../contracts/route-meta.ts";
 import {
   errors,
@@ -55,7 +56,7 @@ const listSetsRoute = defineOpenAPIRoute(readMeta("listExhibitSets"), {
   description:
     "Every exhibit set on the matter, newest first, with its numbering, whether it has been issued " +
     "and how, how many exhibits it holds, and which set replaced it if one did.",
-  request: { params: matterIdParam },
+  request: { params: matterIdParam, query: cursorQuery },
   responses: {
     200: {
       description: "The matter's exhibit sets",
@@ -219,8 +220,12 @@ export function registerExhibitSetRoutes(
     async (c) => {
       const { matterId } = c.req.valid("param");
       const database = requireChokepointFirmContext(c).firmDatabase;
-      const sets = await listExhibitSets(database, matterId as MatterId);
-      return c.json({ data: sets.map((set) => ({ ...set })) }, 200);
+      const { cursor } = c.req.valid("query");
+      const page = await listExhibitSets(database, matterId as MatterId, { cursor });
+      return c.json(
+        { data: page.data.map((set) => ({ ...set })), nextCursor: page.nextCursor },
+        200,
+      );
     },
   );
 

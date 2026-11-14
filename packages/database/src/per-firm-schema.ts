@@ -13278,6 +13278,12 @@ export const exhibitSet = sqliteTable(
     supersedesSetId: text("supersedes_set_id")
       .$type<ExhibitSetId>()
       .references((): AnySQLiteColumn => exhibitSet.id),
+    // The folder a draft follows: while the set is a draft, a file added to the folder joins the set
+    // at the end and a file taken out of it leaves. Null for a set built by hand. Issuing stops the
+    // following, because an issued set never changes.
+    sourceFolderId: text("source_folder_id")
+      .$type<FolderId>()
+      .references(() => folder.id),
     disposition: text("disposition", { enum: ["filed", "served", "exchanged", "lodged"] }),
     issuedOn: text("issued_on"), // civil date the member says the set went out
     issuedAt: text("issued_at"), // instant the platform recorded it
@@ -13297,6 +13303,7 @@ export const exhibitSet = sqliteTable(
       .on(table.supersedesSetId)
       .where(sql`${table.supersedesSetId} IS NOT NULL`),
     index("exhibit_set_continues_from_index").on(table.continuesFromSetId),
+    index("exhibit_set_source_folder_index").on(table.sourceFolderId),
     check(
       "exhibit_set_sequence_check",
       sql`${table.sequence} IN ('upperLetter', 'lowerLetter', 'arabic', 'upperRoman', 'lowerRoman')`,

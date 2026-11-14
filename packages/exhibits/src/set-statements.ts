@@ -1,5 +1,11 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import type { ExhibitSetId, FileId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  ExhibitSetId,
+  FileId,
+  FolderId,
+  MatterId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import type { ExhibitScheme } from "./scheme.ts";
 import type { ExhibitDisposition, ExhibitSetState } from "./types.ts";
 
@@ -17,6 +23,7 @@ export interface ExhibitSetRow {
   readonly state: ExhibitSetState;
   readonly continues_from_set_id: ExhibitSetId | null;
   readonly supersedes_set_id: ExhibitSetId | null;
+  readonly source_folder_id: FolderId | null;
   readonly disposition: ExhibitDisposition | null;
   readonly issued_on: string | null;
   readonly issued_at: string | null;
@@ -30,7 +37,7 @@ export interface ExhibitSetRow {
 
 export const SET_COLUMNS =
   "id, matter_id, name, noun, prefix, sequence, start_at, overflow_form, state, " +
-  "continues_from_set_id, supersedes_set_id, disposition, issued_on, issued_at, issued_by, " +
+  "continues_from_set_id, supersedes_set_id, source_folder_id, disposition, issued_on, issued_at, issued_by, " +
   "filed_copy_file_id, created_by, created_at, updated_at, archived_at";
 
 /** The scheme a set row carries, as the label function takes it. */
@@ -53,6 +60,7 @@ export function insertExhibitSetStatement(
     readonly scheme: ExhibitScheme;
     readonly continuesFromSetId: ExhibitSetId | null;
     readonly supersedesSetId: ExhibitSetId | null;
+    readonly sourceFolderId?: FolderId | null;
     readonly createdBy: UserId | null;
     readonly now: string;
   },
@@ -61,7 +69,8 @@ export function insertExhibitSetStatement(
     .prepare(
       `INSERT INTO ${EXHIBIT_SET_TABLE} (id, matter_id, name, noun, prefix, sequence, start_at, ` +
         `overflow_form, state, continues_from_set_id, supersedes_set_id, created_by, created_at, ` +
-        `updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'draft', ?9, ?10, ?11, ?12, ?12)`,
+        `updated_at, source_folder_id) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'draft', ?9, ?10, ?11, ?12, ?12, ?13)`,
     )
     .bind(
       row.id,
@@ -76,6 +85,7 @@ export function insertExhibitSetStatement(
       row.supersedesSetId,
       row.createdBy,
       row.now,
+      row.sourceFolderId ?? null,
     );
 }
 

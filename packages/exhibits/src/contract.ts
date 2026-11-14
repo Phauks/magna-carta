@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
+import { paginated } from "@magna-carta/data-access/pagination-contract";
 import { identifierField } from "@magna-carta/identifiers/field";
 import { EXHIBIT_OVERFLOW_FORMS, EXHIBIT_SEQUENCES } from "./scheme.ts";
 import {
@@ -108,9 +109,7 @@ export const MatterExhibit = z
   })
   .meta({ id: "MatterExhibit" });
 
-export const MatterExhibitList = z
-  .object({ data: z.array(MatterExhibit) })
-  .meta({ id: "MatterExhibitList" });
+export const MatterExhibitList = paginated(MatterExhibit).meta({ id: "MatterExhibitList" });
 
 export const CreateExhibitSetRequest = z
   .object({
@@ -137,6 +136,7 @@ const setSummaryShape = {
   continuesFromSetId: z.string().nullable(),
   supersedesSetId: z.string().nullable(),
   supersededBySetId: z.string().nullable(),
+  sourceFolderId: z.string().nullable(),
   disposition: z.enum(EXHIBIT_DISPOSITIONS).nullable(),
   issuedOn: z.string().nullable(),
   issuedAt: z.string().nullable(),
@@ -148,9 +148,7 @@ const setSummaryShape = {
 
 export const ExhibitSetSummary = z.object(setSummaryShape).meta({ id: "ExhibitSetSummary" });
 
-export const ExhibitSetList = z
-  .object({ data: z.array(ExhibitSetSummary) })
-  .meta({ id: "ExhibitSetList" });
+export const ExhibitSetList = paginated(ExhibitSetSummary).meta({ id: "ExhibitSetList" });
 
 export const ExhibitSetMember = z
   .object({
@@ -240,6 +238,21 @@ export const SupersedeExhibitSetRequest = z
 export const ContinueExhibitSetRequest = z
   .object({ name: z.string().min(1).max(MAX_SET_NAME_LENGTH) })
   .meta({ id: "ContinueExhibitSetRequest" });
+
+export const CreateExhibitSetFromFolderRequest = z
+  .object({
+    folderId: identifierField("folder"),
+    name: z.string().min(1).max(MAX_SET_NAME_LENGTH).optional(),
+    scheme: ExhibitSchemeInput.optional(),
+  })
+  .meta({ id: "CreateExhibitSetFromFolderRequest" });
+
+export const ExhibitSetFolderFollowed = z
+  .object({
+    addedMemberIds: z.array(identifierField("exhibitSetMember")),
+    removedMemberIds: z.array(identifierField("exhibitSetMember")),
+  })
+  .meta({ id: "ExhibitSetFolderFollowed" });
 
 export const CreatedExhibitSet = z
   .object({ id: identifierField("exhibitSet") })

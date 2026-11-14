@@ -4737,6 +4737,7 @@ export type ExhibitScheme = {
 
 export type MatterExhibitList = {
     data: Array<MatterExhibit>;
+    nextCursor: string | null;
 };
 
 export type MatterExhibit = {
@@ -4788,8 +4789,32 @@ export type EditExhibitRequest = {
     archived?: true;
 };
 
+export type CreatedExhibitSet = {
+    id: string;
+};
+
+export type CreateExhibitSetFromFolderRequest = {
+    folderId: string;
+    name?: string;
+    scheme?: ExhibitSchemeInput;
+};
+
+export type ExhibitSchemeInput = {
+    noun?: string;
+    prefix?: string;
+    sequence?: 'upperLetter' | 'lowerLetter' | 'arabic' | 'upperRoman' | 'lowerRoman';
+    startAt?: number;
+    overflowForm?: 'doubled' | 'bijective';
+};
+
+export type ExhibitSetFolderFollowed = {
+    addedMemberIds: Array<string>;
+    removedMemberIds: Array<string>;
+};
+
 export type ExhibitSetList = {
     data: Array<ExhibitSetSummary>;
+    nextCursor: string | null;
 };
 
 export type ExhibitSetSummary = {
@@ -4802,6 +4827,7 @@ export type ExhibitSetSummary = {
     continuesFromSetId: string | null;
     supersedesSetId: string | null;
     supersededBySetId: string | null;
+    sourceFolderId: string | null;
     disposition: 'filed' | 'served' | 'exchanged' | 'lodged' | null;
     issuedOn: string | null;
     issuedAt: string | null;
@@ -4811,21 +4837,9 @@ export type ExhibitSetSummary = {
     updatedAt: string;
 };
 
-export type CreatedExhibitSet = {
-    id: string;
-};
-
 export type CreateExhibitSetRequest = {
     name: string;
     scheme?: ExhibitSchemeInput;
-};
-
-export type ExhibitSchemeInput = {
-    noun?: string;
-    prefix?: string;
-    sequence?: 'upperLetter' | 'lowerLetter' | 'arabic' | 'upperRoman' | 'lowerRoman';
-    startAt?: number;
-    overflowForm?: 'doubled' | 'bijective';
 };
 
 export type ExhibitSetDetail = {
@@ -4838,6 +4852,7 @@ export type ExhibitSetDetail = {
     continuesFromSetId: string | null;
     supersedesSetId: string | null;
     supersededBySetId: string | null;
+    sourceFolderId: string | null;
     disposition: 'filed' | 'served' | 'exchanged' | 'lodged' | null;
     issuedOn: string | null;
     issuedAt: string | null;
@@ -26127,7 +26142,9 @@ export type ExhibitsListExhibitsData = {
     path: {
         matterId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/matters/{matterId}/exhibits';
 };
 
@@ -26272,12 +26289,125 @@ export type ExhibitsEditExhibitResponses = {
 
 export type ExhibitsEditExhibitResponse = ExhibitsEditExhibitResponses[keyof ExhibitsEditExhibitResponses];
 
+export type ExhibitsCreateExhibitSetFromFolderData = {
+    body: CreateExhibitSetFromFolderRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/exhibit-sets/from-folder';
+};
+
+export type ExhibitsCreateExhibitSetFromFolderErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, exhibit, set or member is unknown, or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the file has no clean version on this matter
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type ExhibitsCreateExhibitSetFromFolderError = ExhibitsCreateExhibitSetFromFolderErrors[keyof ExhibitsCreateExhibitSetFromFolderErrors];
+
+export type ExhibitsCreateExhibitSetFromFolderResponses = {
+    /**
+     * The new set
+     */
+    201: CreatedExhibitSet;
+};
+
+export type ExhibitsCreateExhibitSetFromFolderResponse = ExhibitsCreateExhibitSetFromFolderResponses[keyof ExhibitsCreateExhibitSetFromFolderResponses];
+
+export type ExhibitsFollowExhibitSetFolderData = {
+    body: {
+        [key: string]: unknown;
+    };
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        setId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/exhibit-sets/{setId}/follow-folder';
+};
+
+export type ExhibitsFollowExhibitSetFolderErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, exhibit, set or member is unknown, or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the file has no clean version on this matter
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type ExhibitsFollowExhibitSetFolderError = ExhibitsFollowExhibitSetFolderErrors[keyof ExhibitsFollowExhibitSetFolderErrors];
+
+export type ExhibitsFollowExhibitSetFolderResponses = {
+    /**
+     * What joined and what left
+     */
+    200: ExhibitSetFolderFollowed;
+};
+
+export type ExhibitsFollowExhibitSetFolderResponse = ExhibitsFollowExhibitSetFolderResponses[keyof ExhibitsFollowExhibitSetFolderResponses];
+
 export type ExhibitsListExhibitSetsData = {
     body?: never;
     path: {
         matterId: string;
     };
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/matters/{matterId}/exhibit-sets';
 };
 

@@ -237,6 +237,8 @@ export const PROBLEM_TYPES = {
   "exhibit-reference-name-taken": "exhibit-reference-name-taken",
   // The file is not on this matter, or has no clean version to attach or issue (HTTP 422).
   "exhibit-file-unavailable": "exhibit-file-unavailable",
+  // A folder follow asked of a set built by hand, which follows no folder (HTTP 409).
+  "exhibit-set-not-following": "exhibit-set-not-following",
   // A bulk entry carrying more rows than one commit takes (HTTP 422). A REFUSAL and never a
   // truncation: a caller that sent sixty rows and silently had fifty written cannot tell that from
   // fifty rows it never sent.

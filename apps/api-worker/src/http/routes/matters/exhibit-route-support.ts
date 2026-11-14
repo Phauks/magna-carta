@@ -120,6 +120,7 @@ export function exhibitErrorResponse(c: Context, caught: ExhibitValidationError)
     case "exhibit-unknown-exhibit":
     case "exhibit-unknown-set":
     case "exhibit-unknown-member":
+    case "exhibit-unknown-folder":
       return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail });
     case "exhibit-set-issued":
       return problemJson(c, {
@@ -132,6 +133,13 @@ export function exhibitErrorResponse(c: Context, caught: ExhibitValidationError)
       return problemJson(c, {
         type: "exhibit-set-not-issued",
         title: "This set has not been issued",
+        status: 409,
+        detail,
+      });
+    case "exhibit-set-not-following":
+      return problemJson(c, {
+        type: "exhibit-set-not-following",
+        title: "This set follows no folder",
         status: 409,
         detail,
       });

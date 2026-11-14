@@ -27,6 +27,7 @@ CREATE TABLE `exhibit_set` (
 	`state` text DEFAULT 'draft' NOT NULL,
 	`continues_from_set_id` text,
 	`supersedes_set_id` text,
+	`source_folder_id` text,
 	`disposition` text,
 	`issued_on` text,
 	`issued_at` text,
@@ -39,6 +40,7 @@ CREATE TABLE `exhibit_set` (
 	FOREIGN KEY (`matter_id`) REFERENCES `matter`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`continues_from_set_id`) REFERENCES `exhibit_set`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`supersedes_set_id`) REFERENCES `exhibit_set`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`source_folder_id`) REFERENCES `folder`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`filed_copy_file_id`) REFERENCES `file`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "exhibit_set_sequence_check" CHECK("exhibit_set"."sequence" IN ('upperLetter', 'lowerLetter', 'arabic', 'upperRoman', 'lowerRoman')),
 	CONSTRAINT "exhibit_set_overflow_form_check" CHECK("exhibit_set"."overflow_form" IN ('doubled', 'bijective')),
@@ -53,6 +55,7 @@ CREATE TABLE `exhibit_set` (
 CREATE INDEX `exhibit_set_matter_state_index` ON `exhibit_set` (`matter_id`,`state`);--> statement-breakpoint
 CREATE UNIQUE INDEX `exhibit_set_supersedes_unique_index` ON `exhibit_set` (`supersedes_set_id`) WHERE "exhibit_set"."supersedes_set_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX `exhibit_set_continues_from_index` ON `exhibit_set` (`continues_from_set_id`);--> statement-breakpoint
+CREATE INDEX `exhibit_set_source_folder_index` ON `exhibit_set` (`source_folder_id`);--> statement-breakpoint
 CREATE TABLE `exhibit_set_member` (
 	`id` text PRIMARY KEY NOT NULL,
 	`exhibit_set_id` text NOT NULL,

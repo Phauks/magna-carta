@@ -19,7 +19,11 @@ async function issuedSetOfThree() {
   for (const title of ["Lease", "Letter", "Survey"]) {
     const file = seedFile(raw, MATTER, `${title}.pdf`);
     files.push(file);
-    const created = await createExhibit(database, { matterId: MATTER, fileId: file.fileId, title }, options);
+    const created = await createExhibit(
+      database,
+      { matterId: MATTER, fileId: file.fileId, title },
+      options,
+    );
     await commit(database, created.effect);
     exhibitIds.push(created.exhibitId);
   }
@@ -45,7 +49,12 @@ describe("issuing a set", () => {
       .prepare(
         `SELECT position, label, title_as_issued, file_version_id_as_issued FROM exhibit_set_member WHERE exhibit_set_id = '${setId}' ORDER BY position`,
       )
-      .all() as { position: number; label: string; title_as_issued: string; file_version_id_as_issued: string }[];
+      .all() as {
+      position: number;
+      label: string;
+      title_as_issued: string;
+      file_version_id_as_issued: string;
+    }[];
     const row = await readExhibitSetRow(database, setId);
     expect(rows.map((member) => member.label)).toEqual(
       rows.map((member) => labelFor(member.position, schemeOf(row!))),
@@ -69,13 +78,23 @@ describe("issuing a set", () => {
     const { database, setId, memberIds, exhibitIds } = await issuedSetOfThree();
     const refused = { code: "exhibit-set-issued" };
     await expect(
-      issueExhibitSet(database, MATTER, setId, { disposition: "served", issuedOn: "2026-03-15" }, options),
+      issueExhibitSet(
+        database,
+        MATTER,
+        setId,
+        { disposition: "served", issuedOn: "2026-03-15" },
+        options,
+      ),
     ).rejects.toMatchObject(refused);
     await expect(
       reorderMembers(database, MATTER, setId, [...memberIds].reverse(), options),
     ).rejects.toMatchObject(refused);
-    await expect(addMembers(database, MATTER, setId, [exhibitIds[0]!], options)).rejects.toMatchObject(refused);
-    await expect(removeMember(database, MATTER, setId, memberIds[0]!, options)).rejects.toMatchObject(refused);
+    await expect(
+      addMembers(database, MATTER, setId, [exhibitIds[0]!], options),
+    ).rejects.toMatchObject(refused);
+    await expect(
+      removeMember(database, MATTER, setId, memberIds[0]!, options),
+    ).rejects.toMatchObject(refused);
     await expect(
       editExhibitSet(database, MATTER, setId, { scheme: { sequence: "arabic" } }, options),
     ).rejects.toMatchObject(refused);
@@ -86,14 +105,26 @@ describe("issuing a set", () => {
     const set = await createExhibitSet(database, { matterId: MATTER, name: "Empty" }, options);
     await commit(database, set.effect);
     await expect(
-      issueExhibitSet(database, MATTER, set.setId, { disposition: "filed", issuedOn: "2026-03-14" }, options),
+      issueExhibitSet(
+        database,
+        MATTER,
+        set.setId,
+        { disposition: "filed", issuedOn: "2026-03-14" },
+        options,
+      ),
     ).rejects.toMatchObject({ code: "exhibit-set-empty" });
   });
 
   it("refuses a date that is not a calendar day", async () => {
     const { database } = migratedDatabase();
     await expect(
-      issueExhibitSet(database, MATTER, "exhibitSet_x" as never, { disposition: "filed", issuedOn: "2026-02-30" }, options),
+      issueExhibitSet(
+        database,
+        MATTER,
+        "exhibitSet_x" as never,
+        { disposition: "filed", issuedOn: "2026-02-30" },
+        options,
+      ),
     ).rejects.toMatchObject({ code: "exhibit-invalid-input" });
   });
 });
@@ -101,27 +132,47 @@ describe("issuing a set", () => {
 describe("the database's freeze", () => {
   it("refuses changing a label or position, adding, removing, or unissuing", async () => {
     const { raw, setId, memberIds, exhibitIds } = await issuedSetOfThree();
-    expect(() => raw.exec(`UPDATE exhibit_set_member SET label = 'Z' WHERE id = '${memberIds[0]}'`)).toThrow(/keeps the label/);
-    expect(() => raw.exec(`UPDATE exhibit_set_member SET position = 9 WHERE id = '${memberIds[0]}'`)).toThrow(/keeps the label/);
-    expect(() => raw.exec(`UPDATE exhibit_set_member SET title_as_issued = 'Other' WHERE id = '${memberIds[0]}'`)).toThrow(/keeps the label/);
-    expect(() => raw.exec(`DELETE FROM exhibit_set_member WHERE id = '${memberIds[0]}'`)).toThrow(/cannot lose a member/);
+    expect(() =>
+      raw.exec(`UPDATE exhibit_set_member SET label = 'Z' WHERE id = '${memberIds[0]}'`),
+    ).toThrow(/keeps the label/);
+    expect(() =>
+      raw.exec(`UPDATE exhibit_set_member SET position = 9 WHERE id = '${memberIds[0]}'`),
+    ).toThrow(/keeps the label/);
+    expect(() =>
+      raw.exec(
+        `UPDATE exhibit_set_member SET title_as_issued = 'Other' WHERE id = '${memberIds[0]}'`,
+      ),
+    ).toThrow(/keeps the label/);
+    expect(() => raw.exec(`DELETE FROM exhibit_set_member WHERE id = '${memberIds[0]}'`)).toThrow(
+      /cannot lose a member/,
+    );
     expect(() =>
       raw.exec(
         `INSERT INTO exhibit_set_member (id, exhibit_set_id, matter_exhibit_id, position, status, created_at, updated_at) VALUES ('exhibitSetMember_lateArrival00000000', '${setId}', '${exhibitIds[0]}', 4, 'active', 'x', 'x')`,
       ),
     ).toThrow(/cannot gain a member/);
-    expect(() => raw.exec(`UPDATE exhibit_set SET state = 'draft' WHERE id = '${setId}'`)).toThrow(/cannot be changed or unissued/);
-    expect(() => raw.exec(`UPDATE exhibit_set SET start_at = 4 WHERE id = '${setId}'`)).toThrow(/cannot be changed or unissued/);
-    expect(() => raw.exec(`DELETE FROM exhibit_set WHERE id = '${setId}'`)).toThrow(/cannot be deleted/);
+    expect(() => raw.exec(`UPDATE exhibit_set SET state = 'draft' WHERE id = '${setId}'`)).toThrow(
+      /cannot be changed or unissued/,
+    );
+    expect(() => raw.exec(`UPDATE exhibit_set SET start_at = 4 WHERE id = '${setId}'`)).toThrow(
+      /cannot be changed or unissued/,
+    );
+    expect(() => raw.exec(`DELETE FROM exhibit_set WHERE id = '${setId}'`)).toThrow(
+      /cannot be deleted/,
+    );
   });
 
   it("lets the stamped copy be attached once, later", async () => {
     const { raw, setId } = await issuedSetOfThree();
     const stamped = seedFile(raw, MATTER, "stamped.pdf");
-    raw.exec(`UPDATE exhibit_set SET filed_copy_file_id = '${stamped.fileId}' WHERE id = '${setId}'`);
+    raw.exec(
+      `UPDATE exhibit_set SET filed_copy_file_id = '${stamped.fileId}' WHERE id = '${setId}'`,
+    );
     const other = seedFile(raw, MATTER, "other.pdf");
     expect(() =>
-      raw.exec(`UPDATE exhibit_set SET filed_copy_file_id = '${other.fileId}' WHERE id = '${setId}'`),
+      raw.exec(
+        `UPDATE exhibit_set SET filed_copy_file_id = '${other.fileId}' WHERE id = '${setId}'`,
+      ),
     ).toThrow(/cannot be changed/);
   });
 });
@@ -131,10 +182,23 @@ describe("after issue", () => {
     const { database, setId, memberIds } = await issuedSetOfThree();
     await commit(
       database,
-      (await withdrawMember(database, MATTER, setId, memberIds[1]!, { basis: "Stipulated out" }, options)).effect,
+      (
+        await withdrawMember(
+          database,
+          MATTER,
+          setId,
+          memberIds[1]!,
+          { basis: "Stipulated out" },
+          options,
+        )
+      ).effect,
     );
     const set = await readExhibitSet(database, MATTER, setId);
-    expect(set?.members[1]).toMatchObject({ label: "B", status: "withdrawn", withdrawalBasis: "Stipulated out" });
+    expect(set?.members[1]).toMatchObject({
+      label: "B",
+      status: "withdrawn",
+      withdrawalBasis: "Stipulated out",
+    });
     await expect(
       withdrawMember(database, MATTER, setId, memberIds[1]!, { basis: "again" }, options),
     ).rejects.toMatchObject({ code: "exhibit-member-withdrawn" });
@@ -172,13 +236,23 @@ describe("after issue", () => {
     const { database, raw, setId, memberIds } = await issuedSetOfThree();
     await commit(
       database,
-      (await withdrawMember(database, MATTER, setId, memberIds[1]!, { basis: "Out" }, options)).effect,
+      (await withdrawMember(database, MATTER, setId, memberIds[1]!, { basis: "Out" }, options))
+        .effect,
     );
-    const successor = await supersedeExhibitSet(database, MATTER, setId, { name: "Amended Motion" }, options);
+    const successor = await supersedeExhibitSet(
+      database,
+      MATTER,
+      setId,
+      { name: "Amended Motion" },
+      options,
+    );
     await commit(database, successor.effect);
     const set = await readExhibitSet(database, MATTER, successor.setId);
     expect(set).toMatchObject({ state: "draft", supersedesSetId: setId, name: "Amended Motion" });
-    expect(set?.members.map((member) => `${member.label}:${member.title}`)).toEqual(["A:Lease", "B:Survey"]);
+    expect(set?.members.map((member) => `${member.label}:${member.title}`)).toEqual([
+      "A:Lease",
+      "B:Survey",
+    ]);
     const predecessor = await readExhibitSet(database, MATTER, setId);
     expect(predecessor?.supersededBySetId).toBe(successor.setId);
     await expect(supersedeExhibitSet(database, MATTER, setId, {}, options)).rejects.toMatchObject({
@@ -196,7 +270,8 @@ describe("after issue", () => {
     const { database, setId, memberIds } = await issuedSetOfThree();
     await commit(
       database,
-      (await withdrawMember(database, MATTER, setId, memberIds[2]!, { basis: "Out" }, options)).effect,
+      (await withdrawMember(database, MATTER, setId, memberIds[2]!, { basis: "Out" }, options))
+        .effect,
     );
     const trial = await continueExhibitSet(database, MATTER, setId, { name: "Trial" }, options);
     await commit(database, trial.effect);
@@ -211,7 +286,9 @@ describe("after issue", () => {
     const { database } = migratedDatabase();
     const set = await createExhibitSet(database, { matterId: MATTER, name: "Draft" }, options);
     await commit(database, set.effect);
-    await expect(supersedeExhibitSet(database, MATTER, set.setId, {}, options)).rejects.toMatchObject({
+    await expect(
+      supersedeExhibitSet(database, MATTER, set.setId, {}, options),
+    ).rejects.toMatchObject({
       code: "exhibit-set-not-issued",
     });
     await expect(

@@ -33,6 +33,20 @@ async function setWithSix() {
 }
 
 describe("exhibits", () => {
+  it("pages the register by cursor without repeating or skipping an exhibit", async () => {
+    const { database, exhibitIds } = await setWithSix();
+    const first = await listMatterExhibits(database, MATTER, { pageSize: 4 });
+    expect(first.data).toHaveLength(4);
+    expect(first.nextCursor).not.toBeNull();
+    const second = await listMatterExhibits(database, MATTER, {
+      pageSize: 4,
+      cursor: first.nextCursor ?? undefined,
+    });
+    expect(second.nextCursor).toBeNull();
+    const seen = [...first.data, ...second.data].map((exhibit) => exhibit.id);
+    expect([...seen].sort()).toEqual([...exhibitIds].sort());
+  });
+
   it("mints a reference name once and keeps it across a retitle", async () => {
     const { database, raw } = migratedDatabase();
     const { fileId } = seedFile(raw, MATTER, "lease.pdf");
@@ -51,7 +65,7 @@ describe("exhibits", () => {
       options,
     );
     await commit(database, edit.effect);
-    const [exhibit] = await listMatterExhibits(database, MATTER);
+    const [exhibit] = (await listMatterExhibits(database, MATTER)).data;
     expect(exhibit?.title).toBe("Lease, as amended");
     expect(exhibit?.referenceName).toBe("commercialLeaseAgreement1200HarborWay");
   });
@@ -119,11 +133,20 @@ describe("exhibits", () => {
   it("hides an archived exhibit from the register", async () => {
     const { database, raw } = migratedDatabase();
     const { fileId } = seedFile(raw, MATTER, "a.pdf");
-    const created = await createExhibit(database, { matterId: MATTER, fileId, title: "A" }, options);
+    const created = await createExhibit(
+      database,
+      { matterId: MATTER, fileId, title: "A" },
+      options,
+    );
     await commit(database, created.effect);
-    await commit(database, (await archiveExhibit(database, MATTER, created.exhibitId, options)).effect);
-    expect(await listMatterExhibits(database, MATTER)).toEqual([]);
-    expect(await listMatterExhibits(database, MATTER, { includeArchived: true })).toHaveLength(1);
+    await commit(
+      database,
+      (await archiveExhibit(database, MATTER, created.exhibitId, options)).effect,
+    );
+    expect((await listMatterExhibits(database, MATTER)).data).toEqual([]);
+    expect(
+      (await listMatterExhibits(database, MATTER, { includeArchived: true })).data,
+    ).toHaveLength(1);
   });
 });
 
@@ -140,7 +163,7 @@ describe("draft sets", () => {
       "Exhibit F",
     ]);
     expect(set?.members.map((member) => member.title)).toEqual(TITLES);
-    const [summary] = await listExhibitSets(database, MATTER);
+    const [summary] = (await listExhibitSets(database, MATTER)).data;
     expect(summary?.memberCount).toBe(6);
   });
 
@@ -175,9 +198,16 @@ describe("draft sets", () => {
     const { database, raw, setId, memberIds } = await setWithSix();
     const stale = await reorderMembers(database, MATTER, setId, [...memberIds].reverse(), options);
     const { fileId } = seedFile(raw, MATTER, "late.pdf");
-    const late = await createExhibit(database, { matterId: MATTER, fileId, title: "Late" }, options);
+    const late = await createExhibit(
+      database,
+      { matterId: MATTER, fileId, title: "Late" },
+      options,
+    );
     await commit(database, late.effect);
-    await commit(database, (await addMembers(database, MATTER, setId, [late.exhibitId], options)).effect);
+    await commit(
+      database,
+      (await addMembers(database, MATTER, setId, [late.exhibitId], options)).effect,
+    );
     await expect(commit(database, stale.effect)).rejects.toThrow(/exhibit-order-current/);
   });
 
@@ -235,7 +265,13 @@ describe("draft sets", () => {
   it("refuses a roman scheme that could not number a full set", async () => {
     const { database, setId } = await setWithSix();
     await expect(
-      editExhibitSet(database, MATTER, setId, { scheme: { sequence: "upperRoman", startAt: 3500 } }, options),
+      editExhibitSet(
+        database,
+        MATTER,
+        setId,
+        { scheme: { sequence: "upperRoman", startAt: 3500 } },
+        options,
+      ),
     ).rejects.toMatchObject({ code: "exhibit-scheme-out-of-range" });
   });
 
@@ -250,7 +286,7 @@ describe("draft sets", () => {
       database,
       (await reorderMembers(database, MATTER, setId, [...memberIds].reverse(), options)).effect,
     );
-    const register = await listMatterExhibits(database, MATTER);
+    const register = (await listMatterExhibits(database, MATTER)).data;
     const first = register.find((exhibit) => exhibit.id === exhibitIds[0]);
     expect(first?.appearances).toEqual([
       { setId, setName: "Motion", state: "draft", label: "F", status: "active" },

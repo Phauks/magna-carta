@@ -29,13 +29,20 @@ describe("read batching", () => {
     const exhibitIds: MatterExhibitId[] = [];
     for (let index = 0; index < 40; index += 1) {
       const { fileId } = seedFile(raw, MATTER, `doc${index}.pdf`);
-      const created = await createExhibit(database, { matterId: MATTER, fileId, title: `Document ${index}` }, options);
+      const created = await createExhibit(
+        database,
+        { matterId: MATTER, fileId, title: `Document ${index}` },
+        options,
+      );
       await commit(database, created.effect);
       exhibitIds.push(created.exhibitId);
     }
     const set = await createExhibitSet(database, { matterId: MATTER, name: "Trial" }, options);
     await commit(database, set.effect);
-    await commit(database, (await addMembers(database, MATTER, set.setId, exhibitIds, options)).effect);
+    await commit(
+      database,
+      (await addMembers(database, MATTER, set.setId, exhibitIds, options)).effect,
+    );
 
     const probe = counting(database);
     const view = await readExhibitSet(probe.database, MATTER, set.setId);
@@ -48,7 +55,9 @@ describe("read batching", () => {
     expect(listProbe.count()).toBe(1);
 
     const registerProbe = counting(database);
-    expect(await listMatterExhibits(registerProbe.database, MATTER)).toHaveLength(40);
+    expect(
+      (await listMatterExhibits(registerProbe.database, MATTER, { pageSize: 100 })).data,
+    ).toHaveLength(40);
     expect(registerProbe.count()).toBe(1);
   });
 });

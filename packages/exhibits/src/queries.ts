@@ -1,8 +1,16 @@
+import {
+  assemblePage,
+  decodeCursor,
+  DEFAULT_PAGE_SIZE,
+  keysetClause,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type {
   ExhibitSetId,
   ExhibitSetMemberId,
   FileId,
+  FolderId,
   FileVersionId,
   MatterExhibitId,
   MatterId,
@@ -39,6 +47,8 @@ export interface ExhibitSetSummary {
   readonly continuesFromSetId: ExhibitSetId | null;
   readonly supersedesSetId: ExhibitSetId | null;
   readonly supersededBySetId: ExhibitSetId | null;
+  /** The folder this draft follows, or null for a set built by hand. */
+  readonly sourceFolderId: FolderId | null;
   readonly disposition: ExhibitDisposition | null;
   readonly issuedOn: string | null;
   readonly issuedAt: string | null;
@@ -97,6 +107,7 @@ function summaryOf(
     continuesFromSetId: set.continues_from_set_id,
     supersedesSetId: set.supersedes_set_id,
     supersededBySetId,
+    sourceFolderId: set.source_folder_id,
     disposition: set.disposition,
     issuedOn: set.issued_on,
     issuedAt: set.issued_at,
@@ -211,23 +222,47 @@ export async function readExhibitSet(
 }
 
 /** Every set on a matter, newest first, with member counts. One statement. */
+/** A page of a list read: the opaque cursor from the last page, and how many rows to answer. */
+export interface ListOptions {
+  readonly includeArchived?: boolean;
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}
+
 export async function listExhibitSets(
   database: SqlDatabase,
   matterId: MatterId,
-  options: { readonly includeArchived?: boolean } = {},
-): Promise<ExhibitSetSummary[]> {
+  options: ListOptions = {},
+): Promise<Page<ExhibitSetSummary>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const bindings: unknown[] = [matterId];
+  const keyset = keysetClause(
+    bindings,
+    decodeCursor(options.cursor),
+    "s.created_at",
+    "s.id",
+    false,
+  );
+  bindings.push(pageSize + 1);
   const { results } = await database
     .prepare(
-      `SELECT ${SET_JSON} AS set_json, ` +
+      `SELECT ${SET_JSON} AS set_json, s.created_at AS created_at, s.id AS id, ` +
         `(SELECT COUNT(*) FROM ${EXHIBIT_SET_MEMBER_TABLE} m WHERE m.exhibit_set_id = s.id) AS member_count, ` +
         `(SELECT n.id FROM ${EXHIBIT_SET_TABLE} n WHERE n.supersedes_set_id = s.id) AS superseded_by ` +
         `FROM ${EXHIBIT_SET_TABLE} s WHERE s.matter_id = ?1 ` +
         (options.includeArchived === true ? "" : "AND s.archived_at IS NULL ") +
-        `ORDER BY s.created_at DESC, s.id DESC`,
+        keyset +
+        `ORDER BY s.created_at DESC, s.id DESC LIMIT ?`,
     )
-    .bind(matterId)
-    .all<{ set_json: string; member_count: number; superseded_by: ExhibitSetId | null }>();
-  return results.map((row) =>
+    .bind(...bindings)
+    .all<{
+      set_json: string;
+      created_at: string;
+      id: string;
+      member_count: number;
+      superseded_by: ExhibitSetId | null;
+    }>();
+  return assemblePage(results, pageSize, (row) =>
     summaryOf(JSON.parse(row.set_json) as ExhibitSetRow, row.member_count, row.superseded_by),
   );
 }
@@ -271,8 +306,12 @@ interface RegisterRow extends MatterExhibitRow {
 export async function listMatterExhibits(
   database: SqlDatabase,
   matterId: MatterId,
-  options: { readonly includeArchived?: boolean } = {},
-): Promise<MatterExhibitView[]> {
+  options: ListOptions = {},
+): Promise<Page<MatterExhibitView>> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const bindings: unknown[] = [matterId];
+  const keyset = keysetClause(bindings, decodeCursor(options.cursor), "e.created_at", "e.id", true);
+  bindings.push(pageSize + 1);
   const columns = EXHIBIT_COLUMNS.split(", ")
     .map((column) => `e.${column}`)
     .join(", ");
@@ -288,11 +327,12 @@ export async function listMatterExhibits(
         `FROM ${MATTER_EXHIBIT_TABLE} e LEFT JOIN file f ON f.id = e.file_id ` +
         `WHERE e.matter_id = ?1 ` +
         (options.includeArchived === true ? "" : "AND e.archived_at IS NULL ") +
-        `ORDER BY e.created_at, e.id`,
+        keyset +
+        `ORDER BY e.created_at, e.id LIMIT ?`,
     )
-    .bind(matterId)
+    .bind(...bindings)
     .all<RegisterRow>();
-  return results.map((row) => {
+  return assemblePage(results, pageSize, (row) => {
     const raw = JSON.parse(row.appearances_json) as {
       setId: ExhibitSetId;
       setName: string;

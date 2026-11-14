@@ -20580,10 +20580,17 @@
             "items": {
               "$ref": "#/components/schemas/MatterExhibit"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "MatterExhibit": {
@@ -20827,6 +20834,96 @@
           }
         }
       },
+      "CreatedExhibitSet": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CreateExhibitSetFromFolderRequest": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "pattern": "^folder_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/ExhibitSchemeInput"
+          }
+        },
+        "required": [
+          "folderId"
+        ]
+      },
+      "ExhibitSchemeInput": {
+        "type": "object",
+        "properties": {
+          "noun": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "prefix": {
+            "type": "string",
+            "maxLength": 12
+          },
+          "sequence": {
+            "type": "string",
+            "enum": [
+              "upperLetter",
+              "lowerLetter",
+              "arabic",
+              "upperRoman",
+              "lowerRoman"
+            ]
+          },
+          "startAt": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "overflowForm": {
+            "type": "string",
+            "enum": [
+              "doubled",
+              "bijective"
+            ]
+          }
+        }
+      },
+      "ExhibitSetFolderFollowed": {
+        "type": "object",
+        "properties": {
+          "addedMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            }
+          },
+          "removedMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            }
+          }
+        },
+        "required": [
+          "addedMemberIds",
+          "removedMemberIds"
+        ]
+      },
       "ExhibitSetList": {
         "type": "object",
         "properties": {
@@ -20835,10 +20932,17 @@
             "items": {
               "$ref": "#/components/schemas/ExhibitSetSummary"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "data"
+          "data",
+          "nextCursor"
         ]
       },
       "ExhibitSetSummary": {
@@ -20881,6 +20985,12 @@
             ]
           },
           "supersededBySetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceFolderId": {
             "type": [
               "string",
               "null"
@@ -20940,6 +21050,7 @@
           "continuesFromSetId",
           "supersedesSetId",
           "supersededBySetId",
+          "sourceFolderId",
           "disposition",
           "issuedOn",
           "issuedAt",
@@ -20947,18 +21058,6 @@
           "filedCopyFileId",
           "createdAt",
           "updatedAt"
-        ]
-      },
-      "CreatedExhibitSet": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
-          }
-        },
-        "required": [
-          "id"
         ]
       },
       "CreateExhibitSetRequest": {
@@ -20976,41 +21075,6 @@
         "required": [
           "name"
         ]
-      },
-      "ExhibitSchemeInput": {
-        "type": "object",
-        "properties": {
-          "noun": {
-            "type": "string",
-            "maxLength": 40
-          },
-          "prefix": {
-            "type": "string",
-            "maxLength": 12
-          },
-          "sequence": {
-            "type": "string",
-            "enum": [
-              "upperLetter",
-              "lowerLetter",
-              "arabic",
-              "upperRoman",
-              "lowerRoman"
-            ]
-          },
-          "startAt": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 100000
-          },
-          "overflowForm": {
-            "type": "string",
-            "enum": [
-              "doubled",
-              "bijective"
-            ]
-          }
-        }
       },
       "ExhibitSetDetail": {
         "type": "object",
@@ -21052,6 +21116,12 @@
             ]
           },
           "supersededBySetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceFolderId": {
             "type": [
               "string",
               "null"
@@ -21117,6 +21187,7 @@
           "continuesFromSetId",
           "supersedesSetId",
           "supersededBySetId",
+          "sourceFolderId",
           "disposition",
           "issuedOn",
           "issuedAt",
@@ -82295,6 +82366,14 @@
             "required": true,
             "name": "matterId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {
@@ -82635,6 +82714,284 @@
         }
       }
     },
+    "/api/v1/matters/{matterId}/exhibit-sets/from-folder": {
+      "post": {
+        "description": "Makes an exhibit set from a folder: each file directly in the folder with a clean version becomes an exhibit, in name order, and the set follows the folder while it is a draft. A file that already is an exhibit on the matter keeps its exhibit. The set takes the folder's name unless one is given.",
+        "operationId": "exhibits.createExhibitSetFromFolder",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.createExhibitSetFromFolder",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExhibitSetFromFolderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/follow-folder": {
+      "post": {
+        "description": "Brings a draft that follows a folder up to date with it. Files now in the folder join at the end in name order once they have a clean version; exhibits whose file has left the folder leave the set, and the rest close up in their current order. Refused on an issued set and on a set built by hand.",
+        "operationId": "exhibits.followExhibitSetFolder",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.followExhibitSetFolder",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What joined and what left",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExhibitSetFolderFollowed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{matterId}/exhibit-sets": {
       "get": {
         "description": "Every exhibit set on the matter, newest first, with its numbering, whether it has been issued and how, how many exhibits it holds, and which set replaced it if one did.",
@@ -82664,6 +83021,14 @@
             "required": true,
             "name": "matterId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
           }
         ],
         "responses": {

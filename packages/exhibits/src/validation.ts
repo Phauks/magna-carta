@@ -30,6 +30,10 @@ export type ExhibitValidationCode =
   | "exhibit-unknown-exhibit"
   | "exhibit-unknown-set"
   | "exhibit-unknown-member"
+  // The folder a set is to be made from, or follows, is not on this matter.
+  | "exhibit-unknown-folder"
+  // A follow was asked of a set built by hand, which follows no folder.
+  | "exhibit-set-not-following"
   // The file is not on this matter, is deleted, or has no clean version to attach.
   | "exhibit-file-unavailable"
   // A member-supplied reference name that is malformed, or one another exhibit on the matter holds.
