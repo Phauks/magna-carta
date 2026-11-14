@@ -11,6 +11,7 @@
   import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
   import Grid from "../lib/components/data-table/data-table-grid.svelte";
   import LitigationGrid, { TIME_COLUMNS, TIME_ENTRIES } from "./support/litigation-grid.svelte";
+  import BandFootGrid from "./support/band-foot-grid.svelte";
 
   const { Story } = defineMeta({
     title: "Data Display/DataTableGrid",
@@ -1069,5 +1070,40 @@
 >
   {#snippet template()}
     <LitigationGrid grouping={BY_TIMEKEEPER} />
+  {/snippet}
+</Story>
+
+<!--
+  A BAND'S FOOT LINE. Each band ends in a line where a record is written in place. At rest it is one
+  cell across the table; opened, it is one cell per column, so each answer is typed in the column it
+  will be read in. It is not a record, so a count of the rows never includes it.
+-->
+<Story
+  name="An add line at each band's foot"
+  args={{}}
+  play={async ({ canvas, canvasElement, step }) => {
+    const table = canvas.getByRole("table");
+
+    await step("Every band ends in its own add line, and none is a record", async () => {
+      const feet = Array.from(canvasElement.querySelectorAll("tr[data-grid-band-foot]"));
+      await expect(feet.map((foot) => foot.getAttribute("data-grid-band-foot"))).toEqual([
+        "Marian Holt",
+        "Rosalind Chase",
+        "Edmund Voss",
+      ]);
+      await expect(bodyRows(table)).toHaveLength(TIME_ENTRIES.length);
+    });
+
+    await step("Opening one band's line lays it out in the table's columns", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Add an entry for Rosalind Chase" }));
+      const open = canvasElement.querySelector('tr[data-grid-band-foot="Rosalind Chase"]');
+      await expect(open?.getAttribute("data-editing")).toBe("true");
+      await expect(open?.querySelectorAll("td")).toHaveLength(TIME_COLUMNS.length);
+      await expect(canvas.getByRole("textbox", { name: "New entry title" })).toBeInTheDocument();
+    });
+  }}
+>
+  {#snippet template()}
+    <BandFootGrid grouping={BY_TIMEKEEPER} />
   {/snippet}
 </Story>
