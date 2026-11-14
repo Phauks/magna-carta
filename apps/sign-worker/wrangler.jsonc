@@ -15,5 +15,7 @@
   // PLATFORM_SEAL_KEY (PKCS#8, base64) and PLATFORM_SEAL_CERT (DER, base64). They are intentionally
   // NOT gated at deploy time: the worker deploys without them and returns "seal not configured"
   // (503) until they are set, so activation is a secret-put, not a redeploy.
+  // Where a reader writes about a certificate itself; printed on every Certificate of Completion.
+  "vars": { "CERTIFICATE_SUPPORT_EMAIL": "ops@magnacarta.esq" },
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }

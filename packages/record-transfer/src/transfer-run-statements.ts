@@ -55,6 +55,14 @@ export function selectTransferRunsStatement(
     .bind(assertSourceSystem(sourceSystem));
 }
 
+// Every run of every source system, newest first: what the screen that lists a firm's transfers
+// reads. A firm starts a handful of runs in its life, so the list is not paged.
+export function selectAllTransferRunsStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT id, source_system, label, started_by, started_at, completed_at, abandoned_at FROM ${TRANSFER_RUN_TABLE} ORDER BY started_at DESC, id DESC`,
+  );
+}
+
 // A run ends once. The WHERE repeats "still open", so ending a run that has already ended matches no
 // row, and the caller reads the row count to say so.
 // fitness:unguarded-write — zero rows means the run had already ended, an outcome the caller reports; the run's links stand either way

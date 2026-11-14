@@ -65,4 +65,23 @@ describe("SealPort wire codec", () => {
     expect(decoded.envelope).toEqual(request.envelope);
     expect(decoded.events).toEqual(request.events);
   });
+
+  it("carries each signature's picture byte for byte, and none when none was given", () => {
+    const request: SealRequest = {
+      document: new Uint8Array([1, 2, 3]),
+      signers: [signer],
+      signingTime: "2026-07-18T12:00:01Z",
+      signatureImages: [
+        { signerId: "usr_1", image: new Uint8Array([0x89, 0x50, 0, 255, 128]), pages: [1, 3] },
+        { signerId: "usr_1", image: new Uint8Array([0x89, 0x50, 9]) },
+      ],
+      initialsImages: [{ signerId: "usr_1", image: new Uint8Array([0x89, 0x50, 7, 0, 200]) }],
+    };
+    const decoded = decodeSealRequest(encodeSealRequest(request));
+    expect(decoded.signatureImages).toEqual(request.signatureImages);
+    expect(decoded.initialsImages).toEqual(request.initialsImages);
+    const { signatureImages: _signatures, initialsImages: _initials, ...bare } = request;
+    expect(decodeSealRequest(encodeSealRequest(bare)).signatureImages).toBeUndefined();
+    expect(decodeSealRequest(encodeSealRequest(bare)).initialsImages).toBeUndefined();
+  });
 });
