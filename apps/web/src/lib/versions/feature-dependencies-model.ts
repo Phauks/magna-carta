@@ -90,7 +90,7 @@ export const FEATURE_OUTSIDE_SERVICES: Record<string, readonly OutsideService[]>
   outlookCalendarSync: [
     {
       name: "Microsoft",
-      liveCheck: "microsoft",
+      liveCheck: "microsoftCalendar",
       settings: ["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
       noLiveCheckReason: NO_FREE_CHECK,
     },
@@ -98,7 +98,7 @@ export const FEATURE_OUTSIDE_SERVICES: Record<string, readonly OutsideService[]>
   googleCalendarSync: [
     {
       name: "Google Calendar",
-      liveCheck: "google",
+      liveCheck: "googleCalendar",
       settings: ["GOOGLE_CALENDAR_CLIENT_ID", "GOOGLE_CALENDAR_CLIENT_SECRET"],
       noLiveCheckReason: NO_FREE_CHECK,
     },
