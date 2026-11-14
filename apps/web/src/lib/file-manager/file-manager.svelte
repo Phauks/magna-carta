@@ -108,6 +108,7 @@
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
   import { getFormat } from "@magna-carta/conversion/registry";
+  import { readDeletedFilePolicy } from "./deleted-file-policy-draft.svelte.ts";
   import {
     browserConversionPorts,
     convertedName,
@@ -126,6 +127,7 @@
     archiveColumns,
     browseColumns,
     deletedColumns,
+    type TrashPolicy,
     historyColumns,
     locatedColumns,
     safetyKeyOf,
@@ -1777,6 +1779,18 @@
   let historyCursor = $state<string | null>(null);
   let historyLoading = $state(false);
 
+  // The firm's deleted-file policy, read once the Deleted Files view is first opened, so each row can
+  // say when it leaves Trash. A failed read leaves the column blank rather than guessing a window.
+  let trashPolicy = $state<TrashPolicy | null>(null);
+  let trashPolicyAsked = false;
+  $effect(() => {
+    if (manager.view !== "deleted" || trashPolicyAsked) return;
+    trashPolicyAsked = true;
+    void readDeletedFilePolicy().then((outcome) => {
+      if (outcome.kind === "ok") trashPolicy = outcome.value;
+    });
+  });
+
   $effect(() => {
     void reloadToken;
     if (manager.view !== "deleted") return;
@@ -1837,7 +1851,12 @@
 
   const deletedGrid = DataTable.createDataTableGrid<DeletedFileSummary>({
     columns: () =>
-      deletedColumns({ index, hideExtensions: manager.hideExtensions, documentTypeName }),
+      deletedColumns({
+        index,
+        hideExtensions: manager.hideExtensions,
+        documentTypeName,
+        trashPolicy,
+      }),
     rows: () => (manager.view === "deleted" ? [...deletedFiles] : []),
     rowKey: (row) => row.id,
     itemNoun: { singular: "deleted file", plural: "deleted files" },

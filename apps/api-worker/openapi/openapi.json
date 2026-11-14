@@ -3691,6 +3691,104 @@
           }
         }
       },
+      "DeletedFilePolicyResponse": {
+        "type": "object",
+        "properties": {
+          "trashDays": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [
+                  30
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  60
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  90
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  180
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  365
+                ]
+              }
+            ],
+            "description": "Days a deleted file waits in its matter's Trash, where anyone with access can restore it."
+          },
+          "afterTrash": {
+            "type": "string",
+            "enum": [
+              "archive",
+              "keep-standard"
+            ],
+            "description": "What happens after Trash: archive moves the file to Infrequent Access storage in place; keep-standard leaves it where it is. Neither destroys it."
+          }
+        },
+        "required": [
+          "trashDays",
+          "afterTrash"
+        ]
+      },
+      "PatchDeletedFilePolicyRequest": {
+        "type": "object",
+        "properties": {
+          "trashDays": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [
+                  30
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  60
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  90
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  180
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  365
+                ]
+              }
+            ]
+          },
+          "afterTrash": {
+            "type": "string",
+            "enum": [
+              "archive",
+              "keep-standard"
+            ]
+          }
+        }
+      },
       "EditingPolicyResponse": {
         "type": "object",
         "properties": {
@@ -55200,6 +55298,193 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/deleted-file-policy": {
+      "get": {
+        "description": "Reads the firm's deleted-file policy: how many days a deleted file waits in its matter's Trash, and whether it then moves to archive storage. A firm that has never set it reads the default: 30 days, then archive.",
+        "operationId": "deletedFilePolicy.get",
+        "tags": [
+          "deletedFilePolicy"
+        ],
+        "x-mc-operationId": "deletedFilePolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "deletedFilePolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's deleted-file policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedFilePolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's deleted-file policy. Sparse: an absent field is left alone, and an empty patch writes nothing. The change and its audit row are one batch. Returns the policy after the write.",
+        "operationId": "deletedFilePolicy.update",
+        "tags": [
+          "deletedFilePolicy"
+        ],
+        "x-mc-operationId": "deletedFilePolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:manageRetention",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "deletedFilePolicy"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchDeletedFilePolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's deleted-file policy after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedFilePolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks matters:manageRetention",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -146796,6 +147081,9 @@
     },
     {
       "name": "decryption"
+    },
+    {
+      "name": "deletedFilePolicy"
     },
     {
       "name": "directory"

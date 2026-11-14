@@ -119,13 +119,13 @@
     if (signaturePng === null || (needsInitials && initialsPng === null)) {
       unusable =
         how === "uploaded"
-          ? "That picture could not be used. Choose a smaller PNG or JPEG of your signature."
-          : "Your mark could not be made. Try again.";
+          ? "Couldn't use that picture. Choose a smaller PNG or JPEG of your signature."
+          : "Couldn't make your mark. Try again.";
       return "refused";
     }
     const outcome = await adoptSignature(token, { how, signaturePng, initialsPng });
     if (outcome.kind === "failed") {
-      failure = stated(outcome.failure, "Your signature was not adopted.");
+      failure = stated(outcome.failure, "Your signature wasn't adopted.");
       return "refused";
     }
     onAdopted({
@@ -240,7 +240,7 @@
             onchange={() => (uploaded = uploadInput?.files?.[0] ?? null)}
           />
           <p class="text-xs text-text-muted">
-            A PNG or JPEG of your signature on a plain light background. The background is removed so the signature sits on the page.
+            A PNG or JPEG of your signature on a plain, light background. The background is removed so only the signature shows.
             {#if needsInitials}Your initials are typed in the style above.{/if}
           </p>
         </Tabs.Content>

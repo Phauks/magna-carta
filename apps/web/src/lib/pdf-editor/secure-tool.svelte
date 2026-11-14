@@ -116,14 +116,14 @@
             message:
               reply.kind === "failed"
                 ? describeOperationFailure(reply.reason, reply.message)
-                : "The file could not be read for hidden content.",
+                : "Couldn't check the file for hidden content.",
           };
   }
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
       file,
-      "This document is already locked with a password. Unlock it in the File Workbench first if you want to change its protection.",
+      "This document already has a password. Unlock it in the File Workbench first to change its protection.",
     );
     if (gone) {
       if (opened.kind === "ready") opened.source.close();
@@ -206,7 +206,7 @@
 {:else if phase.kind === "refused"}
   <div class="p-24">
     <Alert.Root variant="warning">
-      <Alert.Title>This Document Cannot Be Protected Here</Alert.Title>
+      <Alert.Title>This Document Can't Be Protected Here</Alert.Title>
       <Alert.Description>{phase.message}</Alert.Description>
     </Alert.Root>
   </div>
@@ -249,13 +249,12 @@
             <Alert.Root variant="warning">
               <Alert.Title>Text Is Hidden Under Something</Alert.Title>
               <Alert.Description>
-                Covering text does not remove it, and a password does not either. Use the Redact tab to remove it, then
-                protect the redacted copy.
+                Covering text doesn't remove it, and neither does a password. Use the Redact tab to remove it, then protect the redacted copy.
               </Alert.Description>
             </Alert.Root>
           {/if}
           {#if readings.readings.comments > 0}
-            <p class="text-xs text-text-muted">Comments stay in the protected copy. Remove them in the reader first if they should not go out.</p>
+            <p class="text-xs text-text-muted">Comments stay in the protected copy. Remove them in the reader first if they shouldn't go out.</p>
           {/if}
         {/if}
       </div>
@@ -317,11 +316,11 @@
         {#if result.kind === "done" && result.filed.kind === "filed"}
           <Alert.Root variant="success">
             <Alert.Title>Saved {result.filed.name}</Alert.Title>
-            <Alert.Description>The original is unchanged and is not protected.</Alert.Description>
+            <Alert.Description>The original is unchanged and isn't protected.</Alert.Description>
             {#if result.madePassword !== null}
               <Alert.Description>
                 The password to change its permissions is <span class="font-mono select-all">{result.madePassword}</span>.
-                Keep it somewhere safe. Magna Carta does not keep it, and this is the only time it is shown.
+                Keep it somewhere safe. Magna Carta doesn't store it, and it's only shown this once.
               </Alert.Description>
             {/if}
             <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.filed.fileId)}>Open the Protected Copy</Button>
@@ -329,7 +328,7 @@
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">
             <Alert.Title>Not Filed</Alert.Title>
-            <Alert.Description>The protected copy was made but could not be filed on the matter. Download it now; nothing was saved.</Alert.Description>
+            <Alert.Description>The protected copy was made but couldn't be saved to the matter. Download it now; nothing was saved.</Alert.Description>
             {#if result.madePassword !== null}
               <Alert.Description>
                 Its permissions password is <span class="font-mono select-all">{result.madePassword}</span>.

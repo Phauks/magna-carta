@@ -65,7 +65,7 @@
     <FailureNotice
       failure={failure}
       title="This Document Could Not Be Shown"
-      fallback="The document could not be read."
+      fallback="Couldn't load the document."
     />
   {:else if document !== null && rendition !== null}
     <div class="flex flex-wrap items-baseline gap-8 border-b border-border-strong pb-8">
