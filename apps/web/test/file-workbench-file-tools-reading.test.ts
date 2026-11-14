@@ -8,7 +8,11 @@ import {
   recoverabilityOf,
 } from "../src/lib/tools/file-workbench/file-tools-reading.ts";
 
-function page(pageIndex: number, confidences: number[], extra: Partial<RecognizedPage> = {}): RecognizedPage {
+function page(
+  pageIndex: number,
+  confidences: number[],
+  extra: Partial<RecognizedPage> = {},
+): RecognizedPage {
   return {
     pageIndex,
     lines: confidences.map((confidence, index) => ({ text: `line ${index + 1}`, confidence })),
@@ -44,8 +48,12 @@ describe("the repair words", () => {
       carveSuggested: false,
       detail: "",
     };
-    expect(recoverabilityOf({ ...diagnosis, recoverability: "partial" }).label).toBe("Partly Repairable");
-    expect(recoverabilityOf({ ...diagnosis, recoverability: "something new" }).label).toBe("Not Recognized");
+    expect(recoverabilityOf({ ...diagnosis, recoverability: "partial" }).label).toBe(
+      "Partly Repairable",
+    );
+    expect(recoverabilityOf({ ...diagnosis, recoverability: "something new" }).label).toBe(
+      "Not Recognized",
+    );
     expect(corruptionName("truncated")).toBe("The file stops before its end");
     expect(corruptionName("unheard-of")).toBe("Other damage");
   });

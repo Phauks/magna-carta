@@ -13,7 +13,10 @@ const RECOVERABILITY: Readonly<Record<string, { label: string; tone: BadgeVarian
   unknown: { label: "Not Recognized", tone: "neutral" },
 };
 
-export function recoverabilityOf(diagnosis: RepairDiagnosis): { label: string; tone: BadgeVariant } {
+export function recoverabilityOf(diagnosis: RepairDiagnosis): {
+  label: string;
+  tone: BadgeVariant;
+} {
   return RECOVERABILITY[diagnosis.recoverability] ?? { label: "Not Recognized", tone: "neutral" };
 }
 
@@ -34,7 +37,12 @@ export function corruptionName(code: string): string {
 /** Below this average, a page's reading is flagged for a person to check against the page. */
 export const LOW_CONFIDENCE = 0.8;
 
-export type PageReading = "already-text" | "recognized" | "low-confidence" | "unreadable" | "no-text";
+export type PageReading =
+  | "already-text"
+  | "recognized"
+  | "low-confidence"
+  | "unreadable"
+  | "no-text";
 
 export function pageReading(page: RecognizedPage): PageReading {
   if (page.skipped !== undefined && page.skipped !== null) return "already-text";
@@ -43,7 +51,9 @@ export function pageReading(page: RecognizedPage): PageReading {
   return average < LOW_CONFIDENCE ? "low-confidence" : "recognized";
 }
 
-export const PAGE_READING_LABEL: Readonly<Record<PageReading, { label: string; tone: BadgeVariant }>> = {
+export const PAGE_READING_LABEL: Readonly<
+  Record<PageReading, { label: string; tone: BadgeVariant }>
+> = {
   "already-text": { label: "Already Had Text", tone: "neutral" },
   recognized: { label: "Recognized", tone: "success" },
   "low-confidence": { label: "Low Confidence", tone: "warning" },

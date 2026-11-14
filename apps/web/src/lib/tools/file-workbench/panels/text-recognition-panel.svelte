@@ -63,7 +63,7 @@
     busy = "recognizing";
     failure = null;
     try {
-      const outcome = await recognizeText(fetch, await file.readBytes());
+      const outcome = await recognizeText(await file.readBytes());
       if (outcome.kind === "ok") {
         recognition = outcome.value;
         chosenPage = outcome.value.pages[0]?.pageIndex ?? 0;
@@ -79,7 +79,7 @@
     busy = "layering";
     failure = null;
     try {
-      const outcome = await searchablePdf(fetch, await file.readBytes());
+      const outcome = await searchablePdf(await file.readBytes());
       if (outcome.kind !== "ok") {
         failure = failureOf(outcome);
         return null;
@@ -114,7 +114,7 @@
   {:else if recognition.pages.length === 0}
     <Absence kind="not-applicable" reason="The engine found no pages in this file." />
   {:else}
-    <div class="grid items-start gap-16 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+    <div class="grid items-start gap-16 @3xl:grid-cols-3">
       <DataTable.Root class="w-full">
         <DataTable.Header>
           <DataTable.Row>
@@ -142,6 +142,7 @@
         </DataTable.Body>
       </DataTable.Root>
 
+      <div class="min-w-0 @3xl:col-span-2">
       <DataTable.Root class="w-full">
         <DataTable.Header>
           <DataTable.Row><DataTable.Head>Text, Page {chosenPage + 1}</DataTable.Head></DataTable.Row>
@@ -162,6 +163,7 @@
           </DataTable.Row>
         </DataTable.Body>
       </DataTable.Root>
+      </div>
     </div>
   {/if}
 

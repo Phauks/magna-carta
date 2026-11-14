@@ -61,7 +61,7 @@
     failure = null;
     result = null;
     try {
-      const outcome = await diagnoseFile(fetch, await file.readBytes());
+      const outcome = await diagnoseFile(await file.readBytes());
       if (outcome.kind === "ok") diagnosis = outcome.value;
       else failure = failureOf(outcome);
     } finally {
@@ -74,7 +74,7 @@
     failure = null;
     try {
       const bytes = await file.readBytes();
-      const outcome = kind === "repaired" ? await repairFile(fetch, bytes) : await carveFile(fetch, bytes);
+      const outcome = kind === "repaired" ? await repairFile(bytes) : await carveFile(bytes);
       if (outcome.kind === "ok") result = { kind, value: outcome.value };
       else failure = failureOf(outcome);
     } finally {
