@@ -1,7 +1,9 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { ProviderNotice } from "@magna-carta/calendar/sync-port";
+import { readGoogleNotices } from "@magna-carta/google-calendar/change-notices";
 import { readGraphNotices } from "@magna-carta/microsoft-graph/change-notices";
 import type { Bindings } from "../../../bindings.ts";
-import { MICROSOFT_NOTICE_PATH } from "../../../calendar-sync/change-watch.ts";
+import { GOOGLE_NOTICE_PATH, MICROSOFT_NOTICE_PATH } from "../../../calendar-sync/change-watch.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
@@ -74,6 +76,40 @@ const microsoftNoticeRoute = defineOpenAPIRoute(microsoftNoticeMeta, {
   },
 });
 
+const googleNoticeMeta: RouteMeta = {
+  operationId: "calendarSync.receiveGoogleNotice",
+  // Public for the same reason: Google's notification service has no session to present.
+  surface: "public",
+  authenticated: false,
+  permission: null,
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "provider-notice",
+};
+
+const googleNoticeRoute = defineOpenAPIRoute(googleNoticeMeta, {
+  method: "post",
+  path: `${GOOGLE_NOTICE_PATH}/{firmId}/{connectionId}`,
+  description:
+    "Receives Google's notice that something in a member's connected calendar changed. Called " +
+    "by Google and by nothing in this platform. The notice has no body: it is acted on only " +
+    "when its `X-Goog-Channel-Token` header carries the secret that account gave Google, and " +
+    "every request is answered alike whether or not it was believed.",
+  request: { params: noticeParams },
+  responses: {
+    202: { description: "The notice was received" },
+    422: {
+      description: "The address is not one this route could have issued",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 async function readBody(request: Request): Promise<unknown> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > BODY_LIMIT_BYTES) return undefined;
@@ -99,13 +135,31 @@ export function registerProviderNoticeRoutes(
         return c.text(validationToken, 200, { "X-Content-Type-Options": "nosniff" });
       }
       const { firmId, connectionId } = c.req.valid("param");
-      const notices = readGraphNotices(await readBody(c.req.raw));
-      if (notices.length > 0) {
-        await c.env.CONNECTION_SYNC.get(
-          c.env.CONNECTION_SYNC.idFromName(`${firmId}:${connectionId}`),
-        ).providerNotice(notices);
-      }
+      await hand(c.env, firmId, connectionId, readGraphNotices(await readBody(c.req.raw)));
       return c.body(null, 202);
     },
   );
+
+  app.openapi(
+    { ...googleNoticeRoute, middleware: chokepointMiddleware(chokepoint, googleNoticeRoute) },
+    async (c) => {
+      const { firmId, connectionId } = c.req.valid("param");
+      await hand(c.env, firmId, connectionId, readGoogleNotices(c.req.raw.headers));
+      return c.body(null, 202);
+    },
+  );
+}
+
+// Hands a request's notices to the one account's object they are addressed to. The object, and
+// nothing here, decides whether to believe them.
+async function hand(
+  env: Bindings,
+  firmId: string,
+  connectionId: string,
+  notices: readonly ProviderNotice[],
+): Promise<void> {
+  if (notices.length === 0) return;
+  await env.CONNECTION_SYNC.get(
+    env.CONNECTION_SYNC.idFromName(`${firmId}:${connectionId}`),
+  ).providerNotice(notices);
 }

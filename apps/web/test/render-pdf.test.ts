@@ -4,6 +4,7 @@
  */
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { composeReadable, housePictures } from "@magna-carta/house-document";
 import { composeDocument, ensureReady } from "@magna-carta/pdf-compose";
 import { describe, expect, it } from "vitest";
 import { composeExportDocument } from "../src/lib/export/render-pdf.ts";
@@ -29,25 +30,46 @@ const narrow: TabularExportDocument = {
 };
 
 describe("composeExportDocument", () => {
-  it("draws the title, the generation stamp, a heading and a table per section", () => {
+  it("lays the export out as a house document: letterhead, a generated line, a card per section", () => {
     const composed = composeExportDocument(narrow);
-    expect(composed.blocks[0]).toEqual({ type: "title", text: "Ledger" });
-    expect(composed.blocks).toContainEqual({ type: "heading", level: 2, text: "Entries" });
+    expect(composed.letterhead?.title).toBe("Ledger");
+    expect(composed.footer).toEqual({ center: "Page {page} of {pages}" });
+    expect(composed.blocks).toContainEqual({ type: "cardStart", title: "Entries" });
     expect(composed.blocks).toContainEqual({
       type: "table",
       columns: [
-        { heading: "Date", alignment: "start" },
-        { heading: "Amount", alignment: "end" },
+        { heading: "Date", weight: (100 * 2) / 3, alignment: "start" },
+        { heading: "Amount", weight: 100 / 3, alignment: "end" },
       ],
       rows: [["2026-07-01", "$10.00"]],
     });
-    expect(composed.blocks.at(-1)).toEqual({
-      type: "paragraph",
-      small: true,
-      text: "Nothing to show.",
-    });
-    expect(composed.page).toEqual({ paper: "letter", landscape: false });
+    expect(composed.blocks.slice(-3)).toEqual([
+      { type: "cardStart", title: "Holds" },
+      { type: "paragraph", text: "Nothing to show." },
+      { type: "cardEnd" },
+    ]);
+    expect(composed.page.paper).toBe("letter");
+    expect(composed.page.landscape).toBeUndefined();
     expect(composed.created).toMatchObject({ year: 2026, month: 8, day: 1, hour: 15 });
+  });
+
+  it("runs a long section over several pages, each headed with its place", () => {
+    const long: TabularExportDocument = {
+      ...narrow,
+      sections: [
+        {
+          title: "Entries",
+          headers: ["Date", "Amount"],
+          rows: Array.from({ length: 200 }, (_, index) => [String(index), "$1.00"]),
+          endAlignedColumns: [1],
+        },
+      ],
+    };
+    const titles = composeExportDocument(long)
+      .blocks.filter((block) => block.type === "cardStart")
+      .map((block) => block.title);
+    expect(titles.length).toBeGreaterThan(1);
+    expect(titles[0]).toBe(`Entries (1 of ${String(titles.length)})`);
   });
 
   it("turns a wide report's pages to landscape", () => {
@@ -66,7 +88,12 @@ describe("composeExportDocument", () => {
       presentAccountsReceivableAging(sampleAccountsReceivableAging()),
       GENERATED_AT,
     );
-    const composed = await composeDocument(composeExportDocument(aging));
+    const composed = await composeReadable((typeface) =>
+      composeDocument(
+        { ...composeExportDocument(aging), ...(typeface ? { typeface } : {}) },
+        housePictures(),
+      ),
+    );
     expect(new TextDecoder().decode(composed.pdf.slice(0, 5))).toBe("%PDF-");
     expect(composed.pageCount).toBeGreaterThan(0);
     expect(composed.missingCharacters).toEqual([]);

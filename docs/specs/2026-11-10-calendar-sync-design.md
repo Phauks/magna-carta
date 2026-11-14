@@ -53,16 +53,16 @@ outside attendees and would duplicate an event that two members both sync.
 
 ## 4. Architecture
 
-| Part                            | Home                        | Job                                                                                        |
-| ------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
-| `CalendarSyncPort`              | `packages/calendar`         | List calendars, list changes since a cursor, create, update and delete an event.           |
-| Microsoft adapter               | `packages/microsoft-graph`  | The port over Microsoft Graph with plain `fetch`. No vendor software kit.                  |
-| Google adapter                  | `packages/google-workspace` | The port over the Calendar interface.                                                      |
-| Sync decision                   | `packages/calendar`         | Pure: given the last agreed state, the local event and the remote event, say what to do.   |
-| `ConnectionSync` Durable Object | `apps/api-worker`           | One per connected account. Serializes token refresh and sync passes; renews subscriptions. |
-| Webhook route                   | `apps/api-worker`, public   | Verifies and queues a provider's "something changed" call, and answers at once.            |
-| Sign-in routes                  | `apps/api-worker`           | Start and finish the provider sign-in; store the encrypted refresh token.                  |
-| Permission request              | `packages/design-system`    | The reusable window that states what is being granted.                                     |
+| Part                            | Home                       | Job                                                                                        |
+| ------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
+| `CalendarSyncPort`              | `packages/calendar`        | List calendars, list changes since a cursor, create, update and delete an event.           |
+| Microsoft adapter               | `packages/microsoft-graph` | The port over Microsoft Graph with plain `fetch`. No vendor software kit.                  |
+| Google adapter                  | `packages/google-calendar` | The port over the Calendar interface.                                                      |
+| Sync decision                   | `packages/calendar`        | Pure: given the last agreed state, the local event and the remote event, say what to do.   |
+| `ConnectionSync` Durable Object | `apps/api-worker`          | One per connected account. Serializes token refresh and sync passes; renews subscriptions. |
+| Webhook route                   | `apps/api-worker`, public  | Verifies and queues a provider's "something changed" call, and answers at once.            |
+| Sign-in routes                  | `apps/api-worker`          | Start and finish the provider sign-in; store the encrypted refresh token.                  |
+| Permission request              | `packages/design-system`   | The reusable window that states what is being granted.                                     |
 
 A provider-to-Magna-Carta change: the provider calls the webhook route; the route checks the secret it
 set when subscribing, queues a message and answers; the queue consumer wakes that account's Durable
@@ -361,3 +361,31 @@ until there is something for a member to do on them.
 - Whether Microsoft meters any of these Graph calls.
 - Whether other members should see "Busy" for a member's private provider events. Today they see
   nothing.
+
+## 13. Google Calendar as built (2026-11-13)
+
+The second adapter, `packages/google-calendar`, implements the same port and nothing in the engine
+changed to take it. What differs from the Outlook adapter, and why:
+
+- **Permissions.** `calendar.events` and `calendar.calendarlist.readonly`, and no others. The
+  account is named by its primary calendar's identifier, which is the account's address, so no
+  profile permission is on the consent screen.
+- **Identifiers.** Google identifies an event only inside a calendar, so the identifier the engine
+  stores is the event's and the calendar's joined. A copy moved to another calendar reads as
+  deleted.
+- **Repeating events.** The rule goes as RFC 5545 lines built from the rule as read, with weeks
+  beginning on Sunday stated, and skipped days go as `EXDATE` in the same write. Only a weekly
+  series whose first day is not one of its weekdays is refused; the month-end and fifth-weekday
+  rules Outlook refuses are sent, because the standard skips those months as this platform does.
+- **One changed day of a series.** Google does not list which days were changed, so the adapter
+  answers the series' days from a month back to about a year on and the engine keeps those that
+  differ from what was sent.
+- **Change notices.** A watch is one channel per calendar, twenty at most, and cannot be renewed:
+  the adapter ends the channels and the engine begins a new watch in the same pass. Google's
+  notice has no body; its token header carries the secret.
+- **One account per member.** A member connects Outlook or Google, not both. Connecting the other
+  provider is refused until the first is disconnected, because every copy on record is in the
+  account the connection names.
+
+Not built: revoking the token at Google on disconnect (the stored sign-in is deleted, as for
+Outlook), and naming the member's own calendar for Google in the calendar rail.

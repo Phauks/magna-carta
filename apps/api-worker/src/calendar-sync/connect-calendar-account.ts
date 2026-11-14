@@ -9,17 +9,9 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import type { CredentialStore } from "@magna-carta/integrations/credentials";
 import type { HttpClient } from "@magna-carta/integrations/http";
-import {
-  createMicrosoftCalendarAdapter,
-  MICROSOFT_CALENDAR_ADAPTER_ID,
-} from "@magna-carta/microsoft-graph/calendar-sync";
-import {
-  readSignedInAccount,
-  redeemAuthorizationCode,
-  type MicrosoftApplication,
-} from "@magna-carta/microsoft-graph/sign-in";
+import type { CalendarProviderApplication } from "./calendar-providers.ts";
 
-// Turning the code Microsoft handed a member's browser into a recorded connection. Called only
+// Turning the code a provider handed a member's browser into a recorded connection. Called only
 // after the return has been matched to a sign-in this browser started; nothing here checks that.
 
 // Where a member's calendar token is addressed. A member has at most one calendar connection, so
@@ -29,19 +21,10 @@ export function calendarCredentialRefForMember(userId: UserId): string {
   return `integration:${CALENDAR_SYNC_CATEGORY}:${userId}`;
 }
 
-// Microsoft names a granted permission either bare or as a full address under the Graph origin,
-// and in whatever letter case it likes.
-function grantsCalendar(grantedScopes: readonly string[]): boolean {
-  return grantedScopes.some((scope) => {
-    const name = scope.slice(scope.lastIndexOf("/") + 1).toLowerCase();
-    return name === "calendars.readwrite";
-  });
-}
-
-export interface ConnectMicrosoftAccountInput {
+export interface ConnectCalendarAccountInput {
   readonly http: HttpClient;
   readonly now: () => Date;
-  readonly application: MicrosoftApplication;
+  readonly application: CalendarProviderApplication;
   readonly code: string;
   readonly codeVerifier: string;
   readonly userId: UserId;
@@ -49,36 +32,45 @@ export interface ConnectMicrosoftAccountInput {
   readonly credentials: CredentialStore;
 }
 
-export async function connectMicrosoftAccount(
-  input: ConnectMicrosoftAccountInput,
-): Promise<"connected" | "declined" | "failed"> {
-  const { http, now, userId, firmDatabase } = input;
-  const redeemed = await redeemAuthorizationCode({ http, now }, input.application, {
-    code: input.code,
-    codeVerifier: input.codeVerifier,
-  });
+// `other-account` is a member who already has an account connected at a different provider. A
+// member holds one calendar connection, and every copy on record is in the account it names;
+// pointing the same connection at another provider would leave those records naming events that
+// are not there. They disconnect the first account and then connect the second.
+export type ConnectCalendarAccountOutcome = "connected" | "declined" | "failed" | "other-account";
+
+export async function connectCalendarAccount(
+  input: ConnectCalendarAccountInput,
+): Promise<ConnectCalendarAccountOutcome> {
+  const { http, now, userId, firmDatabase, application } = input;
+  const existing = await selectConnectionStatement(
+    firmDatabase,
+    CALENDAR_SYNC_CATEGORY,
+    userId,
+  ).first<{ id: string; adapter_id: string }>();
+  // Before the code is spent: nothing is asked of the provider for a sign-in that cannot be kept.
+  if (existing !== null && existing.adapter_id !== application.adapterId) return "other-account";
+
+  const redeemed = await application.redeem(
+    { http, now },
+    { code: input.code, codeVerifier: input.codeVerifier },
+  );
   if (!redeemed.ok) return "failed";
-  // Microsoft lets a member or an administrator grant less than was asked. An account whose
+  // A provider lets a member or an administrator grant less than was asked. An account whose
   // calendar was withheld is not a calendar connection, and recording it as one would leave a
   // member wondering why nothing ever arrives.
-  if (redeemed.grantedScopes.length > 0 && !grantsCalendar(redeemed.grantedScopes)) {
+  if (redeemed.grantedScopes.length > 0 && !application.grantsCalendar(redeemed.grantedScopes)) {
     return "declined";
   }
 
-  const adapter = createMicrosoftCalendarAdapter({ http });
+  const adapter = application.adapter({ http, now });
   const [account, calendars] = await Promise.all([
-    readSignedInAccount(http, redeemed.credential.accessToken),
+    application.readAccount(http, redeemed.credential.accessToken),
     // Read once now, with the token just issued, so "connected" means the calendar can actually be
     // reached and not merely that a sign-in completed.
     adapter.create({ credential: redeemed.credential }).listCalendars(),
   ]);
   if (!account.ok || !calendars.ok) return "failed";
 
-  const existing = await selectConnectionStatement(
-    firmDatabase,
-    CALENDAR_SYNC_CATEGORY,
-    userId,
-  ).first<{ id: string }>();
   const connectionId =
     existing === null
       ? newIdentifier("integrationConnection")
@@ -102,7 +94,7 @@ export async function connectMicrosoftAccount(
         upsertConnectionStatement(firmDatabase, {
           id: connectionId,
           category: CALENDAR_SYNC_CATEGORY,
-          adapterId: MICROSOFT_CALENDAR_ADAPTER_ID,
+          adapterId: application.adapterId,
           scope: "user",
           principalRef: userId,
           credentialRef,
@@ -117,7 +109,7 @@ export async function connectMicrosoftAccount(
           clock: { now: () => instant },
           // Which provider, and never which account: the address is the member's own and the
           // connection row already holds it.
-          metadata: { provider: "microsoft" },
+          metadata: { provider: application.provider },
         }),
       ],
       outboxMessages: [],

@@ -102,7 +102,7 @@
   let composerOpen = $state(false);
 
   claimMatterCreate("conflicts", () => ({
-    title: "Run a conflicts check for this matter. It writes a new entry in the firm's log.",
+    title: "Run a conflicts check for this matter. It adds an entry to the firm's log.",
     refusal: isSample ? SAMPLE_MATTER_REFUSAL : !mayRun ? RUN_REFUSAL : undefined,
     run: () => (composerOpen = true),
   }));
@@ -119,8 +119,8 @@
     posture = null;
     failure = stated(
       outcome.failure,
-      "This matter's conflicts standing could not be read.",
-      "This matter's conflicts standing could not be reached.",
+      "Couldn't load this matter's conflicts status.",
+      "Couldn't connect to load this matter's conflicts status.",
     );
   }
 
@@ -141,7 +141,7 @@
       return;
     }
     latest = null;
-    latestFailure = stated(outcome.failure, "The latest check's results could not be read.");
+    latestFailure = stated(outcome.failure, "Couldn't load the latest check's results.");
   }
 
   $effect(() => {
@@ -186,7 +186,7 @@
     const outcome = await recheckMatterConflicts(fetch, matterId, crypto.randomUUID());
     rechecking = false;
     if (outcome.kind !== "ok") {
-      failure = stated(outcome.failure, "The re-check could not be started.");
+      failure = stated(outcome.failure, "Couldn't start the re-check.");
       return;
     }
     // Straight to the run, which the check's screen shows as it goes, rather than back to a panel
@@ -238,7 +238,7 @@
   function memberText(userId: string | null): string {
     if (userId === null) return "Nobody, run automatically";
     return personName(memberNames.get(userId) ?? null, {
-      whenUnrecorded: "A member the firm's roster does not name",
+      whenUnrecorded: "A staff member no longer on the firm's roster",
     });
   }
 
@@ -286,10 +286,10 @@
   const summary = $derived.by(() => {
     if (posture === null) return "";
     const latest = posture.latestCheck;
-    if (latest === null) return "A conflicts check has not been run for this matter.";
+    if (latest === null) return "No check has been run for this matter yet.";
     const open = posture.undisposedByTier.reduce((total, entry) => total + entry.count, 0);
     return open === 0
-      ? "Every result the checks surfaced has been reviewed."
+      ? "All results from the checks have been reviewed."
       : `${String(open)} ${open === 1 ? "result is" : "results are"} waiting for review.`;
   });
 </script>
@@ -315,13 +315,12 @@
 
   {#if isSample}
     <EmptyState title="A sample matter has no check record">
-      This matter is one of the in-repo samples and has no firm behind it, so there is no log to
-      read and nothing a check could be recorded against.
+      This is a sample matter for previewing screens. It has no checks.
     </EmptyState>
   {:else}
     {#if session !== null && !mayRead}
       <Alert.Root variant="info">
-        <Alert.Title>Reading Conflicts Is Not Available To This Account</Alert.Title>
+        <Alert.Title>This Account Can't View Conflicts</Alert.Title>
         <Alert.Description>
           {permissionRefusal("Reading a matter's conflicts standing", READ_CONFLICTS_PERMISSION)}
         </Alert.Description>
@@ -331,7 +330,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Standing Could Not Be Read"
+        title="Couldn't Load Conflicts Status"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
         onRetry={() => void read()}
@@ -347,8 +346,7 @@
       >
         {#snippet emptyState()}
           <EmptyState title="This Matter Has Never Been Checked">
-            No check has ever named this matter. That is a different state from a check that ran
-            and surfaced nothing. New Check, at the top of the matter, runs the first one.
+            No check has been run on this matter yet. Use New Check to run the first one.
           </EmptyState>
         {/snippet}
         {#snippet fixture()}
@@ -375,7 +373,7 @@
                   {#if latestFailure !== null}
                     <FailureNotice
                       failure={latestFailure.failure}
-                      title="The Results Could Not Be Read"
+                      title="Couldn't Load Results"
                       fallback={latestFailure.fallback}
                       whenSilent={latestFailure.whenSilent}
                       onRetry={() => latestRunId !== null && void readLatest(latestRunId)}
@@ -422,19 +420,18 @@
               <!-- CHECKS: the firm's log, narrowed to this matter. -->
               <Accordion.Item value="checks" class="rounded-md border border-border-default">
                 <Accordion.Trigger class="px-16">
-                  {@render sectionTrigger("Checks", "Every check filed on this matter")}
+                  {@render sectionTrigger("Checks", "All checks on this matter")}
                 </Accordion.Trigger>
                 <Accordion.Content class="px-16 pb-16">
                   <CheckRegister
                     {matterId}
                     bind:reread={rereadLog}
-                    caption="Every conflicts check filed on this matter"
+                    caption="All conflicts checks on this matter"
                     emptyTitle="No Check Is Filed On This Matter"
                     onOpenCheck={(checkId) => void goto(`/conflicts/checks/${checkId}`)}
                   >
                     {#snippet emptyBody()}
-                      A check run from the firm's log can be filed on this matter from its own
-                      screen. New Check, at the top of the matter, runs one filed here.
+                      A check run from the firm's log can be assigned to this matter from its own screen. Use New Check to run one here.
                     {/snippet}
                   </CheckRegister>
                 </Accordion.Content>

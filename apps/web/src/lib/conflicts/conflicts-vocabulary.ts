@@ -80,17 +80,16 @@ export const EVIDENCE_TIER_VOCABULARY: Readonly<Record<EvidenceTier, VocabularyE
   },
   2: {
     label: "Tier 2",
-    meaning: "These are the same name: an exact normalized name, or one name written two ways.",
+    meaning: "Same name: an exact match, or one name written two ways.",
   },
   3: {
     label: "Tier 3",
     meaning:
-      "These might be the same: the same name under a different legal form, or a phonetic code match.",
+      "Possibly the same: the same name with a different legal form, or a sound-alike match.",
   },
   4: {
     label: "Tier 4",
-    meaning:
-      "Trigram overlap alone. No tier is ever filtered out, so a weak signal still surfaces.",
+    meaning: "Trigram overlap only. Weak matches are still shown.",
   },
 };
 
@@ -120,37 +119,32 @@ export const FILES_SOURCE = "files";
 export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   party: {
     label: "Names and identifiers",
-    meaning:
-      "The party's own name or identifier matched a record in the firm's Directory. Always searched.",
+    meaning: "The party's own name or identifier matched a Directory record. Always searched.",
   },
   graph: {
     label: "Relationships",
-    meaning:
-      "Reached by walking out from a party you named, through every relationship the Directory holds, as far as it goes.",
+    meaning: "Found by following relationships out from a party you named, as far as they go.",
   },
   imputation: {
     label: "Firm Employees",
     meaning:
-      "This firm's members, found by identity among everyone the check reached and on the matter's parties. Never by name.",
+      "The firm's staff, matched by identity among everyone the check reached. Never by name.",
   },
   content: {
     label: "Documents and messages",
-    meaning: "Message participants and document text. No corpus exists behind it yet.",
+    meaning: "Message participants and document text. Not searchable yet.",
   },
   [PRIOR_FIRM_HISTORY_SOURCE]: {
     label: "Prior-firm history",
-    meaning:
-      "What a lateral hire brought with them. Registered so it is reported; it holds no data.",
+    meaning: "What a lateral hire brought with them. Listed so it's reported; it has no data yet.",
   },
   [NICKNAME_EQUIVALENCE_SOURCE]: {
     label: "Nickname equivalents",
-    meaning:
-      "Bob and Robert are not a phonetic relationship. The catalogue exists and is shipped empty.",
+    meaning: "Nickname matches like Bob and Robert. The list is empty for now.",
   },
   [MESSAGING_SOURCE]: {
     label: "Messaging",
-    meaning:
-      "Calls, texts and email linked to a party, from a party's number or address, or naming them.",
+    meaning: "Calls, texts and email linked to a party by number or address, or naming them.",
   },
   [FILES_SOURCE]: {
     label: "Files",
@@ -291,7 +285,7 @@ export const ADVANCED_DIMENSIONS: readonly { readonly source: string; readonly w
   [
     {
       source: PRIOR_FIRM_HISTORY_SOURCE,
-      waitsOn: "a record of what each lateral hire brought with them, which has no table yet",
+      waitsOn: "records of what lateral hires brought with them",
     },
     {
       source: NICKNAME_EQUIVALENCE_SOURCE,
@@ -323,12 +317,12 @@ export const STRICTNESS_VOCABULARY: Readonly<Record<Strictness, VocabularyEntry>
   balanced: {
     label: "Standard",
     meaning:
-      "The name rows the firm has chosen to compare — current, former, maiden and alias, out of the box — and names that SOUND alike under the firm's main encoder.",
+      "The name types the firm compares (current, former, maiden and alias by default), plus names that sound alike.",
   },
   over_inclusive: {
     label: "Widest",
     meaning:
-      "Every name row the Directory holds, trading styles and also-known-as names included, under every sound-alike encoder. A strict superset of Standard: widening can only add candidates, never hide one.",
+      "All name types, including trading styles and also-known-as names, with every sound-alike method. Includes everything Standard finds, and more.",
   },
 };
 
@@ -367,7 +361,7 @@ export const NAME_MATCHING_OPTIONS: readonly ChoiceOption[] = [
   {
     value: "over_inclusive",
     label: STRICTNESS_VOCABULARY.over_inclusive.label,
-    aside: "Also trading styles, also-known-as names, and every sound-alike encoder",
+    aside: "Also trading styles, also-known-as names, and every sound-alike method",
     meaning: STRICTNESS_VOCABULARY.over_inclusive.meaning,
     keywords: ["over inclusive", "wide", "everything"],
   },
@@ -378,7 +372,7 @@ export function strictnessVocabulary(strictness: string): VocabularyEntry {
   return (
     STRICTNESS_VOCABULARY[strictness as Strictness] ?? {
       label: strictness,
-      meaning: "This build does not recognize the band this check ran under.",
+      meaning: "Unknown band.",
     }
   );
 }
@@ -397,7 +391,7 @@ export const TRIGGER_VOCABULARY: Readonly<Record<ConflictsTrigger, VocabularyEnt
   },
   comprehensive: {
     label: "Comprehensive",
-    meaning: "The engagement moment: every live party, at the point the firm accepts.",
+    meaning: "At engagement: every party, when the firm accepts the matter.",
   },
   new_party: {
     label: "New Party",
@@ -405,15 +399,15 @@ export const TRIGGER_VOCABULARY: Readonly<Record<ConflictsTrigger, VocabularyEnt
   },
   entity_merged: {
     label: "Entity Merged",
-    meaning: "Two Directory records became one, and the union may not read as either did.",
+    meaning: "Two Directory records were merged.",
   },
   entity_renamed: {
     label: "Entity Renamed",
-    meaning: "A new alias, maiden, former or trading name makes matches possible that were not.",
+    meaning: "A new alias, maiden, former or trading name was added.",
   },
   relationship_recorded: {
     label: "Relationship Recorded",
-    meaning: "A corporate parent, a spouse or a principal link was recorded after the last check.",
+    meaning: "A corporate parent, spouse or principal was linked after the last check.",
   },
   identifier_recorded: {
     label: "Identifier Recorded",
@@ -421,7 +415,7 @@ export const TRIGGER_VOCABULARY: Readonly<Record<ConflictsTrigger, VocabularyEnt
   },
   personnel_changed: {
     label: "Personnel Changed",
-    meaning: "The firm's own roster moved, so what is imputed to the firm moved with it.",
+    meaning: "The firm's staff list changed.",
   },
   periodic_rescan: {
     label: "Periodic Re-scan",
@@ -434,7 +428,7 @@ export function triggerVocabulary(trigger: string): VocabularyEntry {
   return (
     TRIGGER_VOCABULARY[trigger as ConflictsTrigger] ?? {
       label: trigger,
-      meaning: "A trigger this build has not been told about.",
+      meaning: "Unknown trigger.",
     }
   );
 }
@@ -473,7 +467,7 @@ export const RUN_STATUS_VOCABULARY: Readonly<Record<RunStatus, ChipVocabularyEnt
     label: "Cancelled",
     tone: "neutral",
     meaning:
-      "A member stopped the search before it finished. Nothing it had not finished was searched.",
+      "Someone stopped the search before it finished. Anything not yet searched wasn't searched.",
   },
 };
 
@@ -482,7 +476,7 @@ export function runStatusVocabulary(status: string): ChipVocabularyEntry {
     RUN_STATUS_VOCABULARY[status as RunStatus] ?? {
       label: status,
       tone: "neutral",
-      meaning: "A run state this build has not been told about.",
+      meaning: "Unknown run state.",
     }
   );
 }
@@ -550,11 +544,11 @@ export function dispositionVocabulary(kind: DispositionKind): ChipVocabularyEntr
  * this says is that the platform cannot hand it over.
  */
 export const WAIVER_SHORTFALL_VOCABULARY: Readonly<Record<WaiverShortfall, string>> = {
-  "consenting-party-unrecorded": "The record does not name who gave the waiver.",
+  "consenting-party-unrecorded": "The record doesn't name who gave the waiver.",
   "consent-not-confirmed-in-writing":
-    "The consent is not recorded as confirmed in writing, which is the form the rules ask for.",
+    "The consent isn't recorded as confirmed in writing, which the rules require.",
   "confirmation-not-filed": "No filed document evidencing the confirmation is on the record.",
-  "date-given-unrecorded": "The record does not say when the waiver was given.",
+  "date-given-unrecorded": "The record doesn't say when the waiver was given.",
 };
 
 /** How one shortfall reads. An unrecognized value prints itself rather than being explained away. */
@@ -569,7 +563,7 @@ export function waiverShortfallText(shortfall: WaiverShortfall): string {
  * a complete waiver's and a caption that does not is a difference nobody reads and a screen reader
  * cannot say at all.
  */
-export const INCOMPLETE_WAIVER_LABEL = "Waiver — Incomplete Record";
+export const INCOMPLETE_WAIVER_LABEL = "Waiver: Incomplete Record";
 
 /**
  * What a hit nobody has answered wears — the one loud thing on this surface.
@@ -650,13 +644,11 @@ export const EDGE_CLASS_BY_TYPE: Readonly<Record<string, string>> = {
 export const EDGE_CLASS_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   corporate: {
     label: "Corporate family",
-    meaning:
-      "A parent, a subsidiary or a successor — the same business continuing under another name or another shell.",
+    meaning: "A parent, subsidiary or successor: the same business under another name or entity.",
   },
   control: {
     label: "Ownership and control",
-    meaning:
-      "Officers, directors, partners, trustees, owners, employees and agents: who directs, or is directed by, whom.",
+    meaning: "Officers, directors, partners, trustees, owners, employees and agents.",
   },
   family: {
     label: "Family and personal",
@@ -664,7 +656,7 @@ export const EDGE_CLASS_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = 
   },
   representation: {
     label: "Representation",
-    meaning: "Somebody recorded as acting for somebody else — counsel, an agent, a role on a file.",
+    meaning: "Someone acting for someone else, such as counsel, an agent or a role on a matter.",
   },
 };
 
@@ -696,17 +688,16 @@ export const NAME_ROLES = ["current", "former", "maiden", "alias", "aka", "dba"]
 export const NAME_ROLE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   current: {
     label: "Current",
-    meaning:
-      "The name the party goes by today. Always compared: a check that skipped it would not be a conflicts check.",
+    meaning: "The party's current name. Always compared.",
   },
   former: {
     label: "Former",
-    meaning: "A name the party held before this one, kept as a row of its own.",
+    meaning: "A name the party used before this one.",
   },
   maiden: {
     label: "Maiden",
     meaning:
-      "A surname held before marriage. The miss the practitioner literature cites most often, which is why it is compared by default.",
+      "A surname used before marriage. Compared by default because it's the most common miss.",
   },
   alias: {
     label: "Alias",
@@ -714,13 +705,12 @@ export const NAME_ROLE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   },
   aka: {
     label: "Also known as",
-    meaning:
-      "A name the party is known by without it being one they previously held. Outside the default set for that reason, not because it is weaker evidence.",
+    meaning: "Another name the party is known by. Not compared by default.",
   },
   dba: {
     label: "Trading style",
     meaning:
-      "A name an organization trades under. Outside the default set because a trading style is not the legal person under an earlier name.",
+      "A name an organization trades under. Not compared by default because it isn't the legal entity's former name.",
   },
 };
 

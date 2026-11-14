@@ -396,12 +396,12 @@ export type ConnectedServiceStatus = {
 };
 
 export type FeatureStatus = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     state: 'working' | 'not-set-up' | 'fault';
 };
 
 export type FeatureRequirements = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     alternatives: Array<Array<{
         name: string;
         present: boolean;
@@ -6878,13 +6878,20 @@ export type ContinuanceChainNode = {
     statusReason: string | null;
 };
 
+export type ConnectedAccountSignInStart = {
+    /**
+     * The provider's own sign-in page. The browser is sent to it as a whole page.
+     */
+    authorizationUrl: string;
+};
+
 export type ConnectedAccountList = {
     providers: Array<ConnectedAccountProvider>;
     accounts: Array<ConnectedAccount>;
 };
 
 export type ConnectedAccountProvider = {
-    provider: 'microsoft';
+    provider: 'microsoft' | 'google';
     /**
      * Whether this deployment can connect an account at the provider. False means nobody has registered the deployment with the provider, and a screen offers no connection.
      */
@@ -6893,20 +6900,13 @@ export type ConnectedAccountProvider = {
 
 export type ConnectedAccount = {
     id: string;
-    provider: 'microsoft';
+    provider: 'microsoft' | 'google';
     /**
      * The account as the provider names it: the member's own sign-in address there.
      */
     accountLabel: string | null;
     status: 'connected' | 'degraded' | 'needs_reauth' | 'disabled';
     connectedAt: string;
-};
-
-export type ConnectedAccountSignInStart = {
-    /**
-     * The provider's own sign-in page. The browser is sent to it as a whole page.
-     */
-    authorizationUrl: string;
 };
 
 export type ConnectedAccountDisconnectAck = {
@@ -6920,7 +6920,7 @@ export type CalendarSyncSettings = {
      */
     account: {
         id: string;
-        provider: 'microsoft';
+        provider: 'microsoft' | 'google';
         /**
          * The account as the provider names it: the member's own sign-in address there.
          */
@@ -32482,39 +32482,6 @@ export type CalendarContinuanceChainResponses = {
 
 export type CalendarContinuanceChainResponse = CalendarContinuanceChainResponses[keyof CalendarContinuanceChainResponses];
 
-export type ConnectedAccountsListData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/me/connected-accounts';
-};
-
-export type ConnectedAccountsListErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the member has no such account
-     */
-    404: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type ConnectedAccountsListError = ConnectedAccountsListErrors[keyof ConnectedAccountsListErrors];
-
-export type ConnectedAccountsListResponses = {
-    /**
-     * The member's connected accounts
-     */
-    200: ConnectedAccountList;
-};
-
-export type ConnectedAccountsListResponse = ConnectedAccountsListResponses[keyof ConnectedAccountsListResponses];
-
 export type ConnectedAccountsStartMicrosoftSignInData = {
     body?: never;
     path?: never;
@@ -32532,7 +32499,7 @@ export type ConnectedAccountsStartMicrosoftSignInErrors = {
      */
     403: Problem;
     /**
-     * The firm is unreachable, the member is deactivated, or the member has no such account
+     * The firm is unreachable or the member is deactivated
      */
     404: Problem;
     /**
@@ -32577,7 +32544,7 @@ export type ConnectedAccountsFinishMicrosoftSignInErrors = {
      */
     403: Problem;
     /**
-     * The firm is unreachable, the member is deactivated, or the member has no such account
+     * The firm is unreachable or the member is deactivated
      */
     404: Problem;
     /**
@@ -32587,6 +32554,112 @@ export type ConnectedAccountsFinishMicrosoftSignInErrors = {
 };
 
 export type ConnectedAccountsFinishMicrosoftSignInError = ConnectedAccountsFinishMicrosoftSignInErrors[keyof ConnectedAccountsFinishMicrosoftSignInErrors];
+
+export type ConnectedAccountsStartGoogleSignInData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts/google/sign-in';
+};
+
+export type ConnectedAccountsStartGoogleSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * This deployment is not registered with the provider, so no account can connect
+     */
+    501: Problem;
+};
+
+export type ConnectedAccountsStartGoogleSignInError = ConnectedAccountsStartGoogleSignInErrors[keyof ConnectedAccountsStartGoogleSignInErrors];
+
+export type ConnectedAccountsStartGoogleSignInResponses = {
+    /**
+     * Where to send the browser
+     */
+    200: ConnectedAccountSignInStart;
+};
+
+export type ConnectedAccountsStartGoogleSignInResponse = ConnectedAccountsStartGoogleSignInResponses[keyof ConnectedAccountsStartGoogleSignInResponses];
+
+export type ConnectedAccountsFinishGoogleSignInData = {
+    body?: never;
+    path?: never;
+    query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+    };
+    url: '/api/v1/integrations/google/callback';
+};
+
+export type ConnectedAccountsFinishGoogleSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsFinishGoogleSignInError = ConnectedAccountsFinishGoogleSignInErrors[keyof ConnectedAccountsFinishGoogleSignInErrors];
+
+export type ConnectedAccountsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts';
+};
+
+export type ConnectedAccountsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsListError = ConnectedAccountsListErrors[keyof ConnectedAccountsListErrors];
+
+export type ConnectedAccountsListResponses = {
+    /**
+     * The member's connected accounts
+     */
+    200: ConnectedAccountList;
+};
+
+export type ConnectedAccountsListResponse = ConnectedAccountsListResponses[keyof ConnectedAccountsListResponses];
 
 export type ConnectedAccountsDisconnectData = {
     body?: never;
@@ -33044,6 +33117,36 @@ export type CalendarSyncReceiveMicrosoftNoticeResponses = {
 };
 
 export type CalendarSyncReceiveMicrosoftNoticeResponse = CalendarSyncReceiveMicrosoftNoticeResponses[keyof CalendarSyncReceiveMicrosoftNoticeResponses];
+
+export type CalendarSyncReceiveGoogleNoticeData = {
+    body?: never;
+    path: {
+        firmId: string;
+        connectionId: string;
+    };
+    query?: never;
+    url: '/api/v1/calendar-sync/provider-notices/google/{firmId}/{connectionId}';
+};
+
+export type CalendarSyncReceiveGoogleNoticeErrors = {
+    /**
+     * The address is not one this route could have issued
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReceiveGoogleNoticeError = CalendarSyncReceiveGoogleNoticeErrors[keyof CalendarSyncReceiveGoogleNoticeErrors];
+
+export type CalendarSyncReceiveGoogleNoticeResponses = {
+    /**
+     * The notice was received
+     */
+    202: unknown;
+};
 
 export type CalendarListSeriesData = {
     body?: never;

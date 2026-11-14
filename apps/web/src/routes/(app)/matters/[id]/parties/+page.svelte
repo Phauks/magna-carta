@@ -158,7 +158,7 @@
         loadFailure = null;
       } else {
         parties = [];
-        loadFailure = stated(result.failure, "The parties on this matter could not be read.");
+        loadFailure = stated(result.failure, "Couldn't load this matter's parties.");
       }
     })();
     return () => {
@@ -253,7 +253,7 @@
     const count = `${String(parties.length)} ${parties.length === 1 ? "party" : "parties"}.`;
     if (!conflictsReadable || posture === null) return count;
     if (posture.latestCheck === null) return `${count} No conflicts check has been run yet.`;
-    if (uncheckedCount === 0) return `${count} The latest conflicts check searched every one.`;
+    if (uncheckedCount === 0) return `${count} The latest conflicts check searched all of them.`;
     return `${count} ${String(uncheckedCount)} ${uncheckedCount === 1 ? "was" : "were"} added after the latest conflicts check.`;
   });
 
@@ -309,7 +309,7 @@
     }
     writeFailure = stated(
       result.failure,
-      "The firm could not be added to this matter.",
+      "Couldn't add the firm to this matter.",
       "Couldn't connect. The matter's parties are unchanged.",
     );
   }
@@ -345,7 +345,7 @@
     }
     writeFailure = stated(
       result.failure,
-      "The party could not be added to this matter.",
+      "Couldn't add the party to this matter.",
       "Couldn't connect. The matter's parties are unchanged.",
     );
   }
@@ -359,7 +359,7 @@
     }
     writeFailure = stated(
       result.failure,
-      "The party could not be removed from this matter.",
+      "Couldn't remove the party from this matter.",
       "The party is still on this matter.",
     );
   }
@@ -380,7 +380,7 @@
   {#if writeFailure !== null}
     <FailureNotice
       failure={writeFailure.failure}
-      title="The Parties Were Not Changed"
+      title="Parties Not Changed"
       fallback={writeFailure.fallback}
       whenSilent={writeFailure.whenSilent}
     />
@@ -447,7 +447,7 @@
                               size="sm"
                               disabled={!mayEdit || addingFirm !== null}
                               title={mayEdit
-                                ? "Put the firm on this matter, so a conflicts check searches it as a party."
+                                ? "Add the firm to this matter so conflicts checks search it as a party."
                                 : linkDisabledReason}
                               onclick={() => void addFirm(party.role, firm)}
                             >

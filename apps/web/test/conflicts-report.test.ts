@@ -110,7 +110,7 @@ describe("a walk that reached the platform's ceiling", () => {
   it("says the walk followed every relationship to closure, and how long the longest chain ran", () => {
     const sheet = checkReportSheet(result(), { printedAt: new Date() });
     expect(fieldValue(sheet, "Relationships")).toBe(
-      "Every recorded relationship, followed to closure",
+      "All recorded relationships, followed to the end",
     );
     expect(fieldValue(sheet, "Longest Chain Followed")).toBe("4");
     expect(fieldValue(sheet, "The Platform's Ceiling")).toBe("10000");
@@ -152,7 +152,7 @@ describe("a walk that reached the platform's ceiling", () => {
 
   it("says which roles a comparison covered, and keeps every-role distinct from a list", () => {
     const sheet = checkReportSheet(result(), { printedAt: new Date() });
-    expect(fieldValue(sheet, "Name Roles Compared")).toBe("Every role the corpus holds");
+    expect(fieldValue(sheet, "Name Roles Compared")).toBe("All roles in the firm's records");
   });
 });
 

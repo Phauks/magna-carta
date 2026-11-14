@@ -17,7 +17,7 @@ as often as you need; every run belongs to the same number, and the check's scre
 opened, across every matter, newest first. Each row leads with the check's number and says when it
 was opened, when it last ran, how many times it has run and where the latest run is, what set that
 run going, who asked for it if anybody did, whether the check is filed on a matter or stands over
-named parties with no matter yet, how widely it matched names, whether your firm's floor widened it,
+named parties with no matter yet, how widely it matched names, whether your firm's minimum widened it,
 and how many candidates it turned up. Open a row to read that check in full. Narrow the log from any
 column's own heading — by trigger, by who asked, by run state — and clear the narrowing from the
 control beside New Check.
@@ -63,7 +63,7 @@ sections that fold, laid out like a check's own report:
 - **Checks**: every check filed on this matter, from the firm's log.
 - **Re-checks**: anything that has changed in the firm's records since the last check that could
   change its answer, your firm's scheduled re-screening, and **Re-check Now**, which runs your
-  firm's floor without asking you anything.
+  firm's minimum without asking you anything.
 
 **New Check** at the top of the matter opens the same form with the matter already filled in. The
 tab is also where the intake checklist sends you, and it keeps working after the intake step is
@@ -147,12 +147,12 @@ other check is preliminary. The check's screen says which one it went into the l
 
 ## What your firm decides, and what it cannot switch off
 
-Under **Settings, Conflicts** an owner or administrator sets your firm's floor: the minimum every
-check searches, whoever runs it. Somebody running a check can search wider than the floor; a narrower
+Under **Settings, Conflicts** an owner or administrator sets your firm's minimum: what every
+check searches, whoever runs it. Somebody running a check can search wider than the minimum; a narrower
 request is raised back up to it before it runs, and the check records that this happened. Nobody can
 search below what your firm requires.
 
-The floor covers what a check searches (names and identifiers, relationships, your own people), how
+The minimum covers what a check searches (names and identifiers, relationships, your own people), how
 widely it must match names, and which of a person's names standard matching compares — current,
 former, maiden, alias, and two more your firm can add. How far a check follows relationships is not a
 setting: every check follows every recorded relationship to the end of the chain.
@@ -163,14 +163,14 @@ compared, because a check that skipped the name someone goes by today would not 
 
 Three things worth knowing before you change it:
 
-- **Changing the floor re-runs nothing.** No check already on your record is altered or repeated. What
+- **Changing the minimum re-runs nothing.** No check already on your record is altered or repeated. What
   happens instead is that any matter whose last check no longer covers what you now require will say
   so on its own Conflicts tab, worked out fresh each time it is read.
-- **Narrowing the floor reduces what your firm will look at from then on**, and no individual check
+- **Narrowing the minimum reduces what your firm will look at from then on**, and no individual check
   records that somebody chose that. This is why the change is kept in your firm's audit trail and why
   only owners and administrators can make it.
 - **What you save is what you are shown.** If you ask for something the platform cannot store as
-  given — a floor without the names-and-identifiers search, for instance — it is repaired on save and
+  given — a minimum without the names-and-identifiers search, for instance — it is repaired on save and
   the screen tells you exactly what was repaired, rather than leaving you to notice a box that moved.
 
 ## What it does

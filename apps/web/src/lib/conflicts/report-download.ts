@@ -133,7 +133,7 @@ export async function downloadReport(
         ? failure.errorId === undefined
           ? failure.message
           : `${failure.message} (Error ID ${failure.errorId})`
-        : "The report could not be produced.";
+        : "Couldn't produce the report.";
     return { kind: "failed", message };
   }
 }

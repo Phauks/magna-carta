@@ -107,8 +107,11 @@ routes requests through the chokepoint into those packages.
   answers that table to its owner and to nobody else, and never asks the provider.
   `request-sync.ts` asks every account with a rule or a shown calendar for a
   pass; the calendar domain's router calls it behind the response of any write that could change
-  what belongs in somebody's calendar. All of it returns early in a deployment with no Microsoft
-  application
+  what belongs in somebody's calendar. `calendar-providers.ts` is the one place that knows there is
+  more than one provider (Microsoft and Google): it hands a sign-in, a pass or a route the
+  provider's application in one shape, found from the connection's `adapter_id`, and a third
+  provider is a package and an entry there. A member holds one calendar account, at one provider.
+  All of it returns early in a deployment registered with no provider
 - `src/progress/` — push progress for job coordinators: the WebSocket frame contract
   (`job-progress-protocol.ts`) and the hibernation-aware socket helper (`job-progress-sockets.ts`)
   that `BundleBuildCoordinator` and `ConversionJob` both use. See the section below.

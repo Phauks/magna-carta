@@ -325,7 +325,7 @@
         presentation = outcome.value;
       } else {
         presentation = null;
-        readFailure = stated(outcome.failure, "The report could not be produced.");
+        readFailure = stated(outcome.failure, "Couldn't produce the report.");
       }
       reading = false;
     })();
