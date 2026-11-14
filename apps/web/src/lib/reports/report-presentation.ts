@@ -154,8 +154,8 @@ export function completenessLine(completeness: ReportCompleteness): string {
     case "complete":
       return "All matters in scope were read.";
     case "complete-not-itemized":
-      return `Totals include ${String(completeness.notItemizedMatterCount)} matters that are not itemized.`;
+      return `Totals include ${String(completeness.notItemizedMatterCount)} matters that aren't itemized.`;
     case "screened":
-      return `${String(completeness.excludedMatterCount)} matters were excluded, so these figures do not tie to the firm's books.`;
+      return `${String(completeness.excludedMatterCount)} matters were excluded, so these figures won't match the firm's books.`;
   }
 }
