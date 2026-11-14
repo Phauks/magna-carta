@@ -43,6 +43,7 @@
     "@magna-carta/email": "workspace:*",
     "@magna-carta/email-filing": "workspace:*",
     "@magna-carta/encryption": "workspace:*",
+    "@magna-carta/exhibits": "workspace:*",
     "@magna-carta/export-document": "workspace:*",
     "@magna-carta/feature-flags": "workspace:*",
     "@magna-carta/fees": "workspace:*",

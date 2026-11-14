@@ -34,6 +34,7 @@ export const OPERATIONS: readonly string[] = [
   "meetings.end",
   "meetings.ensurePersonalRoom",
   "meetings.get",
+  "meetings.getByCode",
   "meetings.getForEvent",
   "meetings.getForFirmEvent",
   "meetings.grantHosting",
