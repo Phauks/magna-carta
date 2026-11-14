@@ -519,6 +519,20 @@
       "when": 1794614587352,
       "tag": "20261114T000307_meeting-addresses",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1794616367516,
+      "tag": "20261114T003247_exhibits",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1794614539382,
+      "tag": "20261114T003558_transfer-pass",
+      "breakpoints": true
     }
   ]
 }

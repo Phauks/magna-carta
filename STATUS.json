@@ -842,7 +842,8 @@
           "by": "Opus 5"
         },
         "built": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Claude"
         },
         "ui": {
           "state": "todo"
@@ -856,7 +857,7 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "Build slice 2·7·1 — the exhibit set, ordering, the computed label, and the freeze at issue.",
+      "next": "Screens (where a member starts building exhibits is with the owner), then the exhibit list document, in-text references and the stamped package.",
       "links": {
         "spec": "docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md",
         "plan": "docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md",

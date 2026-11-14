@@ -29,7 +29,7 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import { administrativeAreasFor } from "@magna-carta/address-formats/administrative-areas";
-  import { postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
+  import { postalCodeAsTypedFor, postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
   import AddressFields from "@magna-carta/design-system/address-fields";
   import { addressLookup } from "$lib/addresses/address-lookup-source.ts";
   import Badge from "@magna-carta/design-system/badge";
@@ -571,6 +571,7 @@
     {countries}
     administrativeAreas={administrativeAreasFor(draft[which].parts.country)}
     postalCodeNote={postalCodeNoteFor}
+    postalCodeAsTyped={postalCodeAsTypedFor}
     lookup={streetLookup}
     disabled={saving}
   />

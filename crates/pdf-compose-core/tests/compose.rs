@@ -11,7 +11,7 @@ use image::codecs::jpeg::JpegEncoder;
 use image::{ImageEncoder, ImageFormat, Rgb, RgbImage, Rgba, RgbaImage};
 use pdf_compose_core::{
     compose, Alignment, Block, Column, ComposeError, ComposedDocument, Field, FontFamily,
-    ImageBlock, PageSetup, Paragraph, RunningLine, Span, Table, Timestamp,
+    ImageBlock, PageSetup, Paragraph, RunningLine, Span, Table, Timestamp, Typeface,
 };
 use pdf_core::Document;
 
@@ -178,6 +178,7 @@ fn a_table_repeats_its_heading_on_every_page_and_loses_no_row() {
                 },
             ],
             rows,
+            banded: false,
         })]),
         &FontFamily::bundled(),
     )
@@ -215,6 +216,7 @@ fn a_cell_longer_than_a_page_is_split_and_not_dropped() {
                 },
             ],
             rows: vec![vec!["A".to_string(), long]],
+            banded: false,
         })]),
         &FontFamily::bundled(),
     )
@@ -236,6 +238,7 @@ fn pictures_are_embedded_and_cover_the_page_where_they_are_drawn() {
                 width: Some(400.0),
                 alignment: Alignment::Center,
                 caption: Some("Exhibit A, taken at the scene".to_string()),
+                ..ImageBlock::default()
             }),
             image_block(jpeg(640, 480, None)),
         ]),
@@ -334,10 +337,12 @@ fn page_breaks_fields_and_running_lines() {
             Field {
                 label: "Matter".to_string(),
                 value: "Rivera v. Northgate Holdings".to_string(),
+                grid: false,
             },
             Field {
                 label: "Opened".to_string(),
                 value: "2026-02-14".to_string(),
+                grid: false,
             },
         ]),
         Block::Rule,
@@ -560,6 +565,47 @@ fn a_compact_document_sets_its_rows_closer_together() {
 }
 
 #[test]
+fn a_letterhead_heads_every_page_in_the_accent_colour() {
+    let json = |letterhead: &str| {
+        format!(
+            r#"{{ "accent": [200, 20, 20], "page": {{ "marginTop": 90 }}, {letterhead}
+                "footer": {{ "center": "Page {{page}} of {{pages}}" }},
+                "blocks": [
+                    {{ "type": "paragraph", "text": "First." }},
+                    {{ "type": "pageBreak" }},
+                    {{ "type": "paragraph", "text": "Second." }},
+                    {{ "type": "fields", "fields": [
+                        {{ "label": "Hash", "value": "b996 78c5\n74a8 ca0a", "grid": true }}
+                    ] }}
+                ] }}"#
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let plain = pdf_compose_core::compose_json(&json(""), &[], &fonts).unwrap();
+    let headed = pdf_compose_core::compose_json(
+        &json(r#""letterhead": { "title": "Certificate of Completion", "detail": "MC-0123" },"#),
+        &[],
+        &fonts,
+    )
+    .unwrap();
+    let pages = page_texts(&headed.pdf);
+    assert_eq!(pages.len(), 2);
+    for page in &pages {
+        assert!(page.contains("Certificate of Completion"), "{page}");
+        assert!(page.contains("MC-0123"), "{page}");
+    }
+    assert!(
+        pages[1].contains("b996 78c5") && pages[1].contains("74a8 ca0a"),
+        "{}",
+        pages[1]
+    );
+    assert!(!page_texts(&plain.pdf)[0].contains("MC-0123"));
+    // The bar and the title are drawn in the accent; without a letterhead nothing is.
+    assert_eq!(red_pixels(&plain.pdf), 0);
+    assert!(red_pixels(&headed.pdf) > 300, "{}", red_pixels(&headed.pdf));
+}
+
+#[test]
 fn a_json_document_that_is_wrong_is_refused_without_quoting_it() {
     let fonts = FontFamily::bundled();
     let misspelt = r#"{ "blocks": [{ "type": "paragraph", "text": "x", "alignement": "end" }] }"#;
@@ -579,4 +625,149 @@ fn a_json_document_that_is_wrong_is_refused_without_quoting_it() {
         pdf_compose_core::compose_json("not json", &[], &fonts).unwrap_err(),
         ComposeError::InvalidDocument { .. }
     ));
+}
+
+/// How many pixels of the first page are a light grey: a shaded band, not ink and not paper.
+fn shaded_pixels(pdf: &[u8]) -> usize {
+    let page = Document::load(pdf.to_vec())
+        .unwrap()
+        .render_page(0, 72.0, false)
+        .unwrap();
+    page.data
+        .chunks_exact(4)
+        .filter(|pixel| pixel[3] > 200 && (225..=250).contains(&pixel[0]) && pixel[0] == pixel[1])
+        .count()
+}
+
+fn dark_pixels(pdf: &[u8]) -> usize {
+    let page = Document::load(pdf.to_vec())
+        .unwrap()
+        .render_page(0, 72.0, false)
+        .unwrap();
+    page.data
+        .chunks_exact(4)
+        .filter(|pixel| pixel[3] > 200 && pixel[0] < 120)
+        .count()
+}
+
+#[test]
+fn a_banded_table_shades_its_heading_and_alternate_rows() {
+    let json = |banded: bool| {
+        let row = r#"["2026-03-01", "Signed", "Maria Rivera"]"#;
+        format!(
+            r#"{{ "blocks": [{{ "type": "table", "banded": {banded},
+                "columns": [{{ "heading": "Time" }}, {{ "heading": "Event" }}, {{ "heading": "By" }}],
+                "rows": [{}] }}] }}"#,
+            [row; 12].join(",")
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let ruled = pdf_compose_core::compose_json(&json(false), &[], &fonts).unwrap();
+    let banded = pdf_compose_core::compose_json(&json(true), &[], &fonts).unwrap();
+    assert!(
+        shaded_pixels(&banded.pdf) > shaded_pixels(&ruled.pdf) + 5_000,
+        "{} against {}",
+        shaded_pixels(&banded.pdf),
+        shaded_pixels(&ruled.pdf)
+    );
+    // Shading changes how a row is told from the next, not what the table says.
+    assert_eq!(page_texts(&ruled.pdf), page_texts(&banded.pdf));
+}
+
+#[test]
+fn the_named_typeface_is_the_family_the_library_bundles_for_it() {
+    let paragraph = |text: &str| {
+        document(vec![Block::Paragraph(Paragraph {
+            spans: vec![Span {
+                text: text.to_string(),
+                ..Span::default()
+            }],
+            ..Paragraph::default()
+        })])
+    };
+    let atkinson = FontFamily::bundled_as(Typeface::AtkinsonHyperlegible);
+    let liberation = FontFamily::bundled_as(Typeface::LiberationSans);
+    let latin = paragraph("Zo\u{eb} O\u{2019}Brien signed 0O1lI");
+    let first = compose(&latin, &atkinson).unwrap();
+    let second = compose(&latin, &liberation).unwrap();
+    assert!(first.missing_characters.is_empty());
+    assert_eq!(page_texts(&first.pdf), page_texts(&second.pdf));
+    assert_ne!(first.pdf, second.pdf);
+    // Atkinson Hyperlegible draws Latin only: a caller sees which letters it lacks and can
+    // compose again in the wider family.
+    let greek = paragraph("\u{391}\u{3bb}\u{3ad}\u{3be}\u{3b7}\u{3c2}");
+    assert!(!compose(&greek, &atkinson)
+        .unwrap()
+        .missing_characters
+        .is_empty());
+    assert!(compose(&greek, &liberation)
+        .unwrap()
+        .missing_characters
+        .is_empty());
+}
+
+#[test]
+fn a_card_frames_its_blocks_and_carries_on_over_a_page_break() {
+    let json = |open: &str, close: &str, rows: usize| {
+        let row = r#"["2026-03-01", "Signed", "Maria Rivera"]"#;
+        format!(
+            r#"{{ "blocks": [{open}
+                {{ "type": "table",
+                  "columns": [{{ "heading": "Time" }}, {{ "heading": "Event" }}, {{ "heading": "By" }}],
+                  "rows": [{}] }}{close}] }}"#,
+            vec![row; rows].join(",")
+        )
+    };
+    let (open, close) = (
+        r#"{ "type": "cardStart", "title": "Audit Log" },"#,
+        r#", { "type": "cardEnd" }"#,
+    );
+    let fonts = FontFamily::bundled();
+    let bare = pdf_compose_core::compose_json(&json("", "", 6), &[], &fonts).unwrap();
+    let carded = pdf_compose_core::compose_json(&json(open, close, 6), &[], &fonts).unwrap();
+    assert!(page_texts(&carded.pdf)[0].contains("Audit Log"));
+    // The card's title sits in a dark bar the bare table does not have, and the column headings
+    // under it lose their shade. The frame itself is held by layout tests: the reader these tests
+    // use does not paint a hairline stroke dark enough to count.
+    assert!(
+        dark_pixels(&carded.pdf) > dark_pixels(&bare.pdf) + 5_000,
+        "{} against {}",
+        dark_pixels(&carded.pdf),
+        dark_pixels(&bare.pdf)
+    );
+    assert!(shaded_pixels(&carded.pdf) < shaded_pixels(&bare.pdf));
+    // The frame does not hold a long table to one page, and a card never closed is closed.
+    let long = pdf_compose_core::compose_json(&json(open, "", 120), &[], &fonts).unwrap();
+    let pages = page_texts(&long.pdf);
+    assert!(pages.len() >= 2, "{}", pages.len());
+    assert_eq!(pages.join("\n").matches("Maria Rivera").count(), 120);
+    assert_eq!(pages.join("\n").matches("Audit Log").count(), 1);
+}
+
+#[test]
+fn fields_set_two_up_take_half_the_rows_and_read_down_each_column() {
+    let json = |two_up: bool| {
+        let fields: Vec<String> = (1..=60)
+            .map(|number| format!(r#"{{ "label": "Label {number}", "value": "Value {number}" }}"#))
+            .collect();
+        format!(
+            r#"{{ "blocks": [{{ "type": "fields", "twoUp": {two_up}, "fields": [{}] }}] }}"#,
+            fields.join(",")
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let single = pdf_compose_core::compose_json(&json(false), &[], &fonts).unwrap();
+    let double = pdf_compose_core::compose_json(&json(true), &[], &fonts).unwrap();
+    assert_eq!(page_texts(&single.pdf).len(), 2);
+    let pages = page_texts(&double.pdf);
+    assert_eq!(pages.len(), 1);
+    for number in 1..=60 {
+        assert!(pages[0].contains(&format!("Value {number}")), "{number}");
+    }
+    // The first row holds the first field and the one that opens the second column.
+    let first_row = pages[0].lines().next().unwrap_or_default();
+    assert!(
+        first_row.contains("Value 1") && first_row.contains("Value 31"),
+        "{first_row}"
+    );
 }

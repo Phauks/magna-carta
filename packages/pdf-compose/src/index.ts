@@ -75,16 +75,43 @@ export type ComposeBlock =
       readonly width?: number;
       readonly alignment?: ComposeAlignment;
       readonly caption?: string;
+      /** A short line set small and bold above the picture, saying what it is. */
+      readonly label?: string;
+      /**
+       * Set this picture on the line of the image block before it, in the second half of the
+       * width, the two starting level. Without a picture directly before it, it stands alone.
+       */
+      readonly beside?: boolean;
     }
   | {
       readonly type: "table";
       readonly columns: readonly ComposeColumn[];
       readonly rows: readonly (readonly string[])[];
+      /** Shade every other row in place of ruling between rows. */
+      readonly banded?: boolean;
     }
   | {
       readonly type: "fields";
-      readonly fields: readonly { readonly label: string; readonly value: string }[];
+      readonly fields: readonly {
+        readonly label: string;
+        readonly value: string;
+        /**
+         * Set the value's words in columns of one width, a line to each line feed, so a value read
+         * in groups (a hash, a serial number) lines up from row to row.
+         */
+        readonly grid?: boolean;
+      }[];
+      /** Two columns side by side, read down the first and then down the second. */
+      readonly twoUp?: boolean;
     }
+  /**
+   * Opens a card: a pale, gently rounded frame around the blocks up to the next `cardEnd`, with
+   * an optional title in a bar in the accent colour across its top. Rows inside a card run from
+   * edge to edge and are ruled off from one another. A card carries on over a page break and
+   * cards do not nest.
+   */
+  | { readonly type: "cardStart"; readonly title?: string }
+  | { readonly type: "cardEnd" }
   | { readonly type: "rule" }
   | { readonly type: "space"; readonly height: number }
   | { readonly type: "pageBreak" };
@@ -107,6 +134,12 @@ export interface ComposeDocument {
   };
   readonly page?: ComposePage;
   /**
+   * Which of the engine's own families the document is set in. Liberation Sans, the default,
+   * covers Latin, Greek and Cyrillic. Atkinson Hyperlegible covers Latin only: check
+   * `missingCharacters` and compose again in Liberation Sans when it is not empty.
+   */
+  readonly typeface?: "liberationSans" | "atkinsonHyperlegible";
+  /**
    * The colour of the title, the first two levels of heading and every rule, as red, green and
    * blue from 0 to 255. Omitted, the document is black and gray.
    */
@@ -116,6 +149,21 @@ export interface ComposeDocument {
    * known amount on one page.
    */
   readonly compact?: boolean;
+  /**
+   * A band in the top margin of every page: a bar in the accent colour, a picture at the left,
+   * a title over a line of detail at the right, and a thin rule beneath. It takes 60 points
+   * above the content, so give the page a top margin of about 90. With a letterhead the footer
+   * is set a little larger under a rule of its own.
+   */
+  readonly letterhead?: {
+    /** The picture's position in the `images` list passed beside the document. */
+    readonly image?: number;
+    readonly title?: string;
+    /** What the detail is, set small and gray before it: "Reference". */
+    readonly label?: string;
+    /** The line under the title, set bold: the document's own number. */
+    readonly detail?: string;
+  };
   readonly header?: ComposeRunningLine;
   readonly footer?: ComposeRunningLine;
   readonly blocks: readonly ComposeBlock[];
@@ -125,7 +173,7 @@ export interface ComposedPdf {
   readonly pdf: Uint8Array;
   readonly pageCount: number;
   /**
-   * Every character the bundled fonts could not draw (they cover Latin, Greek and Cyrillic). Each
+   * Every character the document's typeface could not draw. Each
    * was drawn as an empty box, so a caller that cannot accept one checks that this is empty.
    */
   readonly missingCharacters: readonly string[];

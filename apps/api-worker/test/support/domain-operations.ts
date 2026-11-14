@@ -18,6 +18,7 @@ import { OPERATIONS as matters } from "../../src/http/routes/matters/operations.
 import { OPERATIONS as notesAndTasks } from "../../src/http/routes/notes-and-tasks/operations.ts";
 import { OPERATIONS as notifications } from "../../src/http/routes/notifications/operations.ts";
 import { OPERATIONS as platform } from "../../src/http/routes/platform/operations.ts";
+import { OPERATIONS as recordTransfer } from "../../src/http/routes/record-transfer/operations.ts";
 import { OPERATIONS as session } from "../../src/http/routes/session/operations.ts";
 import { OPERATIONS as support } from "../../src/http/routes/support/operations.ts";
 import { OPERATIONS as timekeeping } from "../../src/http/routes/timekeeping/operations.ts";
@@ -46,4 +47,5 @@ export const DOMAIN_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map
   ["notifications", notifications],
   ["support", support],
   ["developer", developer],
+  ["record-transfer", recordTransfer],
 ]);
