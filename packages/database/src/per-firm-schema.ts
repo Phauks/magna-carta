@@ -181,6 +181,7 @@ import type {
   TimeEntryId,
   TrackingEventId,
   TransferRunId,
+  TransferPassId,
   TransferSourceFileId,
   TrustAccountId,
   TrustAuthorizationPolicyId,
@@ -13160,6 +13161,74 @@ export const transferSourceFile = sqliteTable(
     check(
       "transfer_source_file_read_together_check",
       sql`(${table.rowCount} IS NULL) = (${table.readAt} IS NULL) AND (${table.rowCount} IS NULL OR ${table.rowCount} >= 0)`,
+    ),
+  ],
+);
+
+// One pass over one source file for one kind of record: what was asked for, and how it came out.
+// The mapping rules are kept with the pass, as the operator stated them, so a report can always be
+// read beside the rules that produced it and a pass can be run again unchanged. The rules name
+// columns and the firm's own identifiers. The only words of the file they hold are the ones the
+// operator typed into a lookup: the source's names for matter types and its codes for staff.
+//
+// The full report (every rejected row with its reason) is an object in the firm's storage, because
+// it grows with the file. The row carries the counts, which is what a run's summary adds up.
+// A pass has no status word: `started_at`, `finished_at` and `failed_at` are its three moments, and
+// a new ending is a new column.
+export const transferPass = sqliteTable(
+  "transfer_pass",
+  {
+    id: text("id").primaryKey().$type<TransferPassId>(), // transferPass_ handle
+    transferRunId: text("transfer_run_id")
+      .notNull()
+      .$type<TransferRunId>()
+      .references(() => transferRun.id),
+    transferSourceFileId: text("transfer_source_file_id")
+      .notNull()
+      .$type<TransferSourceFileId>()
+      .references(() => transferSourceFile.id),
+    // Which loader the rows go to: person, organization or matter.
+    recordKind: text("record_kind").notNull(),
+    // The kind the rows are linked under, which is what another file's reference names.
+    sourceKind: text("source_kind").notNull(),
+    rulesJson: text("rules_json").notNull(),
+    reportObjectKey: text("report_object_key").notNull(), // server-minted from the run and pass
+    requestedBy: text("requested_by")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    requestedAt: text("requested_at").notNull(),
+    startedAt: text("started_at"),
+    finishedAt: text("finished_at"),
+    failedAt: text("failed_at"),
+    rowsRead: integer("rows_read"),
+    createdCount: integer("created_count"),
+    alreadyLinkedCount: integer("already_linked_count"),
+    rejectedCount: integer("rejected_count"),
+    waitingCount: integer("waiting_count"),
+    findingCount: integer("finding_count"),
+    columnsMissingCount: integer("columns_missing_count"),
+  },
+  (table) => [
+    uniqueIndex("transfer_pass_report_object_key_unique").on(table.reportObjectKey),
+    index("transfer_pass_run_requested_index").on(table.transferRunId, table.requestedAt, table.id),
+    check(
+      "transfer_pass_record_kind_check",
+      sql`${table.recordKind} IN ('person', 'organization', 'matter')`,
+    ),
+    check(
+      "transfer_pass_nonempty_check",
+      sql`length(${table.sourceKind}) > 0 AND length(${table.rulesJson}) > 0 AND length(${table.reportObjectKey}) > 0`,
+    ),
+    // A pass ends one way, and only after it started.
+    check(
+      "transfer_pass_ending_check",
+      sql`(${table.finishedAt} IS NULL OR ${table.failedAt} IS NULL) AND ((${table.finishedAt} IS NULL AND ${table.failedAt} IS NULL) OR ${table.startedAt} IS NOT NULL)`,
+    ),
+    // The counts arrive together, with the finish, and account for every row.
+    check(
+      "transfer_pass_counts_check",
+      sql`(${table.finishedAt} IS NULL) = (${table.rowsRead} IS NULL) AND (${table.rowsRead} IS NULL OR (${table.createdCount} IS NOT NULL AND ${table.alreadyLinkedCount} IS NOT NULL AND ${table.rejectedCount} IS NOT NULL AND ${table.waitingCount} IS NOT NULL AND ${table.findingCount} IS NOT NULL AND ${table.columnsMissingCount} IS NOT NULL AND ${table.rowsRead} = ${table.createdCount} + ${table.alreadyLinkedCount} + ${table.rejectedCount} + ${table.waitingCount}))`,
     ),
   ],
 );

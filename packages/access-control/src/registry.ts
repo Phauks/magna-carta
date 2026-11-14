@@ -68,6 +68,12 @@ export const PERMISSIONS = [
   // tunes the scanner has not thereby been asked to make it. Binds resource: "firm" — the switch is
   // one answer for the whole firm and names no matter.
   "firm:manageSearchSettings", // read and update the firm's search settings: whether the contents of its files are indexed
+  // Bringing a firm's records in from the system it is leaving: starting a run, giving it the
+  // source files and asking for a pass over one. A pass creates people, organizations and matters in
+  // bulk, with their original numbers and dates, and a source file holds every client the firm has.
+  // That is the firm's act, done a handful of times in its life, so it seeds to Owner/Admin alone
+  // and is no part of directory:edit or matters:create, which let a seat type in one record.
+  "firm:transferRecords", // start a record transfer run, upload its source files, and run and read its passes
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.

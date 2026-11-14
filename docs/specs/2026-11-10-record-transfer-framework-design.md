@@ -131,7 +131,7 @@ Detail belongs to each slice. This table fixes the targets so slices do not drif
 2. **Staging store and the first reader** (built, section 11). The reader is for delimited text, because LEAP's CSV reports are the files the owner can produce without LEAP's help.
 3. **Directory**: people, organizations and contact details are built (section 13). Duplicate handling is not.
 4. **Matters and parties**, with the matter-type and role lookups (built, section 14).
-5. **Rehearsal report**, once there are two record kinds to count. The pass and its per-file report are built (section 15); storing a report and showing it are not.
+5. **Rehearsal report**, once there are two record kinds to count. The pass and its per-file report are built (section 15), and so are the routes that take a file, run a pass on the queue and store its report (section 17). The screens that show them are not.
 6. **Documents and emails.**
 7. **Money**: the per-matter money handling, view-only history and opening balances, the transfer-only path for live entries, the trust gate.
 8. **Matter details, custody, dates and tasks, precedents.**
@@ -311,3 +311,36 @@ Written 2026-11-13, when the owner asked that the lessons of section 12 be taken
 - **A stated record of where every record came from.** The link answers "which file and row did this client come from" for as long as the firm keeps the record, which is what a regulator or a successor firm asks.
 - **Leaving cleanly.** Clio tells departing firms to export reports and keep them. A firm that can see that its records arrived whole can also expect to take them out whole; the same vocabulary of kinds and keys is the natural shape for an export, and an export that the product's own import can read back is the test that it is complete.
 - **A standing feed from another system.** A top-up run repeated on a schedule is a one-way sync. A firm that keeps one system for a time (an accounting package, a court's portal) could be fed from it by the same mechanism, once item 4 is decided.
+
+## 17. The sixth slice: the routes, the queue job and the stored report
+
+Written 2026-11-14. Sections 11 to 15 built what a transfer does to one file. This slice lets a person ask for it: a run can be started, given a file and asked for a pass through the API, and the pass runs away from the request.
+
+**The routes**, all under `/api/v1/record-transfer` and all behind one new permission, `firm:transferRecords`, seeded to the Owner/Admin role alone. A pass creates people, organizations and matters in bulk and a source file holds every client the firm has, so this is no part of `directory:edit` or `matters:create`.
+
+| Route                                      | What it does                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------ |
+| `POST /runs`                               | Starts a run for a source system, with a label                           |
+| `GET /runs`, `GET /runs/{runId}`           | Lists runs; answers one run with its files and its passes                |
+| `POST /runs/{runId}/files`                 | Takes a source file: the body is the file's bytes                        |
+| `GET /runs/{runId}/files/{fileId}/preview` | The header row and the first three data rows                             |
+| `POST /runs/{runId}/passes`                | Asks for a pass: the file, the record kind, the key column and the rules |
+| `GET /runs/{runId}/passes/{passId}`        | How the pass stands, with its counts once it has finished                |
+| `GET /runs/{runId}/passes/{passId}/report` | The whole report, or the reason there is none                            |
+
+**Taking a file.** The bytes go to the firm's bucket first, under the key section 11 defined, and the row second, so a row never names an object that is not there. The file's digest is what stops the same bytes entering one run twice, so the route asks for no idempotency key and answers 409 instead. A file may be at most 32 MiB, because the body is held while its digest is computed. The preview answers values from the file to the member who uploaded it and stores none of them; it exists so a person can say what each column holds.
+
+**A pass is recorded, then run.** `transfer_pass` holds one row per pass: the file, the record kind, the kind its rows are linked under, what the operator stated (the key column, the delimiter and the mapping rules, as JSON), who asked and when, when it started and how it ended, and the report's counts. The request writes that row, an audit row and one outbox message in a single batch and answers 202. The firm's shared job queue carries the message to the consumer, which reads the file from the bucket a piece at a time and hands its rows to `runTransferPass`. The pass runs on the shared queue and not on one of its own, because a queue the account does not have fails the deploy, and a merge to `main` deploys.
+
+**Rules are checked twice.** The request refuses rules that are not the declared shape, a time zone the platform cannot resolve, and a member or matter type the firm does not have; without the last check the pass would stop at the first row that used one. The job checks the shape again, because it reads the rules back as text.
+
+**The report is an object, the counts are columns.** The whole report (every rejected row, every waiting row, every finding, the sample) is stored as one JSON object at `transfers/{run}/passes/{pass}.json`, beside the run's files, so a run's objects share one prefix. The row carries the seven counts, which is all a list of passes needs. The report is stored before the row says the pass finished, so a finished pass always has a report. A database check holds the counts to the rule of section 15: rows read equals created plus already linked plus rejected plus waiting.
+
+**A pass is taken once and never picked up again.** The job takes a pass by writing its start time where there is none, so a second delivery of the same message changes no row and does nothing. A pass ends one of two ways: finished, with counts and a report, or failed, with the reason stored where the report would be. The reasons are fixed: the file's bytes are not held, the file cannot be read as rows (with the reader's own fault and line), the stored rules have lost their shape, or a fault nobody expected, which is also reported through the error pipeline. A pass whose job died has a start and no ending; after twenty minutes a read calls it stalled. Nothing restarts it. The way on from a failed or stalled pass is to ask for the pass again, which is safe for the reason every second pass is safe: each row reads its link before it writes.
+
+**What this slice does not do.**
+
+- **No screen.** The owner chose the file-by-file workspace on 2026-11-14 (the mockup is in the project files, not the repository); it is the next slice and reads only these routes.
+- **One pass is one queue delivery.** The job reads the whole file in one invocation. A file of a few thousand rows fits; a file of several hundred thousand needs the pass to resume from a row number across deliveries, which the row-numbered reader allows and nothing yet does.
+- **Text is read as UTF-8.** A file in another encoding still reads as rows, with letters outside ASCII replaced. A named encoding per file waits for a real export that needs one.
+- **Completing, abandoning and releasing.** The statements that end a run and release a file's bytes exist (sections 5 and 11) and have no route yet. They arrive with accepting a run (section 16, item 1).
