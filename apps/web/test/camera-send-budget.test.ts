@@ -14,11 +14,13 @@ const NEGOTIATED: RTCRtpEncodingParameters[] = [
 describe("the camera's send budget", () => {
   it("writes the ceilings back onto three layers that lost them", () => {
     const wanted = cameraEncodingsFor(NEGOTIATED, false);
-    expect(wanted?.map((encoding) => [encoding.rid, encoding.active, encoding.maxBitrate])).toEqual([
-      ["f", true, 1_200_000],
-      ["h", true, 350_000],
-      ["q", true, 120_000],
-    ]);
+    expect(wanted?.map((encoding) => [encoding.rid, encoding.active, encoding.maxBitrate])).toEqual(
+      [
+        ["f", true, 1_200_000],
+        ["h", true, 350_000],
+        ["q", true, 120_000],
+      ],
+    );
     expect(cameraEncodingsFor(wanted ?? [], false)).toBeNull();
   });
 
