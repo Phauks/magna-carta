@@ -10637,6 +10637,49 @@
         {"name":"tasks.md","total":5,"shipped":3,"units":4,"unitsShipped":2},
         {"name":"translation.md","total":7,"shipped":0,"units":6,"unitsShipped":0}
       ]
+    },
+    {
+      "commit": "9990e793b6ed88551559d073b07bd894e2361566",
+      "date": "2026-11-13",
+      "read": true,
+      "total": 887,
+      "statuses": {"shipped":387,"partial":269,"in-build":3,"designed":50,"planned":7,"researching":6,"not-started":123,"deferred":37,"cut":5},
+      "units": 740,
+      "unitStatuses": {"shipped":366,"partial":154,"in-build":3,"designed":45,"planned":7,"researching":5,"not-started":118,"deferred":37,"cut":5},
+      "areas": [
+        {"name":"ai.md","total":35,"shipped":19,"units":30,"unitsShipped":18},
+        {"name":"auth.md","total":34,"shipped":16,"units":28,"unitsShipped":15},
+        {"name":"calendar.md","total":26,"shipped":17,"units":21,"unitsShipped":15},
+        {"name":"communications.md","total":23,"shipped":6,"units":18,"unitsShipped":6},
+        {"name":"community.md","total":11,"shipped":1,"units":10,"unitsShipped":1},
+        {"name":"conflicts.md","total":10,"shipped":7,"units":8,"unitsShipped":6},
+        {"name":"core-domain.md","total":86,"shipped":43,"units":68,"unitsShipped":38},
+        {"name":"custodian.md","total":12,"shipped":6,"units":11,"unitsShipped":6},
+        {"name":"design-system.md","total":24,"shipped":14,"units":19,"unitsShipped":13},
+        {"name":"discovery.md","total":28,"shipped":10,"units":22,"unitsShipped":8},
+        {"name":"document-automation.md","total":11,"shipped":3,"units":10,"unitsShipped":3},
+        {"name":"documents.md","total":126,"shipped":79,"units":107,"unitsShipped":78},
+        {"name":"exhibits.md","total":9,"shipped":0,"units":8,"unitsShipped":0},
+        {"name":"financial.md","total":80,"shipped":24,"units":64,"unitsShipped":22},
+        {"name":"intake.md","total":9,"shipped":2,"units":8,"unitsShipped":2},
+        {"name":"integrations.md","total":50,"shipped":19,"units":43,"unitsShipped":18},
+        {"name":"maintenance-agents.md","total":12,"shipped":2,"units":10,"unitsShipped":2},
+        {"name":"meetings.md","total":32,"shipped":15,"units":30,"unitsShipped":15},
+        {"name":"notes.md","total":16,"shipped":10,"units":12,"unitsShipped":8},
+        {"name":"notifications.md","total":17,"shipped":4,"units":14,"unitsShipped":4},
+        {"name":"observability.md","total":25,"shipped":16,"units":21,"unitsShipped":15},
+        {"name":"payments.md","total":10,"shipped":0,"units":9,"unitsShipped":0},
+        {"name":"performance.md","total":13,"shipped":6,"units":11,"unitsShipped":6},
+        {"name":"platform.md","total":87,"shipped":34,"units":71,"unitsShipped":34},
+        {"name":"portal.md","total":16,"shipped":0,"units":14,"unitsShipped":0},
+        {"name":"product-updates.md","total":16,"shipped":2,"units":14,"unitsShipped":2},
+        {"name":"release-channels.md","total":9,"shipped":7,"units":8,"unitsShipped":7},
+        {"name":"reports.md","total":12,"shipped":5,"units":11,"unitsShipped":5},
+        {"name":"self-serve.md","total":9,"shipped":1,"units":7,"unitsShipped":1},
+        {"name":"settings.md","total":27,"shipped":16,"units":23,"unitsShipped":16},
+        {"name":"tasks.md","total":5,"shipped":3,"units":4,"unitsShipped":2},
+        {"name":"translation.md","total":7,"shipped":0,"units":6,"unitsShipped":0}
+      ]
     }
   ]
 }
