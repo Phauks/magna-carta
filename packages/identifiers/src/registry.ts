@@ -418,6 +418,16 @@ export const ENTITY_PREFIXES = {
   matterAssetEncumbrance: "matterAssetEncumbrance",
   matterAssetDocument: "matterAssetDocument",
   matterAssetIdentifier: "matterAssetIdentifier",
+  // Exhibits — a matter's documents attached to a filing. A `matterExhibit` is one document's
+  // identity on the matter (it keeps its reference name while its title changes); an `exhibitSet` is
+  // the ordered membership for one filing; an `exhibitSetMember` is a position in a set, and after
+  // the set is issued, a frozen label; an `exhibitReference` records which document version cites
+  // which exhibit; and an `exhibitPackage` is one compiled PDF of a set.
+  matterExhibit: "matterExhibit",
+  exhibitSet: "exhibitSet",
+  exhibitSetMember: "exhibitSetMember",
+  exhibitReference: "exhibitReference",
+  exhibitPackage: "exhibitPackage",
   // The matter's own identity records beyond the shell. A `matterAssignment` is one firm member
   // staffed onto a matter in a named working role (the responsible attorney stays on the matter row
   // itself); a `matterCourtCase` is the matter's court-and-case identity — the court, the case
