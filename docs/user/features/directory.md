@@ -69,18 +69,22 @@ holds what you can do with the record as a whole:
 A record can have a picture: a person's photograph or an organization's logo. It sits in the circle
 beside the name at the top of the window, and the record's initials stand in until there is one.
 
-- **Add a picture**: press the circle (it shows a small camera while it is empty), choose a PNG or
-  JPEG, and drag the picture, or use the arrow keys, until the face sits inside the ring. **Zoom In**
-  and **Zoom Out** enlarge it. Only the square you see is saved, so the rest of the photograph never
-  reaches the firm's storage.
-- **Change, view or remove it**: press the picture. **Change Photo** opens the same cropping window,
-  **View Full Size** opens the picture in a new tab, and **Remove Photo** takes it off the record.
+- **Look at it**: press the picture. It opens large on the same screen, with its size and when it
+  was set, and **Download** saves a copy. Pressing it never changes anything.
+- **Add a picture**: while there is none, press the small camera beside the initials. Drag a picture
+  onto the window or choose one: a JPEG, PNG, WebP, GIF, AVIF, BMP or SVG file, up to 20 MB (the
+  window lists them, and so does the file picker). Drag the picture, or use the arrow keys, until
+  the face sits inside the ring; **Zoom In** and **Zoom Out** enlarge it. Only the square you see is
+  saved, so the rest of the photograph never reaches the firm's storage. A file that is not one of
+  those kinds turns the drop area red. iPhone HEIC photos are not taken yet; save them as JPEG first.
+- **Change or remove it**: press the picture, then **Edit Photo**. The same window opens on the
+  current picture: move or zoom it, drag in a different one, or press **Remove Photo**.
 - When you record a new person, **Add Photo** above the name fields does the same before the person
-  is saved. If the person is saved but the picture is not, a message says so, and you can add it
-  from their record.
+  is saved, and **Edit Photo** changes or removes it. If the person is saved but the picture is not,
+  a message says so, and you can add it from their record.
 
 Adding, changing and removing a picture needs the permission to edit the Directory. Somebody who
-may only read it sees the picture and can open it full size.
+may only read it sees the picture and can open it large.
 
 A record answers the questions the firm keeps an answer to:
 
@@ -92,15 +96,17 @@ A record answers the questions the firm keeps an answer to:
   under. When you record a new person, **Add Other Name** opens a second full set of name fields
   (prefix, first, middle and last name, suffixes) for a maiden name or an alias, with its kind beside
   it; add as many as you need, and one left empty is ignored.
-- **Contact**: one line per way to reach them. Choose the kind first — Email, Telephone or Fax — and
-  the fields follow: an email address is checked as you type; a number takes its country from the
-  dial code and is formatted as you type it, so a Chicago number reads as (312) 555-0148 and a London
-  one as +44 20 7946 0000. Each line has a **Type** (work, home, mobile and so on), and shows whether the person asked the firm not
-  to use it, and which one they prefer. A number that turned out to be disconnected, or mail that
-  came back, is recorded as failed rather than deleted, so the next person does not ring it again.
-  A value entered wrongly is corrected in place: press the pencil on its line and it comes back into
-  the fields it was entered in, so a mistyped digit does not cost you the whole line and everything
-  recorded against it.
+- **Contact**: one line per way to reach them: email addresses, telephone numbers and fax numbers,
+  each with its **Type** (work, home, mobile and so on) and marked **Preferred** if it is the way the
+  person asked to be reached, or **Do not use** if they asked the firm not to. A number that turned
+  out to be disconnected, or mail that came back, is marked as failed rather than deleted, so the next
+  person does not ring it again. To change anything, press **Edit**: every line opens into its
+  fields at once. Correct a value in place (a number keeps its country and extension), switch
+  **Preferred** or **Do not use** on or off, remove a line with its bin, or add one with **Add
+  Email**, **Add Phone** or **Add Fax**. Only one line can be preferred, so switching one on
+  switches the others off. **Save Contact** records it all; **Cancel** leaves the record as it was.
+  A line that is not ready to save is outlined in red. On a new person, lines are entered the way
+  they always were, one at a time under the list.
 - **Address**: the postal addresses the firm holds, entered in the shape the country actually uses.
   Press **Add Address** to open the form. The country is the last field and starts as the United
   States; choosing another re-arranges the boxes above it — an Irish address asks for a county
@@ -141,6 +147,9 @@ A record answers the questions the firm keeps an answer to:
   officers, directors, partners, employees, members, shareholders and points of contact; on a person,
   **Organizations** lists the organizations they belong to. Recording one is choosing the other
   record from the Directory and the kind of relationship, with an optional role and note.
+  The kinds are listed under headings, each in alphabetical order: **Family** (Child, Grandchild,
+  Grandparent, Parent, Sibling, Spouse or partner, Other family) comes first and stands apart from
+  roles somebody was given, such as **Within an organization** and **Legal and fiduciary**.
 - **Matters**: every matter this record is a party to, and in what role.
 - **Categories** (organizations only): the firm's own labels, such as court, expert firm or vendor.
   Assign one from the list, or type a new one and it is created and assigned in one step.

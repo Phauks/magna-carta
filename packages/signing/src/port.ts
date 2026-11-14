@@ -41,6 +41,25 @@ export interface SealRequest {
    * certificate's audit log. Each signer's consent and signature and the seal need not be repeated.
    */
   readonly events?: readonly SigningEvent[];
+  /**
+   * Each signer's signature as they adopted it, a PNG or JPEG, printed on their record in the
+   * certificate's PDF. They stay out of the certificate record, which is plain data. A picture
+   * that cannot be read is left off the sheet; it never stops the seal.
+   */
+  readonly signatureImages?: readonly SignatureImage[];
+  /** The signers' initials as pictures, carried and printed as their signatures are. */
+  readonly initialsImages?: readonly SignatureImage[];
+}
+
+/**
+ * One signature, or one set of initials, as a picture. A signer who adopted more than one (a
+ * drawn signature on one page and a typed one on another) has an entry for each.
+ */
+export interface SignatureImage {
+  readonly signerId: string;
+  readonly image: Uint8Array;
+  /** The pages of the document this one was placed on, counted from 1, where the caller knows. */
+  readonly pages?: readonly number[];
 }
 
 /** The sealed result. */
@@ -77,6 +96,8 @@ interface WireSealRequest {
   seal?: SealMetadata;
   envelope?: SigningEnvelope;
   events?: readonly SigningEvent[];
+  signatureImages?: readonly WirePicture[];
+  initialsImages?: readonly WirePicture[];
 }
 
 interface WireSealResponse {
@@ -87,6 +108,20 @@ interface WireSealResponse {
   certificatePdf: string;
 }
 
+interface WirePicture {
+  signerId: string;
+  image: string;
+  pages?: readonly number[];
+}
+
+function encodePicture(picture: SignatureImage): WirePicture {
+  return { ...picture, image: toBase64(picture.image) };
+}
+
+function decodePicture(picture: WirePicture): SignatureImage {
+  return { ...picture, image: fromBase64(picture.image) };
+}
+
 export function encodeSealRequest(request: SealRequest): string {
   const wire: WireSealRequest = {
     document: toBase64(request.document),
@@ -95,6 +130,8 @@ export function encodeSealRequest(request: SealRequest): string {
     seal: request.seal,
     envelope: request.envelope,
     events: request.events,
+    signatureImages: request.signatureImages?.map(encodePicture),
+    initialsImages: request.initialsImages?.map(encodePicture),
   };
   return JSON.stringify(wire);
 }
@@ -108,6 +145,12 @@ export function decodeSealRequest(json: string): SealRequest {
     seal: wire.seal,
     ...(wire.envelope !== undefined ? { envelope: wire.envelope } : {}),
     ...(wire.events !== undefined ? { events: wire.events } : {}),
+    ...(wire.signatureImages !== undefined
+      ? { signatureImages: wire.signatureImages.map(decodePicture) }
+      : {}),
+    ...(wire.initialsImages !== undefined
+      ? { initialsImages: wire.initialsImages.map(decodePicture) }
+      : {}),
   };
 }
 

@@ -44,7 +44,7 @@ export const SIGNING_EVENT_LABEL: Record<SigningEventKind, string> = {
   reminded: "Reminder Sent",
   viewed: "Viewed",
   "identity-verified": "Identity Verified",
-  consented: "Agreed to Sign Electronically",
+  consented: "Agreed to E-Sign",
   signed: "Signed",
   declined: "Declined",
   reassigned: "Reassigned",
@@ -204,11 +204,17 @@ export function renderCertificateOfCompletion(certificate: CertificateOfCompleti
     if (signer.attribution.observedIp !== undefined) {
       lines.push(`  Observed IP: ${signer.attribution.observedIp}`);
     }
+    if (signer.attribution.location !== undefined) {
+      lines.push(`  Location (by IP address): ${signer.attribution.location}`);
+    }
     if (signer.attribution.userAgent !== undefined) {
       lines.push(`  Browser: ${signer.attribution.userAgent}`);
     }
     if (signer.attribution.proofReference !== undefined) {
       lines.push(`  Identity proof: ${signer.attribution.proofReference}`);
+    }
+    if (signer.attribution.codeDestination !== undefined) {
+      lines.push(`  Code sent to: ${signer.attribution.codeDestination}`);
     }
     lines.push(`  Signature adopted: ${signer.intent.adoption}`);
     lines.push(`  Signatures: ${signer.intent.signatureCount ?? 1}`);

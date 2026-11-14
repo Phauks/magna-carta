@@ -3,20 +3,26 @@
    * A record's picture at the head of its window: a person's photograph or an organization's logo,
    * or their initials until there is one.
    *
-   * WHAT PRESSING IT DOES DEPENDS ON WHAT IS THERE TO DO, so it never opens a menu of one. A record
-   * with no picture, seen by somebody who may edit the directory, opens Add Photo straight away, and
-   * the small camera badge says so. A record with a picture offers Change Photo, View Full Size and
-   * Remove Photo. Somebody who may not edit sees the picture, and pressing it shows it full size.
-   * Initials with nothing to offer are only initials.
+   * PRESSING THE PICTURE ONLY LOOKS AT IT. It opens the picture large, on the same screen, with the
+   * facts about it; changing it is a separate, named act (Edit Photo there), because somebody who
+   * presses a face wants to see it, and landing in an editor they did not ask for is a trap. The
+   * editor is the one place every change is made: re-centre, choose another file, or remove.
+   *
+   * With no picture there is nothing to look at, so the initials are only initials, and somebody
+   * who may edit the directory gets the small camera button beside them that says Add Photo.
    */
   import * as Avatar from "@magna-carta/design-system/avatar";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
-  import { personInitials } from "@magna-carta/design-system/formatters";
+  import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import {
+    formatInstant,
+    formatNumber,
+    personInitials,
+  } from "@magna-carta/design-system/formatters";
   import { toast } from "@magna-carta/design-system/toast";
   import Camera from "@lucide/svelte/icons/camera";
-  import Expand from "@lucide/svelte/icons/expand";
-  import ImageUp from "@lucide/svelte/icons/image-up";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Download from "@lucide/svelte/icons/download";
+  import Pencil from "@lucide/svelte/icons/pencil";
   import {
     entityPhotoHref,
     readDirectoryEntityPhoto,
@@ -24,7 +30,6 @@
     setDirectoryEntityPhoto,
     type DirectoryEntityPhoto,
   } from "./directory-api.ts";
-  import { openBeside } from "$lib/navigation/open-beside.ts";
   import PhotoCropDialog from "./photo-crop-dialog.svelte";
 
   let {
@@ -41,7 +46,7 @@
 
   let photo = $state<DirectoryEntityPhoto | null>(null);
   let cropping = $state(false);
-  let busy = $state(false);
+  let viewing = $state(false);
 
   $effect(() => {
     const id = entityId;
@@ -71,21 +76,29 @@
     return null;
   }
 
-  async function remove(): Promise<void> {
-    if (busy) return;
-    busy = true;
+  async function remove(): Promise<boolean> {
     const outcome = await removeDirectoryEntityPhoto(fetch, entityId, crypto.randomUUID());
-    busy = false;
     if (outcome.kind !== "ok") {
       toast.error("The photo was not removed. Try again.");
-      return;
+      return false;
     }
     photo = null;
     toast.success("Photo removed");
+    return true;
   }
 
-  function viewFullSize(): void {
-    if (href !== null) openBeside(href, "file");
+  function facts(held: DirectoryEntityPhoto): string {
+    return `${formatNumber(held.widthPixels)} by ${formatNumber(held.heightPixels)} pixels · set ${formatInstant(held.updatedAt)}`;
+  }
+
+  /** The name a downloaded picture is saved under: the record's name, and the format's extension. */
+  const downloadName = $derived(
+    `${name.trim() === "" ? "photo" : name.trim()}.${photo?.contentType === "image/png" ? "png" : "jpg"}`,
+  );
+
+  function edit(): void {
+    viewing = false;
+    cropping = true;
   }
 </script>
 
@@ -98,63 +111,69 @@
   </Avatar.Root>
 {/snippet}
 
-{#if photo !== null && mayEdit}
-  <DropdownMenu.Root>
-    <DropdownMenu.Trigger
-      class="shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-focus-ring"
-      aria-label={`Photo of ${name}: change, view or remove`}
-      disabled={busy}
-    >
-      {@render face()}
-    </DropdownMenu.Trigger>
-    <DropdownMenu.Content align="start">
-      <DropdownMenu.Item onSelect={() => (cropping = true)}>
-        <ImageUp class="size-16" aria-hidden="true" />
-        Change Photo
-      </DropdownMenu.Item>
-      <DropdownMenu.Item onSelect={viewFullSize}>
-        <Expand class="size-16" aria-hidden="true" />
-        View Full Size
-      </DropdownMenu.Item>
-      <DropdownMenu.Separator />
-      <DropdownMenu.Item onSelect={() => void remove()}>
-        <Trash2 class="size-16" aria-hidden="true" />
-        Remove Photo
-      </DropdownMenu.Item>
-    </DropdownMenu.Content>
-  </DropdownMenu.Root>
-{:else if photo !== null}
+{#if photo !== null}
   <button
     type="button"
     class="shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-focus-ring"
-    aria-label={`View the photo of ${name} full size`}
-    onclick={viewFullSize}
+    aria-label={`View the photo of ${name}`}
+    title="View Photo"
+    onclick={() => (viewing = true)}
   >
     {@render face()}
   </button>
 {:else if mayEdit}
-  <button
-    type="button"
-    class="relative shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-focus-ring"
-    aria-label={`Add a photo of ${name}`}
-    title="Add Photo"
-    onclick={() => (cropping = true)}
-  >
+  <span class="relative shrink-0">
     {@render face()}
-    <span
-      aria-hidden="true"
-      class="absolute -end-4 -bottom-4 flex size-20 items-center justify-center rounded-full border border-border-default bg-surface-raised"
+    <button
+      type="button"
+      class="absolute -end-4 -bottom-4 flex size-20 items-center justify-center rounded-full border border-border-default bg-surface-raised hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-focus-ring"
+      aria-label={`Add a photo of ${name}`}
+      title="Add Photo"
+      onclick={() => (cropping = true)}
     >
-      <Camera class="size-12" />
-    </span>
-  </button>
+      <Camera class="size-12" aria-hidden="true" />
+    </button>
+  </span>
 {:else}
   {@render face()}
 {/if}
 
+{#if photo !== null && href !== null}
+  <ActionDialog
+    bind:open={viewing}
+    kind="reading"
+    heading="Photo"
+    subtitle={{ facts: [name, facts(photo)] }}
+  >
+    {#snippet fields()}
+      <div class="flex flex-col gap-16">
+        <img
+          src={href}
+          alt={`Photo of ${name}`}
+          class="block aspect-square w-full rounded-md bg-surface-sunken object-cover"
+        />
+        <div class="flex flex-wrap gap-8">
+          {#if mayEdit}
+            <Button variant="secondary" onclick={edit}>
+              <Pencil class="size-16" aria-hidden="true" />
+              Edit Photo
+            </Button>
+          {/if}
+          <Button variant="secondary" {href} download={downloadName}>
+            <Download class="size-16" aria-hidden="true" />
+            Download
+          </Button>
+        </div>
+      </div>
+    {/snippet}
+  </ActionDialog>
+{/if}
+
 <PhotoCropDialog
   bind:open={cropping}
-  heading={photo === null ? "Add Photo" : "Change Photo"}
+  heading={photo === null ? "Add Photo" : "Edit Photo"}
   subject={name}
+  current={href}
   onSave={save}
+  onRemove={remove}
 />

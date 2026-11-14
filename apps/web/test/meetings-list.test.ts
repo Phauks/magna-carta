@@ -38,6 +38,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     id: "meeting_1",
     eventKind: "matter",
     eventId: "matterEvent_1",
+    joinCode: "482917305",
     matterId: "matter_1",
     title: "Hearing preparation",
     startsOn: "2026-09-18",

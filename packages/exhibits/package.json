@@ -1,0 +1,45 @@
+{
+  "name": "@magna-carta/exhibits",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./scheme": "./src/scheme.ts",
+    "./label": "./src/label.ts",
+    "./label-moves": "./src/label-moves.ts",
+    "./presets": "./src/presets.ts",
+    "./types": "./src/types.ts",
+    "./validation": "./src/validation.ts",
+    "./reference-name": "./src/reference-name.ts",
+    "./exhibit-statements": "./src/exhibit-statements.ts",
+    "./exhibit-service": "./src/exhibit-service.ts",
+    "./set-statements": "./src/set-statements.ts",
+    "./set-service": "./src/set-service.ts",
+    "./folder-service": "./src/folder-service.ts",
+    "./member-statements": "./src/member-statements.ts",
+    "./member-service": "./src/member-service.ts",
+    "./queries": "./src/queries.ts",
+    "./issue-service": "./src/issue-service.ts",
+    "./withdrawal-service": "./src/withdrawal-service.ts",
+    "./correction-service": "./src/correction-service.ts",
+    "./supersession-service": "./src/supersession-service.ts",
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

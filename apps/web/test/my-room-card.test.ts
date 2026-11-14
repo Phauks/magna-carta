@@ -19,6 +19,7 @@ let asked: { method: string; path: string }[] = [];
 const ROOM = {
   id: "meetingPersonalRoom_1",
   linkCode: "abcdefghjk",
+  addressName: "trevor",
   medium: "video",
   lobby: "on",
   openMeetingId: null,
@@ -92,7 +93,7 @@ describe("the My Room card", () => {
         (call) => call.method === "POST" && call.path === "/api/v1/meetings/personal-room",
       ),
     ).toBe(true);
-    expect(target.textContent).toContain("/meetings/rooms/abcdefghjk");
+    expect(target.textContent).toContain("/room/trevor");
   });
 
   it("draws a room by its address, with its settings behind the menu", async () => {
@@ -100,7 +101,7 @@ describe("the My Room card", () => {
     instance = mount(Harness, { target, props: {} });
     await settle();
 
-    expect(target.textContent).toContain("/meetings/rooms/abcdefghjk");
+    expect(target.textContent).toContain("/room/trevor");
     expect(button("Open My Room")).toBeDefined();
     expect(button("Copy Link")).toBeDefined();
     // The settings are changed rarely, so they are behind "..." rather than on the card's face.

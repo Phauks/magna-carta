@@ -89,7 +89,6 @@
     speakerViewTile,
   } from "./screen/meeting-tiles.ts";
   import {
-    connectionEvents,
     connectionParticipants,
     connectionUplink,
   } from "./screen/meeting-connection.ts";
@@ -460,7 +459,6 @@
   );
   const uplink = $derived(connectionUplink(client));
   const connectionRoom = $derived(connectionParticipants(client));
-  const wireEvents = $derived(connectionEvents(client.diagnostics.recent));
 
   function toggleSharing(): void {
     if (client.sharing) void client.stopSharing();
@@ -732,7 +730,7 @@
         reactions={reactionsControl}
       >
         {#snippet connection()}
-          <MeetingConnectionPanel {uplink} participants={connectionRoom} events={wireEvents} />
+          <MeetingConnectionPanel {uplink} participants={connectionRoom} />
         {/snippet}
       </MeetingControls>
     </main>
