@@ -19,6 +19,7 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import { statusBadgeAttributes } from "@magna-carta/design-system/status-register";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { formatDate } from "@magna-carta/design-system/formatters";
   import { labelMoves } from "@magna-carta/exhibits/label-moves";
@@ -29,7 +30,6 @@
   import Hash from "@lucide/svelte/icons/hash";
   import Lock from "@lucide/svelte/icons/lock";
   import Pin from "@lucide/svelte/icons/pin";
-  import Plus from "@lucide/svelte/icons/plus";
   import Send from "@lucide/svelte/icons/send";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import { goto } from "$app/navigation";
@@ -363,7 +363,7 @@
                 {#if set.state === "issued"}
                   <Badge variant="info"><Lock class="size-12" aria-hidden="true" />{stateLine(set)}</Badge>
                 {:else}
-                  <Badge variant="neutral">Draft</Badge>
+                  <Badge {...statusBadgeAttributes("draft")}>Draft</Badge>
                 {/if}
                 <span>{countLine(set)}</span>
               </span>
@@ -397,10 +397,7 @@
   <div class="flex min-w-0 flex-1 flex-col gap-16">
     {#if selected === REGISTER}
       <FieldLabel as="h2">All Exhibits on This Matter</FieldLabel>
-      {#if register.length === 0}
-        <EmptyState title="No exhibits on this matter yet." />
-      {:else}
-        <DataTable.Root>
+      <DataTable.Root>
           <DataTable.Caption class="sr-only">Every exhibit on this matter</DataTable.Caption>
           <DataTable.Header>
             <DataTable.Row>
@@ -410,6 +407,9 @@
             </DataTable.Row>
           </DataTable.Header>
           <DataTable.Body>
+            {#if register.length === 0}
+              <DataTable.EmptyRow columns={3} title="No exhibits on this matter yet" />
+            {/if}
             {#each register as exhibit (exhibit.id)}
               <DataTable.Row>
                 <DataTable.Cell class="whitespace-normal">
@@ -436,8 +436,8 @@
             {/each}
           </DataTable.Body>
         </DataTable.Root>
-      {/if}
     {:else if selectedSummary === null}
+      <!-- structured-empty-allow: no set is chosen, so there is no table to frame; this says how to start one -->
       {#if sets !== null}
         <EmptyState
           title={isSample
@@ -476,7 +476,7 @@
               {#if set.state === "issued"}
                 <Badge variant="info"><Lock class="size-12" aria-hidden="true" />{stateLine(set)}</Badge>
               {:else}
-                <Badge variant="neutral">Draft</Badge>
+                <Badge {...statusBadgeAttributes("draft")}>Draft</Badge>
               {/if}
             </h2>
             <Button
@@ -598,16 +598,13 @@
                     : undefined}
                 onclick={() => (addOpen = true)}
               >
-                <Plus class="size-16" aria-hidden="true" />Add Exhibits
+                Add Exhibits
               </Button>
               <span class="text-sm text-text-muted">from this matter's files</span>
             </div>
           {/if}
 
-          {#if rows.length === 0}
-            <EmptyState title="No exhibits in this set yet." />
-          {:else}
-            <DataTable.Root>
+          <DataTable.Root>
               <DataTable.Caption class="sr-only">The exhibits in {set.name}</DataTable.Caption>
               <DataTable.Header>
                 <DataTable.Row>
@@ -623,6 +620,9 @@
                 </DataTable.Row>
               </DataTable.Header>
               <DataTable.Body>
+                {#if rows.length === 0}
+                  <DataTable.EmptyRow columns={isDraft ? 7 : 6} title="No exhibits in this set yet" />
+                {/if}
                 {#each rows as member, index (member.id)}
                   {@const label = isDraft ? draftLabel(index + 1, set.scheme) : member.label}
                   {@const was = movedFrom.get(member.id)}
@@ -751,7 +751,6 @@
                 {/each}
               </DataTable.Body>
             </DataTable.Root>
-          {/if}
 
           <AddExhibitsDialog bind:open={addOpen} {set} {register} onAdded={refreshAll} />
           <NumberingDialog bind:open={numberingOpen} {set} onChanged={refreshAll} />

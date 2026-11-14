@@ -108,7 +108,7 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Numbering"
+  heading="Change Numbering"
   commitLabel="Save Numbering"
   commitBusyLabel="Saving"
   commitRefusal={refusal}

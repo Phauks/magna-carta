@@ -59,6 +59,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`attorney-license-lookup.md`](attorney-license-lookup.md) — Attorney License Lookup: the official register where each state verifies a lawyer's licence and standing, why Magna Carta sends you there rather than answering for you, and the two states whose register is not encrypted.
 - [`safe-website-viewer.md`](safe-website-viewer.md) — Safe Website Viewer: what a suspicious link leads to, seen from an isolated remote browser (screen shipped; captures wait on the rendering service being enabled).
 - [`metadata-inspector-scrubber.md`](metadata-inspector-scrubber.md) — Metadata Inspector & Scrubber (stub; backend built, screens pending).
+- [`exhibits.md`](exhibits.md) — Exhibits: making a set from a folder or by hand, putting exhibits in order, numbering, marking a set as filed, and withdrawing an exhibit.
 - [`file-hash-integrity.md`](file-hash-integrity.md) — File Hash & Integrity (stub; backend built, screens pending).
 - [`file-workbench.md`](file-workbench.md) — File Workbench: the screen in the sidebar that a file belonging to no matter is dropped on, where its real type, its fingerprints and every other file capability are read in one place — including for a file the scanner flagged.
 - [`pdf-editor.md`](pdf-editor.md) — PDF Editor: change a PDF on a matter, saving each change as a new file beside the original. Redact is the first tool.

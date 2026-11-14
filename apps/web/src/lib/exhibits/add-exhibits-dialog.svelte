@@ -149,7 +149,7 @@
       {:else if shown.length === 0}
         <EmptyState title="No files match that search." />
       {:else}
-        <ul class="flex max-h-96 flex-col overflow-y-auto">
+        <ul class="mc-scrollbar flex max-h-96 flex-col overflow-y-auto">
           {#each shown as file (file.id)}
             {@const id = `exhibit-file-${file.id}`}
             <li class="flex items-center gap-8 border-b border-border-subtle py-8">

@@ -30,7 +30,13 @@ import {
 import { outcomeOf } from "$lib/api/api-client.ts";
 import type { ApiOutcome } from "$lib/api/request.ts";
 
-export type { ExhibitScheme, ExhibitSchemePresets, ExhibitSetDetail, ExhibitSetSummary, MatterExhibit };
+export type {
+  ExhibitScheme,
+  ExhibitSchemePresets,
+  ExhibitSetDetail,
+  ExhibitSetSummary,
+  MatterExhibit,
+};
 export type ExhibitSetMember = ExhibitSetDetail["members"][number];
 export type ExhibitDisposition = "filed" | "served" | "exchanged" | "lodged";
 
@@ -56,7 +62,9 @@ async function attempt<T>(call: () => Promise<{ data: T }>): Promise<ApiOutcome<
 
 /** Every page of a cursor-paged read, in order, or the first failure. */
 async function everyPage<Item>(
-  read: (cursor: string | undefined) => Promise<{ data: { data: Item[]; nextCursor: string | null } }>,
+  read: (
+    cursor: string | undefined,
+  ) => Promise<{ data: { data: Item[]; nextCursor: string | null } }>,
 ): Promise<ApiOutcome<Item[]>> {
   const items: Item[] = [];
   let cursor: string | undefined;

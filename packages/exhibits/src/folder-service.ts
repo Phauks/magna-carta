@@ -123,7 +123,6 @@ async function readReferenceNames(database: SqlDatabase, matterId: MatterId): Pr
   return new Set(results.map((row) => row.reference_name));
 }
 
-
 /**
  * The exhibits the files need: an existing one where the file already is an exhibit, otherwise a
  * new one, with a reference name minted against the matter's names AND the names minted earlier in

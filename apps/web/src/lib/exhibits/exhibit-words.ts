@@ -39,10 +39,11 @@ export const SEQUENCE_CHOICES: readonly { value: ExhibitScheme["sequence"]; labe
 ];
 
 /** What comes after Z, for the two letter styles. */
-export const OVERFLOW_CHOICES: readonly { value: ExhibitScheme["overflowForm"]; label: string }[] = [
-  { value: "doubled", label: "AA, BB, CC" },
-  { value: "bijective", label: "AA, AB, AC" },
-];
+export const OVERFLOW_CHOICES: readonly { value: ExhibitScheme["overflowForm"]; label: string }[] =
+  [
+    { value: "doubled", label: "AA, BB, CC" },
+    { value: "bijective", label: "AA, AB, AC" },
+  ];
 
 export function isLetterSequence(sequence: ExhibitScheme["sequence"]): boolean {
   return sequence === "upperLetter" || sequence === "lowerLetter";

@@ -74,7 +74,7 @@
 <ActionDialog
   bind:open
   kind="form"
-  heading="Mark as Filed"
+  heading="Record That the Set Went Out"
   commitLabel="Mark as Filed"
   commitBusyLabel="Marking"
   commitRefusal={refusal}
