@@ -60,6 +60,10 @@ export type MatterScopedObjectClass =
   | "playable-copy"
   // A purchased carrier label, when the shipment it belongs to names a matter.
   | "shipping-label"
+  // A signature or initials a signer adopted on a signing request (a PNG), kept under the request
+  // until its signed copy is sealed. A RECORD of what the signer adopted, belonging to the matter of
+  // the document they signed.
+  | "signing-mark"
   // The frozen list of review documents one bulk coding act executed against, resolved once at
   // initiation. It is a list of handles and nothing else — no content, no names — and it belongs to
   // the one matter its review set does. A RECORD rather than a cache: "which documents did that act
@@ -150,6 +154,7 @@ export const MATTER_SCOPED_OBJECT_CLASSES: readonly MatterScopedObjectClass[] = 
   "export-copy",
   "playable-copy",
   "shipping-label",
+  "signing-mark",
   "review-coding-selection",
   "search-split",
   "review-extracted-text",

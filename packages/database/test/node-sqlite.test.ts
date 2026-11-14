@@ -232,6 +232,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Billing")).not.toContain("discovery:review");
     expect(grantsFor("Read-only")).not.toContain("discovery:read");
     expect(grantsFor("Read-only")).not.toContain("discovery:review");
+    expect(grantsFor("Admin")).toEqual(expect.arrayContaining(["esign:send", "esign:sign"]));
+    expect(grantsFor("Attorney")).toEqual(expect.arrayContaining(["esign:send", "esign:sign"]));
+    expect(grantsFor("Billing")).not.toContain("esign:send");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
@@ -289,6 +292,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:file",
         "emails:manageLinks",
         "emails:read",
+        // A paralegal prepares and sends a document for signature as ordinary work, and signs one too.
+        "esign:send",
+        "esign:sign",
         "exhibits:issue",
         "exhibits:manage",
         "files:organize",
@@ -397,6 +403,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // whoever collects it.
         "downloads:shelf",
         "emails:read",
+        "esign:sign",
         // Writing one's own name reaches every seat, Read-only included: it is the platform's
         // one self-scoped mutation, and every statement behind it is scoped to the session's
         // own user id.
@@ -456,6 +463,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "custody:read",
         "downloads:shelf",
         "emails:read",
+        // Signing what the firm sends one is every seat's own act, the way an outside signer's is.
+        "esign:sign",
         // Writing one's own name reaches every seat, Read-only included: it is the platform's
         // one self-scoped mutation, and every statement behind it is scoped to the session's
         // own user id.
