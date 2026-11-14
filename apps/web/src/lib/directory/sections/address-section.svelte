@@ -72,7 +72,7 @@
     onEdit?: (row: ContactRow) => AddressDraft;
     onChange?: (row: ContactRow, draft: AddressDraft) => void;
     onRemove?: (row: ContactRow) => void;
-    onPreferred?: (row: ContactRow) => void;
+    onPreferred?: (row: ContactRow, preferred: boolean) => void;
     onPermitted?: (row: ContactRow, permitted: boolean) => void;
   } = $props();
 
@@ -238,16 +238,20 @@
                 <PenLine class="size-16" aria-hidden="true" />
               </Button>
             {/if}
-            {#if onPreferred !== undefined && !row.state.preferred}
+            {#if onPreferred !== undefined}
               <Button
                 variant="ghost"
                 size="icon"
                 disabled={!canEdit || busyId === row.id}
-                title={editDisabledReason ?? "Make this the preferred way to reach them"}
+                title={editDisabledReason ??
+                  (row.state.preferred
+                    ? "Stop preferring this way to reach them"
+                    : "Make this the preferred way to reach them")}
                 aria-label="Prefer {row.value}"
-                onclick={() => onPreferred?.(row)}
+                aria-pressed={row.state.preferred}
+                onclick={() => onPreferred?.(row, !row.state.preferred)}
               >
-                <Star class="size-16" aria-hidden="true" />
+                <Star class="size-16 {row.state.preferred ? 'fill-current text-accent-default' : ''}" aria-hidden="true" />
               </Button>
             {/if}
             {#if onPermitted !== undefined}
