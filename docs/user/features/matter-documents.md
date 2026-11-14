@@ -237,6 +237,8 @@ Two things are outside them. Deleting a **folder** cannot be undone; when you de
 says so and points you at **Deleted Files**, where the documents it held can still be brought back
 one by one. And undo does not survive a reload: it is for the change you just made.
 
+A deleted file waits in **Deleted Files** for as long as your firm has chosen, 30 days unless it chose otherwise, and the **Leaves Trash** column says when that is. After it the file moves to cheaper archive storage and the column says **Archived**, but it can still be brought back the same way. Nothing in Deleted Files is ever destroyed. See [Deleted files](../admin/deleted-files.md).
+
 ### Where you are in the folders
 
 The strip above the list is the path to the folder you are in, starting at the home icon. Home is

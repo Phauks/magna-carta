@@ -22,6 +22,8 @@ export const OPERATIONS: readonly string[] = [
   "customFields.setValue",
   "customFields.unarchiveField",
   "customFields.valueHistory",
+  "deletedFilePolicy.get",
+  "deletedFilePolicy.update",
   "documentTypes.create",
   "documentTypes.deactivate",
   "documentTypes.list",
