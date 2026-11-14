@@ -3,13 +3,21 @@
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity` and `reports.operationalVolumes` in
- * apps/api-worker/openapi/openapi.json. apps/web hand-writes the shapes it reads (the transport seam
- * in $lib/api/request.ts says why). Field names stay as served.
+ * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
+ * served.
  *
  * THE OFFICE IS A FILTER, NEVER A GATE. Each read takes an optional office; absent, it is the whole
  * firm with every office subtotalled.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import {
+  reportsAccountsReceivableAging,
+  reportsOperationalVolumes,
+  reportsRealization,
+  reportsTimekeeperProductivity,
+  reportsWorkInProgress,
+} from "@magna-carta/api-client";
+import { outcomeOf } from "$lib/api/api-client.ts";
+import type { ApiOutcome } from "$lib/api/request.ts";
 import type { ReportCompleteness } from "./report-presentation.ts";
 import type { ReportReproducibility } from "./reports-api.ts";
 
@@ -228,37 +236,52 @@ export interface OperationalVolumes {
   costs: { disbursementClass: "hard" | "soft"; count: number }[];
 }
 
-function withOptional(
-  search: URLSearchParams,
-  values: Readonly<Record<string, string | null | undefined>>,
-): string {
-  for (const [name, value] of Object.entries(values)) {
-    if (value !== null && value !== undefined) search.set(name, value);
+/** A null filter is left off the query: the contract reads an absent parameter as "the whole firm". */
+function present(value: string | null): string | undefined {
+  return value ?? undefined;
+}
+
+/*
+ * Each read goes through the generated client (`@magna-carta/api-client`), handed the route's own
+ * fetch so the load's preload reaches it. The wire shapes above are this surface's reading of the
+ * response; the presenters are written against them.
+ */
+async function outcome<T>(call: () => Promise<{ data: unknown }>): Promise<ApiOutcome<T>> {
+  try {
+    const { data } = await call();
+    return { kind: "ok", value: data as T };
+  } catch (error) {
+    return outcomeOf<T>(error);
   }
-  return search.toString();
 }
 
 export function readAccountsReceivableAging(
   fetchImpl: typeof fetch,
   query: { asOfDate: string; knownAsOf: string | null; locationId: string | null },
 ): Promise<ApiOutcome<AccountsReceivableAging>> {
-  const search = withOptional(new URLSearchParams({ asOfDate: query.asOfDate }), {
-    knownAsOf: query.knownAsOf,
-    locationId: query.locationId,
-  });
-  return requestJson(fetchImpl, `/api/v1/reports/accounts-receivable-aging?${search}`);
+  return outcome(() =>
+    reportsAccountsReceivableAging({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        asOfDate: query.asOfDate,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
 }
 
 export function readWorkInProgress(
   fetchImpl: typeof fetch,
   query: { locationId: string | null },
 ): Promise<ApiOutcome<WorkInProgress>> {
-  const search = withOptional(new URLSearchParams(), { locationId: query.locationId });
-  return requestJson(
-    fetchImpl,
-    search === ""
-      ? "/api/v1/reports/work-in-progress"
-      : `/api/v1/reports/work-in-progress?${search}`,
+  return outcome(() =>
+    reportsWorkInProgress({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
   );
 }
 
@@ -273,11 +296,18 @@ export function readRealization(
   fetchImpl: typeof fetch,
   query: PeriodQuery,
 ): Promise<ApiOutcome<Realization>> {
-  const search = withOptional(
-    new URLSearchParams({ periodStart: query.periodStart, periodEnd: query.periodEnd }),
-    { knownAsOf: query.knownAsOf, locationId: query.locationId },
+  return outcome(() =>
+    reportsRealization({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
   );
-  return requestJson(fetchImpl, `/api/v1/reports/realization?${search}`);
 }
 
 /** Live only: the read takes no knowledge instant, so this call cannot pass one. */
@@ -285,20 +315,33 @@ export function readTimekeeperProductivity(
   fetchImpl: typeof fetch,
   query: Omit<PeriodQuery, "knownAsOf">,
 ): Promise<ApiOutcome<TimekeeperProductivity>> {
-  const search = withOptional(
-    new URLSearchParams({ periodStart: query.periodStart, periodEnd: query.periodEnd }),
-    { locationId: query.locationId },
+  return outcome(() =>
+    reportsTimekeeperProductivity({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        locationId: present(query.locationId),
+      },
+    }),
   );
-  return requestJson(fetchImpl, `/api/v1/reports/timekeeper-productivity?${search}`);
 }
 
 export function readOperationalVolumes(
   fetchImpl: typeof fetch,
   query: PeriodQuery,
 ): Promise<ApiOutcome<OperationalVolumes>> {
-  const search = withOptional(
-    new URLSearchParams({ periodStart: query.periodStart, periodEnd: query.periodEnd }),
-    { knownAsOf: query.knownAsOf, locationId: query.locationId },
+  return outcome(() =>
+    reportsOperationalVolumes({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
   );
-  return requestJson(fetchImpl, `/api/v1/reports/operational-volumes?${search}`);
 }

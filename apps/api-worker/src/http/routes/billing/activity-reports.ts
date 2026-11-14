@@ -1,5 +1,18 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { identifierField } from "@magna-carta/identifiers/field";
+import {
+  OperationalBillingCounts,
+  OperationalCostCount,
+  OperationalMatterCount,
+  OperationalSections,
+  OperationalTrustCount,
+  ProductivityClientRow,
+  ProductivityFigures,
+  ProductivityNonBillableCategoryRow,
+  ProductivityOfficeRow,
+  ProductivityTaskCodeRow,
+  ProductivityTimekeeperRow,
+} from "@magna-carta/reporting/contract";
 import { assembleOperationalVolumes } from "@magna-carta/reporting/operational/operational-volumes";
 import { assembleTimekeeperProductivity } from "@magna-carta/reporting/productivity/timekeeper-productivity";
 import { ReportingValidationError } from "@magna-carta/reporting/reporting-validation";
@@ -26,14 +39,6 @@ import {
 
 const PRODUCTIVITY = "reports:productivity" as const;
 
-const ProductivityFigures = z.object({
-  entryCount: z.number().int(),
-  billableMinutes: z.number().int(),
-  nonBillableMinutes: z.number().int(),
-  totalMinutes: z.number().int(),
-  billableShareBasisPoints: z.number().int().nullable(),
-});
-
 const TimekeeperProductivityResponse = z
   .object({
     periodStart: z.string(),
@@ -44,42 +49,11 @@ const TimekeeperProductivityResponse = z
     locationId: z.string().nullable(),
     completeness: ReportCompleteness,
     totals: ProductivityFigures,
-    timekeepers: z.array(
-      z.object({
-        timekeeperUserId: z.string(),
-        timekeeperName: z.string().nullable(),
-        matterCount: z.number().int(),
-        figures: ProductivityFigures,
-      }),
-    ),
-    offices: z.array(
-      z.object({
-        locationId: z.string().nullable(),
-        locationName: z.string().nullable(),
-        figures: ProductivityFigures,
-      }),
-    ),
-    clients: z.array(
-      z.object({
-        clientEntityId: z.string().nullable(),
-        clientName: z.string().nullable(),
-        figures: ProductivityFigures,
-      }),
-    ),
-    nonBillableCategories: z.array(
-      z.object({
-        categoryId: z.string().nullable(),
-        categoryName: z.string().nullable(),
-        minutes: z.number().int(),
-      }),
-    ),
-    taskCodes: z.array(
-      z.object({
-        code: z.string().nullable(),
-        label: z.string().nullable(),
-        figures: ProductivityFigures,
-      }),
-    ),
+    timekeepers: z.array(ProductivityTimekeeperRow),
+    offices: z.array(ProductivityOfficeRow),
+    clients: z.array(ProductivityClientRow),
+    nonBillableCategories: z.array(ProductivityNonBillableCategoryRow),
+    taskCodes: z.array(ProductivityTaskCodeRow),
   })
   .openapi("TimekeeperProductivityReport");
 
@@ -144,40 +118,13 @@ const OperationalVolumesResponse = z
     locationId: z.string().nullable(),
     reproducibility: ReportReproducibility,
     reproducibilityStatement: z.string(),
-    liveSections: z.array(z.enum(["matters", "billing", "trust", "costs"])),
+    liveSections: z.array(OperationalSections),
     liveSectionsStatement: z.string(),
     completeness: ReportCompleteness,
-    matters: z.array(
-      z.object({
-        measure: z.enum(["opened", "closed"]),
-        matterTypeId: z.string().nullable(),
-        matterTypeName: z.string().nullable(),
-        count: z.number().int(),
-      }),
-    ),
-    billing: z.object({
-      billsDrafted: z.number().int(),
-      billsFinalized: z.number().int(),
-      draftsVoided: z.number().int(),
-      creditNotesIssued: z.number().int(),
-      writeOffs: z.number().int(),
-    }),
-    trust: z.array(
-      z.object({
-        measure: z.enum([
-          "movement",
-          "disbursement-requested",
-          "disbursement-decided",
-          "reconciliation-opened",
-          "reconciliation-closed",
-        ]),
-        detail: z.string().nullable(),
-        count: z.number().int(),
-      }),
-    ),
-    costs: z.array(
-      z.object({ disbursementClass: z.enum(["hard", "soft"]), count: z.number().int() }),
-    ),
+    matters: z.array(OperationalMatterCount),
+    billing: OperationalBillingCounts,
+    trust: z.array(OperationalTrustCount),
+    costs: z.array(OperationalCostCount),
   })
   .openapi("OperationalVolumesReport");
 

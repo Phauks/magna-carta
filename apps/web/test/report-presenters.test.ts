@@ -62,7 +62,7 @@ describe("the aging presenter", () => {
     expect(clients?.rowDetails?.map((details) => details.length)).toEqual(
       aging.clients.map((client) => client.matters.length),
     );
-    expect(clients?.aside).toBe("Every matter in scope was read.");
+    expect(clients?.aside).toBe("All matters in scope were read.");
     const file = reportExportDocument(presentation, new Date("2026-08-01T00:00:00Z"));
     const fileClients = file.sections.find((section) => section.title === "By Client");
     expect(fileClients?.rows).toHaveLength(aging.clients.length * 2);

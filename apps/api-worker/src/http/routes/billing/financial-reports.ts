@@ -1,5 +1,17 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { identifierField } from "@magna-carta/identifiers/field";
+import {
+  AgingClientRow,
+  AgingOfficeRow,
+  AgingTotals,
+  RealizationClientRow,
+  RealizationFigures,
+  RealizationOfficeRow,
+  WorkInProgressClientRow,
+  WorkInProgressFigures,
+  WorkInProgressOfficeRow,
+  WorkInProgressTimekeeperRow,
+} from "@magna-carta/reporting/contract";
 import { assembleAccountsReceivableAging } from "@magna-carta/reporting/financial/accounts-receivable-aging";
 import { assembleRealization } from "@magna-carta/reporting/financial/realization";
 import { assembleWorkInProgress } from "@magna-carta/reporting/financial/work-in-progress";
@@ -34,16 +46,15 @@ const agingQuery = z.object({
   locationId: identifierField("location").optional(),
 });
 
-const AgingFigures = z.array(z.number().int()).length(5);
+// Deliberately no date and no knowledge instant: accepting one and answering with today's figures
+// would answer a question about the past with a figure about the present.
+const workInProgressQuery = z.object({ locationId: identifierField("location").optional() });
 
-const AgingMatterRow = z.object({
-  matterId: z.string(),
-  matterTitle: z.string(),
-  matterNumber: z.string().nullable(),
-  locationId: z.string().nullable(),
-  locationName: z.string().nullable(),
-  unpaidMinor: AgingFigures,
-  totalMinor: z.number().int(),
+const realizationQuery = z.object({
+  periodStart: civilDate,
+  periodEnd: civilDate,
+  knownAsOf: knowledgeInstant.optional(),
+  locationId: identifierField("location").optional(),
 });
 
 const AccountsReceivableAgingResponse = z
@@ -54,28 +65,9 @@ const AccountsReceivableAgingResponse = z
     reproducibility: ReportReproducibility,
     reproducibilityStatement: z.string(),
     completeness: ReportCompleteness,
-    totals: z.object({
-      unpaidMinor: AgingFigures,
-      totalMinor: z.number().int(),
-      invoiceCount: AgingFigures.nullable(),
-    }),
-    offices: z.array(
-      z.object({
-        locationId: z.string().nullable(),
-        locationName: z.string().nullable(),
-        unpaidMinor: AgingFigures,
-        totalMinor: z.number().int(),
-      }),
-    ),
-    clients: z.array(
-      z.object({
-        clientEntityId: z.string(),
-        clientName: z.string().nullable(),
-        unpaidMinor: AgingFigures,
-        totalMinor: z.number().int(),
-        matters: z.array(AgingMatterRow),
-      }),
-    ),
+    totals: AgingTotals,
+    offices: z.array(AgingOfficeRow),
+    clients: z.array(AgingClientRow),
   })
   .openapi("AccountsReceivableAgingReport");
 
@@ -126,14 +118,6 @@ const agingRoute = defineOpenAPIRoute(agingMeta, {
   },
 });
 
-const WorkInProgressFigures = z.object({
-  timeMinutes: z.number().int(),
-  timeMinor: z.number().int(),
-  costMinor: z.number().int(),
-  onDraftMinor: z.number().int(),
-  totalMinor: z.number().int(),
-});
-
 const WorkInProgressResponse = z
   .object({
     computedAt: z.string(),
@@ -143,37 +127,9 @@ const WorkInProgressResponse = z
     currency: z.literal("USD"),
     completeness: ReportCompleteness,
     totals: WorkInProgressFigures,
-    offices: z.array(
-      z.object({
-        locationId: z.string().nullable(),
-        locationName: z.string().nullable(),
-        figures: WorkInProgressFigures,
-      }),
-    ),
-    clients: z.array(
-      z.object({
-        clientEntityId: z.string().nullable(),
-        clientName: z.string().nullable(),
-        figures: WorkInProgressFigures,
-        matters: z.array(
-          z.object({
-            matterId: z.string(),
-            matterTitle: z.string(),
-            matterNumber: z.string().nullable(),
-            locationId: z.string().nullable(),
-            locationName: z.string().nullable(),
-            figures: WorkInProgressFigures,
-          }),
-        ),
-      }),
-    ),
-    timekeepers: z.array(
-      z.object({
-        timekeeperUserId: z.string(),
-        timekeeperName: z.string().nullable(),
-        figures: WorkInProgressFigures,
-      }),
-    ),
+    offices: z.array(WorkInProgressOfficeRow),
+    clients: z.array(WorkInProgressClientRow),
+    timekeepers: z.array(WorkInProgressTimekeeperRow),
   })
   .openapi("WorkInProgressReport");
 
@@ -184,9 +140,7 @@ const workInProgressRoute = defineOpenAPIRoute(
     path: "/api/v1/reports/work-in-progress",
     description:
       "Unbilled time and costs as they stand now, per office, client, matter and timekeeper, with the work already on a draft bill shown in its own column. Live only: time and cost entries can be edited until they are billed and record no date for when that happened, so this report takes no date and no knowledge instant, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
-    // Deliberately no date and no knowledge instant: accepting one and answering with today's
-    // figures would answer a question about the past with a figure about the present.
-    request: { query: z.object({ locationId: identifierField("location").optional() }) },
+    request: { query: workInProgressQuery },
     responses: {
       200: {
         description: "The work in progress now",
@@ -216,13 +170,6 @@ const workInProgressRoute = defineOpenAPIRoute(
   },
 );
 
-const RealizationFigures = z.object({
-  standardValueMinor: z.number().int(),
-  billedMinor: z.number().int(),
-  creditedMinor: z.number().int(),
-  appliedMinor: z.number().int(),
-});
-
 const RealizationResponse = z
   .object({
     periodStart: z.string(),
@@ -235,30 +182,8 @@ const RealizationResponse = z
     standardValueStatement: z.string(),
     completeness: ReportCompleteness,
     totals: RealizationFigures,
-    offices: z.array(
-      z.object({
-        locationId: z.string().nullable(),
-        locationName: z.string().nullable(),
-        figures: RealizationFigures,
-      }),
-    ),
-    clients: z.array(
-      z.object({
-        clientEntityId: z.string().nullable(),
-        clientName: z.string().nullable(),
-        figures: RealizationFigures,
-        matters: z.array(
-          z.object({
-            matterId: z.string(),
-            matterTitle: z.string(),
-            matterNumber: z.string().nullable(),
-            locationId: z.string().nullable(),
-            locationName: z.string().nullable(),
-            figures: RealizationFigures,
-          }),
-        ),
-      }),
-    ),
+    offices: z.array(RealizationOfficeRow),
+    clients: z.array(RealizationClientRow),
   })
   .openapi("RealizationReport");
 
@@ -269,14 +194,7 @@ const realizationRoute = defineOpenAPIRoute(
     path: "/api/v1/reports/realization",
     description:
       "For a period, per office, client and matter: the standard value of the time worked, what was billed, what was credited or written off, and what was applied against the bills. Billed, credited and applied re-derive from records that never change when a knowledge instant is given; the standard value is live, because time entries can be edited until billed, and the response says so beside the other three. Applied means set against a bill; the platform records no cash arriving. Choosing an office narrows the rows; it does not limit who may run the report.",
-    request: {
-      query: z.object({
-        periodStart: civilDate,
-        periodEnd: civilDate,
-        knownAsOf: knowledgeInstant.optional(),
-        locationId: identifierField("location").optional(),
-      }),
-    },
+    request: { query: realizationQuery },
     responses: {
       200: {
         description: "The realization for this period",
