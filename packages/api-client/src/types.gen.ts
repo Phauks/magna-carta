@@ -1906,6 +1906,137 @@ export type OperationalVolumesReport = {
     }>;
 };
 
+export type InvoicesReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        invoiceCount: number;
+        billedMinor: number;
+        creditedMinor: number;
+        appliedMinor: number;
+        unpaidMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            invoiceCount: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+            unpaidMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        figures: {
+            invoiceCount: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+            unpaidMinor: number;
+        };
+        invoices: Array<{
+            invoiceId: string;
+            invoiceNumber: string | null;
+            issueDate: string;
+            dueDate: string | null;
+            figures: {
+                invoiceCount: number;
+                billedMinor: number;
+                creditedMinor: number;
+                appliedMinor: number;
+                unpaidMinor: number;
+            };
+            matters: Array<{
+                matterId: string;
+                matterTitle: string;
+                matterNumber: string | null;
+                locationId: string | null;
+                locationName: string | null;
+                figures: {
+                    invoiceCount: number;
+                    billedMinor: number;
+                    creditedMinor: number;
+                    appliedMinor: number;
+                    unpaidMinor: number;
+                };
+            }>;
+        }>;
+    }>;
+};
+
+export type PaymentsAppliedReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        paymentMinor: number;
+        trustTransferMinor: number;
+        clientCreditMinor: number;
+        creditNoteMinor: number;
+        writeOffMinor: number;
+        reversalMinor: number;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            paymentMinor: number;
+            trustTransferMinor: number;
+            clientCreditMinor: number;
+            creditNoteMinor: number;
+            writeOffMinor: number;
+            reversalMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        figures: {
+            entryCount: number;
+            paymentMinor: number;
+            trustTransferMinor: number;
+            clientCreditMinor: number;
+            creditNoteMinor: number;
+            writeOffMinor: number;
+            reversalMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    entries: Array<{
+        applicationId: string;
+        kind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | 'reversal';
+        reversesKind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | null;
+        effectiveDate: string;
+        amountMinor: number;
+        reason: string | null;
+        invoiceId: string;
+        invoiceNumber: string | null;
+        clientEntityId: string;
+        clientName: string | null;
+        matterId: string;
+        matterTitle: string;
+        matterNumber: string | null;
+        locationId: string | null;
+        locationName: string | null;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -16098,6 +16229,98 @@ export type ReportsOperationalVolumesResponses = {
 };
 
 export type ReportsOperationalVolumesResponse = ReportsOperationalVolumesResponses[keyof ReportsOperationalVolumesResponses];
+
+export type ReportsInvoicesData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/invoices';
+};
+
+export type ReportsInvoicesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more bills were issued than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsInvoicesError = ReportsInvoicesErrors[keyof ReportsInvoicesErrors];
+
+export type ReportsInvoicesResponses = {
+    /**
+     * The bills issued in this period
+     */
+    200: InvoicesReport;
+};
+
+export type ReportsInvoicesResponse = ReportsInvoicesResponses[keyof ReportsInvoicesResponses];
+
+export type ReportsPaymentsAppliedData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/payments-applied';
+};
+
+export type ReportsPaymentsAppliedErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was applied than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsPaymentsAppliedError = ReportsPaymentsAppliedErrors[keyof ReportsPaymentsAppliedErrors];
+
+export type ReportsPaymentsAppliedResponses = {
+    /**
+     * What was applied to bills in this period
+     */
+    200: PaymentsAppliedReport;
+};
+
+export type ReportsPaymentsAppliedResponse = ReportsPaymentsAppliedResponses[keyof ReportsPaymentsAppliedResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
