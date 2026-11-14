@@ -1246,7 +1246,9 @@
           "id": {
             "type": "string",
             "enum": [
-              "realtime"
+              "realtime",
+              "googleCalendar",
+              "microsoftCalendar"
             ]
           },
           "state": {
