@@ -276,9 +276,13 @@ opened, arrived at by link, and a session moved onto a matter), `my-room-card.sv
 the Meetings page, drawn only for `meetings:host`; nothing is made until Set Up is pressed, and Get a
 New Link asks first) and `move-to-matter-dialog.svelte` (offered in the room's header for a
 personal-room session still on a firm event, during the meeting or after it, over the calendar's own
-matter list). The link page is `src/routes/(app)/room/[name]/+page.svelte`, by the room's address name (the older
+matter list). `room-name-dialog.svelte` is the one naming dialog for any room (a member's own room
+offers a reset to their name; a shared room does not). `shared-rooms-card.svelte` is the firm's named
+rooms ("Red Room"): a host sets them up, opens, renames, changes and removes them; a member who may
+only join copies the link and joins an open one. The link page is `src/routes/(app)/room/[name]/+page.svelte`, by the room's address name (the older
 code addresses were retired without a redirect): a closed
-room is read again every ten seconds, and Join arrives, then goes to the ordinary room screen. Every
+room is read again every ten seconds, Open goes through `openRoomAtAddress` (the server says
+`mayOpen`: the owner, or for a shared room anybody who may host), and Join arrives, then goes to the ordinary room screen. Every
 press that leads into a room unlocks `pageRecordingSounds` first, as the entry action does.
 
 **The guest's side, outside the application:** `guest-api.ts` (the guest's own calls on the link's
