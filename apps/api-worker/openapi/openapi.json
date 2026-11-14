@@ -34633,12 +34633,19 @@
           "meetingId": {
             "type": "string"
           },
+          "joinCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "created": {
             "type": "boolean"
           }
         },
         "required": [
           "meetingId",
+          "joinCode",
           "created"
         ]
       },
@@ -34776,6 +34783,12 @@
               "string",
               "null"
             ]
+          },
+          "joinCode": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -34786,7 +34799,8 @@
           "roomName",
           "kind",
           "mayOpen",
-          "meetingId"
+          "meetingId",
+          "joinCode"
         ]
       },
       "MoveMeetingToMatterResponse": {
@@ -34944,11 +34958,18 @@
           },
           "created": {
             "type": "boolean"
+          },
+          "joinCode": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
-          "created"
+          "created",
+          "joinCode"
         ]
       },
       "StartMeetingRequest": {
@@ -40089,6 +40110,12 @@
               "null"
             ]
           },
+          "thinking": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "removedAt": {
             "type": [
               "string",
@@ -40128,6 +40155,7 @@
           "snapshotId",
           "contextTruncated",
           "effort",
+          "thinking",
           "removedAt",
           "supersededAt",
           "replacesTurnId",
@@ -40304,6 +40332,9 @@
           },
           "truncatedContext": {
             "type": "boolean"
+          },
+          "thinking": {
+            "type": "string"
           }
         },
         "required": [

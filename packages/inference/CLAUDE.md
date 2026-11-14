@@ -113,6 +113,16 @@ the firm-scoped read result as injected parameters.
   An optional `answerFormat: "json-object"` is sent to a model hosted on Cloudflare as its JSON mode
   (`response_format`), and to a third-party model not at all. `responseText` reads a JSON-mode `response`
   object back as the JSON it was, and a Responses-style `output` answer from its `output_text` parts.
+- **`ConversationInput.onThinking` turns on the streamed path for a third-party model.** Given, the
+  request carries `stream: true` and `thinking: { type: "adaptive", display: "summarized" }` (current
+  models omit the thinking text unless the summary is asked for), and `src/conversation-stream.ts`
+  reads the Messages event stream back: `text_delta`s are the answer, `thinking_delta`s are the
+  summary handed to the listener as it grows, usage comes from `message_start` and `message_delta`,
+  and an `error` event or an answer with no text is the same caller-safe gateway failure as a thrown
+  binding error. A binding that ignores `stream` and answers whole is read the buffered way. Absent,
+  the request is unchanged. A model hosted on Cloudflare is never asked for thinking. The buffered
+  `responseText` joins every block that carries `text`, because a model that thought answers with its
+  thinking block first.
 - **Every reasoning entry states its context window** (`contextWindowTokens`, and `maximumOutputTokens`
   where the provider publishes one), read off the provider's own model page and cited beside the entry;
   module-load validation refuses a reasoning entry without one, because a caller that sends a whole

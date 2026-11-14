@@ -8030,6 +8030,7 @@ export type UpdatePersonalRoomRequest = {
 
 export type OpenPersonalRoomResponse = {
     meetingId: string;
+    joinCode: string | null;
     created: boolean;
 };
 
@@ -8063,6 +8064,7 @@ export type PersonalRoomAtLink = {
     kind: 'personal' | 'shared';
     mayOpen: boolean;
     meetingId: string | null;
+    joinCode: string | null;
 };
 
 export type MoveMeetingToMatterResponse = {
@@ -8107,6 +8109,7 @@ export type MeetingByCodeResponse = {
 export type StartedMeeting = {
     id: string;
     created: boolean;
+    joinCode: string | null;
 };
 
 export type StartMeetingRequest = {
@@ -9236,6 +9239,7 @@ export type MagnusTurn = {
     snapshotId: string | null;
     contextTruncated: boolean;
     effort: string | null;
+    thinking: string | null;
     removedAt: string | null;
     supersededAt: string | null;
     replacesTurnId: string | null;
@@ -9285,6 +9289,7 @@ export type MagnusTurnProgress = {
     content?: string;
     failureLabel?: 'model-unavailable' | 'not-eligible' | 'ceiling-reached' | 'too-large' | 'cancelled';
     truncatedContext?: boolean;
+    thinking?: string;
 };
 
 export type MagnusFolderList = {

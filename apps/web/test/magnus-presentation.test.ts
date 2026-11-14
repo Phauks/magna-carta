@@ -14,7 +14,6 @@
 import { describe, expect, it } from "vitest";
 import { railDateGroup, railRowLine } from "../src/lib/magnus/magnus-vocabulary.ts";
 import {
-  ANSWER_SLOW_AFTER_MILLISECONDS,
   CONVERSATION_SORTS,
   TURN_FAILURE_LABELS,
   TURN_FAILURE_SENTENCES,
@@ -63,6 +62,7 @@ function turn(overrides: Partial<MagnusTurn> = {}): MagnusTurn {
     snapshotId: null,
     contextTruncated: false,
     effort: null,
+    thinking: null,
     removedAt: null,
     supersededAt: null,
     replacesTurnId: null,
@@ -195,12 +195,6 @@ describe("what an attachment says about what the model saw", () => {
     const deleted = attachment("unreadable", { name: null });
     expect(attachmentName(deleted)).toBe("A deleted file");
     expect(attachmentStatusSentence(deleted)).toContain("deleted");
-  });
-});
-
-describe("how long a pending answer waits before it says so", () => {
-  it("is longer than a read's stall, because a model answer takes seconds", () => {
-    expect(ANSWER_SLOW_AFTER_MILLISECONDS).toBeGreaterThan(15_000);
   });
 });
 

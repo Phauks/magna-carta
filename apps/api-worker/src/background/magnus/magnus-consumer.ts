@@ -26,7 +26,7 @@ import {
   readRecentTurns,
   readTurn,
 } from "@magna-carta/magnus/statements";
-import { completeTurn, settleTurnFailure } from "@magna-carta/magnus/turn";
+import { completeTurn, recordTurnThinking, settleTurnFailure } from "@magna-carta/magnus/turn";
 import {
   listConversationPermissions,
   readEarlierConversations,
@@ -172,6 +172,39 @@ async function conversationAuthor(
   return conversation.createdBy;
 }
 
+// How often the summary of the thinking is written while it grows, at most.
+const THINKING_WRITE_INTERVAL_MILLISECONDS = 1000;
+
+function pendingThinkingWriter(
+  firmDatabase: Parameters<typeof recordTurnThinking>[0],
+  magnusTurnId: MagnusTurnId,
+): { heard: (thinkingSoFar: string) => Promise<void>; flush: () => Promise<void> } {
+  let latest = "";
+  let written = "";
+  let lastWriteAt = 0;
+  const write = async (): Promise<void> => {
+    if (latest === written) return;
+    const thinking = latest;
+    try {
+      await recordTurnThinking(firmDatabase, { magnusTurnId, thinking });
+      written = thinking;
+    } catch {
+      // Dropped on purpose: see the caller. Nothing is logged, because the summary is the member's
+      // work product.
+    }
+  };
+  return {
+    async heard(thinkingSoFar) {
+      latest = thinkingSoFar;
+      const now = Date.now();
+      if (now - lastWriteAt < THINKING_WRITE_INTERVAL_MILLISECONDS) return;
+      lastWriteAt = now;
+      await write();
+    },
+    flush: write,
+  };
+}
+
 export async function handleMagnusTurnJob(
   env: Bindings,
   job: MagnusTurnJob,
@@ -254,7 +287,13 @@ export async function handleMagnusTurnJob(
     );
     return;
   }
+  // The model's thinking, as a readable summary, written onto the pending answer while it arrives so
+  // the reader watches it instead of a bare "answering" note. Written at most once a second (the
+  // reader polls once a second), and once more with the whole summary before the answer settles. A
+  // write that fails is dropped: the summary is progress, and losing it must never lose the answer.
+  const thinkingWriter = pendingThinkingWriter(firmDatabase, job.magnusTurnId as MagnusTurnId);
   const result = await port.generateConversation({
+    onThinking: thinkingWriter.heard,
     modelId,
     firmId: job.firmId as FirmId,
     // Platform-authored and structurally separate from the conversation: a member cannot occupy this
@@ -263,6 +302,8 @@ export async function handleMagnusTurnJob(
     messages: window.messages,
     ...(effort !== null && { effort }),
   });
+
+  await thinkingWriter.flush();
 
   if (!result.ok) {
     // A retryable problem (transient gateway overload, a timeout) throws so the queue redelivers and

@@ -306,6 +306,7 @@ describe("changing a member's own message", () => {
       outputTokens: null,
       contextTruncated: false,
       effort: null,
+      thinking: null,
       removedAt: null,
       supersededAt: null,
       replacesTurnId: null,

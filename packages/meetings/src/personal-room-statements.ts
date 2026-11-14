@@ -275,8 +275,8 @@ export async function readPersonalRoomOpenSession(
 ): Promise<PersonalRoomOpenSession | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT ${MEETING_TABLE}.id, ${MEETING_TABLE}.status, ${MEETING_TABLE}.event_kind, ` +
-        `${MEETING_TABLE}.matter_event_id, ${MEETING_TABLE}.firm_event_id, ${MEETING_TABLE}.started_at, ` +
+      `SELECT ${MEETING_TABLE}.id, ${MEETING_TABLE}.join_code, ${MEETING_TABLE}.status, ` +
+        `${MEETING_TABLE}.event_kind, ${MEETING_TABLE}.matter_event_id, ${MEETING_TABLE}.firm_event_id, ${MEETING_TABLE}.started_at, ` +
         `COALESCE(matter_event.time_zone, firm_event.time_zone) AS time_zone, ` +
         `(${inTheRoomCount(`${MEETING_TABLE}.id`)}) + (${waitingCount(`${MEETING_TABLE}.id`)}) AS present_count, ` +
         `(SELECT MAX(left_at) FROM (` +
