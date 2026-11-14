@@ -547,6 +547,13 @@
       "when": 1794619761435,
       "tag": "20261114T012921_shared-meeting-rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "6",
+      "when": 1794620197334,
+      "tag": "20261114T013637_magnus-turn-thinking",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,7 @@ import { instantForCivilDateTime } from "@magna-carta/civil-time/time-zone";
 import { formatWallClock } from "$lib/calendar/calendar-api.ts";
 import type { Failure } from "$lib/api/problem.ts";
 import type { MeetingSummary } from "@magna-carta/api-client";
+import { meetingRoomAddress } from "./meeting-tab.ts";
 
 /** The three questions the screen answers, in the order it answers them. */
 export const MEETING_SCOPES = ["live", "upcoming", "recent"] as const;
@@ -121,7 +122,7 @@ export function matterAddress(meeting: MeetingSummary): string | null {
 
 /** The room itself. */
 export function meetingAddress(meeting: MeetingSummary): string {
-  return `/meetings/${encodeURIComponent(meeting.id)}`;
+  return meetingRoomAddress(meeting.id, meeting.joinCode);
 }
 
 /**

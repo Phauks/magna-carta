@@ -130,6 +130,12 @@ registered there; this file states what they mean for the code, not where they w
   and any answer to it out of what the model reads. The
   route withholds a removed turn's text from its author, who took it back, and still serves it to a
   supervisory read.
+- **A Magnus turn's `thinking` is the model's own summary of its reasoning, and it is work product
+  like `content`.** The consumer asks the port for it (`onThinking`) and writes it onto the pending
+  turn at most once a second (`recordTurnThinking`, guarded on `status = 'pending'`), then once more
+  in full before the answer settles. It is never logged, it is erased only with the whole
+  conversation, and it is never sent back to the model: the window builds from `content` alone. A
+  failed write of it is dropped rather than failing the answer.
 
 ## Dependencies & contracts
 
