@@ -10,8 +10,8 @@ project files (`trust-reconciliation/`: check layout X, Y or Z, and the Checks t
 **Builds on:** the shipped trust movements (`packages/trust/src/movements.ts`, a disbursement's
 `method` and `reference`), the three-way reconciliation (`three-way-proof.ts`, `matching.ts`), and
 the PDF composer (`crates/pdf-compose-core`). Sibling design:
-[`2026-11-14-trust-reconciliation-screen-design.md`](2026-11-14-trust-reconciliation-screen-design.md)
-on the reconciliation thread's branch.
+the reconciliation screen design (`2026-11-14-trust-reconciliation-screen-design.md`), written in
+parallel.
 
 ---
 

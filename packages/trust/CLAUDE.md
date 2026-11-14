@@ -280,7 +280,6 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   signed, because a trust bank account really can be overdrawn and refusing to record that would
   refuse to record the condition reconciliation exists to catch.
 - **Clock injection.** No wall-clock reads — `ClockPort` only.
-
 - **A check number follows the paper, and a check's history is events.** The next number is the
   greater of the stock's starting number and one past the highest used on the account; a number is
   never reused, and `trust_check_account_number_unique_index` is what separates two prints that read

@@ -262,32 +262,32 @@ export function amountInWords(amountMinor: number): string {
   if (!Number.isSafeInteger(amountMinor) || amountMinor < 1 || amountMinor >= 100_000_000_000_000) {
     throw new RangeError("a check amount is a whole number of cents from 1 to under a trillion dollars");
   }
-  const dollars = Math.floor(amountMinor / 100);
-  const cents = amountMinor % 100;
-  let words: string;
-  if (dollars === 0) words = "zero";
-  else {
-    const groups: string[] = [];
-    let remaining = dollars;
-    let scale = 0;
-    while (remaining > 0) {
-      const group = remaining % 1_000;
-      if (group > 0) {
-        const scaleWord = SCALES[scale] as string;
-        groups.unshift(scaleWord === "" ? underOneThousand(group) : `${underOneThousand(group)} ${scaleWord}`);
-      }
-      remaining = Math.floor(remaining / 1_000);
-      scale += 1;
+  const { dollars, cents } = dollarsAndCents(amountMinor);
+  // Read the dollars three digits at a time from the right, as they are spoken.
+  const groups: string[] = [];
+  for (let end = dollars.length, scale = 0; end > 0; end -= 3, scale += 1) {
+    const group = Number(dollars.slice(Math.max(0, end - 3), end));
+    if (group > 0) {
+      const scaleWord = SCALES[scale] as string;
+      groups.unshift(scaleWord === "" ? underOneThousand(group) : `${underOneThousand(group)} ${scaleWord}`);
     }
-    words = groups.join(" ");
   }
-  const sentence = `${words} and ${String(cents).padStart(2, "0")}/100`;
+  const words = groups.length === 0 ? "zero" : groups.join(" ");
+  const sentence = `${words} and ${cents}/100`;
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
+/**
+ * The whole dollars and the cents of an amount, as the digits a check prints. Read off the digits of
+ * the minor-unit integer rather than computed, so a check prints exactly what is stored.
+ */
+function dollarsAndCents(amountMinor: number): { dollars: string; cents: string } {
+  const digits = String(amountMinor).padStart(3, "0");
+  return { dollars: digits.slice(0, -2).replace(/^0+(?=\d)/, ""), cents: digits.slice(-2) };
 }
 
 /** The amount in figures as a check prints it: two asterisks, then "3,000.00". */
 export function amountInFigures(amountMinor: number): string {
-  const dollars = Math.floor(amountMinor / 100);
-  const cents = String(amountMinor % 100).padStart(2, "0");
-  return `**${dollars.toLocaleString("en-US")}.${cents}`;
+  const { dollars, cents } = dollarsAndCents(amountMinor);
+  return `**${dollars.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${cents}`;
 }

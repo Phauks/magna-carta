@@ -10294,6 +10294,127 @@ export type TrustFrozenProof = {
     balanced: boolean;
 };
 
+export type TrustChecksResponse = {
+    nextCheckNumber: number;
+    stock: TrustCheckStock;
+    toPrint: Array<TrustCheckToPrint>;
+    register: Array<TrustCheckRegisterRow>;
+};
+
+export type TrustCheckStock = {
+    trustCheckStockId: string;
+    version: number;
+    name: string;
+    pageLayout: 'check_top' | 'check_middle' | 'check_bottom' | 'three_per_page';
+    fields: Array<TrustCheckField>;
+    shiftXMils: number;
+    shiftYMils: number;
+    startingCheckNumber: number;
+    hasScan: boolean;
+    savedBy: string;
+    savedAt: string;
+} | null;
+
+export type TrustCheckField = {
+    kind: 'date' | 'payee' | 'amount' | 'amount_words' | 'memo' | 'matter' | 'check_number';
+    xMils: number;
+    yMils: number;
+    widthMils: number;
+    sizePoints: number;
+    align: 'start' | 'end';
+};
+
+export type TrustCheckToPrint = {
+    trustMovementId: string;
+    payee: string;
+    amountMinor: number;
+    currency: string;
+    memo: string;
+    effectiveDate: string;
+    authorizedBy: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+    earlierCheckNumbers: Array<number>;
+};
+
+export type TrustCheckRegisterRow = {
+    trustCheckId: string;
+    checkNumber: number;
+    status: 'numbered' | 'printed' | 'spoiled' | 'voided';
+    trustMovementId: string | null;
+    payee: string | null;
+    amountMinor: number | null;
+    currency: string | null;
+    effectiveDate: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+    memo: string | null;
+    numberedBy: string;
+    numberedAt: string;
+    settledReason: string | null;
+    lastEventAt: string | null;
+};
+
+export type PrintTrustChecksResponse = {
+    stock: TrustCheckStock;
+    checks: Array<PrintedTrustCheck>;
+};
+
+export type PrintedTrustCheck = {
+    trustCheckId: string;
+    checkNumber: number;
+    trustMovementId: string;
+    payee: string;
+    amountMinor: number;
+    currency: string;
+    effectiveDate: string;
+    memo: string;
+    matterNumber: string | null;
+    matterTitle: string | null;
+};
+
+export type PrintTrustChecksRequest = {
+    trustAccountId: string;
+    trustMovementIds: Array<string>;
+};
+
+export type TrustCheckAcknowledgement = {
+    recorded: number;
+    checkNumber: number | null;
+};
+
+export type RecordTrustCheckResultsRequest = {
+    trustAccountId: string;
+    results: Array<{
+        trustCheckId: string;
+        outcome: 'printed' | 'spoiled';
+        reason?: string | null;
+    }>;
+};
+
+export type VoidTrustCheckRequest = {
+    trustAccountId: string;
+    reason: string;
+};
+
+export type SaveTrustCheckStockResponse = {
+    stock: TrustCheckStock;
+    nextCheckNumber: number;
+};
+
+export type SaveTrustCheckStockRequest = {
+    trustAccountId: string;
+    name: string;
+    pageLayout: 'check_top' | 'check_middle' | 'check_bottom' | 'three_per_page';
+    fields: Array<TrustCheckField>;
+    shiftXMils: number;
+    shiftYMils: number;
+    startingCheckNumber: number;
+    scan: 'keep' | 'remove' | {
+        imageBase64: string;
+    };
+};
+
 export type TrustOpenFirmFundsAck = {
     trustLedgerNodeId: string;
     ledgerAccountId: string;
@@ -48362,6 +48483,350 @@ export type TrustCloseReconciliationResponses = {
 };
 
 export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
+
+export type TrustChecksData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/checks';
+};
+
+export type TrustChecksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustChecksError = TrustChecksErrors[keyof TrustChecksErrors];
+
+export type TrustChecksResponses = {
+    /**
+     * The checks
+     */
+    200: TrustChecksResponse;
+};
+
+export type TrustChecksResponse2 = TrustChecksResponses[keyof TrustChecksResponses];
+
+export type TrustPrintChecksData = {
+    body: PrintTrustChecksRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/checks/print';
+};
+
+export type TrustPrintChecksErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustPrintChecksError = TrustPrintChecksErrors[keyof TrustPrintChecksErrors];
+
+export type TrustPrintChecksResponses = {
+    /**
+     * The numbered checks
+     */
+    201: PrintTrustChecksResponse;
+};
+
+export type TrustPrintChecksResponse = TrustPrintChecksResponses[keyof TrustPrintChecksResponses];
+
+export type TrustRecordCheckResultsData = {
+    body: RecordTrustCheckResultsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/checks/results';
+};
+
+export type TrustRecordCheckResultsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordCheckResultsError = TrustRecordCheckResultsErrors[keyof TrustRecordCheckResultsErrors];
+
+export type TrustRecordCheckResultsResponses = {
+    /**
+     * Recorded
+     */
+    201: TrustCheckAcknowledgement;
+};
+
+export type TrustRecordCheckResultsResponse = TrustRecordCheckResultsResponses[keyof TrustRecordCheckResultsResponses];
+
+export type TrustVoidNextCheckNumberData = {
+    body: VoidTrustCheckRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/checks/void-next-number';
+};
+
+export type TrustVoidNextCheckNumberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustVoidNextCheckNumberError = TrustVoidNextCheckNumberErrors[keyof TrustVoidNextCheckNumberErrors];
+
+export type TrustVoidNextCheckNumberResponses = {
+    /**
+     * Voided
+     */
+    201: TrustCheckAcknowledgement;
+};
+
+export type TrustVoidNextCheckNumberResponse = TrustVoidNextCheckNumberResponses[keyof TrustVoidNextCheckNumberResponses];
+
+export type TrustVoidCheckData = {
+    body: VoidTrustCheckRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/checks/{checkId}/void';
+};
+
+export type TrustVoidCheckErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustVoidCheckError = TrustVoidCheckErrors[keyof TrustVoidCheckErrors];
+
+export type TrustVoidCheckResponses = {
+    /**
+     * Voided
+     */
+    201: TrustCheckAcknowledgement;
+};
+
+export type TrustVoidCheckResponse = TrustVoidCheckResponses[keyof TrustVoidCheckResponses];
+
+export type TrustSaveCheckStockData = {
+    body: SaveTrustCheckStockRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/check-stock';
+};
+
+export type TrustSaveCheckStockErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustSaveCheckStockError = TrustSaveCheckStockErrors[keyof TrustSaveCheckStockErrors];
+
+export type TrustSaveCheckStockResponses = {
+    /**
+     * Saved
+     */
+    201: SaveTrustCheckStockResponse;
+};
+
+export type TrustSaveCheckStockResponse = TrustSaveCheckStockResponses[keyof TrustSaveCheckStockResponses];
+
+export type TrustCheckStockScanData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/check-stock/scan';
+};
+
+export type TrustCheckStockScanErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustCheckStockScanError = TrustCheckStockScanErrors[keyof TrustCheckStockScanErrors];
+
+export type TrustCheckStockScanResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type TrustCheckStockScanResponse = TrustCheckStockScanResponses[keyof TrustCheckStockScanResponses];
 
 export type TrustFirmFundsPositionData = {
     body?: never;
