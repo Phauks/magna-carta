@@ -5,6 +5,9 @@ import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.
 import { registerAssembliesRoutes } from "./assemblies.ts";
 import { registerConversionRoutes } from "./conversions.ts";
 import { registerDocumentSealRoutes } from "./document-seal.ts";
+import { emailAdapterForEnv } from "../../../auth-instance.ts";
+import { registerSignerRoutes } from "./signers.ts";
+import { registerSigningRequestRoutes } from "./signing-requests.ts";
 import { registerTemplatesRoutes } from "./templates.ts";
 
 // Document automation and editing: templates and assemblies, server conversion, the seal, and the two chokepoint routes of in-app editing.
@@ -20,6 +23,10 @@ export function mountDocuments(
 ): void {
   const domain = createDomainApp();
   registerDocumentSealRoutes(domain, chokepoint, deps.sealPort);
+  // Sending a document for signature: the member's draft, send, follow, remind and cancel.
+  registerSigningRequestRoutes(domain, chokepoint, deps.signingMail ?? emailAdapterForEnv);
+  // An outside signer's own routes, on the chokepoint's signer lane.
+  registerSignerRoutes(domain, chokepoint, deps.signingMail ?? emailAdapterForEnv);
   // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
   // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
   registerDocumentEditingRoutes(domain, chokepoint);

@@ -60,7 +60,7 @@
   status: shipped
   surface: screen
   slices: 3-6-financial-reporting
-  evidence: Each domain counts its own records (packages/billing, matters, trust and costs, each src/operational-counts.ts); packages/reporting/src/operational/operational-volumes.ts places them side by side, billing and trust bitemporal and matters and costs labelled live; GET /api/v1/reports/operational-volumes serves it on reports:operational and /reports/operational-volumes runs it. Counts only, never money.
+  evidence: Each domain counts its own records (packages/billing, matters, trust and costs, each src/operational-counts.ts); packages/reporting/src/operational/operational-volumes.ts places them side by side, billing and trust bitemporal and matters and costs labelled live; GET /api/v1/reports/operational-volumes serves it on reports:operational and /reports/operational-volumes runs it. Counts only, never money. The Matters List (packages/matters/src/matter-register.ts read, packages/reporting/src/operational/matters-list.ts, GET /api/v1/reports/matters-list, live) lists every opened matter and counts them by office.
 
 - id: reports.location-rollups
   name: Per-location roll-ups

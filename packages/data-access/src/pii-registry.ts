@@ -485,6 +485,72 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // behind, and erasing either half would erase the evidence. The address the link went to is not
   // here at all; the invitation names the Directory row, and the address stays the Directory's fact.
   {
+    table: "signing_request",
+    subjectKey: "created_by_user_id",
+    action: "retain-under-matter",
+    note: "who sent a document for signature is provenance on the request, printed on its certificate",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "name",
+    action: "retain-under-matter",
+    note: "who was asked to sign is what the signed record and its certificate say happened",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "email",
+    action: "retain-under-matter",
+    note: "where the request was sent is part of the attribution the certificate prints",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member who signed is the signature's attribution",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "decline_reason",
+    action: "retain-under-matter",
+    note: "a signer's reason for declining is part of the request's record",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "signature_object_key",
+    action: "retain-under-matter",
+    note: "the adopted signature image is the mark on the signed record",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "initials_object_key",
+    action: "retain-under-matter",
+    note: "the adopted initials image is the mark on the signed record",
+  },
+  {
+    table: "signing_field",
+    subjectKey: "value_text",
+    action: "retain-under-matter",
+    note: "what a signer wrote into a field is part of the signed record",
+  },
+  {
+    table: "signing_event",
+    subjectKey: "actor",
+    action: "retain-under-matter",
+    note: "who did each step is the certificate's audit log",
+  },
+  {
+    table: "signing_event",
+    subjectKey: "observed_ip",
+    action: "retain-under-matter",
+    note: "the server-observed address is the attribution evidence the certificate prints",
+  },
+  {
+    table: "signing_event",
+    subjectKey: "user_agent",
+    action: "retain-under-matter",
+    note: "the server-observed browser is attribution evidence the certificate prints",
+  },
+  {
     table: "meeting_guest_invitation",
     subjectKey: "entity_id",
     action: "retain-under-matter",
