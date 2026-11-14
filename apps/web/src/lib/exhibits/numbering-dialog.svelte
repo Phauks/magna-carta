@@ -98,8 +98,8 @@
     }
     failure = stated(
       outcome.failure,
-      "The numbering was not changed.",
-      "Couldn't connect, so the set keeps its numbering.",
+      "The numbering wasn't changed.",
+      "Couldn't connect, so the numbering wasn't changed.",
     );
     return "refused";
   }

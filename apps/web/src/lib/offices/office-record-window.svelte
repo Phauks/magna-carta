@@ -237,7 +237,7 @@
         saving = false;
         saveFailure = stated(
           updated.failure,
-          "The change was not saved.",
+          "The change wasn't saved.",
           "Couldn't connect. Nothing changed.",
         );
         return;

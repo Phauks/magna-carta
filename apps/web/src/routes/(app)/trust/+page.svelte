@@ -449,7 +449,7 @@
     {:else}
       <FailureNotice
         failure={trust.accountsFailure}
-        title="The Trust Accounts Could Not Be Read"
+        title="Couldn't Load Trust Accounts"
         fallback="The record itself is unaffected: nothing was changed by this failure, and every account the firm holds is still on its record."
         onRetry={() => void trust.loadAccounts(fetch)}
       />

@@ -233,7 +233,7 @@ export function presentPaymentsApplied(report: PaymentsApplied): ReportPresentat
         ]),
         endAlignedColumns: [1, 2, 3, 4, 5, 6, 7],
         totalRow: [totalLabel(report.locationId), ...kindCells(totals)],
-        note: "Applied means set against a bill. Money arriving in the bank is not recorded here.",
+        note: "Applied means set against a bill. Bank deposits aren't recorded here.",
         whenEmpty: "Nothing was applied to a bill in this period.",
       },
       {
