@@ -48,6 +48,7 @@ import { meetingTranscriptQueue } from "./meetings/transcript-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./background/editing/idle-checkout-sweep.ts";
 import { runRecurringTaskPass } from "./background/tasks/recurring-task-pass.ts";
+import { runSigningPass } from "./background/documents/signing-pass.ts";
 import { runTieringSweep } from "./background/editing/tiering-sweep.ts";
 import { runDimensionBackfillSweep } from "./background/files/dimension-backfill-sweep.ts";
 import { recoveryQueue } from "./background/recovery/recovery-consumer.ts";
@@ -276,6 +277,13 @@ export async function runScheduledPass(
                     "cron:recurring-tasks",
                     caught,
                   );
+                }
+                // Signing requests are expired and reminded on the same hour, wrapped for the same
+                // reason: one pass failing never costs another its turn.
+                try {
+                  await runSigningPass(env);
+                } catch (caught) {
+                  logOperationFailed(createWorkersLogger(env.TELEMETRY), "cron:signing", caught);
                 }
                 await runNotificationDigestPass(env);
               },

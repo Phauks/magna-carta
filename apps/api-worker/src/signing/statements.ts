@@ -419,6 +419,23 @@ export async function listRequestsForFile(
   return results.map(requestFromRow);
 }
 
+/**
+ * The requests still out for signing, oldest deadline first, for the sweep that reminds and
+ * expires them. Bounded: a firm with more than this many open is caught up over the next passes.
+ */
+export async function listOpenRequests(
+  database: SqlDatabase,
+  limit = 200,
+): Promise<SigningRequestRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${REQUEST_COLUMNS} FROM ${SIGNING_REQUEST_TABLE} WHERE status = 'sent' ORDER BY expires_at ASC, id ASC LIMIT ?`,
+    )
+    .bind(Math.min(Math.max(limit, 1), 500))
+    .all<RequestDatabaseRow>();
+  return results.map(requestFromRow);
+}
+
 interface SignerDatabaseRow {
   id: string;
   request_id: string;

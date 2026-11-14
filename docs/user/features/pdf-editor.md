@@ -172,7 +172,9 @@ signature by typing their name, drawing it, or uploading a picture of it, and ti
 binding as signing by hand. **Finish** records their signature and sends the link to whoever signs
 next. **Decline to Sign** ends the request for everyone and tells you why, if they say.
 
-A reminder sends the same link again, so an earlier email still works. A link stops working when the
+A reminder sends the same link again, so an earlier email still works. Reminders you set go out
+by themselves every so many days to whoever's turn it is, and a request past its last day is closed
+as expired. A link stops working when the
 request is cancelled, declined or past its last day, and the page says which.
 
 Colleagues you add as signers cannot sign inside Magna Carta yet, so a request with a colleague as
