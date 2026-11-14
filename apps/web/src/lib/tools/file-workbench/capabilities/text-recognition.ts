@@ -16,11 +16,12 @@ export const textRecognitionCapability: CapabilityModule = {
   label: "Text Recognition",
   icon: ScanText,
   permission: assertPermission("tools:ocr"),
-  stage: "soon",
+  stage: "alpha",
   timing: "on-request",
   scope: "single",
   description: "Extract selectable text from a scanned document or image.",
-  awaiting: "text recognition",
+  // Served: the panel sends the file to the recognition engine when asked; nothing is kept.
+  awaiting: null,
   applies(file) {
     if (isImage(file) || isPdf(file)) return APPLIES;
     if (carriesText(file)) {

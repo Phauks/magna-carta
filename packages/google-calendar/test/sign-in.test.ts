@@ -3,6 +3,7 @@ import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
 import {
   GOOGLE_CALENDAR_SCOPES,
   authorizationUrl,
+  checkApplicationCredentials,
   grantsCalendar,
   readSignedInAccount,
   redeemAuthorizationCode,
@@ -198,5 +199,41 @@ describe("naming the account", () => {
       ok: false,
       problem: { category: "validation" },
     });
+  });
+});
+
+describe("checkApplicationCredentials", () => {
+  it("reads a refused made-up refresh token as the application being accepted", async () => {
+    const { http, sent } = answering(400, { error: "invalid_grant", error_description: "Bad" });
+    expect(await checkApplicationCredentials(http, application)).toBe("accepted");
+    expect(sent[0]?.url).toBe("https://oauth2.googleapis.com/token");
+    const body = new URLSearchParams(sent[0]?.body);
+    expect(body.get("grant_type")).toBe("refresh_token");
+    expect(body.get("client_id")).toBe("client-1");
+    // No member's token and no authorization code is ever sent by the check.
+    expect(body.get("code")).toBeNull();
+  });
+
+  it("reads an unknown application or a wrong secret as refused", async () => {
+    expect(
+      await checkApplicationCredentials(
+        answering(401, { error: "invalid_client" }).http,
+        application,
+      ),
+    ).toBe("refused");
+    expect(
+      await checkApplicationCredentials(
+        answering(400, { error: "unauthorized_client" }).http,
+        application,
+      ),
+    ).toBe("refused");
+  });
+
+  it("reads a fault, an unreadable answer or no answer as unreachable", async () => {
+    expect(await checkApplicationCredentials(answering(503, {}).http, application)).toBe(
+      "unreachable",
+    );
+    const offline: HttpClient = { request: () => Promise.reject(new Error("offline")) };
+    expect(await checkApplicationCredentials(offline, application)).toBe("unreachable");
   });
 });

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8e667c86-96d5-4dd0-837b-61f4944b34f6",
+  "id": "a9aebf75-7f93-4675-accd-01d798b4f192",
   "prevId": "67290fbd-348e-453d-9de1-c0f5f6bf233b",
   "tables": {
     "account_balance": {
@@ -15403,13 +15403,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "thinking": {
-          "name": "thinking",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "removed_at": {
           "name": "removed_at",
           "type": "text",
@@ -22444,6 +22437,28 @@
           "notNull": false,
           "autoincrement": false
         },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'personal'"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -22465,7 +22480,8 @@
           "columns": [
             "owner_user_id"
           ],
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"meeting_personal_room\".\"kind\" = 'personal'"
         },
         "meeting_personal_room_address_name_unique_index": {
           "name": "meeting_personal_room_address_name_unique_index",
@@ -22508,6 +22524,14 @@
         "meeting_personal_room_lobby_check": {
           "name": "meeting_personal_room_lobby_check",
           "value": "\"meeting_personal_room\".\"lobby\" IN ('off', 'on')"
+        },
+        "meeting_personal_room_kind_check": {
+          "name": "meeting_personal_room_kind_check",
+          "value": "\"meeting_personal_room\".\"kind\" IN ('personal', 'shared')"
+        },
+        "meeting_personal_room_title_check": {
+          "name": "meeting_personal_room_title_check",
+          "value": "\"meeting_personal_room\".\"title\" IS NULL OR length(\"meeting_personal_room\".\"title\") BETWEEN 1 AND 80"
         },
         "meeting_personal_room_address_name_shape_check": {
           "name": "meeting_personal_room_address_name_shape_check",

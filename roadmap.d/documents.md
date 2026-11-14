@@ -540,9 +540,10 @@
 - id: documents.conversion.convert-ui
   name: Convert-to menu / converter UI
   scope: Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
-  status: designed
+  status: partial
+  surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: Design on main; the Convert panel is built in the workbench (capability-panels.ts) and offers the formats a selection can reach, awaiting the conversion container to execute. The separate file-converter tool row it was originally drawn for is retired — the capability tab is the surface.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout is still marked Soon.
 
 - id: documents.pdf
   name: PDF services
@@ -781,13 +782,13 @@
   slices: ocr-engine
   adrs: ADR-0060
   spec: docs/specs/2026-07-09-ocr-engine-design.md
-  evidence: crates/ocr-core + containers/ocr + apps/ocr-worker + apps/api-worker/src/http/routes/files/ocr.ts on main; UI deferred; deploy verification is the named next step.
+  evidence: crates/ocr-core + containers/ocr + apps/ocr-worker + apps/api-worker/src/http/routes/files/ocr.ts on main; the File Workbench Text Recognition tab is the screen; deploy verification is the named next step.
 
 - id: documents.ocr.engine
   name: ocr-core engine
   scope: PP-OCR ONNX model pipeline (small tier) through Rust ort, with pinned SHA-256-guarded model set.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0060
   evidence: crates/ocr-core + containers/ocr.
   notes: ADR-0060 selected PP-OCRv5; the built engine runs PP-OCRv6 per the status fragment.
@@ -796,7 +797,7 @@
   name: OCR API
   scope: POST /api/v1/ocr behind the tools:ocr permission.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: apps/api-worker/src/http/routes/files/ocr.ts; OCR_SERVICE forwarding via apps/ocr-worker.
   notes: Answers 503 until magna-carta-ocr is deployed. That worker appears in no deploy record — not the Workers Builds connection list, not the placeholder list, not the deploy queue — and a service binding naming a missing Worker rejects the whole app-worker deploy, so confirming it exists is now the first item in docs/deploy-queue.md.
 
@@ -811,8 +812,10 @@
 - id: documents.ocr.ui
   name: OCR tool UI
   scope: User-facing OCR tool surface.
-  status: not-started
-  evidence: Status fragment: UI deferred.
+  status: shipped
+  surface: screen
+  evidence: The File Workbench's Text Recognition tab (apps/web/src/lib/tools/file-workbench/panels/text-recognition-panel.svelte) sends the file to POST /api/v1/ocr on request, lists each page as already text, recognized or low confidence, shows a page's text beside the list, and saves a searchable PDF through POST /api/v1/ocr/searchable or the text alone.
+  notes: Answers 503 until magna-carta-ocr is deployed; the tab says the engine is not running yet.
 
 - id: documents.ocr.desktop-local
   name: Local OCR on desktop
@@ -827,21 +830,21 @@
   status: partial
   slices: file-repair-salvage
   spec: docs/specs/2026-06-28-file-repair-salvage-design.md
-  evidence: crates/recovery-core + containers/file-repair + apps/file-repair-worker + apps/api-worker/src/http/routes/files/file-repair.ts; UI and deploy smoke test deferred.
+  evidence: crates/recovery-core + containers/file-repair + apps/file-repair-worker + apps/api-worker/src/http/routes/files/file-repair.ts; the File Workbench Repair tab is the screen; deploy smoke test deferred.
   notes: Decision fragments file-repair-single-container-lane and engine-host-r2-optional pending assembly (unnumbered).
 
 - id: documents.file-repair.format-pillars
   name: Format repair pillars
   scope: ZIP/OOXML, CFB/OLE2, PDF xref-rebuild, and content-carving repair pillars in pure Rust (native-only).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: crates/recovery-core; per-pillar plans in docs/specs/ (plan-2 zip-ooxml through plan-5 carving).
 
 - id: documents.file-repair.stateless-api
   name: Stateless repair API
   scope: /api/v1/file-repair/{diagnose,repair,carve}; reconstructed output re-scanned and withheld if flagged.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: apps/api-worker/src/http/routes/files/file-repair.ts + apps/file-repair-worker + FILE_REPAIR_SERVICE binding per the status fragment.
 
 - id: documents.file-repair.attach-to-matter
@@ -855,8 +858,10 @@
 - id: documents.file-repair.ui
   name: File repair UI
   scope: User-facing repair/salvage surface.
-  status: not-started
-  evidence: Status fragment: UI deferred post-shell; magna-carta-file-repair Worker not yet connected to Workers Builds.
+  status: shipped
+  surface: screen
+  evidence: The File Workbench's Repair tab (apps/web/src/lib/tools/file-workbench/panels/repair-panel.svelte) diagnoses on request, then repairs or carves a copy through /api/v1/file-repair/{repair,carve}, shows the loss list item by item, and offers each copy to save or to put on the bench.
+  notes: Saving a repaired copy straight into a matter (the attach routes) is not on this tab; the workbench files nothing. Answers 503 until magna-carta-file-repair is deployed.
 
 - id: documents.decryption
   name: File unlock & password recovery

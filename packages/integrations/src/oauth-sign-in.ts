@@ -52,3 +52,31 @@ export interface TokenRequestDependencies {
 export type AccountOutcome =
   | { readonly ok: true; readonly address: string }
   | { readonly ok: false; readonly problem: IntegrationProblem };
+
+// Whether a provider accepts this deployment's own identifier and secret, asked without any
+// member's account: "accepted" (the provider knows the application and its secret), "refused" (it
+// does not), "unreachable" (no usable answer in time).
+export type ApplicationCredentialCheck = "accepted" | "refused" | "unreachable";
+
+const CLIENT_REFUSED_ERRORS: ReadonlySet<string> = new Set([
+  "invalid_client",
+  "unauthorized_client",
+]);
+
+// Reads a token endpoint's answer to a refresh request carrying a refresh token that was never
+// issued. A provider checks who is asking before it looks at the grant, so "invalid_grant" means
+// the application was recognised and only the made-up token was turned down, and "invalid_client"
+// means the identifier or the secret is wrong. Only the error code is read, never its description.
+export function applicationCredentialCheckFrom(
+  status: number,
+  errorCode: string | undefined,
+): ApplicationCredentialCheck {
+  if (errorCode !== undefined && CLIENT_REFUSED_ERRORS.has(errorCode)) return "refused";
+  if (errorCode === "invalid_grant") return "accepted";
+  if (status === 401) return "refused";
+  return "unreachable";
+}
+
+// The refresh token the check sends. It names what it is, so a provider's own log of the request
+// reads as a check and not as an attack.
+export const CREDENTIAL_CHECK_REFRESH_TOKEN = "magna-carta-credential-check";

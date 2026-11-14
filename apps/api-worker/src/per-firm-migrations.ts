@@ -87,6 +87,7 @@ import meetingAddressesSql from "@magna-carta/database/drizzle/per-firm/20261114
 import exhibitsSql from "@magna-carta/database/drizzle/per-firm/20261114T003247_exhibits.sql";
 import transferPassSql from "@magna-carta/database/drizzle/per-firm/20261114T003558_transfer-pass.sql";
 import numberReservationSql from "@magna-carta/database/drizzle/per-firm/20261114T011021_number-reservation.sql";
+import sharedMeetingRoomsSql from "@magna-carta/database/drizzle/per-firm/20261114T012921_shared-meeting-rooms.sql";
 import magnusTurnThinkingSql from "@magna-carta/database/drizzle/per-firm/20261114T013637_magnus-turn-thinking.sql";
 
 export function perFirmMigrations(): Migration[] {
@@ -177,6 +178,7 @@ export function perFirmMigrations(): Migration[] {
     "20261114T003247_exhibits": exhibitsSql,
     "20261114T003558_transfer-pass": transferPassSql,
     "20261114T011021_number-reservation": numberReservationSql,
+    "20261114T012921_shared-meeting-rooms": sharedMeetingRoomsSql,
     "20261114T013637_magnus-turn-thinking": magnusTurnThinkingSql,
   });
 }

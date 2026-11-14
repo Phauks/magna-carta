@@ -287,7 +287,12 @@
     const outcome = await changeDirectoryName(
       fetch,
       entityId,
-      kind === "person" ? personFields() : { legalName: legalName.trim() },
+      // Edit Name corrects: the owner's ruling is to assume a typing mistake, so the old spelling is
+      // not kept as a former name. A real change of name (a marriage) is recorded by adding the old
+      // one with Add Other Name.
+      kind === "person"
+        ? { ...personFields(), correction: true }
+        : { legalName: legalName.trim(), correction: true },
       crypto.randomUUID(),
     );
     if (outcome.kind === "ok") {
@@ -387,9 +392,10 @@
         />
       {/if}
       {#if editing === "change"}
-        <!-- What the change does to the name already on file, beside the fields it happens in. -->
+        <!-- What saving does to the name already on file, beside the fields it happens in. -->
         <p class="m-0 text-xs text-text-muted">
-          The current name is kept as a former name, dated today, and still finds this record in searches and conflicts checks.
+          Saving replaces the name. To keep the old one, such as a maiden name, add it with Add Other
+          Name.
         </p>
       {:else}
         <div class="flex flex-col gap-8">

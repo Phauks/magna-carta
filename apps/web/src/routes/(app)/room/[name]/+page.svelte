@@ -11,8 +11,8 @@
    * hands back the meeting; the page then goes to the ordinary room screen. Nothing about the room
    * itself is drawn here.
    *
-   * THE OWNER ARRIVING AT THEIR OWN LINK is offered Open My Room, the same act as the card on the
-   * Meetings page.
+   * WHOEVER MAY OPEN THE ROOM is offered Open: the owner of a member's room, and anybody who may host
+   * for one of the firm's shared rooms ("Red Room"), which stands for a place rather than a person.
    */
   import { createQuery } from "@tanstack/svelte-query";
   import { meetingsReadRoomLinkOptions } from "@magna-carta/api-client";
@@ -25,7 +25,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
   import { refusedAs } from "$lib/meetings/meetings-api.ts";
-  import { arriveAtRoom, openPersonalRoom } from "$lib/meetings/personal-room-api.ts";
+  import { arriveAtRoom, openRoomAtAddress } from "$lib/meetings/personal-room-api.ts";
   import { pageRecordingSounds } from "$lib/meetings/client/recording-sounds.ts";
   import type { Failure } from "$lib/api/problem.ts";
 
@@ -75,7 +75,7 @@
     pageRecordingSounds.unlock();
     busy = true;
     writeFailure = null;
-    const outcome = await openPersonalRoom();
+    const outcome = await openRoomAtAddress(linkCode);
     busy = false;
     if (outcome.kind !== "ok") {
       writeFailure = outcome.failure;
@@ -84,7 +84,8 @@
     await goto(`/meetings/${outcome.value.meetingId}`);
   }
 
-  const title = $derived(room === null ? "Room" : `${room.ownerDisplayName}'s Room`);
+  const title = $derived(room === null ? "Room" : room.roomName);
+
 </script>
 
 <svelte:head><title>{title} · Magna Carta</title></svelte:head>
@@ -106,22 +107,26 @@
     />
   {:else if room === null}
     <p class="text-sm text-text-muted">Reading the room</p>
-  {:else if room.isOwner}
-    <EmptyState title="This Is Your Room">
-      {room.state === "open" ? "Your room is open." : "Open it and colleagues with the link can join."}
+  {:else if room.mayOpen}
+    <EmptyState title={room.isOwner ? "This Is Your Room" : room.roomName}>
+      {room.state === "open"
+        ? "The room is open."
+        : "Open it and colleagues with the link can join. The meeting goes on your calendar."}
       {#snippet actions()}
         <Button onclick={open} disabled={busy}>
           <Video aria-hidden="true" />
-          {room.state === "open" ? "Go to My Room" : "Open My Room"}
+          {room.state === "open" ? "Go to the Room" : "Open the Room"}
         </Button>
       {/snippet}
     </EmptyState>
   {:else if room.state === "closed"}
-    <EmptyState title="{room.ownerDisplayName} Is Not in Their Room Yet">
-      This page checks again every few seconds. Join appears as soon as they open it.
+    <EmptyState title="{room.roomName} Is Not Open Yet">
+      This page checks again every few seconds. Join appears as soon as {room.kind === "shared"
+        ? "somebody opens it"
+        : `${room.ownerDisplayName} opens it`}.
     </EmptyState>
   {:else}
-    <EmptyState title="{room.ownerDisplayName} Is in Their Room">
+    <EmptyState title="{room.roomName} Is Open">
       Joining puts this meeting on your calendar.
       {#snippet actions()}
         <Button onclick={join} disabled={busy}>

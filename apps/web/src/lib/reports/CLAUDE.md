@@ -25,7 +25,8 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `reports-api.ts` — the wire shapes and the reads (the pack, the trust-account roster).
 - `trust-compliance-presenter.ts` — the pack's presenter; `trust-compliance-fixture.ts` its sample.
 - `report-reads.ts` — the financial, productivity and operational wire shapes and reads.
-- `financial-presenters.ts`, `activity-presenters.ts` — their presenters; `report-samples.ts` their
+- `financial-presenters.ts`, `billing-presenters.ts` (Invoices, Payments Applied),
+  `activity-presenters.ts` — their presenters; `report-samples.ts` their
   samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.
 - `report-summary.svelte` — the row of totals; `report-section-table.svelte` one section (a plain
   table with its ruled total, or `report-section-grid.svelte` on `DataTable.Grid` when sortable),
@@ -62,9 +63,9 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - Reads through `$lib/api/request.ts`; the shapes mirror `apps/api-worker/openapi/openapi.json`
   (`reports.trustCompliancePack`, `trust.listTrustAccounts`).
 - Exports through `$lib/export` (the presentation IS the export document's shape). The PDF is laid
-  out by `@magna-carta/house-document` in `$lib/export/render-pdf.ts`; a totals row, indented child
-  rows and the summary tiles print as plain rows (or not at all, for the tiles) until the composer
-  has a block for each.
+  out by `@magna-carta/house-document` in `$lib/export/render-pdf.ts`: the summary tiles print as
+  `figures`, and a section with a total or child rows is one `styledTable` (the export section's
+  `rowKinds`). The text, CSV, spreadsheet and Word files keep the plain rows with the indent.
 - Period arithmetic is the time sheet's (`$lib/time/time-sheet-scope.ts`) — one span vocabulary.
 
 ## Gotchas
