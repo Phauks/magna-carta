@@ -31,7 +31,6 @@
   import Lock from "@lucide/svelte/icons/lock";
   import Pin from "@lucide/svelte/icons/pin";
   import Send from "@lucide/svelte/icons/send";
-  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
@@ -521,7 +520,7 @@
 
           {#if set.sourceFolderId !== null}
             <p class="flex items-center gap-8 text-sm text-text-muted">
-              <Folder class="size-16" aria-hidden="true" />
+              <Folder class="size-16 shrink-0" aria-hidden="true" />
               {#if isDraft}
                 Follows the folder {followedFolder?.name ?? "it was made from"}. Files added to it
                 join at the end.
@@ -550,7 +549,6 @@
 
           {#if moves.length > 0}
             <Alert.Root variant="warning">
-              <TriangleAlert class="size-16" aria-hidden="true" />
               <Alert.Title>
                 {moves.length}
                 {moves.length === 1 ? "label changes" : "labels change"}
@@ -609,7 +607,7 @@
               <DataTable.Header>
                 <DataTable.Row>
                   {#if isDraft}
-                    <DataTable.Head><span class="sr-only">Move</span></DataTable.Head>
+                    <DataTable.Head class="hidden sm:table-cell"><span class="sr-only">Move</span></DataTable.Head>
                   {/if}
                   <DataTable.Head>Exhibit</DataTable.Head>
                   <DataTable.Head class="w-full">Title</DataTable.Head>
@@ -630,14 +628,14 @@
                   {@const shift = dragging ? drag.offsetY : drag.rowShift(member.id)}
                   {@const withdrawn = member.status === "withdrawn"}
                   <DataTable.Row
-                    class="{was !== undefined ? 'bg-surface-warning' : ''} {dragging
+                    class="{was !== undefined ? 'bg-status-warning-subtle' : ''} {dragging
                       ? 'relative z-sticky bg-surface-raised shadow-elevation-2'
                       : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
                     style="transform: translateY({shift}px)"
                     data-reorder-row
                   >
                     {#if isDraft}
-                      <DataTable.Cell>
+                      <DataTable.Cell class="hidden sm:table-cell">
                         <button
                           type="button"
                           class="flex size-24 cursor-grab touch-none select-none items-center justify-center rounded-sm text-text-muted hover:text-text-default focus-visible:outline-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed"
@@ -654,11 +652,11 @@
                     {/if}
                     <DataTable.Cell>
                       <span class="flex flex-col">
-                        <span class="font-medium {withdrawn ? 'text-text-muted line-through' : ''}">
+                        <span class="font-medium whitespace-nowrap {withdrawn ? 'text-text-muted line-through' : ''}">
                           {set.scheme.noun === "" ? label : `${set.scheme.noun} ${label}`}
                         </span>
                         {#if was !== undefined}
-                          <span class="text-xs text-text-warning">was {was}</span>
+                          <span class="text-xs text-status-warning-subtle-foreground">was {was}</span>
                         {/if}
                         {#if withdrawn}
                           <span class="text-xs text-text-muted">Withdrawn</span>
@@ -677,7 +675,7 @@
                     <DataTable.Cell class="hidden lg:table-cell">
                       {member.pageCount ?? ""}
                     </DataTable.Cell>
-                    <DataTable.Cell class="hidden lg:table-cell">
+                    <DataTable.Cell class="hidden whitespace-nowrap lg:table-cell">
                       {#if !isDraft}
                         <span class="flex items-center gap-4 text-text-muted">
                           <Lock class="size-12" aria-hidden="true" />As filed

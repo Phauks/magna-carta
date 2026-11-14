@@ -2629,6 +2629,8 @@
     </ContextMenu.Item>
     <ContextMenu.Separator />
     <ContextMenu.Item onSelect={() => void deleteRows([row])}>Delete</ContextMenu.Item>
+    <ContextMenu.Separator />
+    <ContextMenu.Item onSelect={() => void makeExhibitsFrom(row.folder.id)}>Make Exhibits</ContextMenu.Item>
   {:else}
     <!-- Home is a destination, not a folder: it opens, and it takes a paste; there is nothing on
          it to rename, colour, or delete. -->
