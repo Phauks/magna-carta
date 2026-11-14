@@ -1,8 +1,9 @@
 ---
+number: 525
 slug: platform-secrets-live-in-the-secrets-store
 status: Accepted
-area: Operations
 date: 2026-11-13
+area: Operations
 summary: "The platform's secrets move from per-Worker secrets into the account's Cloudflare Secrets Store, one at a time. Each Worker resolves a store binding named SECRETS_STORE_<NAME> into the plain string its code already reads, at its entry, and falls back to the per-Worker secret, so a secret moves with no gap and the code that reads it does not change."
 ---
 

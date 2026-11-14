@@ -176,6 +176,21 @@ function component(
 }
 
 /**
+ * The postal code, with its extension where Google has one. A United States address answers the
+ * five-digit ZIP Code as `postal_code` and the four digits after it as `postal_code_suffix`; the
+ * record keeps ZIP+4 written the way the postal service writes it, `12345-6789`, so a letter can
+ * carry the full code.
+ */
+function postalCodeFrom(
+  components: readonly Record<string, unknown>[],
+  postal: Record<string, unknown>,
+): string {
+  const code = component(components, "postal_code") || textOf(postal, "postalCode");
+  const suffix = component(components, "postal_code_suffix");
+  return code !== "" && suffix !== "" && !code.includes("-") ? `${code}-${suffix}` : code;
+}
+
+/**
  * The parts a record stores, from a Place Details answer.
  *
  * The street line comes from the postal address Google formats for the country, because the order of
@@ -212,7 +227,7 @@ export function partsFromDetails(body: unknown, askedCountry: string): Suggested
       textOf(postal, "locality"),
     region:
       component(components, "administrative_area_level_1") || textOf(postal, "administrativeArea"),
-    postal: component(components, "postal_code") || textOf(postal, "postalCode"),
+    postal: postalCodeFrom(components, postal),
     sortingCode: textOf(postal, "sortingCode"),
     country,
   });
