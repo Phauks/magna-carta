@@ -69,6 +69,22 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 
 Disarming works on PDF files, Word, Excel and PowerPoint documents, RTF documents and pictures. A password-protected file has to be unlocked first, and older Office files (`.doc`, `.xls`, `.ppt`) are not disarmed. The original is never changed, so it stays the evidence of what arrived.
 
+**Get what you can out of a damaged file**
+
+1. Drop the file on the workbench and open the **Repair** tab.
+2. Choose **Diagnose the File**. It says what the file reads as, lists each problem it found, and gives a verdict: **Not Damaged**, **Repairable**, **Partly Repairable** or **Not Repairable**.
+3. Choose **Repair a Copy** to rebuild the file, or **Carve Out What Can Be Read** to pull whole pictures and documents out of a file too damaged to rebuild.
+4. A table lists every part that came back and every part that did not. Each copy can be saved or put on the bench to look at on the other tabs.
+
+Repair works on Word, Excel and PowerPoint files (both the current and the older formats), zip archives and PDF files. Carving works on anything. Every copy is scanned for malware before it is offered, and the original is never changed.
+
+**Get the text out of a scan**
+
+1. Drop the scan or photograph on the workbench and open the **Text Recognition** tab.
+2. Choose **Recognize the Text**. Each page is listed with what happened to it: **Already Had Text** for a page that had selectable text, **Recognized**, or **Low Confidence** for a page worth checking.
+3. Click a page number to see its text beside the list, and compare it with the picture in the preview.
+4. For a PDF, **Save Searchable PDF** keeps the same pages with the text laid invisibly behind them, so the file can be searched and copied from. **Save Text Only** saves the text as a plain text file, with each page headed.
+
 **Sort and narrow the list**
 
 The list is a table. Click a column heading to sort by it; click again to reverse. Right-click a heading and open **Columns** to add **Added** and **Safety**, which start hidden because the pane is narrow, or to hide any column you do not want; the same menu hides or pins the column you right-clicked. **Filter** is on that menu too, so you can show only the PDFs, or only files above a size.
@@ -81,7 +97,7 @@ Each row has a **⋮** menu with **Discard** in it, along with **Copy Name** and
 
 - **The fingerprints are calculated on your own computer.** They are the right figure for checking a file against one somebody sent you. A fingerprint that goes into a court record is calculated by Magna Carta's servers over the file they received, which is a different guarantee, and the tab says which one you are looking at.
 - **Some files have no preview.** An archive, a program, and an encrypted document have nothing to show, and the workbench says so rather than holding an empty frame open. **Hide Preview** at the top right closes the picture on every tab and gives the readings the width; **Show Preview** brings it back, and the button beside it moves the file to the other side of the readings. Both choices are remembered.
-- **Nothing is kept, and nothing is sent anywhere.** Files on the workbench stay in your own browser: they are not uploaded, not attached to a matter, and not recorded as having been looked at. Closing the page clears them.
+- **Nothing is kept.** Files on the workbench stay in your own browser: they are not attached to a matter and not recorded as having been looked at. Closing the page clears them. **Repair**, **Text Recognition** and **Unlock** send the file to the firm's own engines when you press their button; the engine answers and keeps nothing.
 - **The name is not the answer.** Everything here reads the file itself. Where the file and its name disagree, the workbench reports the file.
 - **Recovering a lost password is not done here.** Unlocking a document you have the password for takes a moment. Searching for a password nobody has can run for days, so it does not run on a bench that clears itself; it goes to a screen of its own that can be left running.
 

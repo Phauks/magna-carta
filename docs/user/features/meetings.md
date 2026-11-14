@@ -136,7 +136,28 @@ meeting on their calendar too.
 When everybody has left, the meeting ends by itself the next time you open your room, and its
 calendar entry is closed at the time the last person left.
 
-Your room's address does not change, even if your name does.
+**Rename Room**, in the same menu, gives your room a name of its own, such as Trial Prep. Its
+address follows the new name (magnacarta.esq/room/trial-prep), and the old address stops working, so
+send colleagues the new link. **Use My Name** puts your room back to being called by your name, at
+its first address. Otherwise your room's address does not change, even if your name does.
+
+### Rooms the firm shares
+
+Besides everybody's own room, the firm can keep rooms named for a place or a purpose, such as Red
+Room or Large Conference Room, for when people gather in that space and others join from elsewhere.
+They are listed on the **Shared Rooms** card.
+
+- **New Room** sets one up. Give it a name; its address is made from the name, such as
+  magnacarta.esq/room/red-room.
+- **Open Room** starts a meeting in it and takes you in. The meeting goes on your calendar, titled
+  with the room's name. If the room is already open, the button reads **Go to Room**.
+- The **...** menu on each room has **Rename Room** (the address follows the new name and the old
+  one stops working), **Hold arrivals in a lobby**, **Open as an audio call**, and **Remove Room**.
+  Removing a room takes it off the list and its link stops working; a meeting already running in it
+  carries on.
+
+Anybody who can host meetings can set up, open, change and remove a shared room. Anybody else at the
+firm sees the list, can copy a room's link, and can **Join** while it is open.
 
 ### Everybody's rooms
 

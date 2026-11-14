@@ -6,18 +6,26 @@ import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch"
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
-import type { PersonalRoomResponse } from "@magna-carta/meetings/personal-room-contract";
+import type {
+  PersonalRoomAtLinkResponse,
+  PersonalRoomResponse,
+} from "@magna-carta/meetings/personal-room-contract";
+import type { PersonalRoomArrival } from "@magna-carta/meetings/personal-room-service";
 import {
   MOVE_DELETE_EVENT_GUARD,
   MOVE_TO_MATTER_GUARD,
+  RENAME_ROOM_GUARD,
   REPLACE_LINK_GUARD,
+  RETIRE_ROOM_GUARD,
 } from "@magna-carta/meetings/personal-room-service";
 import {
+  readMemberDisplayName,
   readPersonalRoomForOwner,
   readPersonalRoomOpenSession,
 } from "@magna-carta/meetings/personal-room-statements";
 import {
   MeetingPersonalRoomRefusedError,
+  roomDisplayName,
   type MeetingPersonalRoomRow,
 } from "@magna-carta/meetings/personal-room-types";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
@@ -48,8 +56,15 @@ export function serviceOptions(userId: string) {
 export function personalRoomErrorResponse(
   c: Context,
   caught: MeetingPersonalRoomRefusedError,
-): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<409> {
+): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
   switch (caught.code) {
+    case "personal-room-invalid-title":
+      return problemJson(c, {
+        type: "validation",
+        title: "The room's name is not usable",
+        status: 422,
+        detail: caught.message,
+      });
     case "personal-room-unknown":
       return problemJson(c, {
         type: "personal-room-not-found",
@@ -75,7 +90,13 @@ export function personalRoomErrorResponse(
   });
 }
 
-const RACE_GUARDS = new Set([REPLACE_LINK_GUARD, MOVE_TO_MATTER_GUARD, MOVE_DELETE_EVENT_GUARD]);
+const RACE_GUARDS = new Set([
+  REPLACE_LINK_GUARD,
+  MOVE_TO_MATTER_GUARD,
+  MOVE_DELETE_EVENT_GUARD,
+  RENAME_ROOM_GUARD,
+  RETIRE_ROOM_GUARD,
+]);
 
 type Outcome<T> =
   | { ok: true; value: T; executed: boolean }
@@ -151,9 +172,30 @@ export async function roomBody(
       id: room.id,
       linkCode: room.link_code,
       addressName: room.address_name ?? room.link_code,
+      name: roomDisplayName(
+        room,
+        (await readMemberDisplayName(database, room.owner_user_id)) ?? "",
+      ),
+      title: room.title,
       medium: room.medium,
       lobby: room.lobby,
       openMeetingId: inUse ? open.id : null,
     },
+  };
+}
+
+/** A room's link as the routes answer with it. */
+export function arrivalBody(
+  arrival: PersonalRoomArrival,
+): z.infer<typeof PersonalRoomAtLinkResponse> {
+  return {
+    state: arrival.state,
+    ownerDisplayName: arrival.ownerDisplayName,
+    isOwner: arrival.isOwner,
+    addressName: arrival.addressName,
+    roomName: arrival.roomName,
+    kind: arrival.kind,
+    mayOpen: arrival.mayOpen,
+    meetingId: arrival.state === "open" ? arrival.meetingId : null,
   };
 }

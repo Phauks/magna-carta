@@ -2,7 +2,8 @@
  * The financial, productivity and operational reads.
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
- * `reports.timekeeperProductivity` and `reports.operationalVolumes` in
+ * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices` and
+ * `reports.paymentsApplied` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -11,7 +12,9 @@
  */
 import {
   reportsAccountsReceivableAging,
+  reportsInvoices,
   reportsOperationalVolumes,
+  reportsPaymentsApplied,
   reportsRealization,
   reportsTimekeeperProductivity,
   reportsWorkInProgress,
@@ -236,6 +239,99 @@ export interface OperationalVolumes {
   costs: { disbursementClass: "hard" | "soft"; count: number }[];
 }
 
+export interface InvoiceFigures {
+  invoiceCount: number;
+  billedMinor: number;
+  creditedMinor: number;
+  appliedMinor: number;
+  unpaidMinor: number;
+}
+
+export interface InvoiceRow {
+  invoiceId: string;
+  invoiceNumber: string | null;
+  issueDate: string;
+  dueDate: string | null;
+  figures: InvoiceFigures;
+  matters: {
+    matterId: string;
+    matterTitle: string;
+    matterNumber: string | null;
+    locationId: string | null;
+    locationName: string | null;
+    figures: InvoiceFigures;
+  }[];
+}
+
+export interface Invoices {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  completeness: ReportCompleteness;
+  totals: InvoiceFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: InvoiceFigures }[];
+  clients: {
+    clientEntityId: string;
+    clientName: string | null;
+    figures: InvoiceFigures;
+    invoices: InvoiceRow[];
+  }[];
+}
+
+export type ApplicationKind =
+  | "trust_transfer"
+  | "payment"
+  | "credit_note"
+  | "client_credit"
+  | "write_off"
+  | "reversal";
+
+export interface AppliedFigures {
+  entryCount: number;
+  paymentMinor: number;
+  trustTransferMinor: number;
+  clientCreditMinor: number;
+  creditNoteMinor: number;
+  writeOffMinor: number;
+  reversalMinor: number;
+  totalMinor: number;
+}
+
+export interface AppliedEntry {
+  applicationId: string;
+  kind: ApplicationKind;
+  reversesKind: Exclude<ApplicationKind, "reversal"> | null;
+  effectiveDate: string;
+  amountMinor: number;
+  reason: string | null;
+  invoiceId: string;
+  invoiceNumber: string | null;
+  clientEntityId: string;
+  clientName: string | null;
+  matterId: string;
+  matterTitle: string;
+  matterNumber: string | null;
+  locationId: string | null;
+  locationName: string | null;
+}
+
+export interface PaymentsApplied {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  completeness: ReportCompleteness;
+  totals: AppliedFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: AppliedFigures }[];
+  clients: { clientEntityId: string; clientName: string | null; figures: AppliedFigures }[];
+  entries: AppliedEntry[];
+}
+
 /** A null filter is left off the query: the contract reads an absent parameter as "the whole firm". */
 function present(value: string | null): string | undefined {
   return value ?? undefined;
@@ -334,6 +430,42 @@ export function readOperationalVolumes(
 ): Promise<ApiOutcome<OperationalVolumes>> {
   return outcome(() =>
     reportsOperationalVolumes({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+export function readInvoices(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<Invoices>> {
+  return outcome(() =>
+    reportsInvoices({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+export function readPaymentsApplied(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<PaymentsApplied>> {
+  return outcome(() =>
+    reportsPaymentsApplied({
       fetch: fetchImpl,
       throwOnError: true,
       query: {
