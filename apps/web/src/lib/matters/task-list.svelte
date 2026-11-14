@@ -50,7 +50,6 @@
   import Columns from "@lucide/svelte/icons/columns-3";
   import SquareCheck from "@lucide/svelte/icons/square-check";
   import Square from "@lucide/svelte/icons/square";
-  import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
   import Input from "@magna-carta/design-system/input";
   import TaskPeopleMenu from "$lib/matters/task-people-menu.svelte";
@@ -633,7 +632,6 @@
     class="font-normal text-text-muted"
     onclick={() => openAddLine(bandKey)}
   >
-    <Plus aria-hidden="true" />
     {label === null ? "Add a task" : `Add a task to ${label}`}
   </Button>
 {/snippet}
