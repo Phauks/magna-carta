@@ -39,6 +39,7 @@ function message(ordinal: number, over: Partial<MeetingMessage> = {}): MeetingMe
     body: `Message ${String(ordinal)}`,
     redactedAt: null,
     redactedByUserId: null,
+    attachedFile: null,
     ...over,
   };
 }
@@ -85,8 +86,11 @@ class Seams implements MeetingChatSeams {
     return Promise.resolve({ kind: "ok" as const, value: answer });
   }
 
-  send(body: string): Promise<{ kind: "ok"; value: MeetingMessage }> {
+  readonly shared: (string | null)[] = [];
+
+  send(body: string, attachedFileId: string | null): Promise<{ kind: "ok"; value: MeetingMessage }> {
     this.said.push(body);
+    this.shared.push(attachedFileId);
     return Promise.resolve({ kind: "ok" as const, value: this.sent });
   }
 
@@ -210,6 +214,19 @@ describe("following what is said in the room", () => {
 
     expect(await chat.send("   ")).toBe(false);
     expect(seams.said).toEqual([]);
+  });
+
+  it("sends a file with no words, because the file is what was said", async () => {
+    const seams = new Seams();
+    seams.pages = [pageOf([])];
+    const chat = new MeetingChat(seams);
+
+    chat.start();
+    await settle();
+
+    expect(await chat.send("   ", "file_shared")).toBe(true);
+    expect(seams.said).toEqual([""]);
+    expect(seams.shared).toEqual(["file_shared"]);
   });
 
   it("marks a message taken back rather than taking the row away", async () => {
@@ -429,6 +446,42 @@ describe("the chat panel", () => {
     expect(shown).toContain("Message 1");
     expect(shown).toContain("Theodore Vance");
     expect(shown).toContain("Message 2");
+  });
+
+  it("draws a shared file as a link to its own download, without saying its name twice", () => {
+    instance = mount(Panel, {
+      target,
+      props: panelProps({
+        messages: [
+          message(1, {
+            body: "Exhibit list.pdf",
+            attachedFile: { id: "file_exhibits", name: "Exhibit list.pdf" },
+          }),
+        ],
+      }),
+    });
+    flushSync();
+
+    const link = [...document.body.querySelectorAll("a")].find(
+      (anchor) => anchor.getAttribute("href") === "/api/v1/files/file_exhibits/download",
+    );
+    expect(link?.textContent?.trim()).toBe("Exhibit list.pdf");
+    expect(document.body.textContent?.split("Exhibit list.pdf")).toHaveLength(2);
+  });
+
+  it("offers a file only in a meeting kept on a matter", () => {
+    const sharing = {
+      onShareFile: () => Promise.resolve(true),
+      onUploadFile: () => Promise.resolve(true),
+    };
+    instance = mount(Panel, { target, props: panelProps({ ...sharing, matterId: null }) });
+    flushSync();
+    expect(document.body.querySelector('[aria-label="Share a file"]')).toBeNull();
+    void unmount(instance);
+
+    instance = mount(Panel, { target, props: panelProps({ ...sharing, matterId: "matter_1" }) });
+    flushSync();
+    expect(document.body.querySelector('[aria-label="Share a file"]')).not.toBeNull();
   });
 
   it("offers Take Back on a row this reader may take back, and on no other", () => {

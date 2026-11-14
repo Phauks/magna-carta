@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
+import type { FileId, MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
 import { postMeetingMessage, redactMeetingMessage } from "../src/chat-service.ts";
 import {
   listMeetingMessages,
@@ -11,7 +11,9 @@ import { MeetingChatValidationError } from "../src/chat-validation.ts";
 import { createMeeting, joinMeeting, leaveMeeting } from "../src/meeting-service.ts";
 import { MeetingValidationError } from "../src/validation.ts";
 import {
+  FIRM_EVENT,
   GUEST,
+  HOLDING_MATTER,
   HOST,
   MATTER,
   MATTER_EVENT,
@@ -561,5 +563,98 @@ describe("the redactions a forward-only reader would never see", () => {
         10,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("a file shared in a meeting's chat", () => {
+  const FILE = "file_meetingChatShared00000" as FileId;
+  const ELSEWHERE = "file_meetingChatElsewhere00" as FileId;
+  const DELETED = "file_meetingChatDeleted0000" as FileId;
+
+  function seedFiles(database: Database): void {
+    const insert = database.raw.prepare(
+      `INSERT INTO file (id, matter_id, name, deleted_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    const at = "2026-09-01T00:00:00.000Z";
+    insert.run(FILE, MATTER, "Exhibit list.pdf", null, at, at);
+    insert.run(ELSEWHERE, HOLDING_MATTER, "Somebody else's.pdf", null, at, at);
+    insert.run(DELETED, MATTER, "Gone.pdf", at, at, at);
+  }
+
+  async function share(
+    database: Database,
+    meetingId: MeetingId,
+    body: string,
+    attachedFileId: FileId,
+  ): Promise<MeetingMessageId> {
+    const { message, effect } = await postMeetingMessage(
+      database.database,
+      meetingId,
+      { body, attachedFileId },
+      options,
+    );
+    await commit(database.database, effect);
+    return message.id;
+  }
+
+  it("points the line at one of the meeting's matter's files, named by the file", async () => {
+    const database = fresh();
+    seedFiles(database);
+    const meetingId = await startAndJoin(database);
+
+    const said = await share(database, meetingId, "The list we just went through.", FILE);
+    const bare = await share(database, meetingId, "   ", FILE);
+
+    const page = await listMeetingMessages(database.database, meetingId, { limit: 10 });
+    const byId = new Map(page.map((message) => [message.id, message]));
+    expect(byId.get(said)?.attachedFile).toEqual({ id: FILE, name: "Exhibit list.pdf" });
+    expect(byId.get(said)?.body).toBe("The list we just went through.");
+    // Nothing typed: the line says the file's name, so the record still reads as something said.
+    expect(byId.get(bare)?.body).toBe("Exhibit list.pdf");
+  });
+
+  it("refuses a file on another matter, a deleted one, and any file in a meeting on no matter", async () => {
+    const database = fresh();
+    seedFiles(database);
+    const meetingId = await startAndJoin(database);
+
+    for (const fileId of [ELSEWHERE, DELETED, "file_meetingChatNothing0000" as FileId]) {
+      await expect(share(database, meetingId, "Here.", fileId)).rejects.toMatchObject({
+        code: "meeting-message-file-unavailable",
+      });
+    }
+
+    const staff = await createMeeting(
+      database.database,
+      { eventKind: "firm", eventId: FIRM_EVENT },
+      options,
+    );
+    await commit(database.database, staff.effect);
+    const joined = await joinMeeting(database.database, staff.meetingId, options);
+    await commit(database.database, joined.effect);
+    await expect(share(database, staff.meetingId, "Here.", FILE)).rejects.toBeInstanceOf(
+      MeetingChatValidationError,
+    );
+  });
+
+  it("stops naming the file once the line is taken back or the file is deleted", async () => {
+    const database = fresh();
+    seedFiles(database);
+    const meetingId = await startAndJoin(database);
+    const takenBack = await share(database, meetingId, "Wrong one.", FILE);
+    const kept = await share(database, meetingId, "This one.", FILE);
+
+    const redacted = await redactMeetingMessage(database.database, meetingId, takenBack, options);
+    await commit(database.database, redacted.effect);
+    expect((await readMeetingMessage(database.database, meetingId, takenBack))?.attachedFile).toBe(
+      null,
+    );
+    expect((await readMeetingMessage(database.database, meetingId, kept))?.attachedFile).toEqual({
+      id: FILE,
+      name: "Exhibit list.pdf",
+    });
+
+    database.raw.exec(`UPDATE file SET deleted_at = '2026-09-18T12:10:00.000Z' WHERE id = '${FILE}'`);
+    expect((await readMeetingMessage(database.database, meetingId, kept))?.attachedFile).toBe(null);
   });
 });

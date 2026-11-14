@@ -361,7 +361,7 @@ function chatErrorResponse(
     // nothing about whether it names a file elsewhere.
     case "meeting-message-file-unavailable":
       return problemJson(c, {
-        type: "not-found",
+        type: "meeting-message-file-unavailable",
         title: "That file cannot be shared here",
         status: 404,
         detail: caught.message,

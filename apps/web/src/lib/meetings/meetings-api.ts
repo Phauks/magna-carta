@@ -425,15 +425,21 @@ export function readMeetingMessages(
   );
 }
 
-/** Say something in the room. Refused for a member with no open stay in it. */
+/**
+ * Say something in the room. Refused for a member with no open stay in it.
+ *
+ * A message may point at one of the meeting's matter's files; the body may then be empty, and the
+ * record says the file's name in its place.
+ */
 export function sendMeetingMessage(
   meetingId: string,
   body: string,
+  attachedFileId: string | null = null,
 ): Promise<MeetingWrite<MeetingMessage>> {
   return write(() =>
     meetingsSendMessage({
       path: { meetingId },
-      body: { body },
+      body: attachedFileId === null ? { body } : { body, attachedFileId },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
     }),

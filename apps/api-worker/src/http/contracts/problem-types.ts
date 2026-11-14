@@ -679,6 +679,9 @@ export const PROBLEM_TYPES = {
   // long thing on the file as a document — and because a message silently truncated to fit would be
   // a record of something nobody said.
   "meeting-message-too-long": "meeting-message-too-long",
+  // A FILE a meeting's chat cannot point at (HTTP 404): not on the meeting's matter, deleted, or a
+  // meeting kept on no matter at all. Absent rather than forbidden, so a guessed handle learns nothing.
+  "meeting-message-file-unavailable": "meeting-message-file-unavailable",
   // A POLL nothing can reach (HTTP 404) — a handle naming no poll, and a poll in another meeting, on
   // the chat message's reasoning.
   "meeting-poll-not-found": "meeting-poll-not-found",

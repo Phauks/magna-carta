@@ -122,6 +122,7 @@
   import MeetingReactionCounts from "$lib/meetings/screen/meeting-reaction-counts.svelte";
   import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
   import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
+  import { meetingFileSeams, uploadMeetingFile } from "$lib/meetings/chat-files.ts";
   import {
     readCloudflareSite,
     connectionParticipants,
@@ -803,6 +804,9 @@
   const chatWriteTitle = $derived.by(() => {
     if (refusedAs(chat.writeFailure, "meeting-message-too-long")) return "That Message Is Too Long";
     if (refusedAs(chat.writeFailure, "meeting-not-joined")) return "You Are Not in This Meeting";
+    if (refusedAs(chat.writeFailure, "meeting-message-file-unavailable")) {
+      return "That File Cannot Be Shared Here";
+    }
     return "Nothing Was Said";
   });
   const chatWriteSentence = $derived.by(() => {
@@ -812,8 +816,40 @@
     if (refusedAs(chat.writeFailure, "meeting-not-joined")) {
       return "Your stay in this meeting has closed, so nothing can be said in it from here.";
     }
+    if (refusedAs(chat.writeFailure, "meeting-message-file-unavailable")) {
+      return "Only a file on this meeting's matter can be shared in its chat, and that one is not, or has been deleted.";
+    }
     return "That did not reach this meeting's record.";
   });
+
+  /*
+   * A FILE SHARED IN CHAT IS ONE OF THE MATTER'S, so it is offered only in a meeting kept on a
+   * matter. A new one is filed onto the matter ("Meeting files") by the file manager's own upload
+   * first, and only then said; an upload that did not land says why here and says nothing in chat.
+   */
+  const chatMatterId = $derived(
+    summary !== null && summary.eventKind === "matter" ? summary.matterId : null,
+  );
+  let chatFileUploading = $state(false);
+  let chatFileRefusal = $state<{ failure: Failure | null; reason: string } | null>(null);
+
+  async function shareChatFile(fileId: string, body: string): Promise<boolean> {
+    chatFileRefusal = null;
+    return await chat.send(body, fileId);
+  }
+
+  async function uploadChatFile(file: File, body: string): Promise<boolean> {
+    if (chatMatterId === null || chatFileUploading) return false;
+    chatFileRefusal = null;
+    chatFileUploading = true;
+    const filed = await uploadMeetingFile(meetingFileSeams(), chatMatterId, file);
+    chatFileUploading = false;
+    if (filed.kind === "refused") {
+      chatFileRefusal = { failure: filed.failure, reason: filed.reason };
+      return false;
+    }
+    return await chat.send(body, filed.fileId);
+  }
 
   /*
    * WHAT A HOST ASKS THE ROOM, AND WHAT THE ROOM ASKS A HOST.
@@ -1370,6 +1406,10 @@
     canTakeBack={mayTakeBack}
     onSend={(body) => chat.send(body)}
     onTakeBack={(messageId) => void chat.redact(messageId)}
+    matterId={chatMatterId}
+    uploading={chatFileUploading}
+    onShareFile={shareChatFile}
+    onUploadFile={uploadChatFile}
     questions={questions.queue}
     hosting={myRole !== null}
     asking={questions.asking}
@@ -1415,6 +1455,19 @@
           fallback={chatWriteSentence}
           whenSilent="Nothing answered, so nothing was said in this meeting."
         />
+      {/if}
+      {#if chatFileRefusal !== null}
+        {#if chatFileRefusal.failure !== null}
+          <FailureNotice
+            failure={chatFileRefusal.failure}
+            subject="This meeting"
+            title="The File Was Not Shared"
+            fallback={chatFileRefusal.reason}
+            whenSilent="Nothing answered, so the file was not uploaded."
+          />
+        {:else}
+          <p class="text-sm text-text-muted" role="status">{chatFileRefusal.reason}</p>
+        {/if}
       {/if}
     {/snippet}
   </MeetingChatPanel>
