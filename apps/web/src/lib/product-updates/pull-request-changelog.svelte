@@ -14,6 +14,7 @@
    * The filters are three small menus that say what they hold and open only when asked: kind, area,
    * and whether to show only what members see.
    */
+  import { untrack } from "svelte";
   import * as Accordion from "@magna-carta/design-system/accordion";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Badge from "@magna-carta/design-system/badge";
@@ -102,9 +103,9 @@
   const filtered = $derived(kinds.length > 0 || areas.length > 0 || audience !== "all");
 
   // The newest day opens; older days wait to be asked for. Every entry starts open within its day.
-  let openDays = $state<string[]>(
-    pullRequests[0] === undefined ? [] : [pullRequests[0].date],
-  );
+  // Read once, deliberately: a list that refreshes keeps the days the reader has opened or closed.
+  const newestDay = untrack(() => pullRequests[0]?.date);
+  let openDays = $state<string[]>(newestDay === undefined ? [] : [newestDay]);
   const everyEntry = () => pullRequests.map((pullRequest) => String(pullRequest.number));
   let openEntries = $state<string[]>(everyEntry());
   const anyEntryOpen = $derived(openEntries.length > 0);

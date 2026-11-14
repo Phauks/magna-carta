@@ -432,7 +432,11 @@ describe("renaming a member's room", () => {
     await expect(
       readPersonalRoomAtLink(database.database, room.address_name ?? "", optionsFor(GUEST)),
     ).rejects.toMatchObject({ code: "personal-room-unknown" });
-    const arrival = await readPersonalRoomAtLink(database.database, "trial-prep", optionsFor(GUEST));
+    const arrival = await readPersonalRoomAtLink(
+      database.database,
+      "trial-prep",
+      optionsFor(GUEST),
+    );
     expect(arrival.roomName).toBe("Trial Prep");
     expect(arrival.kind).toBe("personal");
     expect(arrival.mayOpen).toBe(false);
@@ -483,10 +487,15 @@ describe("a room the firm shares", () => {
     const address = room.address_name ?? "";
 
     await expect(
-      openRoomAtAddress(database.database, address, { timeZone: ZONE }, {
-        ...optionsFor(GUEST),
-        mayHost: false,
-      }),
+      openRoomAtAddress(
+        database.database,
+        address,
+        { timeZone: ZONE },
+        {
+          ...optionsFor(GUEST),
+          mayHost: false,
+        },
+      ),
     ).rejects.toMatchObject({ code: "personal-room-not-owner" });
 
     const opened = await openRoomAtAddress(

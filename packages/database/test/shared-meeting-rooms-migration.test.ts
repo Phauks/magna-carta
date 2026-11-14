@@ -45,8 +45,26 @@ describe("the shared meeting rooms migration over existing rooms", () => {
     expect(() =>
       insert.run("meetingPersonalRoom_1", OWNER, "roomcode01", null, "personal", null, NOW, NOW),
     ).toThrow();
-    insert.run("meetingPersonalRoom_2", OWNER, "roomcode02", "red-room", "shared", "Red Room", NOW, NOW);
-    insert.run("meetingPersonalRoom_3", OWNER, "roomcode03", "blue-room", "shared", "Blue Room", NOW, NOW);
+    insert.run(
+      "meetingPersonalRoom_2",
+      OWNER,
+      "roomcode02",
+      "red-room",
+      "shared",
+      "Red Room",
+      NOW,
+      NOW,
+    );
+    insert.run(
+      "meetingPersonalRoom_3",
+      OWNER,
+      "roomcode03",
+      "blue-room",
+      "shared",
+      "Blue Room",
+      NOW,
+      NOW,
+    );
     expect(() =>
       insert.run("meetingPersonalRoom_4", OWNER, "roomcode04", null, "other", "X", NOW, NOW),
     ).toThrow();
@@ -54,7 +72,9 @@ describe("the shared meeting rooms migration over existing rooms", () => {
       insert.run("meetingPersonalRoom_5", OWNER, "roomcode05", null, "shared", "", NOW, NOW),
     ).toThrow();
     expect(
-      raw.prepare(`SELECT count(*) AS rooms FROM meeting_personal_room WHERE kind = 'shared'`).get(),
+      raw
+        .prepare(`SELECT count(*) AS rooms FROM meeting_personal_room WHERE kind = 'shared'`)
+        .get(),
     ).toEqual({ rooms: 2 });
   });
 });

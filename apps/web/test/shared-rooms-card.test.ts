@@ -10,13 +10,14 @@ import { client } from "@magna-carta/api-client/client";
 import Harness from "./shared-rooms-card-harness.svelte";
 import { queryClient } from "../src/lib/api/screen-data.ts";
 import { sharedRoomStatus } from "../src/lib/meetings/firm-rooms.ts";
+import type { SharedRoom } from "@magna-carta/api-client";
 
 const ORIGIN = "https://magna.example";
 
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 
-const RED_ROOM = {
+const RED_ROOM: SharedRoom = {
   id: "meetingPersonalRoom_red",
   name: "Red Room",
   addressName: "red-room",
@@ -78,7 +79,17 @@ describe("the Shared Rooms card", () => {
   });
 
   it("gives a member who only joins the link, and Join only while the room is open", async () => {
-    answerWith([RED_ROOM, { ...RED_ROOM, id: "meetingPersonalRoom_big", name: "Large Conference Room", addressName: "large-conference-room", openMeetingId: "meeting_1", inTheRoom: 3 }]);
+    answerWith([
+      RED_ROOM,
+      {
+        ...RED_ROOM,
+        id: "meetingPersonalRoom_big",
+        name: "Large Conference Room",
+        addressName: "large-conference-room",
+        openMeetingId: "meeting_1",
+        inTheRoom: 3,
+      },
+    ]);
     instance = mount(Harness, { target, props: { canHost: false } });
     await settle();
 
