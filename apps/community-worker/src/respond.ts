@@ -8,8 +8,8 @@ export const BOARD_HEADERS: Readonly<Record<string, string>> = {
   "Referrer-Policy": "no-referrer",
 };
 
-// The one exception: the public changelog's own address (changelog.<domain>, the board's Changelog
-// page and nothing else) may be listed, because it names no person and is meant to be found.
+// The one exception: the board's Changelog page (/changelog) may be listed, because it names no
+// person and is meant to be found.
 export function withBoardHeaders(response: Response, listable = false): Response {
   const answer = new Response(response.body, response);
   for (const [name, value] of Object.entries(BOARD_HEADERS)) {

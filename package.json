@@ -25,6 +25,7 @@
     "lint:workers-types-import": "node tooling/lint-workers-types-import.mjs",
     "lint:custodian-vocabulary": "node tooling/lint-custodian-vocabulary.mjs",
     "lint:conflicts-vocabulary": "node tooling/lint-conflicts-vocabulary/index.mjs",
+    "lint:ux-copy": "node tooling/lint-ux-copy/index.mjs",
     "seed-dev-firm": "node tooling/seed-dev-firm.mjs",
     "platform-seal-certificate": "node tooling/platform-seal-certificate/index.mts",
     "lint:licenses": "node tooling/lint-licenses.mjs",

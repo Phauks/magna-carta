@@ -243,7 +243,11 @@ diagnostic events. `meeting-tiles.ts` projects the client's state into tile mode
 `meeting-quality-mark.svelte`, `meeting-connection-panel.svelte`, `meeting-chat-panel.svelte` and
 `meeting-audio.svelte` draw them, and `meeting-host-labels.ts` is the one home for what a role and a spotlight are CALLED, because
 four surfaces drawing the same badge is four spellings of "Co-host". The room screen itself is
-`src/routes/(app)/meetings/[id]/+page.svelte`.
+`meeting-room-screen.svelte` (a `meetingId` prop), drawn at TWO addresses: `/meeting/[code]` (the
+meeting's nine-digit address, resolved by `meetings.getByCode` first) and `/meetings/[id]` (what Join
+and Start open through `meeting-tab.ts`), which shows the nine-digit address in place with a shallow
+`replaceState` once the summary is read, so nothing remounts. `meetingCodeAddress` is what a member
+copies.
 
 **Beside them, running the meeting:** `meeting-host-menu.svelte` (the per-tile and per-row menu, one
 component for both places), `meeting-hosts-panel.svelte` (who holds a grant, and the claim),
@@ -266,7 +270,8 @@ opened, arrived at by link, and a session moved onto a matter), `my-room-card.sv
 the Meetings page, drawn only for `meetings:host`; nothing is made until Set Up is pressed, and Get a
 New Link asks first) and `move-to-matter-dialog.svelte` (offered in the room's header for a
 personal-room session still on a firm event, during the meeting or after it, over the calendar's own
-matter list). The link page is `src/routes/(app)/meetings/rooms/[linkCode]/+page.svelte`: a closed
+matter list). The link page is `src/routes/(app)/room/[name]/+page.svelte`, by the room's address name (the older
+code addresses were retired without a redirect): a closed
 room is read again every ten seconds, and Join arrives, then goes to the ordinary room screen. Every
 press that leads into a room unlocks `pageRecordingSounds` first, as the entry action does.
 

@@ -59,7 +59,13 @@ export default defineConfig({
     __MC_SOURCE_REPOSITORY__: JSON.stringify(repositoryUrl),
   },
   // dev convenience: proxy /api to a running `wrangler dev`
-  server: { proxy: { "/api": "http://localhost:8787" } },
+  server: {
+    proxy: { "/api": "http://localhost:8787" },
+    // The WebAssembly engines (packages/pdf, email, pdf-compose and the rest) are fetched by URL
+    // from their own package directories, which SvelteKit's default serving list leaves out; without
+    // this the development server answers 403 and every in-browser engine fails to load.
+    fs: { allow: ["../../packages"] },
+  },
   build: {
     // Source maps ship with the production bundle (PRODUCTION_OUTPUT above says what they carry).
     sourcemap: true,

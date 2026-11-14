@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d330eeef-1fd5-490f-9824-e14c2818f955",
+  "id": "cfb7bf7f-ea5c-46d5-9a59-153d656f8a49",
   "prevId": "728a1362-beb2-414f-ad3a-23539e8b6bef",
   "tables": {
     "account_balance": {
@@ -20525,6 +20525,13 @@
           "autoincrement": false,
           "default": false
         },
+        "join_code": {
+          "name": "join_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -20541,6 +20548,14 @@
         }
       },
       "indexes": {
+        "meeting_join_code_unique_index": {
+          "name": "meeting_join_code_unique_index",
+          "columns": [
+            "join_code"
+          ],
+          "isUnique": true,
+          "where": "\"meeting\".\"join_code\" IS NOT NULL"
+        },
         "meeting_personal_room_open_session_unique_index": {
           "name": "meeting_personal_room_open_session_unique_index",
           "columns": [
@@ -20672,6 +20687,10 @@
         "meeting_ended_shape_check": {
           "name": "meeting_ended_shape_check",
           "value": "(\"meeting\".\"ended_at\" IS NULL AND \"meeting\".\"ended_by_user_id\" IS NULL)\n        OR (\"meeting\".\"ended_at\" IS NOT NULL AND \"meeting\".\"ended_by_user_id\" IS NOT NULL)"
+        },
+        "meeting_join_code_shape_check": {
+          "name": "meeting_join_code_shape_check",
+          "value": "\"meeting\".\"join_code\" IS NULL OR (length(\"meeting\".\"join_code\") = 9 AND \"meeting\".\"join_code\" NOT GLOB '*[^0-9]*')"
         },
         "meeting_locked_shape_check": {
           "name": "meeting_locked_shape_check",
@@ -21552,6 +21571,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "address_name": {
+          "name": "address_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -21574,6 +21600,14 @@
             "owner_user_id"
           ],
           "isUnique": true
+        },
+        "meeting_personal_room_address_name_unique_index": {
+          "name": "meeting_personal_room_address_name_unique_index",
+          "columns": [
+            "address_name"
+          ],
+          "isUnique": true,
+          "where": "\"meeting_personal_room\".\"address_name\" IS NOT NULL"
         },
         "meeting_personal_room_link_code_unique_index": {
           "name": "meeting_personal_room_link_code_unique_index",
@@ -21608,6 +21642,10 @@
         "meeting_personal_room_lobby_check": {
           "name": "meeting_personal_room_lobby_check",
           "value": "\"meeting_personal_room\".\"lobby\" IN ('off', 'on')"
+        },
+        "meeting_personal_room_address_name_shape_check": {
+          "name": "meeting_personal_room_address_name_shape_check",
+          "value": "\"meeting_personal_room\".\"address_name\" IS NULL OR (length(\"meeting_personal_room\".\"address_name\") BETWEEN 1 AND 40 AND \"meeting_personal_room\".\"address_name\" NOT GLOB '*[^a-z0-9-]*')"
         },
         "meeting_personal_room_link_code_shape_check": {
           "name": "meeting_personal_room_link_code_shape_check",
@@ -28912,223 +28950,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "transfer_pass": {
-      "name": "transfer_pass",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "transfer_run_id": {
-          "name": "transfer_run_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "transfer_source_file_id": {
-          "name": "transfer_source_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "record_kind": {
-          "name": "record_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_kind": {
-          "name": "source_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rules_json": {
-          "name": "rules_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "report_object_key": {
-          "name": "report_object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "requested_by": {
-          "name": "requested_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "requested_at": {
-          "name": "requested_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "failed_at": {
-          "name": "failed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "rows_read": {
-          "name": "rows_read",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_count": {
-          "name": "created_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "already_linked_count": {
-          "name": "already_linked_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "rejected_count": {
-          "name": "rejected_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "waiting_count": {
-          "name": "waiting_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "finding_count": {
-          "name": "finding_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "columns_missing_count": {
-          "name": "columns_missing_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "transfer_pass_report_object_key_unique": {
-          "name": "transfer_pass_report_object_key_unique",
-          "columns": [
-            "report_object_key"
-          ],
-          "isUnique": true
-        },
-        "transfer_pass_run_requested_index": {
-          "name": "transfer_pass_run_requested_index",
-          "columns": [
-            "transfer_run_id",
-            "requested_at",
-            "id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "transfer_pass_transfer_run_id_transfer_run_id_fk": {
-          "name": "transfer_pass_transfer_run_id_transfer_run_id_fk",
-          "tableFrom": "transfer_pass",
-          "tableTo": "transfer_run",
-          "columnsFrom": [
-            "transfer_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "transfer_pass_transfer_source_file_id_transfer_source_file_id_fk": {
-          "name": "transfer_pass_transfer_source_file_id_transfer_source_file_id_fk",
-          "tableFrom": "transfer_pass",
-          "tableTo": "transfer_source_file",
-          "columnsFrom": [
-            "transfer_source_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "transfer_pass_requested_by_member_user_id_fk": {
-          "name": "transfer_pass_requested_by_member_user_id_fk",
-          "tableFrom": "transfer_pass",
-          "tableTo": "member",
-          "columnsFrom": [
-            "requested_by"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "transfer_pass_record_kind_check": {
-          "name": "transfer_pass_record_kind_check",
-          "value": "\"transfer_pass\".\"record_kind\" IN ('person', 'organization', 'matter')"
-        },
-        "transfer_pass_nonempty_check": {
-          "name": "transfer_pass_nonempty_check",
-          "value": "length(\"transfer_pass\".\"source_kind\") > 0 AND length(\"transfer_pass\".\"rules_json\") > 0 AND length(\"transfer_pass\".\"report_object_key\") > 0"
-        },
-        "transfer_pass_ending_check": {
-          "name": "transfer_pass_ending_check",
-          "value": "(\"transfer_pass\".\"finished_at\" IS NULL OR \"transfer_pass\".\"failed_at\" IS NULL) AND ((\"transfer_pass\".\"finished_at\" IS NULL AND \"transfer_pass\".\"failed_at\" IS NULL) OR \"transfer_pass\".\"started_at\" IS NOT NULL)"
-        },
-        "transfer_pass_counts_check": {
-          "name": "transfer_pass_counts_check",
-          "value": "(\"transfer_pass\".\"finished_at\" IS NULL) = (\"transfer_pass\".\"rows_read\" IS NULL) AND (\"transfer_pass\".\"rows_read\" IS NULL OR (\"transfer_pass\".\"created_count\" IS NOT NULL AND \"transfer_pass\".\"already_linked_count\" IS NOT NULL AND \"transfer_pass\".\"rejected_count\" IS NOT NULL AND \"transfer_pass\".\"waiting_count\" IS NOT NULL AND \"transfer_pass\".\"finding_count\" IS NOT NULL AND \"transfer_pass\".\"columns_missing_count\" IS NOT NULL AND \"transfer_pass\".\"rows_read\" = \"transfer_pass\".\"created_count\" + \"transfer_pass\".\"already_linked_count\" + \"transfer_pass\".\"rejected_count\" + \"transfer_pass\".\"waiting_count\"))"
-        }
-      }
     },
     "transfer_run": {
       "name": "transfer_run",

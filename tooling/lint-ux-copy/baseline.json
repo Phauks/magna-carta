@@ -1,0 +1,207 @@
+{
+  "apps/web/src/lib/auth/joining-availability.ts": {
+    "em-dash": 2
+  },
+  "apps/web/src/lib/auth/sign-out.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/auth/unbuilt-capabilities.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/billing/invoice-window.svelte": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/components/app-shell.svelte": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/components/bug-report-dialog.svelte": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/conflicts/conflicts-gaps.ts": {
+    "old-soon-wording": 1
+  },
+  "apps/web/src/lib/conflicts/conflicts-report.ts": {
+    "machinery": 2
+  },
+  "apps/web/src/lib/conflicts/conflicts-vocabulary.ts": {
+    "em-dash": 4,
+    "machinery": 1
+  },
+  "apps/web/src/lib/conflicts/hit-columns.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/conflicts/hit-window.svelte": {
+    "em-dash": 3,
+    "machinery": 1
+  },
+  "apps/web/src/lib/conflicts/posture-panel.svelte": {
+    "machinery": 4
+  },
+  "apps/web/src/lib/conflicts/run-progress.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/conflicts/scope-in-force.svelte": {
+    "machinery": 4
+  },
+  "apps/web/src/lib/custodian/packet-sheet.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/diagnostics/failure-trace.ts": {
+    "em-dash": 3,
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/directory/edges-pane.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/documents/document-loop-availability.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/documents/text-document-editor.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/magnus/attach-file-dialog.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/magnus/conversation-delete-dialog.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/magnus/conversation-name.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/magnus/folder-delete-dialog.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/magnus/folder-name-dialog.svelte": {
+    "nothing-answered": 2
+  },
+  "apps/web/src/lib/magnus/magnus-api.ts": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/magnus/magnus-disclosure.svelte": {
+    "machinery": 2
+  },
+  "apps/web/src/lib/magnus/magnus-surface.svelte": {
+    "is-where": 2,
+    "nothing-answered": 6
+  },
+  "apps/web/src/lib/magnus/magnus-vocabulary.ts": {
+    "machinery": 1
+  },
+  "apps/web/src/lib/magnus/move-conversation-dialog.svelte": {
+    "is-where": 1,
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/magnus/turn-remove-dialog.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/matters/sections.ts": {
+    "machinery": 1
+  },
+  "apps/web/src/lib/meetings/firm-rooms-card.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/meetings/guest-meeting.svelte": {
+    "nothing-answered": 5
+  },
+  "apps/web/src/lib/meetings/meeting-attendance-panel.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/meetings/meeting-entry-action.svelte": {
+    "em-dash": 1,
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/meetings/meeting-guests-panel.svelte": {
+    "nothing-answered": 2
+  },
+  "apps/web/src/lib/meetings/meeting-list-section.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/meetings/meeting-room-screen.svelte": {
+    "nothing-answered": 14
+  },
+  "apps/web/src/lib/meetings/move-to-matter-dialog.svelte": {
+    "is-where": 2,
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/meetings/my-room-card.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/meetings/screen/recording-list.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/meetings/screen/summary-panel.svelte": {
+    "nothing-answered": 3
+  },
+  "apps/web/src/lib/meetings/screen/summary-panel.ts": {
+    "machinery": 1
+  },
+  "apps/web/src/lib/meetings/screen/transcript-panel.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/settings/components/request-change-dialog.svelte": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/tools/safe-browse/capture-export.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/lib/tools/safe-browse/live-screen.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/versions/connected-services-model.ts": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/versions/database-health-model.ts": {
+    "em-dash": 1,
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/versions/features-model.ts": {
+    "em-dash": 10
+  },
+  "apps/web/src/lib/versions/panel-report.ts": {
+    "em-dash": 2
+  },
+  "apps/web/src/lib/versions/recent-errors-model.ts": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/lib/versions/upload-readiness-model.ts": {
+    "em-dash": 1
+  },
+  "apps/web/src/routes/(app)/conflicts/+page.svelte": {
+    "em-dash": 1
+  },
+  "apps/web/src/routes/(app)/costs/+page.svelte": {
+    "em-dash": 1
+  },
+  "apps/web/src/routes/(app)/directory/+page.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/routes/(app)/fees/+page.svelte": {
+    "em-dash": 1
+  },
+  "apps/web/src/routes/(app)/meeting/[code]/+page.svelte": {
+    "nothing-answered": 1
+  },
+  "apps/web/src/routes/(app)/room/[name]/+page.svelte": {
+    "nothing-answered": 2
+  },
+  "apps/web/src/routes/(app)/settings/ai/+page.svelte": {
+    "machinery": 1
+  },
+  "apps/web/src/routes/(app)/settings/conflicts/+page.svelte": {
+    "em-dash": 1,
+    "machinery": 2
+  },
+  "apps/web/src/routes/(app)/settings/meetings/+page.svelte": {
+    "machinery": 1,
+    "nothing-answered": 1
+  },
+  "apps/web/src/routes/login/sign-in-messages.ts": {
+    "em-dash": 1
+  },
+  "packages/design-system/src/lib/components/merge-field-review-list/merge-field-review-list.svelte": {
+    "em-dash": 1
+  },
+  "packages/design-system/src/lib/status-register/status-register.ts": {
+    "machinery": 1
+  }
+}

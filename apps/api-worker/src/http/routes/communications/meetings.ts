@@ -197,6 +197,8 @@ const MeetingSummaryResponse = z
     matterId: z.string().nullable(),
     // The matter's title, so a list says where a meeting was filed in words. Null on a firm event.
     matterTitle: z.string().nullable(),
+    // The nine digits the meeting is addressed and joined by: /meeting/482-917-305.
+    joinCode: z.string().nullable(),
     // The event's own facts, resolved by the read rather than copied onto the meeting. A second copy
     // would be a second answer to a question the event already answers.
     title: z.string(),
