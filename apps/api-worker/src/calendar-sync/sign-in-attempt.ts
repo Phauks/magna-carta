@@ -27,6 +27,9 @@ export interface SignInAttempt {
   // belongs to a browser, and the browser may have changed hands.
   readonly userId: string;
   readonly firmId: string;
+  // The provider it was started at. A return to another provider's address is refused: the code
+  // it carries was issued by somebody else.
+  readonly provider: string;
 }
 
 export function mintSignInAttempt(
@@ -50,16 +53,17 @@ export async function readSignInAttempt(
   if (token === undefined || token === "") return null;
   const payload = await verifySignedToken(secret, token, TOKEN_TYPE);
   if (payload === null) return null;
-  const { state, codeVerifier, userId, firmId, expiresAt } = payload;
+  const { state, codeVerifier, userId, firmId, provider, expiresAt } = payload;
   if (
     typeof state !== "string" ||
     typeof codeVerifier !== "string" ||
     typeof userId !== "string" ||
     typeof firmId !== "string" ||
+    typeof provider !== "string" ||
     typeof expiresAt !== "number" ||
     expiresAt <= now.getTime()
   ) {
     return null;
   }
-  return { state, codeVerifier, userId, firmId };
+  return { state, codeVerifier, userId, firmId, provider };
 }

@@ -9,64 +9,116 @@
  * stalling the screen while it lays out pages. Web and desktop compose it the same way, and no
  * request leaves the device.
  *
- * `composeExportDocument` is the pure mapping, tested on its own. Every cell goes down to its printed
+ * `composeExportDocument` is the pure mapping onto the house document, tested on its own. Every cell goes down to its printed
  * face, as the Word renderer does; the number face is a spreadsheet's concern.
  */
-import type { ComposeBlock, ComposeDocument } from "@magna-carta/pdf-compose";
 import {
+  card,
+  figures,
+  houseDocument,
+  pagedTable,
+  styledTable,
+  tablePages,
+  type HouseBlock,
+  type HouseColumn,
+  type HouseDocument,
+  type HouseRow,
+} from "@magna-carta/house-document";
+import {
+  CHILD_ROW_INDENT,
   ExportRenderError,
   exportCellText,
   exportGeneratedDateLine,
   exportGeneratedTimeLine,
   type TabularExportDocument,
+  type TabularExportSection,
 } from "./tabular-export.ts";
 
 /** Past this many columns in any section, the pages turn to landscape so a row keeps to one line. */
 const LANDSCAPE_FROM_COLUMNS = 7;
 
-/** The PDF the composer will draw for an export document. */
-export function composeExportDocument(exportDocument: TabularExportDocument): ComposeDocument {
-  const blocks: ComposeBlock[] = [
-    { type: "title", text: exportDocument.title },
+/**
+ * A section's columns, sharing the width out of a hundred. The first column names the row (a
+ * client, an office) and takes twice the share of a figure column.
+ */
+function sectionColumns(section: TabularExportSection): HouseColumn[] {
+  const endAligned = new Set(section.endAlignedColumns ?? []);
+  const shares = section.headers.map((_, columnIndex) => (columnIndex === 0 ? 2 : 1));
+  const whole = shares.reduce((sum, share) => sum + share, 0);
+  return section.headers.map((heading, columnIndex) => ({
+    heading,
+    weight: (100 * (shares[columnIndex] ?? 1)) / whole,
+    alignment: endAligned.has(columnIndex) ? "end" : "start",
+  }));
+}
+
+/**
+ * The PDF the composer will draw for an export document, in the house style
+ * (@magna-carta/house-document): the letterhead, margins, typeface and page number every generated
+ * document shares. Each section is a card; a section too long for one page runs over several, each
+ * headed with its place ("By Client (2 of 3)"). A report's totals open the document as figures
+ * across the page; a section whose rows carry kinds is one styled table, the total in bold under a
+ * darker rule and a client's matters stepped in, which the composer carries over pages itself.
+ */
+export function composeExportDocument(exportDocument: TabularExportDocument): HouseDocument {
+  const widest = Math.max(0, ...exportDocument.sections.map((section) => section.headers.length));
+  const landscape = widest >= LANDSCAPE_FROM_COLUMNS ? (true as const) : undefined;
+  const blocks: HouseBlock[] = [
     {
       type: "paragraph",
-      small: true,
       text: `${exportGeneratedDateLine(exportDocument)}, ${exportGeneratedTimeLine(exportDocument)}`,
     },
   ];
+  if (exportDocument.summary !== undefined && exportDocument.summary.length > 0) {
+    blocks.push(figures(exportDocument.summary));
+  }
   for (const section of exportDocument.sections) {
-    const endAligned = new Set(section.endAlignedColumns ?? []);
-    blocks.push({ type: "heading", level: 2, text: section.title });
     if (section.rows.length === 0) {
-      blocks.push({ type: "paragraph", small: true, text: "Nothing to show." });
+      blocks.push(...card(section.title, { type: "paragraph", text: "Nothing to show." }));
       continue;
     }
-    blocks.push({
-      type: "table",
-      columns: section.headers.map((heading, columnIndex) => ({
-        heading,
-        alignment: endAligned.has(columnIndex) ? "end" : "start",
-      })),
-      rows: section.rows.map((row) => row.map(exportCellText)),
-    });
+    const columns = sectionColumns(section);
+    const rows = section.rows.map((row) => row.map(exportCellText));
+    if (section.rowKinds !== undefined) {
+      blocks.push(...card(section.title, styledTable(columns, styledRows(rows, section.rowKinds))));
+      continue;
+    }
+    const pagingOptions = {
+      ...(landscape === undefined ? {} : { landscape }),
+      fittedColumns: section.endAlignedColumns ?? [],
+    };
+    if (tablePages(columns, rows, pagingOptions).length > 1) {
+      blocks.push(...pagedTable(section.title, columns, rows, pagingOptions));
+    } else {
+      blocks.push(...card(section.title, { type: "table", columns, rows }));
+    }
   }
-  const widest = Math.max(0, ...exportDocument.sections.map((section) => section.headers.length));
-  const generated = exportDocument.generatedAt;
-  return {
-    title: exportDocument.title,
-    language: "en-US",
-    created: {
-      year: generated.getUTCFullYear(),
-      month: generated.getUTCMonth() + 1,
-      day: generated.getUTCDate(),
-      hour: generated.getUTCHours(),
-      minute: generated.getUTCMinutes(),
-      second: generated.getUTCSeconds(),
-    },
-    page: { paper: "letter", landscape: widest >= LANDSCAPE_FROM_COLUMNS },
-    footer: { left: exportDocument.title, right: "Page {page} of {pages}" },
+  return houseDocument({
+    name: exportDocument.title,
+    created: exportDocument.generatedAt.toISOString(),
+    ...(landscape === undefined ? {} : { landscape }),
     blocks,
-  };
+  });
+}
+
+/**
+ * Rows with their kinds. A child row's first cell loses the indent the plain files carry, because
+ * the composer steps a child row in itself.
+ */
+function styledRows(
+  rows: readonly (readonly string[])[],
+  kinds: readonly ("total" | "child" | null)[],
+): HouseRow[] {
+  return rows.map((cells, rowIndex) => {
+    const kind = kinds[rowIndex] ?? null;
+    if (kind === null) return cells;
+    if (kind === "total") return { cells, kind };
+    const [first = "", ...rest] = cells;
+    const stepped = first.startsWith(CHILD_ROW_INDENT)
+      ? first.slice(CHILD_ROW_INDENT.length)
+      : first;
+    return { cells: [stepped, ...rest], kind };
+  });
 }
 
 /** A PDF the composer could not make, carrying words fit for the toast. */

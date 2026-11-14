@@ -11,7 +11,7 @@ load-profile: done by="Opus 5"
 tested: in-progress by="Opus 5"
 branch: main
 active-work:
-next: Sub-slice 3·6·5, scheduled generation and delivery, after the owner answers Q6 and Q7; profitability waits on a timekeeper cost rate
+next: Matters List and Client Statement of Account (the reports master list, 2026-11-14); then sub-slice 3·6·5, scheduled generation and delivery, after the owner answers Q6 and Q7; profitability waits on a timekeeper cost rate
 link-spec: docs/specs/2026-08-13-financial-reporting-design.md
 link-plan: docs/specs/2026-08-13-financial-reporting-implementation-plan.md
 adrs:

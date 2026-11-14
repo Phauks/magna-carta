@@ -8954,17 +8954,36 @@ export const meetingPersonalRoom = sqliteTable(
     // changed when the owner's name is, because a link that moves is a link that stops working. The
     // link code beside it still works, and Get a New Link still replaces it.
     addressName: text("address_name"),
+    // A MEMBER'S OWN ROOM, or a ROOM THE FIRM SHARES (a conference room, "Red Room"). A member has at
+    // most one room of their own; a shared room is set up by a member who holds `meetings:host`
+    // (`owner_user_id` is who set it up) and is opened by anybody who does.
+    kind: text("kind", { enum: ["personal", "shared"] })
+      .notNull()
+      .default("personal"),
+    // The room's name. A shared room always has one; a member's own room is called "<name>'s Room"
+    // until they give it a name of their own.
+    title: text("title"),
+    // When a shared room was taken off the firm's list. Its sessions stay on the record; its address
+    // names nothing and is free to be given to another room.
+    retiredAt: text("retired_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("meeting_personal_room_owner_unique_index").on(table.ownerUserId),
+    uniqueIndex("meeting_personal_room_owner_unique_index")
+      .on(table.ownerUserId)
+      .where(sql`${table.kind} = 'personal'`),
     uniqueIndex("meeting_personal_room_address_name_unique_index")
       .on(table.addressName)
       .where(sql`${table.addressName} IS NOT NULL`),
     uniqueIndex("meeting_personal_room_link_code_unique_index").on(table.linkCode),
     check("meeting_personal_room_medium_check", sql`${table.medium} IN ('video', 'audio')`),
     check("meeting_personal_room_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
+    check("meeting_personal_room_kind_check", sql`${table.kind} IN ('personal', 'shared')`),
+    check(
+      "meeting_personal_room_title_check",
+      sql`${table.title} IS NULL OR length(${table.title}) BETWEEN 1 AND 80`,
+    ),
     check(
       "meeting_personal_room_address_name_shape_check",
       sql`${table.addressName} IS NULL OR (length(${table.addressName}) BETWEEN 1 AND 40 AND ${table.addressName} NOT GLOB '*[^a-z0-9-]*')`,
@@ -13198,6 +13217,41 @@ export const transferSourceFile = sqliteTable(
   ],
 );
 
+// A number held for a record that is still being filled in, one row per {purpose, scope_key,
+// drawn_value}. Every sequence on the numbering register shares this one table, because what a hold
+// IS does not change with the sequence: a value the counter has already moved past, kept for one
+// person's open panel until they save, cancel, or walk away. The draw planner in
+// @magna-carta/sequence-numbering reads it before the counter, so a value given back is the next one
+// handed out and a cancelled panel leaves no gap.
+//
+// A row with a token is HELD, by its holder, until expires_at. A row with no token was GIVEN BACK and
+// waits for the next record in its scope; an expired hold reads the same. The row is deleted in the
+// same batch that writes the record taking its value, so a value never sits here and on a record at
+// once — and the owning sequence's allocation primary key stays the backstop if a race ever tried.
+export const numberReservation = sqliteTable(
+  "number_reservation",
+  {
+    // The register's purpose value (matter, intake, conflicts_check, ...). Two purposes may share a
+    // counter table under different scope prefixes, and the scope key alone already carries that
+    // prefix, so this column keeps the purposes apart for a reader rather than for uniqueness.
+    purpose: text("purpose").notNull(),
+    scopeKey: text("scope_key").notNull(), // the counter row this value came from
+    drawnValue: integer("drawn_value").notNull(), // the counter value being held
+    // An opaque bearer for the hold, handed to the panel that asked; null once given back.
+    token: text("token"),
+    holderUserId: text("holder_user_id"), // who holds it; null once given back
+    reservedAt: text("reserved_at").notNull(),
+    expiresAt: text("expires_at"), // when an abandoned hold lapses; null once given back
+  },
+  (table) => [
+    primaryKey({ columns: [table.purpose, table.scopeKey, table.drawnValue] }),
+    uniqueIndex("number_reservation_token_unique_index").on(table.token),
+    check(
+      "number_reservation_held_together_check",
+      sql`(${table.token} IS NULL) = (${table.holderUserId} IS NULL) AND (${table.token} IS NULL) = (${table.expiresAt} IS NULL)`,
+    ),
+  ],
+);
 // One pass over one source file for one kind of record: what was asked for, and how it came out.
 // The mapping rules are kept with the pass, as the operator stated them, so a report can always be
 // read beside the rules that produced it and a pass can be run again unchanged. The rules name

@@ -21,8 +21,12 @@
  * reader cannot argue with.
  */
 import { countPhrase, selectionPhrase } from "./file-manager-vocabulary.ts";
+import { detectFormat } from "@magna-carta/conversion/file";
+import { availableConversions } from "@magna-carta/conversion/pathfinding";
+import { getFormat } from "@magna-carta/conversion/registry";
 import { waitingReason } from "./file-manager-availability.ts";
 import type { FileManagerRow } from "./file-rows.ts";
+import type { MatterFile } from "./matter-file-api.ts";
 import type { FileManagerView } from "./file-manager-state.svelte.ts";
 import { nameLooksLikeBrowsableArchive } from "./archive-names.ts";
 
@@ -30,6 +34,7 @@ import { nameLooksLikeBrowsableArchive } from "./archive-names.ts";
 export type FileMenuCommand =
   | "open"
   | "download"
+  | "downloadBundle"
   | "rescan"
   | "share"
   | "saveNewVersion"
@@ -51,7 +56,8 @@ export type FileMenuCommand =
   | "selectAll"
   | "filterToThis"
   | "ignoreIssues"
-  | "unignoreIssues";
+  | "unignoreIssues"
+  | "makeExhibits";
 
 export interface FileMenuItem {
   readonly kind: "item";
@@ -80,6 +86,59 @@ export interface FileMenuFlyout {
   readonly label: string;
   readonly disabledReason?: string;
   readonly soon?: boolean;
+  /** For Convert: the formats this file can become, by the conversion graph's own ids and labels. */
+  readonly formats?: readonly ConversionChoice[];
+}
+
+/** One format the Convert flyout offers: the graph's id, and the words the item says. */
+export interface ConversionChoice {
+  readonly id: string;
+  readonly label: string;
+}
+
+/** The conversion graph's name for the format a matter file reads as, or undefined. */
+export function conversionSourceOf(
+  file: Pick<MatterFile, "name" | "sniffedContentType">,
+): string | undefined {
+  return detectFormat({ name: file.name, type: file.sniffedContentType ?? undefined });
+}
+
+/**
+ * What a matter file can be converted into, from the format its sniffed type (else its name) reads
+ * as. Empty when the graph does not know the format.
+ *
+ * The items read as extensions ("To txt", "To docx"), never as category names: that is the owner's
+ * ruling for this menu. Where one extension covers two targets, the format's own name rides in
+ * parentheses on the variant ("To pdf" and "To pdf (Searchable PDF)") so the two can be told apart.
+ */
+export function conversionChoicesFor(
+  file: Pick<MatterFile, "name" | "sniffedContentType">,
+): ConversionChoice[] {
+  const from = conversionSourceOf(file);
+  if (from === undefined) return [];
+  const formats = availableConversions(from)
+    .map((id) => getFormat(id))
+    .filter((format) => format !== undefined);
+  const extensionOf = (format: (typeof formats)[number]): string =>
+    format.extensions[0] ?? format.id;
+  const shared = new Set(
+    formats
+      .map(extensionOf)
+      .filter((extension, position, all) => all.indexOf(extension) !== position),
+  );
+  return formats
+    .map((format) => {
+      const extension = extensionOf(format);
+      return {
+        id: format.id,
+        // The plain format keeps the bare extension; only the variant beside it is named.
+        label:
+          shared.has(extension) && format.id !== extension
+            ? `To ${extension} (${format.label})`
+            : `To ${extension}`,
+      };
+    })
+    .sort((left, right) => left.label.localeCompare(right.label));
 }
 
 export type FileMenuEntry = FileMenuItem | FileMenuSeparator | FileMenuFlyout;
@@ -155,6 +214,15 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
           ? files.length === 1
             ? "This file has no committed version yet, so there are no bytes to download."
             : "None of these files has a committed version yet."
+          : undefined,
+    },
+    {
+      kind: "item",
+      command: "downloadBundle",
+      label: "Download as Bundle",
+      disabledReason:
+        undownloadable > 0 && undownloadable === files.length && folders.length === 0
+          ? "Nothing selected has a committed version yet, so there is nothing to bundle."
           : undefined,
     },
     {
@@ -259,13 +327,26 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
   }
 
   if (!many && singleFile !== undefined) {
+    const formats = conversionChoicesFor(singleFile);
     entries.push({
       kind: "flyout",
       command: "convert",
       label: "Convert",
-      disabledReason: waitingReason("convert"),
-      soon: true,
+      formats,
+      disabledReason:
+        singleFile.currentVersionId === null
+          ? "This file has no committed version yet, so there is nothing to convert."
+          : formats.length === 0
+            ? "Nothing converts from this kind of file."
+            : undefined,
     });
+  }
+
+  if (!many && folders.length === 1) {
+    // A folder of a filing's documents is where an exhibit set starts: its files become Exhibit A,
+    // B, C in name order, and the set follows the folder until it is filed.
+    entries.push(separator);
+    entries.push({ kind: "item", command: "makeExhibits", label: "Make Exhibits" });
   }
 
   if (folders.length > 0) {
@@ -344,6 +425,9 @@ export function backgroundMenu(
       disabledReason: destinationReason,
     },
     { kind: "item", command: "upload", label: "Upload", disabledReason: destinationReason },
+    separator,
+    // Nothing is selected on the empty space, and an empty selection is the whole matter.
+    { kind: "item", command: "downloadBundle", label: "Download Matter as Bundle" },
     separator,
     {
       kind: "item",

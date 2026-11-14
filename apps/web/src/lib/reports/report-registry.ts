@@ -40,23 +40,37 @@ import {
   presentWorkInProgress,
 } from "./financial-presenters.ts";
 import {
+  presentInvoices,
+  presentMatterBalances,
+  presentPaymentsApplied,
+} from "./billing-presenters.ts";
+import {
   FINANCIAL_REPORTS_PERMISSION,
   OPERATIONAL_REPORTS_PERMISSION,
   PRODUCTIVITY_REPORTS_PERMISSION,
   readAccountsReceivableAging,
+  readInvoices,
+  readMatterBalances,
   readOperationalVolumes,
+  readPaymentsApplied,
   readRealization,
   readTimekeeperProductivity,
   readWorkInProgress,
   type AccountsReceivableAging,
+  type Invoices,
+  type MatterBalances,
   type OperationalVolumes,
+  type PaymentsApplied,
   type Realization,
   type TimekeeperProductivity,
   type WorkInProgress,
 } from "./report-reads.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleInvoices,
+  sampleMatterBalances,
   sampleOperationalVolumes,
+  samplePaymentsApplied,
   sampleRealization,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
@@ -173,7 +187,7 @@ const trustCompliance = built<TrustCompliancePack>({
   family: "trust-compliance",
   name: "Trust Compliance Report",
   answers:
-    "For one trust account over one period: every movement of client money, each client's and matter's ledger, what the firm attested to at each reconciliation, and what did not tie out.",
+    "For one trust account over one period: every movement of client money, each client and matter ledger, each reconciliation, and anything that didn't balance.",
   permission: TRUST_COMPLIANCE_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -203,8 +217,7 @@ const accountsReceivableAging = built<AccountsReceivableAging>({
   id: "accounts-receivable-aging",
   family: "financial",
   name: "Accounts Receivable Aging",
-  answers:
-    "What the firm is owed, by how long it has been owed, per client, matter and office, at a stated date.",
+  answers: "What the firm is owed and for how long, by client, matter and office, as of a date.",
   permission: FINANCIAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -239,7 +252,7 @@ const realization = built<Realization>({
   family: "financial",
   name: "Realization",
   answers:
-    "For a period: the standard value of time recorded, what was billed, what was credited or written off, and what was applied.",
+    "For a period: the standard value of time recorded, what was billed, credited or written off, and what was applied.",
   permission: FINANCIAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -260,7 +273,7 @@ const timekeeperProductivity = built<TimekeeperProductivity>({
   family: "productivity",
   name: "Timekeeper Productivity",
   answers:
-    "Hours recorded by each timekeeper in a period, billable against non-billable, by client, task code and office.",
+    "Hours recorded by each timekeeper in a period, billable and non-billable, by client, task code and office.",
   permission: PRODUCTIVITY_REPORTS_PERMISSION,
   temporal: "live-only",
   stage: "alpha",
@@ -280,7 +293,7 @@ const operationalVolumes = built<OperationalVolumes>({
   family: "operational",
   name: "Operational Volumes",
   answers:
-    "How much the firm did in a period: matters opened and closed, bills drafted and finalized, trust movements, disbursement requests, reconciliations.",
+    "Firm activity in a period: matters opened and closed, bills drafted and finalized, trust movements, disbursement requests and reconciliations.",
   permission: OPERATIONAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -296,11 +309,71 @@ const operationalVolumes = built<OperationalVolumes>({
   samplePayload: sampleOperationalVolumes,
 });
 
+const invoices = built<Invoices>({
+  id: "invoices",
+  family: "financial",
+  name: "Invoices",
+  answers:
+    "All bills issued in a period, by office and client: what was billed, credited, applied and still unpaid at the end of the period.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readInvoices(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentInvoices(payload),
+  samplePayload: sampleInvoices,
+});
+
+const paymentsApplied = built<PaymentsApplied>({
+  id: "payments-applied",
+  family: "financial",
+  name: "Payments Applied",
+  answers:
+    "Everything applied to bills in a period, by office and client: payments, trust transfers, credits, write-offs and reversals.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readPaymentsApplied(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentPaymentsApplied(payload),
+  samplePayload: samplePaymentsApplied,
+});
+
+const matterBalances = built<MatterBalances>({
+  id: "matter-balances",
+  family: "financial",
+  name: "Matter Balances",
+  answers:
+    "Where each matter stands now: its unbilled work, what its bills still owe, and what is held for it in trust, per office and client.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readMatterBalances(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentMatterBalances(payload),
+  samplePayload: sampleMatterBalances,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
   workInProgress,
   realization,
+  invoices,
+  paymentsApplied,
+  matterBalances,
   timekeeperProductivity,
   operationalVolumes,
 ] as const satisfies readonly ReportDeclaration[];

@@ -44,6 +44,7 @@ import { MeetingDiagnostics } from "./diagnostics.svelte.ts";
 import { MeetingClock } from "./meeting-clock.svelte.ts";
 import {
   captureScreenShare,
+  applyCameraSendBudget,
   offerCapturedTracks,
   offerMicrophoneTrack,
   offerScreenTrack,
@@ -135,6 +136,7 @@ import {
 } from "./signaling.ts";
 import type { GroupEpoch, GroupStanding } from "./encryption-group.ts";
 import { type FrameEncryptionSeams, MeetingEncryption } from "./meeting-encryption.ts";
+import { browserNamingSeams, MeetingNaming } from "./naming.ts";
 import {
   MeetingSubscriptions,
   RECONCILE_DEBOUNCE_MILLISECONDS,
@@ -732,6 +734,7 @@ export class MeetingClient {
   readonly #seams: MeetingClientSeams;
   readonly #signaling: MeetingSignaling;
   readonly #negotiation: MeetingNegotiation;
+  readonly #naming: MeetingNaming;
   readonly #subscriptions: MeetingSubscriptions;
   readonly #presence = new MeetingPresence();
 
@@ -815,6 +818,19 @@ export class MeetingClient {
         () => this.#presence.announced(),
       ),
     );
+    this.#naming = new MeetingNaming(
+      browserNamingSeams(
+        (frame) => this.#signaling.send(frame),
+        () => {
+          const own = this.participants.find(
+            (participant) => participant.participantId === this.participantId,
+          );
+          return own === undefined
+            ? null
+            : { displayName: own.displayName, accountName: own.accountName };
+        },
+      ),
+    );
     this.#negotiation = new MeetingNegotiation((problem) => {
       this.lastProblem = problem;
     });
@@ -886,7 +902,10 @@ export class MeetingClient {
         published: (frame) =>
           void this.#negotiation.enqueue(
             "The room's answer to what you are sending was not applied.",
-            () => this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription)),
+            async () => {
+              await this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription));
+              await this.#budgetCamera();
+            },
           ),
         subscribed: (frame) =>
           void this.#negotiation.enqueue("Somebody else's picture and sound did not come in.", () =>
@@ -916,7 +935,11 @@ export class MeetingClient {
         },
         // The announcement is the frame's whole content, so it is read whole and handed on; what it
         // means for the mark and whether it is news is the recording module's to decide.
-        recording: (frame) => this.recording.noteFrame(readRecordingAnnouncement(frame)),
+        recording: (frame) => {
+          this.recording.noteFrame(readRecordingAnnouncement(frame));
+          // A recording started while alone wants the full picture back.
+          void this.#budgetCamera();
+        },
         // An encrypted meeting's key-group frames, for the group client alone. A meeting that is not
         // encrypted holds no group client and is never sent one.
         group: (frame) => this.#encryption?.receive(frame),
@@ -1162,6 +1185,15 @@ export class MeetingClient {
    */
   lowerHands(participantId: string | null): void {
     this.reactions.lowerHands(participantId, this.participantId);
+  }
+
+  /**
+   * Go by `name` in this meeting, or by the name this person came in with (`null`). The room holds it
+   * for the meeting and tells everybody, with the original beside it; the meeting's record keeps the
+   * account's name either way.
+   */
+  rename(name: string | null): void {
+    this.#naming.rename(name);
   }
 
   /** How somebody else's picture and sound are arriving, for a surface that draws the mark. */
@@ -1758,6 +1790,21 @@ export class MeetingClient {
     this.#adoptPresenceFrom(participants, stated);
     this.#subscriptions.forgetWhatTheRosterNoLongerNames(participants);
     this.#subscriptions.schedule();
+    void this.#budgetCamera();
+  }
+
+  /**
+   * Hold the camera to its ceilings, and to the quarter layer alone while nobody else is in the room
+   * to see it (`cameraEncodingsFor`). Not while a recording runs: the recording is made from what the
+   * room receives, and it should not be a thumbnail of somebody waiting for others to arrive.
+   */
+  async #budgetCamera(): Promise<void> {
+    const sender = this.#cameraSender;
+    if (sender === null) return;
+    const alone =
+      this.recording.running === null &&
+      this.participants.every((participant) => participant.participantId === this.participantId);
+    await applyCameraSendBudget(sender, alone);
   }
 
   /**
@@ -2147,6 +2194,7 @@ export class MeetingClient {
     // The bubbles, the counts and this browser's own hand go with the room they were about: every
     // one of them is a fact about the next few seconds of a meeting that is over.
     this.reactions.clear();
+    this.#naming.clear();
     // The mark goes with the socket, because this browser no longer knows what the room is doing;
     // which recording was announced aloud is kept, so a rejoin into the same one does not chime.
     this.recording.noteDisconnected();

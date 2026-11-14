@@ -1,8 +1,8 @@
 # pdf-compose-core (crates/pdf-compose-core) — CLAUDE.md
 
 **Purpose.** Makes a new PDF from content: a title, headings, paragraphs with bold and italic,
-pictures, tables whose heading row repeats on every page, labelled fields, rules, spacing and page
-breaks, with a header and footer line on each page and an optional accent colour for the title,
+pictures, tables whose heading row repeats on every page (with totals, part and withdrawn rows),
+labelled fields, summary figures, a cover label, signature lines, rules, spacing and page breaks, with a header and footer line on each page and an optional accent colour for the title,
 headings and rules. [`pdf-core`](../pdf-core) works on PDFs that
 already exist; this crate is the only place a PDF is written from nothing. Native `rlib`, and a
 WebAssembly module shipped through [`@magna-carta/pdf-compose`](../../packages/pdf-compose/CLAUDE.md).
@@ -56,6 +56,16 @@ The sign Worker composes the Certificate of Completion with it.
   second half of the line the image block before it opened (`Flow::image_row`); anything laid out
   between the two, or a page break, and it stands alone. Each is still one image block, so the
   positions in the image list do not change.
+- **A row's style changes how it is drawn, never where it sits.** `Table::row_styles` names rows
+  by position: `Total` is bold under one darker rule (in place of the row's own rule), `Child` is
+  gray with its first cell stepped in by `CHILD_STEP`, `Muted` is gray. A table with fewer styles
+  than rows sets the rest plainly, so a caller that pages a table need not pad the list.
+- **Red is the one colour besides the accent, and only beside it.** `Ink::Alert` draws a summary
+  figure a reader should not pass over (`Figure::alert`). A document with no accent draws it in its
+  gray fallback, so a gray document stays gray.
+- **Space above a display label is kept at the top of a page.** A `Space` block goes through
+  `Flow::gap`, which drops it there. `Block::Display::space_above` moves the cursor directly, which
+  is what sets a cover sheet's label in the middle of its sheet.
 - **Under a letterhead the footer is measured from the content**, `Letterhead::FOOTER_HEIGHT`
   below it, as the band above is `Letterhead::HEIGHT`. A caller sets the top and bottom margins to
   those plus one distance from the paper's edge and the bar and the page number land that far in.

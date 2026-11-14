@@ -63,6 +63,7 @@ import {
   runStorageReconciliation,
 } from "./background/scheduled.ts";
 import { runDownloadShelfRetentionSweep } from "./background/downloads/shelf-retention-sweep.ts";
+import { runErrorRecordRetentionSweep } from "./background/system-status/error-record-retention.ts";
 import { runReextractionSweep } from "./background/search/reextraction-sweep.ts";
 import { discoveryProcessQueue } from "./background/discovery/process-consumer.ts";
 import type { DiscoveryLaneMessage } from "./discovery/discovery-process-types.ts";
@@ -239,6 +240,17 @@ export async function runScheduledPass(
             // delete per firm of shelf rows whose window has closed, and of the stored export
             // documents behind them. Cheap, and the only thing keeping the shelf a shelf.
             await runDownloadShelfRetentionSweep(env);
+            // The error record's thirty-day window. One control-plane statement; wrapped so a
+            // control-plane hiccup cannot cost any pass after it.
+            try {
+              await runErrorRecordRetentionSweep(env);
+            } catch (error) {
+              logOperationFailed(
+                createWorkersLogger(env.TELEMETRY),
+                "cron:error-record-retention",
+                error,
+              );
+            }
           },
         }
       : controller.cron === STATUS_SNAPSHOT_CRON

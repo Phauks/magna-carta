@@ -329,6 +329,8 @@ describe("end-to-end", () => {
         "esign:seal",
         "esign:send",
         "esign:sign",
+        "exhibits:issue",
+        "exhibits:manage",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",
@@ -631,7 +633,10 @@ const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
 // a firm, and acts only on a notice carrying the secret one connected account gave that provider
 // (asserted in calendar-sync-provider-notices.test.ts); every other request is answered alike and
 // changes nothing. Enumerated here so a second unauthenticated POST cannot arrive unnoticed.
-const PROVIDER_NOTICE_OPERATIONS = new Set(["calendarSync.receiveMicrosoftNotice"]);
+const PROVIDER_NOTICE_OPERATIONS = new Set([
+  "calendarSync.receiveGoogleNotice",
+  "calendarSync.receiveMicrosoftNotice",
+]);
 
 const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set([
   "meetings.inspect",

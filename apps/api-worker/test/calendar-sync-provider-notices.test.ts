@@ -151,6 +151,62 @@ describe("a provider's notice that a calendar changed", () => {
   });
 });
 
+describe("Google's notice that a calendar changed", () => {
+  const GOOGLE_NOTICES = `${ORIGIN}/api/v1/calendar-sync/provider-notices/google`;
+
+  async function postGoogle(path: string, headers: Record<string, string>): Promise<Response> {
+    return await app.request(`${GOOGLE_NOTICES}/${path}`, { method: "POST", headers }, env);
+  }
+
+  it("brings the account's pass forward when the token header carries its secret", async () => {
+    const stub = account("firm_notice06:connection_notice06");
+    await runInDurableObject(stub, async (_instance, state) => {
+      await state.storage.put("watch", WATCH);
+    });
+    const response = await postGoogle("firm_notice06/connection_notice06", {
+      "X-Goog-Channel-ID": "channel-1",
+      "X-Goog-Channel-Token": WATCH.secret,
+      "X-Goog-Resource-State": "exists",
+    });
+    expect(response.status).toBe(202);
+    const armed = await runInDurableObject(stub, async (_instance, state) => {
+      const found = {
+        alarm: await state.storage.getAlarm(),
+        asked: await state.storage.get<number>("asked"),
+      };
+      await state.storage.deleteAll();
+      await state.storage.deleteAlarm();
+      return found;
+    });
+    expect(armed.asked).toBe(1000);
+    expect(armed.alarm).not.toBeNull();
+  });
+
+  it("changes nothing for the greeting, a wrong token or no token, and answers each the same", async () => {
+    const stub = account("firm_notice07:connection_notice07");
+    await runInDurableObject(stub, async (_instance, state) => {
+      await state.storage.put("watch", WATCH);
+    });
+    const attempts: Record<string, string>[] = [
+      { "X-Goog-Channel-Token": WATCH.secret, "X-Goog-Resource-State": "sync" },
+      { "X-Goog-Channel-Token": "b".repeat(64), "X-Goog-Resource-State": "exists" },
+      { "X-Goog-Resource-State": "exists" },
+    ];
+    for (const headers of attempts) {
+      expect((await postGoogle("firm_notice07/connection_notice07", headers)).status).toBe(202);
+    }
+    const after = await runInDurableObject(stub, async (_instance, state) => {
+      const found = {
+        alarm: await state.storage.getAlarm(),
+        asked: await state.storage.get("asked"),
+      };
+      await state.storage.deleteAll();
+      return found;
+    });
+    expect(after).toEqual({ alarm: null, asked: undefined });
+  });
+});
+
 describe("the mark a request for a pass leaves", () => {
   it("is taken at the start of the pass, so only a later request leaves one for its end", async () => {
     const stub = account("firm_notice05:connection_notice05");

@@ -104,11 +104,11 @@ const REGISTRY_ANSWER: AcrossMattersGroup[] = [
   group("file-contents", { skipped: "one-matter-only" }),
   group("time"),
   group("costs"),
-  group("billing", { skipped: "one-matter-only" }),
-  group("parties", { skipped: "one-matter-only" }),
+  group("billing"),
+  group("parties"),
   group("calendar", { skipped: "one-matter-only" }),
   group("notes", { hits: [hit("note_1"), hit("note_2")], hasMore: true }),
-  group("custody", { skipped: "one-matter-only" }),
+  group("custody"),
   group("communications"),
 ];
 
@@ -212,7 +212,10 @@ describe("the places beside the results", () => {
       "files",
       "time",
       "costs",
+      "billing",
+      "parties",
       "notes",
+      "custody",
       "communications",
     ]);
     expect(places.map((place) => place.label)).toEqual([
@@ -222,7 +225,10 @@ describe("the places beside the results", () => {
       "Files",
       "Time",
       "Costs",
+      "Billing",
+      "Parties",
       "Notes",
+      "Custodian",
       "Messaging",
     ]);
   });
@@ -264,10 +270,7 @@ describe("what the search did not look at", () => {
     const unsearched = unsearchedPlaces(overviewOf(REGISTRY_ANSWER));
     expect(unsearched.map((place) => [place.label, place.mark])).toEqual([
       ["Inside Files", "In A Matter"],
-      ["Billing", "In A Matter"],
-      ["Parties", "In A Matter"],
       ["Calendar", "In A Matter"],
-      ["Custodian", "In A Matter"],
       ["Discovery Sets", "Never"],
     ]);
   });

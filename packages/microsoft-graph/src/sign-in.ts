@@ -1,6 +1,13 @@
 import { z } from "zod";
-import type { OAuthCredential } from "@magna-carta/integrations/credentials";
 import type { HttpClient } from "@magna-carta/integrations/http";
+import {
+  applicationCredentialCheckFrom,
+  CREDENTIAL_CHECK_REFRESH_TOKEN,
+  type AccountOutcome,
+  type ApplicationCredentialCheck,
+  type TokenOutcome,
+  type TokenRequestDependencies,
+} from "@magna-carta/integrations/oauth-sign-in";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
 
 // Signing a member in to their own Microsoft 365 account: the authorization-code flow with a proof
@@ -24,30 +31,6 @@ export interface MicrosoftApplication {
   readonly clientSecret: string;
   readonly redirectUri: string;
   readonly tenant?: string;
-}
-
-function base64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-// The proof key's secret half. 32 random bytes encode to 43 characters, the shortest verifier the
-// proof-key standard allows; fewer bytes would be refused by the provider rather than merely weaker.
-export const CODE_VERIFIER_BYTE_LENGTH = 32;
-
-export function codeVerifierFrom(randomBytes: Uint8Array): string {
-  if (randomBytes.length < CODE_VERIFIER_BYTE_LENGTH) {
-    throw new RangeError(
-      `a code verifier needs at least ${CODE_VERIFIER_BYTE_LENGTH} random bytes`,
-    );
-  }
-  return base64Url(randomBytes);
-}
-
-export async function codeChallengeFor(codeVerifier: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
-  return base64Url(new Uint8Array(digest));
 }
 
 function endpoint(application: MicrosoftApplication, leaf: "authorize" | "token"): string {
@@ -100,23 +83,6 @@ const SIGN_IN_AGAIN_ERRORS: ReadonlySet<string> = new Set([
   "consent_required",
   "login_required",
 ]);
-
-export type TokenOutcome =
-  | {
-      readonly ok: true;
-      readonly credential: OAuthCredential & {
-        readonly accessToken: string;
-        readonly expiresAt: string;
-      };
-      // What Microsoft says was actually granted, which can be less than what was asked.
-      readonly grantedScopes: readonly string[];
-    }
-  | { readonly ok: false; readonly problem: IntegrationProblem };
-
-export interface TokenRequestDependencies {
-  readonly http: HttpClient;
-  readonly now: () => Date;
-}
 
 async function requestToken(
   dependencies: TokenRequestDependencies,
@@ -251,10 +217,6 @@ const accountSchema = z.object({
   userPrincipalName: z.string().nullish(),
 });
 
-export type AccountOutcome =
-  | { readonly ok: true; readonly address: string }
-  | { readonly ok: false; readonly problem: IntegrationProblem };
-
 // Which account the member just signed in to, as Microsoft names it. A member with a work account
 // and a personal one has to be able to see which of them is connected. The mailbox address is
 // preferred because it is what the member recognises; an account with no mailbox still has a
@@ -311,4 +273,40 @@ export async function readSignedInAccount(
     };
   }
   return { ok: true, address };
+}
+
+// Asks Microsoft whether it accepts this deployment's application identifier and secret, without
+// any member's account: a refresh request with a refresh token that was never issued. Issues no
+// token and changes nothing at Microsoft.
+export async function checkApplicationCredentials(
+  http: HttpClient,
+  application: MicrosoftApplication,
+): Promise<ApplicationCredentialCheck> {
+  let response;
+  try {
+    response = await http.request({
+      method: "POST",
+      url: endpoint(application, "token"),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: application.clientId,
+        client_secret: application.clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: CREDENTIAL_CHECK_REFRESH_TOKEN,
+      }).toString(),
+    });
+  } catch {
+    return "unreachable";
+  }
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    json = undefined;
+  }
+  const failure = tokenErrorSchema.safeParse(json);
+  return applicationCredentialCheckFrom(
+    response.status,
+    failure.success ? failure.data.error : undefined,
+  );
 }

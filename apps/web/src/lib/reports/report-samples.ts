@@ -8,7 +8,12 @@
 import { sampleMatter, samplePerson } from "@magna-carta/design-system/loading-fixtures";
 import type {
   AccountsReceivableAging,
+  AppliedFigures,
+  InvoiceFigures,
+  Invoices,
+  MatterBalances,
   OperationalVolumes,
+  PaymentsApplied,
   Realization,
   TimekeeperProductivity,
   WorkInProgress,
@@ -164,7 +169,7 @@ export function sampleRealization(): Realization {
     reproducibilityStatement: LIVE_STATEMENT,
     standardValueIsLive: true,
     standardValueStatement:
-      "The standard value is the time recorded as it stands now, so it is live even when the rest of this report reproduces.",
+      "The standard value uses time as recorded now, so it can change even when the rest of this report can't.",
     completeness: { scope: "complete" },
     totals: figures(1_100_000, 1_000_000, 50_000, 700_000),
     offices: [
@@ -251,7 +256,7 @@ export function sampleOperationalVolumes(): OperationalVolumes {
     reproducibilityStatement: LIVE_STATEMENT,
     liveSections: ["matters", "costs"],
     liveSectionsStatement:
-      "Matters opened and closed and costs incurred are counted as those records stood when this report was produced.",
+      "Matters opened and closed and costs incurred are counted as they were when this report was produced.",
     completeness: { scope: "complete" },
     matters: [
       {
@@ -280,5 +285,259 @@ export function sampleOperationalVolumes(): OperationalVolumes {
       { measure: "reconciliation-closed", detail: null, count: 1 },
     ],
     costs: [{ disbursementClass: "hard", count: 6 }],
+  };
+}
+
+const REPRODUCIBLE_JULY = {
+  reproducibility: {
+    reproducible: true as const,
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    knownAsOf: "2026-08-01T06:59:59.999Z",
+  },
+  reproducibilityStatement:
+    "This report covers July 1 to July 31, 2026, as the records stood at 2026-08-01T06:59:59.999Z. " +
+    "Run again with the same dates it reads the same.",
+};
+
+export function sampleInvoices(): Invoices {
+  const figures = (
+    invoiceCount: number,
+    billedMinor: number,
+    creditedMinor: number,
+    appliedMinor: number,
+    unpaidMinor: number,
+  ): InvoiceFigures => ({ invoiceCount, billedMinor, creditedMinor, appliedMinor, unpaidMinor });
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    locationId: null,
+    currency: "USD",
+    ...REPRODUCIBLE_JULY,
+    completeness: { scope: "complete" },
+    totals: figures(3, 1_000_000, 50_000, 700_000, 250_000),
+    offices: [
+      { ...MAIN, figures: figures(2, 700_000, 50_000, 500_000, 150_000) },
+      { ...NORTH, figures: figures(1, 300_000, 0, 200_000, 100_000) },
+    ],
+    clients: [
+      {
+        ...client(0),
+        figures: figures(2, 700_000, 50_000, 500_000, 150_000),
+        invoices: [
+          {
+            invoiceId: "invoice_sample_1",
+            invoiceNumber: "00041",
+            issueDate: "2026-07-03",
+            dueDate: "2026-08-02",
+            figures: figures(1, 400_000, 50_000, 350_000, 0),
+            matters: [{ ...matter(0, MAIN), figures: figures(1, 400_000, 50_000, 350_000, 0) }],
+          },
+          {
+            invoiceId: "invoice_sample_2",
+            invoiceNumber: "00045",
+            issueDate: "2026-07-24",
+            dueDate: "2026-08-23",
+            figures: figures(1, 300_000, 0, 150_000, 150_000),
+            matters: [{ ...matter(0, MAIN), figures: figures(1, 300_000, 0, 150_000, 150_000) }],
+          },
+        ],
+      },
+      {
+        ...client(1),
+        figures: figures(1, 300_000, 0, 200_000, 100_000),
+        invoices: [
+          {
+            invoiceId: "invoice_sample_3",
+            invoiceNumber: "00043",
+            issueDate: "2026-07-15",
+            dueDate: "2026-08-14",
+            figures: figures(1, 300_000, 0, 200_000, 100_000),
+            matters: [{ ...matter(1, NORTH), figures: figures(1, 300_000, 0, 200_000, 100_000) }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function samplePaymentsApplied(): PaymentsApplied {
+  const figures = (values: Partial<AppliedFigures>): AppliedFigures => ({
+    entryCount: 0,
+    paymentMinor: 0,
+    trustTransferMinor: 0,
+    clientCreditMinor: 0,
+    creditNoteMinor: 0,
+    writeOffMinor: 0,
+    reversalMinor: 0,
+    totalMinor: 0,
+    ...values,
+  });
+  const entry = (
+    index: number,
+    values: Pick<
+      PaymentsApplied["entries"][number],
+      "kind" | "reversesKind" | "effectiveDate" | "amountMinor" | "reason" | "invoiceNumber"
+    >,
+    clientIndex: number,
+    office: { locationId: string; locationName: string },
+  ) => ({
+    applicationId: `invoiceApplication_sample_${String(index)}`,
+    invoiceId: `invoice_sample_${values.invoiceNumber ?? "draft"}`,
+    ...client(clientIndex),
+    ...matter(clientIndex, office),
+    ...values,
+  });
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    locationId: null,
+    currency: "USD",
+    ...REPRODUCIBLE_JULY,
+    completeness: { scope: "complete" },
+    totals: figures({
+      entryCount: 5,
+      paymentMinor: 500_000,
+      trustTransferMinor: 200_000,
+      writeOffMinor: 50_000,
+      reversalMinor: -100_000,
+      totalMinor: 650_000,
+    }),
+    offices: [
+      {
+        ...MAIN,
+        figures: figures({
+          entryCount: 4,
+          paymentMinor: 500_000,
+          writeOffMinor: 50_000,
+          reversalMinor: -100_000,
+          totalMinor: 450_000,
+        }),
+      },
+      {
+        ...NORTH,
+        figures: figures({ entryCount: 1, trustTransferMinor: 200_000, totalMinor: 200_000 }),
+      },
+    ],
+    clients: [
+      {
+        ...client(0),
+        figures: figures({
+          entryCount: 4,
+          paymentMinor: 500_000,
+          writeOffMinor: 50_000,
+          reversalMinor: -100_000,
+          totalMinor: 450_000,
+        }),
+      },
+      {
+        ...client(1),
+        figures: figures({ entryCount: 1, trustTransferMinor: 200_000, totalMinor: 200_000 }),
+      },
+    ],
+    entries: [
+      entry(
+        1,
+        {
+          kind: "payment",
+          reversesKind: null,
+          effectiveDate: "2026-07-08",
+          amountMinor: 350_000,
+          reason: null,
+          invoiceNumber: "00041",
+        },
+        0,
+        MAIN,
+      ),
+      entry(
+        2,
+        {
+          kind: "write_off",
+          reversesKind: null,
+          effectiveDate: "2026-07-08",
+          amountMinor: 50_000,
+          reason: "Agreed discount",
+          invoiceNumber: "00041",
+        },
+        0,
+        MAIN,
+      ),
+      entry(
+        3,
+        {
+          kind: "trust_transfer",
+          reversesKind: null,
+          effectiveDate: "2026-07-18",
+          amountMinor: 200_000,
+          reason: null,
+          invoiceNumber: "00043",
+        },
+        1,
+        NORTH,
+      ),
+      entry(
+        4,
+        {
+          kind: "payment",
+          reversesKind: null,
+          effectiveDate: "2026-07-26",
+          amountMinor: 250_000,
+          reason: null,
+          invoiceNumber: "00045",
+        },
+        0,
+        MAIN,
+      ),
+      entry(
+        5,
+        {
+          kind: "reversal",
+          reversesKind: "payment",
+          effectiveDate: "2026-07-29",
+          amountMinor: -100_000,
+          reason: "Check returned unpaid",
+          invoiceNumber: "00045",
+        },
+        0,
+        MAIN,
+      ),
+    ],
+  };
+}
+
+export function sampleMatterBalances(): MatterBalances {
+  const figures = (unbilledMinor: number, owedMinor: number, trustMinor: number) => ({
+    unbilledMinor,
+    owedMinor,
+    trustMinor,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    asOfDate: "2026-08-01",
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    currency: "USD",
+    completeness: { scope: "complete" },
+    totals: figures(1_245_000, 690_000, 1_150_000),
+    offices: [
+      { ...MAIN, figures: figures(830_000, 450_000, 800_000) },
+      { ...NORTH, figures: figures(415_000, 240_000, 350_000) },
+    ],
+    clients: [
+      {
+        ...client(0),
+        figures: figures(830_000, 450_000, 800_000),
+        matters: [
+          { ...matter(0, MAIN), figures: figures(830_000, 300_000, 500_000) },
+          { ...matter(2, MAIN), figures: figures(0, 150_000, 300_000) },
+        ],
+      },
+      {
+        ...client(1),
+        figures: figures(415_000, 240_000, 350_000),
+        matters: [{ ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) }],
+      },
+    ],
   };
 }

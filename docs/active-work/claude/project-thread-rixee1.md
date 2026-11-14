@@ -25,9 +25,10 @@ Search In row (`apps/web/src/lib/search/search-reach-control.svelte`). In flight
 `SEARCH_SERVICE` binding in `apps/api-worker/wrangler.jsonc`, with a stub for it in the test pool
 (`apps/api-worker/vitest.config.ts`). **A test that reads `env` now sees the search service
 bound**, to a stub that refuses every operation; a test of the deployment without it passes
-`{ ...env, SEARCH_SERVICE: undefined }`. Next: one file indexed and found end to end in
-production, and the places a search
-across matters does not reach yet.
+`{ ...env, SEARCH_SERVICE: undefined }`. Billing, parties and custody answer across
+matters since 2026-11-14, each through a reading over its own table and not the record index. Next:
+one file indexed and found end to end in production, the owner's answer on calendar events, and the
+words inside files across matters.
 
 A stream that adds another way to narrow matters (by location, by matter type) declares it beside
 the two in `packages/matters/src/matter-narrowing.ts` as an uncorrelated `IN (SELECT ...)` over an

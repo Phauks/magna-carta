@@ -112,6 +112,9 @@ export type AppVariables = ChokepointVariables & {
   // Set by the chokepoint's signer lane and on no other path: the signing link it verified, without
   // the secret. Like a guest, a signer is never given a chokepointUserId.
   chokepointSignerGrant?: ChokepointSignerGrant;
+  // Set by problemJson (and, first, by the error boundary): the problem this request answered, for
+  // the telemetry middleware to keep in the error record once the response is out.
+  answeredProblem?: import("../contracts/problem.ts").AnsweredProblem;
 };
 
 // resolveSession port: the cookie → { userId, firmId } resolver, bound to the per-env Better Auth

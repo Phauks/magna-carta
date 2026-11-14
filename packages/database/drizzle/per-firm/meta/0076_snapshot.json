@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3a2bda0a-56fb-4f59-b037-a78f5fbec40c",
+  "id": "67290fbd-348e-453d-9de1-c0f5f6bf233b",
   "prevId": "6915558e-97bb-40ed-9dcd-551fabe981b6",
   "tables": {
     "account_balance": {
@@ -25781,6 +25781,87 @@
         }
       }
     },
+    "number_reservation": {
+      "name": "number_reservation",
+      "columns": {
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drawn_value": {
+          "name": "drawn_value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "holder_user_id": {
+          "name": "holder_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reserved_at": {
+          "name": "reserved_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "number_reservation_token_unique_index": {
+          "name": "number_reservation_token_unique_index",
+          "columns": [
+            "token"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "number_reservation_purpose_scope_key_drawn_value_pk": {
+          "columns": [
+            "purpose",
+            "scope_key",
+            "drawn_value"
+          ],
+          "name": "number_reservation_purpose_scope_key_drawn_value_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "number_reservation_held_together_check": {
+          "name": "number_reservation_held_together_check",
+          "value": "(\"number_reservation\".\"token\" IS NULL) = (\"number_reservation\".\"holder_user_id\" IS NULL) AND (\"number_reservation\".\"token\" IS NULL) = (\"number_reservation\".\"expires_at\" IS NULL)"
+        }
+      }
+    },
     "numbering_scheme": {
       "name": "numbering_scheme",
       "columns": {
@@ -28565,835 +28646,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "signing_event": {
-      "name": "signing_event",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_id": {
-          "name": "request_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "signer_id": {
-          "name": "signer_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "at": {
-          "name": "at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "actor": {
-          "name": "actor",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "observed_ip": {
-          "name": "observed_ip",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "user_agent": {
-          "name": "user_agent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "detail": {
-          "name": "detail",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "signing_event_request_index": {
-          "name": "signing_event_request_index",
-          "columns": [
-            "request_id",
-            "at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "signing_event_request_id_signing_request_id_fk": {
-          "name": "signing_event_request_id_signing_request_id_fk",
-          "tableFrom": "signing_event",
-          "tableTo": "signing_request",
-          "columnsFrom": [
-            "request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_event_signer_id_signing_signer_id_fk": {
-          "name": "signing_event_signer_id_signing_signer_id_fk",
-          "tableFrom": "signing_event",
-          "tableTo": "signing_signer",
-          "columnsFrom": [
-            "signer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "signing_event_kind_check": {
-          "name": "signing_event_kind_check",
-          "value": "\"signing_event\".\"kind\" IN ('created', 'sent', 'delivered', 'viewed', 'identity-verified', 'consented', 'signed', 'declined', 'reassigned', 'reminded', 'voided', 'completed', 'sealed')"
-        }
-      }
-    },
-    "signing_field": {
-      "name": "signing_field",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_id": {
-          "name": "request_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "signer_id": {
-          "name": "signer_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "page": {
-          "name": "page",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rect_left_e2": {
-          "name": "rect_left_e2",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rect_bottom_e2": {
-          "name": "rect_bottom_e2",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rect_right_e2": {
-          "name": "rect_right_e2",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rect_top_e2": {
-          "name": "rect_top_e2",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "required": {
-          "name": "required",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "value_text": {
-          "name": "value_text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "signing_field_request_index": {
-          "name": "signing_field_request_index",
-          "columns": [
-            "request_id",
-            "signer_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "signing_field_request_id_signing_request_id_fk": {
-          "name": "signing_field_request_id_signing_request_id_fk",
-          "tableFrom": "signing_field",
-          "tableTo": "signing_request",
-          "columnsFrom": [
-            "request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_field_signer_id_signing_signer_id_fk": {
-          "name": "signing_field_signer_id_signing_signer_id_fk",
-          "tableFrom": "signing_field",
-          "tableTo": "signing_signer",
-          "columnsFrom": [
-            "signer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "signing_field_kind_check": {
-          "name": "signing_field_kind_check",
-          "value": "\"signing_field\".\"kind\" IN ('signature', 'initials', 'date-signed', 'full-name', 'text', 'checkbox')"
-        },
-        "signing_field_page_check": {
-          "name": "signing_field_page_check",
-          "value": "\"signing_field\".\"page\" >= 1"
-        },
-        "signing_field_rect_check": {
-          "name": "signing_field_rect_check",
-          "value": "\"signing_field\".\"rect_right_e2\" > \"signing_field\".\"rect_left_e2\" AND \"signing_field\".\"rect_top_e2\" > \"signing_field\".\"rect_bottom_e2\""
-        }
-      }
-    },
-    "signing_request": {
-      "name": "signing_request",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_version_id": {
-          "name": "file_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "document_hash_sha256": {
-          "name": "document_hash_sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "subject": {
-          "name": "subject",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "message": {
-          "name": "message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "signing_order": {
-          "name": "signing_order",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'in-order'"
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'draft'"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "remind_every_days": {
-          "name": "remind_every_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "last_reminded_at": {
-          "name": "last_reminded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by_user_id": {
-          "name": "created_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sent_at": {
-          "name": "sent_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "completed_at": {
-          "name": "completed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "sealed_at": {
-          "name": "sealed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "voided_reason": {
-          "name": "voided_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "signed_file_version_id": {
-          "name": "signed_file_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "certificate_file_id": {
-          "name": "certificate_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "signing_request_file_index": {
-          "name": "signing_request_file_index",
-          "columns": [
-            "file_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "signing_request_status_index": {
-          "name": "signing_request_status_index",
-          "columns": [
-            "status",
-            "expires_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "signing_request_matter_id_matter_id_fk": {
-          "name": "signing_request_matter_id_matter_id_fk",
-          "tableFrom": "signing_request",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_request_file_id_file_id_fk": {
-          "name": "signing_request_file_id_file_id_fk",
-          "tableFrom": "signing_request",
-          "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_request_file_version_id_file_version_id_fk": {
-          "name": "signing_request_file_version_id_file_version_id_fk",
-          "tableFrom": "signing_request",
-          "tableTo": "file_version",
-          "columnsFrom": [
-            "file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_request_created_by_user_id_member_user_id_fk": {
-          "name": "signing_request_created_by_user_id_member_user_id_fk",
-          "tableFrom": "signing_request",
-          "tableTo": "member",
-          "columnsFrom": [
-            "created_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_request_signed_file_version_id_file_version_id_fk": {
-          "name": "signing_request_signed_file_version_id_file_version_id_fk",
-          "tableFrom": "signing_request",
-          "tableTo": "file_version",
-          "columnsFrom": [
-            "signed_file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_request_certificate_file_id_file_id_fk": {
-          "name": "signing_request_certificate_file_id_file_id_fk",
-          "tableFrom": "signing_request",
-          "tableTo": "file",
-          "columnsFrom": [
-            "certificate_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "signing_request_signing_order_check": {
-          "name": "signing_request_signing_order_check",
-          "value": "\"signing_request\".\"signing_order\" IN ('in-order', 'all-at-once')"
-        },
-        "signing_request_status_check": {
-          "name": "signing_request_status_check",
-          "value": "\"signing_request\".\"status\" IN ('draft', 'sent', 'completed', 'declined', 'voided', 'expired')"
-        },
-        "signing_request_title_check": {
-          "name": "signing_request_title_check",
-          "value": "length(\"signing_request\".\"title\") > 0"
-        },
-        "signing_request_hash_check": {
-          "name": "signing_request_hash_check",
-          "value": "\"signing_request\".\"document_hash_sha256\" IS NULL OR length(\"signing_request\".\"document_hash_sha256\") = 64"
-        },
-        "signing_request_sent_check": {
-          "name": "signing_request_sent_check",
-          "value": "\"signing_request\".\"status\" = 'draft' OR (\"signing_request\".\"sent_at\" IS NOT NULL AND \"signing_request\".\"document_hash_sha256\" IS NOT NULL)"
-        },
-        "signing_request_remind_check": {
-          "name": "signing_request_remind_check",
-          "value": "\"signing_request\".\"remind_every_days\" IS NULL OR \"signing_request\".\"remind_every_days\" BETWEEN 1 AND 30"
-        }
-      }
-    },
-    "signing_signer": {
-      "name": "signing_signer",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "request_id": {
-          "name": "request_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "attribution_level": {
-          "name": "attribution_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'waiting'"
-        },
-        "notified_at": {
-          "name": "notified_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "opened_at": {
-          "name": "opened_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "signed_at": {
-          "name": "signed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "declined_at": {
-          "name": "declined_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "decline_reason": {
-          "name": "decline_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "token_secret_hash": {
-          "name": "token_secret_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "secret_version": {
-          "name": "secret_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "access_code_hash": {
-          "name": "access_code_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "access_code_expires_at": {
-          "name": "access_code_expires_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "access_code_attempts": {
-          "name": "access_code_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "identity_verified_at": {
-          "name": "identity_verified_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consent_disclosure_version": {
-          "name": "consent_disclosure_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "consented_at": {
-          "name": "consented_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "adoption": {
-          "name": "adoption",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "signature_object_key": {
-          "name": "signature_object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "initials_object_key": {
-          "name": "initials_object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "signing_signer_request_position_unique_index": {
-          "name": "signing_signer_request_position_unique_index",
-          "columns": [
-            "request_id",
-            "position"
-          ],
-          "isUnique": true
-        },
-        "signing_signer_user_index": {
-          "name": "signing_signer_user_index",
-          "columns": [
-            "user_id",
-            "status"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "signing_signer_request_id_signing_request_id_fk": {
-          "name": "signing_signer_request_id_signing_request_id_fk",
-          "tableFrom": "signing_signer",
-          "tableTo": "signing_request",
-          "columnsFrom": [
-            "request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "signing_signer_user_id_member_user_id_fk": {
-          "name": "signing_signer_user_id_member_user_id_fk",
-          "tableFrom": "signing_signer",
-          "tableTo": "member",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "signing_signer_position_check": {
-          "name": "signing_signer_position_check",
-          "value": "\"signing_signer\".\"position\" >= 1"
-        },
-        "signing_signer_name_check": {
-          "name": "signing_signer_name_check",
-          "value": "length(\"signing_signer\".\"name\") > 0"
-        },
-        "signing_signer_attribution_check": {
-          "name": "signing_signer_attribution_check",
-          "value": "\"signing_signer\".\"attribution_level\" IN ('email-link', 'access-code', 'firm-authenticated')"
-        },
-        "signing_signer_status_check": {
-          "name": "signing_signer_status_check",
-          "value": "\"signing_signer\".\"status\" IN ('waiting', 'notified', 'opened', 'signed', 'declined')"
-        },
-        "signing_signer_member_check": {
-          "name": "signing_signer_member_check",
-          "value": "(\"signing_signer\".\"attribution_level\" = 'firm-authenticated') = (\"signing_signer\".\"user_id\" IS NOT NULL)"
-        },
-        "signing_signer_secret_hash_check": {
-          "name": "signing_signer_secret_hash_check",
-          "value": "\"signing_signer\".\"token_secret_hash\" IS NULL OR length(\"signing_signer\".\"token_secret_hash\") = 64"
-        },
-        "signing_signer_secret_version_check": {
-          "name": "signing_signer_secret_version_check",
-          "value": "\"signing_signer\".\"secret_version\" >= 1"
-        },
-        "signing_signer_attempts_check": {
-          "name": "signing_signer_attempts_check",
-          "value": "\"signing_signer\".\"access_code_attempts\" >= 0"
-        },
-        "signing_signer_adoption_check": {
-          "name": "signing_signer_adoption_check",
-          "value": "\"signing_signer\".\"adoption\" IS NULL OR \"signing_signer\".\"adoption\" IN ('typed', 'drawn', 'uploaded')"
-        }
-      }
     },
     "source_record_link": {
       "name": "source_record_link",

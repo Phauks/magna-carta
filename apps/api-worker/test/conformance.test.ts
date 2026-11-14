@@ -86,6 +86,8 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "The front door: a visitor with no account asks to join, so no session can exist. Writes one control-plane registration row and sends one email — no firm, no bucket, no key. Every outcome answers identically so the endpoint cannot be used to test which addresses have accounts; IP-keyed rate limiting is the enforcement the chokepoint still applies.",
   "registrations.confirm":
     "Presents the emailed confirmation token, which is itself the only credential the caller can hold at this point — a session would require the account this confirms into existence. Unknown, spent and expired tokens answer one identical refusal.",
+  "calendarSync.receiveGoogleNotice":
+    "Called by Google's notification service, which holds no session. Serves no firm data: it hands the notice to one connected account's object, which acts only when the notice carries the secret that object gave Google and then only runs its ordinary pass sooner. A request without the secret is answered identically and changes nothing; the address-keyed rate limit bounds a stranger.",
   "calendarSync.receiveMicrosoftNotice":
     "Called by Microsoft's notification service, which holds no session. Serves no firm data: it answers a validation token back as plain text, and otherwise hands the notice to one connected account's object, which acts only when the notice carries the secret that object gave Microsoft and then only runs its ordinary pass sooner. A request without the secret is answered identically and changes nothing; the address-keyed rate limit bounds a stranger.",
   "invitations.redeem":

@@ -199,7 +199,7 @@
     if (outcome.kind === "problem") attemptKey = null;
     formFailure = stated(
       outcome.failure,
-      editing === null ? "The resource was not added." : "The change was not saved.",
+      editing === null ? "The resource was not added." : "The change wasn't saved.",
       "Couldn't connect. Nothing changed. Try again.",
     );
     return "refused";
@@ -228,7 +228,7 @@
   {#if column.id === "name"}
     <!-- A link buys the browser's own gestures; the row's own gesture still opens nothing here,
          because a resource's home is the room grid rather than a record of its own. -->
-    <a class="underline underline-offset-2" href="/calendar/rooms?resource={row.id}">{row.name}</a>
+    <a class="underline-offset-2 hover:underline" href="/calendar/rooms?resource={row.id}">{row.name}</a>
   {:else if column.id === "standing"}
     <Badge variant={row.active ? "success" : "neutral"}>{resourceStandingLabel(row)}</Badge>
   {:else if column.id === CATALOG_ACTIONS_COLUMN_ID}

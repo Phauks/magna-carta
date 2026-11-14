@@ -27,7 +27,7 @@
    * review, unlike the review VERBS: a reason already written on the record is a fact about this
    * fee, and hiding it would lose the one explanation the record carries.
    */
-  import * as Select from "@magna-carta/design-system/select";
+  import * as SegmentedControl from "@magna-carta/design-system/segmented-control";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EventRail from "@magna-carta/design-system/event-rail";
@@ -210,9 +210,6 @@
   ] as const;
 
   const billable = $derived(billingChoice === "billable");
-  const billingChoiceLabel = $derived(
-    BILLING_CHOICES.find((choice) => choice.value === billingChoice)?.label ?? "",
-  );
   const amountMinor = $derived(parseAmountMinor(amountText));
 
   /** What the charge will be recorded as, once the field reads as an amount at all. */
@@ -457,34 +454,28 @@
         <span class="text-xs text-text-subtle">Recorded As</span>
         <span class="pb-8 tabular-nums">{recordedAs}</span>
       </div>
+    </div>
 
-      <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-billing">Billing</Label>
-        {#if readOnly}
-          <Input id="{fieldPrefix}-billing" value={billingSentence(billable)} disabled />
-        {:else}
-          <Select.Root
-            type="single"
-            items={[...BILLING_CHOICES]}
-            allowDeselect={false}
-            bind:value={() => billingChoice, (next) => (billingChoice = next as string)}
-          >
-            <Select.Trigger
-              id="{fieldPrefix}-billing"
-              aria-label="Billing"
-              class="w-full"
-              title="Whether the client may be asked for this charge. Recording it non-billable keeps it on the file and off every bill."
-            >
-              <Select.Value placeholder={billingChoiceLabel} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each BILLING_CHOICES as choice (choice.value)}
-                <Select.Item value={choice.value} label={choice.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        {/if}
-      </div>
+    <div class="flex flex-col gap-4">
+      <span id="{fieldPrefix}-billing" class="mc-label">Billing</span>
+      {#if readOnly}
+        <Input
+          aria-labelledby="{fieldPrefix}-billing"
+          value={billingSentence(billable)}
+          disabled
+        />
+      {:else}
+        <SegmentedControl.Root
+          aria-labelledby="{fieldPrefix}-billing"
+          title="Whether the client may be asked for this charge. Recording it non-billable keeps it on the file and off every bill."
+          value={billingChoice}
+          onValueChange={(next) => (billingChoice = next)}
+        >
+          {#each BILLING_CHOICES as choice (choice.value)}
+            <SegmentedControl.Item value={choice.value}>{choice.label}</SegmentedControl.Item>
+          {/each}
+        </SegmentedControl.Root>
+      {/if}
     </div>
 
     <!-- Internal, not hidden: it shows on a read-only record too, and never reaches the paper. -->

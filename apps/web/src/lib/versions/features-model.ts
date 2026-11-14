@@ -123,6 +123,16 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     deployQueueHeading:
       "Outlook calendar connection activation — register one Microsoft application, then two secrets (2026-11-10)",
   },
+  googleCalendarSync: {
+    name: "Google Calendar sync",
+    group: "calendarAndEmail",
+    steps: [
+      "Create one OAuth client in a Google Cloud project, with the redirect address https://magnacarta.esq/api/v1/integrations/google/callback.",
+      "On the magna-carta Worker, set GOOGLE_CALENDAR_CLIENT_ID and the secret GOOGLE_CALENDAR_CLIENT_SECRET.",
+    ],
+    deployQueueHeading:
+      "Google Calendar connection activation: one Google Cloud project, then two secrets (2026-11-13)",
+  },
   outgoingEmail: {
     name: "Outgoing email",
     group: "calendarAndEmail",
@@ -291,7 +301,7 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     deployQueueHeading: null,
   },
   recentErrors: {
-    name: "Recent errors",
+    name: "Background errors",
     group: "platform",
     steps: [
       "Create a Cloudflare API token with only Account > Workers Observability > Read.",
@@ -318,6 +328,7 @@ export const FEATURE_WORKERS: Record<string, string> = {
   discoveryProcessing: "magna-carta-discovery",
   fileContentsSearch: "magna-carta-search",
   addressSuggestions: "magna-carta-address",
+  communitySignIn: "magna-carta-community",
 };
 
 export function featureSteps(id: string): readonly string[] {

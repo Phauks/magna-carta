@@ -8,6 +8,9 @@ The ports-and-adapters foundation every integration plugs into. Pure package —
 - An **adapter** implements one port; its `CapabilityDescriptor` declares what it supports so callers
   degrade gracefully. Credential-less adapters declare `credential: { kind: "none" }`; credentialed
   ones declare `{ kind: "oauth", scope: "firm" | "user" }` — the port picks the scope.
+- `oauth-sign-in.ts` holds what signing a member in to their own account has in common across
+  providers: the proof key (`codeVerifierFrom`, `codeChallengeFor`) and the shapes a token request
+  and an account read answer. Each provider's package builds its own addresses.
 - Canonical records carry `remoteId` + opt-in `raw`; build the schema with `canonicalRecordSchema`,
   which validates the boundary (external data is untrusted).
 - `resolve()` returns a typed `Dispatch` — `not-connected` / `capability-unsupported` /

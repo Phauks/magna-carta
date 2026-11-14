@@ -295,6 +295,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // A paralegal prepares and sends a document for signature as ordinary work, and signs one too.
         "esign:send",
         "esign:sign",
+        "exhibits:issue",
+        "exhibits:manage",
         "files:organize",
         "files:upload",
         // Writing one's own name reaches every seat, Read-only included: it is the platform's

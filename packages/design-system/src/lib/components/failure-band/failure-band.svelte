@@ -11,6 +11,11 @@
    * The Error ID is a BUTTON, not decoration: it copies itself. A person reading it aloud to support
    * over the phone is fine, but most of the time they want it in a message, and eight characters
    * transcribed by hand is eight chances to send the wrong one.
+   *
+   * GIVEN A TRACE, THE BAND SAYS WHAT FAILED. `summary` names the area, the action and the kind of
+   * failure on one line; Show details opens the facts (the Error ID among them) and Copy details puts
+   * the whole report on the clipboard. That replaces the bare ID chip, which identified nothing on
+   * its own (the owner's ruling, 2026-11-14). The chip remains for a caller with an ID and no trace.
    */
   import type { HTMLAttributes } from "svelte/elements";
   import type { Snippet } from "svelte";
@@ -18,6 +23,8 @@
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
   import { copyText, type CopyResult } from "../failure-details/copy-text.ts";
+  import FailureDetails from "../failure-details/failure-details.svelte";
+  import type { FailureDetailRow } from "../failure-details/types.ts";
   import type { AlertVariant } from "../alert/variants.ts";
 
   let {
@@ -26,6 +33,9 @@
     message,
     note,
     errorId = null,
+    summary,
+    rows = [],
+    trace,
     children,
     actions,
     ref = $bindable(null),
@@ -40,6 +50,12 @@
     note?: string;
     /** The correlation handle, where the server issued one. Rendered as a copyable chip. */
     errorId?: string | null;
+    /** Area, action and kind of failure, as short labels. Used with `trace`. */
+    summary?: readonly string[];
+    /** The facts Show details opens. Used with `trace`. */
+    rows?: readonly FailureDetailRow[];
+    /** The whole report Copy details copies. Given, the band shows the summary instead of the chip. */
+    trace?: string | (() => string);
     /**
      * One more thing this surface has to say — a link to the setting that would fix it, most often.
      * Rendered after the message, inside the description, so it reads as part of the same sentence
@@ -75,7 +91,11 @@
   {#if note !== undefined}
     <Alert.Description>{note}</Alert.Description>
   {/if}
-  {#if errorId !== null || actions !== undefined}
+  {#if trace !== undefined}
+    <Alert.Description>
+      <FailureDetails {rows} {trace} {summary} align="start" {actions} />
+    </Alert.Description>
+  {:else if errorId !== null || actions !== undefined}
     <div class="mc-failure-band-footer">
       {#if errorId === null}
         <span></span>

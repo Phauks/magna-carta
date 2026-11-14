@@ -19,6 +19,7 @@ export type RateLimitBucket =
   | "incident-report"
   | "guest-arrival"
   | "meeting-question-upvote"
+  | "client-error"
   | "provider-notice";
 
 export interface RouteMeta {

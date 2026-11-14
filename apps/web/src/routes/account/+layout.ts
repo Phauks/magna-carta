@@ -25,9 +25,9 @@ import type { LayoutLoad } from "./$types";
 // seam, an anonymous visitor typing the URL saw a disabled form and nothing turned on the answer.
 // A page that reads real session data has to know there is a session first, or its own failure
 // state ends up standing in for "you are not signed in", which is a different sentence.
-// Runs client-side (the app is `ssr = false`).
-// The session read is the same cached one the (app) guard makes, so moving between the two surfaces
-// does not ask the server again.
+// Runs client-side (the app is `ssr = false`). The session is read through the same cached
+// bootstrap the (app) guard uses, so moving between the account pages and the app costs no second
+// read.
 export const load: LayoutLoad = async ({ url }) => {
   try {
     await queryClient.ensureQueryData({ ...meGetOptions(), staleTime: SESSION_STABLE });

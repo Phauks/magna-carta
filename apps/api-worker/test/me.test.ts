@@ -161,6 +161,8 @@ describe("GET /api/v1/me", () => {
         "esign:seal",
         "esign:send",
         "esign:sign",
+        "exhibits:issue",
+        "exhibits:manage",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",

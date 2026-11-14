@@ -147,14 +147,30 @@
     type FeatureStatus,
   } from "$lib/versions/features-model.ts";
   import {
+    featureDependencyChips,
+    workersOutsideFeatures,
+    type DependencyTone,
+  } from "$lib/versions/feature-dependencies-model.ts";
+  import {
+    ERROR_ID_SHAPE,
     RECENT_ERRORS_SECTION_LABEL,
+    describeBackgroundState,
     describeErrorPlace,
+    describeErrorWhat,
+    describeMissingRecord,
     describeRecentErrorsState,
     errorKindLabel,
+    errorRecordRows,
+    lookupErrorId,
     readRecentErrors,
     recentErrorsTile,
+    type ErrorLookupValue,
     type RecentErrorsValue,
   } from "$lib/versions/recent-errors-model.ts";
+  import Input from "@magna-carta/design-system/input";
+  import Label from "@magna-carta/design-system/label";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/problem.ts";
   import {
     FEATURE_FLAGS_SECTION_LABEL,
     featureFlagRows,
@@ -175,11 +191,6 @@
     checkUploadReadiness,
     type UploadReadinessReport,
   } from "$lib/file-manager/upload-readiness-api.ts";
-  import {
-    CONNECTED_SERVICES_SECTION_LABEL,
-    connectedServiceRow,
-    connectedServicesSectionPills,
-  } from "./connected-services-model.ts";
   import {
     READINESS_CHECK_IN_FLIGHT_NOTICE,
     UPLOAD_READINESS_SECTION_LABEL,
@@ -226,7 +237,6 @@
     serviceStateLabel,
     showsPageBuildRow,
     deploymentSectionPills,
-    workersSectionPills,
     syncStateBadgeVariant,
     syncStateLabel,
     API_WORKER_UNIT_NAME,
@@ -237,6 +247,7 @@
     RELOAD_ACTION_LABEL,
     SIGNED_OUT_ESTATE_NOTICE,
     UPDATE_AVAILABLE_EXPLANATION,
+    WEB_WORKER_ROW_ID,
     type MetaVersionsValue,
     type ServiceVersionState,
     type VersionReadPhase,
@@ -309,11 +320,58 @@
   const panelFeatures = $derived(sortFeatures(features.filter((feature) => feature.state !== "working")));
   let openSteps = $state<Record<string, boolean>>({});
 
+  // The tab that joins features to what they run on, and the Workers no feature names.
+  const FEATURES_AND_WORKERS_TAB_LABEL = "Features and Workers";
+  const otherWorkers = $derived(
+    value === null ? [] : workersOutsideFeatures(value.services, WEB_WORKER_ROW_ID),
+  );
+  function dependencyChipsFor(feature: FeatureStatus) {
+    return featureDependencyChips(feature, {
+      services: value?.services ?? [],
+      connectedServices: value?.connectedServices ?? [],
+      requirements: featureRequirementsList?.find((entry) => entry.id === feature.id),
+    });
+  }
+  function toneDotClass(tone: DependencyTone): string {
+    switch (tone) {
+      case "healthy":
+        return "bg-status-success";
+      case "attention":
+        return "bg-status-warning";
+      case "fault":
+        return "bg-status-danger";
+      default:
+        return "bg-text-subtle";
+    }
+  }
+
   // Recent errors: a platform operator's read, made only on the page and only once the versions
   // read has said this is an operator — anyone else would be asking for a 403.
   let errorsValue = $state<RecentErrorsValue | null>(null);
   let errorsFailure = $state<PanelReadFailure | null>(null);
   let errorsLoading = $state(false);
+
+  // The Error ID lookup: what one ID a member quoted was, from the error record.
+  let lookupText = $state("");
+  let lookupValue = $state<ErrorLookupValue | null>(null);
+  let lookupFailure = $state<Failure | null>(null);
+  let lookupBusy = $state(false);
+  const lookupId = $derived(lookupText.trim());
+  const lookupShapeOk = $derived(ERROR_ID_SHAPE.test(lookupId));
+
+  async function lookUp(): Promise<void> {
+    if (!lookupShapeOk || lookupBusy) return;
+    lookupBusy = true;
+    const outcome = await lookupErrorId(fetch, lookupId);
+    lookupBusy = false;
+    if (outcome.kind === "ok") {
+      lookupValue = outcome.value;
+      lookupFailure = null;
+    } else {
+      lookupValue = null;
+      lookupFailure = outcome.failure;
+    }
+  }
 
   async function refreshErrors(): Promise<void> {
     if (!isPage || !isOperator) return;
@@ -551,11 +609,6 @@
           syncState,
         }),
   );
-  const workersPills = $derived(
-    deploymentRows === null ? [] : workersSectionPills(deploymentRows.rest),
-  );
-  const connectedServices = $derived(value?.connectedServices ?? []);
-  const connectedPills = $derived(connectedServicesSectionPills(connectedServices));
   const databasePills = $derived(healthValue === null ? [] : databaseSectionPills(healthValue));
   const readinessPills = $derived(
     readinessReport === null ? [] : uploadReadinessSectionPills(readinessReport),
@@ -603,7 +656,7 @@
         tone: featureCounts.fault > 0 ? "danger" : "neutral",
       },
       {
-        tab: "deployment",
+        tab: "features",
         label: DEPLOYMENT_SECTION_LABEL,
         figure: syncState === null ? "—" : syncStateLabel(syncState),
         detail: (() => {
@@ -617,7 +670,7 @@
           syncState === null ? "neutral" : syncStateBadgeVariant(syncState) === "warning" ? "warning" : syncState === "in-sync" ? "success" : "neutral",
       },
       {
-        tab: "workers",
+        tab: "features",
         label: FLEET_SECTION_LABEL,
         figure: value === null ? "—" : `${String(answering)} of ${String(services.length)}`,
         detail: "reporting a version",
@@ -872,38 +925,73 @@
   </div>
 {/snippet}
 
+{#snippet featureTable()}
+  <!-- The features as a table, one line per thing a feature depends on, so builds and checks line
+       up down the page. Below a table-sized width of its own (a container query, so the settings column decides, not the window) the columns fold into one card per feature, so
+       nothing ever scrolls sideways. -->
+  <div class="@container flex flex-col">
+    <div
+      class="hidden border-b border-border-default pb-4 @3xl:grid @3xl:grid-cols-12 @3xl:gap-12"
+    >
+      <FieldLabel as="span" class="col-span-3">Feature</FieldLabel>
+      <FieldLabel as="span" class="col-span-2">Status</FieldLabel>
+      <div class="col-span-7 grid grid-cols-1 gap-x-12 @3xl:grid-cols-2">
+        <FieldLabel as="span">Runs on</FieldLabel>
+        <FieldLabel as="span" class="hidden @3xl:inline">Build and check</FieldLabel>
+      </div>
+    </div>
+    {#each featureGroups as group (group.id)}
+      <div class="flex items-center gap-8 border-b border-border-default bg-surface-sunken px-8 py-4">
+        <FieldLabel as="span">{group.label}</FieldLabel>
+        {#each featureSectionPills(group.features).slice(1) as pill (pill.label)}
+          <Badge variant={pill.variant}>{pill.label}</Badge>
+        {/each}
+      </div>
+      <div class="flex flex-col divide-y divide-border-default">
+        {#each group.features as feature (feature.id)}
+          {@render featureRow(feature)}
+        {/each}
+      </div>
+    {/each}
+  </div>
+{/snippet}
+
 {#snippet featureRow(feature: FeatureStatus)}
-  <!-- One feature: its name, its state, and — for a platform operator — what it still needs and
-       the steps that turn it on. The steps open in place, under the row, because the reader is
-       deciding whether to act on THIS feature; a dialog would take the list they are working down
-       away from them. -->
+  <!-- One feature: its name and state, then a line for each Worker and outside service it runs on,
+       with that dependency's own health and build. A platform operator also sees what an unset
+       feature still needs and the steps that turn it on; the steps open in place, under the row,
+       because the reader is deciding whether to act on THIS feature. -->
+  {@const requirements = featureRequirementsList?.find((entry) => entry.id === feature.id)}
+  {@const chips = dependencyChipsFor(feature)}
   {@const missing =
-    feature.state === "not-set-up"
-      ? missingRequirements(featureRequirementsList?.find((entry) => entry.id === feature.id))
+    feature.state === "not-set-up" && !chips.some((chip) => chip.kind === "service")
+      ? missingRequirements(requirements)
       : []}
-  {@const sourceLine =
-    feature.state === "not-set-up"
-      ? null
-      : describeSecretSources(featureRequirementsList?.find((entry) => entry.id === feature.id))}
+  {@const sourceLine = feature.state === "not-set-up" ? null : describeSecretSources(requirements)}
   {@const stepsOpen = openSteps[feature.id] === true}
   {@const steps = featureSteps(feature.id)}
   {@const guideUrl = deployQueueUrl(repositoryForGuides, feature.id)}
   {@const worker = FEATURE_WORKERS[feature.id] ?? null}
-  <div class="flex flex-col {rowPadding}">
-    <div class="flex items-center justify-between gap-8">
-      <div class="flex min-w-0 flex-col">
-        <span class="text-sm text-text-default">{featureName(feature.id)}</span>
-        {#if isOperator && missing.length > 0}
-          <span class="font-mono text-xs break-all text-text-muted">Needs {missing.join(", ")}</span>
-        {:else if isOperator && feature.state === "fault" && worker !== null}
-          <span class="text-xs text-text-muted">Set up, and {worker} is not answering.</span>
-        {/if}
-        {#if isOperator && sourceLine !== null}
-          <span class="font-mono text-xs break-all text-text-muted">{sourceLine}</span>
-        {/if}
+  <div
+    class="grid grid-cols-1 gap-8 py-8 @3xl:grid-cols-12 @3xl:gap-12"
+  >
+    <div class="flex min-w-0 flex-col gap-4 @3xl:col-span-3">
+      <div class="flex items-start justify-between gap-8">
+        <span class="text-sm font-medium text-text-default">{featureName(feature.id)}</span>
+        <Badge
+          class="shrink-0 @3xl:hidden"
+          variant={healthBadgeVariant(featureStateReading(feature.state))}
+          >{featureStateLabel(feature.state)}</Badge
+        >
       </div>
-      <div class="flex shrink-0 items-center gap-4">
-        {#if isOperator && feature.state === "fault" && worker !== null}
+      {#if isOperator && missing.length > 0}
+        <span class="font-mono text-xs break-all text-text-muted">Needs {missing.join(", ")}</span>
+      {/if}
+      {#if isOperator && sourceLine !== null}
+        <span class="font-mono text-xs break-all text-text-muted">{sourceLine}</span>
+      {/if}
+      {#if isOperator && feature.state === "fault" && worker !== null}
+        <div>
           <Button
             variant="ghost"
             size="sm"
@@ -913,7 +1001,9 @@
             Open in Cloudflare
             <ExternalLink class="size-12" aria-hidden="true" />
           </Button>
-        {:else if isOperator && feature.state === "not-set-up" && steps.length > 0}
+        </div>
+      {:else if isOperator && feature.state === "not-set-up" && steps.length > 0}
+        <div>
           <Button
             variant="ghost"
             size="sm"
@@ -930,14 +1020,55 @@
               aria-hidden="true"
             />
           </Button>
-        {/if}
-        <Badge variant={healthBadgeVariant(featureStateReading(feature.state))}
-          >{featureStateLabel(feature.state)}</Badge
-        >
-      </div>
+        </div>
+      {/if}
+    </div>
+    <div class="hidden @3xl:col-span-2 @3xl:block">
+      <Badge variant={healthBadgeVariant(featureStateReading(feature.state))}
+        >{featureStateLabel(feature.state)}</Badge
+      >
+    </div>
+    <div class="flex min-w-0 flex-col gap-8 @3xl:col-span-7 @3xl:gap-4">
+      {#if chips.length === 0}
+        <span class="text-xs text-text-muted">Runs inside {API_WORKER_UNIT_NAME}</span>
+      {/if}
+      {#each chips as chip (chip.key)}
+        {@const dashboardUrl =
+          readsAggregate && chip.dashboardWorker !== null
+            ? workerDashboardUrl(chip.dashboardWorker)
+            : null}
+        <div class="grid min-w-0 grid-cols-1 gap-x-12 @3xl:grid-cols-2">
+          <div class="flex min-w-0 flex-wrap items-center gap-x-8 gap-y-4">
+            <span class="size-8 shrink-0 rounded-full {toneDotClass(chip.tone)}" aria-hidden="true"
+            ></span>
+            {#if dashboardUrl !== null}
+              <a
+                href={dashboardUrl}
+                {...opensBeside("external")}
+                class="font-mono text-xs break-all text-text-default underline decoration-dotted underline-offset-2 hover:text-text-strong"
+                aria-label="Open {chip.name} in the Cloudflare dashboard">{chip.name}</a
+              >
+            {:else}
+              <span
+                class="{chip.kind === 'worker'
+                  ? 'font-mono text-xs'
+                  : 'text-sm'} break-all text-text-default">{chip.name}</span
+              >
+            {/if}
+            <span
+              class="text-xs {chip.tone === 'fault'
+                ? 'font-medium text-status-danger'
+                : 'text-text-muted'}">{chip.status}</span
+            >
+          </div>
+          {#if chip.detail !== null}
+            <span class="pl-16 text-xs break-words text-text-muted @3xl:pl-0">{chip.detail}</span>
+          {/if}
+        </div>
+      {/each}
     </div>
     {#if stepsOpen}
-      <div class="mt-8 flex flex-col gap-8 rounded-md bg-surface-sunken p-12">
+      <div class="flex flex-col gap-8 rounded-md bg-surface-sunken p-12 @3xl:col-span-12">
         <ol class="flex list-decimal flex-col gap-4 pl-20 text-sm text-text-default">
           {#each steps as step (step)}
             <li>{step}</li>
@@ -984,66 +1115,143 @@
       </div>
     </div>
   {/if}
+  <!-- Look one Error ID up: what a member quoted, without a log search. -->
+  <form
+    class="flex flex-col gap-8 {rowPadding}"
+    onsubmit={(event) => {
+      event.preventDefault();
+      void lookUp();
+    }}
+  >
+    <Label for="error-id-lookup">Look up an Error ID</Label>
+    <div class="flex flex-wrap items-center gap-8">
+      <Input
+        id="error-id-lookup"
+        class="min-w-0 flex-1 font-mono"
+        placeholder="Error ID"
+        autocomplete="off"
+        spellcheck={false}
+        aria-invalid={lookupId !== "" && !lookupShapeOk}
+        bind:value={lookupText}
+      />
+      <Button type="submit" variant="primary" size="sm" disabled={!lookupShapeOk || lookupBusy}
+        >Look up</Button
+      >
+    </div>
+  </form>
+  {#if lookupFailure !== null}
+    <FailureNotice failure={lookupFailure} subject="The lookup" onRetry={() => void lookUp()} />
+  {:else if lookupValue !== null}
+    {#if lookupValue.record === null}
+      <!-- structured-empty-allow: an ID with no record is the whole answer to the lookup, not a list waiting for rows; there is no record whose facts could arrive into a frame. -->
+      <p class="text-sm text-text-default">{describeMissingRecord(lookupValue)}</p>
+    {:else}
+      {@const record = lookupValue.record}
+      <div class="flex flex-col gap-8 rounded-md border border-border-default p-12">
+        <div class="flex flex-col">
+          <span class="text-sm font-semibold text-text-default">
+            {describeErrorWhat({
+              source: record.source,
+              latestErrorId: record.errorId,
+              service: record.service,
+              where: record.operation,
+              status: record.status,
+              title: record.title,
+              errorName: record.errorName,
+              messageHead: record.messageHead,
+              count: 1,
+              firstSeen: record.recordedAt,
+              lastSeen: record.recordedAt,
+            })}
+            <span class="text-text-muted">in {record.operation ?? "an unnamed place"}</span>
+          </span>
+          <span class="text-xs text-text-muted">
+            {errorKindLabel(record.source)} · recorded {formatVersionTimestamp(record.recordedAt)}
+          </span>
+        </div>
+        <dl class="flex flex-col gap-4">
+          {#each errorRecordRows(record) as row (row.label)}
+            <div class="flex flex-wrap items-baseline justify-between gap-8">
+              <dt class="text-xs text-text-muted">{row.label}</dt>
+              <dd
+                class="min-w-0 text-end text-sm text-text-default {row.mono
+                  ? 'font-mono text-xs break-all'
+                  : ''}"
+              >
+                {row.value}
+              </dd>
+            </div>
+          {/each}
+        </dl>
+      </div>
+    {/if}
+  {/if}
+
   {#if errorsValue === null}
     {#if errorsFailure === null}
-      <p class="text-xs text-text-muted">Reading Workers Logs</p>
+      <p class="text-xs text-text-muted">Reading the error record</p>
     {/if}
   {:else if errorsValue.state !== "read"}
-    {@const why = describeRecentErrorsState(errorsValue.state)}
-    <div class="flex items-center justify-between gap-8">
-      <p class="text-sm text-text-default">{why}</p>
-      {#if errorsValue.state === "not-configured"}
-        <Button
-          variant="ghost"
-          size="sm"
-          onclick={() => {
-            tab = "features";
-            openSteps = { ...openSteps, recentErrors: true };
-          }}>Steps</Button
-        >
-      {/if}
-    </div>
-  {:else if errorsValue.groups.length === 0}
-    <p class="text-sm text-text-default">No errors in the last 24 hours.</p>
+    <p class="text-sm text-text-default">{describeRecentErrorsState(errorsValue.state)}</p>
   {:else}
-    <div class="flex flex-col divide-y divide-border-default">
-      {#each errorsValue.groups as group (`${group.service}:${group.eventName}:${group.where}:${group.errorName}`)}
-        {@const copyKey = `error:${group.latestErrorId ?? group.lastSeen}`}
-        <div class="flex items-start justify-between gap-8 {rowPadding}">
-          <div class="flex min-w-0 flex-col">
-            <span class="text-sm text-text-default">
-              {group.errorName ?? "Error"}
-              <span class="text-text-muted">in {describeErrorPlace(group)}</span>
-            </span>
-            {#if group.messageHead !== null}
-              <span class="truncate text-xs text-text-muted">{group.messageHead}</span>
-            {/if}
-            <span class="text-xs text-text-muted">
-              <span class="font-mono">{group.service ?? "unknown Worker"}</span>
-              · {errorKindLabel(group.eventName)} · last seen {formatVersionTimestamp(group.lastSeen)}
-            </span>
+    {@const backgroundWhy = describeBackgroundState(errorsValue.backgroundState)}
+    {#if backgroundWhy !== null}
+      <div class="flex items-center justify-between gap-8">
+        <p class="text-xs text-text-muted">{backgroundWhy}</p>
+        {#if errorsValue.backgroundState === "not-configured"}
+          <Button
+            variant="ghost"
+            size="sm"
+            onclick={() => {
+              tab = "features";
+              openSteps = { ...openSteps, recentErrors: true };
+            }}>Steps</Button
+          >
+        {/if}
+      </div>
+    {/if}
+    {#if errorsValue.groups.length === 0}
+      <p class="text-sm text-text-default">No errors in the last 24 hours.</p>
+    {:else}
+      <div class="flex flex-col divide-y divide-border-default">
+        {#each errorsValue.groups as group (`${group.source}:${group.service}:${group.where}:${group.status}:${group.errorName}`)}
+          {@const copyKey = `error:${group.latestErrorId ?? group.lastSeen}`}
+          <div class="flex flex-wrap items-start justify-between gap-8 {rowPadding}">
+            <div class="flex min-w-0 flex-col">
+              <span class="text-sm break-words text-text-default">
+                {describeErrorWhat(group)}
+                <span class="text-text-muted">in {describeErrorPlace(group)}</span>
+              </span>
+              {#if group.messageHead !== null}
+                <span class="truncate text-xs text-text-muted">{group.messageHead}</span>
+              {/if}
+              <span class="text-xs text-text-muted">
+                <span class="font-mono">{group.service ?? "unknown Worker"}</span>
+                · {errorKindLabel(group.source)} · last seen {formatVersionTimestamp(group.lastSeen)}
+              </span>
+            </div>
+            <div class="flex shrink-0 items-center gap-4">
+              <Badge variant="danger">{group.count}×</Badge>
+              {#if group.latestErrorId !== null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="font-mono text-xs {copiedNow(copyKey) ? 'bg-action-secondary-hover' : ''}"
+                  aria-label="Copy Error ID {group.latestErrorId}"
+                  onclick={() => void copyValue(copyKey, group.latestErrorId ?? "")}
+                >
+                  {group.latestErrorId}
+                </Button>
+              {/if}
+            </div>
           </div>
-          <div class="flex shrink-0 items-center gap-4">
-            <Badge variant="danger">{group.count}×</Badge>
-            {#if group.latestErrorId !== null}
-              <Button
-                variant="ghost"
-                size="sm"
-                class="font-mono text-xs {copiedNow(copyKey) ? 'bg-action-secondary-hover' : ''}"
-                aria-label="Copy Error ID {group.latestErrorId}"
-                onclick={() => void copyValue(copyKey, group.latestErrorId ?? "")}
-              >
-                {group.latestErrorId}
-              </Button>
-            {/if}
-          </div>
-        </div>
-      {/each}
-    </div>
-    {#if errorsValue.truncated}
-      <p class="text-xs text-text-muted">
-        Only the newest {errorsValue.total} events were read. Workers Logs holds more.
-      </p>
+        {/each}
+      </div>
+      {#if errorsValue.truncated}
+        <p class="text-xs text-text-muted">
+          Only the newest kinds of failure are shown. Look an Error ID up above to find any one.
+        </p>
+      {/if}
     {/if}
   {/if}
 {/snippet}
@@ -1137,65 +1345,6 @@
         {/if}
       {/if}
     {/if}
-  </VersionPanelSection>
-{/snippet}
-
-{#snippet workersSectionBlock()}
-  <VersionPanelSection
-    foldable={!isPage}
-    label={FLEET_SECTION_LABEL}
-    preference={PANEL_SECTION_FOLDS.fleet}
-    pills={workersPills}
-    loading={value === null}
-    refreshing={loading}
-    loadingLabel="Reading which Workers are running"
-    onRetry={() => void refresh({ fresh: true })}
-  >
-    {#snippet fixture()}
-      {@render partFixture("fixture-worker")}
-    {/snippet}
-    {#if deploymentRows !== null}
-      <div class="flex flex-col">
-        {#each deploymentRows.rest as service (service.id)}
-          {@render partRow({
-            rowKey: service.id,
-            name: service.service,
-            isWorkerName: true,
-            state: service.state,
-            commit: service.commit,
-            commitTime: service.commitTime,
-            buildTime: service.buildTime,
-            latencyMilliseconds: service.latencyMilliseconds,
-          })}
-        {/each}
-      </div>
-    {/if}
-  </VersionPanelSection>
-{/snippet}
-
-{#snippet connectedSectionBlock()}
-  <VersionPanelSection
-    label={CONNECTED_SERVICES_SECTION_LABEL}
-    preference={PANEL_SECTION_FOLDS.connected}
-    pills={connectedPills}
-    loading={false}
-    refreshing={loading}
-    loadingLabel="Checking the outside services"
-    onRetry={() => void refresh({ fresh: true })}
-  >
-    {#snippet fixture()}
-      {@render healthRow({
-        name: "Cloudflare Realtime (meetings)",
-        reading: "healthy",
-        status: "Connected",
-        detail: "A meeting session opened just now.",
-      })}
-    {/snippet}
-    <div class="flex flex-col">
-      {#each connectedServices as service (service.id)}
-        {@render healthRow(connectedServiceRow(service))}
-      {/each}
-    </div>
   </VersionPanelSection>
 {/snippet}
 
@@ -1522,13 +1671,10 @@
       <!-- THE PAGE: four counts, then one tab per question. Each count is also the way to its own
            tab, so the number that caught the eye is one press from the rows behind it. -->
       <div class="grid grid-cols-2 gap-8 lg:grid-cols-4">
-        {#each overviewTiles as tile (tile.tab)}
+        {#each overviewTiles as tile (tile.label)}
           <button
             type="button"
-            class="flex flex-col gap-4 rounded-lg border border-border-default bg-surface-default p-12 text-left hover:bg-action-secondary-hover {tab ===
-            tile.tab
-              ? 'border-action-primary'
-              : ''}"
+            class="flex flex-col gap-4 rounded-lg border border-border-default bg-surface-default p-12 text-left hover:bg-action-secondary-hover"
             onclick={() => {
               tab = tile.tab;
             }}
@@ -1541,9 +1687,7 @@
       </div>
       <Tabs.Root bind:value={tab}>
         <Tabs.List>
-          <Tabs.Trigger value="features">{FEATURES_SECTION_LABEL}</Tabs.Trigger>
-          <Tabs.Trigger value="deployment">{DEPLOYMENT_SECTION_LABEL}</Tabs.Trigger>
-          <Tabs.Trigger value="workers">{FLEET_SECTION_LABEL}</Tabs.Trigger>
+          <Tabs.Trigger value="features">{FEATURES_AND_WORKERS_TAB_LABEL}</Tabs.Trigger>
           <Tabs.Trigger value="firm">This Firm</Tabs.Trigger>
           {#if isOperator}
             <Tabs.Trigger value="errors">{RECENT_ERRORS_SECTION_LABEL}</Tabs.Trigger>
@@ -1552,68 +1696,70 @@
         </Tabs.List>
 
         <Tabs.Content value="features" class="flex flex-col gap-16 pt-16">
+          <!-- ONE TAB FOR WHAT RUNS AND WHAT WORKS. Features, the Workers behind them and the
+               deployment were three tabs, and a reader had to know that Malware scanning means
+               magna-carta-scan to join them. The two Workers every feature runs on head the tab
+               once, with their builds and merges; below, each feature lists the Worker and the
+               outside services it depends on, one line each, with that dependency's health and
+               build. -->
+          <div class="flex flex-col gap-8 rounded-lg border border-border-default p-12">
+            {@render deploymentSectionBlock()}
+            {#if value !== null && pullRequests !== null}
+              <!-- Which merge each of the two is, from the ledger this build carries: a bare hash says
+                   nothing until somebody looks it up, and the title is what they were looking for. -->
+              <div class="flex flex-col divide-y divide-border-default">
+                {#each deployedPullRequests as deployed (deployed.name)}
+                  <div class="flex items-center justify-between gap-8 {rowPadding}">
+                    <div class="flex min-w-0 flex-col">
+                      <span class="font-mono text-sm text-text-default">{deployed.name}</span>
+                      {#if deployed.pullRequest !== null}
+                        <a
+                          href={deployed.pullRequest.url}
+                          {...opensBeside("external")}
+                          class="truncate text-xs text-text-muted underline decoration-dotted underline-offset-2 hover:text-text-strong"
+                          >#{deployed.pullRequest.number} {deployed.pullRequest.title}</a
+                        >
+                      {:else}
+                        <span class="text-xs text-text-muted">Not in this build's list of merges</span>
+                      {/if}
+                    </div>
+                    {#if deployed.behind !== null && deployed.behind > 0}
+                      <Badge variant="warning"
+                        >{deployed.behind} merge{deployed.behind === 1 ? "" : "s"} behind</Badge
+                      >
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
           {#if value === null}
             <p class="text-xs text-text-muted">{READ_IN_FLIGHT_NOTICE}</p>
           {:else if features.length === 0}
             <p class="text-xs text-text-muted">This deployment's API does not report features yet.</p>
           {:else}
-            {#each featureGroups as group (group.id)}
+            {@render featureTable()}
+            {#if otherWorkers.length > 0}
               <div class="flex flex-col">
                 <div class="flex items-center gap-8 border-b border-border-default pb-4">
-                  <FieldLabel as="span">{group.label}</FieldLabel>
-                  {#each featureSectionPills(group.features).slice(1) as pill (pill.label)}
-                    <Badge variant={pill.variant}>{pill.label}</Badge>
-                  {/each}
+                  <FieldLabel as="span">Other Workers</FieldLabel>
                 </div>
                 <div class="flex flex-col divide-y divide-border-default">
-                  {#each group.features as feature (feature.id)}
-                    {@render featureRow(feature)}
+                  {#each otherWorkers as service (service.id)}
+                    {@render partRow({
+                      rowKey: service.id,
+                      name: service.service,
+                      isWorkerName: true,
+                      state: service.state,
+                      commit: service.commit,
+                      commitTime: service.commitTime,
+                      buildTime: service.buildTime,
+                      latencyMilliseconds: service.latencyMilliseconds,
+                    })}
                   {/each}
                 </div>
               </div>
-            {/each}
-          {/if}
-        </Tabs.Content>
-
-        <Tabs.Content value="deployment" class="flex flex-col gap-8 pt-16">
-          {@render deploymentSectionBlock()}
-          {#if value !== null && pullRequests !== null}
-            <!-- Which merge each of the two is, from the ledger this build carries: a bare hash says
-                 nothing until somebody looks it up, and the title is what they were looking for. -->
-            <div class="flex flex-col divide-y divide-border-default">
-              {#each deployedPullRequests as deployed (deployed.name)}
-                <div class="flex items-center justify-between gap-8 {rowPadding}">
-                  <div class="flex min-w-0 flex-col">
-                    <span class="font-mono text-sm text-text-default">{deployed.name}</span>
-                    {#if deployed.pullRequest !== null}
-                      <a
-                        href={deployed.pullRequest.url}
-                        {...opensBeside("external")}
-                        class="truncate text-xs text-text-muted underline decoration-dotted underline-offset-2 hover:text-text-strong"
-                        >#{deployed.pullRequest.number} {deployed.pullRequest.title}</a
-                      >
-                    {:else}
-                      <span class="text-xs text-text-muted">Not in this build's list of merges</span>
-                    {/if}
-                  </div>
-                  {#if deployed.behind !== null && deployed.behind > 0}
-                    <Badge variant="warning"
-                      >{deployed.behind} merge{deployed.behind === 1 ? "" : "s"} behind</Badge
-                    >
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </Tabs.Content>
-
-        <Tabs.Content value="workers" class="flex flex-col gap-8 pt-16">
-          {#if deploymentRows === null || deploymentRows.rest.length > 0}
-            {@render workersSectionBlock()}
-          {/if}
-          {#if connectedServices.length > 0}
-            <Separator />
-            {@render connectedSectionBlock()}
+            {/if}
           {/if}
         </Tabs.Content>
 

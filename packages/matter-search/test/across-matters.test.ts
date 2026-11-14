@@ -9,6 +9,7 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
 import { narrowedVisibility, type MatterNarrowing } from "../src/narrowing.ts";
 import { runSearchAcrossMatters } from "../src/run-across-matters.ts";
+import { runMatterSearch } from "../src/run.ts";
 import { matterSearchSources } from "../src/sources/all.ts";
 import type { AcrossMattersGroup, AcrossMattersSearchAnswer } from "../src/types.ts";
 import {
@@ -19,7 +20,9 @@ import {
   NO_PERMISSIONS,
   OTHER_MATTER,
   seededDatabase,
+  seedInvoiceLine,
   seedNote,
+  seedPacket,
   visibility,
 } from "./support.ts";
 
@@ -127,12 +130,170 @@ describe("a search across matters reaches every matter the reader may see", () =
     ]);
   });
 
+  it("finds a packet of originals by name or custody number on every matter", async () => {
+    const { database } = seededDatabase();
+    const byName = groupOf(await ask(database, "easement"), "custody");
+    expect(byName.skipped).toBeNull();
+    expect(byName.hits.map((hit) => [hit.id, hit.matterId]).toSorted()).toEqual([
+      ["custodyPacket_decoy", OTHER_MATTER],
+      ["custodyPacket_deed", MATTER],
+    ]);
+    expect(hitIds(await ask(database, "CUS-2026-0002"), "custody")).toEqual([
+      "custodyPacket_decoy",
+    ]);
+  });
+
+  it("finds a party on each matter they are on, naming what they are to it", async () => {
+    const { database } = seededDatabase();
+    const parties = groupOf(await ask(database, "east"), "parties");
+    expect(parties.skipped).toBeNull();
+    expect(
+      parties.hits.map((hit) => [hit.id, hit.matterId, hit.title, hit.secondary]).toSorted(),
+    ).toEqual([
+      ["matterParty_decoy", OTHER_MATTER, "Ruth Eastwood", "client"],
+      ["matterParty_neighbour", MATTER, "Marta Easton", "opposing_party · Trustee"],
+    ]);
+    // The capacity a party acts in is matched too, as it is inside a matter.
+    expect(hitIds(await ask(database, "trustee"), "parties")).toEqual(["matterParty_neighbour"]);
+  });
+
+  it("finds an invoice line by what it says, on the line's own matter, and links to its invoice", async () => {
+    const { database, raw } = seededDatabase();
+    // One invoice billing two matters: each line answers under its own matter.
+    seedInvoiceLine(raw, {
+      id: "invoiceLine_survey",
+      invoiceId: "invoice_shared",
+      matterId: MATTER,
+      description: "Review of the easement survey",
+    });
+    seedInvoiceLine(raw, {
+      id: "invoiceLine_other",
+      invoiceId: "invoice_shared",
+      matterId: OTHER_MATTER,
+      description: "Call about the easement",
+    });
+    seedInvoiceLine(raw, {
+      id: "invoiceLine_holding",
+      invoiceId: "invoice_shared",
+      matterId: HOLDING_MATTER,
+      description: "Easement storage",
+    });
+    const billing = groupOf(await ask(database, "easement"), "billing");
+    expect(billing.skipped).toBeNull();
+    expect(billing.hits.map((hit) => [hit.id, hit.matterId]).toSorted()).toEqual([
+      ["invoiceLine_other", OTHER_MATTER],
+      ["invoiceLine_survey", MATTER],
+    ]);
+    const line = billing.hits.find((hit) => hit.id === "invoiceLine_survey");
+    expect(line?.link).toBe(`/matters/${MATTER}/billing?entry=invoice_shared`);
+    expect(line?.secondary).toBe("Draft · draft");
+  });
+
+  it("describes an invoice line as the matter's own search does, numbered or not", async () => {
+    const { database, raw } = seededDatabase();
+    seedInvoiceLine(raw, {
+      id: "invoiceLine_draft",
+      invoiceId: "invoice_draft",
+      matterId: MATTER,
+      description: "Easement research",
+    });
+    seedInvoiceLine(raw, {
+      id: "invoiceLine_final",
+      invoiceId: "invoice_final",
+      matterId: MATTER,
+      description: "Easement hearing",
+    });
+    raw.exec(
+      `UPDATE invoice SET status = 'final', invoice_number = 'INV-0042', number_scope_key = '', ` +
+        `number_drawn_value = 42, issue_date = '2026-08-01', due_date = '2026-08-31', ` +
+        `finalized_at = '${INSTANT}' WHERE id = 'invoice_final'`,
+    );
+    const across = groupOf(await ask(database, "easement"), "billing");
+    const inside = await runMatterSearch({
+      database,
+      registry: matterSearchSources,
+      matterId: MATTER,
+      query: "easement",
+      visibility,
+      sourceKeys: ["billing"],
+      permissions: ALL_PERMISSIONS,
+      limit: 25,
+      includeDeleted: false,
+    });
+    const describe = (hits: readonly { id: string; title: string; secondary: string | null }[]) =>
+      hits.map((hit) => [hit.id, hit.title, hit.secondary]).toSorted();
+    expect(describe(across.hits)).toEqual([
+      ["invoiceLine_draft", "Easement research", "Draft · draft"],
+      ["invoiceLine_final", "Easement hearing", "INV-0042 · final"],
+    ]);
+    expect(describe(across.hits)).toEqual(
+      describe(inside.groups.find((group) => group.source === "billing")?.hits ?? []),
+    );
+    // An invoice's number finds its lines, as it does inside the matter.
+    expect(hitIds(await ask(database, "INV-0042"), "billing")).toEqual(["invoiceLine_final"]);
+  });
+
+  it("answers once for a party matched by both their name and their capacity", async () => {
+    const { database, raw } = seededDatabase();
+    raw.exec(
+      `INSERT INTO directory_person (id, display_name, deceased, status, needs_review, created_at, updated_at) ` +
+        `VALUES ('directoryPerson_trust', 'Trustee Services Ltd', 0, 'active', 0, '${INSTANT}', '${INSTANT}')`,
+    );
+    raw.exec(
+      `INSERT INTO matter_party (id, matter_id, entity_id, role, capacity, created_at, updated_at) ` +
+        `VALUES ('matterParty_both', '${OTHER_MATTER}', 'directoryPerson_trust', 'witness', ` +
+        `'Trustee', '${INSTANT}', '${INSTANT}')`,
+    );
+    expect(
+      groupOf(await ask(database, "trustee"), "parties").hits.map((hit) => hit.id),
+    ).toHaveLength(2);
+    expect(hitIds(await ask(database, "trustee"), "parties")).toEqual([
+      "matterParty_both",
+      "matterParty_neighbour",
+    ]);
+  });
+
+  it("does not find a party whose person is deleted or merged away", async () => {
+    const { database, raw } = seededDatabase();
+    raw.exec(
+      `UPDATE directory_person SET deleted_at = '${INSTANT}' WHERE id = 'directoryPerson_eastwood'`,
+    );
+    raw.exec(
+      `UPDATE directory_person SET status = 'merged_into' WHERE id = 'directoryPerson_easton'`,
+    );
+    expect(hitIds(await ask(database, "east"), "parties")).toEqual([]);
+    // Nor by the capacity alone: a party with no name to show is not an answer.
+    expect(hitIds(await ask(database, "trustee"), "parties")).toEqual([]);
+  });
+
+  it("withholds invoice lines and packets from a reader without their capabilities", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", { permissions: NO_PERMISSIONS });
+    expect(groupOf(answer, "billing")).toMatchObject({ skipped: "permission", hits: [] });
+    expect(groupOf(answer, "custody")).toMatchObject({ skipped: "permission", hits: [] });
+    // Who is on a matter is open to any member of the firm, as it is inside a matter.
+    expect(groupOf(answer, "parties").skipped).toBeNull();
+  });
+
   it("never answers from the platform's own holding matter", async () => {
     const { database, raw } = seededDatabase();
     seedNote(raw, { id: "matterNote_holding", matterId: HOLDING_MATTER, body: "Easement held." });
     const answer = await ask(database, "easement");
     expect(hitIds(answer, "files")).not.toContain("file_holding");
     expect(hitIds(answer, "notes")).not.toContain("matterNote_holding");
+  });
+
+  it("does not find a packet the register holds on its own holding matter", async () => {
+    const { database, raw } = seededDatabase();
+    seedPacket(raw, {
+      id: "custodyPacket_holding",
+      matterId: HOLDING_MATTER,
+      name: "Easement originals awaiting a matter",
+      custodyNumber: "CUS-2026-0003",
+    });
+    expect(hitIds(await ask(database, "easement"), "custody")).not.toContain(
+      "custodyPacket_holding",
+    );
   });
 
   it("leaves out a matter the predicate excludes, before the limit and not after it", async () => {
@@ -185,10 +346,8 @@ describe("what a search across matters does not ask", () => {
       .filter((group) => group.skipped === "one-matter-only")
       .map((group) => group.source)
       .toSorted();
-    expect(oneMatterOnly).toEqual(["billing", "calendar", "custody", "file-contents", "parties"]);
-    // The custody packet and the party both carry the word and neither answers.
-    expect(groupOf(answer, "custody").hits).toEqual([]);
-    expect(groupOf(answer, "parties").hits).toEqual([]);
+    expect(oneMatterOnly).toEqual(["calendar", "file-contents"]);
+    for (const key of oneMatterOnly) expect(groupOf(answer, key).hits).toEqual([]);
   });
 
   it("answers in the registry's order, with a group for every source", async () => {
@@ -312,6 +471,7 @@ describe("a search across matters narrowed by its reader", () => {
     const answer = await ask(database, "easement", { narrowing: mattersNamed(OTHER_MATTER) });
     expect(hitIds(answer, "notes")).toEqual(["matterNote_decoy"]);
     expect(hitIds(answer, "files")).toEqual(["file_decoy", "folder_decoy"]);
+    expect(hitIds(answer, "custody")).toEqual(["custodyPacket_decoy"]);
     for (const group of answer.groups) {
       for (const hit of group.hits) expect(hit.matterId).toBe(OTHER_MATTER);
     }
@@ -449,10 +609,13 @@ describe("every statement a source builds for a search across matters", () => {
 
   it("is built by the sources this test expects, so a new one is read by somebody", () => {
     expect([...new Set(EVERY_STATEMENT.map((statement) => statement.key))].toSorted()).toEqual([
+      "billing",
       "communications",
       "costs",
+      "custody",
       "files",
       "notes",
+      "parties",
       "time",
     ]);
   });

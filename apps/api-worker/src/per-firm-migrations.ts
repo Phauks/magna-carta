@@ -86,7 +86,9 @@ import transferSourceFileSql from "@magna-carta/database/drizzle/per-firm/202611
 import meetingAddressesSql from "@magna-carta/database/drizzle/per-firm/20261114T000307_meeting-addresses.sql";
 import exhibitsSql from "@magna-carta/database/drizzle/per-firm/20261114T003247_exhibits.sql";
 import transferPassSql from "@magna-carta/database/drizzle/per-firm/20261114T003558_transfer-pass.sql";
-import documentsCanBeSentForSignatureSql from "@magna-carta/database/drizzle/per-firm/20261114T004607_documents-can-be-sent-for-signature.sql";
+import numberReservationSql from "@magna-carta/database/drizzle/per-firm/20261114T011021_number-reservation.sql";
+import sharedMeetingRoomsSql from "@magna-carta/database/drizzle/per-firm/20261114T012921_shared-meeting-rooms.sql";
+import documentsCanBeSentForSignatureSql from "@magna-carta/database/drizzle/per-firm/20261114T020728_documents-can-be-sent-for-signature.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -175,7 +177,9 @@ export function perFirmMigrations(): Migration[] {
     "20261114T000307_meeting-addresses": meetingAddressesSql,
     "20261114T003247_exhibits": exhibitsSql,
     "20261114T003558_transfer-pass": transferPassSql,
-    "20261114T004607_documents-can-be-sent-for-signature": documentsCanBeSentForSignatureSql,
+    "20261114T011021_number-reservation": numberReservationSql,
+    "20261114T012921_shared-meeting-rooms": sharedMeetingRoomsSql,
+    "20261114T020728_documents-can-be-sent-for-signature": documentsCanBeSentForSignatureSql,
   });
 }
 

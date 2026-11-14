@@ -61,7 +61,16 @@ export const FEATURE_ROSTER = [
   },
   { id: "callerLookup", alternatives: [["TELNYX_API_KEY"]] },
   // Calendar and email
-  { id: "outlookCalendarSync", alternatives: [["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"]] },
+  {
+    id: "outlookCalendarSync",
+    alternatives: [["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"]],
+    connectedService: "microsoftCalendar",
+  },
+  {
+    id: "googleCalendarSync",
+    alternatives: [["GOOGLE_CALENDAR_CLIENT_ID", "GOOGLE_CALENDAR_CLIENT_SECRET"]],
+    connectedService: "googleCalendar",
+  },
   { id: "outgoingEmail", alternatives: [["SEND_EMAIL", "EMAIL_FROM"]] },
   { id: "notificationDigest", alternatives: [["SEND_EMAIL", "EMAIL_FROM", "APP_BASE_URL"]] },
   { id: "emailCapture", alternatives: [["EMAIL_SERVICE"]], worker: "email" },
@@ -99,7 +108,7 @@ export const FEATURE_ROSTER = [
   { id: "modelAvailabilityCheck", alternatives: [["ANTHROPIC_MODELS_API_KEY"]] },
   // Platform
   { id: "signUpBotCheck", alternatives: [["TURNSTILE_SECRET_KEY"]] },
-  { id: "communitySignIn", alternatives: [["COMMUNITY_HANDOFF_SECRET"]] },
+  { id: "communitySignIn", alternatives: [["COMMUNITY_HANDOFF_SECRET"]], worker: "community" },
   { id: "featureFlags", alternatives: [["FLAGS"]] },
   { id: "usageAnalytics", alternatives: [["TELEMETRY", "USAGE_ANALYTICS_PEPPER"]] },
   { id: "recentErrors", alternatives: [["CLOUDFLARE_ACCOUNT_ID", "OBSERVABILITY_API_TOKEN"]] },

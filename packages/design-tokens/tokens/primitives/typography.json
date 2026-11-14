@@ -1,12 +1,11 @@
 {
   "font": {
-    "$description": "Font family stacks. `sans` defaults to Atkinson Hyperlegible (the legibility-engineered default reading font, design language §4); the user-selectable typeface axis (data-typeface) overrides --mc-font-sans at runtime in a later step. Faces are self-hosted (OFL) by the design-system/app; the stack falls back to the system UI stack until the web fonts load.",
+    "$description": "Font family stacks. `sans` defaults to Inter (owner, 2026-11-14: a plain zero, where Atkinson Hyperlegible's slashed zero made dates and money read as code; Atkinson stays a reading-face choice); the user-selectable typeface axis (data-typeface) overrides --mc-font-sans at runtime in a later step. Faces are self-hosted (OFL) by the design-system/app; the stack falls back to the system UI stack until the web fonts load.",
     "sans": {
       "$type": "fontFamily",
       "$value": [
-        "Atkinson Hyperlegible Next Variable",
-        "Atkinson Hyperlegible Next",
-        "Atkinson Hyperlegible",
+        "Inter Variable",
+        "Inter",
         "system-ui",
         "Segoe UI",
         "Roboto",
