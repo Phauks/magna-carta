@@ -97,6 +97,10 @@ import type {
   MagnusArtifactId,
   MagnusTurnId,
   MatterAssetDocumentId,
+  MatterExhibitId,
+  ExhibitSetId,
+  ExhibitSetMemberId,
+  ExhibitReferenceId,
   MatterAssetEncumbranceId,
   MatterAssetId,
   MatterAssetIdentifierId,
@@ -13255,5 +13259,280 @@ export const transferPass = sqliteTable(
       "transfer_pass_counts_check",
       sql`(${table.finishedAt} IS NULL) = (${table.rowsRead} IS NULL) AND (${table.rowsRead} IS NULL OR (${table.createdCount} IS NOT NULL AND ${table.alreadyLinkedCount} IS NOT NULL AND ${table.rejectedCount} IS NOT NULL AND ${table.waitingCount} IS NOT NULL AND ${table.findingCount} IS NOT NULL AND ${table.columnsMissingCount} IS NOT NULL AND ${table.rowsRead} = ${table.createdCount} + ${table.alreadyLinkedCount} + ${table.rejectedCount} + ${table.waitingCount}))`,
     ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------------
+// Exhibits — a matter's documents put in order for a filing.
+//
+// Three facts change independently, so they live in three rows: what the document IS on the matter
+// (matter_exhibit, which keeps one reference name while its title changes), where it sits in one
+// filing (exhibit_set_member.position), and what it was called when the filing went out
+// (exhibit_set_member.label, written once at issue). While a set is a draft its labels are not
+// stored at all: packages/exhibits/src/label.ts computes them from the position and the set's scheme
+// on every read, so no reorder can leave a stored label disagreeing with the order.
+//
+// No exhibit row holds bytes. An exhibit points at an ordinary matter file that came in through the
+// File Manager's upload chokepoint, exactly as matter_asset_document does.
+// ---------------------------------------------------------------------------------------------------
+
+// One document's identity on one matter. The employment agreement is ONE row that is Exhibit C to a
+// motion and Exhibit 7 at trial; a per-set row would make those two unrelated records. An exhibit
+// never spans matters: the same file used in two matters is two exhibits, because the two matters
+// have different access boundaries and different filings.
+//
+// reference_name is minted once from the first title and never recomputed: an in-text reference
+// cites it, so a retitle must not break every document that already cites the exhibit.
+// pinned_file_version_id is NULL while the exhibit floats on the file's current clean version, and
+// names a version when a member chose one deliberately (the executed copy, not the redline).
+// bates_begin / bates_end are provenance copied from a production and never computed from a label.
+export const matterExhibit = sqliteTable(
+  "matter_exhibit",
+  {
+    id: text("id").primaryKey().$type<MatterExhibitId>(), // matterExhibit_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    referenceName: text("reference_name").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    sourceKind: text("source_kind", {
+      enum: ["matterFile", "assembledDocument", "custodyItemScan", "discoveryDocument"],
+    }).notNull(),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    pinnedFileVersionId: text("pinned_file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    pageCount: integer("page_count"),
+    batesBegin: text("bates_begin"),
+    batesEnd: text("bates_end"),
+    createdBy: text("created_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    archivedAt: text("archived_at"),
+  },
+  (table) => [
+    uniqueIndex("matter_exhibit_reference_name_unique_index").on(
+      table.matterId,
+      table.referenceName,
+    ),
+    index("matter_exhibit_matter_index").on(table.matterId, table.archivedAt),
+    index("matter_exhibit_file_index").on(table.fileId),
+    check(
+      "matter_exhibit_source_kind_check",
+      sql`${table.sourceKind} IN ('matterFile', 'assembledDocument', 'custodyItemScan', 'discoveryDocument')`,
+    ),
+    check(
+      "matter_exhibit_shape_check",
+      sql`length(${table.title}) > 0 AND length(${table.referenceName}) > 0 AND (${table.pageCount} IS NULL OR ${table.pageCount} >= 0)`,
+    ),
+    check(
+      "matter_exhibit_bates_shape_check",
+      sql`(${table.batesBegin} IS NULL) = (${table.batesEnd} IS NULL)`,
+    ),
+  ],
+);
+
+// The ordered membership for one filing, and its numbering scheme. A scheme is column values a
+// member chose and never a rule derived from a court. Every vocabulary here is complete on day one —
+// both roman cases, both overflow forms, all four dispositions — because members point at this
+// table, and a parent table's CHECK can only be widened by a rebuild a durable object refuses.
+//
+// state moves draft -> issued once, and a trigger refuses the way back: issuing is a person's
+// assertion that the set went out, and an amended filing is a NEW set naming this one in
+// supersedes_set_id. continues_from_set_id is the other chain: trial exhibits that pick up numbering
+// where a pretrial set stopped.
+export const exhibitSet = sqliteTable(
+  "exhibit_set",
+  {
+    id: text("id").primaryKey().$type<ExhibitSetId>(), // exhibitSet_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    name: text("name").notNull(),
+    noun: text("noun").notNull(),
+    prefix: text("prefix").notNull().default(""),
+    sequence: text("sequence", {
+      enum: ["upperLetter", "lowerLetter", "arabic", "upperRoman", "lowerRoman"],
+    }).notNull(),
+    startNumber: integer("start_number").notNull(),
+    overflowForm: text("overflow_form", { enum: ["doubled", "bijective"] }).notNull(),
+    state: text("state", { enum: ["draft", "issued"] })
+      .notNull()
+      .default("draft"),
+    continuesFromSetId: text("continues_from_set_id")
+      .$type<ExhibitSetId>()
+      .references((): AnySQLiteColumn => exhibitSet.id),
+    supersedesSetId: text("supersedes_set_id")
+      .$type<ExhibitSetId>()
+      .references((): AnySQLiteColumn => exhibitSet.id),
+    // The folder a draft follows: while the set is a draft, a file added to the folder joins the set
+    // at the end and a file taken out of it leaves. Null for a set built by hand. Issuing stops the
+    // following, because an issued set never changes.
+    sourceFolderId: text("source_folder_id")
+      .$type<FolderId>()
+      .references(() => folder.id),
+    disposition: text("disposition", { enum: ["filed", "served", "exchanged", "lodged"] }),
+    issuedOn: text("issued_on"), // civil date the member says the set went out
+    issuedAt: text("issued_at"), // instant the platform recorded it
+    issuedBy: text("issued_by").$type<UserId>(),
+    filedCopyFileId: text("filed_copy_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    createdBy: text("created_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    archivedAt: text("archived_at"),
+  },
+  (table) => [
+    index("exhibit_set_matter_state_index").on(table.matterId, table.state),
+    // At most one successor per set, so two members racing a supersession cannot fork the chain.
+    uniqueIndex("exhibit_set_supersedes_unique_index")
+      .on(table.supersedesSetId)
+      .where(sql`${table.supersedesSetId} IS NOT NULL`),
+    index("exhibit_set_continues_from_index").on(table.continuesFromSetId),
+    index("exhibit_set_source_folder_index").on(table.sourceFolderId),
+    check(
+      "exhibit_set_sequence_check",
+      sql`${table.sequence} IN ('upperLetter', 'lowerLetter', 'arabic', 'upperRoman', 'lowerRoman')`,
+    ),
+    check(
+      "exhibit_set_overflow_form_check",
+      sql`${table.overflowForm} IN ('doubled', 'bijective')`,
+    ),
+    check("exhibit_set_state_check", sql`${table.state} IN ('draft', 'issued')`),
+    check(
+      "exhibit_set_disposition_check",
+      sql`${table.disposition} IS NULL OR ${table.disposition} IN ('filed', 'served', 'exchanged', 'lodged')`,
+    ),
+    check("exhibit_set_shape_check", sql`length(${table.name}) > 0 AND ${table.startNumber} >= 1`),
+    // An issued set says how, when and by whom; a draft says none of it.
+    check(
+      "exhibit_set_issue_shape_check",
+      sql`(${table.state} = 'issued') = (${table.disposition} IS NOT NULL AND ${table.issuedOn} IS NOT NULL AND ${table.issuedAt} IS NOT NULL) AND (${table.state} = 'issued' OR ${table.issuedBy} IS NULL)`,
+    ),
+    check("exhibit_set_issued_on_shape_check", civilDateShape(table.issuedOn, true)),
+    check(
+      "exhibit_set_not_its_own_predecessor_check",
+      sql`(${table.supersedesSetId} IS NULL OR ${table.supersedesSetId} <> ${table.id}) AND (${table.continuesFromSetId} IS NULL OR ${table.continuesFromSetId} <> ${table.id})`,
+    ),
+  ],
+);
+
+// A position in a set, and after issue the label that went out. While the set is a draft, label,
+// title_as_issued and file_version_id_as_issued are NULL and positions run 1..n with no gap. The
+// issue batch writes all three, and triggers refuse any later change to them, to the position, and
+// any insert into or delete from an issued set.
+//
+// A withdrawn member keeps its label and its position: the label is retired, never reused, because
+// two documents both correctly cited as "Exhibit C" is a collision no reader can resolve.
+//
+// A correction (a mistyped title or the wrong version recorded) is written BESIDE the as-issued
+// values, never over them, so the record keeps what the platform said at issue as well as what it
+// says now. It cannot renumber: nothing it writes is a label or a position.
+export const exhibitSetMember = sqliteTable(
+  "exhibit_set_member",
+  {
+    id: text("id").primaryKey().$type<ExhibitSetMemberId>(), // exhibitSetMember_ handle
+    exhibitSetId: text("exhibit_set_id")
+      .notNull()
+      .$type<ExhibitSetId>()
+      .references(() => exhibitSet.id),
+    matterExhibitId: text("matter_exhibit_id")
+      .notNull()
+      .$type<MatterExhibitId>()
+      .references(() => matterExhibit.id),
+    position: integer("position").notNull(),
+    label: text("label"),
+    titleAsIssued: text("title_as_issued"),
+    fileVersionIdAsIssued: text("file_version_id_as_issued")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    status: text("status", { enum: ["active", "withdrawn"] })
+      .notNull()
+      .default("active"),
+    withdrawnAt: text("withdrawn_at"),
+    withdrawnBy: text("withdrawn_by").$type<UserId>(),
+    withdrawalBasis: text("withdrawal_basis"),
+    correctedTitle: text("corrected_title"),
+    correctedFileVersionId: text("corrected_file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    correctedAt: text("corrected_at"),
+    correctedBy: text("corrected_by").$type<UserId>(),
+    correctionBasis: text("correction_basis"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("exhibit_set_member_position_unique_index").on(table.exhibitSetId, table.position),
+    uniqueIndex("exhibit_set_member_label_unique_index")
+      .on(table.exhibitSetId, table.label)
+      .where(sql`${table.label} IS NOT NULL`),
+    // One document appears once in one filing.
+    uniqueIndex("exhibit_set_member_exhibit_unique_index").on(
+      table.exhibitSetId,
+      table.matterExhibitId,
+    ),
+    index("exhibit_set_member_exhibit_index").on(table.matterExhibitId),
+    check("exhibit_set_member_status_check", sql`${table.status} IN ('active', 'withdrawn')`),
+    // Zero is never a position; a reorder parks rows on negative positions inside one batch so that
+    // the unique index never sees two rows on one slot.
+    check("exhibit_set_member_position_check", sql`${table.position} <> 0`),
+    check(
+      "exhibit_set_member_withdrawal_shape_check",
+      sql`(${table.status} = 'withdrawn') = (${table.withdrawnAt} IS NOT NULL)`,
+    ),
+    check(
+      "exhibit_set_member_issue_shape_check",
+      sql`(${table.label} IS NULL) = (${table.titleAsIssued} IS NULL) AND (${table.status} = 'active' OR ${table.label} IS NOT NULL)`,
+    ),
+    check(
+      "exhibit_set_member_correction_shape_check",
+      sql`(${table.correctedAt} IS NULL) = (${table.correctedBy} IS NULL) AND (${table.correctedAt} IS NOT NULL OR (${table.correctedTitle} IS NULL AND ${table.correctedFileVersionId} IS NULL))`,
+    ),
+  ],
+);
+
+// Which document version cites which exhibit, written by the assembly that produced the version.
+// A file_version is immutable, so neither side of a row ever changes after the batch that wrote it,
+// and a trigger refuses an update. It answers "which of our documents cite this exhibit", which a
+// reorder must be able to answer before it is allowed to be casual. Written from in-text references,
+// built in slice 2·7·2.
+export const exhibitReference = sqliteTable(
+  "exhibit_reference",
+  {
+    id: text("id").primaryKey().$type<ExhibitReferenceId>(), // exhibitReference_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    fileVersionId: text("file_version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    matterExhibitId: text("matter_exhibit_id")
+      .notNull()
+      .$type<MatterExhibitId>()
+      .references(() => matterExhibit.id),
+    occurrenceCount: integer("occurrence_count").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("exhibit_reference_matter_exhibit_index").on(table.matterId, table.matterExhibitId),
+    uniqueIndex("exhibit_reference_version_exhibit_unique_index").on(
+      table.fileVersionId,
+      table.matterExhibitId,
+    ),
+    check("exhibit_reference_occurrence_check", sql`${table.occurrenceCount} >= 1`),
   ],
 );

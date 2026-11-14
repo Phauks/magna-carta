@@ -6,7 +6,7 @@ use krilla::geom::{PathBuilder, Point, Rect, Size, Transform};
 use krilla::image::Image;
 use krilla::metadata::{DateTime, Metadata};
 use krilla::page::PageSettings;
-use krilla::paint::Fill;
+use krilla::paint::{Fill, Stroke};
 use krilla::surface::Surface;
 use krilla::text::{Font, TextDirection};
 use krilla::{Data, Document};
@@ -86,6 +86,86 @@ fn fill_rectangle(
     }
 }
 
+/// The path of a rectangle whose corners are quarter circles: `top` is the radius of the two
+/// upper corners and `bottom` of the two lower.
+fn rounded_rectangle(
+    (x, y, width, height): (f32, f32, f32, f32),
+    top: f32,
+    bottom: f32,
+) -> Option<krilla::geom::Path> {
+    if width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+    let limit = width.min(height) / 2.0;
+    let (top, bottom) = (top.clamp(0.0, limit), bottom.clamp(0.0, limit));
+    // The share of a radius from a corner's end to its control point that makes a cubic curve
+    // follow a quarter circle.
+    const HANDLE: f32 = 0.447_715_25;
+    let (right, foot) = (x + width, y + height);
+    let mut builder = PathBuilder::new();
+    builder.move_to(x + top, y);
+    builder.line_to(right - top, y);
+    builder.cubic_to(
+        right - top * HANDLE,
+        y,
+        right,
+        y + top * HANDLE,
+        right,
+        y + top,
+    );
+    builder.line_to(right, foot - bottom);
+    builder.cubic_to(
+        right,
+        foot - bottom * HANDLE,
+        right - bottom * HANDLE,
+        foot,
+        right - bottom,
+        foot,
+    );
+    builder.line_to(x + bottom, foot);
+    builder.cubic_to(
+        x + bottom * HANDLE,
+        foot,
+        x,
+        foot - bottom * HANDLE,
+        x,
+        foot - bottom,
+    );
+    builder.line_to(x, y + top);
+    builder.cubic_to(x, y + top * HANDLE, x + top * HANDLE, y, x + top, y);
+    builder.close();
+    builder.finish()
+}
+
+/// Stroke the outline of a rectangle whose corners are quarter circles of `radius`.
+fn stroke_rounded_rectangle(
+    surface: &mut Surface,
+    bounds: (f32, f32, f32, f32),
+    radius: f32,
+    thickness: f32,
+    paint: Option<Fill>,
+) {
+    let (Some(paint), Some(path)) = (paint, rounded_rectangle(bounds, radius, radius)) else {
+        return;
+    };
+    surface.set_fill(None);
+    surface.set_stroke(Some(Stroke {
+        paint: paint.paint,
+        width: thickness,
+        ..Stroke::default()
+    }));
+    surface.draw_path(&path);
+    surface.set_stroke(None);
+}
+
+/// Fill a rectangle whose two upper corners are quarter circles of `radius`.
+fn fill_bar(surface: &mut Surface, bounds: (f32, f32, f32, f32), radius: f32, paint: Option<Fill>) {
+    if let Some(path) = rounded_rectangle(bounds, radius, 0.0) {
+        surface.set_fill(paint);
+        surface.draw_path(&path);
+    }
+}
+
 fn metadata(document: &ComposedDocument) -> Metadata {
     let mut metadata = Metadata::new().producer(PRODUCER.to_string());
     if !document.title.trim().is_empty() {
@@ -127,7 +207,8 @@ fn metadata(document: &ComposedDocument) -> Metadata {
     metadata
 }
 
-/// The encoded bytes of the document's `index`-th image block.
+/// The encoded bytes of the document's `index`-th picture: its image blocks in order, then
+/// the letterhead's.
 fn image_data(document: &ComposedDocument, index: usize) -> Option<&[u8]> {
     document
         .blocks
@@ -136,6 +217,12 @@ fn image_data(document: &ComposedDocument, index: usize) -> Option<&[u8]> {
             Block::Image(image) => Some(image.data.as_slice()),
             _ => None,
         })
+        .chain(
+            document
+                .letterhead
+                .as_ref()
+                .and_then(|letterhead| letterhead.image.as_deref()),
+        )
         .nth(index)
 }
 
@@ -200,6 +287,34 @@ pub(crate) fn render(
                     height,
                     ink,
                 } => fill_rectangle(&mut surface, *x, *y, *width, *height, fill(*ink, accent)),
+                Mark::Bar {
+                    x,
+                    y,
+                    width,
+                    height,
+                    radius,
+                    ink,
+                } => fill_bar(
+                    &mut surface,
+                    (*x, *y, *width, *height),
+                    *radius,
+                    fill(*ink, accent),
+                ),
+                Mark::Frame {
+                    x,
+                    y,
+                    width,
+                    height,
+                    radius,
+                    thickness,
+                    ink,
+                } => stroke_rounded_rectangle(
+                    &mut surface,
+                    (*x, *y, *width, *height),
+                    *radius,
+                    *thickness,
+                    fill(*ink, accent),
+                ),
                 Mark::Image {
                     index,
                     x,

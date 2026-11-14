@@ -101,7 +101,7 @@ export function findViolations(source, isSvelte) {
         inStyle = false;
         continue;
       }
-      if (trimmed.startsWith("<\/script>")) {
+      if (trimmed.startsWith("</script>")) {
         inScript = false;
         continue;
       }

@@ -461,7 +461,7 @@ rest of the 2·6·3 remainder, sequenced against slice 2·5), authoring surfaces
 office-settings UI for the logo, and the interface seams. Next in the catalogue plan: the rest of the format system (2·6·6), then the party
 subjects at scale (2·6·7) — `capacityLine` extends to the nine new party subjects automatically when
 their rows land. |
-| 2·7 — Exhibits and exhibit lists | [-] | [x] Opus 5 | [x] Opus 5 | [ ] | [ ] | [ ] | [ ] | Designed 2026-08-11. An exhibit is identity, position, and label — three separately-changing facts —
+| 2·7 — Exhibits and exhibit lists | [-] | [x] Opus 5 | [x] Opus 5 | [~] Claude | [ ] | [ ] | [ ] | Designed 2026-08-11. An exhibit is identity, position, and label — three separately-changing facts —
 with the label a pure function of position and the set's scheme, computed while a set is a draft and
 materialized and trigger-frozen at issue. In-text references are a fourth placeholder form
 (`{{@referenceName}}`) citing identity rather than label, deliberately outside both the merge-field
