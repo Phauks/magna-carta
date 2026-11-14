@@ -522,6 +522,10 @@ export interface OpenRunInput {
   readonly triggerSource: ConflictsTriggerSource | null;
   // Where the run goes: under an existing numbered check (a re-run), or as the first run of a new one.
   readonly under: { readonly numberedCheckId: ConflictsCheckId } | null;
+  // The draft number the panel that composed this request was shown and holds
+  // (@magna-carta/sequence-numbering/reservation). Where the hold is still this scope's, the record is
+  // saved under exactly that number; otherwise the draw takes the next free one.
+  readonly numberReservation?: string;
 }
 
 export interface OpenedRun {
@@ -641,6 +645,7 @@ export async function openCheckRun(
         "conflicts_check",
         CONFLICTS_CHECK_NUMBERING_TABLES,
         checkNumberContext(now),
+        { reservationToken: input.numberReservation, now },
       );
       // Reported before the batch is composed, so a losing attempt can advance THIS scope's
       // counter out of band — the in-batch increment rolls back with everything else.

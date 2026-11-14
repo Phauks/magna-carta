@@ -22,6 +22,8 @@
    */
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
   import { openBeside } from "$lib/navigation/open-beside.ts";
+  import { goto } from "$app/navigation";
+  import { createExhibitSetFromFolder } from "$lib/exhibits/exhibits-api.ts";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
@@ -1364,6 +1366,21 @@
     return marks.length > 0 && marks.every((mark) => mark === first) ? first : null;
   });
 
+  /*
+   * Makes an exhibit set from a folder and opens it on the matter's Exhibits page. The set follows
+   * the folder while it is a draft, so the folder stays where the member gathers the documents.
+   */
+  async function makeExhibitsFrom(folderId: string): Promise<void> {
+    const outcome = await createExhibitSetFromFolder(fetch, matterId, folderId);
+    if (outcome.kind !== "ok") {
+      actionFailure = "The exhibit set could not be made from that folder.";
+      return;
+    }
+    await goto(
+      `/matters/${encodeURIComponent(matterId)}/exhibits?entry=${encodeURIComponent(outcome.value.id)}`,
+    );
+  }
+
   async function runCommand(command: FileMenuCommand): Promise<void> {
     const targets = menuIsBackground ? [] : menuTargets;
     const only = targets[0];
@@ -1390,6 +1407,9 @@
         return;
       case "rename":
         if (only !== undefined) beginRename(only);
+        return;
+      case "makeExhibits":
+        if (only?.kind === "folder") await makeExhibitsFrom(only.folder.id);
         return;
       case "cut":
         manager.mark(
@@ -2751,6 +2771,8 @@
     </ContextMenu.Item>
     <ContextMenu.Separator />
     <ContextMenu.Item onSelect={() => void deleteRows([row])}>Delete</ContextMenu.Item>
+    <ContextMenu.Separator />
+    <ContextMenu.Item onSelect={() => void makeExhibitsFrom(row.folder.id)}>Make Exhibits</ContextMenu.Item>
   {:else}
     <!-- Home is a destination, not a folder: it opens, and it takes a paste; there is nothing on
          it to rename, colour, or delete. -->
