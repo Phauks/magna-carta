@@ -26,7 +26,10 @@
     "./reconciliation": "./src/reconciliation.ts",
     "./three-way-proof": "./src/three-way-proof.ts",
     "./matching": "./src/matching.ts",
-    "./fitness": "./src/fitness.ts"
+    "./fitness": "./src/fitness.ts",
+    "./check-layout": "./src/check-layout.ts",
+    "./check-statements": "./src/check-statements.ts",
+    "./checks": "./src/checks.ts"
   },
   "scripts": {
     "test": "vp test run"

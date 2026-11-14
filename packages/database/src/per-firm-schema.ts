@@ -202,6 +202,9 @@ import type {
   TrustTransferId,
   TrustUnclaimedFundsContactAttemptId,
   TrustUnclaimedFundsReviewClosureId,
+  TrustCheckId,
+  TrustCheckEventId,
+  TrustCheckStockId,
   TrustUnclaimedFundsReviewId,
   UploadSessionId,
   UserId,
@@ -6033,6 +6036,135 @@ export const trustUnclaimedFundsReviewClosure = sqliteTable(
       "trust_unclaimed_funds_review_closure_shape_check",
       sql`(${table.outcome} = 'distributed_to_owner' AND ${table.movementId} IS NOT NULL)
         OR (${table.outcome} <> 'distributed_to_owner' AND ${table.movementId} IS NULL)`,
+    ),
+  ],
+);
+
+// Check printing. Three tables, all append-only by trigger: the stock (where each field prints on
+// the firm's paper, one row per saved version), the check (one row per check number ever used on an
+// account), and the check's events (printed, spoiled, voided). Design:
+// docs/specs/2026-11-14-trust-check-printing-design.md.
+
+// One saved version of a trust account's check stock. Positions are integers in thousandths of an
+// inch from the check's top-left corner: check paper is specified in inches, and an integer cannot
+// drift. The field list is JSON because its shape is the layout editor's and nothing queries into
+// it; the trust package validates it on the way in and on the way out.
+export const trustCheckStock = sqliteTable(
+  "trust_check_stock",
+  {
+    id: text("id").primaryKey().$type<TrustCheckStockId>(), // trustCheckStock_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    version: integer("version").notNull(),
+    name: text("name").notNull(),
+    pageLayout: text("page_layout", {
+      enum: ["check_top", "check_middle", "check_bottom", "three_per_page"],
+    }).notNull(),
+    fields: text("fields").notNull(), // JSON: [{ kind, xMils, yMils, widthMils, sizePoints, align }]
+    shiftXMils: integer("shift_x_mils").notNull().default(0),
+    shiftYMils: integer("shift_y_mils").notNull().default(0),
+    // The number on the first sheet of the box in the printer. The next number is the greater of
+    // this and one past the highest number already used, so a number is never reused.
+    startingCheckNumber: integer("starting_check_number").notNull(),
+    // The straightened scan of one blank check in the firm's bucket. Shown behind the fields, never
+    // printed; null until the firm scans one.
+    scanObjectKey: text("scan_object_key"),
+    scanSha256: text("scan_sha256"),
+    savedBy: text("saved_by").notNull().$type<UserId>(),
+    savedAt: text("saved_at").notNull(), // UTC instant
+  },
+  (table) => [
+    uniqueIndex("trust_check_stock_account_version_unique_index").on(
+      table.trustAccountId,
+      table.version,
+    ),
+    check("trust_check_stock_version_positive_check", sql`${table.version} > 0`),
+    check("trust_check_stock_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check(
+      "trust_check_stock_page_layout_check",
+      sql`${table.pageLayout} IN ('check_top', 'check_middle', 'check_bottom', 'three_per_page')`,
+    ),
+    check("trust_check_stock_starting_number_check", sql`${table.startingCheckNumber} > 0`),
+    check(
+      "trust_check_stock_scan_together_check",
+      sql`(${table.scanObjectKey} IS NULL) = (${table.scanSha256} IS NULL)`,
+    ),
+  ],
+);
+
+// One check number used on a trust account. Written when a print batch numbers it; never changed.
+// The payee, amount and date are copied from the disbursement at numbering so the register reads
+// alone. A number voided with no payment (a sheet torn in the printer before a batch) has no
+// movement and no stock.
+export const trustCheck = sqliteTable(
+  "trust_check",
+  {
+    id: text("id").primaryKey().$type<TrustCheckId>(), // trustCheck_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    checkNumber: integer("check_number").notNull(),
+    movementId: text("movement_id")
+      .$type<TrustMovementId>()
+      .references(() => trustMovement.id),
+    stockId: text("stock_id")
+      .$type<TrustCheckStockId>()
+      .references(() => trustCheckStock.id),
+    payee: text("payee"),
+    amountMinor: integer("amount_minor"),
+    currency: text("currency"),
+    effectiveDate: text("effective_date"), // YYYY-MM-DD civil date printed on the check
+    numberedBy: text("numbered_by").notNull().$type<UserId>(),
+    numberedAt: text("numbered_at").notNull(), // UTC instant
+  },
+  (table) => [
+    // A number is used once per account, ever. Two batches that read the same next number are
+    // separated here: the second batch aborts whole.
+    uniqueIndex("trust_check_account_number_unique_index").on(
+      table.trustAccountId,
+      table.checkNumber,
+    ),
+    index("trust_check_movement_index").on(table.movementId),
+    check("trust_check_number_positive_check", sql`${table.checkNumber} > 0`),
+    check("trust_check_effective_date_shape_check", civilDateShape(table.effectiveDate, true)),
+    // A check either pays a movement, with everything printed on it, or names nothing at all.
+    check(
+      "trust_check_shape_check",
+      sql`(${table.movementId} IS NOT NULL AND ${table.payee} IS NOT NULL AND ${table.amountMinor} > 0 AND length(${table.currency}) = 3 AND ${table.effectiveDate} IS NOT NULL)
+        OR (${table.movementId} IS NULL AND ${table.payee} IS NULL AND ${table.amountMinor} IS NULL AND ${table.currency} IS NULL AND ${table.effectiveDate} IS NULL AND ${table.stockId} IS NULL)`,
+    ),
+  ],
+);
+
+// One fact about a check. The check's status is its latest event, or `numbered` when it has none.
+// The allowed sequences (numbered, then printed or spoiled or voided; printed, then voided) are held
+// by a trigger in the migration, so a check cannot be spoiled after it was confirmed printed or
+// voided twice.
+export const trustCheckEvent = sqliteTable(
+  "trust_check_event",
+  {
+    id: text("id").primaryKey().$type<TrustCheckEventId>(), // trustCheckEvent_ handle
+    checkId: text("check_id")
+      .notNull()
+      .$type<TrustCheckId>()
+      .references(() => trustCheck.id),
+    kind: text("kind", { enum: ["printed", "spoiled", "voided"] }).notNull(),
+    reason: text("reason"),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(), // UTC instant
+  },
+  (table) => [
+    index("trust_check_event_check_index").on(table.checkId, table.recordedAt),
+    check(
+      "trust_check_event_kind_check",
+      sql`${table.kind} IN ('printed', 'spoiled', 'voided')`,
+    ),
+    check(
+      "trust_check_event_reason_check",
+      sql`${table.kind} = 'printed' OR length(${table.reason}) > 0`,
     ),
   ],
 );
