@@ -1,6 +1,6 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, type Rollup } from "vite-plus";
+import { defineConfig, type PluginOption, type Rollup } from "vite-plus";
 import {
   resolveCommitIdentity,
   resolveRepositoryUrl,
@@ -50,8 +50,14 @@ const PRODUCTION_OUTPUT: Rollup.OutputOptions = {
   minify: { mangle: false, compress: true, codegen: { removeWhitespace: true } },
 };
 
+// The Tailwind and SvelteKit plugins are typed against the Vite release they were built for, not
+// the one vite-plus re-exports. The two plugin types are the same shape at runtime, but comparing
+// them structurally runs the type-checker past its depth limit ("excessive stack depth"), so the
+// array is asserted to the vite-plus type rather than compared.
+const PLUGINS = (runningInPackageDir ? [tailwindcss(), sveltekit()] : []) as unknown as PluginOption[];
+
 export default defineConfig({
-  plugins: runningInPackageDir ? [tailwindcss(), sveltekit()] : [],
+  plugins: PLUGINS,
   define: {
     __MC_BUILD_COMMIT__: JSON.stringify(commitIdentity.commit ?? "unknown"),
     __MC_BUILD_COMMIT_TIME__: JSON.stringify(commitIdentity.commitTime),
