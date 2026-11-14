@@ -108,9 +108,12 @@ A record answers the questions the firm keeps an answer to:
   postal code and reads down to the street, and none of them is asked for a state that does not
   exist. Nothing is required: an address the firm holds half of is still worth recording.
   In the United States, typing the ZIP code first fills in the city and the state, leaving anything
-  you have already typed in those boxes as it is.
-  Where address suggestions are available, the street box offers real addresses as you type, and
-  choosing one fills in the town, the state or province and the postal code while keeping any
+  you have already typed in those boxes as it is. A ZIP+4 can be typed as nine digits: the hyphen
+  goes in for you (`89501-2245`).
+  Where address suggestions are available, the street box offers real addresses as you type. Each
+  shows the street, with the part you typed in bold, and the town, state and country beneath it;
+  choosing one fills in the town, the state or province and the postal code (the full ZIP+4 where
+  Google has it) while keeping any
   apartment or suite you had already typed. A building with several units is offered once, with how
   many addresses it holds, and choosing it lists the units. Addresses in the state you have already
   chosen — or, before you choose one, the state your office is in — are offered first; the rest of
@@ -122,7 +125,8 @@ A record answers the questions the firm keeps an answer to:
   the chosen country, its box turns red (hover over it to read why) and the address saves anyway,
   and the state or province box offers the country's list without refusing a name that is not on
   it. Each address has a **Type**, such as business or residential. Addresses are corrected in
-  place, the same way.
+  place, the same way. The map button beside a saved address opens it in Google Maps in a new
+  window; that sends the address to Google from your own browser.
 - **About**, on a person: the pronouns they stated, and their dates of birth and death.
 - **Identifiers**: sealed values such as a social security number, a driver's licence, a bar
   number or an account. The type decides what is asked for: nine digits for a social security
