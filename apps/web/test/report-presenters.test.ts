@@ -16,6 +16,7 @@ import {
 } from "../src/lib/reports/financial-presenters.ts";
 import {
   presentDailyTime,
+  presentMatterProductivity,
   presentMattersList,
   presentOperationalVolumes,
   presentTimekeeperProductivity,
@@ -26,6 +27,7 @@ import {
   sampleAccountsReceivableAging,
   sampleAgedWorkInProgress,
   sampleDailyTime,
+  sampleMatterProductivity,
   sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
@@ -209,6 +211,27 @@ describe("the daily time presenter", () => {
     const timekeepers = presentation.sections.find((section) => section.id === "by-timekeeper");
     expect(timekeepers?.rows.map((row) => numberOf(row[1]))).toEqual(
       report.timekeepers.map((timekeeper) => timekeeper.dayCount),
+    );
+  });
+});
+
+describe("the matter productivity presenter", () => {
+  const report = sampleMatterProductivity();
+  const presentation = presentMatterProductivity(report, IDENTITY_CAPTIONS);
+
+  it("keeps to minutes and puts every matter on a row with the payload's figures", () => {
+    expect(JSON.stringify(presentation)).not.toMatch(/\$/);
+    const matters = presentation.sections.find((section) => section.id === "by-matter");
+    expect(matters?.rows.map((row) => numberOf(row[4]))).toEqual(
+      report.matters.map((matter) => matter.figures.totalMinutes),
+    );
+    expect(presentation.summary?.at(-1)?.tone).toBe("total");
+  });
+
+  it("opens each matter onto the timekeepers who recorded time on it", () => {
+    const matters = presentation.sections.find((section) => section.id === "by-matter");
+    expect(matters?.rowDetails?.map((entries) => entries.length)).toEqual(
+      report.matters.map((matter) => matter.timekeepers.length),
     );
   });
 });

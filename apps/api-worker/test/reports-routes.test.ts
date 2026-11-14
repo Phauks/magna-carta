@@ -555,6 +555,33 @@ describe("GET /api/v1/reports/daily-time", () => {
   });
 });
 
+describe("GET /api/v1/reports/matter-productivity", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/matter-productivity?${query}`;
+
+  it("answers the Owner with time per matter, live, whose matters add up to the whole", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { totalMinutes: number };
+      matters: { figures: { totalMinutes: number } }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.matters.reduce((sum, matter) => sum + matter.figures.totalMinutes, 0)).toBe(
+      report.totals.totalMinutes,
+    );
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/operational-volumes", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/operational-volumes?${query}`;
 

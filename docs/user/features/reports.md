@@ -23,9 +23,9 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Twelve reports run today: the trust compliance report, accounts receivable aging, work in progress,
-aged work in progress, realization, invoices, payments applied, matter balances, timekeeper
-productivity, daily time, operational volumes, and the matters list.
+Thirteen reports run today: the trust compliance report, accounts receivable aging, work in
+progress, aged work in progress, realization, invoices, payments applied, matter balances,
+timekeeper productivity, daily time, matter productivity, operational volumes, and the matters list.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
@@ -49,6 +49,10 @@ productivity, daily time, operational volumes, and the matters list.
   and non-billable. Open a day to see who recorded the time. A second table shows each person's
   hours over the whole period and how many days they recorded time on. It adds up to the same
   totals as Timekeeper Productivity. Hours only, never money.
+- **Matter Productivity** shows how many hours were recorded on each matter in the period you
+  choose, billable and non-billable, the matters with the most time first. Open a matter to see who
+  recorded the time on it. It adds up to the same totals as Timekeeper Productivity. Hours only,
+  never money.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count

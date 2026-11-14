@@ -19,6 +19,7 @@ import type {
   Realization,
   TimekeeperProductivity,
   DailyTime,
+  MatterProductivity,
   WorkInProgress,
 } from "./report-reads.ts";
 
@@ -326,6 +327,41 @@ export function sampleDailyTime(): DailyTime {
     timekeepers: [
       { ...one, dayCount: 2, figures: figures(3, 180, 60) },
       { ...two, dayCount: 1, figures: figures(1, 30, 0) },
+    ],
+  };
+}
+
+export function sampleMatterProductivity(): MatterProductivity {
+  const day = sampleDailyTime();
+  const first = day.timekeepers[0] ?? { timekeeperUserId: "user_sample_one", timekeeperName: null };
+  return {
+    periodStart: day.periodStart,
+    periodEnd: day.periodEnd,
+    computedAt: day.computedAt,
+    reproducible: false,
+    statement: day.statement,
+    locationId: null,
+    completeness: day.completeness,
+    totals: day.totals,
+    matters: [
+      {
+        ...matter(0, MAIN),
+        ...client(0),
+        figures: day.days[0]?.figures ?? day.totals,
+        timekeepers: day.days[0]?.timekeepers ?? [],
+      },
+      {
+        ...matter(1, NORTH),
+        ...client(1),
+        figures: day.days[1]?.figures ?? day.totals,
+        timekeepers: [
+          {
+            timekeeperUserId: first.timekeeperUserId,
+            timekeeperName: first.timekeeperName,
+            figures: day.days[1]?.figures ?? day.totals,
+          },
+        ],
+      },
     ],
   };
 }
