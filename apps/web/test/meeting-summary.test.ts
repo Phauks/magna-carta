@@ -163,10 +163,8 @@ describe("where a summary stands", () => {
         detail: SUMMARY_REFUSAL_WORDS[reason],
       });
     }
-    expect(SUMMARY_REFUSAL_WORDS.disabled).toContain("switched off for this firm");
-    expect(SUMMARY_REFUSAL_WORDS["not-eligible"]).toContain(
-      "AI processing is not switched on for this firm",
-    );
+    expect(SUMMARY_REFUSAL_WORDS.disabled).toContain("turned off for this firm");
+    expect(SUMMARY_REFUSAL_WORDS["not-eligible"]).toContain("AI isn't turned on for this firm");
     expect(SUMMARY_REFUSAL_WORDS["not-eligible"]).toContain("AI and the Assistant");
     expect(SUMMARY_REFUSAL_WORDS["transcript-empty"]).toContain("Nothing was said");
     // Three reasons, three sentences.
@@ -178,7 +176,7 @@ describe("where a summary stands", () => {
       state: "refused",
       refusalReason: "a-reason-added-later" as MeetingSummaryRefusalView,
     });
-    expect(summaryBody(unworded, null)).toMatchObject({ detail: "This summary was not written." });
+    expect(summaryBody(unworded, null)).toMatchObject({ detail: "This summary wasn't written." });
   });
 
   it("says a withheld summary in the transcript panel's own words", () => {
@@ -217,10 +215,10 @@ describe("where a summary stands", () => {
 
 describe("the summary's own words", () => {
   it("say plainly that it characterizes the conversation and is not a record of it", () => {
-    expect(SUMMARY_CHARACTERIZATION).toContain("characterization of the conversation");
-    expect(SUMMARY_CHARACTERIZATION).toContain("not a record of it");
+    expect(SUMMARY_CHARACTERIZATION).toContain("describes the conversation");
+    expect(SUMMARY_CHARACTERIZATION).toContain("isn't a record of it");
     expect(SUMMARY_RERUN_CONSEQUENCE).toContain("action items are replaced");
-    expect(SUMMARY_RERUN_CONSEQUENCE).toContain("Tasks already made from them are kept");
+    expect(SUMMARY_RERUN_CONSEQUENCE).toContain("Tasks already made from them stay");
     for (const words of [
       SUMMARY_CHARACTERIZATION,
       SUMMARY_RERUN_CONSEQUENCE,
@@ -276,7 +274,7 @@ describe("an action item", () => {
     expect(taskAssigneeWords(item(), true)).toBe("Assigned to Rosalind Chase.");
     expect(taskAssigneeWords(item(), false)).toBe("Assigned to nobody.");
     expect(taskAssigneeWords(item({ owner: null }), true)).toBe(
-      "Assigned to nobody: no owner was named.",
+      "Not assigned. No owner was named.",
     );
   });
 
@@ -623,7 +621,7 @@ describe("the summary panel", () => {
     await draw();
     buttonNamed(items()[1], "Create Task")?.click();
     await settle();
-    expect(taskConfirmation()?.textContent).toContain("Assigned to nobody: no owner was named.");
+    expect(taskConfirmation()?.textContent).toContain("Not assigned. No owner was named.");
     expect(taskConfirmation()?.querySelector('[role="checkbox"]')).toBeNull();
     buttonNamed(taskConfirmation(), "Create Task")?.click();
     await settle();

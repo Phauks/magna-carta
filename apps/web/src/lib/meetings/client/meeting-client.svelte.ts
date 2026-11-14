@@ -435,32 +435,32 @@ export function refusalStatement(refusal: MeetingRefusal): string {
     case SUPERSEDED_REASON:
       // The one fatal reason with a sentence here, because it is the one a member CAUSED and can
       // understand: the meeting is still running and they are still in it, somewhere else.
-      return "You joined this meeting again from another tab or window, so this one has closed.";
+      return "You joined this meeting again in another tab or window, so this one closed.";
     case DENIED_REASON:
       // The second fatal reason with a sentence of its own, and for the opposite reason to the one
       // above: nothing here is a fault of this browser's, and somebody decided it about them by
       // name. A screen that said only "the room refused something" would leave them pressing Join.
       return DENIED_STATEMENT;
     case "sfu-unavailable":
-      return "The service that carries the pictures and sound could not be reached. What was asked for will be asked for again.";
+      return "Couldn't connect to the video service. Trying again.";
     case "unknown-track":
-      return "Somebody's picture or sound was asked for under a name the room no longer holds. It will be asked for again.";
+      return "Someone's picture or sound was requested under an old name. Trying again.";
     case "foreign-track-name":
       // A publish under a name that is not this browser's own. Nothing the member did causes it and
       // nothing they can do fixes it, so the sentence says what is missing and the Error ID beside
       // it is what carries the rest.
-      return "Something this page offered the room was named wrongly, so it is not being sent. Nobody else can see or hear it.";
+      return "Something this page sent had the wrong name, so it isn't being sent. Nobody else can see or hear it.";
     case "track-limit-reached":
-      return "The room will not carry any more from one person, so this was not added. Stopping a screen share makes room for it.";
+      return "The room can't take more from one person, so this wasn't added. Stop a screen share to make room.";
     case "track-kind-refused":
       // The room is a CALL. Nothing here can change that — the medium is settled when the room is
       // opened, because everybody in it agreed to the same thing.
-      return "This is a call, so only sound is carried in it. Nothing you can see was sent.";
+      return "This is a call, so only sound is sent. Nothing you can see was sent.";
     case "malformed-frame":
     case "frame-too-large":
     case "binary-unsupported":
     case "unknown-frame":
-      return "The room did not understand something this page sent, and ignored it.";
+      return "The room didn't understand something this page sent, and ignored it.";
     default:
       return "The room refused something this page asked for, and carried on without it.";
   }
@@ -901,14 +901,14 @@ export class MeetingClient {
         layered: (frame) => this.#handleLayered(frame),
         published: (frame) =>
           void this.#negotiation.enqueue(
-            "The room's answer to what you are sending was not applied.",
+            "The room's reply to what you're sending wasn't applied.",
             async () => {
               await this.#negotiation.applyRemote(readSessionDescription(frame.sessionDescription));
               await this.#budgetCamera();
             },
           ),
         subscribed: (frame) =>
-          void this.#negotiation.enqueue("Somebody else's picture and sound did not come in.", () =>
+          void this.#negotiation.enqueue("Someone else's picture and sound didn't come in.", () =>
             this.#handleSubscribed(frame),
           ),
         // The room accepted the answer this browser sent and the exchange is closed: there is nothing
@@ -918,7 +918,7 @@ export class MeetingClient {
         renegotiated: () => {},
         closed: (frame) =>
           void this.#negotiation.enqueue(
-            "The room's change to what is being sent was not applied.",
+            "The room's change to what you're sending wasn't applied.",
             () => this.#answerIfOffered(readSessionDescription(frame.sessionDescription)),
           ),
         roomState: (frame) => this.#handleRoomState(frame),
@@ -1262,8 +1262,8 @@ export class MeetingClient {
       // A member who declined the camera is still in the room and can still see and hear
       // everybody else, so the refusal is stated rather than thrown.
       this.captureRefusal = wantsPicture
-        ? "The microphone and camera are not available in this browser."
-        : "The microphone is not available in this browser.";
+        ? "The microphone and camera aren't available in this browser."
+        : "The microphone isn't available in this browser.";
       return;
     }
     const effected = await this.#applyEffects(captured, settings);
@@ -1288,8 +1288,8 @@ export class MeetingClient {
     );
 
     const notOffered = wantsPicture
-      ? "Your camera and microphone were not offered to the room."
-      : "Your microphone was not offered to the room.";
+      ? "Your camera and microphone weren't sent to the room."
+      : "Your microphone wasn't sent to the room.";
     await this.#negotiation.enqueue(notOffered, async () => {
       // The stream as it stands NOW: a background chosen while this waited in the queue has already
       // changed which picture is to be sent.
@@ -1339,7 +1339,7 @@ export class MeetingClient {
           ? null
           : {
               ...this.appliedEffects,
-              refusal: "Your new background could not be sent to the room.",
+              refusal: "Couldn't send your new background to the room.",
             };
     }
   }
@@ -1369,7 +1369,7 @@ export class MeetingClient {
           ? null
           : {
               ...this.appliedEffects,
-              refusal: "Your filtered microphone could not be sent to the room.",
+              refusal: "Couldn't send your filtered microphone to the room.",
             };
     }
   }
@@ -1416,8 +1416,7 @@ export class MeetingClient {
         stream: unprocessed.stream,
         applied: {
           ...unprocessed.applied,
-          refusal:
-            "Your sound and picture are being sent as captured, without the effects you chose.",
+          refusal: "Your sound and picture are sent without the effects you chose.",
         },
         update: (next, change) => unprocessed.update(next, change),
         setSourceEnabled: (kind, enabled) => unprocessed.setSourceEnabled(kind, enabled),
@@ -1459,7 +1458,7 @@ export class MeetingClient {
     if (this.pinned.length >= MAX_VIDEO_SUBSCRIPTIONS) {
       // The number comes from the cap itself rather than being spelled out, so the sentence cannot
       // go on saying sixteen after the cap has moved.
-      this.lastProblem = `Only ${MAX_VIDEO_SUBSCRIPTIONS} people can be kept on screen at once. Unpin somebody to keep somebody else.`;
+      this.lastProblem = `Only ${MAX_VIDEO_SUBSCRIPTIONS} people can be pinned at once. Unpin someone to pin someone else.`;
       return;
     }
     this.pinned = [...this.pinned, participantId];
@@ -1503,7 +1502,7 @@ export class MeetingClient {
     const peerConnection = this.#negotiation.connection;
     if (peerConnection === null || this.sharing) return;
     if (this.medium !== "video") {
-      this.lastProblem = "This is a call, so there is no picture in it to share a screen into.";
+      this.lastProblem = "This is a call, so there's no picture to share a screen into.";
       return;
     }
 
@@ -1523,7 +1522,7 @@ export class MeetingClient {
     // In the queue for the reason `publish` is: the picker is open for as long as the member takes
     // to choose a window, and whatever the room sends in the meantime is a description this would
     // otherwise collide with.
-    await this.#negotiation.enqueue("Your screen was not offered to the room.", async () => {
+    await this.#negotiation.enqueue("Your screen wasn't sent to the room.", async () => {
       const transceiver = offerScreenTrack(peerConnection, track);
       this.#coverFrames(peerConnection, track);
       const sessionDescription = await this.#negotiation.offer(peerConnection);
@@ -1559,22 +1558,19 @@ export class MeetingClient {
     const [track] = stream.getAudioTracks();
     if (track === undefined) return;
 
-    await this.#negotiation.enqueue(
-      "Your microphone was not offered to the room again.",
-      async () => {
-        // The section the microphone last went up is reused, so a member muted and unmuted twenty
-        // times over an hour leaves the description exactly as long as it started.
-        const transceiver = await offerMicrophoneTrack(peerConnection, track, this.#microphoneMid);
-        this.#coverFrames(peerConnection);
-        const sessionDescription = await this.#negotiation.offer(peerConnection);
-        this.#microphoneMid = transceiver.mid;
-        this.#signaling.send({
-          type: "publish",
-          sessionDescription,
-          tracks: [{ trackName: this.#trackName("audio"), mid: transceiver.mid, kind: "audio" }],
-        });
-      },
-    );
+    await this.#negotiation.enqueue("Your microphone wasn't sent to the room again.", async () => {
+      // The section the microphone last went up is reused, so a member muted and unmuted twenty
+      // times over an hour leaves the description exactly as long as it started.
+      const transceiver = await offerMicrophoneTrack(peerConnection, track, this.#microphoneMid);
+      this.#coverFrames(peerConnection);
+      const sessionDescription = await this.#negotiation.offer(peerConnection);
+      this.#microphoneMid = transceiver.mid;
+      this.#signaling.send({
+        type: "publish",
+        sessionDescription,
+        tracks: [{ trackName: this.#trackName("audio"), mid: transceiver.mid, kind: "audio" }],
+      });
+    });
   }
 
   /** Stop sharing and tell the room which media section went away. */

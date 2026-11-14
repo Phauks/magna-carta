@@ -151,8 +151,7 @@
 
     {#snippet fields()}
       <p class="text-sm">
-        They are taken out of the room and cannot come back into this meeting. Their stay closes on
-        the record with the reason, and a meeting on a new calendar entry is a new room.
+        They're removed from the room and can't come back into this meeting. The meeting's record shows when they left and why. A meeting on a new calendar entry is a new room.
       </p>
     {/snippet}
   </ActionDialog>
@@ -173,8 +172,7 @@
 
     {#snippet fields()}
       <p class="text-sm">
-        They run the meeting from now on and you become a co-host. Taking it back needs them to hand
-        it to you, so this is not a step you can walk back on your own.
+        They run the meeting from now on and you become a co-host. Only they can hand it back to you.
       </p>
     {/snippet}
   </ActionDialog>

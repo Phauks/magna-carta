@@ -45,47 +45,6 @@
   "apps/web/src/lib/matters/sections.ts": {
     "machinery": 1
   },
-  "apps/web/src/lib/meetings/firm-rooms-card.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/meetings/guest-meeting.svelte": {
-    "nothing-answered": 5
-  },
-  "apps/web/src/lib/meetings/meeting-attendance-panel.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/meetings/meeting-entry-action.svelte": {
-    "em-dash": 1,
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/meetings/meeting-guests-panel.svelte": {
-    "nothing-answered": 2
-  },
-  "apps/web/src/lib/meetings/meeting-list-section.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/meetings/meeting-room-screen.svelte": {
-    "nothing-answered": 14
-  },
-  "apps/web/src/lib/meetings/move-to-matter-dialog.svelte": {
-    "is-where": 2,
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/meetings/my-room-card.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/meetings/screen/recording-list.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/meetings/screen/summary-panel.svelte": {
-    "nothing-answered": 3
-  },
-  "apps/web/src/lib/meetings/screen/summary-panel.ts": {
-    "machinery": 1
-  },
-  "apps/web/src/lib/meetings/screen/transcript-panel.svelte": {
-    "nothing-answered": 1
-  },
   "apps/web/src/lib/settings/components/request-change-dialog.svelte": {
     "em-dash": 1
   },
@@ -120,18 +79,8 @@
   "apps/web/src/routes/(app)/fees/+page.svelte": {
     "em-dash": 1
   },
-  "apps/web/src/routes/(app)/meeting/[code]/+page.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/routes/(app)/room/[name]/+page.svelte": {
-    "nothing-answered": 2
-  },
   "apps/web/src/routes/(app)/settings/ai/+page.svelte": {
     "machinery": 1
-  },
-  "apps/web/src/routes/(app)/settings/meetings/+page.svelte": {
-    "machinery": 1,
-    "nothing-answered": 1
   },
   "apps/web/src/routes/login/sign-in-messages.ts": {
     "em-dash": 1

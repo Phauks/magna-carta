@@ -56,13 +56,12 @@
         inputId="meeting-chat-file"
         fieldName="File"
         disabled={busy}
-        noMatterNote="This meeting is kept on no matter, so there are no files to share."
-        noFilesNote="This matter holds no files yet."
+        noMatterNote="This meeting isn't on a matter, so there are no files to share."
+        noFilesNote="This matter has no files yet."
         chosenNoun="shared in this meeting's chat"
       />
       <p class="text-sm text-text-muted">
-        Everybody in the meeting can open the file from the chat. It stays on the matter where it
-        is.
+        Everyone in the meeting can open the file from the chat. It stays where it is on the matter.
       </p>
     </div>
   {/snippet}

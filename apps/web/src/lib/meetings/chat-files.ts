@@ -104,7 +104,7 @@ export async function uploadMeetingFile(
     return {
       kind: "refused",
       failure: folder.failure,
-      reason: `The "${MEETING_FILES_FOLDER}" folder could not be reached, so the file was not uploaded.`,
+      reason: `Couldn't open the "${MEETING_FILES_FOLDER}" folder, so the file wasn't uploaded.`,
     };
   }
   const outcome = await seams.upload({ matterId, folderId: folder.value, file });
@@ -117,7 +117,7 @@ export async function uploadMeetingFile(
         kind: "refused",
         failure: null,
         reason:
-          "The file was uploaded to the matter but did not pass the check, so it was not shared.",
+          "The file was uploaded to the matter but didn't pass the check, so it wasn't shared.",
       };
     case "cancelled":
       return { kind: "refused", failure: null, reason: "The upload was cancelled." };
@@ -125,13 +125,13 @@ export async function uploadMeetingFile(
       return {
         kind: "refused",
         failure: { problem: outcome.problem, request: "Upload a file", failedAt: new Date() },
-        reason: "The file was not uploaded.",
+        reason: "The file wasn't uploaded.",
       };
     case "transport":
       return {
         kind: "refused",
         failure: { problem: null, request: "Upload a file", failedAt: new Date() },
-        reason: "The file was not uploaded.",
+        reason: "The file wasn't uploaded.",
       };
   }
 }
