@@ -88,8 +88,8 @@
     if (outcome.kind !== "ok") {
       failure = stated(
         outcome.failure,
-        "The conversation was not renamed, and still reads as it did.",
-        "Nothing answered. The conversation was not renamed and still reads as it did.",
+        "The conversation wasn't renamed.",
+        "Couldn't connect. The conversation wasn't renamed. Try again.",
       );
       return;
     }

@@ -329,7 +329,7 @@
               inputId={props.id}
               fieldName="Signed Agreement"
               noMatterNote="No matter is named, so there is nowhere to file the agreement."
-              noFilesNote="This matter holds no files yet. File the signed agreement and it can be named on the next version."
+              noFilesNote="This matter has no files yet. File the signed agreement and it can be named on the next version."
               chosenNoun="the signed agreement"
               disabled={busy}
             />

@@ -114,7 +114,7 @@
     if (text === null) return;
     const result = await copyText(text);
     if (result === "copied") toast.success(`Copied version ${versionNumber}.`);
-    else toast.error("Could not copy the document. Download it instead.");
+    else toast.error("Couldn't copy the document. Download it instead.");
   }
 
   async function download(extension: "md" | "txt"): Promise<void> {
@@ -259,7 +259,7 @@
     <div
       class="flex flex-wrap items-center justify-between gap-8 bg-status-warning-subtle px-16 py-8 text-xs text-status-warning-subtle-foreground"
     >
-      <span>You are looking at version {versionNumber}. The latest is version {latest}.</span>
+      <span>You're looking at version {versionNumber}. The latest is version {latest}.</span>
       {#if canRestore}
         <Button variant="secondary" size="sm" disabled={restoring} onclick={() => void restore()}>
           Restore This Version
@@ -271,7 +271,7 @@
   <div class="min-h-0 flex-1 mc-scrollbar overflow-y-auto px-16 py-16">
     {#if text === null}
       <p class="text-sm text-text-muted">
-        {readFailed ? "This version could not be read. Try again in a moment." : "Reading this version"}
+        {readFailed ? "Couldn't open this version. Try again." : "Opening this version"}
       </p>
     {:else}
       <article class="flex flex-col gap-12 text-sm leading-relaxed">

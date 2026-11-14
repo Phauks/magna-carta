@@ -364,7 +364,7 @@
     </div>
 
     {#if shelf.folderFailure !== null}
-      <p class="text-sm text-text-muted">Your folders could not be read.</p>
+      <p class="text-sm text-text-muted">Couldn't load your folders.</p>
     {/if}
 
     <FolderNameDialog bind:open={naming} {shelf} folder={renamingFolder} />
