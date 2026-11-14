@@ -23,6 +23,7 @@
    * The panel draws no content of its own: each tab is the screen's snippet, so the record each one
    * reads (and the failure each one states) stays with the screen that owns it.
    */
+  import MessageCircleQuestionMark from "@lucide/svelte/icons/message-circle-question-mark";
   import X from "@lucide/svelte/icons/x";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -72,7 +73,16 @@
     <div class="flex items-center gap-8">
       <Tabs.List class="min-w-0 flex-1">
         {#if chat !== undefined}
-          <Tabs.Trigger value="chat">Chat {@render count(chatUnread, "primary")}</Tabs.Trigger>
+          <Tabs.Trigger value="chat">
+            Chat {@render count(chatUnread, "primary")}
+            {#if questions === undefined && questionsWaiting > 0}
+              <!-- Questions are part of the chat; the ones still waiting are counted beside it. -->
+              <Badge variant="neutral" aria-label="{questionsWaiting} questions waiting">
+                <MessageCircleQuestionMark class="size-12" aria-hidden="true" />
+                {questionsWaiting}
+              </Badge>
+            {/if}
+          </Tabs.Trigger>
         {/if}
         {#if questions !== undefined}
           <Tabs.Trigger value="questions">
