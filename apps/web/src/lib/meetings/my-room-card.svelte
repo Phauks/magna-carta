@@ -117,7 +117,7 @@
       writeFailure = outcome.failure;
       return;
     }
-    tab.open(outcome.value.meetingId);
+    tab.open(outcome.value.meetingId, outcome.value.joinCode);
   }
 
 </script>

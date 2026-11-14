@@ -24,6 +24,7 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
+  import { meetingRoomAddress } from "$lib/meetings/meeting-tab.ts";
   import { refusedAs } from "$lib/meetings/meetings-api.ts";
   import { arriveAtRoom, openRoomAtAddress } from "$lib/meetings/personal-room-api.ts";
   import { pageRecordingSounds } from "$lib/meetings/client/recording-sounds.ts";
@@ -67,7 +68,7 @@
       await read.refetch();
       return;
     }
-    await goto(`/meetings/${outcome.value.meetingId}`);
+    await goto(meetingRoomAddress(outcome.value.meetingId, outcome.value.joinCode));
   }
 
   async function open(): Promise<void> {
@@ -81,7 +82,7 @@
       writeFailure = outcome.failure;
       return;
     }
-    await goto(`/meetings/${outcome.value.meetingId}`);
+    await goto(meetingRoomAddress(outcome.value.meetingId, outcome.value.joinCode));
   }
 
   const title = $derived(room === null ? "Room" : room.roomName);

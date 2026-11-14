@@ -14,6 +14,7 @@ import {
   completeTurnStatement,
   failTurnStatement,
   insertTurnStatement,
+  recordTurnThinkingStatement,
   removeTurnPairStatement,
   supersedeTurnsFromStatement,
 } from "./statements.ts";
@@ -223,6 +224,19 @@ export function settleTurnFailure(
     ],
     outboxMessages: [],
   };
+}
+
+// Write the summary of the model's thinking so far onto a pending Magnus turn, so a reader polling the
+// turn watches it arrive. Not audited: it is progress on an answer whose submission and settlement
+// are both audited, and it changes nothing once the turn settles.
+export async function recordTurnThinking(
+  database: SqlDatabase,
+  input: { readonly magnusTurnId: MagnusTurnId; readonly thinking: string },
+): Promise<void> {
+  await recordTurnThinkingStatement(database, {
+    id: input.magnusTurnId,
+    thinking: input.thinking,
+  }).run();
 }
 
 // The label a removal's batch is refused under when the pair was set aside or removed between the

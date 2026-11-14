@@ -172,6 +172,12 @@ conversation. To keep it on the matter, download it and add it to the matter's f
 Press **Enter** to send your question; **Shift+Enter** starts a new line instead. Your question is recorded the moment you send it, and the answer arrives underneath when it is ready.
 You can leave the page; the conversation is there when you come back.
 
+While Magnus works on an answer, a **Thinking** section under its name shows a summary of what it is
+considering, and it grows as Magnus goes. The model writes this summary of its own reasoning; it is
+not the reasoning word for word. When the answer arrives, the section folds shut above it as
+**Thinking summary**, and you can open it again at any time. It is kept with the answer, and it
+leaves only when the whole conversation is deleted.
+
 Sometimes an answer does not come, and Magnus says which of these happened rather than only that
 something failed:
 

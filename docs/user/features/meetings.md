@@ -106,8 +106,8 @@ matter, the row names the matter and links back to it.
 Every meeting has its own address ending in nine digits, such as magnacarta.esq/meeting/482-917-305.
 That is what the address bar shows once you are in the room, and what **Copy Link** in the room
 copies. The nine digits are easy to read out on a call; anybody at the firm who may join the meeting
-can type the address with or without the dashes. Links in the older form, ending in the meeting's
-long reference, still work and show the nine-digit address once the room opens.
+can type the address with or without the dashes. Every **Join**, **Start** and **Open** in the
+application opens this address too, so the address bar shows it from the start.
 
 ## Your own room
 
