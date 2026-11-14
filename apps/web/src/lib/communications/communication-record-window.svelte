@@ -800,7 +800,7 @@
           {@render fact("Caller ID", record.callerIdName)}
         {/if}
         {#if record.outcome === "transferred"}
-          {@render fact("Transferred to", nameOf(record.memberUserId) ?? "A colleague")}
+          {@render fact("Transferred to", nameOf(record.memberUserId) ?? "A staff member")}
         {/if}
         {#if span !== null && span !== length}
           <!-- Only where it DIFFERS from the length. A call whose span and length agree has one

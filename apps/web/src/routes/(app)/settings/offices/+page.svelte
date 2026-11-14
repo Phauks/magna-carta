@@ -153,8 +153,7 @@
 
 <SettingsScrollRegion>
   <SettingsDescription>
-    Where the firm practises: each office with its addresses, its telephone and email, its time
-    zone, the code its matter numbers carry, who staffs it, and the mark its letterhead prints.
+    The firm's offices, with their addresses, phone and email, time zone, matter number code, staff and letterhead logo.
   </SettingsDescription>
 
   <SettingsPlate heading="The Register">

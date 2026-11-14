@@ -60,8 +60,7 @@ export const OPEN_STAGES: readonly {
   {
     id: "editor",
     label: "Starting the editor",
-    doing:
-      "Starting the editor. Each document runs its own, started fresh for its first open, which is most of the wait.",
+    doing: "Starting the editor. The first time a document opens takes the longest.",
     done: "Editor started.",
   },
   {

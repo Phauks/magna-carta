@@ -295,8 +295,7 @@
     oncontextmenu={(event) => event.preventDefault()}
   ></canvas>
   <p id={instructionsIdentifier} class="sr-only">
-    A picture of a remote browser that takes your input. Click, scroll and type to use the page.
-    Press Escape twice to leave the screen.
+    A live view of a remote browser. Click, scroll and type to use the page. Press Escape twice to leave.
   </p>
 
   <!-- What replaces the screen when it is not showing a live frame. Focusable so focus has somewhere

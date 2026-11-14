@@ -151,6 +151,23 @@
       "ROOT_KEK",
     ],
   },
+  // Secrets bound from the account's Secrets Store (store 9ce4ac3e…, the account's only one). Each is
+  // bound as SECRETS_STORE_<NAME> and resolved into the plain <NAME> string at the Worker's entry
+  // (src/stored-secrets.ts); a per-Worker secret of the plain name is the fallback. The deploy token
+  // needs Secrets Store edit permission, or a deploy with any entry here fails.
+  // docs/conventions/operations.md, "Secrets Store", says how a secret moves.
+  "secrets_store_secrets": [
+    {
+      "binding": "SECRETS_STORE_COMMUNITY_HANDOFF_SECRET",
+      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
+      "secret_name": "COMMUNITY_HANDOFF_SECRET",
+    },
+    {
+      "binding": "SECRETS_STORE_GOOGLE_PLACES_API_KEY",
+      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
+      "secret_name": "GOOGLE_PLACES_API_KEY",
+    },
+  ],
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
   // The platform-status KV namespace: holds the operator-authored document (status:authored, written by
   // the platform-status routes) and the cron-derived document (status:derived); the read path merges

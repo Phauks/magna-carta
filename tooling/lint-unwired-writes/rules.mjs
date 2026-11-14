@@ -58,6 +58,30 @@ export const DEFINITION_PATTERN = new RegExp(
 // next reader does not have to re-derive it.
 export const ALLOWLIST = new Map([
   [
+    "insertTransferRunStatement",
+    "starts a run of the record transfer, in packages/record-transfer; its caller is the transfer's" +
+      " loader, the next pull request in the build order of" +
+      " docs/specs/2026-11-10-record-transfer-framework-design.md, and this entry goes when that lands",
+  ],
+  [
+    "insertTransferSourceFileStatement",
+    "registers a file a record transfer was given, in packages/record-transfer; its caller is the" +
+      " transfer's upload route, which arrives with the operator's screens in the build order of" +
+      " docs/specs/2026-11-10-record-transfer-framework-design.md, and this entry goes when that lands",
+  ],
+  [
+    "recordTransferSourceFileReadStatement",
+    "records the first complete read of a transfer's source file, in packages/record-transfer; its" +
+      " caller is the pass that reads a file for the transfer's loader, in the build order of" +
+      " docs/specs/2026-11-10-record-transfer-framework-design.md, and this entry goes when that lands",
+  ],
+  [
+    "recordTransferSourceFileRemovedStatement",
+    "records that a transfer's source file was released from object storage, in" +
+      " packages/record-transfer; its caller is the clean-up after cutover, in the build order of" +
+      " docs/specs/2026-11-10-record-transfer-framework-design.md, and this entry goes when that lands",
+  ],
+  [
     "createMemoryLogger",
     "a test double — the in-memory logger every package's tests assert against, and production wires" +
       " the real one in apps/api-worker/src/http/app.ts",

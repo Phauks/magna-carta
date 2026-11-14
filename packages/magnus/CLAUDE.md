@@ -44,7 +44,7 @@ registered there; this file states what they mean for the code, not where they w
   always ending on the newest member turn, reporting whether it truncated
 - `src/statements.ts` — the SQL builders and bounded reads for the three tables; every read is
   `LIMIT`ed and every list read is cursor-paginated
-- `src/audit.ts` — the audit builders (seventeen, counted by `test/purity.test.ts`) and the shared
+- `src/audit.ts` — the audit builders (twenty, counted by `test/purity.test.ts`) and the shared
   write context
 - `src/shelf.ts` — a member's own folders (`magnus_folder`) and where they keep each conversation
   (`magnus_conversation_shelf`: its folder, null for General, and when they pinned it). Both are
@@ -52,6 +52,14 @@ registered there; this file states what they mean for the code, not where they w
 - `src/contract.ts` — the wire shapes the routes declare: the conversation (with the reader's
   `folderId` and `pinnedAt`), the turn, the turn's progress, and the folder and shelf bodies
 - `src/conversation.ts` / `src/turn.ts` — lifecycle and turn composition as `EffectWrite`s
+- `src/permissions.ts` — what Magnus may read beyond the conversation, per conversation
+  (`magnus_conversation_permission`). Today one permission, `own-matter-conversations`: the author's
+  own other conversations on the same matter, off until turned on, audited by name, read by the
+  consumer into the window under `EARLIER_CONVERSATIONS_MAX_BYTES`
+- `src/artifact.ts` — the documents Magnus writes (`magnus_artifact`, `magnus_artifact_version`).
+  Magnus writes one between `<document title="...">` and `</document>` (the system prompt says how);
+  the consumer takes each block out of the answer (`extractDocuments`) and keeps it as the next
+  version of the conversation's document with that title. Versions are only added, a restore too
 
 ## Invariants that apply here
 
@@ -183,8 +191,14 @@ registered there; this file states what they mean for the code, not where they w
   `ATTACHMENT_TEXT_MAX_BYTES`, cutting and marking the cut. The row records `sent | cut | unreadable |
   pending`. A stored extraction would be a second copy of privileged content outside the file's own
   erasure path; the per-question extraction is the cost paid to keep exactly one. Because what Magnus
-  can SEE changed, `MAGNUS_DISCLOSURE_VERSION` is 2, and the disclosure statement and the system prompt
-  describe the same thing.
+  can SEE changed, `MAGNUS_DISCLOSURE_VERSION` went to 2; it is 3 since the pane (reading the author's
+  other conversations on the matter, and writing documents). The disclosure statement and the system
+  prompt describe the same thing.
+- **A document is the conversation's, not the matter's.** It is read by whoever reads the
+  conversation, sent back to the model at its latest version under `ARTIFACTS_WINDOW_MAX_BYTES`, and
+  erased with the conversation by `deleteConversation`. A version over `ARTIFACT_VERSION_MAX_BYTES`,
+  or past three in one answer, is not kept and the answer says so. Saving one to a matter's files is
+  not built.
 - **The listing's order is the server's, one SQL key per order.** `listConversations` takes
   `sort: date | name | matter`; the name and matter orders page on the shared composite cursor with a
   mixed-direction keyset spelled out in `statements.ts` (the group key ascends, the instant beneath it

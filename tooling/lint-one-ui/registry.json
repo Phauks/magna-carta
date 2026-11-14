@@ -321,7 +321,7 @@
     {
       "rule": "placeholder",
       "file": "apps/web/src/lib/components/recipient-picker.svelte",
-      "text": "Search colleagues\u2026",
+      "text": "Search staff\u2026",
       "reason": "predates the placeholder ruling; the field's name is Colleague."
     },
     {
@@ -375,7 +375,7 @@
     {
       "rule": "placeholder",
       "file": "apps/web/src/lib/settings/components/request-change-dialog.svelte",
-      "text": "Search colleagues\u2026",
+      "text": "Search staff\u2026",
       "reason": "predates the placeholder ruling; the field's name is Colleague."
     },
     {

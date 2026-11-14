@@ -185,7 +185,7 @@
       <DetailsPanel.Section label="Awaiting Approval">
         <LoadingRegion
           loading={trust.requests === null && trust.requestsFailure === null}
-          label="Reading what is waiting on this account"
+          label="Reading payments waiting on this account"
           failed={trust.requestsFailure !== null}
         >
           {#snippet failure()}
@@ -193,7 +193,7 @@
               <FirmTrustReadFailure
                 failure={trust.requestsFailure}
                 title="The Approval Queue Could Not Be Read"
-                fallback="What is waiting on this account is not shown. Nothing was decided by this failure."
+                fallback="Payments waiting on this account couldn't be loaded. Nothing was decided."
                 onRetry={() => trust.reloadQueue(fetch, account.id)}
               />
             {/if}

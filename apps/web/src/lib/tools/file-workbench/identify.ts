@@ -210,7 +210,7 @@ function noteFor(
     case "unverifiable":
       return precise
         ? `The bytes read as ${detectedLabel}, and there is no canonical extension to check the name against.`
-        : `The bytes are text. A reading of the first bytes cannot tell one text format from another, so ".${claimed}" is neither confirmed nor contradicted.`;
+        : `The file is plain text, so its type can't be confirmed from its contents.`;
   }
 }
 

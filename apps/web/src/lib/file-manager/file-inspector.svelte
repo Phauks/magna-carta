@@ -615,12 +615,12 @@
   const previewNote = $derived.by((): string => {
     if (file === null) return "";
     if (file.status === "pending") {
-      return "No preview yet. The upload is stored; the first check is still running.";
+      return "No preview yet. The file is uploaded and its first check is still running.";
     }
     if (file.status === "quarantined") {
       return "Preview withheld while a finding is open. The file is stored and can still be downloaded.";
     }
-    return "The document renders here once the preview surface is wired to this panel.";
+    return "Preview coming soon.";
   });
 
   /**
@@ -984,7 +984,7 @@
                    the grid rather than inside it, because the grid's rows are versions and this is
                    a fact about the view. -->
               <div class="flex items-center justify-between gap-8 text-sm text-text-muted">
-                <span>{showEverySave ? "Every save shown" : foldedLabel(versionsFolded)}</span>
+                <span>{showEverySave ? "All saves shown" : foldedLabel(versionsFolded)}</span>
                 <Button variant="ghost" size="sm" onclick={() => (showEverySave = !showEverySave)}>
                   {showEverySave ? "Fold the autosaves" : "Show every save"}
                 </Button>
@@ -1098,8 +1098,7 @@
                 <Alert.Root variant="info">
                   <Alert.Title>There Is Nothing to Compare Against</Alert.Title>
                   <Alert.Description>
-                    This version was filed before a digest was recorded at intake, so the values
-                    above stand on their own.
+                    This version was added before checksums were recorded, so there's nothing to compare these values against.
                   </Alert.Description>
                 </Alert.Root>
               {/if}
@@ -1120,7 +1119,7 @@
                   bind:value={expectedDigestInput}
                 />
                 <p class="text-xs text-text-subtle">
-                  Type or paste the digest; a whole checksum line, file name and all, is fine.
+                  Type or paste the checksum. A whole checksum line, including the file name, is fine.
                 </p>
                 <div class="flex flex-wrap items-center gap-8">
                   <FileInput

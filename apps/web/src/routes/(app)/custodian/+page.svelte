@@ -225,10 +225,7 @@
       emptyTitle="Nothing Is In Custody Yet"
     >
       {#snippet emptyBody()}
-        A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
-        wallet. It carries a custody number, the person or organization it is held for, and
-        everything that has ever happened to it. Logging the first one, with New Packet at the top
-        of the screen, draws the firm's first custody number.
+        No packets yet. A packet is a physical item the firm holds, such as an envelope, deed box or sealed wallet. Log one with New Packet.
       {/snippet}
     </PacketRegister>
   </div>

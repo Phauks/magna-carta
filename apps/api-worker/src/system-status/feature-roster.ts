@@ -6,20 +6,23 @@
  *
  * Each feature names its requirements as ALTERNATIVES: the feature is set up when every name in at
  * least one alternative is present in the environment. Address suggestions is the case that needs
- * two — the platform's own address engine, or the Smarty key pair — and every other feature has
- * one. A name is a binding, a secret or a variable on this Worker (`keyof Bindings`), so a renamed
+ * several — the Google key, the platform's own address engine, or the Smarty key pair — and every
+ * other feature has one. A name is a binding, a secret or a variable on this Worker (`keyof Bindings`), so a renamed
  * binding fails the type check here rather than leaving a row that can never turn green.
  *
  * Presence is all that is ever read. The value of a secret never leaves this module: the report
- * carries `present: true | false` per name and nothing else, and only a platform operator is shown
- * even that (meta-versions.ts).
+ * carries `present: true | false` per name, and for a secret that is present, whether it came from
+ * the account's Secrets Store or from this Worker's own secret (`source`), and nothing else. Only a
+ * platform operator is shown even that (meta-versions.ts).
  *
  * A feature backed by one of the fleet's Workers (`worker`) or by an outside service with a live
  * probe (`connectedService`) is judged by that probe once it is set up: a Worker that does not
  * answer, or a service that refuses the credentials, is a FAULT, which is a different remedy from
  * a setting nobody has made yet.
  */
+import { secretSourcesOf } from "@magna-carta/worker-secrets/stored-secrets";
 import type { Bindings } from "../bindings.ts";
+import { API_WORKER_SECRET_NAMES } from "../stored-secret-names.ts";
 import type { ConnectedServiceStatusReport } from "../meetings/sfu/realtime-status.ts";
 
 /** A name the environment carries, or does not. */
@@ -84,7 +87,11 @@ export const FEATURE_ROSTER = [
   { id: "naturalLanguageSearch", alternatives: [["AI_SEARCH", "AI_SEARCH_NAMESPACES"]] },
   {
     id: "addressSuggestions",
-    alternatives: [["ADDRESS_SERVICE"], ["SMARTY_AUTH_ID", "SMARTY_AUTH_TOKEN"]],
+    alternatives: [
+      ["GOOGLE_PLACES_API_KEY"],
+      ["ADDRESS_SERVICE"],
+      ["SMARTY_AUTH_ID", "SMARTY_AUTH_TOKEN"],
+    ],
     worker: "address",
   },
   // AI
@@ -110,6 +117,11 @@ export type FeatureState = "working" | "not-set-up" | "fault";
 export interface RequirementPresence {
   name: RequirementName;
   present: boolean;
+  /**
+   * Where a present secret's value came from: the account's Secrets Store, or this Worker's own
+   * secret. Null for a name that is not a secret (a binding, a variable) or that is absent.
+   */
+  source: "secrets-store" | "worker" | null;
 }
 
 export interface FeatureStatusReport {
@@ -137,8 +149,23 @@ function presenceOf(
   environment: Partial<Record<RequirementName, unknown>>,
   alternatives: readonly (readonly RequirementName[])[],
 ): RequirementPresence[][] {
+  const secretNames: readonly string[] = API_WORKER_SECRET_NAMES;
+  const sources = secretSourcesOf(environment, secretNames);
   return alternatives.map((names) =>
-    names.map((name) => ({ name, present: isPresent(environment[name]) })),
+    names.map((name) => {
+      const present = isPresent(environment[name]);
+      const source = sources[name];
+      return {
+        name,
+        present,
+        source:
+          present && secretNames.includes(name)
+            ? source === "secrets-store"
+              ? "secrets-store"
+              : "worker"
+            : null,
+      };
+    }),
   );
 }
 
@@ -161,7 +188,7 @@ export function featureStatuses(
       if (state === "refused" || state === "unreachable") return { id, state: "fault" };
       if (state === "not-configured") return { id, state: "not-set-up" };
     }
-    // Address suggestions can be set up through Smarty alone, so its Worker being unbound is not a
+    // Address suggestions can be set up through Google or Smarty alone, so its Worker being unbound is not a
     // fault; only a Worker that is bound and silent is.
     if (feature.worker !== undefined && probes.workers.get(feature.worker) === "unreachable") {
       return { id, state: "fault" };

@@ -295,7 +295,8 @@ export default defineConfig({
       //
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
       // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
-      // often) needs pdf-core, segmentation-core, noise-suppression-core and mls-core alone, and its build script asks for exactly those. The composite below is
+      // often) needs pdf-core, segmentation-core, noise-suppression-core, mls-core, email-core and
+      // pdf-compose-core alone, and its build script asks for exactly those. The composite below is
       // still what the app-worker deploy asks for, and it is a chain of nested `vp run`s so each
       // crate keeps its own cache entry rather than one
       // all-or-nothing entry.
@@ -323,6 +324,12 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
       },
+      // Content disarm. No deployed bundle imports it yet, so the composite above does not build it;
+      // the build that first imports @magna-carta/disarm adds it there.
+      "rust-wasm-build-disarm": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/disarm/src/pkg -f crates/disarm-core/wasm.Dockerfile crates",
+      },
       "rust-wasm-build-seven-zip": {
         command:
           "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",
@@ -347,9 +354,10 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/mls/src/pkg -f crates/mls-core/wasm.Dockerfile crates",
       },
-      // The PDF composer. In the composite above because the SPA bundles it: every tabular export's
-      // PDF is composed in the browser (apps/web/src/lib/export/render-pdf.ts). The sign Worker also
-      // composes with it (the Certificate of Completion) and names this task in its own build.
+      // The PDF composer. The sign Worker imports it (it composes the Certificate of Completion), and
+      // so does the SPA (every tabular export's PDF, apps/web/src/lib/export/render-pdf.ts, and the
+      // File Workbench saving an email as a PDF), so the composite above builds it and both the sign
+      // Worker's and the interface Worker's builds name it.
       "rust-wasm-build-pdf-compose": {
         command:
           "docker build --network=host --output type=local,dest=packages/pdf-compose/src/pkg -f crates/pdf-compose-core/wasm.Dockerfile crates",

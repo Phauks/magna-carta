@@ -128,9 +128,9 @@ export function amendmentNote(kind: ArrangementKind): string {
     case "hourly":
       return "Nothing else to record: rates resolve per timekeeper from the firm's rate cards in force on each work date.";
     case "flat_fee":
-      return "Time is still tracked for realization; the client is charged the fee. Costs stay outside the fee and are billed beside it.";
+      return "Time is still tracked, but the client is charged the fee. Costs are billed separately.";
     case "contingency":
-      return "The written agreement must say whether expenses come off before or after the fee is computed: this election is that answer, and the client signs it.";
+      return "The written agreement must say whether expenses come off before or after the fee is calculated. Choose the answer the client signed.";
     default:
       return "The floor is a business setting for replenishment asks: never the trust ledger's structural no-negative floor.";
   }
@@ -155,5 +155,4 @@ export function versionPeriod(
  * amending a fee agreement.
  */
 export const AMENDMENT_STANDING_NOTE =
-  "An amendment is a NEW version; the old one stays on the record with the dates it governed, " +
-  "because every bill composed under it says so.";
+  "An amendment creates a new version. The old version stays on record with the dates it applied, because bills made under it refer to it.";

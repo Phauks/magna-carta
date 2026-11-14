@@ -432,7 +432,7 @@
     {#if late > 0 && row.summary.dueDate !== null}
       <span
         class="font-semibold whitespace-nowrap text-status-danger-subtle-foreground tabular-nums"
-        title="Unpaid {late} days past due. Overdue is worked out from the date; it is never a stored flag."
+        title="Unpaid {late} days past due."
       >
         {formatDate(row.summary.dueDate)} · {late}d
       </span>
@@ -485,9 +485,7 @@
       <Alert.Root variant="warning">
         <Alert.Title>This Matter Names No Client</Alert.Title>
         <Alert.Description>
-          A bill belongs to a client, and this matter's party record does not name one yet. The
-          agreement can still be recorded; nothing can be billed until a party wearing the client
-          role is linked on the Parties tab.
+          This matter has no client yet. You can still record the agreement, but nothing can be billed until a client is added on the Parties tab.
         </Alert.Description>
       </Alert.Root>
     {/if}

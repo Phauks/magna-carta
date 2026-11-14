@@ -142,7 +142,7 @@
       return "This review set takes no more material. Everything already in it still reads.";
     }
     if (custodians.length === 0) {
-      return "Every document carries a Custodian of Record. Add one first.";
+      return "Every document needs a Custodian of Record. Add one first.";
     }
     return undefined;
   });
@@ -168,7 +168,7 @@
     if (load.lane !== "internal-files") {
       return load.lane === "internal-email"
         ? "Filed email enters as a family from the matter's own email record, which is not built here yet."
-        : "This material arrives through the upload gate rather than from the firm's own files.";
+        : "This material is uploaded and safety-checked, not taken from the firm's files.";
     }
     if (load.state === "complete" || load.state === "failed" || load.state === "reversed") {
       return "This load has finished. More material means another load.";

@@ -170,7 +170,7 @@
             label: "waiting to be filed",
             value: String(unroutedCount),
             caption:
-              "Calls and texts on no matter that nobody has decided about yet, across the whole log. Filter the Matter column to Not filed to see them.",
+              "Calls and texts not yet assigned to a matter. Filter the Matter column to Not filed to see them.",
           },
         ],
   );
@@ -298,9 +298,7 @@
   <Alert.Root variant="info">
     <Alert.Title>The Firm Has No Phone Line Yet</Alert.Title>
     <Alert.Description>
-      Nothing is sent or received from here. This is the firm's own record of calls and texts that
-      happened, written down by whoever made or took them. When the firm's number is connected, the
-      carrier will write these same rows by itself.
+      Nothing is sent or received from here. This is the firm's log of calls and texts, entered by the people who made or took them. Once the firm's phone number is connected, calls will be logged automatically.
     </Alert.Description>
   </Alert.Root>
 

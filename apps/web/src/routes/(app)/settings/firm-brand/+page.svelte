@@ -40,7 +40,7 @@
 
 <SettingsScrollRegion>
   <SettingsDescription>
-    How the firm looks: the primary mark its letterheads print, and the images it keeps beside it.
+    The firm's logo and the other images it uses.
   </SettingsDescription>
 
   <BrandImagesPlate {canEdit} />

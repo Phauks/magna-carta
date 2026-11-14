@@ -412,7 +412,7 @@ export function presentTrustCompliancePack(
     endAlignedColumns: [5],
     rows: exceptions.atProduction.outstandingBankItems.map((item) => bankItemRow(item, currency)),
     note: atProduction,
-    whenEmpty: "Every recorded item has reached the bank.",
+    whenEmpty: "All recorded items have reached the bank.",
   });
   sections.push({
     id: "unmatched-lines",
@@ -423,7 +423,7 @@ export function presentTrustCompliancePack(
       statementLineRow(line, currency),
     ),
     note: atProduction,
-    whenEmpty: "Every statement line is matched.",
+    whenEmpty: "All statement lines are matched.",
   });
   sections.push({
     id: "stored-balance-checks",
@@ -436,7 +436,7 @@ export function presentTrustCompliancePack(
       money(disagreement.computedBalanceMinor, currency),
     ]),
     note: atProduction,
-    whenEmpty: "Every stored balance agrees with the entries behind it.",
+    whenEmpty: "All stored balances match their entries.",
   });
 
   sections.push({

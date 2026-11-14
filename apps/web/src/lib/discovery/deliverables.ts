@@ -84,9 +84,7 @@ export const DELIVERABLES: readonly Deliverable[] = [
   {
     id: "exception-report",
     label: "Exception report",
-    states:
-      "Every document on this load that could not be read, with the named reason for each. This " +
-      "is the record that turns 'we produced everything we could read' into a document.",
+    states: "Every document on this load that couldn't be read, with the reason for each.",
     scope: "load",
     stage: "alpha",
     formats: BOTH_FORMS,
@@ -96,8 +94,7 @@ export const DELIVERABLES: readonly Deliverable[] = [
     id: "privilege-log",
     label: "Privilege log",
     states:
-      "Every document withheld or redacted on a claim of privilege, with the basis for each, " +
-      "generated from what was coded and never from what a document says.",
+      "Every document withheld or redacted for privilege, with the basis for each, taken from how it was coded.",
     scope: "review-set",
     stage: "soon",
     waitsOn: "privilege review",
@@ -108,17 +105,16 @@ export const DELIVERABLES: readonly Deliverable[] = [
     states: "What was produced in a volume, with a hash for every artifact in it.",
     scope: "review-set",
     stage: "soon",
-    waitsOn: "the production workflow",
+    waitsOn: "productions",
   },
   {
     id: "load-files",
     label: "Load files",
     states:
-      "The index files the receiving party's own review tool reads a volume with, carrying the " +
-      "Custodian of Record and the interop fields a protocol asks for.",
+      "The load files the receiving party's review tool needs, including the Custodian of Record and any fields the protocol requires.",
     scope: "review-set",
     stage: "soon",
-    waitsOn: "the production workflow",
+    waitsOn: "productions",
   },
 ];
 

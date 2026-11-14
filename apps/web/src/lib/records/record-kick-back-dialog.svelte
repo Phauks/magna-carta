@@ -107,8 +107,7 @@
         bind:value={reason}
       />
       <p class="text-xs text-text-muted">
-        Say what needs to change before this {lowerNoun} can be approved. It returns to the person who
-        recorded it as a draft, and the reason is recorded on the audit trail.
+        Say what needs to change before this {lowerNoun} can be approved. It goes back as a draft to the person who recorded it, and the reason is saved in the audit trail.
       </p>
     </div>
   {/snippet}

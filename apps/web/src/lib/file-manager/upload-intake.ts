@@ -570,7 +570,7 @@ export function intakeStageSentence(row: IntakeFileRow): string {
     return "The firm already holds a file with exactly these bytes, so nothing will be sent for it.";
   }
   if (row.stage === "unread") {
-    return "The file could not be read here, so the firm was not asked whether it holds it. It will be sent as it is.";
+    return "The file couldn't be read here, so it couldn't be checked for duplicates. It will be uploaded as it is.";
   }
   if (row.stage === "skipped") return row.reason ?? "Skipped: its name was already taken.";
   if (row.stage === "cancelled")

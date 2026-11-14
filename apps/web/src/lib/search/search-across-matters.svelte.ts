@@ -119,8 +119,7 @@ function peopleGroup(outcome: ApiOutcome<DirectorySearchResult>): NameGroup<Dire
 
 /** Why a search of some matters does not look for people. */
 export const PEOPLE_NOT_SEARCHED_REASON =
-  "People and organizations are the firm's directory and are not kept by matter. Search " +
-  "everything you can see to find one by name.";
+  "People and organizations are in the firm's directory, not on matters. Search everything to find one by name.";
 
 const PEOPLE_NOT_SEARCHED: NameGroup<DirectorySearchHit> = {
   rows: [],

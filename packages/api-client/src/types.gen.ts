@@ -403,6 +403,7 @@ export type FeatureRequirements = {
     alternatives: Array<Array<{
         name: string;
         present: boolean;
+        source: 'secrets-store' | 'worker' | null;
     }>>;
 };
 
@@ -5668,6 +5669,10 @@ export type SetDirectoryEntityPhotoRequest = {
 export type AddressSuggestionsResponse = {
     outcome: 'suggestions';
     suggestions: Array<AddressSuggestion>;
+    /**
+     * Whose data the offers are, when its terms require the list to say so. `google-maps`: the list shows the words Google Maps in the same container as the offers.
+     */
+    attribution?: 'google-maps';
 } | {
     outcome: 'no-coverage';
 } | {
@@ -7760,6 +7765,7 @@ export type MeetingPoll = {
     question: string;
     anonymous: boolean;
     maxChoices: number;
+    kind: 'one' | 'multiple' | 'ranking' | 'score';
     openedAt: string;
     closedAt: string | null;
     closedByUserId: string | null;
@@ -7773,6 +7779,7 @@ export type MeetingPollOption = {
     position: number;
     label: string;
     count: number;
+    averageRank: number | null;
 };
 
 export type OpenMeetingPollRequest = {
@@ -7780,6 +7787,7 @@ export type OpenMeetingPollRequest = {
     options: Array<string>;
     anonymous: boolean;
     maxChoices?: number;
+    kind?: 'one' | 'multiple' | 'ranking' | 'score';
 };
 
 export type MeetingPollPage = {
@@ -8654,6 +8662,7 @@ export type MagnusConversationDetail = {
         nextCursor: string | null;
     };
     attachments: Array<MagnusConversationAttachment>;
+    permissions: Array<MagnusConversationPermissionName>;
 };
 
 export type MagnusTurn = {
@@ -8682,6 +8691,8 @@ export type MagnusConversationAttachment = {
     textStatus: 'pending' | 'sent' | 'cut' | 'unreadable';
     textBytes: number | null;
 };
+
+export type MagnusConversationPermissionName = 'own-matter-conversations';
 
 export type MagnusRenameConversationRequest = {
     title: string | null;
@@ -8746,6 +8757,46 @@ export type MagnusRemovedTurn = {
     memberTurnId: string;
     magnusTurnId: string | null;
     removedAt: string;
+};
+
+export type MagnusConversationPermissions = {
+    permissions: Array<MagnusConversationPermissionName>;
+};
+
+export type MagnusConversationPermissionRequest = {
+    granted: boolean;
+};
+
+export type MagnusConversationArtifacts = {
+    artifacts: Array<MagnusArtifact>;
+};
+
+export type MagnusArtifact = {
+    id: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    versions: Array<MagnusArtifactVersionSummary>;
+};
+
+export type MagnusArtifactVersionSummary = {
+    versionNumber: number;
+    note: string | null;
+    writtenByTurnId: string | null;
+    memberUserId: string;
+    restoredFromVersion: number | null;
+    createdAt: string;
+    bytes: number;
+};
+
+export type MagnusArtifactVersionText = {
+    artifactId: string;
+    versionNumber: number;
+    content: string;
+};
+
+export type MagnusRestoreArtifactVersionRequest = {
+    versionNumber: number;
 };
 
 export type ReviewSetAccessList = {
@@ -41067,6 +41118,204 @@ export type MagnusShelveConversationResponses = {
 };
 
 export type MagnusShelveConversationResponse = MagnusShelveConversationResponses[keyof MagnusShelveConversationResponses];
+
+export type MagnusSetConversationPermissionData = {
+    body: MagnusConversationPermissionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        permission: MagnusConversationPermissionName;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/permissions/{permission}';
+};
+
+export type MagnusSetConversationPermissionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusSetConversationPermissionError = MagnusSetConversationPermissionErrors[keyof MagnusSetConversationPermissionErrors];
+
+export type MagnusSetConversationPermissionResponses = {
+    /**
+     * The permissions now on for the conversation
+     */
+    200: MagnusConversationPermissions;
+};
+
+export type MagnusSetConversationPermissionResponse = MagnusSetConversationPermissionResponses[keyof MagnusSetConversationPermissionResponses];
+
+export type MagnusListArtifactsData = {
+    body?: never;
+    path: {
+        conversationId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/artifacts';
+};
+
+export type MagnusListArtifactsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusListArtifactsError = MagnusListArtifactsErrors[keyof MagnusListArtifactsErrors];
+
+export type MagnusListArtifactsResponses = {
+    /**
+     * The conversation's documents
+     */
+    200: MagnusConversationArtifacts;
+};
+
+export type MagnusListArtifactsResponse = MagnusListArtifactsResponses[keyof MagnusListArtifactsResponses];
+
+export type MagnusReadArtifactVersionData = {
+    body?: never;
+    path: {
+        conversationId: string;
+        artifactId: string;
+        versionNumber: number;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/artifacts/{artifactId}/versions/{versionNumber}';
+};
+
+export type MagnusReadArtifactVersionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusReadArtifactVersionError = MagnusReadArtifactVersionErrors[keyof MagnusReadArtifactVersionErrors];
+
+export type MagnusReadArtifactVersionResponses = {
+    /**
+     * The version's text
+     */
+    200: MagnusArtifactVersionText;
+};
+
+export type MagnusReadArtifactVersionResponse = MagnusReadArtifactVersionResponses[keyof MagnusReadArtifactVersionResponses];
+
+export type MagnusRestoreArtifactVersionData = {
+    body: MagnusRestoreArtifactVersionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        conversationId: string;
+        artifactId: string;
+    };
+    query?: never;
+    url: '/api/v1/magnus/conversations/{conversationId}/artifacts/{artifactId}/restore';
+};
+
+export type MagnusRestoreArtifactVersionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission, or the firm has not opted in
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MagnusRestoreArtifactVersionError = MagnusRestoreArtifactVersionErrors[keyof MagnusRestoreArtifactVersionErrors];
+
+export type MagnusRestoreArtifactVersionResponses = {
+    /**
+     * The document with its new version
+     */
+    200: MagnusArtifact;
+};
+
+export type MagnusRestoreArtifactVersionResponse = MagnusRestoreArtifactVersionResponses[keyof MagnusRestoreArtifactVersionResponses];
 
 export type DiscoveryGetReviewSetAccessData = {
     body?: never;

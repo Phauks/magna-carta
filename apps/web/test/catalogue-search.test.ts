@@ -41,7 +41,7 @@ const SECTIONS: readonly CatalogueSection[] = [
         stage: "soon",
         icon: Wrench,
         href: null,
-        waitsOn: "the conversion engine",
+        waitsOn: "file conversion",
       },
       {
         id: "file-repair",
@@ -88,7 +88,7 @@ describe("filterCatalogue", () => {
   });
 
   it("matches on the dependency an unbuilt entry names", () => {
-    expect(idsIn(filterCatalogue(SECTIONS, "conversion engine"))).toEqual(["metadata-scrubber"]);
+    expect(idsIn(filterCatalogue(SECTIONS, "file conversion"))).toEqual(["metadata-scrubber"]);
   });
 
   it("narrows with every added word rather than widening", () => {

@@ -54,13 +54,13 @@ export function footerFigures(
       identifier: "unbilled",
       label: "unbilled",
       amountMinor: sumAmountMinor(billable.filter((entry) => entry.status !== "billed")),
-      caption: `Billable time not yet on a finalized invoice${inView}. A draft bill claims it on the Billing tab.`,
+      caption: `Billable time not yet on a finalized bill${inView}. Add it to a draft bill on the Billing tab.`,
     },
     {
       identifier: "billed",
       label: "billed",
       amountMinor: sumAmountMinor(billable.filter((entry) => entry.status === "billed")),
-      caption: `Billable time a finalized invoice has taken up${inView}.`,
+      caption: `Billable time on a finalized bill${inView}.`,
     },
   ];
 }

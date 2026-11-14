@@ -90,20 +90,14 @@ export interface BillActionContext {
 
 /** What each not-yet-served act waits on, as the noun phrase the Soon composition completes. */
 export const BILL_DEPENDENCIES = {
-  payment:
-    "the payments slice, whose first step is the manually recorded receipt — a cheque, wire, cash " +
-    "or terminal payment",
-  print: "the invoice artifact: the render model is served, but no renderer consumes it yet",
-  ledes: "the LEDES export path and the guideline validation that goes with it",
-  adjustment:
-    "the revised billing model — a finalized bill with nothing applied becomes adjustable with a " +
-    "recorded revision, which the accepted finalized-is-immutable decision has to be revised for " +
-    "before the line-edit and revision routes exist",
-  applications:
-    "a read of what has been applied to a bill, which the invoice detail does not carry yet",
-  claims: "a read of the claims a draft is holding, which the invoice detail does not carry yet",
+  payment: "recording payments",
+  print: "printing bills",
+  ledes: "LEDES export",
+  adjustment: "bill adjustments",
+  applications: "showing payments applied to a bill",
+  claims: "showing the work a draft bill holds",
   history: "an endpoint that serves an invoice's recorded events",
-  reminders: "the billing automations slice, where reminder schedules and payment plans live",
+  reminders: "payment reminders and plans",
 } as const;
 
 function lacks(context: BillActionContext, capability: string): boolean {
@@ -124,7 +118,7 @@ export function isAdjustable(row: InvoiceRow): boolean {
 /** Why adjusting is offered or refused, in the sentence the control carries either way. */
 export function adjustReason(row: InvoiceRow): string {
   if (row.summary.status !== "final") {
-    return "Only a finalized invoice is adjusted; a draft simply changes.";
+    return "Only a finalized bill can be adjusted. A draft can simply be edited.";
   }
   if (isAdjustable(row)) {
     return (
@@ -152,10 +146,7 @@ export function billActions(
   const matterId = context.matterId;
   const matterUnpaid = matterId === null ? 0 : (matterUnpaidMinor(row, matterId) ?? 0);
   /** The one refusal every act that WRITES shares on the firm's register. */
-  const noMatterHere =
-    matterId === null
-      ? "The firm's register reads bills; the acts against one live on the matter it charges. Open the bill there."
-      : null;
+  const noMatterHere = matterId === null ? "Open the bill from its matter to act on it." : null;
   const detailUnread = row.detail === null;
   const standingWord = isDraft ? "a draft" : invoice.status === "void" ? "a voided draft" : "final";
 
@@ -163,7 +154,7 @@ export function billActions(
     {
       kind: "action",
       identifier: "open",
-      label: "Open Invoice",
+      label: "Open Bill",
       icon: Receipt,
     },
   ];
@@ -173,11 +164,11 @@ export function billActions(
     identifier: "copyNumber",
     label:
       invoice.invoiceNumber === null
-        ? "Copy Invoice Number"
+        ? "Copy Bill Number"
         : `Copy Invoice Number: ${invoice.invoiceNumber}`,
     icon: Copy,
     ...(invoice.invoiceNumber === null
-      ? { disabledReason: "A draft has no number; one is drawn at finalization." }
+      ? { disabledReason: "A draft has no number until it's finalized." }
       : {}),
   });
 
@@ -189,7 +180,7 @@ export function billActions(
     ...(noMatterHere !== null
       ? { disabledReason: noMatterHere }
       : !isDraft
-        ? { disabledReason: `Only a draft finalizes. This invoice is ${standingWord}.` }
+        ? { disabledReason: `Only a draft can be finalized. This bill is ${standingWord}.` }
         : lacks(context, BILLING_PERMISSIONS.finalize)
           ? { disabledReason: permissionRefusal("Finalizing a bill", BILLING_PERMISSIONS.finalize) }
           : detailUnread
@@ -222,7 +213,7 @@ export function billActions(
   actions.push({
     kind: "action",
     identifier: "adjust",
-    label: "Adjust Invoice…",
+    label: "Adjust Bill…",
     icon: SquarePen,
     ...(isAdjustable(row)
       ? { soonDependency: BILL_DEPENDENCIES.adjustment }
@@ -324,7 +315,10 @@ export function billActions(
     ...(noMatterHere !== null
       ? { disabledReason: noMatterHere }
       : !isFinal
-        ? { disabledReason: "A correction stands beside a finalized bill; a draft simply changes." }
+        ? {
+            disabledReason:
+              "A finalized bill is corrected with a credit note. A draft can simply be edited.",
+          }
         : lacks(context, BILLING_PERMISSIONS.credit)
           ? {
               disabledReason: permissionRefusal(

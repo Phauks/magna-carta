@@ -182,7 +182,7 @@
     const span = durationText(spanMinutes * 60) ?? "";
     const taken = durationText(takenMinutes * 60) ?? "";
     return spanMinutes > takenMinutes
-      ? `The line was open ${span}; ${taken} of it was the call. The rest reads as hold.`
+      ? `The line was open ${span}; ${taken} of it was the call. The rest was hold.`
       : `The length is longer than the ${span} between the start and the end.`;
   });
 

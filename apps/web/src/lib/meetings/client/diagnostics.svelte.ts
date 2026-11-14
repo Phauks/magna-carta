@@ -88,7 +88,16 @@ export type DiagnosticEventKind =
   | "superseded"
   | "socket-lost"
   | "ended"
-  | "protocol-mismatch";
+  | "protocol-mismatch"
+  /*
+   * What the picture did on this page, rather than on the wire: a tile given a different stream to
+   * play (detail: where it sits), this browser's own camera track replaced, and the view changing
+   * shape (detail: what changed). A flash on screen with no wire event beside it is one of these, or
+   * the browser's own drawing.
+   */
+  | "picture"
+  | "camera-track"
+  | "view";
 
 /** One thing that happened on the wire. */
 export interface DiagnosticEvent {

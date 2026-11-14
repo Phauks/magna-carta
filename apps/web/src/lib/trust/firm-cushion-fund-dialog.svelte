@@ -209,7 +209,7 @@
 
       <LabelledField
         label="Description"
-        hint="Why the firm's own money is going in. It is the line the ledger entry reads."
+        hint="Why the firm is adding its own money. This becomes the ledger entry's description."
         error={fieldRefusal(serverProblem, "description")}
       >
         {#snippet children({ props })}

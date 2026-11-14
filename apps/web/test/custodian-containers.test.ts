@@ -45,7 +45,7 @@ describe("where a new container can go", () => {
       { value: "container:a", label: "Main Street" },
       { value: "container:b", label: "Main Street › Deeds Safe" },
       { value: "office:location_river", label: "Riverside" },
-      { value: STANDS_ALONE, label: "On its own (a bank, an offsite store)" },
+      { value: STANDS_ALONE, label: "Standalone (such as a bank or offsite storage)" },
     ]);
   });
 

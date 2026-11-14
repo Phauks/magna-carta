@@ -42,5 +42,5 @@ export function docketNarrowingSummary(narrowing: DocketNarrowing): string {
         : `${narrowing.columnFilterCount} columns filtered`,
     );
   }
-  return parts.length === 0 ? "Every matter" : parts.join(" · ");
+  return parts.length === 0 ? "All matters" : parts.join(" · ");
 }

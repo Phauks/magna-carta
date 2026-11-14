@@ -38,14 +38,13 @@
   sectionId="opening-files"
   title="Opening Files"
   posture="readOnly"
-  badgeLabel="Stated by the platform"
+  badgeLabel="Set by Magna Carta"
   showHistory={false}
 />
 
 <SettingsScrollRegion>
   <SettingsDescription>
-    What opening a file does, by the kind of file it is. Double-click, Enter and Open are one
-    gesture; this is where each kind of file goes.
+    What happens when you open each type of file. Double-click, Enter and Open all do the same thing.
   </SettingsDescription>
 
   {#each OPEN_METHODS as method (method.id)}

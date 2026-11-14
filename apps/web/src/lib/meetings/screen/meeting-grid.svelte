@@ -37,6 +37,7 @@
     mirrorSelf = false,
     onPin,
     hostMenu,
+    onPictureAttached,
   }: {
     /** The people on this page, this browser's own preview first. */
     tiles: readonly MeetingTileModel[];
@@ -69,6 +70,8 @@
      * screen that holds the roles. Absent for everybody else.
      */
     hostMenu?: Snippet<[MeetingTileModel]>;
+    /** Told where a tile started a new picture, for the diagnostics: the large slot, the strip or the gallery. */
+    onPictureAttached?: (where: "large picture" | "strip" | "gallery") => void;
   } = $props();
 
   /** What takes the large slot, where anything does. */
@@ -98,6 +101,7 @@
 -->
 {#snippet personTile(tile: MeetingTileModel, size: string | undefined, sizing: string)}
   <MeetingTile
+    onPictureAttached={() => onPictureAttached?.(large === null ? "gallery" : "strip")}
     class="min-h-0 {sizing}"
     style={size}
     mirrored={mirrorSelf && isOwnCamera(tile)}
@@ -164,6 +168,7 @@
         reactions={large.reactions}
         mirrored={mirrorSelf && isOwnCamera(large)}
         fit={large.microphoneOff === null ? "contain" : "cover"}
+        onPictureAttached={() => onPictureAttached?.("large picture")}
         {medium}
       >
         {#snippet menu()}

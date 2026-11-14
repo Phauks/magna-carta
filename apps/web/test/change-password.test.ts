@@ -44,7 +44,7 @@ describe("what a refused password change says", () => {
   it("falls back rather than echoing a code it does not know", () => {
     expect(passwordChangeRefusal("SOME_FUTURE_CODE")).toBe(CHANGE_REFUSED_UNKNOWN);
     expect(passwordChangeRefusal(undefined)).toBe(CHANGE_REFUSED_UNKNOWN);
-    expect(CHANGE_REFUSED_UNKNOWN).toContain("not changed");
+    expect(CHANGE_REFUSED_UNKNOWN).toContain("wasn't changed");
   });
 });
 
