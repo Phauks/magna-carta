@@ -242,6 +242,15 @@
   evidence: packages/sequence-numbering/src/purposes.ts + scheme-draw.ts; packages/conflicts/src/check-numbering.ts and the draw in check-run.ts; packages/custodian/src/packet-service.ts; the draws in packages/billing/src/finalize.ts, packages/timekeeping/src/entry-numbering.ts and packages/communications/src/communication-service.ts; GET /api/v1/numbering-schemes in apps/api-worker/src/http/routes/firm/numbering.ts; apps/web/src/routes/(app)/settings/numbering/+page.svelte; the per-firm migrations 20260918T195508_conflicts-check-numbering-scheme and 20261002T192145_communication-number-scope-parts
   notes: Shipped 2026-09-18; the last three fixed runs became schemes on 2026-09-20. Conflicts checks default to CC2026-00001 restarting each year (a four-digit firm-wide run was the wrong default for the busiest sequence); custody keeps CUS-00001 as its default. Invoice, time-entry and call numbers are schemes like the rest, each defaulting to byte-for-byte what it rendered before — which needed the month, day and matter-number parts plus scopeSource (template-derived scope versus a key the domain passes) and scopeDistinguishedBy on the register. A new sequence is a row here and a draw site; nothing about its shape goes in the owning package.
 
+- id: matters.numbering.draft-numbers
+  name: Draft numbers held while a record is created
+  scope: A create panel holds the number its record will be saved under, shows it in italics, renews it while open, and gives it back on cancel or after fifteen minutes; the draw planner fills given-back numbers first so no run keeps a gap. Matter, consultation, intake, conflicts check, custody packet and call numbers; never invoices.
+  status: shipped
+  surface: screen
+  slices: 1-1-matters-locations-file-manager
+  evidence: packages/sequence-numbering/src/reservation.ts + reservation-statements.ts and the reserved path in scheme-draw.ts; the number_reservation table (per-firm migration 20261114T003422_number-reservation); POST and DELETE /api/v1/number-reservations in apps/api-worker/src/http/routes/firm/number-reservations.ts; DraftNumber in packages/design-system/src/lib/components/record-reference/draft-number.svelte.ts; apps/web/src/lib/records/draft-number-keeper.ts; the new matter, new check, new packet and call log windows
+  notes: Owner ruling 2026-11-14. Replaced the "A number is drawn when this is saved." sentence and the next-number previews. An Open Matter draft renders only where the firm's matter scheme can be rendered from the client name and practice area code the window knows.
+
 - id: matters.numbering.location-segment
   name: Location segment in numbering
   scope: Optional location segment/prefix in the numbering scheme.

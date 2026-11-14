@@ -57,9 +57,9 @@ fn fill(ink: Ink, accent: Option<Rgb>) -> Option<Fill> {
         (Ink::Accent { .. }, Some(accent)) => {
             rgb::Color::new(accent.red, accent.green, accent.blue).into()
         }
-        (Ink::Accent { fallback: gray }, None) | (Ink::Gray(gray), _) => {
-            luma::Color::new(gray).into()
-        }
+        (Ink::Alert { .. }, Some(_)) => rgb::Color::new(168, 30, 30).into(),
+        (Ink::Accent { fallback: gray } | Ink::Alert { fallback: gray }, None)
+        | (Ink::Gray(gray), _) => luma::Color::new(gray).into(),
     };
     Some(Fill {
         paint,

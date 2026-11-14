@@ -46,6 +46,9 @@ export const CallMessageRequest = z
 export const LogCommunicationRequest = z
   .object({
     channel: channelField,
+    // The draft number the panel holds (POST /api/v1/number-reservations). Where the hold is still
+    // the call's day, the call is saved under exactly that number.
+    numberReservation: z.string().min(1).max(100).optional(),
     direction: directionField,
     // Optional, and an UNNUMBERED matter counts: matter_number is null until a matter opens, and an
     // intake or a consultation is a real anchor a first contact usually lands on. Omit it and the

@@ -310,11 +310,6 @@
                   >
                     Website: {site.label}
                   </Command.Item>
-                {:else if site.href === null && site.route !== undefined}
-                  {@const siteRoute = site.route}
-                  <Command.Item onSelect={() => navigateTo(siteRoute)}>
-                    Website: {site.label}
-                  </Command.Item>
                 {:else if site.href !== null}
                   {@const siteHref = site.href}
                   <Command.Item onSelect={() => openEcosystemSite(siteHref)}>
