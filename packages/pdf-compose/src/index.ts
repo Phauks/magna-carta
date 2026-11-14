@@ -75,6 +75,13 @@ export type ComposeBlock =
       readonly width?: number;
       readonly alignment?: ComposeAlignment;
       readonly caption?: string;
+      /** A short line set small and bold above the picture, saying what it is. */
+      readonly label?: string;
+      /**
+       * Set this picture on the line of the image block before it, in the second half of the
+       * width, the two starting level. Without a picture directly before it, it stands alone.
+       */
+      readonly beside?: boolean;
     }
   | {
       readonly type: "table";

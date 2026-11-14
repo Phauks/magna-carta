@@ -59,6 +59,7 @@ function sealBody(): string {
         // observedIp is deliberately omitted from the request schema — the server sets it.
         attribution: { level: "firm-authenticated", codeDestination: "(702) 555-0120" },
         signatureImageBase64: "iVBORw0K",
+        initialsImageBase64: "iVBORw0K",
       },
     ],
     documentTitle: "Engagement letter.pdf",
@@ -135,7 +136,8 @@ describe("POST /api/v1/documents/seal", () => {
     expect(port.lastRequest?.signatureImages).toEqual([
       { signerId: "usr_seal", image: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]) },
     ]);
-    expect(JSON.stringify(port.lastRequest?.signers)).not.toContain("signatureImageBase64");
+    expect(port.lastRequest?.initialsImages).toEqual(port.lastRequest?.signatureImages);
+    expect(JSON.stringify(port.lastRequest?.signers)).not.toContain("ImageBase64");
 
     // The certificate comes back as a PDF too, and names the document and a reference.
     expect(atob(body.certificatePdfBase64)).toContain("%PDF-");

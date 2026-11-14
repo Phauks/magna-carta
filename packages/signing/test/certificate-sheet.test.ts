@@ -321,8 +321,27 @@ describe("certificateSheet", () => {
       return blocks.slice(start, end);
     };
     // The picture is the second in the list the composer is given, after the lockup.
-    expect(record(signatureImages).at(-1)).toEqual({ type: "image", image: 1, width: 108 });
+    expect(record(signatureImages).at(-1)).toEqual({
+      type: "image",
+      label: "Signature",
+      image: 1,
+      width: 108,
+    });
     expect(certificateSheetImages(signatureImages)).toHaveLength(2);
+    // Initials stand beside the signature, and come after every signature in the pictures.
+    const initialsImages = [{ signerId: "sgn_1", image: png(200, 200) }];
+    const both = certificateSheet(certificate(), { signatureImages, initialsImages }).blocks;
+    expect(both.filter((block) => block.type === "image")).toEqual([
+      { type: "image", label: "Signature", image: 1, width: 108 },
+      { type: "image", label: "Initials", image: 2, width: 36, beside: true },
+    ]);
+    expect(certificateSheetImages(signatureImages, initialsImages)).toHaveLength(3);
+    // Initials with no signature take the signature's place on the line.
+    expect(
+      certificateSheet(certificate(), { initialsImages }).blocks.filter(
+        (block) => block.type === "image",
+      ),
+    ).toEqual([{ type: "image", label: "Initials", image: 1, width: 36 }]);
     // A very wide signature is held to the length of a signature line.
     expect(record([{ signerId: "sgn_1", image: png(4000, 200) }]).at(-1)).toMatchObject({
       width: 200,

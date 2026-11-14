@@ -48,7 +48,15 @@ export type CertificateSheetBlock =
       readonly rows: readonly (readonly string[])[];
     }
   /** A picture named by its position in the list passed to the composer beside the sheet. */
-  | { readonly type: "image"; readonly image: number; readonly width: number };
+  | {
+      readonly type: "image";
+      readonly image: number;
+      readonly width: number;
+      /** What the picture is, set small above it. */
+      readonly label: string;
+      /** Set on the line of the picture before it. */
+      readonly beside?: true;
+    };
 
 /** A document the PDF composer accepts as it stands. */
 export interface CertificateSheet {
@@ -100,8 +108,13 @@ const ACCENT = [98, 72, 0] as const;
  */
 export function certificateSheetImages(
   signatureImages: readonly SignatureImage[] = [],
+  initialsImages: readonly SignatureImage[] = [],
 ): Uint8Array[] {
-  return [brandLockupPng(), ...signatureImages.map((signature) => signature.image)];
+  return [
+    brandLockupPng(),
+    ...signatureImages.map((signature) => signature.image),
+    ...initialsImages.map((initials) => initials.image),
+  ];
 }
 
 /**
@@ -142,6 +155,8 @@ export interface CertificateSheetOptions {
    * one is recorded by how they adopted their signature alone.
    */
   readonly signatureImages?: readonly SignatureImage[];
+  /** The signers' initials as pictures, each printed beside its signer's signature. */
+  readonly initialsImages?: readonly SignatureImage[];
 }
 
 /**
@@ -156,13 +171,13 @@ const SIGNATURE_WIDTH = 200;
  * The width to print a signature at. A PNG says its size in its first chunk, and that gives the
  * width its height allows; any other picture is printed at the width of a short signature.
  */
-function signatureWidth(image: Uint8Array): number {
+function signatureWidth(image: Uint8Array, widest = SIGNATURE_WIDTH): number {
   const isPng = image.length >= 24 && image[0] === 0x89 && image[1] === 0x50;
-  if (!isPng) return SIGNATURE_WIDTH / 2;
+  if (!isPng) return widest / 2;
   const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
   const [width, height] = [view.getUint32(16), view.getUint32(20)];
-  if (width === 0 || height === 0) return SIGNATURE_WIDTH / 2;
-  return Math.min(SIGNATURE_WIDTH, Math.round((SIGNATURE_HEIGHT * width) / height));
+  if (width === 0 || height === 0) return widest / 2;
+  return Math.min(widest, Math.round((SIGNATURE_HEIGHT * width) / height));
 }
 
 /** The platform's name, where no issuer contact says otherwise. */
@@ -415,6 +430,17 @@ export function certificateSheet(
       { image: index + 1, width: signatureWidth(signature.image) },
     ]),
   );
+  // Initials follow every signature in that list. They are a few letters, so half the width.
+  const initialsOffset = 1 + (options.signatureImages ?? []).length;
+  const initials = new Map(
+    (options.initialsImages ?? []).map((picture, index) => [
+      picture.signerId,
+      {
+        image: initialsOffset + index,
+        width: signatureWidth(picture.image, SIGNATURE_WIDTH / 2),
+      },
+    ]),
+  );
   const detailPages = Math.ceil(signers.length / SIGNERS_PER_PAGE);
   for (const [index, signer] of signers.entries()) {
     if (index % SIGNERS_PER_PAGE === 0) {
@@ -459,18 +485,25 @@ export function certificateSheet(
     }
     // Each signer is a card of their own, which is what parts the two who share a page. The
     // short facts are set in two columns; where they signed from takes the full width;
-    // the signature, where there is a picture of it, closes the record.
+    // the signature and the initials, where there are pictures of them, close the record.
     blocks.push(
       { type: "cardStart", title: signerDisplayName(signer) },
       { type: "fields", fields, twoUp: true },
     );
     if (observed.length > 0) blocks.push({ type: "fields", fields: observed });
     const signature = signatures.get(signer.intent.signerId);
+    const initialed = initials.get(signer.intent.signerId);
     if (signature !== undefined) {
-      blocks.push(
-        { type: "paragraph", small: true, spans: [{ text: "Signature", bold: true }] },
-        { type: "image", image: signature.image, width: signature.width },
-      );
+      blocks.push({ type: "image", label: "Signature", ...signature });
+    }
+    if (initialed !== undefined) {
+      // Beside the signature where there is one, and in its place where there is not.
+      blocks.push({
+        type: "image",
+        label: "Initials",
+        ...initialed,
+        ...(signature !== undefined ? { beside: true as const } : {}),
+      });
     }
     blocks.push({ type: "cardEnd" });
   }

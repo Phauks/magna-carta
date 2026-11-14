@@ -230,6 +230,7 @@ describe("sign worker — platform seal on workerd", () => {
             },
           ],
           signatureImages: [{ signerId: signer.intent.signerId, image }],
+          initialsImages: [{ signerId: signer.intent.signerId, image: drawn }],
         },
         { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
         engines,
@@ -240,12 +241,12 @@ describe("sign worker — platform seal on workerd", () => {
       );
     };
     const signed = await lines(drawn);
-    // The record's last line of text is the caption the picture sits under.
-    expect(signed).toContain("Signature");
+    // The record closes with the two pictures on one line, each under what it is.
+    expect(signed.join("\n")).toMatch(/^Signature\s+Initials$/m);
     expect(signed.join("\n")).toContain("Code Sent To");
     // Bytes that are no picture leave the signature off; the certificate is still issued.
     const unread = await lines(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
-    expect(unread).not.toContain("Signature");
+    expect(unread.join("\n")).not.toMatch(/^Signature\s+Initials$/m);
     expect(unread.join("\n")).toContain("Alice Example");
   });
 

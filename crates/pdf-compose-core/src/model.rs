@@ -227,6 +227,11 @@ pub struct ImageBlock {
     pub alignment: Alignment,
     /// A line of text set under the picture.
     pub caption: Option<String>,
+    /// A short line set small and bold above the picture, saying what it is.
+    pub label: Option<String>,
+    /// Set this picture on the line of the image block before it, in the second half of the
+    /// width, the two starting level. Without a picture directly before it, it stands alone.
+    pub beside: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]

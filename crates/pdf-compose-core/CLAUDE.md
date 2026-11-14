@@ -52,6 +52,10 @@ The sign Worker composes the Certificate of Completion with it.
   a page is framed there and opened again on the next. `Flow::trailing_gap` is what lets the frame
   close under the last block: `gap` adds to it and `mark` clears it, so push a frame onto the page
   directly.
+- **Two pictures share a line by the second asking.** `ImageBlock::beside` sets a picture in the
+  second half of the line the image block before it opened (`Flow::image_row`); anything laid out
+  between the two, or a page break, and it stands alone. Each is still one image block, so the
+  positions in the image list do not change.
 - **Under a letterhead the footer is measured from the content**, `Letterhead::FOOTER_HEIGHT`
   below it, as the band above is `Letterhead::HEIGHT`. A caller sets the top and bottom margins to
   those plus one distance from the paper's edge and the bar and the page number land that far in.

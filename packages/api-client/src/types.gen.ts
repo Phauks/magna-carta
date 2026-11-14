@@ -20758,6 +20758,7 @@ export type EsignSealData = {
                 codeDestination?: string;
             };
             signatureImageBase64?: string;
+            initialsImageBase64?: string;
         }>;
         documentTitle?: string;
         seal?: {

@@ -47,9 +47,11 @@ export interface SealRequest {
    * that cannot be read is left off the sheet; it never stops the seal.
    */
   readonly signatureImages?: readonly SignatureImage[];
+  /** The signers' initials as pictures, carried and printed as their signatures are. */
+  readonly initialsImages?: readonly SignatureImage[];
 }
 
-/** One signer's signature as a picture. */
+/** One signer's signature, or their initials, as a picture. */
 export interface SignatureImage {
   readonly signerId: string;
   readonly image: Uint8Array;
@@ -90,6 +92,7 @@ interface WireSealRequest {
   envelope?: SigningEnvelope;
   events?: readonly SigningEvent[];
   signatureImages?: readonly { signerId: string; image: string }[];
+  initialsImages?: readonly { signerId: string; image: string }[];
 }
 
 interface WireSealResponse {
@@ -100,6 +103,14 @@ interface WireSealResponse {
   certificatePdf: string;
 }
 
+function encodePicture(picture: SignatureImage): { signerId: string; image: string } {
+  return { signerId: picture.signerId, image: toBase64(picture.image) };
+}
+
+function decodePicture(picture: { signerId: string; image: string }): SignatureImage {
+  return { signerId: picture.signerId, image: fromBase64(picture.image) };
+}
+
 export function encodeSealRequest(request: SealRequest): string {
   const wire: WireSealRequest = {
     document: toBase64(request.document),
@@ -108,10 +119,8 @@ export function encodeSealRequest(request: SealRequest): string {
     seal: request.seal,
     envelope: request.envelope,
     events: request.events,
-    signatureImages: request.signatureImages?.map((signature) => ({
-      signerId: signature.signerId,
-      image: toBase64(signature.image),
-    })),
+    signatureImages: request.signatureImages?.map(encodePicture),
+    initialsImages: request.initialsImages?.map(encodePicture),
   };
   return JSON.stringify(wire);
 }
@@ -126,12 +135,10 @@ export function decodeSealRequest(json: string): SealRequest {
     ...(wire.envelope !== undefined ? { envelope: wire.envelope } : {}),
     ...(wire.events !== undefined ? { events: wire.events } : {}),
     ...(wire.signatureImages !== undefined
-      ? {
-          signatureImages: wire.signatureImages.map((signature) => ({
-            signerId: signature.signerId,
-            image: fromBase64(signature.image),
-          })),
-        }
+      ? { signatureImages: wire.signatureImages.map(decodePicture) }
+      : {}),
+    ...(wire.initialsImages !== undefined
+      ? { initialsImages: wire.initialsImages.map(decodePicture) }
       : {}),
   };
 }

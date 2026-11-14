@@ -87,7 +87,7 @@ export async function performSeal(
   const composeSheet = async (options: CertificateSheetOptions) =>
     composeDocument(
       certificateSheet(certificate, options),
-      certificateSheetImages(options.signatureImages),
+      certificateSheetImages(options.signatureImages, options.initialsImages),
     );
   const composeReadable = async (options: CertificateSheetOptions) => {
     const first = await composeSheet(options);
@@ -97,10 +97,11 @@ export async function performSeal(
   };
   let sheet: Awaited<ReturnType<typeof composeSheet>>;
   const signatureImages = request.signatureImages ?? [];
+  const initialsImages = request.initialsImages ?? [];
   try {
-    sheet = await composeReadable({ ...issuer, signatureImages });
+    sheet = await composeReadable({ ...issuer, signatureImages, initialsImages });
   } catch (error) {
-    if (signatureImages.length === 0) throw error;
+    if (signatureImages.length + initialsImages.length === 0) throw error;
     sheet = await composeReadable(issuer);
   }
   const sealedSheet = await sealDocument({

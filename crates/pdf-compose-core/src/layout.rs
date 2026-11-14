@@ -6,8 +6,8 @@
 
 use crate::fonts::{Face, Measurer};
 use crate::model::{
-    Alignment, Block, Column, ComposedDocument, Field, Letterhead, PageSetup, Paragraph,
-    RunningLine, Table,
+    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
+    Paragraph, RunningLine, Table,
 };
 use crate::ComposeError;
 
@@ -409,7 +409,19 @@ struct OpenCard {
     rule_due: bool,
 }
 
+/// The line the last picture was set on, for a picture that asks to stand beside it.
+#[derive(Clone, Copy)]
+struct ImageRow {
+    /// The number of pages when it was set, which names the page it is on.
+    page: usize,
+    top: f32,
+    bottom: f32,
+    /// Where the flow stood after it. Anything laid out since has moved the flow on.
+    cursor: f32,
+}
+
 struct Flow<'a, 'f> {
+    image_row: Option<ImageRow>,
     card: Option<OpenCard>,
     /// The gap most recently added below a block, with nothing drawn since: what a card takes
     /// back so its frame closes at its own padding under the last block.
@@ -722,19 +734,40 @@ impl Flow<'_, '_> {
         &mut self,
         index: usize,
         size: ImageSize,
-        requested_width: Option<f32>,
-        alignment: Alignment,
-        caption: Option<&str>,
+        block: &ImageBlock,
     ) -> Result<(), ComposeError> {
         let inset = self.inset();
         let content_width = self.page.content_width() - 2.0 * inset;
-        self.loose_block();
-        let caption_lines = match caption {
+        // A picture set beside the one before it takes the second half of the line that one
+        // opened, and starts level with it. With no picture directly above, it stands alone.
+        let row = self.image_row.take().filter(|row| {
+            block.beside && row.page == self.pages.len() && (row.cursor - self.cursor).abs() < 0.01
+        });
+        let (left, available) = match row {
+            // The half starts where the second column of a two-up list of fields starts.
+            Some(_) => (
+                self.left() + 2.0 * inset + content_width / 2.0,
+                content_width / 2.0 - inset,
+            ),
+            None => (self.left() + inset, content_width),
+        };
+        let label_lines = match block.label.as_deref() {
+            Some(label) if !label.trim().is_empty() => break_lines(
+                self.measurer,
+                &plain(Face::Bold, label),
+                CAPTION.size,
+                available,
+            ),
+            _ => Vec::new(),
+        };
+        let label_height = label_lines.len() as f32 * CAPTION.line_height
+            + if label_lines.is_empty() { 0.0 } else { 2.0 };
+        let caption_lines = match block.caption.as_deref() {
             Some(caption) if !caption.trim().is_empty() => break_lines(
                 self.measurer,
                 &plain(Face::Italic, caption),
                 CAPTION.size,
-                content_width,
+                available,
             ),
             _ => Vec::new(),
         };
@@ -742,23 +775,39 @@ impl Flow<'_, '_> {
             + if caption_lines.is_empty() { 0.0 } else { 4.0 };
         let aspect = size.pixel_height.max(1) as f32 / size.pixel_width.max(1) as f32;
         let natural_width = size.pixel_width as f32 / NATURAL_PIXELS_PER_POINT;
-        let mut width = requested_width
+        let mut width = block
+            .width
             .filter(|width| width.is_finite() && *width > 0.0)
             .unwrap_or(natural_width)
-            .min(content_width);
-        // Never taller than a page can hold with its caption: a picture cannot be split.
-        let tallest = (self.page.content_height() - caption_height).max(1.0);
+            .min(available);
+        // Never taller than a page can hold with its label and caption: a picture cannot be
+        // split.
+        let tallest = (self.page.content_height() - label_height - caption_height).max(1.0);
         if width * aspect > tallest {
             width = tallest / aspect;
         }
         let height = width * aspect;
-        self.ensure(height + caption_height)?;
-        let x = match alignment {
-            Alignment::Start => self.left() + inset,
-            Alignment::Center => self.left() + inset + (content_width - width) / 2.0,
-            Alignment::End => self.left() + inset + content_width - width,
+        let top = match row {
+            Some(row) => row.top,
+            None => {
+                self.loose_block();
+                self.ensure(label_height + height + caption_height)?;
+                self.cursor
+            }
         };
-        let y = self.cursor;
+        let mut y = top;
+        for line in &label_lines {
+            self.draw_line(line, left, available, block.alignment, CAPTION, y);
+            y += CAPTION.line_height;
+        }
+        if !label_lines.is_empty() {
+            y += 2.0;
+        }
+        let x = match block.alignment {
+            Alignment::Start => left,
+            Alignment::Center => left + (available - width) / 2.0,
+            Alignment::End => left + available - width,
+        };
         self.mark(Mark::Image {
             index,
             x,
@@ -766,12 +815,24 @@ impl Flow<'_, '_> {
             width,
             height,
         });
-        self.cursor += height;
+        y += height;
         if !caption_lines.is_empty() {
-            self.cursor += 4.0;
-            self.flow_lines(&caption_lines, alignment, CAPTION)?;
+            y += 4.0;
+            for line in &caption_lines {
+                self.draw_line(line, left, available, block.alignment, CAPTION, y);
+                y += CAPTION.line_height;
+            }
         }
+        // The line is as tall as the taller of the pictures on it.
+        let bottom = row.map_or(y, |row| row.bottom.max(y));
+        self.cursor = bottom;
         self.gap(BLOCK_GAP);
+        self.image_row = Some(ImageRow {
+            page: self.pages.len(),
+            top,
+            bottom,
+            cursor: self.cursor,
+        });
         Ok(())
     }
 
@@ -1304,6 +1365,7 @@ pub(crate) fn lay_out(
     let mut flow = Flow {
         card: None,
         trailing_gap: 0.0,
+        image_row: None,
         page,
         measurer,
         pages: Vec::new(),
@@ -1342,13 +1404,7 @@ pub(crate) fn lay_out(
                     .get(image_index)
                     .copied()
                     .ok_or(ComposeError::Write)?;
-                flow.image(
-                    image_index,
-                    size,
-                    image.width,
-                    image.alignment,
-                    image.caption.as_deref(),
-                )?;
+                flow.image(image_index, size, image)?;
                 image_index += 1;
             }
             Block::Table(table) => flow.table(table)?,
@@ -1594,5 +1650,69 @@ mod tests {
             "{height} against {expected}"
         );
         assert_eq!(top, document.page.margin_top);
+    }
+
+    #[test]
+    fn a_picture_set_beside_another_shares_its_line_and_starts_level_with_it() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let picture = |label: &str, width: f32, beside: bool| {
+            Block::Image(ImageBlock {
+                width: Some(width),
+                label: Some(label.to_string()),
+                beside,
+                ..ImageBlock::default()
+            })
+        };
+        let document = ComposedDocument {
+            blocks: vec![
+                picture("Signature", 120.0, false),
+                picture("Initials", 40.0, true),
+                Block::Paragraph(Paragraph::plain("After")),
+                // With text between it and the last picture, there is no line to share.
+                picture("Alone", 40.0, true),
+            ],
+            ..ComposedDocument::default()
+        };
+        // Three to one, and two squares.
+        let sizes =
+            [(300, 100), (100, 100), (100, 100)].map(|(pixel_width, pixel_height)| ImageSize {
+                pixel_width,
+                pixel_height,
+            });
+        let pages = lay_out(&document, &sizes, &mut measurer).unwrap();
+        let page = document.page;
+        let pictures: Vec<(f32, f32, f32)> = pages[0]
+            .marks
+            .iter()
+            .filter_map(|mark| match mark {
+                Mark::Image { x, y, height, .. } => Some((*x, *y, *height)),
+                _ => None,
+            })
+            .collect();
+        let text_top = |wanted: &str| {
+            pages[0]
+                .marks
+                .iter()
+                .find_map(|mark| match mark {
+                    Mark::Text { text, baseline, .. } if text == wanted => Some(*baseline),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let [(first_x, first_y, first_height), (second_x, second_y, second_height), (third_x, third_y, _)] =
+            pictures[..]
+        else {
+            panic!("{pictures:?}");
+        };
+        assert_eq!(first_x, page.margin_left);
+        assert_eq!(second_x, page.margin_left + page.content_width() / 2.0);
+        assert_eq!(first_y, second_y);
+        assert_eq!(text_top("Signature"), text_top("Initials"));
+        // What follows starts under the taller of the two.
+        assert_eq!((first_height, second_height), (40.0, 40.0));
+        assert!(text_top("After") > first_y + 40.0);
+        assert_eq!(third_x, page.margin_left);
+        assert!(third_y > text_top("After"));
     }
 }

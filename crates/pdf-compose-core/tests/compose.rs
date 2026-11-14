@@ -238,6 +238,7 @@ fn pictures_are_embedded_and_cover_the_page_where_they_are_drawn() {
                 width: Some(400.0),
                 alignment: Alignment::Center,
                 caption: Some("Exhibit A, taken at the scene".to_string()),
+                ..ImageBlock::default()
             }),
             image_block(jpeg(640, 480, None)),
         ]),

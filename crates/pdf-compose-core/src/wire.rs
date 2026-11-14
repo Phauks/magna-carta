@@ -183,6 +183,9 @@ enum WireBlock {
         #[serde(default)]
         alignment: WireAlignment,
         caption: Option<String>,
+        label: Option<String>,
+        #[serde(default)]
+        beside: bool,
     },
     Table {
         columns: Vec<WireColumn>,
@@ -283,6 +286,8 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                 width,
                 alignment: wire_alignment,
                 caption,
+                label,
+                beside,
             } => {
                 let data = images
                     .get(image)
@@ -292,6 +297,8 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                     width,
                     alignment: alignment(wire_alignment),
                     caption,
+                    label,
+                    beside,
                 })
             }
             WireBlock::Table {

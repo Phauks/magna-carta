@@ -50,6 +50,7 @@ const SignerCompletionInput = z.object({
   // The signer's signature as they adopted it, a PNG or JPEG, printed on their record in the
   // certificate. About 256 KiB of picture at most; a typed signature needs none.
   signatureImageBase64: z.string().min(1).max(350_000).optional(),
+  initialsImageBase64: z.string().min(1).max(350_000).optional(),
 });
 
 export const DocumentSealRequest = z.object({

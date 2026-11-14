@@ -68826,6 +68826,11 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 350000
+                        },
+                        "initialsImageBase64": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 350000
                         }
                       },
                       "required": [
