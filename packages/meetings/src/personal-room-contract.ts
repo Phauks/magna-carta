@@ -56,7 +56,12 @@ export const OpenPersonalRoomRequest = z
   .meta({ id: "OpenPersonalRoomRequest" });
 
 export const OpenPersonalRoomResponse = z
-  .object({ meetingId: z.string(), created: z.boolean() })
+  .object({
+    meetingId: z.string(),
+    // The nine digits the session is addressed by: /meeting/482-917-305.
+    joinCode: z.string().nullable(),
+    created: z.boolean(),
+  })
   .meta({ id: "OpenPersonalRoomResponse" });
 
 export const PersonalRoomAtLinkResponse = z
@@ -74,6 +79,8 @@ export const PersonalRoomAtLinkResponse = z
     // for a shared one.
     mayOpen: z.boolean(),
     meetingId: z.string().nullable(),
+    // The open session's nine-digit address; null while the room is closed.
+    joinCode: z.string().nullable(),
   })
   .meta({ id: "PersonalRoomAtLink" });
 

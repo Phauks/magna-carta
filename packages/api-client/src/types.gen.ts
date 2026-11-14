@@ -7946,6 +7946,7 @@ export type UpdatePersonalRoomRequest = {
 
 export type OpenPersonalRoomResponse = {
     meetingId: string;
+    joinCode: string | null;
     created: boolean;
 };
 
@@ -7979,6 +7980,7 @@ export type PersonalRoomAtLink = {
     kind: 'personal' | 'shared';
     mayOpen: boolean;
     meetingId: string | null;
+    joinCode: string | null;
 };
 
 export type MoveMeetingToMatterResponse = {

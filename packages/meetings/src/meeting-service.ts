@@ -219,13 +219,15 @@ export function openMeetingOnEvent(
     readonly personalRoomId?: MeetingPersonalRoomId;
   },
   options: MeetingServiceOptions,
-): { meetingId: MeetingId; effect: EffectWrite } {
+): { meetingId: MeetingId; joinCode: string; effect: EffectWrite } {
   const now = options.clock.now();
   const meetingId = newIdentifier("meeting", options.randomSource);
   const medium = input.medium ?? DEFAULT_MEETING_MEDIUM;
   const lobby = input.lobby ?? DEFAULT_MEETING_LOBBY;
+  const joinCode = newMeetingJoinCode(options.randomSource);
   return {
     meetingId,
+    joinCode,
     effect: {
       statements: [
         insertMeetingStatement(database, {
@@ -238,7 +240,7 @@ export function openMeetingOnEvent(
           createdByUserId: options.actorUserId,
           personalRoomId: input.personalRoomId ?? null,
           encrypted: input.encrypted ?? false,
-          joinCode: newMeetingJoinCode(options.randomSource),
+          joinCode,
           now,
         }),
         // THE STARTER IS THE HOST, written in the same batch as the room.

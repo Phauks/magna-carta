@@ -15,14 +15,20 @@
 import { goto } from "$app/navigation";
 import { reserveBeside } from "$lib/navigation/open-beside.ts";
 
-/** The room's address. */
-export function meetingRoomAddress(meetingId: string): string {
-  return `/meetings/${encodeURIComponent(meetingId)}`;
+/**
+ * The room's address: its nine digits, /meeting/482-917-305, which is what every Join and Start
+ * opens. The meeting's long reference (/meetings/<id>) is only the fallback for a meeting that has
+ * no code, which no meeting written since the codes were introduced lacks.
+ */
+export function meetingRoomAddress(meetingId: string, joinCode: string | null = null): string {
+  return joinCode === null
+    ? `/meetings/${encodeURIComponent(meetingId)}`
+    : meetingCodeAddress(joinCode);
 }
 
 /**
  * The meeting's own address, by its nine digits in three groups: /meeting/482-917-305. It is what a
- * member copies and sends; Join and Start open `meetingRoomAddress`, which shows this one in its place.
+ * member copies and sends, and what Join and Start open.
  */
 export function meetingCodeAddress(joinCode: string): string {
   return `/meeting/${formatMeetingCode(joinCode)}`;
@@ -55,16 +61,21 @@ function opener(): WindowOpener | null {
 }
 
 /** Open a meeting whose address is known now. Call it inside the press. */
-export function openMeetingTab(meetingId: string, open: WindowOpener | null = opener()): void {
-  const tab = open?.(meetingRoomAddress(meetingId), meetingTabName(meetingId)) ?? null;
-  if (tab === null) void goto(meetingRoomAddress(meetingId));
+export function openMeetingTab(
+  meetingId: string,
+  joinCode: string | null,
+  open: WindowOpener | null = opener(),
+): void {
+  const address = meetingRoomAddress(meetingId, joinCode);
+  const tab = open?.(address, meetingTabName(meetingId)) ?? null;
+  if (tab === null) void goto(address);
   else tab.focus();
 }
 
 /** A tab reserved on a press for a meeting whose address a write has not answered yet. */
 export interface ReservedMeetingTab {
   /** Point the tab at the room, or open the room here if no tab could be reserved. */
-  open(meetingId: string): void;
+  open(meetingId: string, joinCode: string | null): void;
   /** The write was refused: give the tab back. */
   cancel(): void;
 }
@@ -77,13 +88,14 @@ export function reserveMeetingTab(
 ): ReservedMeetingTab {
   const tab = reserve?.() ?? null;
   return {
-    open(meetingId) {
+    open(meetingId, joinCode) {
+      const address = meetingRoomAddress(meetingId, joinCode);
       if (tab === null || tab.closed) {
-        void goto(meetingRoomAddress(meetingId));
+        void goto(address);
         return;
       }
       tab.name = meetingTabName(meetingId);
-      tab.location.href = new URL(meetingRoomAddress(meetingId), window.location.href).href;
+      tab.location.href = new URL(address, window.location.href).href;
       tab.focus();
     },
     cancel() {

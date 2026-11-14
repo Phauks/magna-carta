@@ -129,7 +129,7 @@
     const outcome = await startMeeting(eventKind, eventId, medium, holdArrivals ? "on" : "off");
     starting = null;
     if (outcome.kind === "ok") {
-      tab.open(outcome.value.id);
+      tab.open(outcome.value.id, outcome.value.joinCode);
       return;
     }
     tab.cancel();
@@ -145,9 +145,9 @@
    * calendar would be told a recording was running by the banner alone. The page holds one device,
    * and the room chimes on the same one.
    */
-  function enter(meetingId: string): void {
+  function enter(meeting: { readonly id: string; readonly joinCode: string | null }): void {
     pageRecordingSounds.unlock();
-    openMeetingTab(meetingId);
+    openMeetingTab(meeting.id, meeting.joinCode);
   }
 
   /** What the running room is called, which is what its Join control has to say. */
@@ -214,7 +214,7 @@
       title={running.medium === "audio"
         ? "Go into the call running on this entry"
         : "Go into the meeting running on this entry"}
-      onclick={() => enter(running.id)}
+      onclick={() => enter(running)}
     >
       {#if running.medium === "audio"}
         <Phone class="size-16" aria-hidden="true" />
