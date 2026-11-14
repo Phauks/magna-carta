@@ -130,7 +130,12 @@ export type FirmScopedObjectClass =
   // A directory person's photograph or an organization's logo: what the firm recognises a client, a
   // witness or a counterparty by. Firm-scoped rather than matter-scoped because one record stands on
   // many matters and the picture is the record's, not any one matter's.
-  | "directory-photo";
+  | "directory-photo"
+  // A file a firm gave a record transfer, kept unchanged, and the report of a pass over one. Both
+  // belong to the firm and to no matter: a source file is a list of many matters or of none, and
+  // a report names rows of such a file.
+  | "transfer-source-file"
+  | "transfer-pass-report";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -165,6 +170,8 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "export-snapshot",
   "member-photo",
   "directory-photo",
+  "transfer-source-file",
+  "transfer-pass-report",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [
