@@ -1,8 +1,9 @@
 ---
+number: 528
 slug: a-transferred-matter-keeps-its-number-and-announces-nothing
 status: Accepted
-area: Platform
 date: 2026-11-13
+area: Platform
 summary: "A matter that arrives through a record transfer is written by its own composition, composeTransferredMatter, and not by createMatter. It keeps the number the source gave it and draws nothing from the firm's counters, takes its opening and closing instants from the source, writes no outbox message (so no conflicts check or notification follows), and is not written at all until every Directory record it names has arrived."
 ---
 

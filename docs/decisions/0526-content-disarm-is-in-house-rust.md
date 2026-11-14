@@ -1,8 +1,9 @@
 ---
+number: 526
 slug: content-disarm-is-in-house-rust
 status: Accepted
-area: File handling
 date: 2026-11-13
+area: File handling
 summary: "Content disarm and reconstruction is built in house as a pure-Rust crate (crates/disarm-core) that neutralizes in place rather than re-rendering to pixels: PDF, Office packages, RTF and pictures, each re-verified after writing. It replaces the white paper's Glasswall or pixel-rebuild options. Legacy binary Office files are refused, not disarmed."
 ---
 
