@@ -1096,6 +1096,9 @@ importers:
       '@magna-carta/tools':
         specifier: workspace:*
         version: link:../../packages/tools
+      '@magna-carta/trust':
+        specifier: workspace:*
+        version: link:../../packages/trust
       '@noble/hashes':
         specifier: 'catalog:'
         version: 2.4.0
@@ -3451,6 +3454,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/access-control':
         specifier: workspace:*

@@ -17,6 +17,8 @@ import Terminal from "@lucide/svelte/icons/terminal";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import Microscope from "@lucide/svelte/icons/microscope";
 import Package from "@lucide/svelte/icons/package";
+import Landmark from "@lucide/svelte/icons/landmark";
+import Receipt from "@lucide/svelte/icons/receipt";
 import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 
 /** A screen the way back leads to, spelled out — for destinations outside the sidebar registry. */
@@ -67,6 +69,28 @@ export const SHIPPING_BACK: BackDestination = {
   label: "Shipping & Postage",
   icon: Package,
 };
+
+/**
+ * The trust register and one account's Checks screen, the two screens the check printing screens
+ * sit under. Both name an account in the address, which the screen adds with `withAccount`: the
+ * path is the destination, the account is which one of it.
+ */
+export const TRUST_BACK: BackDestination = {
+  href: "/trust",
+  label: "Trust",
+  icon: Landmark,
+};
+
+export const TRUST_CHECKS_BACK: BackDestination = {
+  href: "/trust/checks",
+  label: "Checks",
+  icon: Receipt,
+};
+
+/** A spelled-out way back, opened on one trust account. */
+export function withAccount(back: BackDestination, trustAccountId: string): BackDestination {
+  return { ...back, href: `${back.href}?account=${encodeURIComponent(trustAccountId)}` };
+}
 
 /** The developer console — a real screen with sub-screens, deliberately outside the sidebar. */
 export const DEVELOPER_CONSOLE_BACK: BackDestination = {

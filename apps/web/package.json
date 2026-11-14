@@ -44,6 +44,7 @@
     "@magna-carta/safe-browse": "workspace:*",
     "@magna-carta/segmentation": "workspace:*",
     "@magna-carta/tools": "workspace:*",
+    "@magna-carta/trust": "workspace:*",
     "@noble/hashes": "catalog:",
     "@tanstack/svelte-query": "catalog:",
     "better-auth": "catalog:",

@@ -91,6 +91,7 @@ import sharedMeetingRoomsSql from "@magna-carta/database/drizzle/per-firm/202611
 import magnusTurnThinkingSql from "@magna-carta/database/drizzle/per-firm/20261114T013637_magnus-turn-thinking.sql";
 import documentsCanBeSentForSignatureSql from "@magna-carta/database/drizzle/per-firm/20261114T020728_documents-can-be-sent-for-signature.sql";
 import meetingChatFilesSql from "@magna-carta/database/drizzle/per-firm/20261114T021115_meeting-chat-files.sql";
+import trustCheckPrintingSql from "@magna-carta/database/drizzle/per-firm/20261114T024503_trust-check-printing.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -184,6 +185,7 @@ export function perFirmMigrations(): Migration[] {
     "20261114T013637_magnus-turn-thinking": magnusTurnThinkingSql,
     "20261114T020728_documents-can-be-sent-for-signature": documentsCanBeSentForSignatureSql,
     "20261114T021115_meeting-chat-files": meetingChatFilesSql,
+    "20261114T024503_trust-check-printing": trustCheckPrintingSql,
   });
 }
 
