@@ -150,6 +150,7 @@ export async function roomBody(
     room: {
       id: room.id,
       linkCode: room.link_code,
+      addressName: room.address_name ?? room.link_code,
       medium: room.medium,
       lobby: room.lobby,
       openMeetingId: inUse ? open.id : null,

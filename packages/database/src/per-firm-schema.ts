@@ -8852,10 +8852,19 @@ export const meeting = sqliteTable(
     // warning; they do not clear this. False for every row that predates the column, which is what
     // those meetings were.
     encrypted: integer("encrypted", { mode: "boolean" }).notNull().default(false),
+    // THE MEETING'S ADDRESS AND JOIN CODE: nine digits, shown as 482-917-305, which a person can
+    // read aloud on a call and type into a box. Written when the room is made and never changed.
+    // Nullable only because a column added to a parent table must be; every row has one, the rows
+    // that predate the column given one by the migration that added it.
+    joinCode: text("join_code"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
+    // One meeting per code, so the address names one room.
+    uniqueIndex("meeting_join_code_unique_index")
+      .on(table.joinCode)
+      .where(sql`${table.joinCode} IS NOT NULL`),
     // ONE OPEN SESSION PER PERSONAL ROOM. Opening a room is find-or-open, and two tabs pressing Open
     // in the same second must end in one session; a read-then-write cannot hold that, so the index
     // does. Ended sessions are the room's history and are many.
@@ -8895,6 +8904,10 @@ export const meeting = sqliteTable(
       sql`(${table.endedAt} IS NULL AND ${table.endedByUserId} IS NULL)
         OR (${table.endedAt} IS NOT NULL AND ${table.endedByUserId} IS NOT NULL)`,
     ),
+    check(
+      "meeting_join_code_shape_check",
+      sql`${table.joinCode} IS NULL OR (length(${table.joinCode}) = 9 AND ${table.joinCode} NOT GLOB '*[^0-9]*')`,
+    ),
     // And the same of the lock: who shut the door and when, together or neither.
     check(
       "meeting_locked_shape_check",
@@ -8931,14 +8944,26 @@ export const meetingPersonalRoom = sqliteTable(
       .notNull()
       .default("on"),
     linkReplacedAt: text("link_replaced_at"), // ISO-8601 instant
+    // THE ROOM'S ADDRESS BY NAME, /room/trevor: the owner's first name, lower case, with the rest of
+    // the name and then a number added where another room has it. Made when the room is made and not
+    // changed when the owner's name is, because a link that moves is a link that stops working. The
+    // link code beside it still works, and Get a New Link still replaces it.
+    addressName: text("address_name"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
     uniqueIndex("meeting_personal_room_owner_unique_index").on(table.ownerUserId),
+    uniqueIndex("meeting_personal_room_address_name_unique_index")
+      .on(table.addressName)
+      .where(sql`${table.addressName} IS NOT NULL`),
     uniqueIndex("meeting_personal_room_link_code_unique_index").on(table.linkCode),
     check("meeting_personal_room_medium_check", sql`${table.medium} IN ('video', 'audio')`),
     check("meeting_personal_room_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
+    check(
+      "meeting_personal_room_address_name_shape_check",
+      sql`${table.addressName} IS NULL OR (length(${table.addressName}) BETWEEN 1 AND 40 AND ${table.addressName} NOT GLOB '*[^a-z0-9-]*')`,
+    ),
     check(
       "meeting_personal_room_link_code_shape_check",
       sql`length(${table.linkCode}) = 10 AND ${table.linkCode} NOT GLOB '*[^a-z0-9]*'`,

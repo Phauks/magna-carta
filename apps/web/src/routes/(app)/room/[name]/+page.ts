@@ -7,5 +7,5 @@ import { warm } from "$lib/api/screen-data.ts";
 import type { PageLoad } from "./$types";
 
 export const load: PageLoad = ({ params }) => {
-  warm(meetingsReadRoomLinkOptions({ path: { linkCode: params.linkCode } }));
+  warm(meetingsReadRoomLinkOptions({ path: { linkCode: params.name } }));
 };
