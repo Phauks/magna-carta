@@ -131,7 +131,7 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
       "On the magna-carta Worker, set GOOGLE_CLIENT_ID and the secret GOOGLE_CLIENT_SECRET.",
     ],
     deployQueueHeading:
-      "Google Calendar connection activation — one Google Cloud project, then two secrets (2026-11-13)",
+      "Google Calendar connection activation: one Google Cloud project, then two secrets (2026-11-13)",
   },
   outgoingEmail: {
     name: "Outgoing email",

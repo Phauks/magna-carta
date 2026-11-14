@@ -441,7 +441,7 @@ sync rules.
 longest secret lifetime the portal offers. Steps 1 to 4 follow the linked Microsoft page as read on
 2026-11-10.
 
-## Google Calendar connection activation — one Google Cloud project, then two secrets (2026-11-13)
+## Google Calendar connection activation: one Google Cloud project, then two secrets (2026-11-13)
 
 Connecting a member's own Google Calendar is built and ships **dormant**, exactly as Outlook does
 above. With no Google application registered, `GET /api/v1/me/connected-accounts` says Google is
