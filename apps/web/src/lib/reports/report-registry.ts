@@ -36,6 +36,7 @@ import { sampleTrustCompliancePack } from "./trust-compliance-fixture.ts";
 import {
   presentMattersList,
   presentOperationalVolumes,
+  presentDailyTime,
   presentTimekeeperProductivity,
 } from "./activity-presenters.ts";
 import {
@@ -61,6 +62,7 @@ import {
   readOperationalVolumes,
   readPaymentsApplied,
   readRealization,
+  readDailyTime,
   readTimekeeperProductivity,
   readWorkInProgress,
   type AccountsReceivableAging,
@@ -71,6 +73,7 @@ import {
   type OperationalVolumes,
   type PaymentsApplied,
   type Realization,
+  type DailyTime,
   type TimekeeperProductivity,
   type WorkInProgress,
 } from "./report-reads.ts";
@@ -83,6 +86,7 @@ import {
   sampleOperationalVolumes,
   samplePaymentsApplied,
   sampleRealization,
+  sampleDailyTime,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
 } from "./report-samples.ts";
@@ -314,6 +318,26 @@ const timekeeperProductivity = built<TimekeeperProductivity>({
   samplePayload: sampleTimekeeperProductivity,
 });
 
+const dailyTime = built<DailyTime>({
+  id: "daily-time",
+  family: "productivity",
+  name: "Daily Time",
+  answers:
+    "Hours recorded on each day of a period, by timekeeper, billable and non-billable, and how many days each timekeeper recorded time on.",
+  permission: PRODUCTIVITY_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readDailyTime(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      locationId: scope.office,
+    }),
+  present: presentDailyTime,
+  samplePayload: sampleDailyTime,
+});
+
 const operationalVolumes = built<OperationalVolumes>({
   id: "operational-volumes",
   family: "operational",
@@ -417,6 +441,7 @@ const REPORT_LIST = [
   paymentsApplied,
   matterBalances,
   timekeeperProductivity,
+  dailyTime,
   operationalVolumes,
   mattersList,
 ] as const satisfies readonly ReportDeclaration[];

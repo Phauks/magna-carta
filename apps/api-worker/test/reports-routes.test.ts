@@ -521,6 +521,40 @@ describe("GET /api/v1/reports/timekeeper-productivity", () => {
   });
 });
 
+describe("GET /api/v1/reports/daily-time", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/daily-time?${query}`;
+
+  it("answers the Owner with time per day, live, whose days add up to the whole", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { totalMinutes: number };
+      days: { figures: { totalMinutes: number } }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.days.reduce((sum, day) => sum + day.figures.totalMinutes, 0)).toBe(
+      report.totals.totalMinutes,
+    );
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/operational-volumes", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/operational-volumes?${query}`;
 

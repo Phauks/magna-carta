@@ -3,8 +3,8 @@
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
- * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList` and
- * `reports.agedWorkInProgress` in
+ * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
+ * `reports.agedWorkInProgress` and `reports.dailyTime` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -14,6 +14,7 @@
 import {
   reportsAccountsReceivableAging,
   reportsAgedWorkInProgress,
+  reportsDailyTime,
   reportsInvoices,
   reportsMatterBalances,
   reportsMattersList,
@@ -307,6 +308,33 @@ export interface TimekeeperProductivity {
   }[];
 }
 
+export interface DailyTime {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: ProductivityFigures;
+  /** Every day with time on it, oldest first. */
+  days: {
+    workDate: string;
+    figures: ProductivityFigures;
+    timekeepers: {
+      timekeeperUserId: string;
+      timekeeperName: string | null;
+      figures: ProductivityFigures;
+    }[];
+  }[];
+  timekeepers: {
+    timekeeperUserId: string;
+    timekeeperName: string | null;
+    dayCount: number;
+    figures: ProductivityFigures;
+  }[];
+}
+
 export type OperationalSection = "matters" | "billing" | "trust" | "costs";
 
 export interface OperationalVolumes {
@@ -557,6 +585,24 @@ export function readTimekeeperProductivity(
 ): Promise<ApiOutcome<TimekeeperProductivity>> {
   return outcome(() =>
     reportsTimekeeperProductivity({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Live only, as Timekeeper Productivity is. */
+export function readDailyTime(
+  fetchImpl: typeof fetch,
+  query: Omit<PeriodQuery, "knownAsOf">,
+): Promise<ApiOutcome<DailyTime>> {
+  return outcome(() =>
+    reportsDailyTime({
       fetch: fetchImpl,
       throwOnError: true,
       query: {

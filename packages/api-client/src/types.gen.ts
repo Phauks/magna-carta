@@ -2197,6 +2197,56 @@ export type MattersListReport = {
     }>;
 };
 
+export type DailyTimeReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+        totalMinutes: number;
+        billableShareBasisPoints: number | null;
+    };
+    days: Array<{
+        workDate: string;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+        timekeepers: Array<{
+            timekeeperUserId: string;
+            timekeeperName: string | null;
+            figures: {
+                entryCount: number;
+                billableMinutes: number;
+                nonBillableMinutes: number;
+                totalMinutes: number;
+                billableShareBasisPoints: number | null;
+            };
+        }>;
+    }>;
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        dayCount: number;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -16997,6 +17047,51 @@ export type ReportsMattersListResponses = {
 };
 
 export type ReportsMattersListResponse = ReportsMattersListResponses[keyof ReportsMattersListResponses];
+
+export type ReportsDailyTimeData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/daily-time';
+};
+
+export type ReportsDailyTimeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsDailyTimeError = ReportsDailyTimeErrors[keyof ReportsDailyTimeErrors];
+
+export type ReportsDailyTimeResponses = {
+    /**
+     * The time recorded on each day of this period
+     */
+    200: DailyTimeReport;
+};
+
+export type ReportsDailyTimeResponse = ReportsDailyTimeResponses[keyof ReportsDailyTimeResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

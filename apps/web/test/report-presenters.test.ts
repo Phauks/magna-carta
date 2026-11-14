@@ -15,6 +15,7 @@ import {
   SEVERAL_OFFICES,
 } from "../src/lib/reports/financial-presenters.ts";
 import {
+  presentDailyTime,
   presentMattersList,
   presentOperationalVolumes,
   presentTimekeeperProductivity,
@@ -24,6 +25,7 @@ import { reportExportDocument, type ReportCell } from "../src/lib/reports/report
 import {
   sampleAccountsReceivableAging,
   sampleAgedWorkInProgress,
+  sampleDailyTime,
   sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
@@ -180,6 +182,33 @@ describe("the aged work in progress presenter", () => {
     const clients = presentation.sections.find((section) => section.id === "by-client");
     expect(clients?.rowDetails?.map((matters) => matters.length)).toEqual(
       report.clients.map((client) => client.matters.length),
+    );
+  });
+});
+
+describe("the daily time presenter", () => {
+  const report = sampleDailyTime();
+  const presentation = presentDailyTime(report, IDENTITY_CAPTIONS);
+
+  it("keeps to minutes, and rules the by-day table off with the payload's totals", () => {
+    expect(JSON.stringify(presentation)).not.toMatch(/\$/);
+    const days = presentation.sections.find((section) => section.id === "by-day");
+    expect(days?.rows).toHaveLength(report.days.length);
+    expect(days?.totalRow?.[0]).toBe("Firm total");
+    expect(numberOf(days?.totalRow?.[3])).toBe(report.totals.totalMinutes);
+    expect(days?.rows.map((row) => numberOf(row[3]))).toEqual(
+      report.days.map((day) => day.figures.totalMinutes),
+    );
+  });
+
+  it("opens each day onto its timekeepers, and every timekeeper reaches a row", () => {
+    const days = presentation.sections.find((section) => section.id === "by-day");
+    expect(days?.rowDetails?.map((entries) => entries.length)).toEqual(
+      report.days.map((day) => day.timekeepers.length),
+    );
+    const timekeepers = presentation.sections.find((section) => section.id === "by-timekeeper");
+    expect(timekeepers?.rows.map((row) => numberOf(row[1]))).toEqual(
+      report.timekeepers.map((timekeeper) => timekeeper.dayCount),
     );
   });
 });
