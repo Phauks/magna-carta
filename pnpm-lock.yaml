@@ -1030,6 +1030,9 @@ importers:
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../../packages/directory
+      '@magna-carta/disarm':
+        specifier: workspace:*
+        version: link:../../packages/disarm
       '@magna-carta/email':
         specifier: workspace:*
         version: link:../../packages/email
