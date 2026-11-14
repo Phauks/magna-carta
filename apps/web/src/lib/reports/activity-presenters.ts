@@ -1,6 +1,6 @@
 /*
  * The productivity reports (Timekeeper Productivity, Daily Time, Matter Productivity), the operational volumes and the
- * matters list, arranged for a screen and a file.
+ * matters list and the client list, arranged for a screen and a file.
  *
  * Totals first, then tables, as the financial reports are. Productivity is minutes and never money:
  * what the time was worth is the realization report's, on a different permission. Operational
@@ -23,8 +23,9 @@ import {
   shareCell,
   shareText,
 } from "./report-cells.ts";
-import { matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
+import { clientOffice, matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
 import type {
+  ClientList,
   DailyTime,
   MatterListRow,
   MatterProductivity,
@@ -538,6 +539,92 @@ export function presentMattersList(report: MattersList): ReportPresentation {
         subordinateColumns: [2, 3],
         aside: completenessLine(report.completeness),
         whenEmpty: "No matter has been opened.",
+      },
+    ],
+  };
+}
+
+// ---- client list ----------------------------------------------------------------------------------
+
+/** Where the directory places a client: the town and its region, as far as the record says. */
+function placeText(client: ClientList["clients"][number]): string {
+  const parts = [client.city, client.region].filter(
+    (part): part is string => part !== null && part.trim() !== "",
+  );
+  return parts.length === 0 ? "-" : parts.join(", ");
+}
+
+/**
+ * Client List: how many clients and their matters by status, then every client on its own row in
+ * the directory's name order, sortable, with the default way to reach them.
+ */
+export function presentClientList(report: ClientList): ReportPresentation {
+  const summary: ReportSummaryTile[] = [
+    {
+      label: "Open matters",
+      value: formatNumber(report.totals.openCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "On hold",
+      value: formatNumber(report.totals.heldCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Closed",
+      value: formatNumber(report.totals.closedCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Clients",
+      value: formatNumber(report.clientCount),
+      detail: counted(report.totals.matterCount, "matter", "matters"),
+      tone: "total",
+    },
+  ];
+  const withoutClient =
+    report.mattersWithoutClient === 0
+      ? undefined
+      : `${counted(report.mattersWithoutClient, "opened matter has", "opened matters have")} no client recorded and ${report.mattersWithoutClient === 1 ? "is" : "are"} not counted here.`;
+  return {
+    title: "Client List",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "clients",
+        title: "Clients",
+        headers: [
+          "Client",
+          "Email",
+          "Phone",
+          "Place",
+          "Office",
+          "Open",
+          "On hold",
+          "Closed",
+          "Total",
+        ],
+        rows: report.clients.map((client) => [
+          captionOr(client.displayName, client.clientEntityId),
+          captionOr(client.emailAddress, "-"),
+          captionOr(client.phoneNumber, "-"),
+          placeText(client),
+          clientOffice(client.locationNames.map((locationName) => ({ locationName }))),
+          ...statusCountCells(client.counts),
+        ]),
+        endAlignedColumns: [5, 6, 7, 8],
+        sortable: true,
+        subordinateColumns: [3, 4],
+        ...(withoutClient === undefined ? {} : { note: withoutClient }),
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No matter has been opened, so there are no clients to list.",
       },
     ],
   };

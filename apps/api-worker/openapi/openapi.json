@@ -10054,6 +10054,181 @@
           "matters"
         ]
       },
+      "ClientListReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "clientCount": {
+            "type": "integer"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "matterCount": {
+                "type": "integer"
+              },
+              "openCount": {
+                "type": "integer"
+              },
+              "heldCount": {
+                "type": "integer"
+              },
+              "closedCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "matterCount",
+              "openCount",
+              "heldCount",
+              "closedCount"
+            ]
+          },
+          "mattersWithoutClient": {
+            "type": "integer"
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": "string"
+                },
+                "entityKind": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "person",
+                    "organization",
+                    null
+                  ]
+                },
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "legalName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "emailAddress": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "phoneNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "city": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "region": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "country": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "counts": {
+                  "type": "object",
+                  "properties": {
+                    "matterCount": {
+                      "type": "integer"
+                    },
+                    "openCount": {
+                      "type": "integer"
+                    },
+                    "heldCount": {
+                      "type": "integer"
+                    },
+                    "closedCount": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "matterCount",
+                    "openCount",
+                    "heldCount",
+                    "closedCount"
+                  ]
+                },
+                "locationNames": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "entityKind",
+                "displayName",
+                "legalName",
+                "emailAddress",
+                "phoneNumber",
+                "city",
+                "region",
+                "country",
+                "counts",
+                "locationNames"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "reproducible",
+          "statement",
+          "locationId",
+          "completeness",
+          "clientCount",
+          "totals",
+          "mattersWithoutClient",
+          "clients"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -63933,6 +64108,101 @@
           },
           "422": {
             "description": "The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/client-list": {
+      "get": {
+        "description": "Every client of a matter the firm has opened, in name order, with the directory's default email, number and place for each and how many of their matters are open, on hold and closed. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Choosing an office narrows it to clients with matters there.",
+        "operationId": "reports.clientList",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.clientList",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:operational",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm's clients now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientListReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:operational",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The firm has more matters than one report can list",
             "content": {
               "application/problem+json": {
                 "schema": {

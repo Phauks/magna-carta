@@ -34,7 +34,8 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   same breakdown per matter with its timekeepers (live)
 - `src/operational/operational-volumes.ts` — each domain's own counts side by side, the live
   sections named; `src/operational/matters-list.ts` — the matters package's register of opened
-  matters, listed as served and counted by office (live)
+  matters, listed as served and counted by office (live); `src/operational/client-list.ts` — the clients of
+  that register, each with the directory's own listing row and its matters counted (live)
 - `src/contract.ts` — the wire rows of the financial, productivity and operational reports; the
   routes in `apps/api-worker/src/http/routes/billing/` build each top-level response over them. It is
   the one source file allowed to import zod, and nothing else here imports it (`test/purity.test.ts`)
@@ -89,7 +90,7 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
 
 ## Dependencies & contracts
 
-- Depends on `@magna-carta/trust` (the account tree, the three-way proof, the bitemporal select
+- Depends on `@magna-carta/directory` (the listing row the Client List prints), `@magna-carta/trust` (the account tree, the three-way proof, the bitemporal select
   builders), `@magna-carta/ledger` (the stored-balance fitness query and the calendar-date check),
   `@magna-carta/data-access` (the `SqlDatabase` shape only), and `@magna-carta/identifiers`.
 - **New SQL over trust or billing tables belongs in THAT package**, inside its schema-name-sync net

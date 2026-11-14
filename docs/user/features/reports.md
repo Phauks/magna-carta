@@ -23,9 +23,10 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Thirteen reports run today: the trust compliance report, accounts receivable aging, work in
+Fourteen reports run today: the trust compliance report, accounts receivable aging, work in
 progress, aged work in progress, realization, invoices, payments applied, matter balances,
-timekeeper productivity, daily time, matter productivity, operational volumes, and the matters list.
+timekeeper productivity, daily time, matter productivity, operational volumes, the matters list,
+and the client list.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
@@ -45,6 +46,10 @@ timekeeper productivity, daily time, matter productivity, operational volumes, a
   type, office, responsible attorney and the days it opened and closed, and counts them by office.
   Enquiries and consultations are not listed. It always shows the present; choose an office to
   narrow it, and sort the list by any column.
+- **Client List** lists every client of a matter the firm has opened, in name order, with their
+  email, phone number and town as their Directory record gives them, the office their matters are
+  in, and how many of their matters are open, on hold and closed. It always shows the present;
+  choose an office to see only the clients with matters there.
 - **Daily Time** shows how many hours were recorded on each day of the period you choose, billable
   and non-billable. Open a day to see who recorded the time. A second table shows each person's
   hours over the whole period and how many days they recorded time on. It adds up to the same

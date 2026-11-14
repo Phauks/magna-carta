@@ -468,3 +468,39 @@ export async function readEntityListing(
     capped: false,
   };
 }
+
+// The number of handles one statement names. A bound parameter per handle, and the per-firm
+// database caps the parameters on one statement, so a long set is read in pieces of this size.
+const LISTING_ROWS_CHUNK = 50;
+
+/**
+ * The listing rows for a named set of records, in name order: what each is called and its default
+ * way to reach it, the same row the index prints. A handle the directory holds no live row for
+ * (removed, or folded into another) has no row. For a report that has already chosen its records
+ * by something the directory does not hold, such as being a matter's client.
+ */
+export async function readEntityListingRows(
+  database: SqlDatabase,
+  entityIds: readonly string[],
+): Promise<DirectoryEntityListingRow[]> {
+  const unique = [...new Set(entityIds)];
+  const found: ListingRow[] = [];
+  for (let start = 0; start < unique.length; start += LISTING_ROWS_CHUNK) {
+    found.push(
+      ...(await readListingRowsByIdentifier(
+        database,
+        unique.slice(start, start + LISTING_ROWS_CHUNK),
+        "all",
+      )),
+    );
+  }
+  found.sort(
+    (left, right) =>
+      left.sort_name.localeCompare(right.sort_name) || left.id.localeCompare(right.id),
+  );
+  const rows: DirectoryEntityListingRow[] = [];
+  for (let start = 0; start < found.length; start += LISTING_ROWS_CHUNK) {
+    rows.push(...(await listingRowsFrom(database, found.slice(start, start + LISTING_ROWS_CHUNK))));
+  }
+  return rows;
+}

@@ -35,7 +35,7 @@ export interface MattersListReport {
   readonly matters: readonly MatterRegisterRow[];
 }
 
-class Counter {
+export class Counter {
   matterCount = 0;
   openCount = 0;
   heldCount = 0;

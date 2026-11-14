@@ -27,7 +27,7 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `report-reads.ts` — the financial, productivity and operational wire shapes and reads.
 - `financial-presenters.ts`, `billing-presenters.ts` (Invoices, Payments Applied, Matter Balances),
   `activity-presenters.ts` (Timekeeper Productivity, Daily Time, Matter Productivity, operational volumes,
-  Matters List) — their presenters; `report-samples.ts` their
+  Matters List, Client List) — their presenters; `report-samples.ts` their
   samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.
 - `report-summary.svelte` — the row of totals; `report-section-table.svelte` one section (a plain
   table with its ruled total, or `report-section-grid.svelte` on `DataTable.Grid` when sortable),

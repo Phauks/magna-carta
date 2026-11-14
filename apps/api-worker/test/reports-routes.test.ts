@@ -443,6 +443,29 @@ describe("GET /api/v1/reports/matters-list", () => {
   });
 });
 
+describe("GET /api/v1/reports/client-list", () => {
+  const url = "https://example.com/api/v1/reports/client-list";
+
+  it("answers the Owner with a live list whose clients' counts add up to the whole", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { matterCount: number };
+      clients: { counts: { matterCount: number } }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.clients.reduce((sum, client) => sum + client.counts.matterCount, 0)).toBe(
+      report.totals.matterCount,
+    );
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/aged-work-in-progress", () => {
   const url = "https://example.com/api/v1/reports/aged-work-in-progress";
 
