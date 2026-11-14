@@ -39909,6 +39909,12 @@
               "null"
             ]
           },
+          "thinking": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "removedAt": {
             "type": [
               "string",
@@ -39948,6 +39954,7 @@
           "snapshotId",
           "contextTruncated",
           "effort",
+          "thinking",
           "removedAt",
           "supersededAt",
           "replacesTurnId",
@@ -40124,6 +40131,9 @@
           },
           "truncatedContext": {
             "type": "boolean"
+          },
+          "thinking": {
+            "type": "string"
           }
         },
         "required": [
@@ -47784,6 +47794,49 @@
           "responsibleMember"
         ],
         "additionalProperties": false
+      },
+      "RecordTransferPassStatedResponse": {
+        "type": "object",
+        "properties": {
+          "recordKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "matter"
+            ]
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "keyColumn": {
+            "type": "string"
+          },
+          "delimiter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              ",",
+              "\t",
+              ";",
+              "|",
+              null
+            ]
+          },
+          "rules": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "recordKind",
+          "sourceKind",
+          "keyColumn",
+          "delimiter",
+          "rules"
+        ]
       },
       "RecordTransferPassReportResponse": {
         "type": "object",
@@ -142333,6 +142386,100 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecordTransferPassResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes/{passId}/rules": {
+      "get": {
+        "description": "What was stated when the pass was asked for: the record kind, the key column, the delimiter and the mapping rules. The rules name columns and the source's own codes for matter types and staff; they hold no row of the file.",
+        "operationId": "recordTransfer.getPassRules",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getPassRules",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferPass_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "passId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pass as it was asked for",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassStatedResponse"
                 }
               }
             }

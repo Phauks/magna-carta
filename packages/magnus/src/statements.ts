@@ -78,6 +78,7 @@ interface TurnDatabaseRow {
   output_tokens: number | null;
   context_truncated: number;
   effort: string | null;
+  thinking: string | null;
   removed_at: string | null;
   superseded_at: string | null;
   replaces_turn_id: string | null;
@@ -113,6 +114,7 @@ function toTurnRow(row: TurnDatabaseRow): TurnRow {
     outputTokens: row.output_tokens,
     contextTruncated: row.context_truncated === 1,
     effort: row.effort,
+    thinking: row.thinking,
     removedAt: row.removed_at,
     supersededAt: row.superseded_at,
     replacesTurnId: row.replaces_turn_id as MagnusTurnId | null,
@@ -710,6 +712,19 @@ export function completeTurnStatement(
     );
 }
 
+// The summary of the model's thinking so far, written over the last one while the answer is still
+// pending. Guarded on `status = 'pending'`, so a summary that arrives after the turn settled (a slow
+// write racing the completion) changes nothing.
+// fitness:unguarded-write — a summary arriving after the answer settled writing nothing is the outcome wanted
+export function recordTurnThinkingStatement(
+  database: SqlDatabase,
+  options: { readonly id: MagnusTurnId; readonly thinking: string },
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${MAGNUS_TURN_TABLE} SET thinking = ?2 WHERE id = ?1 AND status = 'pending'`)
+    .bind(options.id, options.thinking);
+}
+
 export interface SettleTurnFailureOptions {
   readonly id: MagnusTurnId;
   readonly status: Extract<TurnStatus, "failed" | "refused">;
@@ -736,7 +751,7 @@ export async function readTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, thinking, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE id = ?1 LIMIT 1`,
     )
     .bind(id)
     .all<TurnDatabaseRow>();
@@ -753,7 +768,7 @@ export async function readTurnAtSequence(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 AND sequence = ?2 LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, thinking, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 AND sequence = ?2 LIMIT 1`,
     )
     .bind(conversationId, sequence)
     .all<TurnDatabaseRow>();
@@ -783,7 +798,7 @@ export async function readNewestTurn(
 ): Promise<TurnRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, thinking, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 1`,
     )
     .bind(conversationId)
     .all<TurnDatabaseRow>();
@@ -804,7 +819,7 @@ export async function readRecentTurns(
   // could disagree.
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, thinking, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM (SELECT * FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT ?2) ORDER BY sequence ASC`,
     )
     .bind(conversationId, limit)
     .all<TurnDatabaseRow>();
@@ -824,7 +839,7 @@ export async function listTurns(
   bindings.push(options.limit ?? DEFAULT_PAGE_SIZE);
   const { results } = await database
     .prepare(
-      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+      `SELECT id, conversation_id, sequence, speaker, content, status, failure_label, model_id, snapshot_id, input_tokens, output_tokens, context_truncated, effort, thinking, removed_at, superseded_at, replaces_turn_id, created_at, completed_at FROM ${MAGNUS_TURN_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
     .bind(...bindings)
     .all<TurnDatabaseRow>();

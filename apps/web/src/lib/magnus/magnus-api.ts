@@ -97,18 +97,6 @@ export interface MagnusAttachment {
  */
 export const ALLOWANCE_WORTH_SAYING_AT = 25;
 
-/**
- * How long a pending answer may go unremarked before the turn says so.
- *
- * A region whose data has not arrived states a stall after fifteen seconds and offers a way on
- * (`LoadingRegion`); a pending turn is not that region -- it is a question already on the record,
- * waiting -- but it owes its reader the same promise, so it makes it in the turn's own note. The
- * threshold is longer than a read's because a model answer routinely takes several seconds and a
- * note that fired on every ordinary question would be read once and ignored ever after. Past this,
- * the wait has stopped being ordinary.
- */
-export const ANSWER_SLOW_AFTER_MILLISECONDS = 30_000;
-
 /** The lifecycle a conversation carries from the day it is started. */
 export type MagnusConversationState = "active" | "archived" | "deleted";
 
@@ -178,6 +166,8 @@ export interface MagnusTurn {
   contextTruncated: boolean;
   /** The effort the answer was asked for, or null where none was sent. */
   effort: string | null;
+  /** A readable summary of Magnus's thinking on an answer, or null where there is none. */
+  thinking: string | null;
   /**
    * When the author removed this message and its answer. The text is kept on the record but not
    * returned to the author, so a removed turn reads as a marker.
@@ -204,6 +194,8 @@ export interface MagnusTurnProgress {
   content?: string;
   failureLabel?: MagnusTurnFailureLabel;
   truncatedContext?: boolean;
+  /** The summary of Magnus's thinking so far, once the model has returned some. */
+  thinking?: string;
 }
 
 export interface MagnusConversationDetail {
