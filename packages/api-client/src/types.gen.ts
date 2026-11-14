@@ -4486,6 +4486,7 @@ export type SearchTextMark = {
 export type SearchAcrossMattersAnswer = {
     query: string;
     broad: boolean;
+    fewMattersLimit: number;
     groups: Array<SearchAcrossMattersGroup>;
 };
 
@@ -4496,7 +4497,7 @@ export type SearchAcrossMattersGroup = {
     matchedFields: Array<string>;
     hits: Array<SearchAcrossMattersHit>;
     hasMore: boolean;
-    skipped: 'one-matter-only' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
+    skipped: 'one-matter-only' | 'too-many-matters' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
 };
 
 export type SearchAcrossMattersHit = {
@@ -8007,6 +8008,7 @@ export type UpdatePersonalRoomRequest = {
 
 export type OpenPersonalRoomResponse = {
     meetingId: string;
+    joinCode: string | null;
     created: boolean;
 };
 
@@ -8040,6 +8042,7 @@ export type PersonalRoomAtLink = {
     kind: 'personal' | 'shared';
     mayOpen: boolean;
     meetingId: string | null;
+    joinCode: string | null;
 };
 
 export type MoveMeetingToMatterResponse = {
@@ -8084,6 +8087,7 @@ export type MeetingByCodeResponse = {
 export type StartedMeeting = {
     id: string;
     created: boolean;
+    joinCode: string | null;
 };
 
 export type StartMeetingRequest = {
@@ -9213,6 +9217,7 @@ export type MagnusTurn = {
     snapshotId: string | null;
     contextTruncated: boolean;
     effort: string | null;
+    thinking: string | null;
     removedAt: string | null;
     supersededAt: string | null;
     replacesTurnId: string | null;
@@ -9262,6 +9267,7 @@ export type MagnusTurnProgress = {
     content?: string;
     failureLabel?: 'model-unavailable' | 'not-eligible' | 'ceiling-reached' | 'too-large' | 'cancelled';
     truncatedContext?: boolean;
+    thinking?: string;
 };
 
 export type MagnusFolderList = {
@@ -11007,6 +11013,16 @@ export type RecordTransferMatterRules = {
             [key: string]: string;
         };
         otherwise?: string;
+    };
+};
+
+export type RecordTransferPassStatedResponse = {
+    recordKind: 'person' | 'organization' | 'matter';
+    sourceKind: string;
+    keyColumn: string;
+    delimiter: ',' | '\t' | ';' | '|' | null;
+    rules: {
+        [key: string]: unknown;
     };
 };
 
@@ -50475,6 +50491,46 @@ export type RecordTransferGetPassResponses = {
 };
 
 export type RecordTransferGetPassResponse = RecordTransferGetPassResponses[keyof RecordTransferGetPassResponses];
+
+export type RecordTransferGetPassRulesData = {
+    body?: never;
+    path: {
+        runId: string;
+        passId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/passes/{passId}/rules';
+};
+
+export type RecordTransferGetPassRulesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferGetPassRulesError = RecordTransferGetPassRulesErrors[keyof RecordTransferGetPassRulesErrors];
+
+export type RecordTransferGetPassRulesResponses = {
+    /**
+     * The pass as it was asked for
+     */
+    200: RecordTransferPassStatedResponse;
+};
+
+export type RecordTransferGetPassRulesResponse = RecordTransferGetPassRulesResponses[keyof RecordTransferGetPassRulesResponses];
 
 export type RecordTransferGetPassReportData = {
     body?: never;

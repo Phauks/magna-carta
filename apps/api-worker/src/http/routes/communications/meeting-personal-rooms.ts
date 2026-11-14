@@ -362,6 +362,7 @@ export function registerMeetingPersonalRoomRoutes(
       const body = c.req.valid("json");
       const outcome = await commit<{
         meetingId: string;
+        joinCode: string | null;
         created: boolean;
         endedMeetingId: string | null;
       }>(c, async () => {
@@ -377,6 +378,7 @@ export function registerMeetingPersonalRoomRoutes(
         return {
           value: {
             meetingId: opened.meetingId,
+            joinCode: opened.joinCode,
             created: opened.created,
             endedMeetingId: opened.endedMeetingId,
           },
@@ -390,7 +392,14 @@ export function registerMeetingPersonalRoomRoutes(
       if (outcome.executed && ended !== null) {
         await meetingRoomFor(c.env, firmId, ended).end(new Date().toISOString());
       }
-      return c.json({ meetingId: outcome.value.meetingId, created: outcome.value.created }, 200);
+      return c.json(
+        {
+          meetingId: outcome.value.meetingId,
+          joinCode: outcome.value.joinCode,
+          created: outcome.value.created,
+        },
+        200,
+      );
     },
   );
 

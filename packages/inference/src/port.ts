@@ -99,6 +99,13 @@ export interface ConversationInput {
   // control (output_config.effort). A model hosted on Cloudflare is sent nothing: the chat request its
   // published input schema takes has no effort field, so it answers at its own default.
   readonly effort?: ReasoningEffort;
+  // Told the summary of the model's thinking so far, each time it grows. Optional: given, a
+  // third-party model is asked to stream its answer and a readable summary of its thinking (the
+  // provider returns a summary, never the raw reasoning), and the listener is called as the summary
+  // arrives; the result is the same buffered answer either way. A model hosted on Cloudflare is not
+  // asked for one, and a listener there is never called. The summary is the member's work product
+  // like the answer: a listener stores it where the answer is stored and never logs it.
+  readonly onThinking?: (thinkingSoFar: string) => void | Promise<void>;
 }
 
 // Speech to text, platform-fixed like embedding: there is deliberately NO modelId field. A firm does
