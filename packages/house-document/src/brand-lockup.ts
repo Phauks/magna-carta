@@ -7,7 +7,13 @@
 // carries the lettering as artwork; when the drawn mark replaces the blackletter glyph there,
 // render this again from it.
 
-import { fromBase64 } from "./bytes.ts";
+/** Base64 to bytes, without a dependency this package would carry for one picture. */
+function fromBase64(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
 
 const BRAND_LOCKUP_PNG_BASE64 = [
   "iVBORw0KGgoAAAANSUhEUgAAAxwAAADICAYAAABiQOesAAAQAElEQVR4nOzdCWBcVdk38P+5M+kCbZNgaZJCm7AJvMq+",
