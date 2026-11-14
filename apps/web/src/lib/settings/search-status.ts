@@ -229,7 +229,7 @@ export const COUNTED_DEFINITION: SettingDefinition = {
   sectionId: SECTION_ID,
   plateLabel: INDEXES_PLATE,
   label: "Counted",
-  description: "Every figure here is counted from the firm's own records at this moment.",
+  description: "Counted from the firm's records just now.",
   kind: "text",
   defaultValue: "",
   sensitivity: "open",

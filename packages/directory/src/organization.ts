@@ -1,4 +1,5 @@
-import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryNameId, DirectoryOrganizationId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
@@ -31,11 +32,41 @@ export interface Organization {
   readonly mergedIntoId: string | null;
 }
 
+/** What recording an organization contributes to a batch, before anything commits. */
+export interface ComposedOrganizationCreate {
+  readonly organizationId: DirectoryOrganizationId;
+  readonly statements: SqlStatement[];
+  readonly outboxMessages: EffectWrite["outboxMessages"][number][];
+}
+
 export async function createOrganization(
   database: BatchDatabase,
   input: CreateOrganizationInput,
   options: DirectoryWriteOptions,
 ): Promise<DirectoryOrganizationId> {
+  const { organizationId, statements, outboxMessages } = composeCreateOrganization(
+    database,
+    input,
+    options,
+  );
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements,
+    outboxMessages,
+    responseCode: 201,
+    responseBody: { id: organizationId },
+    value: organizationId,
+    fromBody: (body) => (body as { id: DirectoryOrganizationId }).id,
+  }));
+}
+
+// Composes the organization's own rows without committing: the node row, the current-name history
+// row with its phonetic codes, and the audit row. createOrganization commits exactly this; a caller
+// that must write something else in the same commit composes this and adds its statements beside it.
+export function composeCreateOrganization(
+  database: BatchDatabase,
+  input: CreateOrganizationInput,
+  options: DirectoryWriteOptions,
+): ComposedOrganizationCreate {
   const organizationId = newIdentifier("directoryOrganization", options.randomSource);
   const nameId: DirectoryNameId = newIdentifier("directoryName", options.randomSource);
   const now = options.clock.now();
@@ -51,7 +82,8 @@ export async function createOrganization(
   // separately, which requires encoding the full string.
   const codes = phoneticCodes(normalizedDisplay);
 
-  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+  return {
+    organizationId,
     statements: [
       insertOrganizationStatement(database, {
         id: organizationId,
@@ -81,11 +113,7 @@ export async function createOrganization(
       directoryAuditStatement(database, options, "directory.organization.created", organizationId),
     ],
     outboxMessages: [{ topic: DIRECTORY_ENTITY_CREATED_TOPIC, payload: { organizationId } }],
-    responseCode: 201,
-    responseBody: { id: organizationId },
-    value: organizationId,
-    fromBody: (body) => (body as { id: DirectoryOrganizationId }).id,
-  }));
+  };
 }
 
 export async function readOrganization(

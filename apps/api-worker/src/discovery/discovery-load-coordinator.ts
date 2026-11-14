@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { Bindings } from "../bindings.ts";
 import {
   UNKNOWN_LOAD_JOB,
@@ -31,7 +31,7 @@ import {
 const STUCK_DEADLINE_MS = 15 * 60 * 1000;
 
 export class DiscoveryLoadCoordinator
-  extends DurableObject<Bindings>
+  extends StoredSecretsDurableObject
   implements DiscoveryLoadCoordinatorRpc
 {
   async start(message: DiscoveryLoadPlanMessage): Promise<DiscoveryLoadJobState> {

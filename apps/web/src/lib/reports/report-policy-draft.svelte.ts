@@ -28,7 +28,7 @@ export const ZERO_BALANCE_LEDGERS_DEFINITION: SettingDefinition = {
   plateLabel: "The Trust Compliance Report",
   label: "Ledgers at Zero All Period",
   description:
-    "Whether a matter ledger that held nothing throughout the period is listed, at zero, so the report accounts for every ledger that existed.",
+    "Whether matter ledgers with no activity this period are listed at zero, so the report shows every ledger.",
   kind: "select",
   options: [
     { value: "include", label: "Listed" },

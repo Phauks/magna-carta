@@ -128,7 +128,7 @@
       address={email.trim()}
       instruction="Open the link we sent, or type the confirmation code from that email. Your workspace is built once that is done."
       {sentAt}
-      remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
+      remedy="If it doesn't arrive, check your spam folder, then register again. Only the newest code works."
       onEnterCode={() => goto("/register/confirm")}
       enterCodeLabel="Enter the Confirmation Code"
       back={() => goto("/login")}

@@ -93,11 +93,13 @@ meeting and would rather not go looking for the event it belongs to. It has thre
 - **Upcoming** — the meetings already opened on events today or later, with the day and time of the
   event they belong to, in that event's own time zone. **Join** works here too, so you can be first
   into a room rather than waiting for somebody else to arrive.
-- **Recently ended** — what finished in the last thirty days, with when it ended, **Attendance** for
-  who was in the room, **Recordings** where the meeting was recorded, and a way back to the event.
+- **History** — what finished in the last thirty days, with when it ended, where it was filed (the
+  matter's name, or Firm event), what became of its recording (Not recorded, Being prepared, Saved,
+  Failed or Interrupted), **Attendance** for who was in the room, **Recordings** where the meeting was
+  recorded, and a way back to the event.
 
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
-matter, the row links back to it.
+matter, the row names the matter and links back to it.
 
 ## Your own room
 
@@ -110,6 +112,9 @@ meeting on the calendar first.
 - **Open My Room** starts a meeting in your room and takes you into it. The meeting is put on your
   calendar as an event in your name, starting now. If your room is already open, the button reads
   **Go to My Room** and takes you back in.
+
+The room's settings are in the **...** menu beside the card's title:
+
 - **Hold arrivals in a lobby** is on to begin with, so you let each person in yourself. Turn it off
   to let colleagues straight in.
 - **Open as an audio call** starts your room's meetings without video.
@@ -122,6 +127,14 @@ meeting on their calendar too.
 
 When everybody has left, the meeting ends by itself the next time you open your room, and its
 calendar entry is closed at the time the last person left.
+
+### Everybody's rooms
+
+The **Firm Rooms** card lists every member of the firm and their room, whether or not anybody is in
+it. Each row says **In a meeting** with how many people are there, **Not in a meeting**, or **No room
+set up**. **Copy Link** copies a colleague's room address so you can send it ahead of time, and
+**Join** appears while their room is open. The list checks again every thirty seconds. It does not
+say what a meeting is about.
 
 ### Moving a meeting onto a matter
 
@@ -169,7 +182,13 @@ everybody tells you that you are breaking up, this is where you find out whether
 are sending, how much is going out, how much of it is going missing, how long the round trip to the
 service takes, and the same answer for each other person in the room. Under them is a short list of
 what has happened on your connection — when you joined, what was asked for, anything the room
-refused, and the error reference to quote if you report it.
+refused, and the error reference to quote if you report it. It also notes what your screen did with
+the pictures: a tile starting a new picture, your own camera's picture being replaced, and the view
+changing (speaker view or gallery, a new speaker, a share starting, the mirror turned on or off).
+
+**If the picture flashes,** press **Copy Diagnostics** straight after it happens and send what it
+copies to whoever is helping you. The times in it line up with the flash, which says whether the
+picture was restarted or the browser simply drew a frame wrong.
 
 **None of it is recorded.** The measurements live in this browser tab while the meeting is open and
 go when you close it. Nothing about your connection reaches the meeting's own record, which stays
@@ -263,8 +282,12 @@ also checks for anything new.
 Each poll is a card. Where you may choose one answer the options are a set of round buttons; where
 you may choose several they are tick boxes, and the card says how many you may pick. **Answer**
 sends your choice and stays unavailable until what you have picked is something the poll will take.
+A **ranking** lists every option with arrows to move each one up or down; put them in order, best at
+the top, and press **Answer**. A **score** asks for one number on its scale, such as 1 to 5.
 **An answer cannot be changed**: once it is sent, the card turns into the result, one bar per option
-with how many chose it, and a line such as "12 of 30 answered". A poll a host has closed shows its
+with how many chose it, and a line such as "12 of 30 answered". A ranking's result lists the options
+in the order the room put them, each with its average place; a score's result gives the average,
+such as "Average 3.8 out of 5", above how many gave each number. A poll a host has closed shows its
 result to everybody.
 
 **"Answers are not shown with names"** at the top of a poll means exactly that: nothing in the
@@ -272,19 +295,25 @@ product, including what the host sees, says who chose what. It does not hide tha
 The card says it before you answer, so you know what you are answering into.
 
 **Asking the room (hosts).** Whoever is running the meeting sees **New Poll** at the top of the same
-panel: the question, between two and ten answers (add and remove them as you go), whether to show
-names with answers, and how many answers each person may choose. **Open Poll** puts it in front of the
+panel: the question, the **Poll Type**, between two and ten answers (add and remove them as you go),
+and whether to show names with answers. The poll types are **One** (each person picks one answer),
+**Multiple** (each person picks up to the number you choose), **Ranking** (each person puts every
+answer in order) and **Score** (each person gives a number on a scale of 1 to 3, 1 to 5 or 1 to 10,
+so you do not type answers). **Open Poll** puts it in front of the
 room at once, and your card shows the result, moving as people answer. A poll another host opened is
 a question to you as much as to anybody: you answer it first, the number on **Polls** counts it, and
 you see its result once you have answered. Several polls can be open together. **Close
 Poll** asks first, because a closed poll takes no more answers and cannot be opened again. On a poll
 that shows names, **See Who Answered** lists each person and what they chose.
 
-**Q&A** in the control bar opens the questions. Anybody in the room can ask one from the box at the
-foot of the panel; a question holds 1,000 characters and the panel counts down what is left. The
-number on the control is how many questions are still waiting for an answer.
+**Questions are part of chat.** To ask one, tick **Ask as a question** under the chat box and press
+**Ask**; a question holds 1,000 characters and the box counts down what is left. It appears in the
+chat with a question mark beside it, among the messages, in the order things were said. **Questions**
+at the top of the chat shows only the questions, sorted as below, and **All** brings the messages
+back. The number beside **Chat** on the side panel, with a question mark, is how many questions are
+still waiting for an answer.
 
-**The queue sorts itself.** Questions nobody has answered come first, and among those, the ones with
+**The Questions view sorts itself.** Questions nobody has answered come first, and among those, the ones with
 the most upvotes. Press the arrow beside a question to add your upvote, and press it again to take
 your upvote back; the order moves as the room votes, without you having to reopen anything.
 
@@ -545,8 +574,8 @@ under a name you do not know, that is the moment to find out who it is, before t
 **What a guest can do in the meeting**: see and hear everybody, turn their microphone and camera on
 and off, share their screen, raise their hand and react, write in the meeting's chat, and leave. What
 a guest writes is kept on the meeting's record like every other line, and a guest cannot take a line
-back. **Polls and questions are for your firm's members**: a guest does not see the Polls or Q&A
-controls, and cannot answer a poll or ask a question. They cannot end the meeting, let
+back. **Polls and questions are for your firm's members**: a guest does not see Polls or the Ask as a
+question box, and cannot answer a poll or ask a question. They cannot end the meeting, let
 anybody in, or see anything else in Magna Carta: there is no way from their screen to any other part
 of it. Everything a host can do to a member — muting, asking to unmute, spotlighting, removing —
 works the same on a guest. Removing a guest, or turning one away at the door, also stops their link

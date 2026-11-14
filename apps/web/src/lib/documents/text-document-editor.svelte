@@ -91,8 +91,7 @@
       refusal = {
         title: "This Document Is Larger Than the Editor Holds",
         description:
-          `It is ${formatDocumentSize(outcome.sizeBytes)}; the editor holds up to ` +
-          `${formatDocumentSize(TEXT_EDITOR_MAX_BYTES)}. Download it to work on it.`,
+          `It's ${formatDocumentSize(outcome.sizeBytes)}; the editor opens up to ${formatDocumentSize(TEXT_EDITOR_MAX_BYTES)}. Download it to work on it.`,
       };
       return;
     }
@@ -103,16 +102,14 @@
       refusal = {
         title: "This Document Is Not Text This Editor Can Open",
         description:
-          "Its bytes are not UTF-8 text, so opening it here would show some characters wrongly " +
-          "and saving would store them that way. Download it and open it in the application it " +
-          "was written in.",
+          "This file isn't plain UTF-8 text, so editing it here could corrupt some characters. Download it and open it in the app it was made in.",
       };
       return;
     }
     readFailure = stated(
       outcome.failure,
       "The document could not be read.",
-      "Nothing answered when the document was read.",
+      "Couldn't connect while reading the document.",
     );
   }
 

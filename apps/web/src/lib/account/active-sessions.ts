@@ -77,11 +77,11 @@ export const UNKNOWN_DEVICE = "Unrecognised device";
 
 /** The list could not be read. Says nothing about whether the sessions exist. */
 export const SESSIONS_UNAVAILABLE =
-  "Your signed-in devices could not be listed. Try again, and if it keeps happening, contact your firm's administrator.";
+  "Couldn't load your signed-in devices. Try again, and if it keeps happening, contact your firm's administrator.";
 
 /** A revocation the server refused or never answered. The session is assumed still live. */
 export const REVOKE_FAILED =
-  "That device could not be signed out — it may still be signed in. Try again.";
+  "That device couldn't be signed out and may still be signed in. Try again.";
 
 /*
  * USER AGENT → DEVICE, in the only way this is honestly done: a short table of exact tokens, tried

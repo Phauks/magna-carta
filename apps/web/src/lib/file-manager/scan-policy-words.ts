@@ -27,9 +27,9 @@ export const SCAN_TIER_LABELS: Readonly<Record<ScanTier, string>> = {
 
 /** What the firm can do with a file the scan flagged. It is never deleted, by design. */
 export const FLAGGED_TREATMENT_LABELS: Readonly<Record<FlaggedTreatment, string>> = {
-  block: "Hold it — nobody can open it",
-  "informed-access": "Ask first — openable once the risk is acknowledged",
-  "allow-and-flag": "Allow it — openable, marked as flagged",
+  block: "Block it. No one can open it.",
+  "informed-access": "Ask first. It opens once the risk is accepted.",
+  "allow-and-flag": "Allow it. It opens, marked as flagged.",
 };
 
 /** The settings a reading states, as the four values the server carries them as. */
@@ -68,8 +68,7 @@ export function scanSettingsLines(settings: ScanSettingsReading): readonly ScanS
  */
 export const SCAN_SETTINGS_PROVENANCE_LABEL = "Recorded Per Check";
 export const SCAN_SETTINGS_PROVENANCE =
-  "The engine only, on each line above. The depth, threshold and treatment are the firm's as it " +
-  "stands today; what was in force when an earlier check ran is not recorded.";
+  "These settings are the firm's current ones. Settings in force for earlier checks aren't recorded.";
 
 /** The sample values the reading takes while the real ones are read. Named by nothing real. */
 export const SCAN_SETTINGS_FIXTURE: ScanSettingsReading = {

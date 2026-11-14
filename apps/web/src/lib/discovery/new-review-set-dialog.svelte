@@ -124,7 +124,7 @@
     failure = stated(
       outcome.failure,
       "The review set could not be created.",
-      "Nothing answered. Nothing was created, so pressing again creates one review set.",
+      "Couldn't connect. The review set wasn't created. Try again.",
     );
     return "refused";
   }
@@ -178,8 +178,7 @@
             </Combobox.Content>
           </Combobox.Root>
           <p class="text-text-muted text-sm">
-            The case this corpus belongs to. It decides the document ceiling the set snapshots and
-            the lifecycle it lives under, and it cannot be changed afterwards.
+            The matter this review set belongs to. It sets the document limit and can't be changed later.
           </p>
         </div>
       {/if}
@@ -188,16 +187,12 @@
         <Label for="new-review-set-name">Name</Label>
         <Input id="new-review-set-name" disabled={busy} bind:value={name} />
         <p class="text-text-muted text-sm">
-          What this corpus is, in the words the firm would use in correspondence — the plaintiff's
-          March production, the firm's own collection for the second request.
+          A name the firm would use in a letter, such as "plaintiff's March production".
         </p>
       </div>
 
       <p class="text-text-muted text-sm">
-        It starts open and empty. Only you can reach it until you add somebody: a review set's access
-        list is separate from who works the matter, because material another party produced may be
-        under a protective order the whole matter team is not cleared for. A review set locks and
-        closes, and it does not reopen.
+        It starts open and empty, and only you can see it until you add people. Access is separate from the matter team, because produced material may be under a protective order. Once a review set is closed, it can't be reopened.
       </p>
     </div>
   {/snippet}

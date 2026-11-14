@@ -95,7 +95,7 @@ describe("the My Room card", () => {
     expect(target.textContent).toContain("/meetings/rooms/abcdefghjk");
   });
 
-  it("draws a room by its address, with its standing choices", async () => {
+  it("draws a room by its address, with its settings behind the menu", async () => {
     answerWith(ROOM);
     instance = mount(Harness, { target, props: {} });
     await settle();
@@ -103,10 +103,9 @@ describe("the My Room card", () => {
     expect(target.textContent).toContain("/meetings/rooms/abcdefghjk");
     expect(button("Open My Room")).toBeDefined();
     expect(button("Copy Link")).toBeDefined();
-    expect(button("Get a New Link")).toBeDefined();
-    const lobby = target.querySelector<HTMLElement>("#my-room-lobby");
-    expect(lobby?.getAttribute("aria-checked") ?? lobby?.getAttribute("data-state")).toMatch(
-      /true|checked/,
-    );
+    // The settings are changed rarely, so they are behind "..." rather than on the card's face.
+    expect(button("Get a New Link")).toBeUndefined();
+    expect(target.querySelector("#my-room-lobby")).toBeNull();
+    expect(target.querySelector('[aria-label="My Room settings"]')).not.toBeNull();
   });
 });

@@ -46,7 +46,7 @@
   const refusal = $derived.by((): string | undefined => {
     if (row === null) return "No draft is open.";
     if (reason.trim() === "") {
-      return "A reason is required. It is what somebody reads years later.";
+      return "A reason is required.";
     }
     return undefined;
   });
@@ -94,9 +94,7 @@
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
-          Voiding releases every entry this draft holds back to unbilled work. The voided draft
-          stays on the record. Only a draft can be voided: a finalized bill is corrected by a credit
-          note, never erased.
+          Voiding returns every entry on this draft to unbilled. The voided draft stays on record. To correct a finalized bill, add a credit note instead.
         </span>
       </p>
       <div class="flex flex-col gap-8">

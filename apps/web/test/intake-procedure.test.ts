@@ -54,7 +54,7 @@ describe("the kind vocabulary", () => {
     );
     expect(identity?.answeredBy).toContain("A member records");
     const conflicts = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "conflicts-check");
-    expect(conflicts?.answeredBy).toContain("cannot be recorded by hand");
+    expect(conflicts?.answeredBy).toContain("can't be entered by hand");
     // The two kinds named ahead of their subsystems say so, and say which subsystem.
     const forms = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "client-forms");
     expect(forms?.answeredBy).toContain("A member records");
@@ -94,7 +94,7 @@ describe("the summary line", () => {
       "3 required steps are outstanding before the intake is complete.",
     );
     expect(intakeChecklistSummary({ ...base, outstandingRequired: 0 })).toContain(
-      "Every required step is answered",
+      "All required steps are answered",
     );
   });
 

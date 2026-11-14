@@ -486,6 +486,33 @@ offers **Connect Google Calendar**. Connecting returns to the same page naming t
 client secret after creation, and the wording of steps 1 and 2. Steps 3 to 5 follow the two linked
 Google pages as read on 2026-11-13. Nothing has run against a real Google account.
 
+## System Status recent errors — one read-only token (2026-11-13)
+
+The System Status page (Settings > Data & Platform > System Status) has a Recent Errors tab for
+platform operators. It reads the deployment's failures back from Workers Logs through Cloudflare's
+query API, because nothing in the application stores them anywhere else
+(`apps/api-worker/src/system-status/recent-errors.ts`). Until the token below exists, the tab and the
+Features tab's "Recent errors" row both say it is not set up. Nothing here blocks a deploy.
+
+**What to do.**
+
+1. **Create an API token** in the Cloudflare dashboard (My Profile > API Tokens > Create Token >
+   Custom token) with one permission: **Account > Workers Observability > Read**, scoped to the
+   account that runs Magna Carta. Give it no other permission. In particular, do not reuse the
+   firm-provisioner token, which can create and delete firm resources.
+2. **Set it on the app Worker:** `wrangler secret put OBSERVABILITY_API_TOKEN` on `magna-carta`
+   (or Worker > Settings > Variables and Secrets). `CLOUDFLARE_ACCOUNT_ID` is already set in
+   production for the firm provisioner, and the read uses the same value.
+3. **Check it** on System Status: the Recent errors row reads Working, and the Recent Errors tab
+   shows the last 24 hours (or "No errors in the last 24 hours").
+
+**Why the read can come back empty while errors exist.** The query filters on the log line's
+top-level `name` field (`error.captured`, `operation.failed`). If Workers Logs ever indexes those
+lines under a different key, the tab shows no rows instead of failing. The filter was written from
+Cloudflare's API reference and has not been tried against the live account yet. If the tab stays
+empty while the dashboard's Workers Logs view shows `error.captured` lines, compare the key it
+displays with the one the query sends.
+
 ## Turnstile activation — the order matters, and the widget comes before the secret
 
 Server-side human verification is built and ships **dormant**

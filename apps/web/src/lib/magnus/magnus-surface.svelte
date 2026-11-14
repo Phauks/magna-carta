@@ -39,7 +39,9 @@
   import { tick, type Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import TextSearch from "@lucide/svelte/icons/text-search";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import * as Masthead from "@magna-carta/design-system/masthead";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import NavigationLayout from "@magna-carta/design-system/navigation-layout";
@@ -59,6 +61,10 @@
   import { page } from "$app/state";
   import { replaceState } from "$app/navigation";
   import MagnusComposer from "./magnus-composer.svelte";
+  import MagnusPane, { type PaneTab } from "./magnus-pane.svelte";
+  import PanelRight from "@lucide/svelte/icons/panel-right";
+  import Button from "@magna-carta/design-system/button";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
   import MagnusDisclosure from "./magnus-disclosure.svelte";
   import MagnusRail from "./magnus-rail.svelte";
   import MagnusTranscript from "./magnus-transcript.svelte";
@@ -574,7 +580,22 @@
     if (open === findConversation) return;
     findConversation = open;
     closeFind();
+    openDocument = null;
   });
+
+  /*
+   * The pane beside the conversation (magnus-pane.svelte): open or closed, which tab, and the
+   * document open in it. It stays open across conversations, as a member's own layout; the document
+   * does not, because it belongs to the conversation it was opened from.
+   */
+  let paneOpen = $state(false);
+  let paneTab = $state<PaneTab>("context");
+  let openDocument = $state<{ artifactId: string; versionNumber: number } | null>(null);
+
+  function openDocumentInPane(artifactId: string, versionNumber: number): void {
+    openDocument = { artifactId, versionNumber };
+    paneOpen = true;
+  }
 
   /* Opening another conversation, or a read that no longer holds the message, ends the edit. */
   $effect(() => {
@@ -709,6 +730,7 @@
     bind:composerElement
     onMatter={openMatterId !== null}
     attachments={session.attachments}
+    readsEarlierConversations={session.permissions.includes("own-matter-conversations")}
     model={availability?.model}
     models={availability?.models ?? []}
     bind:choice={modelChoice}
@@ -728,57 +750,93 @@
 {/snippet}
 
 {#snippet conversationHeadRow()}
-  <!-- The conversation's name, edited where it is read, and its one menu of acts beside it
-       (conversation-menu.svelte): the owner's ruling put every act on the conversation behind one
-       `…` rather than a row of icons. -->
-  <div class="flex flex-wrap items-start justify-between gap-8 px-24 pt-8">
-    <!-- The name over the matter it is kept on, set small: the matter is where the conversation
-         lives, and a reader on the workspace (which spans every matter) needs it without it
-         competing with the name. Inside a matter's own section the masthead already says it. -->
-    <div class="flex min-w-0 flex-col gap-4">
+  <!-- The owner's board (round 2): the name in the display face over the matter it is kept on,
+       and on the end side Find, the pane, and the one menu of acts on the conversation
+       (conversation-menu.svelte). The matter line is a control: pressing it saves the conversation
+       to a different matter. -->
+  <header
+    class="flex items-center justify-between gap-16 border-b border-border-default py-8 ps-24 pe-16"
+  >
+    <div class="flex min-w-0 flex-col items-start gap-2">
       <ConversationName
         bind:this={conversationName}
         conversation={selected}
         disabled={session.sending}
         onRenamed={conversationRenamed}
       />
-      {#if matterId === null && selected !== null}
+      {#if selected !== null && (matterId === null || selected.matterId !== matterId)}
         {@const keptOn = selected.matterId}
-        <p class="flex min-w-0 items-center gap-4 text-xs text-text-muted">
+        <button
+          type="button"
+          class="-ms-4 flex max-w-full min-w-0 items-center gap-4 rounded-sm px-4 text-xs text-text-muted hover:bg-surface-sunken hover:text-text-default"
+          disabled={session.sending}
+          title="Save to a different matter"
+          onclick={() => (movingConversation = selected)}
+        >
           <Briefcase class="size-12 shrink-0" aria-hidden="true" />
-          {#if keptOn === null}
-            <span>Not kept on a matter</span>
-          {:else}
-            {@const number = citations.numberFor(keptOn)}
-            {@const title = citations.titleFor(keptOn)}
-            <span class="truncate">
-              {#if number !== null}<span class="font-medium">{number}</span>{/if}
-              {#if number !== null && title !== null}<span aria-hidden="true"> · </span>{/if}
-              {title ?? (number === null ? "A matter" : "")}
-            </span>
-          {/if}
-        </p>
+          <span class="truncate">
+            {keptOn === null ? "General" : (matterLineFor(keptOn) ?? "A matter")}
+          </span>
+        </button>
       {/if}
     </div>
-    <ConversationMenu
-      conversationId={selected?.id ?? null}
-      disabled={session.sending}
-      {downloading}
-      shelf={shelved && shelf.folders !== null && selected !== null
-        ? {
-            folders: shelf.folders,
-            folderId: selected.folderId,
-            pinned: selected.pinnedAt !== null,
-          }
-        : null}
-      onShelve={(next) => void shelveSelected(next)}
-      onRename={() => conversationName?.rename()}
-      onFind={() => void openFind()}
-      onMove={() => (movingConversation = selected)}
-      onDownload={() => void downloadTranscript()}
-      onDelete={() => (deletingConversation = selected)}
-    />
-  </div>
+    <div class="flex shrink-0 items-center gap-2">
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Search this conversation"
+              aria-pressed={findOpen}
+              disabled={selected === null}
+              onclick={() => (findOpen ? closeFind() : void openFind())}
+            >
+              <TextSearch class="size-16" aria-hidden="true" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom">Find in Conversation</Tooltip.Content>
+      </Tooltip.Root>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Context, permissions and artifacts"
+              aria-pressed={paneOpen}
+              disabled={selected === null}
+              onclick={() => (paneOpen = !paneOpen)}
+            >
+              <PanelRight class="size-16" aria-hidden="true" />
+            </Button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom">{paneOpen ? "Hide the Pane" : "Show the Pane"}</Tooltip.Content>
+      </Tooltip.Root>
+      <ConversationMenu
+        conversationId={selected?.id ?? null}
+        disabled={session.sending}
+        {downloading}
+        shelf={shelved && shelf.folders !== null && selected !== null
+          ? {
+              folders: shelf.folders,
+              folderId: selected.folderId,
+              pinned: selected.pinnedAt !== null,
+            }
+          : null}
+        onShelve={(next) => void shelveSelected(next)}
+        onRename={() => conversationName?.rename()}
+        onFind={() => void openFind()}
+        onMove={() => (movingConversation = selected)}
+        onDownload={() => void downloadTranscript()}
+        onDelete={() => (deletingConversation = selected)}
+      />
+    </div>
+  </header>
 {/snippet}
 
 {#snippet detailFixture()}
@@ -789,7 +847,7 @@
 {/snippet}
 
 {#snippet conversationDetail()}
-  <Conversation.Root class="min-h-0 flex-1">
+  <Conversation.Root class="min-h-0 min-w-0 flex-1">
     {#if selectedId !== null}
       {@render conversationHeadRow()}
       {#if findOpen}
@@ -809,17 +867,18 @@
         onRemove={(turn) => (removingTurn = turn)}
         find={findWords}
         {currentMatchId}
+        onOpenDocument={openDocumentInPane}
       />
     {:else}
       <!-- TWO ABSENCES, TWO SETS OF WORDS. Nothing on the record is the member never having asked
            anything, which is what the screen's own empty copy is for. A fresh composer while
            conversations stand beside it is a different state, and saying "nothing asked yet" there
            would be the detail pane contradicting the rail four inches away. -->
-      <div class="flex min-h-0 flex-1 items-center justify-center px-24">
+      <div class="flex min-h-0 flex-1 flex-col items-center justify-end px-24">
         {#if (rows?.length ?? 0) > 0}
-          <EmptyState title="A New Conversation">
-            Nothing has been asked in this one yet. Type a question below to start it.
-          </EmptyState>
+          <Masthead.Title level={2} class="mt-auto mb-16 text-2xl">
+            What would you like to ask?
+          </Masthead.Title>
         {:else}
           <EmptyState title={emptyTitle}>{emptyDescription}</EmptyState>
         {/if}
@@ -864,11 +923,17 @@
 <!-- The surface's search, for the header to seat. It grows toward the inline start as it opens, so a
      create control after it in the header's row never moves. -->
 {#snippet searchControls()}
+  <!-- Always open, as the board draws it: the rail's search is how a conversation nobody named is
+       found again, so it stands as a field rather than resting as an icon. The control is the
+       product's one search; holding it open is the only thing done differently here. -->
   <ScreenSearch
     bind:value={searchText}
+    bind:expanded={() => true, () => {}}
     label="Search your conversations"
     searchOn="pause"
-    fieldClass="w-2xs sm:w-xs"
+    size="sm"
+    class="w-full"
+    fieldClass="w-full"
     disabled={isSample || !isOpen}
     onsearch={(next) => void applySearch(next)}
   />
@@ -880,7 +945,13 @@
     {selectedId}
     bind:sort
     onMatter={matterId !== null}
-    matterTitleFor={showMatter ? (id) => citations.titleFor(id) : undefined}
+    matterNumberFor={showMatter
+      ? (id) => citations.numberFor(id) ?? citations.titleFor(id)
+      : undefined}
+    matterLineFor={showMatter ? (id) => matterLineFor(id) : undefined}
+    search={searchControls}
+    newRefusal={startRefusal}
+    onNew={startNew}
     nextCursor={conversations.nextCursor}
     loadingMore={conversations.loadingMore}
     emptyLine={searching
@@ -931,27 +1002,52 @@
       {/if}
     {/snippet}
 
-    {#if showsDisclosure}
-      {#if acceptFailure !== null}
-        <FailureNotice
-          failure={acceptFailure.failure}
-          title="Nothing Changed"
-          fallback={acceptFailure.fallback}
-          whenSilent={acceptFailure.whenSilent}
+    {#if showsDisclosure || firmGate !== null}
+      <div class="flex flex-col gap-16 mc-scrollbar overflow-y-auto p-24">
+      {#if showsDisclosure}
+        {#if acceptFailure !== null}
+          <FailureNotice
+            failure={acceptFailure.failure}
+            title="Nothing Changed"
+            fallback={acceptFailure.fallback}
+            whenSilent={acceptFailure.whenSilent}
+          />
+        {/if}
+        <MagnusDisclosure
+          disclosureVersion={availability?.disclosureVersion}
+          {accepting}
+          onAccept={accept}
         />
+      {:else if firmGate !== null}
+        <MagnusUnavailable state={firmGate} />
       {/if}
-      <MagnusDisclosure
-        disclosureVersion={availability?.disclosureVersion}
-        {accepting}
-        onAccept={accept}
-      />
-    {:else if firmGate !== null}
-      <MagnusUnavailable state={firmGate} />
+      </div>
     {:else}
       {#if rail === "switcher"}
         {@render switcher(rows ?? [])}
       {/if}
-      {@render conversationDetail()}
+      <!-- The conversation and the pane share the content column. Where the column is wide enough
+           for both, the pane stands beside the conversation; where it is not, the pane covers the
+           conversation until it is closed, so neither is squeezed and nothing scrolls sideways. -->
+      <div class="@container relative flex min-h-0 min-w-0 flex-1">
+        {@render conversationDetail()}
+        {#if paneOpen && selected !== null}
+          <MagnusPane
+            {session}
+            fetchImpl={fetch}
+            bind:tab={paneTab}
+            bind:openDocument
+            memberName={author.name}
+            readerIsAuthor={author.readerIsAuthor}
+            matterLine={matterLineFor(selected.matterId)}
+            {attachRefusal}
+            {detachingFileId}
+            onAttach={() => (attachingTo = selected)}
+            onDetach={(fileId) => void removeAttachment(fileId)}
+            onClose={() => (paneOpen = false)}
+          />
+        {/if}
+      </div>
     {/if}
   </LoadingRegion>
 {/snippet}
@@ -1001,7 +1097,7 @@
        composer pinned beneath it, which is why the content column does not scroll as a whole. The
        rail stands only while the assistant is open here: behind a closed gate there is no record to
        order, and the content column carries the gate's own words. -->
-  <NavigationLayout navigationLabel="Conversations" navigationWidth="narrow" contentScrolls={false}>
+  <NavigationLayout navigationLabel="Conversations" navigationWidth="standard" contentScrolls={false}>
     {#snippet navigation()}
       {#if isOpen || reading}
         <LoadingRegion
@@ -1014,10 +1110,7 @@
         </LoadingRegion>
       {/if}
     {/snippet}
-    <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
-      {#if header}
-        {@render header(searchControls)}
-      {/if}
+    <div class="flex min-h-0 flex-1 flex-col">
       {@render gatedOrDetail()}
     </div>
   </NavigationLayout>

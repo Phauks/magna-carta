@@ -120,19 +120,19 @@ describe("one cost's printed sheet", () => {
   });
 
   it("names the invoice only on a cost a bill has taken up", () => {
-    expect(fieldValue(costEntrySheet(cost(), context), "Invoice")).toBe("—");
+    expect(fieldValue(costEntrySheet(cost(), context), "Bill")).toBe("—");
     expect(
       fieldValue(
         costEntrySheet(cost({ status: "billed", invoiceId: "invoice_9" }), context),
-        "Invoice",
+        "Bill",
       ),
     ).toBe("invoice_9");
   });
 
   it("does not pretend a cost billed before the reference existed has one", () => {
     expect(
-      fieldValue(costEntrySheet(cost({ status: "billed", invoiceId: null }), context), "Invoice"),
-    ).toContain("not recorded");
+      fieldValue(costEntrySheet(cost({ status: "billed", invoiceId: null }), context), "Bill"),
+    ).toContain("isn't linked");
   });
 
   it("carries the Description the client reads, whole", () => {

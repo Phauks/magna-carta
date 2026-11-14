@@ -73,8 +73,7 @@
 
 <SettingsScrollRegion>
     <SettingsDescription>
-      What each role allows. A member holds any number of roles and can do what any of them allows.
-      A sub-role adds to the role it sits under. Roles are given to people under Users.
+      What each role allows. A member can have several roles and can do anything any of them allows. A sub-role adds to its parent role. Assign roles under Users.
     </SettingsDescription>
 
     <SettingsPlate heading="The Firm's Roles">
@@ -99,8 +98,7 @@
         {/snippet}
         {#snippet emptyState()}
           <EmptyState title="No roles">
-            A firm is created with its default roles. This one has none, which means nobody can be given
-            anything — an administrator should be asked to look at it.
+            This firm has no roles, so no one can be given access. Ask an administrator to check it.
           </EmptyState>
         {/snippet}
         {@const shown = orderRolesByFamily(roles ?? [])}
@@ -125,8 +123,7 @@
               <Accordion.Content>
                 {#if parent !== null}
                   <p class="mb-12 text-sm text-text-muted">
-                    Includes everything {parent.name} allows. Whoever holds {role.name} also holds
-                    {parent.name}, and the list below is what {role.name} adds.
+                    Includes everything {parent.name} allows. Anyone with {role.name} also has {parent.name}, and the list below is what {role.name} adds.
                   </p>
                 {/if}
                 {#if role.permissions.length === 0}

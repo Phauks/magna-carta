@@ -277,9 +277,7 @@
   {#if openIssues.length > 0}
     <SettingsPlate heading="Different in {product}">
       <SettingsDescription>
-        These are not the same in {product} as in Magna Carta: you changed or deleted the copy there,
-        or {product} would not take the event. Magna Carta's calendar was not changed. Put Back writes
-        the event to {product} again as Magna Carta has it. Leave It keeps {product} as it is.
+        This event doesn't match between {product} and Magna Carta, because it was changed or deleted in {product}, or {product} rejected it. Magna Carta's calendar wasn't changed. Put Back copies the Magna Carta version to {product} again. Leave It keeps {product} as it is.
       </SettingsDescription>
       {#if answerRefusal !== null}
         <Alert.Root variant="danger">
@@ -305,8 +303,7 @@
     >
       {#snippet failure()}
         <p class="py-12 text-sm text-text-muted">
-          Your calendar sync settings could not be read, so they are not stated rather than guessed
-          at.
+          Your calendar sync settings couldn't be loaded.
         </p>
       {/snippet}
 
@@ -356,9 +353,7 @@
   {#if account !== null && shownChoices.length > 0}
     <SettingsPlate heading="From {product} to Magna Carta">
       <SettingsDescription>
-        Events you make in a calendar of yours switched on below appear on your Magna Carta
-        calendar, under My Outlook Calendar. Only you see them. Nothing is changed in {product}, and
-        they are not added to any matter.
+        Events from the calendars you turn on below appear on your Magna Carta calendar under My Outlook Calendar. Only you see them. Nothing changes in {product}, and they aren't added to any matter.
       </SettingsDescription>
       {#if shownRefusal !== null}
         <Alert.Root variant="danger">

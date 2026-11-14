@@ -103,7 +103,7 @@
     failure = stated(
       outcome.failure,
       "No charge was recorded: the cushion holds what it held, and no client ledger moved.",
-      "Nothing answered, so no charge was recorded. Retrying sends this same submission rather than a second charge.",
+      "Couldn't connect. No charge was recorded, and trying again won't charge twice.",
     );
     return "refused";
   }
@@ -180,7 +180,7 @@
 
       <LabelledField
         label="Description"
-        hint="What the institution charged for. It is the line the ledger entry reads."
+        hint="What the bank charged for. This becomes the ledger entry's description."
         error={fieldRefusal(serverProblem, "description")}
       >
         {#snippet children({ props })}

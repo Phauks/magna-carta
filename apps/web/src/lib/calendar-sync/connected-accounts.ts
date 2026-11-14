@@ -77,7 +77,7 @@ export function noticeForOutcome(
     declined: {
       tone: "warning",
       title: `${product} was not connected`,
-      description: `${company} did not grant access to the calendar. If you did not cancel it yourself, your organization's administrator may need to allow it.`,
+      description: `${company} didn't grant access to the calendar. If you didn't cancel, your organization's administrator may need to allow it.`,
     },
     expired: {
       tone: "warning",

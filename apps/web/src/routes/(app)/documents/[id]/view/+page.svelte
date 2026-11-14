@@ -114,8 +114,7 @@
       variant: "warning",
       title: "This Document Was Refused as Unsafe to Open",
       description:
-        "It expands far past what a page is expected to hold, so the reader stopped rather than " +
-        "opening it. It is stored on the matter and it can be downloaded.",
+        "It's too large to open safely here. It's saved on the matter and you can download it.",
     },
     "render-failed": {
       variant: "warning",
@@ -308,8 +307,7 @@
         variant: "warning",
         title: "This Document Is Larger Than the Viewer Opens",
         description:
-          `It is ${formatDocumentSize(outcome.sizeBytes)}; the viewer opens up to ` +
-          `${formatDocumentSize(PDF_VIEWER_MAX_BYTES)}. Download it to read it.`,
+          `It's ${formatDocumentSize(outcome.sizeBytes)}; the viewer opens up to ${formatDocumentSize(PDF_VIEWER_MAX_BYTES)}. Download it to read it.`,
       };
       opening = false;
       return;
@@ -318,7 +316,7 @@
       readFailure = stated(
         outcome.failure,
         "The document could not be read.",
-        "Nothing answered when the document was read.",
+        "Couldn't connect while reading the document.",
       );
       opening = false;
       return;
@@ -467,7 +465,7 @@
     failure={data.failure}
     subject="The document"
     fallback="The document could not be read."
-    whenSilent="Nothing answered when the document was read."
+    whenSilent="Couldn't connect while reading the document."
     onRetry={() => void invalidateAll()}
   />
 {:else if file !== null && filesBack !== null}
@@ -535,9 +533,8 @@
             Don't have the password? <a
               class="underline"
               href="/file-workbench?capability=unlock"
-              {...opensBeside("session")}>Try Password Recovery</a
-            > in a new tab — download the document there first, since the recovery tool works on its
-            own copy of a file.
+              {...opensBeside("session")}>Open Password Recovery</a
+            > in a new tab, and download the document there first.
           </p>
         </div>
       {:else}

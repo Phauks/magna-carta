@@ -60,6 +60,26 @@ export interface InboundSample extends QualityFacts {
   readonly bytesReceived: number;
   readonly framesReceived: number;
   readonly framesDropped: number;
+  /*
+   * WHAT A STUTTER IS MADE OF, for the copied diagnostics (diagnostic-text.ts). Optional, and null
+   * where the browser does not report them: Firefox and Safari carry fewer of these counters than
+   * Chrome, and an absent counter is not a zero.
+   */
+  /** Frames the decoder finished. Received but not decoded is a picture the decoder fell behind on. */
+  readonly framesDecoded?: number | null;
+  /** The rate pictures are being shown at, as the browser itself measured it. */
+  readonly framesPerSecond?: number | null;
+  readonly frameWidth?: number | null;
+  readonly frameHeight?: number | null;
+  /** How many times the picture froze, and for how long in all, in seconds. */
+  readonly freezeCount?: number | null;
+  readonly totalFreezesDuration?: number | null;
+  /** Requests for a whole new picture (PLI) and for lost packets again (NACK) this end sent. */
+  readonly pliCount?: number | null;
+  readonly nackCount?: number | null;
+  /** How long frames waited in the jitter buffer in all, in seconds, over how many were emitted. */
+  readonly jitterBufferDelay?: number | null;
+  readonly jitterBufferEmittedCount?: number | null;
 }
 
 /** What this browser is sending from its camera, as this sample found it. */
@@ -85,6 +105,15 @@ export interface UplinkSample extends QualityFacts {
   readonly framesSent: number;
   /** What is going out over the interval, in bits per second. Null on the first sample. */
   readonly bitsPerSecond: number | null;
+  /** The rate pictures are being encoded at, as the browser measured it. */
+  readonly framesPerSecond?: number | null;
+  /**
+   * What is holding the picture back, in the browser's own word: `cpu` (this computer cannot encode
+   * faster), `bandwidth` (the connection cannot carry more), `other`, or `none`.
+   */
+  readonly qualityLimitationReason?: string | null;
+  /** Requests for a whole new picture the far end sent this camera. */
+  readonly pliCount?: number | null;
 }
 
 /** One reading of the connection. */
@@ -317,6 +346,9 @@ function readUplink(
     mid: readText(camera, "mid"),
     rid: readText(camera, "rid"),
     frameWidth: readNumber(camera, "frameWidth"),
+    framesPerSecond: readNumber(camera, "framesPerSecond"),
+    qualityLimitationReason: readText(camera, "qualityLimitationReason"),
+    pliCount: readNumber(camera, "pliCount"),
     frameHeight: readNumber(camera, "frameHeight"),
     bytesSent,
     packetsSent,
@@ -396,6 +428,16 @@ function readInbound(
       bytesReceived: readNumber(entry, "bytesReceived") ?? 0,
       framesReceived: readNumber(entry, "framesReceived") ?? 0,
       framesDropped: readNumber(entry, "framesDropped") ?? 0,
+      framesDecoded: readNumber(entry, "framesDecoded"),
+      framesPerSecond: readNumber(entry, "framesPerSecond"),
+      frameWidth: readNumber(entry, "frameWidth"),
+      frameHeight: readNumber(entry, "frameHeight"),
+      freezeCount: readNumber(entry, "freezeCount"),
+      totalFreezesDuration: readNumber(entry, "totalFreezesDuration"),
+      pliCount: readNumber(entry, "pliCount"),
+      nackCount: readNumber(entry, "nackCount"),
+      jitterBufferDelay: readNumber(entry, "jitterBufferDelay"),
+      jitterBufferEmittedCount: readNumber(entry, "jitterBufferEmittedCount"),
       roundTripMilliseconds: null,
       lossFraction:
         was === null

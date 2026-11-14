@@ -73,7 +73,7 @@ describe("matterLifecycleStep", () => {
     // The close names what it closes, and its sentence says what a declined consultation keeps:
     // the tentative number, and never a matter number.
     expect(close?.label).toBe("Close Consultation");
-    expect(close?.doneSentence).toContain("no matter number");
+    expect(close?.doneSentence).toContain("doesn't get a matter number");
     const hold = matterLifecycleSteps("consultation").find((step) => step.action === "hold");
     expect(hold?.doneSentence).toContain("consultation again when released");
     expect(hold?.doneSentence).not.toContain("active");
@@ -91,9 +91,9 @@ describe("matterLifecycleStep", () => {
     }
     // Each one names the number, because the number is what a reader is most often wrong about.
     expect(stepFor("consultation", "open").consequence).toContain("matter number");
-    expect(stepFor("consultation", "close").consequence).toContain("no matter number");
+    expect(stepFor("consultation", "close").consequence).toContain("doesn't get a matter number");
     expect(stepFor("intake", "graduate").consequence).toContain("consultation number");
-    expect(stepFor("closed", "reopen").consequence).toContain("number is unchanged");
+    expect(stepFor("closed", "reopen").consequence).toContain("number stays the same");
   });
 
   it("covers every status the contract stores", () => {

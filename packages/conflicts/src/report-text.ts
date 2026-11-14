@@ -142,41 +142,89 @@ function searched(sources: readonly ReportedSource[], source: string): boolean {
   return sources.some((entry) => entry.source === source && entry.availability === "searched");
 }
 
-// The traversal's own account of itself: how it walked, and — the sentence that matters — whether
-// it finished.
+// ONE SECTION OF THE ACCOUNT. A screen draws each as a block under its heading and a printed report
+// as a section of its own, so the account reads as parts rather than as one numbered paragraph. The
+// key says which part it is, so a screen can file the places' sections under the places and the rest
+// under the Directory without parsing a sentence. `attention` marks a section that says the search
+// was narrower than asked or stopped short: what was not searched, a walk or a candidate set that hit
+// its bound. It is a fact about the search, never a judgement about the matter.
+export const REPORT_SECTION_KEYS = [
+  "searched",
+  "names",
+  "relationships",
+  "employees",
+  "messaging",
+  "tasks",
+  "magnus",
+  "files",
+  "not_searched",
+  "results",
+] as const;
+export type ReportSectionKey = (typeof REPORT_SECTION_KEYS)[number];
+
+export interface ReportSection {
+  readonly key: ReportSectionKey;
+  readonly heading: string;
+  readonly lines: readonly string[];
+  readonly attention: boolean;
+}
+
+// The two name-matching bands as a reader knows them. The same words the New Check panel shows
+// (apps/web/src/lib/conflicts/conflicts-vocabulary.ts), because the account is read beside it.
+const BAND_WORDS: Readonly<Record<Strictness, string>> = {
+  balanced: "Standard",
+  over_inclusive: "Widest",
+};
+
+// Identifier types a check records as not looked up on their own, in a reader's words.
+const IDENTIFIER_WORDS: Readonly<Record<string, string>> = {
+  dob: "Date of birth",
+  ssn_last_four: "Last four of SSN",
+};
+
+function counted(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+function capitalized(text: string): string {
+  return text.length === 0 ? text : `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+// The walk's own account of itself: how it walked and, the sentence that matters, whether it
+// finished.
 //
 // A truncated expansion is NEVER reported as a completed one. It is the depth version of the rule
 // that a source with no corpus records `unavailable` and never reads as having been searched: in
 // both cases the platform looked at part of the world and has to say which part, because a firm
 // defending its procedure can defend "we searched 10,000 related entities and 137 more were
 // reachable and not searched" and cannot defend a number that quietly stopped meaning what it says.
-function describeTraversal(traversal: ReportedTraversal | null): string[] {
-  if (traversal === null) return [];
-  const statements: string[] = [];
+function describeTraversal(traversal: ReportedTraversal | null): {
+  readonly lines: string[];
+  readonly truncated: boolean;
+} {
+  if (traversal === null) return { lines: [], truncated: false };
+  const lines: string[] = [];
 
   if (traversal.followedToClosure) {
-    statements.push(
-      "Traversal — every recorded relationship was followed to closure, whatever its kind and " +
-        "however long the chain. Ended relationships were traversed and each is marked on the path " +
-        "that reached through it.",
+    lines.push(
+      "Every relationship is followed to the end of its chain, whatever its kind. Ended relationships are followed too, and marked on the path that went through them.",
     );
   } else {
     const budgets = Object.entries(traversal.edgeClassBudgets).toSorted(([left], [right]) =>
       left.localeCompare(right),
     );
     if (budgets.length > 0) {
-      statements.push(
-        `Traversal budgets — ${budgets
-          .map(([edgeClass, budget]) => `${edgeClass} ${budget} hop${budget === 1 ? "" : "s"}`)
+      lines.push(
+        `Steps allowed for each kind of relationship: ${budgets
+          .map(([edgeClass, budget]) => `${edgeClass} ${counted(budget, "step", "steps")}`)
           .join(
             ", ",
-          )}; corporate family traversed transitively. Ended relationships were traversed ` +
-          `and each is marked on the path that reached through it.`,
+          )}. Corporate families were followed all the way. Ended relationships are followed too, and marked on the path that went through them.`,
       );
     }
   }
 
-  if (!traversal.truncated) return statements;
+  if (!traversal.truncated) return { lines, truncated: false };
 
   const reached = traversal.entitiesReached;
   const cap = traversal.closureCap;
@@ -185,27 +233,32 @@ function describeTraversal(traversal: ReportedTraversal | null): string[] {
   const unexpanded = traversal.unexpandedReachedCount;
   const parts: string[] = [];
   if (reached !== null && cap !== null) {
-    parts.push(`${reached} entities reached against ${boundWord} of ${cap}`);
+    parts.push(
+      `It reached ${counted(reached, "entity", "entities")}, against ${boundWord} of ${cap}.`,
+    );
   } else if (cap !== null) {
-    parts.push(`${boundWord} of ${cap} entities was reached`);
+    parts.push(`It reached ${boundWord} of ${cap} entities.`);
   }
   if (frontier !== null) {
     parts.push(
-      `${frontier} further ${frontier === 1 ? "entity was" : "entities were"} reachable and not searched`,
+      `${counted(frontier, "further entity was", "further entities were")} reachable and not searched.`,
     );
   }
   if (unexpanded !== null && unexpanded > 0) {
     parts.push(
-      `${unexpanded} reached ${unexpanded === 1 ? "entity was" : "entities were"} matched but not expanded, so what lies beyond ${unexpanded === 1 ? "it" : "them"} is unknown`,
+      `${counted(unexpanded, "entity was", "entities were")} matched but not followed further, so what lies beyond ${unexpanded === 1 ? "it" : "them"} is unknown.`,
     );
   }
-  statements.push(
-    `Graph — THE TRAVERSAL WAS TRUNCATED and this search of the graph is incomplete: ${parts.join("; ")}.`,
+  lines.push(
+    [
+      "The search of relationships is incomplete. The walk stopped before it finished.",
+      ...parts,
+    ].join(" "),
   );
-  return statements;
+  return { lines, truncated: true };
 }
 
-// The candidate bound's own account of itself, and — the sentence that matters — whether it bit.
+// The candidate bound's own account of itself and, the sentence that matters, whether it bit.
 //
 // A run that refused candidates has searched less than the reader would otherwise assume from the hit
 // count in front of them, so the count is stated against what the channels actually surfaced. The
@@ -219,25 +272,25 @@ function describeCandidateBound(candidates: ReportedCandidates | null): string[]
   const written = candidates.candidatesWritten;
   const refused = candidates.candidatesRefused;
   const cap = candidates.candidateCap;
-  const parts: string[] = [];
+  const parts: string[] = ["The results are incomplete."];
   if (surfaced !== null && written !== null) {
-    parts.push(`${surfaced} candidates surfaced and ${written} were recorded`);
+    parts.push(
+      `${counted(surfaced, "candidate was", "candidates were")} found and ${written} recorded.`,
+    );
   }
-  if (cap !== null) parts.push(`the bound in force was ${cap}, the most one record can carry`);
+  if (cap !== null) parts.push(`The most one record can carry is ${cap}.`);
   if (refused !== null) {
     const byTier = candidates.refusedByTier
       .map((entry) => `tier ${entry.tier}: ${entry.count}`)
       .join(", ");
     parts.push(
       byTier.length === 0
-        ? `${refused} ${refused === 1 ? "candidate was" : "candidates were"} refused`
-        : `${refused} ${refused === 1 ? "candidate was" : "candidates were"} refused (${byTier})`,
+        ? `${counted(refused, "candidate was", "candidates were")} not recorded.`
+        : `${counted(refused, "candidate was", "candidates were")} not recorded (${byTier}).`,
     );
   }
-  return [
-    `Candidates — THE CANDIDATE SET WAS TRUNCATED and this search is incomplete: ${parts.join("; ")}. ` +
-      `The strongest evidence was kept; a co-party surfacing is never refused.`,
-  ];
+  parts.push("The strongest evidence was kept, and a co-party is never left out.");
+  return [parts.join(" ")];
 }
 
 function listed(words: readonly string[]): string {
@@ -257,25 +310,35 @@ const TASK_STATUS_WORDS: Readonly<Record<string, string>> = {
   closed: "closed matters",
 };
 
-// One line per place beyond the Directory, each led by the place's name so a screen can file the line
-// under it. Every line says how the parties were looked for, because "searched" over prose means
-// something narrower than it does over the Directory, and the narrower reading is the true one.
-function describePlaces(places: ReportedPlaces | null, partyCount: number): string[] {
+function section(
+  key: ReportSectionKey,
+  heading: string,
+  lines: readonly string[],
+  attention = false,
+): ReportSection {
+  return { key, heading, lines, attention };
+}
+
+// One section per place beyond the Directory. Every one says how the parties were looked for,
+// because "searched" over prose means something narrower than it does over the Directory, and the
+// narrower reading is the true one.
+function describePlaces(places: ReportedPlaces | null, partyCount: number): ReportSection[] {
   if (places === null) return [];
-  const statements: string[] = [];
-  const parties = `${partyCount} subject ${partyCount === 1 ? "party" : "parties"}`;
-  const floor =
+  const sections: ReportSection[] = [];
+  const parties = counted(partyCount, "party", "parties");
+  const byName =
     places.nameFloor === null
-      ? "names compared whole"
-      : `names compared whole, from ${places.nameFloor} characters`;
+      ? "whole name"
+      : `whole name (names of ${places.nameFloor} or more characters)`;
   if (places.messaging.length > 0) {
     const channels = listed(places.messaging.map((channel) => MESSAGING_WORDS[channel] ?? channel));
-    const email = places.messaging.includes("email")
-      ? " Email is searched by its senders, recipients and subject; its body is not."
-      : "";
-    statements.push(
-      `Messaging — ${channels}, filed or not, searched for ${parties} by linked record, phone number, email address and ${floor}.${email}`,
-    );
+    const lines = [
+      `${capitalized(channels)}, filed on a matter or not, searched for ${parties} by linked record, phone number, email address and ${byName}.`,
+    ];
+    if (places.messaging.includes("email")) {
+      lines.push("Email is searched by its senders, recipients and subject. Its body is not.");
+    }
+    sections.push(section("messaging", "Messaging", lines));
   }
   if (places.tasks.length > 0) {
     const statuses = places.tasks.filter((status) => status !== "archived");
@@ -284,13 +347,17 @@ function describePlaces(places: ReportedPlaces | null, partyCount: number): stri
         ? "tasks on no matter"
         : `tasks on ${listed(statuses.map((status) => TASK_STATUS_WORDS[status] ?? status))}, and tasks on no matter`;
     const archived = places.tasks.includes("archived") ? ", plus archived tasks" : "";
-    statements.push(
-      `Tasks — titles and descriptions of ${onMatters}${archived}, searched for ${parties} by ${floor}.`,
+    sections.push(
+      section("tasks", "Tasks", [
+        `Titles and descriptions of ${onMatters}${archived}, searched for ${parties} by ${byName}.`,
+      ]),
     );
   }
   if (places.magnus) {
-    statements.push(
-      `Magnus — every conversation, including those saved to General, searched for ${parties} by ${floor}.`,
+    sections.push(
+      section("magnus", "Magnus", [
+        `Every conversation, including those saved to General, searched for ${parties} by ${byName}.`,
+      ]),
     );
   }
   const files = places.files ?? [];
@@ -298,54 +365,64 @@ function describePlaces(places: ReportedPlaces | null, partyCount: number): stri
     const statuses = files.filter((status) => status !== "archived");
     const onMatters =
       statuses.length === 0
-        ? "deleted files on every matter"
-        : `files on ${listed(statuses.map((status) => TASK_STATUS_WORDS[status] ?? status))}${files.includes("archived") ? ", plus deleted files on every matter" : ""}`;
-    const searched = places.fileMattersSearched ?? null;
+        ? "files deleted from any matter"
+        : `files on ${listed(statuses.map((status) => TASK_STATUS_WORDS[status] ?? status))}${files.includes("archived") ? ", plus files deleted from any matter" : ""}`;
+    const searchedCount = places.fileMattersSearched ?? null;
     const reach = places.fileMattersInReach ?? null;
     const across =
-      searched === null || reach === null
+      searchedCount === null || reach === null
         ? ""
-        : ` across ${searched} of ${reach} ${reach === 1 ? "matter" : "matters"}`;
-    statements.push(
-      `Files — the text of ${onMatters}${across}, searched for ${parties} by each name as an exact phrase.`,
-    );
+        : ` across ${searchedCount} of ${counted(reach, "matter", "matters")}`;
+    const lines = [
+      `The text of ${onMatters}${across}, searched for ${parties} by each name as an exact phrase.`,
+    ];
     const notSearched = places.fileMattersNotSearched ?? 0;
     if (notSearched > 0) {
-      statements.push(
-        `${notSearched} ${notSearched === 1 ? "matter's files were" : "matters' files were"} not searched: the run reached the most questions one check asks the file index, and the most recently active matters were searched first.`,
+      lines.push(
+        `${counted(notSearched, "matter's files were", "matters' files were")} not searched. The run reached the most questions one check asks the file index, and the most recently active matters were searched first.`,
       );
     }
     const failed = places.fileMattersFailed ?? 0;
     if (failed > 0) {
-      statements.push(
-        `${failed} ${failed === 1 ? "matter's files" : "matters' files"} could not be searched: the file index did not answer for ${failed === 1 ? "it" : "them"}.`,
+      lines.push(
+        `${counted(failed, "matter's files", "matters' files")} could not be searched, because the file index did not answer for ${failed === 1 ? "it" : "them"}.`,
       );
     }
+    sections.push(section("files", "Files", lines, notSearched > 0 || failed > 0));
   }
+  return sections;
+}
+
+// What limited the places beyond the Directory, said beside the results it limited.
+function describePlaceLimits(places: ReportedPlaces | null): string[] {
+  if (places === null) return [];
+  const lines: string[] = [];
   const atCeiling = places.namesAtCeiling ?? 0;
   if (atCeiling > 0) {
     const ceiling = places.nameResultCeiling ?? null;
-    const most = ceiling === null ? "the most records" : `the first ${ceiling} records`;
-    statements.push(
-      `${atCeiling} ${atCeiling === 1 ? "name was" : "names were"} found in more records of one place than a check keeps; ${most} for ${atCeiling === 1 ? "it" : "each"} were recorded.`,
+    const most =
+      ceiling === null ? "the most records a check keeps" : `the first ${ceiling} records`;
+    lines.push(
+      `${counted(atCeiling, "name was", "names were")} found in more records of one place than a check keeps. Only ${most} for ${atCeiling === 1 ? "it" : "each"} were recorded.`,
     );
   }
   if (places.resultsRefused !== null && places.resultsRefused > 0) {
-    statements.push(
-      `${places.resultsRefused} ${places.resultsRefused === 1 ? "result" : "results"} from these places ${places.resultsRefused === 1 ? "was" : "were"} not recorded: the run reached the most one record can hold.`,
+    lines.push(
+      `${counted(places.resultsRefused, "result", "results")} from messages, tasks, conversations or files ${places.resultsRefused === 1 ? "was" : "were"} not recorded, because the run reached the most one record can hold.`,
     );
   }
-  return statements;
+  return lines;
 }
 
-// The full statement list for one check, in reading order. Each entry is one sentence or clause a
-// caller renders as its own line; the module does not join them, because the caller owns the medium.
+// The account of one check, as sections in reading order: who searched and when, what each part of
+// the Directory search did, each place beyond it, what was not searched and why, and what surfaced.
+// The module does not render them: the caller owns the medium.
 export function describeCheck(
   check: ReportedCheck,
   hits: readonly ReportedHit[],
   sources: readonly ReportedSource[],
-): readonly string[] {
-  const statements: string[] = [];
+): readonly ReportSection[] {
+  const sections: ReportSection[] = [];
 
   // A handle is never printed: a member the roster cannot name is said to be one, not quoted.
   const name = check.actorDisplayName?.trim() ?? "";
@@ -355,79 +432,85 @@ export function describeCheck(
       : name.length > 0
         ? `by ${name}`
         : "by a member the firm's roster does not name";
-  statements.push(
-    `Searched on ${describeCheckInstant(check.createdAt)} ${actor}, as a ${check.trigger} check.`,
-  );
-
+  const searchedLines = [
+    `${describeCheckInstant(check.createdAt)} ${actor}, as a ${check.trigger} check.`,
+  ];
   if (check.floorRaised) {
-    statements.push(
-      "The requested scope fell below the firm's floor and was raised to it before the search ran.",
+    searchedLines.push(
+      "The search asked for was narrower than the firm's minimum, so it was widened to the minimum before it ran.",
     );
   }
+  sections.push(section("searched", "Searched", searchedLines));
 
+  const subjects = check.subjectEntityCount;
   if (searched(sources, "party")) {
-    statements.push(
-      `Party — name and identifier similarity at ${check.strictness} strictness, over ` +
-        `${check.subjectEntityCount} subject ${check.subjectEntityCount === 1 ? "party" : "parties"}.`,
-    );
+    const lines = [
+      `${subjects === 1 ? "1 party's" : `${subjects} parties'`} names and identifiers compared under ${BAND_WORDS[check.strictness]} name matching.`,
+    ];
     if (check.trigramMatching === false) {
-      statements.push(
-        "Trigram matching was turned off for this check: names that share only a few letters with a party were not looked for.",
+      lines.push(
+        "Trigram matching was off, so names that share only a few letters with a party's were not looked for.",
       );
     }
+    sections.push(section("names", "Names and identifiers", lines));
   }
 
   if (searched(sources, "graph")) {
     const traversal = check.traversal ?? null;
+    const lines: string[] = [];
     if (traversal?.followedToClosure === true) {
+      const reached = `${counted(check.expandedEntityCount, "entity", "entities")} reached from the parties.`;
       const deepest =
         traversal.longestPathLength === null
           ? ""
           : traversal.longestPathLength === 0
-            ? "; no recorded relationship led away from them"
-            : `; the longest chain followed ran ${traversal.longestPathLength} ${traversal.longestPathLength === 1 ? "relationship" : "relationships"}`;
-      statements.push(
-        `Graph — ${check.expandedEntityCount} entities reached from the subject parties${deepest}.`,
-      );
+            ? " No recorded relationship led away from them."
+            : ` The longest chain followed was ${counted(traversal.longestPathLength, "relationship", "relationships")}.`;
+      lines.push(`${reached}${deepest}`);
     } else {
-      statements.push(
+      lines.push(
         check.depth === 0
-          ? `Graph — traversal budget 0, so no related entity was reached beyond the ${check.subjectEntityCount} subject parties themselves.`
-          : `Graph — ${check.expandedEntityCount} entities reached from the subject parties, at a ${check.depth}-hop traversal budget.`,
+          ? `No relationship was followed, so only the ${counted(subjects, "party", "parties")} ${subjects === 1 ? "itself was" : "themselves were"} searched.`
+          : `${counted(check.expandedEntityCount, "entity", "entities")} reached from the parties, following relationships up to ${counted(check.depth, "step", "steps")}.`,
       );
     }
-    statements.push(...describeTraversal(traversal));
+    const walk = describeTraversal(traversal);
+    lines.push(...walk.lines);
+    sections.push(section("relationships", "Relationships", lines, walk.truncated));
   }
 
   if (searched(sources, "imputation")) {
-    statements.push(
-      "Firm employees — identity join between the firm's own members and the matter's parties, or every entity reached where no matter is named. Never a name match.",
+    sections.push(
+      section("employees", "Firm Employees", [
+        "The firm's members compared with the matter's parties, or with every entity reached when no matter is named. By identity only, never by name.",
+      ]),
     );
   }
 
-  statements.push(...describePlaces(check.places ?? null, check.subjectEntityCount));
+  sections.push(...describePlaces(check.places ?? null, subjects));
 
+  const notSearched: string[] = sources
+    .filter((entry) => entry.availability === "unavailable")
+    .map(
+      (entry) =>
+        `${capitalized(displayNameForSource(entry.source))}. ${capitalized(entry.reason ?? "No reason was recorded.")}`,
+    );
   if (check.skippedIdentifierTypes.length > 0) {
-    statements.push(
-      `Not probed as standalone identifiers (the corpus cannot index them on their own): ` +
-        `${check.skippedIdentifierTypes.join(", ")}.`,
+    const kinds = check.skippedIdentifierTypes.map((type) => IDENTIFIER_WORDS[type] ?? type);
+    notSearched.push(
+      `${listed(kinds)}. ${kinds.length === 1 ? "It is" : "These are"} only compared beside a name, never looked up on ${kinds.length === 1 ? "its" : "their"} own.`,
     );
   }
-
-  const unavailable = sources.filter((entry) => entry.availability === "unavailable");
-  if (unavailable.length > 0) {
-    statements.push(
-      `Not searched: ${unavailable
-        .map(
-          (entry) =>
-            `${displayNameForSource(entry.source)} (${entry.reason ?? "no reason recorded"})`,
-        )
-        .join(", ")}.`,
-    );
+  if (notSearched.length > 0) {
+    sections.push(section("not_searched", "Not searched", notSearched, true));
   }
 
   const candidates = check.candidates ?? null;
-  statements.push(...describeCandidateBound(candidates));
+  const results: string[] = [
+    ...describeCandidateBound(candidates),
+    ...describePlaceLimits(check.places ?? null),
+  ];
+  const limited = results.length > 0;
 
   if (hits.length === 0) {
     // "0 results." is a fact about the machine's own behaviour, and it is only a fact when the
@@ -437,21 +520,19 @@ export function describeCheck(
     if (candidates === null || !candidates.truncated) {
       // The only conclusion the platform draws, and it is a statement about the search ending rather
       // than about the matter. Nothing here may grow into a clearance.
-      statements.push("0 results.");
+      results.push("0 results.");
     }
-    return statements;
+  } else {
+    const byTier = [...countByTier(hits)]
+      .toSorted(([left], [right]) => left - right)
+      .map(([tier, count]) => `tier ${tier}: ${count}`)
+      .join(", ");
+    // "Surfaced" and "recorded" are the same number on an unbounded run and are NOT on a bounded one,
+    // so the closing sentence changes verb rather than letting the reader take a written count for
+    // everything the channels found. The truncation sentence above carries the surfaced figure.
+    const verb = candidates !== null && candidates.truncated ? "recorded" : "surfaced";
+    results.push(`${counted(hits.length, "result", "results")} ${verb} for review (${byTier}).`);
   }
-
-  const byTier = [...countByTier(hits)]
-    .toSorted(([left], [right]) => left - right)
-    .map(([tier, count]) => `tier ${tier}: ${count}`)
-    .join(", ");
-  // "Surfaced" and "recorded" are the same number on an unbounded run and are NOT on a bounded one, so
-  // the closing sentence changes verb rather than letting the reader take a written count for
-  // everything the channels found. The truncation statement above carries the surfaced figure.
-  const verb = candidates !== null && candidates.truncated ? "recorded" : "surfaced";
-  statements.push(
-    `${hits.length} ${hits.length === 1 ? "result" : "results"} ${verb} for review (${byTier}).`,
-  );
-  return statements;
+  sections.push(section("results", "Results", results, limited));
+  return sections;
 }

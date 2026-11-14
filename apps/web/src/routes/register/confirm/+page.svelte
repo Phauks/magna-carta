@@ -99,7 +99,7 @@
     <CheckEmailScreen
       address={confirmedAddress}
       instruction={confirmed.status === "provisioning"
-        ? "Your workspace is being built. We have sent a second email with the link that sets your password — open it once your workspace is ready."
+        ? "Your workspace is being set up. We've sent a second email with a link to set your password. Open it once your workspace is ready."
         : "We have sent a second email with the link that sets your password. Open it to finish setting up your account."}
       sentAt={confirmedAt}
       remedy="If it has not arrived after a few minutes, use Reset Password from the sign-in screen."

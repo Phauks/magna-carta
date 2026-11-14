@@ -18,11 +18,16 @@ import type { MagnusTurn } from "./magnus-api.ts";
  * the transcript and the find bar count the same messages.
  */
 export function shownTurns(turns: readonly MagnusTurn[]): readonly MagnusTurn[] {
-  return turns.filter(
-    (turn) =>
-      turn.supersededAt === null &&
-      !(turn.speaker === "magnus" && turn.removedAt !== null && turn.content === null),
-  );
+  // In the record's own order, the sequence. A question and its answer are written in one batch with
+  // one timestamp, so the server's page order (by time, then by identifier) can put an answer above
+  // its own question; the sequence never can.
+  return turns
+    .filter(
+      (turn) =>
+        turn.supersededAt === null &&
+        !(turn.speaker === "magnus" && turn.removedAt !== null && turn.content === null),
+    )
+    .toSorted((left, right) => left.sequence - right.sequence);
 }
 
 /** What the reader typed, as a finder reads it: nothing at all when it is only spaces. */

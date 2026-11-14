@@ -45,7 +45,7 @@
     failure={data.failure}
     subject="The document"
     fallback="The document could not be read."
-    whenSilent="Nothing answered when the document was read."
+    whenSilent="Couldn't connect while reading the document."
     onRetry={() => void invalidateAll()}
   />
 {:else if file !== null && filesBack !== null}

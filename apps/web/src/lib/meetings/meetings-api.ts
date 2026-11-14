@@ -479,6 +479,7 @@ function pollView(poll: MeetingPoll): MeetingPollView {
     question: poll.question,
     anonymous: poll.anonymous,
     maxChoices: poll.maxChoices,
+    kind: poll.kind,
     openedAt: poll.openedAt,
     closedAt: poll.closedAt,
     options: poll.options
@@ -487,6 +488,7 @@ function pollView(poll: MeetingPoll): MeetingPollView {
         position: option.position,
         label: option.label,
         count: option.count,
+        averageRank: option.averageRank,
       }))
       .toSorted((first, second) => first.position - second.position),
     respondents: poll.respondents,
@@ -538,6 +540,7 @@ export function openMeetingPoll(
         options: [...draft.options],
         anonymous: draft.anonymous,
         maxChoices: draft.maxChoices,
+        kind: draft.kind,
       },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,

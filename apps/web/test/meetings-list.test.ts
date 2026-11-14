@@ -24,6 +24,7 @@ import {
   meetingHasRecordings,
   meetingIsBeingRecorded,
   meetingWhen,
+  meetingRecordingWord,
   meetingWhere,
   MEETING_COLUMN_IDENTIFIERS,
   MEETING_SECTIONS,
@@ -55,6 +56,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     recordingConfigured: true,
     captionsAvailable: false,
     personalRoomSession: false,
+    matterTitle: null,
     encrypted: false,
     ...overrides,
   };
@@ -78,9 +80,16 @@ describe("what a row says", () => {
 
   it("states where the meeting hangs, and links a matter only when there is one", () => {
     expect(meetingWhere(meeting())).toBe("Matter");
+    expect(meetingWhere(meeting({ matterTitle: "Estate of Ruiz" }))).toBe("Estate of Ruiz");
     expect(matterAddress(meeting())).toBe("/matters/matter_1/overview");
     expect(meetingWhere(meeting({ matterId: null, eventKind: "firm" }))).toBe("Firm event");
     expect(matterAddress(meeting({ matterId: null }))).toBeNull();
+  });
+
+  it("says what became of a recording in a word the History section can filter on", () => {
+    expect(meetingRecordingWord(meeting({ recordingState: "none" }))).toBe("Not recorded");
+    expect(meetingRecordingWord(meeting({ recordingState: "filed" }))).toBe("Saved");
+    expect(meetingRecordingWord(meeting({ recordingState: "abandoned" }))).toBe("Interrupted");
   });
 
   it("names the room by the meeting rather than letting an identifier shape the address", () => {
@@ -272,7 +281,7 @@ describe("a section of the screen", () => {
 
     // A table standing empty over a failure says the firm has no meetings, which nobody asked it.
     expect(rendered.querySelector("table")).toBeNull();
-    expect(rendered.textContent).toContain("Nothing answered");
+    expect(rendered.textContent).toContain("Couldn't connect");
     expect(
       [...rendered.querySelectorAll("button")].some(
         (control) => control.textContent?.trim() === "Retry",

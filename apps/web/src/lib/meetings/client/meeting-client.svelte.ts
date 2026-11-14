@@ -590,8 +590,11 @@ export class MeetingClient {
    * room — a member cannot rearrange a colleague's screen.
    */
   pinned = $state<readonly string[]>([]);
-  /** Whether the room is drawn as one large speaker with a strip, rather than an even gallery. */
-  speakerView = $state(false);
+  /**
+   * Whether the room is drawn as one large speaker with a strip, rather than an even gallery. On by
+   * default, and a screen seeds it from the member's remembered choice with `setSpeakerView`.
+   */
+  speakerView = $state(true);
 
   /**
    * When each participant was last heard speaking, on THIS browser's clock.
@@ -1290,6 +1293,10 @@ export class MeetingClient {
   async #swapPublishedPicture(next: MediaStream): Promise<void> {
     this.localStream = next;
     const sender = this.#cameraSender;
+    this.diagnostics.note({
+      kind: "camera-track",
+      detail: sender === null ? "preview only" : "preview and what the room receives",
+    });
     const [picture] = next.getVideoTracks();
     if (sender === null || picture === undefined || sender.track === picture) return;
     try {
@@ -1442,7 +1449,13 @@ export class MeetingClient {
 
   /** Swap between the even gallery and one large speaker with a strip of recent ones beside it. */
   toggleSpeakerView(): void {
-    this.speakerView = !this.speakerView;
+    this.setSpeakerView(!this.speakerView);
+  }
+
+  /** Draw the room one way or the other. Asking for the arrangement already showing changes nothing. */
+  setSpeakerView(on: boolean): void {
+    if (this.speakerView === on) return;
+    this.speakerView = on;
     this.page = 0;
     this.#subscriptions.schedule();
   }
@@ -2183,7 +2196,8 @@ export class MeetingClient {
     this.#microphoneMid = null;
     this.page = 0;
     this.pinned = [];
-    this.speakerView = false;
+    // The arrangement is the member's choice of how to look at a room, not a fact about this one,
+    // so it outlives a rejoin.
     this.#lastSpokeAt = new Map();
     this.#presenceByParticipant = new Map();
     this.#subscriptions.clear();

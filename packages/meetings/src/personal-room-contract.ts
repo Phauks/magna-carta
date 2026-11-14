@@ -62,3 +62,21 @@ export const MoveMeetingToMatterRequest = z
 export const MoveMeetingToMatterResponse = z
   .object({ matterEventId: z.string() })
   .meta({ id: "MoveMeetingToMatterResponse" });
+
+export const FirmRoom = z
+  .object({
+    userId: z.string(),
+    name: z.string(),
+    // Null while the member has not set a room up; the list still shows them.
+    linkCode: z.string().nullable(),
+    medium: z.enum(MEETING_MEDIA).nullable(),
+    // The session open in the room, and how many people are in it now.
+    openMeetingId: z.string().nullable(),
+    inTheRoom: z.number().int().nonnegative(),
+    isCaller: z.boolean(),
+  })
+  .meta({ id: "FirmRoom" });
+
+export const FirmRoomsResponse = z
+  .object({ rooms: z.array(FirmRoom) })
+  .meta({ id: "FirmRoomsResponse" });

@@ -127,7 +127,7 @@
     failure = stated(
       outcome.failure,
       "No account was opened.",
-      "Nothing answered, so no account was opened. Retrying sends this same submission rather than opening a second account.",
+      "Couldn't connect. No account was opened, and trying again won't open a second one.",
     );
     return "refused";
   }
@@ -181,8 +181,7 @@
           title="The office that holds the account. Its jurisdiction governs every movement through the account."
         />
         <p class="mc-form-description">
-          A trust account sits in the state of the office that holds it, so its jurisdiction is that
-          office's and is never chosen here.{jurisdictionLine}
+          A trust account follows the state of the office that holds it.{jurisdictionLine}
         </p>
       </div>
 
@@ -200,7 +199,7 @@
 
         <LabelledField
           label="Ending"
-          hint="The last four digits, which is all the platform stores of an account number."
+          hint="The last four digits. Only these are stored."
           error={lastFourRefusal ?? fieldRefusal(problem, "accountNumberLastFour")}
         >
           {#snippet children({ props })}
@@ -219,8 +218,7 @@
         <div class="flex min-w-0 flex-col gap-4">
           <Label for="{fieldPrefix}-iolta">Pooled Interest-Bearing Account</Label>
           <p class="mc-form-description">
-            An IOLTA-style account: interest on the pooled client funds goes to the state's
-            legal-services program rather than to the firm or to any one client.
+            An IOLTA account: interest on pooled client funds goes to the state's legal aid program, not to the firm or any one client.
           </p>
         </div>
         <Switch id="{fieldPrefix}-iolta" disabled={busy} bind:checked={iolta} />

@@ -42,6 +42,6 @@
 {:else}
   <PendingCapability
     action={capability.pendingAction}
-    awaiting={capability.awaiting ?? "work still to be done here"}
+    awaiting={capability.awaiting ?? "this tool"}
   />
 {/if}

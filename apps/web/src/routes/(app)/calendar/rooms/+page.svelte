@@ -153,8 +153,7 @@
     {/snippet}
     {#snippet emptyState()}
       <EmptyState title="No rooms or resources yet">
-        A resource is something bookable the firm owns: a conference room, a pool car, the video rig.
-        Add the first one under Settings and its schedule appears here.
+        Resources are bookable things the firm owns, such as conference rooms, pool cars or video equipment. Add one under Settings and its schedule appears here.
         {#snippet actions()}
           <Button variant="primary" href="/settings/resources">Rooms and Resources</Button>
         {/snippet}

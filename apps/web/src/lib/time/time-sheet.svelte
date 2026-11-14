@@ -577,8 +577,8 @@
       value={row.matterId}
       capped={firmMatters.capped}
       title={row.entryIdentifier === null
-        ? "Where this time belongs. Type the number or the name; either finds it. A row with no matter stays on the sheet until one is set."
-        : "Where this time belongs. Picking another matter moves the entry there, with its number, its note and its files; its rate is re-read on the matter it moves to."}
+        ? "The matter this time is for. Type its number or name. A row with no matter stays on the sheet until you choose one."
+        : "The matter this time is for. Choosing another matter moves the entry, with its number, note and files, and uses that matter's rate."}
       onpick={(matterId) => store.setMatter(row.key, matterId)}
     />
   {:else}
@@ -608,7 +608,7 @@
   {:else if row.provisionalCode !== null}
     <span
       class="whitespace-nowrap tabular-nums text-text-muted"
-      title="A provisional code, minted on this sheet when the row was created. The firm's own entry number is drawn when the row reaches the record."
+      title="A temporary code for this row. The firm's entry number is assigned when the row is saved."
     >
       {row.provisionalCode}
     </span>
@@ -639,7 +639,7 @@
     placeholder="Worked"
     title={refusal ??
       (running
-        ? "Ticking. Typing in here holds the timer; its own control starts it again."
+        ? "Running. Typing here pauses the timer; its own button restarts it."
         : "Time worked, typed either way: 1:30 or 1.5, and minutes as 45m")}
     disabled={refusal !== undefined}
     onfocus={running ? pauseForTyping : undefined}
@@ -809,7 +809,7 @@
   kind="reading"
   width="record"
   heading="Time Sheet"
-  subtitle={{ facts: [matterTitle ?? "Every matter"] }}
+  subtitle={{ facts: [matterTitle ?? "All matters"] }}
 >
   {#snippet fields()}
     <div class="flex flex-wrap items-center gap-8">
@@ -866,7 +866,7 @@
       <div class="ms-auto flex flex-wrap items-center gap-8">
         <Button
           size="sm"
-          title="Create an entry on the full record rather than in the grid"
+          title="Create the entry in the full form instead of the grid"
           onclick={newEntry}
         >
           <Plus class="size-16" aria-hidden="true" />

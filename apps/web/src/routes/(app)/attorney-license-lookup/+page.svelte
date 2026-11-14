@@ -86,7 +86,7 @@
     <DataTable.Grid
       {grid}
       class="min-h-0 flex-1"
-      caption="Every state's official attorney-license register"
+      caption="Every state's official lawyer register"
       cell={registerCell}
     />
 

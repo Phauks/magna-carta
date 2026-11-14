@@ -163,6 +163,6 @@
   readFailureTitle="The Scan Policy Could Not Be Read"
   readFailureFallback="The firm's scan policy was not read."
   saveFailureFallback="The scan policy is unchanged. What you chose is still staged."
-  saveFailureWhenSilent="Nothing answered, so the scan policy is unchanged. What you chose is still staged."
+  saveFailureWhenSilent="Couldn't connect. The scan policy is unchanged, and your choices are still here."
   {afterRow}
 />

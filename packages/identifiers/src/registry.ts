@@ -36,6 +36,9 @@ export const ENTITY_PREFIXES = {
   incident: "incident",
   integrationConnection: "integrationConnection",
   integrationCredential: "integrationCredential",
+  // One run of the record transfer that brings a firm's data in from the system it is leaving.
+  transferRun: "transferRun",
+  transferSourceFile: "transferSourceFile",
   // AI-text detection metering — tracks usage of the AI-text detection tool across the firm.
   aiDetectionUsage: "aiDetectionUsage",
   repairProvenance: "repairProvenance",
@@ -428,10 +431,12 @@ export const ENTITY_PREFIXES = {
   // either the member or Magnus, ordered by an explicit sequence rather than by its timestamp. The
   // member acknowledgement of the disclosure is keyed by the member's own `user_id` and needs no
   // handle of its own. A `magnusFolder` is one member's own named shelf for their conversations: it
-  // arranges that member's list and decides nothing about who may read a conversation.
+  // arranges that member's list and decides nothing about who may read a conversation. A
+  // `magnusArtifact` is a document Magnus wrote in a conversation, kept with its versions.
   magnusConversation: "magnusConversation",
   magnusTurn: "magnusTurn",
   magnusFolder: "magnusFolder",
+  magnusArtifact: "magnusArtifact",
   // Discovery — the corpus of documents under review on a matter. A `reviewSet` is one named corpus
   // with its own index, lifecycle, and access story; a `recordCustodian` is whose electronic records
   // the material was (two words, always — the physical safekeeping register keeps `custody*`, and

@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import {
@@ -26,7 +26,10 @@ import type { BundleBuildMessage, BundleCoordinator, BundleJobState } from "./bu
 
 const STUCK_DEADLINE_MS = 10 * 60 * 1000;
 
-export class BundleBuildCoordinator extends DurableObject<Bindings> implements BundleCoordinator {
+export class BundleBuildCoordinator
+  extends StoredSecretsDurableObject
+  implements BundleCoordinator
+{
   // Constructed per call: class properties do not survive hibernation, and this holds no state of its
   // own — it reads the job state back from storage and the subscriber's context off the socket.
   private progress(): JobProgressSockets<Awaited<ReturnType<typeof resolveBundleProgress>>> {

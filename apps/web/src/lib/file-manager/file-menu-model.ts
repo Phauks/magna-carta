@@ -316,8 +316,7 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
     danger: true,
     disabledReason:
       many && scope.nonEmptyFolderCount > 0
-        ? `${countPhrase(scope.nonEmptyFolderCount, "folder")} in this selection still holds ` +
-          "something. Delete a folder on its own, so what happens to its contents can be decided."
+        ? `${countPhrase(scope.nonEmptyFolderCount, "folder")} in this selection isn't empty. Delete folders one at a time, so you can decide what happens to their contents.`
         : undefined,
   });
 

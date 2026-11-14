@@ -59,7 +59,7 @@
       <div class="flex flex-col gap-16">
         <Alert.Root variant="success">
           <Alert.Description>
-            Your password is set. Sign in with it now — this link is spent and cannot be used again.
+            Your password is set. Sign in now. This link can't be used again.
           </Alert.Description>
         </Alert.Root>
         <Button variant="primary" size="lg" class="w-full" onclick={onSignIn}>Sign In</Button>

@@ -151,7 +151,7 @@
           previewFailure = stated(
             outcome.failure,
             "The scheme could not be previewed.",
-            "The preview did not answer.",
+            "The preview didn't respond.",
           );
         }
       })();
@@ -250,7 +250,7 @@
       saveFailure = stated(
         outcome.failure,
         "The scheme was not changed. What you wrote is still here.",
-        "Nothing answered, so the scheme was not changed. What you wrote is still here.",
+        "Couldn't connect. The scheme wasn't changed, and your edits are still here.",
       );
       return;
     }

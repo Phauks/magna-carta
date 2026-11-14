@@ -272,15 +272,12 @@ test("a check asked for the firm's own records finds a party in them, records wh
     [{ evidenceTier: 2 }],
     [],
   );
-  expect(statement.some((line) => line.startsWith("Magnus — every conversation"))).toBe(true);
-  expect(
-    statement.some((line) =>
-      line.startsWith(
-        "Tasks — titles and descriptions of tasks on open matters, and tasks on no matter",
-      ),
-    ),
-  ).toBe(true);
-  expect(statement.some((line) => line.startsWith("Messaging —"))).toBe(false);
+  const sectionOf = (key: string) => statement.find((section) => section.key === key);
+  expect(sectionOf("magnus")?.lines[0]).toMatch(/^Every conversation/u);
+  expect(sectionOf("tasks")?.lines[0]).toMatch(
+    /^Titles and descriptions of tasks on open matters, and tasks on no matter/u,
+  );
+  expect(sectionOf("messaging")).toBeUndefined();
 });
 
 test("a check asked for Files asks the file index, records where it found the party, and says so", async () => {
@@ -340,9 +337,9 @@ test("a check asked for Files asks the file index, records where it found the pa
     [{ evidenceTier: 2 }],
     [],
   );
-  expect(statement).toContain(
-    "Files — the text of files on open matters across 1 of 1 matter, searched for 1 subject party by each name as an exact phrase.",
-  );
+  expect(statement.find((section) => section.key === "files")?.lines).toEqual([
+    "The text of files on open matters across 1 of 1 matter, searched for 1 party by each name as an exact phrase.",
+  ]);
 
   // Without the index, Files is recorded as not searched rather than as searched and empty.
   const dormant = await runConflictsCheck(ctx, request, {
@@ -720,6 +717,7 @@ test("the statement of a walk to closure says so, and reaches the posture read",
       { source: "graph", availability: "searched", reason: null },
     ],
   );
-  expect(statement.some((line) => line.includes("followed to closure"))).toBe(true);
-  expect(statement.some((line) => line.includes("TRUNCATED"))).toBe(false);
+  const relationships = statement.find((section) => section.key === "relationships");
+  expect(relationships?.lines.some((line) => line.includes("to the end of its chain"))).toBe(true);
+  expect(relationships?.attention).toBe(false);
 });

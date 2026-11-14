@@ -88,6 +88,8 @@ The forward/CC capture path terminates on the `apps/email-worker` Cloudflare Ema
 
 ## 3. Deploy secrets (the `secrets.required` gate)
 
+Any secret below may instead live in the account's Secrets Store and be bound into the Worker; §23 says how one moves and in what order.
+
 `wrangler.jsonc` lists `secrets.required` (currently seven names), so a deploy **fails loudly** with a missing-secret list rather than letting routes 500 at runtime — or, worse, run the development adapters against real firms. Set each once per environment — Dashboard → the Worker → **Settings → Variables and Secrets**, or `wrangler secret put <NAME>` (paste the value at the prompt; keep it out of shell history and chat transcripts). `wrangler secret list` confirms the registered names.
 
 | Secret                                                            | What it is                                                                                                                                                                                                                                                                                                          | How to produce it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Rotatable?                                                                                             |
@@ -437,7 +439,7 @@ What is genuinely per-Worker and **cannot** be read off the API — why a Worker
 
 - `magna-carta-sign` — The uniform three fields, like every sibling — **the one thing it needs extra lives in its own `build` script.** `apps/sign-worker/src/index.ts` imports the pdf-core WASM binary directly, `packages/pdf/src/pkg/` is a git-ignored artefact, and the only task that produces it is `rust-wasm-build`. Its own `pnpm run build` is a bare `wrangler deploy --dry-run` and never reaches that task, so a build scoped to the package fails with `ENOENT … pdf_core_bg.wasm` out of wrangler's module collector — **the third occurrence of this class**, after the bare-`wasm-pack` window (2026-06-23 to 2026-06-28) and the decryption import (2026-07-04) recorded above. So `apps/sign-worker`'s own `build` script inserts `vp run -w rust-wasm-build-pdf` between the shared build-identity stamp and the `wrangler deploy --dry-run --outdir dist`: the `-w` reaches the repository-root task from the package directory, the per-crate task builds the one crate this Worker imports rather than all three, and the dashboard command stays the plain `pnpm run build` every sibling uses. Running `build-all` instead would also work — its `dependsOn` carries the same step — but it costs the SPA and app-worker bundles to produce one `.wasm`. The price paid here instead is that a local `pnpm run build` in this package now needs Docker, which is the correct place for the cost: it falls on whoever builds this Worker rather than on every Worker's build. **The rule the earlier two occurrences left half-stated:** a crate being in `rust-wasm-build` is not enough; the Worker that imports its output needs a build command that actually REACHES that task — and, as the app Worker's entry above records, is ORDERED after it.
 - `magna-carta-status` — The public status page Worker.
-- `magna-carta-community` — The community board on `community.magnacarta.esq` (`apps/community-worker`, since 2026-11-13). It serves the board's API under `/api/` and `/session`, and `apps/web`'s build for every other path, so its `build` script carries the same WASM steps as `magna-carta-web`'s and needs Docker. It binds `DB_CONTROL` and nothing else, and every answer carries `X-Robots-Tag: noindex`. **Secret:** `COMMUNITY_HANDOFF_SECRET`, the same value set on `magna-carta`, which mints the one-minute sign-in link; without it on both, the board is readable and nobody can sign in. **Switch:** `INSERT OR REPLACE INTO community_board_switch (id, state, changed_at, note) VALUES ('board', 'read-only', <now>, <why>)` against the control-plane database makes it read-only (`off` closes it, `open` or deleting the row reopens it), with no deploy.
+- `magna-carta-community` — The community board on `community.magnacarta.esq` (`apps/community-worker`, since 2026-11-13). It serves the board's API under `/api/` and `/session`, and `apps/web`'s build for every other path, so its `build` script carries the same WASM steps as `magna-carta-web`'s and needs Docker. It binds `DB_CONTROL`, and `STATUS_KV` (the status page's namespace, read only, for the board's Known Issues), and every answer carries `X-Robots-Tag: noindex`. **Secret:** `COMMUNITY_HANDOFF_SECRET`, the same value set on `magna-carta`, which mints the one-minute sign-in link; without it on both, the board is readable and nobody can sign in. **Switch:** `INSERT OR REPLACE INTO community_board_switch (id, state, changed_at, note) VALUES ('board', 'read-only', <now>, <why>)` against the control-plane database makes it read-only (`off` closes it, `open` or deleting the row reopens it), with no deploy. **Team:** the board's Moderation page and triage panel appear for a person with an unexpired `platform_operator` row; nobody else is on the team.
 - `magna-carta-web` — The SvelteKit single-page application, on its own deployable. It is an **assets Worker with one small script**: no bindings beyond `ASSETS` (its own public files), no secrets, so a page request is answered by Cloudflare's asset server and invokes nothing. That emptiness is a security property, not an accident — the bytes it serves are public, and a deployable whose entire surface is "hand back a file" must have nothing bound to reach. **Keep it that way.** The script (`apps/web-worker/src/`, since 2026-11-10) runs only for `/_app/*` (`run_worker_first` in its `wrangler.jsonc`) and does two things that only work together: a content-hashed file under `/_app/immutable/` is served with `Cache-Control: public, max-age=31536000, immutable`, and a file under `/_app/` that does not exist is answered `404` with `no-store` instead of the application shell the single-page fallback would send. Before it, the asset server's default (`max-age=0, must-revalidate`) had every repeat visit re-ask about each of roughly 116 files; a `_headers` rule alone would have fixed that and let a deploy race cache HTML under a script's address for a year. **Do not add a long lifetime to `/_app/` in `apps/web/static/_headers`**, and do not remove the guard while the lifetime stands. To check a deploy: `curl -sI https://<host>/_app/immutable/<any real file>` shows the year-long header, and `curl -sI https://<host>/_app/immutable/chunks/absent.js` shows `404`. The API Worker's own copy of the build (local development and the rollback route) has neither the guard nor the lifetime, so a rollback to it returns to revalidate-every-visit, which is slower and never wrong. Its own `build` script builds the pdf-core wasm, then `@magna-carta/web` (the sibling package whose output `wrangler.jsonc` points at), then runs the usual `wrangler deploy --dry-run --outdir dist` — the dashboard command stays the plain `pnpm run build` every sibling uses. **It needs Docker, and exactly one WASM step**: `vp run -w rust-wasm-build-pdf`, because `apps/web` imports `@magna-carta/pdf` for the in-browser PDF reader as of 2026-09-07. **This entry read "it needs no Docker and no WASM step: `apps/web` reaches no crate" until then, and the merge that made it false took this Worker's build down with it** — the same failure as the app Worker's, arriving here through a different route, because this build script never reached the wasm task at all. It asks for the **pdf crate alone** (`rust-wasm-build-pdf`, not the composite): this is the Worker that rebuilds on every interface merge, and compiling decryption-core and email-core for a bundle that imports neither is exactly the repeated build cost [`build-performance.md`](build-performance.md) says to keep out. The sign Worker's WASM lesson now applies here too; what stays true is the runtime property — a build-time Docker step adds no binding, no secret, and no entrypoint, so the deployable still binds nothing but its own files.
   **Since 2026-08-31 this is the Worker that serves the application.** The app's hostname was converted from a custom domain on `magna-carta` to **route patterns on the zone**: this Worker answers every path, and `magna-carta` is routed only its own four families (`/api/*`, `/wopi/*`, `/search-objects/*`, `/__dev/*` — the same list as its `assets.run_worker_first`, and the two must stay the same list). Which hostname and which routes exist remains live routing state — read `GET /accounts/{account_id}/workers/domains/records` and the zone's `workers/routes` (below) rather than this paragraph. `apps/api-worker` still binds the same `apps/web/build` output under its own `assets` block, **deliberately**: it is the local-dev vehicle (`wrangler dev` and the Playwright e2e suite serve the whole app from it on one origin) and the one-gesture rollback (repoint the zone's `/*` route back to `magna-carta`). Do not remove it without replacements for both. **The decoupling itself is carried by Build Watch Paths** — `magna-carta` not watching `apps/web/*` is what makes an interface merge build only this Worker — and those are dashboard state: read them with the per-`script_tag` Builds call, never from here. Decision: the interface-ships-on-its-own-worker ADR (pending fold-in at time of writing; the Decision Log register carries its number once assembled).
 - `magna-carta-edit` — The Collabora editing Worker. **The Worker keeps the name `magna-carta-edit`; only its directory moved** (from `apps/magna-carta-edit`, 2026-08-21) to match its own package name, `@magna-carta/edit-worker`, and its siblings' `<thing>-worker` shape. **This Worker is why the top of this file says what it says.** Its entry once recorded a root directory, a deploy command and a production branch that were all true when written, and all three were false by the time anyone read them back — the fourth time this file disagreed with the live build configuration. Nothing about its build configuration is recorded here any more; ask the API.
@@ -869,13 +871,36 @@ Neither name is in `secrets.required` (§3), deliberately — listing them would
 
 **Watching it**
 
-- `addresses.lookup` in the telemetry dataset, with `operation` (`suggest` / `resolve`), `engine` (`openaddresses` / `smarty` / `deferred`) and `outcome`. The `suggest` count is what drives the bill. `engine: deferred` on a deployment you believe is switched on means the Worker is not seeing the pair.
+- `addresses.lookup` in the telemetry dataset, with `operation` (`suggest` / `resolve`), `engine` (`google` / `openaddresses` / `smarty` / `deferred`) and `outcome`. The `suggest` count is what drives the bill. `engine: deferred` on a deployment you believe is switched on means the Worker is not seeing the pair.
 - `outcome: failed` beginning to climb is the first sign Smarty is refusing. A spent subscription answers **402**, a revoked key **401**; the form tells the person the lookup did not answer and stops asking until they press Try Again, and the address can always be typed by hand. The status code is not in the metric — check the Smarty dashboard's usage and key pages.
 - **The Smarty subscription's own quota is the only hard spending ceiling.** The Worker's rate limit is per isolate, so its effective global bound multiplies with traffic; set the subscription tier to the bill you are prepared to pay.
 
 **What never appears anywhere.** The query is a client's address typed a few characters at a time, so the routes are POSTs (the invocation log records full URLs), no failure carries the query or the request URL (Smarty's credentials ride in its query string), and no metric dimension can hold it. Keep it that way when changing any of this.
 
 **Switching it off.** Delete either secret (`wrangler secret delete SMARTY_AUTH_TOKEN`). The next request answers `unavailable` and every form quietly returns to plain typing; addresses already recorded are untouched, because the firm keeps what it chose.
+
+## 19a. Address autocomplete — Google Places (the trial engine)
+
+The owner asked on 2026-11-13 to try Google's addresses before deciding whether the platform's own index (§20) is needed. With `GOOGLE_PLACES_API_KEY` set, **Google answers every country**, ahead of the platform's index and Smarty; delete the key and the lookups go back to whichever of those is provisioned, with nothing else changed. Adapter: `packages/address-lookup/src/google.ts`.
+
+**Switching it on**
+
+1. In the Google Cloud console (under `ops@magnacarta.esq`, credentials in the Bitwarden vault), create or pick a project, attach a billing account, and enable **Places API (New)**. The older Places API is a different product and is not what the adapter calls.
+2. **APIs & Services → Credentials → Create credentials → API key.** Restrict it: **API restrictions** to Places API (New) only. Leave application restrictions at none: the key is used from a Worker, which has no fixed IP address or referrer, and it never reaches a browser.
+3. **Set a quota** under Places API (New) → Quotas (requests per day for Autocomplete and for Place Details), and a **budget alert** under Billing. Google has no hard spending cap; the quota is the ceiling.
+4. Create it in the Secrets Store as `GOOGLE_PLACES_API_KEY` (scope _Workers_). `apps/api-worker/wrangler.jsonc` already binds that name as `SECRETS_STORE_GOOGLE_PLACES_API_KEY`, so the next deploy picks it up; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store").
+5. Open any address form and type the first few characters of a real street. The list shows up to five offers with "Google Maps" under them; choosing one fills the town, region and postal code.
+
+**What it costs.** Two billed calls per address: Autocomplete (New) for each settled pause in typing (the field waits 300 ms and needs three characters), and one Place Details call when an offer is chosen. The field mask (`addressComponents,postalAddress,location`) keeps Place Details in the Essentials tier; adding any other field moves every call to a dearer tier. No session tokens are sent, because a session that ends in an Essentials lookup still bills its first twelve Autocomplete requests. Prices and free monthly caps: [`docs/operating-costs.md`](../operating-costs.md).
+
+**What Google's terms require, and what is still open**
+
+- **Attribution:** the suggestions route answers `attribution: "google-maps"` and the address field shows "Google Maps" under the offers, untranslated. Google asks for its logo where there is room, or the text in Roboto; the field shows the text in the platform's own typeface. Settle this before Google becomes the permanent engine.
+- **Storage:** Google's terms let a customer keep a place ID indefinitely and allow no other caching beyond short windows. The address a person chooses is written into a record. The owner accepted that open question for the trial; it is the first thing to settle before keeping Google.
+- **No other map:** Places content may not be shown on a non-Google map. Nothing draws a map today.
+- **Disclosure:** each pause in typing sends a client's partial address to Google. Nothing of it is logged here: the query is in the request body, the key in a header.
+
+**Switching it off.** Delete `GOOGLE_PLACES_API_KEY` from the Secrets Store (and any per-Worker copy); a deleted store secret leaves the binding answering nothing, which reads as unset. The next request goes to the platform's index or Smarty if either is provisioned, and otherwise answers `unavailable`.
 
 ## 20. Address autocomplete — the platform's own index (OpenAddresses)
 
@@ -891,10 +916,11 @@ The United States is answered from an index the platform builds itself, with no 
 **Watching it**
 
 - `addresses.lookup` with `engine: openaddresses`. `outcome: unavailable` on that engine means the worker is bound but no index has been published yet.
+- The build bills for about three hours of `standard-4`, not one: the build instance sleeps three hours after the request that started it (`sleepAfter` in `apps/address-worker/src/address-build-container.ts`), and memory and disk bill for every awake second, CPU only while busy.
 - The build: the address worker's logs carry the cron's decision (missing, fresh, stale, running) and the build Container's state. A build takes about an hour. A failed build leaves the previous index answering — nothing user-facing breaks — and the next day's cron tries again once the index is more than 30 days old.
 - The bucket: `us/current.json` names the live build; two builds are kept, so about 20–24 GB at steady state. `us/<build>/attribution.json` lists every source the build used.
 
-**The licence register.** Which OpenAddresses layers are excluded, and why, is `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`, with the reason beside each entry; the rule is in the spec under _Data_. Changing it is a code change that takes effect at the next build.
+**The licence register.** Which OpenAddresses layers are excluded, and why, is `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`, with the reason beside each entry; the rule is in the spec under _Data_. Changing it is a code change that takes effect at the next build. The source list the build reads carries no licence, so the register goes stale as OpenAddresses adds layers: re-read it every few months against the `license` block of each address layer under `sources/us/` in the openaddresses/openaddresses repository, and add any layer recorded as share-alike (`"share-alike": true`), non-commercial, or under a bespoke agreement. Last re-read 2026-11-13.
 
 **What never appears anywhere.** As in §19: the query is a client's address. The Containers log no query text and no address, their error bodies carry engine vocabulary only, and the routes stay POSTs.
 
@@ -950,3 +976,54 @@ reads all of it). Do them in this order:
 6. **A firm switches it on.** Its Owner or Admin turns recording (and, separately, summaries and
    captions) on under Settings › Practice › Meetings. Summaries also need the firm's AI processing
    switched on.
+
+## 23. Secrets Store — the account's one home for the platform's secrets
+
+Cloudflare Secrets Store (open beta) keeps secrets at the account level and binds them into any
+Worker; a per-Worker secret (§3) lives on one Worker only. Every Worker that reads a secret accepts
+it from either place: `packages/worker-secrets` resolves a store binding named
+`SECRETS_STORE_<NAME>` into the plain `<NAME>` string at the Worker's entry and falls back to the
+per-Worker secret. With no store binding the code behaves exactly as before. Limits that matter
+here: 100 secrets per account, one store per account, a value of at most 65,536 bytes, and a value
+that cannot be viewed again once saved
+([Secrets Store docs](https://developers.cloudflare.com/secrets-store/)).
+
+**Keep a master copy of every value in the owner's password manager.** The store will not show a
+value back, and `ROOT_KEK` in particular is unrecoverable if lost (§3).
+
+### Which secret is read where
+
+The list each Worker looks for is in code: `API_WORKER_SECRET_NAMES` in
+`apps/api-worker/src/stored-secret-names.ts`, `COMMUNITY_WORKER_SECRET_NAMES` in
+`apps/community-worker/src/bindings.ts`, and the names passed to `resolveStoredSecrets` in
+`apps/sign-worker/src/index.ts`, `apps/bundle-worker/src/index.ts` and
+`apps/scan-worker/src/index.ts`. Of those, only `COMMUNITY_HANDOFF_SECRET` is read by two Workers
+(`magna-carta` and `magna-carta-community`); every other secret belongs to one. Which ones are set in
+the account is live state: the System Status page reports each as present or absent.
+
+### Moving a secret into the store
+
+The order matters, because a binding added in the dashboard does not survive the next deploy (a
+deploy replaces the Worker's bindings with the ones in its `wrangler.jsonc`) and two bindings cannot
+share a name.
+
+1. **Once per account:** give the Workers Builds API token **Account · Secrets Store · Edit** (My
+   Profile → API Tokens; each Worker's Settings → Build names its token). A deploy whose
+   `wrangler.jsonc` carries a store binding fails with an authorization error without it, and the
+   default build token does not carry it
+   ([Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)).
+2. **Create the secret in the store** (Secrets Store → Create secret, scope _Workers_), named exactly
+   as the code names it (`AUTH_SECRET`, not a new name), with the same value the Worker has today.
+3. **Commit the binding** in each Worker's `wrangler.jsonc` that reads it, under
+   `secrets_store_secrets`: `{ "binding": "SECRETS_STORE_<NAME>", "store_id": "<the store's id>",
+   "secret_name": "<NAME>" }`. The store id is not a secret. Merging deploys it; the per-Worker copy
+   is still there, so nothing is ever without its value.
+4. **Check the System Status page** reports the secret as coming from the Secrets Store.
+5. **Delete the per-Worker copy** (the Worker → Settings → Variables and Secrets). For a name in
+   `secrets.required` (§3), first remove it from that list in the same kind of change as step 3, or
+   the next deploy refuses to run for want of a secret that now lives in the store.
+
+**Rotating** a stored secret is one edit in the store; every Worker bound to it reads the new value
+within five minutes, because each isolate keeps a value that long (`packages/worker-secrets`).
+`packages/worker-secrets/*` also belongs in the Build Watch Paths of every dedicated Worker that
+imports it (§12), so a change to the resolver rebuilds them.

@@ -176,17 +176,17 @@
       case "reserving":
         return {
           fallback: "A slot for the document was not reserved, so nothing was registered.",
-          whenSilent: "Nothing answered when a slot was asked for. Nothing was registered.",
+          whenSilent: "Couldn't connect. Nothing was saved.",
         };
       case "uploading":
         return {
           fallback: "The document did not reach storage, so nothing was registered.",
-          whenSilent: "Storage did not answer. Nothing was registered.",
+          whenSilent: "Couldn't reach storage. Nothing was saved.",
         };
       default:
         return {
           fallback: "The template was not registered.",
-          whenSilent: "Nothing answered when the template was registered. Nothing was registered.",
+          whenSilent: "Couldn't connect. The template wasn't saved.",
         };
     }
   }
@@ -297,8 +297,7 @@
             <div class="flex flex-col gap-4">
               <Label for="{identity}-convert-merge-fields">Convert Word merge fields</Label>
               <p class="text-xs text-text-muted">
-                Left off, the document registers exactly as authored and every Word merge field in it
-                prints the text Word last saved there rather than a merged value.
+                If left off, the document is saved exactly as written, and any Word merge fields print their last saved text instead of a merged value.
               </p>
             </div>
           </div>

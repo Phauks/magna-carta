@@ -121,12 +121,12 @@
         {:else}
           <Tooltip.Trigger
             class="{buttonClasses({ variant: 'ghost', size: 'sm' })} cursor-not-allowed text-text-subtle"
-            aria-label="Documentation — soon"
+            aria-label="Documentation (soon)"
             aria-disabled="true"
           >
             <BookOpen class="size-16" aria-hidden="true" />
           </Tooltip.Trigger>
-          <Tooltip.Content>Documentation — soon</Tooltip.Content>
+          <Tooltip.Content>Documentation (soon)</Tooltip.Content>
         {/if}
       </Tooltip.Root>
       {#if showHistory}

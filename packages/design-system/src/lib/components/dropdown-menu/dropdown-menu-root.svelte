@@ -6,8 +6,9 @@
 
      Root also owns the hover activation (hover-open.ts): a mouse pointer resting on the Trigger
      opens the menu, which then follows the pointer between the Trigger, the Content, and any
-     SubContent, and closes a beat after the pointer has left them all. On by default for every
-     menu; `openOnHover={false}` keeps a menu click-only. Bits still owns every deliberate route
+     SubContent, and closes a beat after the pointer has left them all. On by default for a
+     menu behind a word; a trigger with no words (a "..." or any other icon) never opens on hover,
+     which the Trigger decides; `openOnHover={false}` keeps any menu click-only. Bits still owns every deliberate route
      (press, keyboard, touch), which hover adds to and never replaces.
 
      Root also joins the OVERLAY BAND it stands in, where it stands in one

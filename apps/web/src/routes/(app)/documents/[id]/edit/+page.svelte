@@ -51,7 +51,7 @@
     failure={data.failure}
     subject="The document"
     fallback="The document could not be read."
-    whenSilent="Nothing answered when the document was read."
+    whenSilent="Couldn't connect while reading the document."
     onRetry={() => void invalidateAll()}
   />
 {:else if file !== null && data.shell === "none" && editorKind !== null}
@@ -86,7 +86,7 @@
     {#if withheld}
       <Alert.Root variant="warning">
         <Alert.Title>This File Is Withheld While a Finding Is Open</Alert.Title>
-        <Alert.Description>The file manager's Safety tab carries the finding.</Alert.Description>
+        <Alert.Description>See the file's Safety tab for details.</Alert.Description>
       </Alert.Root>
     {:else if editorKind === null}
       <Alert.Root variant="info">

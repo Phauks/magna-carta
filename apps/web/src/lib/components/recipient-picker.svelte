@@ -20,7 +20,7 @@
     onAdd,
     onRemove,
     inputId,
-    placeholder = "Search colleagues…",
+    placeholder = "Search staff…",
   }: {
     /** The roster this picker offers (the consumer scopes it — the active colleagues, or all). */
     members: readonly FirmMemberSummary[];

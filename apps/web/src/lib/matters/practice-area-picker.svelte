@@ -104,7 +104,7 @@
       failure = stated(
         outcome.failure,
         "The practice area could not be added.",
-        "Nothing answered, so the practice area was not added.",
+        "Couldn't connect. The practice area wasn't added.",
       );
       query = selectedName;
       return;

@@ -47,6 +47,7 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
     recordingConfigured: true,
     captionsAvailable: false,
     personalRoomSession: false,
+    matterTitle: null,
     encrypted: false,
     ...overrides,
   };
@@ -56,6 +57,15 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
 function answerWith(pages: Record<string, MeetingSummary[]>): void {
   const stub = ((request: Request) => {
     const url = new URL(request.url);
+    // The Firm Rooms card's own read sits beside the three lists; it is not one of them.
+    if (url.pathname === "/api/v1/meetings/rooms") {
+      return Promise.resolve(
+        new Response(JSON.stringify({ rooms: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }
     asked.push(url);
     const scope = url.searchParams.get("scope") ?? "";
     const data = pages[scope] ?? [];

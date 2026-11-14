@@ -90,7 +90,7 @@ export function reviewPanels(components: {
       label: "Family",
       icon: Files,
       answers:
-        "What arrived with it — a message and its attachments, or an archive and its entries.",
+        "What arrived with it: an email and its attachments, or an archive and its contents.",
       permission: READ_DISCOVERY_PERMISSION,
       stage: "alpha",
       writes: false,
@@ -101,8 +101,7 @@ export function reviewPanels(components: {
       label: "Other copies",
       icon: Copy,
       answers:
-        "Every other copy of this document the review set holds, and which Custodian of Record " +
-        "held each. This is the read behind a question asked under oath.",
+        "Every other copy of this document in the review set, and which Custodian of Record held each.",
       permission: READ_DISCOVERY_PERMISSION,
       stage: "alpha",
       writes: false,
@@ -112,10 +111,10 @@ export function reviewPanels(components: {
       id: "coding",
       label: "Coding",
       icon: Tags,
-      answers: "What this document is, decided — responsive, privileged, confidential.",
+      answers: "How this document was coded, such as responsive, privileged or confidential.",
       permission: "discovery:review",
       stage: "soon",
-      waitsOn: "the coding surface",
+      waitsOn: "coding",
     },
     {
       id: "privilege",
@@ -133,25 +132,25 @@ export function reviewPanels(components: {
       answers: "What is drawn over on this document, and why.",
       permission: "discovery:review",
       stage: "soon",
-      waitsOn: "redaction in review",
+      waitsOn: "redaction",
     },
     {
       id: "near-duplicates",
       label: "Near-duplicates",
       icon: Layers,
-      answers: "Documents that are nearly the same as this one. It shows them; it never hides one.",
+      answers: "Documents that are nearly the same as this one. They're shown, never hidden.",
       permission: READ_DISCOVERY_PERMISSION,
       stage: "soon",
-      waitsOn: "clustering over the fingerprints every document already carries",
+      waitsOn: "near-duplicate detection",
     },
     {
       id: "history",
       label: "History",
       icon: History,
-      answers: "Every coding decision made on this document, by whom, and when.",
+      answers: "Every coding decision on this document, by whom, and when.",
       permission: READ_DISCOVERY_PERMISSION,
       stage: "soon",
-      waitsOn: "the coding surface",
+      waitsOn: "coding",
     },
   ];
 }

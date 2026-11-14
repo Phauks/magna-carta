@@ -30,27 +30,27 @@ export interface TimeLedgerGap {
 export const TIME_LEDGER_GAPS = {
   nonBillableCategory: {
     field: "Non-billable Category",
-    waitsOn: "the non-billable category being served on the listing",
+    waitsOn: "the non-billable category",
   },
   invoice: {
-    field: "Invoice",
-    waitsOn: "the invoice's own number and dates being served beside its identifier",
+    field: "Bill",
+    waitsOn: "bill numbers and dates",
   },
   billingDisposition: {
     field: "Billing",
-    waitsOn: "a billing disposition on the time record beyond billable or not",
+    waitsOn: "more billing options for time",
   },
   reviewGate: {
     field: "Review",
-    waitsOn: "the firm's review setting being served",
+    waitsOn: "the firm's review setting",
   },
   unsubmit: {
     field: "Unsubmit",
-    waitsOn: "a route that returns a submitted entry to draft at its own timekeeper's hand",
+    waitsOn: "returning an entry to draft",
   },
   deleteDraft: {
     field: "Delete Draft",
-    waitsOn: "a route that removes a draft that never entered review",
+    waitsOn: "deleting drafts",
   },
   rounding: {
     field: "Hours",
@@ -60,15 +60,15 @@ export const TIME_LEDGER_GAPS = {
     // yet: it is a day across every matter a person touched, the increment is a per-matter
     // setting, and one read cannot answer for a mixed list. A written row needs none of this — the
     // server sends its billed figure with it.
-    waitsOn: "the rounding increment being resolved per row on a sheet that spans matters",
+    waitsOn: "rounding across matters",
   },
   timekeeperChange: {
     field: "Timekeeper",
-    waitsOn: "a route that records one member's work under another member's hand",
+    waitsOn: "recording time for someone else",
   },
   incompleteCapture: {
     field: "Save",
-    waitsOn: "a capture route that accepts an entry before it has a description and a duration",
+    waitsOn: "saving an entry without a description or duration",
   },
 } as const satisfies Readonly<Record<string, TimeLedgerGap>>;
 
@@ -83,7 +83,7 @@ export type TimeLedgerGapName = keyof typeof TIME_LEDGER_GAPS;
  */
 export function gapCellTitle(name: TimeLedgerGapName): string {
   const gap = TIME_LEDGER_GAPS[name];
-  return `${gap.field} is not recorded yet. Waiting on ${gap.waitsOn}.`;
+  return `Not built yet: ${gap.waitsOn}.`;
 }
 
 /** What a control waits on, as the noun phrase the Soon affordance takes. */

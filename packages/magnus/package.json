@@ -13,6 +13,8 @@
     "./window": "./src/window.ts",
     "./statements": "./src/statements.ts",
     "./shelf": "./src/shelf.ts",
+    "./permissions": "./src/permissions.ts",
+    "./artifact": "./src/artifact.ts",
     "./contract": "./src/contract.ts",
     "./audit": "./src/audit.ts",
     "./conversation": "./src/conversation.ts",

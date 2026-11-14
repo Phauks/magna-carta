@@ -32,7 +32,7 @@ export type ReferenceStanding = "drawn" | "tentative" | "preview";
 /** A record, by the number a person quotes out loud. */
 export interface RecordReference {
   /**
-   * The record kind as a reader says it — "Matter", "Invoice", "Call", "Packet". A caller's own
+   * The record kind as a reader says it — "Matter", "Bill", "Call", "Packet". A caller's own
    * word: the design system serves every kind and names none of them, the same rule the modal
    * shells hold to.
    */

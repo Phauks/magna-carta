@@ -17,7 +17,7 @@
     padding-inline: var(--mc-space-12);
     border-style: solid;
     border-width: var(--mc-border-width-default);
-    border-color: var(--mc-border-default);
+    border-color: var(--mc-border-field);
     border-radius: var(--mc-radius-md);
     background-color: var(--mc-surface-field);
     color: var(--mc-text-default);
@@ -33,18 +33,40 @@
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
   }
+
+  /* The edge answers the pointer one step darker before the field is focused, so a box feels
+     live under the hand. Focus, a refusal and a disabled field each keep their own edge. */
+  .mc-select-trigger:hover:not(:focus-visible):not([data-disabled]):not([aria-invalid="true"]) {
+    border-color: var(--mc-border-field-hover);
+  }
+
   .mc-select-trigger[data-placeholder] {
     color: var(--mc-text-muted);
   }
   .mc-select-trigger:focus-visible {
-    border-color: var(--mc-focus-ring);
-    outline-color: var(--mc-focus-ring);
+    border-color: var(--mc-text-default);
+    outline-color: var(--mc-accent-strong);
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }
+
+  /*
+   * Invalid: the danger edge, and nothing else, as on the Input (see input.css). Declared after
+   * focus so a field that is both focused and invalid still reads as invalid.
+   */
+  .mc-select-trigger[aria-invalid="true"] {
+    border-color: var(--mc-status-danger);
+  }
+  .mc-select-trigger[aria-invalid="true"]:focus-visible {
+    border-color: var(--mc-status-danger);
+    outline-color: var(--mc-status-danger);
+  }
+
   .mc-select-trigger[data-disabled] {
-    background-color: var(--mc-action-disabled);
-    color: var(--mc-action-disabled-foreground);
+    background-color: var(--mc-surface-field-disabled);
+    border-style: dashed;
+    border-color: var(--mc-border-default);
+    color: var(--mc-text-subtle);
     cursor: not-allowed;
   }
   /* The trailing chevron; muted and held at a fixed size so it never shrinks under a long label. */
@@ -79,8 +101,8 @@
    * An option row, shared by the Select listbox and the Combobox listbox (Bits builds both out of
    * these same parts). Bits sets data-highlighted on the hovered/keyboard-active row and
    * data-disabled on a disabled one; the recipe keys its highlight/disabled looks off those. The
-   * leading indicator box holds the check for the selected row (mirrors the DropdownMenu.CheckboxItem
-   * indicator).
+   * text comes first, so options line up with the field's own text, and the TRAILING indicator box
+   * holds the tick for the chosen row, which is also set in the medium weight.
    *
    * NO RING AROUND A ROW — neither a focus ring nor a selection ring. This is the one place the
    * platform's "every focusable control shows the same focus shape" rule deliberately does not reach,
@@ -120,6 +142,14 @@
     outline-style: none;
     box-shadow: none;
   }
+  .mc-select-item[data-selected] {
+    font-weight: var(--mc-weight-medium);
+  }
+  /* The row's words take the room; the tick box keeps its own at the end. */
+  .mc-select-item-text {
+    flex: auto;
+    min-inline-size: var(--mc-space-0);
+  }
   .mc-select-item[data-disabled] {
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
@@ -135,14 +165,17 @@
   .mc-select-item-indicator-icon {
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
+    color: var(--mc-accent-default);
   }
+  /* A group heading is set heavier than the options under it, so a list in groups reads as headed
+     sections rather than as one more row that happens to be grey. */
   .mc-select-group-heading {
-    padding-block: var(--mc-space-4);
+    padding-block: var(--mc-space-8) var(--mc-space-4);
     padding-inline: var(--mc-space-8);
     color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-xs);
-    font-weight: var(--mc-weight-medium);
+    font-weight: var(--mc-weight-semibold);
     line-height: var(--mc-leading-tight);
   }
   /* The top/bottom auto-scroll affordances Bits mounts inside the viewport when the list overflows. */
@@ -157,5 +190,44 @@
   .mc-select-scroll-button-icon {
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
+  }
+
+  /*
+   * The search read-out at the top of a long list: what has been typed, under a hairline, in the
+   * row's own inset so the typed text lines up with the options it narrows.
+   */
+  .mc-select-search {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    margin-block-end: var(--mc-space-4);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+  }
+  .mc-select-search-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+  .mc-select-search-prompt {
+    color: var(--mc-text-muted);
+  }
+  .mc-select-search-query {
+    color: var(--mc-text-default);
+    white-space: pre;
+  }
+  .mc-select-search-empty {
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
   }
 }

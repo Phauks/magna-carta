@@ -314,12 +314,16 @@ export interface MeetingPollOptionStanding {
   readonly position: number;
   readonly label: string;
   readonly count: number;
+  /** On a ranking, the average place given this option (1 is first); null or absent otherwise. */
+  readonly averageRank?: number | null;
 }
 
 /** One option's count, as a tally frame carries it — the label is already on the poll. */
 export interface MeetingPollOptionCount {
   readonly optionId: string;
   readonly count: number;
+  /** On a ranking, the average place given this option; null or absent otherwise. */
+  readonly averageRank?: number | null;
 }
 
 /**
@@ -338,6 +342,8 @@ export interface MeetingPollSnapshot {
   /** True when the answers are kept without names — the panel says so before the answer. */
   readonly anonymous: boolean;
   readonly maxChoices: number;
+  /** One, multiple, ranking or score. Absent on a copy from before polls had kinds. */
+  readonly kind?: string;
   readonly openedAt: string;
   readonly closedAt: string | null;
   readonly closedByUserId: string | null;

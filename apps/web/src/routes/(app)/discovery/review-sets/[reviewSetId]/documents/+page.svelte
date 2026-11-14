@@ -258,8 +258,7 @@
     >
       {#snippet panel()}
         <p class="text-text-muted w-2xs p-8 text-sm sm:w-xs">
-          Searches every document in this review set by what it is called — its name, or the path it
-          sat at. Words inside a document are Keyword, under Narrow.
+          Search documents in this review set by name or path. To search the words inside them, use Keyword under Narrow.
         </p>
       {/snippet}
     </ScreenSearch>

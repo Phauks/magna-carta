@@ -100,6 +100,7 @@
   import MeetingConnectionPanel from "./screen/meeting-connection-panel.svelte";
   import MeetingControls from "./screen/meeting-controls.svelte";
   import MeetingGrid from "./screen/meeting-grid.svelte";
+  import { meetingViewPreference } from "./meeting-view-preference.svelte.ts";
   import MeetingReactionCounts from "./screen/meeting-reaction-counts.svelte";
   import MeetingReactions from "./screen/meeting-reactions.svelte";
   import MeetingRoster from "./screen/meeting-roster.svelte";
@@ -178,6 +179,14 @@
     };
   })();
   const client = new MeetingClient(roomSeams);
+
+  /** How this browser likes the room drawn, on the member page's terms: meeting-view-preference. */
+  const viewPreference = meetingViewPreference();
+  $effect(() => viewPreference.followAcrossTabs());
+  $effect(() => {
+    const speaker = viewPreference.current.layout === "speaker";
+    untrack(() => client.setSpeakerView(speaker));
+  });
 
   // ---- arriving -------------------------------------------------------------------------------
 
@@ -675,6 +684,7 @@
               client.isPinned(participantId)
                 ? client.unpin(participantId)
                 : client.pin(participantId)}
+            mirrorSelf={viewPreference.current.mirrorSelf}
           />
         </div>
         <aside class="hidden min-h-0 w-3xs shrink-0 lg:block">
@@ -710,7 +720,13 @@
         onToggleCamera={() => client.toggleCamera()}
         onToggleSharing={toggleSharing}
         onToggleHand={() => (client.reactions.hand ? client.lowerHand() : client.raiseHand())}
-        onToggleSpeakerView={() => client.toggleSpeakerView()}
+        onToggleSpeakerView={() =>
+          viewPreference.set({
+            ...viewPreference.current,
+            layout: client.speakerView ? "gallery" : "speaker",
+          })}
+        mirrorSelf={viewPreference.current.mirrorSelf}
+        onMirrorSelf={(mirrorSelf) => viewPreference.set({ ...viewPreference.current, mirrorSelf })}
         onLeave={() => void leave()}
         chat={chatControl}
         reactions={reactionsControl}

@@ -291,3 +291,11 @@ beneath them. Rows here supersede R1 where they say so.
   choice as `inputs_json.matching.trigramMatching` (absent on older rows, read as on), and the report
   says when it was off. Sorting trigram-only results by how much of the name overlaps was proposed
   and not built: it needs the overlap stored on each hit.
+- **2026-11-13, Trevor, on the Directory's account of a check: "it should be better delineated into
+  sections, not just raw text, remove —", then, of the mockup's options, "Blocks, like B, but don't
+  allow multiple in the same row".** `describeCheck` returns keyed sections (heading, plain
+  sentences, `attention`) instead of a numbered list, the check read carries them as `report`, and the
+  Directory's Status row draws them as stacked blocks, one per row, with Not searched and any
+  incomplete part tinted. No reader-facing line carries a dash, and the unavailable reasons in
+  `packages/conflicts/src/sources.ts` became plain sentences. The printed report prints one section
+  per part.

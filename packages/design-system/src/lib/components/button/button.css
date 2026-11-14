@@ -28,8 +28,10 @@
     outline-offset: var(--mc-focus-ring-offset);
   }
   /* Flush focus edge (offset 0), consistent with the bordered controls — no detached ring. */
+  /* Focus is the same gold ring every field wears (see input.css), so a person tabbing through a
+     form sees one "you are here" whether they land on a box or a button. */
   .mc-button:focus-visible {
-    outline-color: var(--mc-focus-ring);
+    outline-color: var(--mc-accent-strong);
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }
@@ -64,12 +66,25 @@
     box-shadow: var(--mc-elevation-1);
   }
 
+  /*
+   * Secondary is a white control with a hairline, not a grey plate: a grey plate read the same as a
+   * disabled primary and as a disabled field, so a window of grey plates had no finish. The edge is
+   * an inset shadow rather than a border so the button keeps the exact box of its siblings. A
+   * disabled secondary falls back to the shared flat grey above, which now differs from it.
+   */
   .mc-button-secondary {
-    background-color: var(--mc-action-secondary);
+    background-color: var(--mc-surface-field);
     color: var(--mc-action-secondary-foreground);
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-border-control);
   }
   .mc-button-secondary:hover {
-    background-color: var(--mc-action-secondary-hover);
+    background-color: var(--mc-surface-raised);
+    box-shadow: inset var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-border-width-default) var(--mc-border-field);
+  }
+  .mc-button-secondary:disabled {
+    box-shadow: none;
   }
 
   .mc-button-destructive {

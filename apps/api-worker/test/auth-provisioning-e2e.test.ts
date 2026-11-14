@@ -632,7 +632,10 @@ const PROVIDER_NOTICE_OPERATIONS = new Set([
   "calendarSync.receiveMicrosoftNotice",
 ]);
 
-const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set(["meetings.inspect"]);
+const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set([
+  "meetings.inspect",
+  "platform.recentErrors",
+]);
 
 /**
  * THE FOURTH POPULATION, AND THE ONE ON THE APP SURFACE: a MEETING GUEST's lane.

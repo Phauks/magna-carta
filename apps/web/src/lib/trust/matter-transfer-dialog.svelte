@@ -134,7 +134,7 @@
     failure = stated(
       outcome.failure,
       "Nothing moved: both matters' trust ledgers are unchanged.",
-      "Nothing answered, so nothing moved. Both matters' trust ledgers are unchanged.",
+      "Couldn't connect. Nothing was moved between the matters.",
     );
     return "refused";
   }

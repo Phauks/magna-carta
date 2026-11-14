@@ -51,7 +51,7 @@ export const MEETING_SECTIONS: Record<
     noun: "upcoming meetings",
   },
   recent: {
-    heading: "Recently Ended",
+    heading: "History",
     caption: "Meetings that ended in the last thirty days",
     noun: "meetings that have ended",
   },
@@ -81,18 +81,36 @@ export const MEETING_COLUMN_IDENTIFIERS = {
   when: "when",
   inTheRoom: "inTheRoom",
   ended: "ended",
+  recording: "recording",
   actions: "actions",
 } as const;
 
 /**
- * What a meeting's event is ON, in the words the row uses.
- *
- * A meeting on a firm event says so outright. A meeting on a matter's event NAMES THE MATTER ONLY BY
- * ITS LINK, because the summary carries the matter's identifier and not its name — the row would
- * otherwise print a handle at a reader. When the summary carries a name, this is where it goes.
+ * Where a meeting is filed, in the words the row uses: the matter's title, or "Firm event" for a
+ * meeting on the firm's own calendar. That is also where its recording and its chat were kept, which
+ * is what somebody reading the History section is usually looking for.
  */
 export function meetingWhere(meeting: MeetingSummary): string {
-  return meeting.matterId === null ? "Firm event" : "Matter";
+  if (meeting.matterId === null) return "Firm event";
+  return meeting.matterTitle ?? "Matter";
+}
+
+/** What became of a meeting's recording, in one or two words for the History section. */
+export function meetingRecordingWord(meeting: MeetingSummary): string {
+  switch (meeting.recordingState) {
+    case "none":
+      return "Not recorded";
+    case "recording":
+      return "Recording";
+    case "composing":
+      return "Being prepared";
+    case "filed":
+      return "Saved";
+    case "failed":
+      return "Failed";
+    case "abandoned":
+      return "Interrupted";
+  }
 }
 
 /** Where the matter behind a meeting is read, or null for a meeting on a firm event. */
@@ -187,10 +205,9 @@ export function meetingColumns(scope: MeetingScope): GridColumn<MeetingSummary>[
     },
     {
       id: MEETING_COLUMN_IDENTIFIERS.where,
-      label: "On",
+      label: scope === "recent" ? "Filed To" : "On",
       type: "text",
       filter: "set",
-      filterValues: ["Matter", "Firm event"],
       value: (meeting) => meetingWhere(meeting),
     },
     {
@@ -218,6 +235,13 @@ export function meetingColumns(scope: MeetingScope): GridColumn<MeetingSummary>[
       type: "date",
       value: (meeting) => meeting.endedAt,
       text: (meeting) => meetingEnded(meeting),
+    });
+    columns.push({
+      id: MEETING_COLUMN_IDENTIFIERS.recording,
+      label: "Recording",
+      type: "text",
+      filter: "set",
+      value: (meeting) => meetingRecordingWord(meeting),
     });
   }
   columns.push({

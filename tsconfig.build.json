@@ -125,6 +125,9 @@
       "path": "packages/directory/tsconfig.build.json"
     },
     {
+      "path": "packages/disarm/tsconfig.build.json"
+    },
+    {
       "path": "packages/discovery/tsconfig.build.json"
     },
     {
@@ -245,6 +248,9 @@
       "path": "packages/property-links/tsconfig.build.json"
     },
     {
+      "path": "packages/record-transfer/tsconfig.build.json"
+    },
+    {
       "path": "packages/reporting/tsconfig.build.json"
     },
     {
@@ -294,6 +300,9 @@
     },
     {
       "path": "packages/whois/tsconfig.build.json"
+    },
+    {
+      "path": "packages/worker-secrets/tsconfig.build.json"
     }
   ]
 }

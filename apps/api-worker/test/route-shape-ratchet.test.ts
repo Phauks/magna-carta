@@ -61,7 +61,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "communications/meeting-hosting.ts": { lines: 598, shapes: 5 },
   "communications/meeting-inspect.ts": { lines: 243, shapes: 9 },
   "communications/meeting-lobby.ts": { lines: 564, shapes: 7 },
-  "communications/meeting-polls.ts": { lines: 921, shapes: 5 },
+  "communications/meeting-polls.ts": { lines: 860, shapes: 5 },
   "communications/meeting-questions.ts": { lines: 839, shapes: 3 },
   "communications/meeting-summary.ts": { lines: 761, shapes: 6 },
   "communications/meetings-guest.ts": { lines: 1419, shapes: 8 },
@@ -71,9 +71,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "communications/shipping.ts": { lines: 1390, shapes: 26 },
   "custody/custody.ts": { lines: 3145, shapes: 65 },
   "developer/dev-seed.ts": { lines: 516, shapes: 0 },
-  // Address lookup arrived with its request and offer shapes inline, written before this ledger
-  // existed; they belong in a contract module.
-  "directory/address-lookup.ts": { lines: 369, shapes: 13 },
   // Raised when the conflicts branch (subject parties on the run and check summaries) landed after
   // the ratchet; the two new shapes belong in packages/conflicts/src/contract.ts.
   "directory/conflicts.ts": { lines: 1905, shapes: 42 },
@@ -123,7 +120,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "notifications/notifications.ts": { lines: 623, shapes: 1 },
   "platform/meta-database-health.ts": { lines: 536, shapes: 9 },
   // Raised by one line when the address engine joined the versions it reports.
-  "platform/meta-versions.ts": { lines: 317, shapes: 5 },
   "platform/platform-status.ts": { lines: 407, shapes: 6 },
   "session/me.ts": { lines: 300, shapes: 6 },
   // Raised from 605 lines when the sub-role rules (a sub-role needs its parent, one per parent) landed.

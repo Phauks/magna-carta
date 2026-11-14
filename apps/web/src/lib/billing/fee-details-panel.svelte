@@ -134,8 +134,8 @@
           {:else}
             Billed. <a
               class="underline underline-offset-2"
-              href={billHref(sole.matterId, sole.invoiceId)}>Open the bill this fee is charged on</a
-            >. A record on a finalized bill is evidence; the correction is a credit note beside it.
+              href={billHref(sole.matterId, sole.invoiceId)}>Open the bill this fee is on</a
+            >. To correct a finalized bill, add a credit note.
           {/if}
         </p>
       {/if}
@@ -153,7 +153,7 @@
     </DetailsPanel.Header>
     <DetailsPanel.Body>
       <p class="text-sm text-text-muted">
-        Select one fee for its details. The row menu is where a verb acts on a whole selection.
+        Select a fee to see its details. Use the row menu to act on several at once.
       </p>
     </DetailsPanel.Body>
   {:else}
@@ -172,12 +172,12 @@
         <DetailsPanel.Fact
           label="Unbilled"
           value={money(position.unbilledMinor)}
-          title="Billable fees no finalized invoice has taken up. A draft bill claims them on the Billing tab."
+          title="Billable fees not yet on a finalized bill. Add them to a draft bill on the Billing tab."
         />
         <DetailsPanel.Fact
           label="Billed"
           value={money(position.billedMinor)}
-          title="Fees a finalized invoice has taken up."
+          title="Fees on a finalized bill."
         />
       </DetailsPanel.Facts>
     </DetailsPanel.Body>

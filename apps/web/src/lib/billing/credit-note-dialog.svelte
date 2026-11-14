@@ -93,7 +93,7 @@
    * share a line behind three different separators across these panels.
    */
   const subtitle = $derived<RecordSubject>({
-    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+    reference: { kind: "Bill", number: row?.summary.invoiceNumber ?? null },
   });
 
   const refusal = $derived.by((): string | undefined => {
@@ -229,7 +229,7 @@
         <span>
           {#if amountMinor === 0}
             {unpaid > 0
-              ? `Up to ${money(unpaid)} comes straight off what is owed; anything beyond that is money already collected and becomes a recorded client credit the firm owes back.`
+              ? `Up to ${money(unpaid)} comes off what is owed. Anything more is money already collected and becomes a credit owed to the client.`
               : "This bill is fully paid, so the whole credit becomes a recorded client credit the firm owes back."}
           {:else if becomesClientCredit === 0}
             The whole {money(amountMinor)} comes off what the client owes.
@@ -237,8 +237,7 @@
             The whole {money(amountMinor)} becomes a client credit the firm owes back: this bill has
             already been paid.
           {:else}
-            {money(comesOffBalance)} comes off what is owed; {money(becomesClientCredit)} becomes a
-            client credit the firm owes back.
+            {money(comesOffBalance)} comes off what is owed, and {money(becomesClientCredit)} becomes a credit owed to the client.
           {/if}
           Nothing is netted off and nothing goes negative.
         </span>

@@ -63,7 +63,7 @@
     failure = stated(
       outcome.failure,
       "The reconciliation is still open.",
-      "Nothing answered, so the reconciliation is still open. Retrying sends this same submission rather than closing it twice.",
+      "Couldn't connect. The reconciliation is still open, and trying again won't close it twice.",
     );
     return "refused";
   }

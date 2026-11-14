@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import { doSqliteMigrationTarget } from "@magna-carta/database/do-sqlite-migration-target";
 import { doSqliteBatchDatabase } from "@magna-carta/database/do-sqlite-batch-database";
 import { runPendingMigrations } from "@magna-carta/database/migration-runner";
@@ -88,7 +88,7 @@ function readRestorePoint(storage: DurableObjectState["storage"]): RestorePoint 
 // One firm's per-firm database. Addressed idFromName(firmId): binding-free, created on first access,
 // self-migrating on wake. The app Worker reaches it through firm-database-proxy.ts (the SqlDatabase
 // the statement modules build against); this class only executes already-composed SQL + params.
-export class FirmDatabase extends DurableObject<Bindings> {
+export class FirmDatabase extends StoredSecretsDurableObject {
   private readonly ready: Promise<void>;
   /**
    * Why the lineage could not be applied, or null when it was.

@@ -33,6 +33,7 @@ import {
   type MeetingDiagnosticSample,
 } from "@magna-carta/meeting-protocol/frames";
 import { PREFERRED_RIDS, type PreferredRid } from "@magna-carta/meeting-protocol/types";
+import { diagnosticText, type DiagnosticEnvironment } from "./diagnostic-text.ts";
 import {
   inboundFacts,
   qualityOf,
@@ -87,7 +88,16 @@ export type DiagnosticEventKind =
   | "superseded"
   | "socket-lost"
   | "ended"
-  | "protocol-mismatch";
+  | "protocol-mismatch"
+  /*
+   * What the picture did on this page, rather than on the wire: a tile given a different stream to
+   * play (detail: where it sits), this browser's own camera track replaced, and the view changing
+   * shape (detail: what changed). A flash on screen with no wire event beside it is one of these, or
+   * the browser's own drawing.
+   */
+  | "picture"
+  | "camera-track"
+  | "view";
 
 /** One thing that happened on the wire. */
 export interface DiagnosticEvent {
@@ -339,6 +349,14 @@ export class MeetingDiagnostics implements DiagnosticsSink {
    * nothing a person typed. Participants appear by the room's own handle, which is what a room
    * reading the report already holds and what correlating it to anything at all requires.
    */
+  /**
+   * The window as text to copy (diagnostic-text.ts): what each picture did over the last few
+   * minutes, so a stutter that has already passed is still in it.
+   */
+  copyableText(environment: DiagnosticEnvironment): string {
+    return diagnosticText(this.#samples, this.recent, environment);
+  }
+
   report(): DiagnosticsReport {
     const sample = this.latest;
     const uplink = sample?.uplink ?? null;

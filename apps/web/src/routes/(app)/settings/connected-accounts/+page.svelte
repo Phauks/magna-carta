@@ -116,8 +116,7 @@
     {@const account = connected?.provider === provider ? connected : null}
     <SettingsPlate heading={names.product}>
       <SettingsDescription>
-        Your own {names.account}. Connecting it is what lets your Magna Carta events reach your
-        {names.product}. Only you can see or use this connection.
+        Your own {names.account}. Connect it to send your Magna Carta events to your {names.product}. Only you can see or use this connection.
       </SettingsDescription>
 
       <LoadingRegion
@@ -129,8 +128,7 @@
       >
         {#snippet failure()}
           <p class="py-12 text-sm text-text-muted">
-            Whether an account is connected could not be read, so it is not stated rather than
-            guessed at.
+            Couldn't check whether an account is connected.
           </p>
         {/snippet}
 
@@ -213,8 +211,7 @@
 >
   {#snippet fields()}
     <p class="text-sm">
-      Magna Carta forgets its sign-in to this account. Nothing in your {connectedNames.product} is
-      changed. To connect it again you sign in to {connectedNames.company} again.
+      Magna Carta disconnects from this account. Nothing in your {connectedNames.product} changes. To reconnect, sign in to {connectedNames.company} again.
     </p>
   {/snippet}
 </ActionDialog>

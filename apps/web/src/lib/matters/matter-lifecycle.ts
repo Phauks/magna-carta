@@ -93,7 +93,7 @@ export interface MatterLifecycleStep {
  * the matter exactly where it was.
  */
 export const MATTER_LIFECYCLE_TRANSPORT_FAILURE =
-  "Nothing answered. The matter's status is unchanged.";
+  "Couldn't connect. The matter's status is unchanged.";
 
 const GRADUATE_STEP: MatterLifecycleStep = {
   action: "graduate",
@@ -120,7 +120,8 @@ const HOLD_STEP: MatterLifecycleStep = {
   label: "Put On Hold",
   busyLabel: "Holding",
   permission: HOLD_MATTER_PERMISSION,
-  doneSentence: "The matter is on hold. It keeps its number, and returns to active when released.",
+  doneSentence:
+    "The matter is on hold. It keeps its number and becomes active again when released.",
   failureSentence: "The matter could not be put on hold.",
   consequence:
     "Work pauses. The matter keeps its number, the reason is recorded beside the status, and releasing the hold returns it to active.",
@@ -131,10 +132,10 @@ const HOLD_STEP: MatterLifecycleStep = {
 const CONSULTATION_HOLD_STEP: MatterLifecycleStep = {
   ...HOLD_STEP,
   doneSentence:
-    "The consultation is on hold. It keeps its tentative number, and is a consultation again when released.",
+    "The consultation is on hold. It keeps its temporary number and becomes a consultation again when released.",
   failureSentence: "The consultation could not be put on hold.",
   consequence:
-    "Work pauses. The consultation keeps its tentative number, the reason is recorded beside the status, and releasing the hold returns it to being a consultation.",
+    "Work pauses. The consultation keeps its temporary number, the reason is shown beside the status, and releasing the hold makes it a consultation again.",
 };
 const RELEASE_STEP: MatterLifecycleStep = {
   action: "release",
@@ -144,7 +145,7 @@ const RELEASE_STEP: MatterLifecycleStep = {
   doneSentence: "The hold is released. The matter is back where the hold found it.",
   failureSentence: "The hold could not be released.",
   consequence:
-    "Work resumes. The matter returns to where the hold found it, the reason clears, and the record keeps that it was held.",
+    "Work resumes. The matter goes back to its previous status, the reason clears, and the hold stays in its history.",
 };
 const CLOSE_STEP: MatterLifecycleStep = {
   action: "close",
@@ -154,7 +155,7 @@ const CLOSE_STEP: MatterLifecycleStep = {
   doneSentence: "The matter is closed.",
   failureSentence: "The matter could not be closed.",
   consequence:
-    "The file closes and the day it closed is stamped on the record. Nothing is deleted, and a closed matter can be reopened.",
+    "The matter closes and its close date is recorded. Nothing is deleted, and it can be reopened.",
 };
 // Declining a consultation is a close: the same operation, the same requirements (which a
 // consultation with nothing on its ledgers passes), and the same additive record afterwards. It
@@ -163,10 +164,10 @@ const CONSULTATION_CLOSE_STEP: MatterLifecycleStep = {
   ...CLOSE_STEP,
   label: "Close Consultation",
   doneSentence:
-    "The consultation is closed. It keeps its tentative number and drew no matter number.",
+    "The consultation is closed. It keeps its temporary number and doesn't get a matter number.",
   failureSentence: "The consultation could not be closed.",
   consequence:
-    "The firm declines the consultation. It keeps its tentative number, draws no matter number, and can be reopened.",
+    "The firm declines the consultation. It keeps its temporary number, doesn't get a matter number, and can be reopened.",
 };
 const REOPEN_STEP: MatterLifecycleStep = {
   action: "reopen",
@@ -176,7 +177,7 @@ const REOPEN_STEP: MatterLifecycleStep = {
   doneSentence: "The matter is back where it was before it closed.",
   failureSentence: "The matter could not be reopened.",
   consequence:
-    "The matter returns to the status it left: the hold it was in, Active if it had been opened, else the consultation or intake it was. Its number is unchanged, and the recorded close date and the paper file's destruction date clear.",
+    "The matter goes back to its previous status. Its number stays the same, and the close date and destruction date are cleared.",
 };
 
 /**
@@ -214,7 +215,7 @@ export function holdReasonRefusal(reason: string): string | null {
   const trimmed = reason.trim();
   if (trimmed.length === 0) return "Say why the matter is being put on hold.";
   if (trimmed.length > HOLD_REASON_MAX_LENGTH) {
-    return `Keep the reason to ${String(HOLD_REASON_MAX_LENGTH)} characters; the account of it belongs on the matter's notes.`;
+    return `Keep the reason under ${String(HOLD_REASON_MAX_LENGTH)} characters. Put the full story in the matter's notes.`;
   }
   return null;
 }
@@ -511,7 +512,7 @@ export function matterStepStanding(
         readiness.graduate === null,
         readiness.graduateFailed,
         matterCanGraduate(readiness.graduate) === false,
-        "Every step the firm's intake procedure requires is answered.",
+        "All required intake steps are answered.",
       );
     // The pause, its release and the reopen have no rules of their own: nothing gates them but the
     // permission, which is a different sentence and is answered by matterLifecycleBlock.

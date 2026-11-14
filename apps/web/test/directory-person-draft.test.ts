@@ -80,14 +80,18 @@ describe("the draft knows what it holds", () => {
     // The values themselves, so the entry can be checked before it is saved; the sealed number is
     // the one thing counted rather than printed.
     expect(personDraftSummary(draft)).toEqual([
-      { label: "Name", value: "Dr. Margaret Okafor Ph.D., Esq." },
-      { label: "Maiden", value: "Margaret Adeyemi" },
-      { label: "Email", value: "m.okafor@example.com" },
-      { label: "Telephone", value: contactRowFromDraft(draft.contacts[1]!, "c2").value },
-      { label: "Pronouns", value: "she / her / hers" },
-      { label: "Born", value: formatDate("1978-03-14") },
-      { label: "Identifiers", value: "1 sealed" },
-      { label: "Principal", value: "Okafor Actuarial LLC" },
+      { label: "Name", value: "Dr. Margaret Okafor Ph.D., Esq.", mark: "name" },
+      { label: "Maiden", value: "Margaret Adeyemi", mark: "other-name" },
+      { label: "Email", value: "m.okafor@example.com", mark: "email" },
+      {
+        label: "Telephone",
+        value: contactRowFromDraft(draft.contacts[1]!, "c2").value,
+        mark: "telephone",
+      },
+      { label: "Pronouns", value: "she / her / hers", mark: "pronouns" },
+      { label: "Born", value: formatDate("1978-03-14"), mark: "born" },
+      { label: "Identifiers", value: "1 sealed", mark: "identifier" },
+      { label: "Principal", value: "Okafor Actuarial LLC", mark: "organization" },
     ]);
   });
 

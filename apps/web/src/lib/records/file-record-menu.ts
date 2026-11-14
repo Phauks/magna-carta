@@ -121,11 +121,11 @@ export interface FileMenuContext {
 }
 
 /** What the product waits on before a file can be shared outside the firm. */
-const SHARING_DEPENDENCY = "client-portal document sharing";
+const SHARING_DEPENDENCY = "document sharing in the client portal";
 /** What the product waits on before a file's bytes can be rewritten as another format. */
-const CONVERSION_DEPENDENCY = "the conversion engine";
+const CONVERSION_DEPENDENCY = "file conversion";
 /** What the product waits on before anything can be written out of an archive. */
-const EXTRACTION_DEPENDENCY = "the archive-extraction engine";
+const EXTRACTION_DEPENDENCY = "archive extraction";
 
 const NOTHING_ON_THE_CLIPBOARD = "Nothing is on the clipboard yet.";
 const NO_CURRENT_FOLDER =
@@ -518,7 +518,7 @@ export function fileRecordMenu(
       icon: Trash,
       ...(count > 1 && fullFolders.length > 0
         ? {
-            disabledReason: `A folder with contents is deleted on its own, so what is inside it can be dealt with. Deselect ${fullFolders.map((record) => record.name).join(", ")}.`,
+            disabledReason: `Folders with contents are deleted one at a time, so you can decide what happens to what's inside. Deselect ${fullFolders.map((record) => record.name).join(", ")}.`,
           }
         : {}),
     };

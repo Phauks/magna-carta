@@ -55,7 +55,7 @@
       grantFailure = stated(
         outcome.failure,
         "The recording could not be opened.",
-        "Nothing answered when the recording was opened.",
+        "Couldn't connect while opening the recording.",
       );
     asking = false;
   }

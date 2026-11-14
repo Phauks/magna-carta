@@ -113,8 +113,7 @@
       {list.loadingMore ? "Loading" : "Load more fees"}
     </Button>
     <p class="text-xs text-text-muted">
-      Showing the {(fees ?? []).length} most recent by service date. The figures below cover only what
-      is loaded, so they are not the matter&rsquo;s whole fee record until every page is read.
+      Showing the {(fees ?? []).length} most recent by service date. The totals below cover only these until you load more.
     </p>
   </div>
 {/snippet}
@@ -145,8 +144,7 @@
     scale="screen"
     subject="The fees"
     fallback={failure.whenSilent}
-    reassurance="The record itself is unaffected: nothing was changed by this failure, and the
-      agreement and every recorded fee are still on the firm's record."
+    reassurance="Nothing was changed. The agreement and recorded fees are still on record."
     onRetry={() => (reloadToken += 1)}
     onReport={() => (reportOpen = true)}
   />
@@ -160,9 +158,7 @@
     <Alert.Root variant="info">
       <Alert.Title>This is a sample matter.</Alert.Title>
       <Alert.Description>
-        It exists so the matter screens stay reviewable at a stable address; there is no firm record
-        behind it, so it has no fee agreement and nothing can be charged against it. Open one of the
-        firm's own matters to use this surface.
+        This is a sample matter for previewing screens. It has no agreement or fees. Open one of the firm's matters to use it.
       </Alert.Description>
     </Alert.Root>
   </section>

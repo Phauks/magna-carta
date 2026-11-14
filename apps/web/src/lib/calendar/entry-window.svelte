@@ -504,7 +504,7 @@
       saveFailure = stated(
         outcome.failure,
         "The change was not saved.",
-        "Nothing answered. The change was not saved and the record is unchanged.",
+        "Couldn't connect. The change wasn't saved.",
       );
       return;
     }
@@ -653,7 +653,7 @@
       return verbRefused(
         failure,
         "The change was not saved.",
-        "Nothing answered. The change was not saved and the series is unchanged.",
+        "Couldn't connect. The change wasn't saved and the series is unchanged.",
       );
     }
     // The room a location names is held for the record that carries it. A change to every day moves
@@ -759,7 +759,7 @@
           return verbRefused(
             scoped.failure,
             "The setting was not cancelled.",
-            "Nothing answered. The setting was not cancelled and stays as it was.",
+            "Couldn't connect. The setting wasn't cancelled.",
           );
         }
         onChanged();
@@ -776,7 +776,7 @@
       return verbRefused(
         outcome.failure,
         "The setting was not cancelled.",
-        "Nothing answered. The setting was not cancelled and stays as it was.",
+        "Couldn't connect. The setting wasn't cancelled.",
       );
     }
     return landed();
@@ -794,7 +794,7 @@
       return verbRefused(
         outcome.failure,
         "The deadline was not satisfied.",
-        "Nothing answered. The deadline is still open.",
+        "Couldn't connect. The deadline is still open.",
       );
     }
     return landed();
@@ -814,7 +814,7 @@
       return verbRefused(
         outcome.failure,
         "The deadline was not vacated.",
-        "Nothing answered. The deadline is still open.",
+        "Couldn't connect. The deadline is still open.",
       );
     }
     return landed();
@@ -834,7 +834,7 @@
       return verbRefused(
         outcome.failure,
         "The setting was not continued.",
-        "Nothing answered. The setting was not continued and stays as it was.",
+        "Couldn't connect. The setting wasn't continued.",
       );
     }
     // Nothing moved: what a continuance does to the deadlines hanging off the old setting is a

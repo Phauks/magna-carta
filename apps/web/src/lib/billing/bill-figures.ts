@@ -55,10 +55,7 @@ export function billFigures(
       identifier: "unbilled",
       label: "unbilled",
       amountMinor: unbilled.timeAmountMinor + unbilled.costAmountMinor,
-      caption:
-        `Time and costs no draft holds and no invoice has billed: ` +
-        `${String(unbilled.timeEntryCount)} ${timeWord} · ${context.money(unbilled.timeAmountMinor)}, ` +
-        `${String(unbilled.costEntryCount)} ${costWord} · ${context.money(unbilled.costAmountMinor)}.`,
+      caption: `Time and costs not yet on a bill: ${String(unbilled.timeEntryCount)} ${timeWord} · ${context.money(unbilled.timeAmountMinor)}, ${String(unbilled.costEntryCount)} ${costWord} · ${context.money(unbilled.costAmountMinor)}.`,
     });
   }
 
@@ -68,7 +65,7 @@ export function billFigures(
     amountMinor: rows
       .filter((row) => row.summary.status === "draft")
       .reduce((total, row) => total + draftTotalMinor(row.detail), 0),
-    caption: `Claimed by open drafts${inView} — computed from their lines.`,
+    caption: `Claimed by open drafts${inView}, from their lines.`,
   });
 
   figures.push({

@@ -157,8 +157,7 @@
     <Alert.Root variant="info">
       <Alert.Title>No Review Sets On A Sample Matter</Alert.Title>
       <Alert.Description>
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so there is no corpus to read.
+        This is a sample matter for previewing screens. It has no review sets.
       </Alert.Description>
     </Alert.Root>
   {:else}
@@ -170,10 +169,7 @@
       emptyTitle="No Review Set Is Open Here"
     >
       {#snippet emptyBody()}
-        A review set is a corpus of its own: the documents under review, the record of what arrived,
-        its own search index, and its own list of who may open it — separate from who works the
-        matter, because material another party produced may be under a protective order the whole
-        team is not cleared for. New Review Set, at the top of the screen, starts one.
+        No review sets on this matter yet. Start one with New Review Set. Each set has its own access list, so material under a protective order stays limited to the people you add.
       {/snippet}
     </ReviewSetList>
   {/if}

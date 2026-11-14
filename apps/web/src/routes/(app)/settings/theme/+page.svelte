@@ -38,7 +38,7 @@
 />
 
 <SettingsScrollRegion>
-  <SettingsDescription>The theme is the firm's brand; six curated faces, each in light and dark.</SettingsDescription>
+  <SettingsDescription>The firm's theme: six themes, each in light and dark.</SettingsDescription>
 
   <SettingsPlate heading="Brand">
     <SettingsRow definition={THEME_DEFINITION} instant={instantForAxis(THEME_AXIS)} />

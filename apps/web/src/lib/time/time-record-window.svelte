@@ -418,7 +418,7 @@
     if (outcome.kind !== "ok") {
       saveFailure =
         outcome.kind === "problem" && outcome.problem.status === 409
-          ? "This entry was not restored. Either it is not voided any more, or its value was moved onto a cost — restoring it would charge the same work twice."
+          ? "This entry wasn't restored. It may no longer be voided, or its value was moved to a cost, and restoring it would charge for the same work twice."
           : "The entry was not restored. It is still voided on the record.";
       return;
     }
@@ -709,7 +709,7 @@
    * is no right answer to that choice.
    */
   const BILLING_CHOICES = [
-    { value: "billable", label: "Billable, next invoice", waitsOn: null },
+    { value: "billable", label: "Billable, next bill", waitsOn: null },
     { value: "nonbillable", label: "Non-billable", waitsOn: null },
     { value: "hold", label: "Billable, hold", waitsOn: gapReason("billingDisposition") },
   ] as const;
@@ -853,7 +853,7 @@
    * it cannot press, because there is no earlier version of it to go back and read.
    */
   const editRefusal = $derived.by((): string | undefined => {
-    if (entry === null) return "A new entry is written in its fields; there is nothing to read yet.";
+    if (entry === null) return "A new entry has no history yet.";
     if (entry.status !== "draft") return statusEntry(entry.status).meaning;
     const verdict = canWorkDraft(entry);
     return verdict.allowed ? undefined : verdict.reason;
@@ -946,7 +946,7 @@
       saveFailure =
         outcome.kind === "problem"
           ? `The entry was not saved. The server answered ${String(outcome.problem.status)}.`
-          : "Nothing answered. The entry was not saved and the record is unchanged.";
+          : "Couldn't connect. The entry wasn't saved.";
       return;
     }
     /*
@@ -1036,7 +1036,7 @@
       class="tabular-nums"
       title={entry.entryNumber === null
         ? "This entry was captured before entry numbers existed. Nothing backfills one."
-        : "The firm's own entry number. Drawn once, never reused; a voided entry keeps it."}
+        : "The firm's entry number. It's never reused, even if the entry is voided."}
     >
       {entry.entryNumber === null ? "No entry number" : `Entry ${entry.entryNumber}`}
     </span>
@@ -1300,7 +1300,7 @@
           capped={mattersCapped}
           disabled={readOnly}
           title={creating
-            ? "Where this time belongs. Type the number or the name; either finds it."
+            ? "The matter this time is for. Type its number or name."
             : "Where this time belongs. Picking another matter moves the entry there, with its number, its note and its files."}
           onpick={(picked) => (chosenMatterId = picked)}
         />
@@ -1330,7 +1330,7 @@
             <Combobox.Input
               id="time-record-staff"
               fieldName="Staff"
-              title="Whose work this is. The record keeps the name it was captured with."
+              title="The timekeeper. The record keeps the name as it was when entered."
               onfocus={() => {
                 staffSearching = true;
                 staffQuery = "";
@@ -1380,7 +1380,7 @@
                 disabled={choice.waitsOn !== null}
                 title={choice.waitsOn === null
                   ? undefined
-                  : `Not built yet. Waiting on ${choice.waitsOn}.`}
+                  : `Not built yet: ${choice.waitsOn}.`}
               />
             {/each}
           </Combobox.Content>
@@ -1442,7 +1442,7 @@
               id="time-record-task"
               fieldName="Task"
               readonly
-              title="Which piece of work on this matter this time went to. Optional — most entries name none."
+              title="The task on this matter this time was for. Optional."
               onfocus={() => (taskListOpen = true)}
               onclick={() => (taskListOpen = true)}
             />
@@ -1489,7 +1489,7 @@
           <Input
             id="time-record-rate"
             placeholder="Rate"
-            title={`${rateExplanation} Typing a rate here prices THIS entry and nothing else; emptying the field hands it back to the rate chain.`}
+            title={`${rateExplanation} A rate typed here applies to this entry only. Clear it to use the usual rate.`}
             value={rateFieldText}
             oninput={(event) => (rateDraft = event.currentTarget.value)}
           />
@@ -1583,7 +1583,7 @@
               <Combobox.GroupHeading>
                 {matterFiles === null
                   ? "Reading the matter's documents"
-                  : "Every document on this matter is already attached."}
+                  : "All documents on this matter are already attached."}
               </Combobox.GroupHeading>
             </Combobox.Group>
           {/if}
@@ -1698,16 +1698,16 @@
         <Info class="size-16 shrink-0" aria-hidden="true" />
         <span>
           {#if entry.status === "billed"}
-            Billed. Which invoice took it up is not served yet: waiting on {gapReason("invoice")}.
+            Billed. Which bill isn't shown yet.
           {:else}
-            Not on a bill yet. A draft invoice claims it from the Billing tab.
+            Not on a bill yet. Add it to a draft bill from the Billing tab.
           {/if}
         </span>
       </div>
       <dl class="flex flex-col gap-4 text-sm">
         <div class="flex items-baseline justify-between gap-16">
           <dt class="text-text-muted">Billing</dt>
-          <dd>{entry.billable ? "Billable, next invoice" : "Non-billable"}</dd>
+          <dd>{entry.billable ? "Billable, next bill" : "Non-billable"}</dd>
         </div>
         <div class="flex items-baseline justify-between gap-16">
           <dt class="text-text-muted">Work Date</dt>
@@ -1717,7 +1717,7 @@
     {:else}
       <div class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="size-16 shrink-0" aria-hidden="true" />
-        <span>Not on a bill yet. A draft invoice claims it from the Billing tab.</span>
+        <span>Not on a bill yet. Add it to a draft bill from the Billing tab.</span>
       </div>
     {/if}
   </div>
@@ -1759,7 +1759,7 @@
       <Button
         variant="secondary"
         disabled={unvoiding}
-        title="Put this entry back to draft. It keeps its number, its note, its codes, its documents and its history."
+        title="Return this entry to draft. It keeps its number, note, codes, documents and history."
         onclick={() => void restore()}
       >
         Unvoid

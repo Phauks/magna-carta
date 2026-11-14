@@ -134,8 +134,7 @@
 <SettingsScrollRegion>
   <SettingsPlate heading="What May Leave Magna Carta">
     <SettingsDescription>
-      The firm's limit on what members may copy to their own Outlook calendars. A member can sync
-      less than this and never more.
+      The most that members can copy to their own Outlook calendars. Members can sync less, never more.
     </SettingsDescription>
 
     <LoadingRegion
@@ -157,8 +156,7 @@
     </LoadingRegion>
 
     <SettingsPlateNote>
-      A type sent with the matter number and type only carries no title, location or notes. Nothing
-      leaves on the strength of this page alone: each member still chooses what they send.
+      Events of this type are sent with the matter number and type only: no title, location or notes. Each member still chooses what to sync.
     </SettingsPlateNote>
   </SettingsPlate>
 </SettingsScrollRegion>
@@ -203,8 +201,7 @@
       {/if}
       {#if closing}
         <p class="text-sm text-text-muted">
-          Every member's rule for this type is removed, so it stops syncing for all of them. Allowing
-          it again later does not bring those rules back: each member chooses again.
+          Every member's setting for this type is removed, so it stops syncing for everyone. Allowing it again later doesn't restore those settings.
         </p>
       {/if}
     </div>

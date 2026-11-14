@@ -322,6 +322,12 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
       },
+      // Content disarm. No deployed bundle imports it yet, so the composite above does not build it;
+      // the build that first imports @magna-carta/disarm adds it there.
+      "rust-wasm-build-disarm": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/disarm/src/pkg -f crates/disarm-core/wasm.Dockerfile crates",
+      },
       "rust-wasm-build-seven-zip": {
         command:
           "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",

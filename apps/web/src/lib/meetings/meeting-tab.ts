@@ -13,6 +13,7 @@
  * which is how it opened before.
  */
 import { goto } from "$app/navigation";
+import { reserveBeside } from "$lib/navigation/open-beside.ts";
 
 /** The room's address. */
 export function meetingRoomAddress(meetingId: string): string {
@@ -48,8 +49,12 @@ export interface ReservedMeetingTab {
 }
 
 /** Reserve the tab. Call it inside the press, before anything is awaited. */
-export function reserveMeetingTab(open: WindowOpener | null = opener()): ReservedMeetingTab {
-  const tab = open?.("about:blank", "_blank") ?? null;
+export function reserveMeetingTab(
+  reserve: (() => Window | null) | null = typeof window === "undefined"
+    ? null
+    : () => reserveBeside("session"),
+): ReservedMeetingTab {
+  const tab = reserve?.() ?? null;
   return {
     open(meetingId) {
       if (tab === null || tab.closed) {

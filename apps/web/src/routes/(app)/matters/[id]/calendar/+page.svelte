@@ -186,8 +186,7 @@
   {#if sectionView === "calendar"}
     {#if isSample}
       <EmptyState title="Nothing On A Sample Matter's Calendar">
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so there is nothing on its calendar.
+        This is a sample matter for previewing screens. It has nothing on its calendar.
       </EmptyState>
     {:else}
       <CalendarView

@@ -50,7 +50,7 @@ export interface RecoveryCodesIssued {
 
 /** Said when the reason is one we have no sentence for, or when none arrived at all. */
 export const TWO_FACTOR_REFUSED_UNKNOWN =
-  "That did not go through, and nothing changed. Try again, and if it keeps happening, contact your firm's administrator.";
+  "That didn't go through, and nothing changed. Try again, and if it keeps happening, contact your firm's administrator.";
 
 /**
  * The refusals these acts can honestly produce, in the reader's words.
@@ -64,7 +64,7 @@ export const TWO_FACTOR_REFUSED_UNKNOWN =
  */
 const REFUSALS: Readonly<Record<string, string>> = {
   INVALID_PASSWORD: "That is not your password. Check it and try again.",
-  INVALID_CODE: `That code didn't verify. Codes rotate every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds — enter the one your app is showing now.`,
+  INVALID_CODE: `That code didn't work. Codes change every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds, so enter the one your app shows now.`,
   // The secret the panel issued is gone — replaced from another tab, or turned off from another
   // device in between. Starting again issues a new one, so the sentence says to.
   TOTP_NOT_ENABLED: "This setup has expired. Close this window and start again.",
