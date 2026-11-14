@@ -270,9 +270,8 @@ opened, arrived at by link, and a session moved onto a matter), `my-room-card.sv
 the Meetings page, drawn only for `meetings:host`; nothing is made until Set Up is pressed, and Get a
 New Link asks first) and `move-to-matter-dialog.svelte` (offered in the room's header for a
 personal-room session still on a firm event, during the meeting or after it, over the calendar's own
-matter list). The link page is `src/routes/(app)/room/[name]/+page.svelte` (the room's address name, or its older
-link code, which the server answers alike; the bar then shows the name), and
-`/meetings/rooms/[linkCode]` only redirects there: a closed
+matter list). The link page is `src/routes/(app)/room/[name]/+page.svelte`, by the room's address name (the older
+code addresses were retired without a redirect): a closed
 room is read again every ten seconds, and Join arrives, then goes to the ordinary room screen. Every
 press that leads into a room unlocks `pageRecordingSounds` first, as the entry action does.
 

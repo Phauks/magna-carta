@@ -41,7 +41,7 @@ import {
   readFirmEventForMove,
   readFirmEventParticipantsForMove,
   readMemberDisplayName,
-  readPersonalRoomByLinkCode,
+  readPersonalRoomByAddressName,
   readPersonalRoomForOwner,
   readPersonalRoomOpenSession,
   readTakenRoomAddressNames,
@@ -454,7 +454,7 @@ async function readLinkedRoom(database: SqlDatabase, linkCode: string) {
   // A string that cannot be a code is refused before any read, with the same answer an unknown code
   // gets, so a probe learns nothing from the difference.
   const room = isPersonalRoomAddress(linkCode)
-    ? await readPersonalRoomByLinkCode(database, linkCode)
+    ? await readPersonalRoomByAddressName(database, linkCode)
     : undefined;
   if (room === undefined || room.owner_active !== 1) {
     refusePersonalRoom("personal-room-unknown", "that link does not open a room");

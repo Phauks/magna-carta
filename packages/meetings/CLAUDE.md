@@ -156,7 +156,8 @@ host's End settles the event too.
 
 **A room has two addresses, and a meeting has one more.** `address_name` (/room/trevor) is made with
 the room by `roomAddressNames` and `freeRoomAddressName` in `meeting-addresses.ts` and never changed;
-the link code beside it still works, and `readPersonalRoomByLinkCode` reads by either. Every meeting
+`readPersonalRoomByAddressName` is the only way a link reaches a room, and `link_code` is no longer
+an address. Every meeting
 carries `join_code`, nine digits written by `insertMeetingStatement` (`newMeetingJoinCode`) and read
 back through the visibility gate by `readMeetingSummaryByJoinCode`; a clash on either unique index
 rolls the write back rather than sharing an address.

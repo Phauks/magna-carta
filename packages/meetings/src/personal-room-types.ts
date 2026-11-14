@@ -42,8 +42,8 @@ export function newPersonalRoomLinkCode(randomSource: RandomSource = cryptoRando
 
 /** Whether a string could be a link code at all — refused before any read, so a probe costs nothing. */
 /**
- * Whether a string could address a room at all: a link code, or an address name (lower-case letters,
- * digits and hyphens, at most forty). Anything else is refused before a read.
+ * Whether a string could be a room's address name at all (lower-case letters, digits and hyphens, at
+ * most forty). Anything else is refused before a read.
  */
 export function isPersonalRoomAddress(value: string): boolean {
   return value.length > 0 && value.length <= 40 && /^[a-z0-9-]+$/.test(value);

@@ -57,7 +57,7 @@ const HOST = "meetings:host" as const;
 const linkCodeParam = z.object({
   linkCode: z
     .string()
-    // A link code, or a room's address name (/room/trevor).
+    // The room's address name (/room/trevor).
     .regex(/^[a-z0-9-]{1,40}$/)
     .openapi({ param: { name: "linkCode", in: "path" } }),
 });

@@ -59,9 +59,9 @@ export async function readPersonalRoomForOwner(
   return results[0];
 }
 
-export async function readPersonalRoomByLinkCode(
+export async function readPersonalRoomByAddressName(
   database: SqlDatabase,
-  linkCode: string,
+  addressName: string,
 ): Promise<PersonalRoomAtLink | undefined> {
   const { results } = await database
     .prepare(
@@ -69,11 +69,10 @@ export async function readPersonalRoomByLinkCode(
         `(member.status = 'active') AS owner_active ` +
         `FROM ${MEETING_PERSONAL_ROOM_TABLE} ` +
         `JOIN member ON member.user_id = ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id ` +
-        // Either address finds the room: the name (/room/trevor) or the link code it always had.
-        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.link_code = ?1 ` +
-        `OR ${MEETING_PERSONAL_ROOM_TABLE}.address_name = ?1`,
+        // A room is reached by its address name (/room/trevor) and nothing else.
+        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.address_name = ?1`,
     )
-    .bind(linkCode)
+    .bind(addressName)
     .all<PersonalRoomAtLink>();
   return results[0];
 }

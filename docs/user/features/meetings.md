@@ -136,8 +136,7 @@ meeting on their calendar too.
 When everybody has left, the meeting ends by itself the next time you open your room, and its
 calendar entry is closed at the time the last person left.
 
-Your room's address does not change, even if your name does. Links in the older form,
-/meetings/rooms/ followed by ten letters and numbers, still open your room.
+Your room's address does not change, even if your name does.
 
 ### Everybody's rooms
 

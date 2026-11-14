@@ -121,7 +121,7 @@ describe("a member's room", () => {
 });
 
 describe("a room's address by name", () => {
-  it("is the owner's first name, and the link reads by it as by the code", async () => {
+  it("is the owner's first name, and the link reads by it alone", async () => {
     const database = fresh();
     const room = await makeRoom(database);
     expect(room.address_name).toMatch(/^[a-z0-9-]+$/);
@@ -132,7 +132,7 @@ describe("a room's address by name", () => {
     );
     const byCode = await readPersonalRoomAtLink(
       database.database,
-      room.link_code,
+      room.address_name ?? "",
       optionsFor(GUEST),
     );
     expect(byName).toEqual(byCode);
@@ -253,7 +253,7 @@ describe("arriving by the link", () => {
     const room = await makeRoom(database);
     const arrival = await readPersonalRoomAtLink(
       database.database,
-      room.link_code,
+      room.address_name ?? "",
       optionsFor(GUEST),
     );
     expect(arrival.state).toBe("closed");
@@ -266,14 +266,18 @@ describe("arriving by the link", () => {
     const { meetingId } = await open(database);
     const { arrival, effect } = await arriveAtPersonalRoom(
       database.database,
-      room.link_code,
+      room.address_name ?? "",
       optionsFor(GUEST),
     );
     await commit(database.database, effect);
     expect(arrival.state === "open" && arrival.meetingId).toBe(meetingId);
 
     // Twice is still once on the event.
-    const again = await arriveAtPersonalRoom(database.database, room.link_code, optionsFor(GUEST));
+    const again = await arriveAtPersonalRoom(
+      database.database,
+      room.address_name ?? "",
+      optionsFor(GUEST),
+    );
     await commit(database.database, again.effect);
     const event = firmEventOf(database, meetingId);
     const participants = database.raw

@@ -10,7 +10,7 @@ import { MEETING_MEDIA } from "./types.ts";
 export const PersonalRoom = z
   .object({
     id: z.string(),
-    // The room's code address, which Get a New Link replaces.
+    // The room's older code, kept on the record; no address reads it any more.
     linkCode: z.string(),
     // The room's address by name: `/room/{addressName}`.
     addressName: z.string(),
@@ -53,7 +53,7 @@ export const PersonalRoomAtLinkResponse = z
     state: z.enum(["closed", "open"]),
     ownerDisplayName: z.string(),
     isOwner: z.boolean(),
-    // The room's address by name, so a page reached by the code can show the name instead.
+    // The room's address by name.
     addressName: z.string(),
     meetingId: z.string().nullable(),
   })
