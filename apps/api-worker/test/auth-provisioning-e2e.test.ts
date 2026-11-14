@@ -327,6 +327,8 @@ describe("end-to-end", () => {
         "emails:manageLinks",
         "emails:read",
         "esign:seal",
+        "exhibits:issue",
+        "exhibits:manage",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",

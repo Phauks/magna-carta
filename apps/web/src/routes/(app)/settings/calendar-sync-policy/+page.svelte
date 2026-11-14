@@ -103,7 +103,7 @@
     refusal = null;
     const outcome = await setFirmLimit({ subject: changing.subject, mayLeave, detail });
     if (outcome.kind === "refused") {
-      refusal = outcome.detail ?? "The change was not saved. Nothing changed.";
+      refusal = outcome.detail ?? "The change wasn't saved. Nothing changed.";
       return "refused";
     }
     queryClient.setQueryData<CalendarSyncFirmLimits>(

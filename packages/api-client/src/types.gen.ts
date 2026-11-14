@@ -390,7 +390,7 @@ export type ServiceVersion = {
 };
 
 export type ConnectedServiceStatus = {
-    id: 'realtime';
+    id: 'realtime' | 'googleCalendar' | 'microsoftCalendar';
     state: 'connected' | 'not-configured' | 'refused' | 'unreachable';
     latencyMilliseconds: number | null;
 };
@@ -872,6 +872,25 @@ export type NumberingPreviewRequest = {
     context?: {
         openedDate?: string;
         matterNumber?: string;
+        locationCode?: string;
+        matterTypeCode?: string;
+        clientCode?: string;
+        staffInitials?: string;
+        clientName?: string;
+    };
+};
+
+export type NumberReservationResponse = {
+    token: string | null;
+    number: string | null;
+    expiresAt: string | null;
+};
+
+export type NumberReservationRequest = {
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'communication';
+    token?: string;
+    occurredAt?: string;
+    context?: {
         locationCode?: string;
         matterTypeCode?: string;
         clientCode?: string;
@@ -1903,6 +1922,137 @@ export type OperationalVolumesReport = {
     costs: Array<{
         disbursementClass: 'hard' | 'soft';
         count: number;
+    }>;
+};
+
+export type InvoicesReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        invoiceCount: number;
+        billedMinor: number;
+        creditedMinor: number;
+        appliedMinor: number;
+        unpaidMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            invoiceCount: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+            unpaidMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        figures: {
+            invoiceCount: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+            unpaidMinor: number;
+        };
+        invoices: Array<{
+            invoiceId: string;
+            invoiceNumber: string | null;
+            issueDate: string;
+            dueDate: string | null;
+            figures: {
+                invoiceCount: number;
+                billedMinor: number;
+                creditedMinor: number;
+                appliedMinor: number;
+                unpaidMinor: number;
+            };
+            matters: Array<{
+                matterId: string;
+                matterTitle: string;
+                matterNumber: string | null;
+                locationId: string | null;
+                locationName: string | null;
+                figures: {
+                    invoiceCount: number;
+                    billedMinor: number;
+                    creditedMinor: number;
+                    appliedMinor: number;
+                    unpaidMinor: number;
+                };
+            }>;
+        }>;
+    }>;
+};
+
+export type PaymentsAppliedReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        paymentMinor: number;
+        trustTransferMinor: number;
+        clientCreditMinor: number;
+        creditNoteMinor: number;
+        writeOffMinor: number;
+        reversalMinor: number;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            paymentMinor: number;
+            trustTransferMinor: number;
+            clientCreditMinor: number;
+            creditNoteMinor: number;
+            writeOffMinor: number;
+            reversalMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        figures: {
+            entryCount: number;
+            paymentMinor: number;
+            trustTransferMinor: number;
+            clientCreditMinor: number;
+            creditNoteMinor: number;
+            writeOffMinor: number;
+            reversalMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    entries: Array<{
+        applicationId: string;
+        kind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | 'reversal';
+        reversesKind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | null;
+        effectiveDate: string;
+        amountMinor: number;
+        reason: string | null;
+        invoiceId: string;
+        invoiceNumber: string | null;
+        clientEntityId: string;
+        clientName: string | null;
+        matterId: string;
+        matterTitle: string;
+        matterNumber: string | null;
+        locationId: string | null;
+        locationName: string | null;
     }>;
 };
 
@@ -3757,6 +3907,10 @@ export type CreateMatterResponse = {
 export type CreateMatterRequest = {
     title: string;
     status: 'intake' | 'consultation' | 'open';
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
     description?: string | null;
     matterTypeId?: string | null;
     locationId?: string | null;
@@ -5450,6 +5604,7 @@ export type ChangeDirectoryNameRequest = {
     suffix?: string | null;
     legalName?: string;
     displayName?: string | null;
+    correction?: boolean;
 };
 
 export type DirectoryNamePage = {
@@ -6048,6 +6203,10 @@ export type CreateConflictsCheckRequest = {
     matterId?: string;
     subjectEntityIds: Array<string>;
     scope: ConflictsScopeRequest;
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
 };
 
 export type ConflictsScopeRequest = {
@@ -6060,10 +6219,6 @@ export type ConflictsScopeRequest = {
         magnus: boolean;
         files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
     };
-};
-
-export type NextConflictsCheckNumberResponse = {
-    checkNumber: string;
 };
 
 export type ConflictsCheckPage = {
@@ -7717,6 +7872,7 @@ export type LoggedCommunication = {
 
 export type LogCommunicationRequest = {
     channel: 'voice' | 'sms' | 'mms';
+    numberReservation?: string;
     direction: 'inbound' | 'outbound';
     matterId?: string | null;
     counterpartyNumber: string;
@@ -7775,12 +7931,15 @@ export type PersonalRoom = {
     id: string;
     linkCode: string;
     addressName: string;
+    name: string;
+    title: string | null;
     medium: 'video' | 'audio';
     lobby: 'off' | 'on';
     openMeetingId: string | null;
 } | null;
 
 export type UpdatePersonalRoomRequest = {
+    title?: string | null;
     medium?: 'video' | 'audio';
     lobby?: 'off' | 'on';
 };
@@ -7804,6 +7963,7 @@ export type FirmRoom = {
     name: string;
     linkCode: string | null;
     addressName: string | null;
+    title: string | null;
     medium: 'video' | 'audio' | null;
     openMeetingId: string | null;
     inTheRoom: number;
@@ -7815,6 +7975,9 @@ export type PersonalRoomAtLink = {
     ownerDisplayName: string;
     isOwner: boolean;
     addressName: string;
+    roomName: string;
+    kind: 'personal' | 'shared';
+    mayOpen: boolean;
     meetingId: string | null;
 };
 
@@ -7824,6 +7987,33 @@ export type MoveMeetingToMatterResponse = {
 
 export type MoveMeetingToMatterRequest = {
     matterId: string;
+};
+
+export type SharedRoomsResponse = {
+    rooms: Array<SharedRoom>;
+};
+
+export type SharedRoom = {
+    id: string;
+    name: string;
+    addressName: string;
+    medium: 'video' | 'audio';
+    lobby: 'off' | 'on';
+    setUpBy: string;
+    openMeetingId: string | null;
+    inTheRoom: number;
+};
+
+export type CreateSharedRoomRequest = {
+    title: string;
+    medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
+};
+
+export type UpdateSharedRoomRequest = {
+    title?: string;
+    medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
 };
 
 export type MeetingByCodeResponse = {
@@ -8432,6 +8622,10 @@ export type CreateCustodyPacketRequest = {
     depositedAt?: string;
     notes?: string | null;
     manualCustodyNumber?: string;
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
 };
 
 export type CustodyOwnerInput = {
@@ -13163,6 +13357,82 @@ export type NumberingPreviewResponses = {
 
 export type NumberingPreviewResponse2 = NumberingPreviewResponses[keyof NumberingPreviewResponses];
 
+export type NumberingHoldDraftNumberData = {
+    body: NumberReservationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/number-reservations';
+};
+
+export type NumberingHoldDraftNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingHoldDraftNumberError = NumberingHoldDraftNumberErrors[keyof NumberingHoldDraftNumberErrors];
+
+export type NumberingHoldDraftNumberResponses = {
+    /**
+     * The number held, or nulls where nothing can be held yet
+     */
+    200: NumberReservationResponse;
+};
+
+export type NumberingHoldDraftNumberResponse = NumberingHoldDraftNumberResponses[keyof NumberingHoldDraftNumberResponses];
+
+export type NumberingReleaseDraftNumberData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/number-reservations/{token}';
+};
+
+export type NumberingReleaseDraftNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingReleaseDraftNumberError = NumberingReleaseDraftNumberErrors[keyof NumberingReleaseDraftNumberErrors];
+
+export type NumberingReleaseDraftNumberResponses = {
+    /**
+     * The number is no longer held by this member
+     */
+    204: void;
+};
+
+export type NumberingReleaseDraftNumberResponse = NumberingReleaseDraftNumberResponses[keyof NumberingReleaseDraftNumberResponses];
+
 export type ScanPolicyGetData = {
     body?: never;
     path?: never;
@@ -16098,6 +16368,98 @@ export type ReportsOperationalVolumesResponses = {
 };
 
 export type ReportsOperationalVolumesResponse = ReportsOperationalVolumesResponses[keyof ReportsOperationalVolumesResponses];
+
+export type ReportsInvoicesData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/invoices';
+};
+
+export type ReportsInvoicesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more bills were issued than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsInvoicesError = ReportsInvoicesErrors[keyof ReportsInvoicesErrors];
+
+export type ReportsInvoicesResponses = {
+    /**
+     * The bills issued in this period
+     */
+    200: InvoicesReport;
+};
+
+export type ReportsInvoicesResponse = ReportsInvoicesResponses[keyof ReportsInvoicesResponses];
+
+export type ReportsPaymentsAppliedData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/payments-applied';
+};
+
+export type ReportsPaymentsAppliedErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was applied than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsPaymentsAppliedError = ReportsPaymentsAppliedErrors[keyof ReportsPaymentsAppliedErrors];
+
+export type ReportsPaymentsAppliedResponses = {
+    /**
+     * What was applied to bills in this period
+     */
+    200: PaymentsAppliedReport;
+};
+
+export type ReportsPaymentsAppliedResponse = ReportsPaymentsAppliedResponses[keyof ReportsPaymentsAppliedResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
@@ -30066,39 +30428,6 @@ export type ConflictsRunCheckResponses = {
 
 export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
 
-export type ConflictsNextCheckNumberData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/conflicts/checks/next-number';
-};
-
-export type ConflictsNextCheckNumberErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type ConflictsNextCheckNumberError = ConflictsNextCheckNumberErrors[keyof ConflictsNextCheckNumberErrors];
-
-export type ConflictsNextCheckNumberResponses = {
-    /**
-     * The next check number
-     */
-    200: NextConflictsCheckNumberResponse;
-};
-
-export type ConflictsNextCheckNumberResponse = ConflictsNextCheckNumberResponses[keyof ConflictsNextCheckNumberResponses];
-
 export type ConflictsFirmPolicyData = {
     body?: never;
     path?: never;
@@ -37117,6 +37446,257 @@ export type MeetingsMoveToMatterResponses = {
 };
 
 export type MeetingsMoveToMatterResponse = MeetingsMoveToMatterResponses[keyof MeetingsMoveToMatterResponses];
+
+export type MeetingsListSharedRoomsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms';
+};
+
+export type MeetingsListSharedRoomsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsListSharedRoomsError = MeetingsListSharedRoomsErrors[keyof MeetingsListSharedRoomsErrors];
+
+export type MeetingsListSharedRoomsResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsListSharedRoomsResponse = MeetingsListSharedRoomsResponses[keyof MeetingsListSharedRoomsResponses];
+
+export type MeetingsCreateSharedRoomData = {
+    body: CreateSharedRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms';
+};
+
+export type MeetingsCreateSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsCreateSharedRoomError = MeetingsCreateSharedRoomErrors[keyof MeetingsCreateSharedRoomErrors];
+
+export type MeetingsCreateSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsCreateSharedRoomResponse = MeetingsCreateSharedRoomResponses[keyof MeetingsCreateSharedRoomResponses];
+
+export type MeetingsRetireSharedRoomData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        roomId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms/{roomId}';
+};
+
+export type MeetingsRetireSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsRetireSharedRoomError = MeetingsRetireSharedRoomErrors[keyof MeetingsRetireSharedRoomErrors];
+
+export type MeetingsRetireSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsRetireSharedRoomResponse = MeetingsRetireSharedRoomResponses[keyof MeetingsRetireSharedRoomResponses];
+
+export type MeetingsUpdateSharedRoomData = {
+    body: UpdateSharedRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        roomId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms/{roomId}';
+};
+
+export type MeetingsUpdateSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsUpdateSharedRoomError = MeetingsUpdateSharedRoomErrors[keyof MeetingsUpdateSharedRoomErrors];
+
+export type MeetingsUpdateSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsUpdateSharedRoomResponse = MeetingsUpdateSharedRoomResponses[keyof MeetingsUpdateSharedRoomResponses];
+
+export type MeetingsOpenRoomAtAddressData = {
+    body: OpenPersonalRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        linkCode: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/rooms/{linkCode}/open';
+};
+
+export type MeetingsOpenRoomAtAddressErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsOpenRoomAtAddressError = MeetingsOpenRoomAtAddressErrors[keyof MeetingsOpenRoomAtAddressErrors];
+
+export type MeetingsOpenRoomAtAddressResponses = {
+    /**
+     * The session to join
+     */
+    200: OpenPersonalRoomResponse;
+};
+
+export type MeetingsOpenRoomAtAddressResponse = MeetingsOpenRoomAtAddressResponses[keyof MeetingsOpenRoomAtAddressResponses];
 
 export type MeetingsGetByCodeData = {
     body?: never;

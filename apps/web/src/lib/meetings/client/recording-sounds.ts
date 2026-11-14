@@ -152,6 +152,9 @@ export function browserRecordingSounds(): SharedRecordingSounds {
   function wake(): void {
     wakeVoice();
     if (context === null) {
+      // A context made before the page's first press starts suspended and the browser warns about
+      // it; the press that follows calls this again and makes it then.
+      if (navigator.userActivation?.hasBeenActive === false) return;
       const Context: unknown = Reflect.get(globalThis, "AudioContext");
       if (typeof Context !== "function") return;
       try {

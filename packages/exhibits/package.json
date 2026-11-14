@@ -17,6 +17,7 @@
     "./set-statements": "./src/set-statements.ts",
     "./set-service": "./src/set-service.ts",
     "./folder-service": "./src/folder-service.ts",
+    "./file-title": "./src/file-title.ts",
     "./member-statements": "./src/member-statements.ts",
     "./member-service": "./src/member-service.ts",
     "./queries": "./src/queries.ts",

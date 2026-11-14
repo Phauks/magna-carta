@@ -139,7 +139,7 @@
     accountsFailure = null;
     const outcome = await listTrustAccounts(fetch);
     if (outcome.kind === "ok") accounts = outcome.value;
-    else accountsFailure = stated(outcome.failure, "The firm's trust accounts could not be read.");
+    else accountsFailure = stated(outcome.failure, "Couldn't load the firm's trust accounts.");
   }
 
   /*
@@ -470,7 +470,7 @@
               />
               <p class="text-xs text-text-muted">
                 {customRangeRefusal ??
-                  "The range applies as you pick it. A preset above returns to a named span."}
+                  "The range applies as you pick it. Choose a preset above to go back to a named range."}
               </p>
             </div>
           </Popover.Content>
@@ -548,19 +548,19 @@
     <p class="text-xs text-text-muted">{soonDependencySentence(report.waitsOn)}</p>
   {:else if refusedUpFront}
     <Alert.Root variant="danger">
-      <Alert.Title>This Report Is Not Yours To Run</Alert.Title>
+      <Alert.Title>You Can't Run This Report</Alert.Title>
       <Alert.Description>{permissionRefusal("Running this report", report.permission)}</Alert.Description>
     </Alert.Root>
   {:else}
     {#if accountsRefusal !== null}
       <Alert.Root variant="danger">
-        <Alert.Title>The Trust Accounts Are Not Yours To Read</Alert.Title>
+        <Alert.Title>You Can't View Trust Accounts</Alert.Title>
         <Alert.Description>{accountsRefusal}</Alert.Description>
       </Alert.Root>
     {:else if accountsFailure !== null}
       <FailureNotice
         failure={accountsFailure.failure}
-        title="The Trust Accounts Could Not Be Read"
+        title="Couldn't Load Trust Accounts"
         fallback={accountsFailure.fallback}
         onRetry={() => void loadAccounts()}
       />
@@ -568,7 +568,7 @@
 
     {#if readRefusal !== null}
       <Alert.Root variant="danger">
-        <Alert.Title>This Report Is Not Yours To Run</Alert.Title>
+        <Alert.Title>You Can't Run This Report</Alert.Title>
         <Alert.Description>{readRefusal}</Alert.Description>
       </Alert.Root>
     {/if}
@@ -586,7 +586,7 @@
         {#if readFailure !== null}
           <FailureNotice
             failure={readFailure.failure}
-            title="The Report Could Not Be Produced"
+            title="Couldn't Produce the Report"
             fallback={readFailure.fallback}
             onRetry={refresh}
           />

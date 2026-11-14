@@ -296,6 +296,18 @@ export const matterSections: readonly MatterSection[] = [
     createNoun: "Message",
   },
   {
+    slug: "exhibits",
+    timelineSources: [],
+    label: "Exhibits",
+    stage: "alpha",
+    description:
+      "This matter's documents put in order for a filing, labelled Exhibit A, B, C, with the labels frozen once the set is filed.",
+    // An exhibit is a matter file under a title, and the file is already found by the Files search.
+    searchSource: null,
+    searchWaitingOn: "Exhibit titles are not searchable yet; search Files for the documents",
+    createNoun: "Set",
+  },
+  {
     slug: "custodian",
     timelineSources: ["custodyMovement", "custodyReviewDue", "custodyDueBack"],
     label: "Custodian",
@@ -436,7 +448,7 @@ const ARRANGEMENT: readonly (
   "tasks",
   {
     label: "Record",
-    slugs: ["activity", "notes", "emails", "messaging", "custodian", "discovery"],
+    slugs: ["activity", "notes", "emails", "messaging", "exhibits", "custodian", "discovery"],
   },
   "magnus",
 ];

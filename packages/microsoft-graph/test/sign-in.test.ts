@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
 import {
+  checkApplicationCredentials,
   MICROSOFT_CALENDAR_SCOPES,
   authorizationUrl,
   readSignedInAccount,
@@ -221,5 +222,26 @@ describe("reading the signed-in account", () => {
       ok: false,
       problem: { category: "auth" },
     });
+  });
+});
+
+describe("checkApplicationCredentials", () => {
+  it("reads a refused made-up refresh token as the application being accepted", async () => {
+    const { http, sent } = answering(400, { error: "invalid_grant" });
+    expect(await checkApplicationCredentials(http, application)).toBe("accepted");
+    expect(sent[0]?.url).toContain("login.microsoftonline.com");
+    expect(new URLSearchParams(sent[0]?.body).get("grant_type")).toBe("refresh_token");
+  });
+
+  it("reads a wrong secret as refused and a fault as unreachable", async () => {
+    expect(
+      await checkApplicationCredentials(
+        answering(401, { error: "invalid_client" }).http,
+        application,
+      ),
+    ).toBe("refused");
+    expect(await checkApplicationCredentials(answering(500, {}).http, application)).toBe(
+      "unreachable",
+    );
   });
 });

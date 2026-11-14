@@ -14,14 +14,18 @@
  */
 import {
   card,
+  figures,
   houseDocument,
   pagedTable,
+  styledTable,
   tablePages,
   type HouseBlock,
   type HouseColumn,
   type HouseDocument,
+  type HouseRow,
 } from "@magna-carta/house-document";
 import {
+  CHILD_ROW_INDENT,
   ExportRenderError,
   exportCellText,
   exportGeneratedDateLine,
@@ -52,7 +56,9 @@ function sectionColumns(section: TabularExportSection): HouseColumn[] {
  * The PDF the composer will draw for an export document, in the house style
  * (@magna-carta/house-document): the letterhead, margins, typeface and page number every generated
  * document shares. Each section is a card; a section too long for one page runs over several, each
- * headed with its place ("By Client (2 of 3)").
+ * headed with its place ("By Client (2 of 3)"). A report's totals open the document as figures
+ * across the page; a section whose rows carry kinds is one styled table, the total in bold under a
+ * darker rule and a client's matters stepped in, which the composer carries over pages itself.
  */
 export function composeExportDocument(exportDocument: TabularExportDocument): HouseDocument {
   const widest = Math.max(0, ...exportDocument.sections.map((section) => section.headers.length));
@@ -63,6 +69,9 @@ export function composeExportDocument(exportDocument: TabularExportDocument): Ho
       text: `${exportGeneratedDateLine(exportDocument)}, ${exportGeneratedTimeLine(exportDocument)}`,
     },
   ];
+  if (exportDocument.summary !== undefined && exportDocument.summary.length > 0) {
+    blocks.push(figures(exportDocument.summary));
+  }
   for (const section of exportDocument.sections) {
     if (section.rows.length === 0) {
       blocks.push(...card(section.title, { type: "paragraph", text: "Nothing to show." }));
@@ -70,6 +79,10 @@ export function composeExportDocument(exportDocument: TabularExportDocument): Ho
     }
     const columns = sectionColumns(section);
     const rows = section.rows.map((row) => row.map(exportCellText));
+    if (section.rowKinds !== undefined) {
+      blocks.push(...card(section.title, styledTable(columns, styledRows(rows, section.rowKinds))));
+      continue;
+    }
     const pagingOptions = {
       ...(landscape === undefined ? {} : { landscape }),
       fittedColumns: section.endAlignedColumns ?? [],
@@ -85,6 +98,26 @@ export function composeExportDocument(exportDocument: TabularExportDocument): Ho
     created: exportDocument.generatedAt.toISOString(),
     ...(landscape === undefined ? {} : { landscape }),
     blocks,
+  });
+}
+
+/**
+ * Rows with their kinds. A child row's first cell loses the indent the plain files carry, because
+ * the composer steps a child row in itself.
+ */
+function styledRows(
+  rows: readonly (readonly string[])[],
+  kinds: readonly ("total" | "child" | null)[],
+): HouseRow[] {
+  return rows.map((cells, rowIndex) => {
+    const kind = kinds[rowIndex] ?? null;
+    if (kind === null) return cells;
+    if (kind === "total") return { cells, kind };
+    const [first = "", ...rest] = cells;
+    const stepped = first.startsWith(CHILD_ROW_INDENT)
+      ? first.slice(CHILD_ROW_INDENT.length)
+      : first;
+    return { cells: [stepped, ...rest], kind };
   });
 }
 

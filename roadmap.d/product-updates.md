@@ -7,7 +7,7 @@
   scope: In-app and public changelog, release notes, roadmap, and live known-issues/status — versioned content bundled with the build, live content in control-plane KV.
   status: partial
   adrs: ADR-0048
-  evidence: Authoring homes and fragment assembly are shipped, the live-status KV machinery exists, and the artifact's schema and parsers are a real package (packages/product-updates). The in-app Changelog screen (apps/web/src/routes/(app)/updates) renders the public changelog built into the web bundle. What is unbuilt: nothing writes product-updates.json or publishes to KV, there is no What's New or Roadmap view, and there is no public update page.
+  evidence: Authoring homes and fragment assembly are shipped, the live-status KV machinery exists, and the artifact's schema and parsers are a real package (packages/product-updates). The changelog is read on the community board (community.magnacarta.esq/changelog); the in-app /updates screen was removed on 2026-11-14 and every Changelog link opens the board's page. What is unbuilt: nothing writes product-updates.json or publishes to KV, there is no What's New or Roadmap view, and there is no public update page.
 
 - id: product-updates.sources
   name: Authoring homes and fragment assembly
@@ -34,10 +34,9 @@
 - id: product-updates.updates-route
   name: In-app /updates surface
   scope: Authenticated deep-linkable route with What's New, Changelog, and Roadmap tabs plus a help-menu entry carrying the unread badge.
-  status: partial
-  surface: screen
+  status: cut
   adrs: ADR-0048
-  evidence: apps/web/src/routes/(app)/updates renders the Changelog view, filterable by category, reached from the profile menu's Websites > Changelog and the command palette. The What's New and Roadmap views and the unread badge are not built.
+  notes: The owner removed the in-app Changelog screen on 2026-11-14 so there is one changelog; Websites > Changelog, the command palette and the About window open community.magnacarta.esq/changelog.
 
 - id: product-updates.public-pages
   name: Public changelog/roadmap/status pages

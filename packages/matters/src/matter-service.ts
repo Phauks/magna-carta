@@ -149,6 +149,10 @@ export interface MatterServiceOptions {
   // advisory never blocks a close and has no path by which it could: `collectCloseAdvisories` returns
   // notices, and nothing here turns a notice into a refusal.
   readonly closeAdvisories?: readonly CloseAdvisory[];
+  // The draft number the panel that composed this request was shown and holds
+  // (@magna-carta/sequence-numbering/reservation). Where the hold is still this scope's, the record is
+  // saved under exactly that number; otherwise the draw takes the next free one.
+  readonly numberReservation?: string;
 }
 
 // The strings the route assembles from the matter's Location, type, and client for the number draw
@@ -342,12 +346,10 @@ async function runMatterDraw<T>(
           const context: RenderContext = { openedDate: options.clock.today(), ...numberContext };
           // All three sequences count in the same tables; the purpose's prefix on the scope key is
           // what keeps them separate runs, and the planner applies it.
-          const plan = await planSchemeDraw(
-            database,
-            purpose,
-            MATTER_NUMBERING_TABLES,
-            context,
-          ).catch(schemeMissingAsMatterRefusal);
+          const plan = await planSchemeDraw(database, purpose, MATTER_NUMBERING_TABLES, context, {
+            reservationToken: options.numberReservation,
+            now: options.clock.now(),
+          }).catch(schemeMissingAsMatterRefusal);
           // Reported before the batch is composed, so a losing attempt can advance THIS scope's
           // counter out of band — the in-batch increment rolls back with everything else.
           observe({
