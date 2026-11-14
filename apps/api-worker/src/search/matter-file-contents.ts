@@ -1,9 +1,12 @@
 import { listQuotableIndexedVersions } from "@magna-carta/file-manager/queries";
 import type { FileId, FirmId } from "@magna-carta/identifiers/types";
-import type { MatterFileContentsSearcher } from "@magna-carta/matter-search/file-contents";
+import type {
+  FileContentsAnswer,
+  MatterFileContentsSearcher,
+} from "@magna-carta/matter-search/file-contents";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
 import { keywordExcerpt } from "@magna-carta/search/keyword-excerpt";
-import type { SearchIndexPort } from "@magna-carta/search/port";
+import type { SearchIndexPort, SearchQueryResult } from "@magna-carta/search/port";
 import { readSearchIndexingEnabled } from "@magna-carta/search/settings";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
@@ -11,7 +14,7 @@ import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { readExtractedPassageFromBucket } from "./extracted-text-store.ts";
-import { runKeywordSearch } from "./keyword-search.ts";
+import { runKeywordSearch, runKeywordSearchOverMatters } from "./keyword-search.ts";
 import { resolveSearchIndexPort } from "./search-engine.ts";
 
 // How a matter's search reaches the index of the words inside its files: this matter's corpus and no
@@ -45,33 +48,49 @@ export function matterFileContentsSearcherFor(
 ): MatterFileContentsSearcher {
   const port =
     options.port ?? (env.SEARCH_SERVICE === undefined ? undefined : resolveSearchIndexPort(env));
+  function answerFrom(result: SearchQueryResult): FileContentsAnswer {
+    if (!result.ok) {
+      // The reason and nothing else. The engine's own detail can repeat the question it was
+      // asked, and what a member searched a client's files for is privileged.
+      if (result.reason === "engine-not-implemented") return { kind: "not-connected" };
+      if (options.logger !== undefined) {
+        logOperationFailed(
+          options.logger,
+          "matterSearch.fileContents",
+          new Error(`The file contents index did not answer: ${result.reason}`),
+        );
+      }
+      return { kind: "unavailable" };
+    }
+    return {
+      kind: "passages",
+      passages: result.hits.map((hit) => ({ fileId: hit.documentId, chunkId: hit.chunkId })),
+    };
+  }
   return {
     async query({ matterId, queryText, limit }) {
       if (port === undefined) return { kind: "not-connected" };
       const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
       if (!(await readSearchIndexingEnabled(database))) return { kind: "off" };
-      const result = await runKeywordSearch(
-        env,
-        { firmId, corpus: corpusOfMatter(matterId), text: queryText, limit },
-        port,
+      return answerFrom(
+        await runKeywordSearch(
+          env,
+          { firmId, corpus: corpusOfMatter(matterId), text: queryText, limit },
+          port,
+        ),
       );
-      if (!result.ok) {
-        // The reason and nothing else. The engine's own detail can repeat the question it was
-        // asked, and what a member searched a client's files for is privileged.
-        if (result.reason === "engine-not-implemented") return { kind: "not-connected" };
-        if (options.logger !== undefined) {
-          logOperationFailed(
-            options.logger,
-            "matterSearch.fileContents",
-            new Error(`The file contents index did not answer: ${result.reason}`),
-          );
-        }
-        return { kind: "unavailable" };
-      }
-      return {
-        kind: "passages",
-        passages: result.hits.map((hit) => ({ fileId: hit.documentId, chunkId: hit.chunkId })),
-      };
+    },
+    // A search across matters. The same checks in the same order, then each matter's own corpus
+    // asked apart (keyword-search.ts). Named no matters, it still answers the first two checks, so
+    // its caller can tell a firm with indexing off from a search with nothing to ask.
+    async queryMatters({ matterIds, queryText, limit }) {
+      if (port === undefined) return { kind: "not-connected" };
+      const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+      if (!(await readSearchIndexingEnabled(database))) return { kind: "off" };
+      if (matterIds.length === 0) return { kind: "passages", passages: [] };
+      return answerFrom(
+        await runKeywordSearchOverMatters(env, { firmId, matterIds, text: queryText, limit }, port),
+      );
     },
     async excerpts({ matterId, readerText, files }) {
       const excerpts = new Map<string, string>();

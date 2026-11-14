@@ -182,6 +182,9 @@
                   </li>
                 {/each}
               </ul>
+              {#each unsearched.filter((place) => place.writtenOut === true) as place (place.key)}
+                <p class="px-12 text-xs text-text-muted">{place.reason}</p>
+              {/each}
               <p class="px-12 text-xs text-text-muted">
                 Places marked In A Matter are searched from that matter. Review sets are searched only from inside the set, by people with access.
               </p>

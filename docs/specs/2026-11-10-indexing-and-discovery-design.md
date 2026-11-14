@@ -356,7 +356,7 @@ look at.
 | Place        | Across matters                                  | Why not, where not                                        |
 | ------------ | ----------------------------------------------- | --------------------------------------------------------- |
 | Files        | File names and folder names                     |                                                           |
-| Inside Files | No                                              | The file contents index is one corpus per matter          |
+| Inside Files | Where the search reaches 25 matters or fewer    | One index a matter, asked one at a time (section 4.5)     |
 | Time         | Narratives, through the record index            |                                                           |
 | Costs        | Descriptions, through the record index          |                                                           |
 | Billing      | Invoice line descriptions and invoice numbers   |                                                           |
@@ -557,9 +557,9 @@ cheaper narrowed, because the narrowing drives the read.
 Not Searched with the mark Firm-Wide. Matters are asked through the matters listing, which takes
 the same two narrowings (`mine`, `clientEntityId` on `GET /api/v1/matters`).
 
-**One matter is that matter's own search.** It reaches more of the matter than this page does (the
-words inside its files, parties, calendar, billing, custody), so choosing a matter goes there with
-the question in the address. A fourth reading here would have been the weaker of two searches of
+**One matter is that matter's own search.** It reaches more of the matter than this page does
+(calendar, deleted files, a telephone number), so choosing a matter goes there with the question in
+the address. A fourth reading here would have been the weaker of two searches of
 the same matter.
 
 **The row sits beneath the field.** The proposal drew the choice inside the field. The screen
@@ -569,6 +569,49 @@ choices need a second field (which client, which matter), so the row is its own 
 No migration, no new permission and no new route: two optional query parameters on
 `GET /api/v1/search` and the same two on `GET /api/v1/matters`.
 
+### 4.5 The words inside files, across matters
+
+Built on 2026-11-14 for a search that reaches few matters, and not for one that reaches many.
+
+**There is no index of every matter's files, and that is kept.** Each matter's files are indexed
+apart (section 4). The engine is handed one corpus's split keys with a token that reaches no
+other, which is what keeps a review set's text out of a matter search and lets one matter's index
+be rebuilt or removed alone. So a search across matters asks the matters one at a time
+(`runKeywordSearchOverMatters` in `apps/api-worker/src/search/keyword-search.ts`), each through the
+same path its own search uses, and puts the answers together afterwards. Nothing about the
+isolation changes: a question still names one corpus.
+
+**So the cost is the number of matters asked, and it is bounded two ways.** The source answers
+only where the search reaches 25 matters or fewer, the same number section 4.4 measured for the
+record index, so a reader is told one thing about how few "few" is. That covers a client's matters,
+a member's own where they are few, and a small firm's every matter, since the count is of the
+matters the reader may see and chose, narrowed or not. And one catalog read
+(`listMattersWithLiveSplits`) says which of those hold anything indexed, so a matter with no
+indexed file is not asked. A search reaching more is told `too-many-matters`, with the number on
+the wire (`fewMattersLimit`) so the page keeps no copy of it.
+
+**What is said first is what a reader can least change.** No search service, the firm's switch
+being off and the service failing are each reported before "too many matters", so nobody narrows a
+search to be told then that nothing could be asked. A matter whose index fails fails the whole
+place: an answer put together from the matters that happened to answer would read as complete.
+
+**The indexes name candidates and nothing more**, as inside a matter. The files they name are
+re-read from the firm's own table under the visible-matter predicate, which already carries the
+reader's narrowing, and a result is filed on the matter the database says. The sentence a result
+quotes is read through that matter's own check. The lists are merged by the engine's score. Each
+index scores against its own documents, so the scores are not on one scale, and the order claims
+no more than that the strongest passages come first.
+
+**Not measured, and it has to be.** The engine cannot run in a cloud session, so what 25 questions
+in one request cost a firm's search instance is not known. They are sent together to the one
+instance a firm's questions go to (`apps/search-worker/src/search-shard.ts`). The first production
+firm with files indexed on many matters is where that is read, and the remedy if it is slow is a
+smaller limit for this source alone or asking a few matters at a time.
+
+**What reaching every matter would take** is the per-split word summary of step 6c: a short record
+beside each split of which words it holds, read from the firm's database, so that a firm-wide
+question asks only the matters that can answer it.
+
 ## 5. Build order
 
 | Step | What                                                                                        | State                                                                                         |
@@ -576,7 +619,7 @@ No migration, no new permission and no new route: two optional query parameters 
 | 1    | This specification and its decision record                                                  | Built                                                                                         |
 | 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                         |
 | 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index              |
-| 4    | Search across matters from the top bar, snippets shown                                      | Built for eight places, matters and people by name, words marked, Search In (4.2-4.4)         |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for nine places (inside files where few matters are reached), Search In (4.2-4.5)       |
 | 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                         |
 | 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers for a firm that has turned indexing on                                         |
 | 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; bound 2026-11-13; two checks left in [`../deploy-queue.md`](../deploy-queue.md) |

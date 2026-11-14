@@ -18973,6 +18973,9 @@
           "broad": {
             "type": "boolean"
           },
+          "fewMattersLimit": {
+            "type": "integer"
+          },
           "groups": {
             "type": "array",
             "items": {
@@ -18983,6 +18986,7 @@
         "required": [
           "query",
           "broad",
+          "fewMattersLimit",
           "groups"
         ]
       },
@@ -19024,6 +19028,7 @@
             ],
             "enum": [
               "one-matter-only",
+              "too-many-matters",
               "permission",
               "query-too-short",
               "engine-unavailable",
@@ -81363,7 +81368,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.",
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, `permission` is one the member lacks the capability for, and `too-many-matters` is a place searched only where the search reaches few enough matters to ask each one, which a member changes by narrowing it to `fewMattersLimit` matters or fewer. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.",
         "operationId": "search.acrossMatters",
         "tags": [
           "search"
