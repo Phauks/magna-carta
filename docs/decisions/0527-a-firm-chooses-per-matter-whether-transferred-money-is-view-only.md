@@ -1,8 +1,9 @@
 ---
+number: 527
 slug: a-firm-chooses-per-matter-whether-transferred-money-is-view-only
 status: Accepted
-area: Financial
 date: 2026-11-12
+area: Financial
 summary: "When a firm's records are transferred in, the firm decides for each matter whether that matter's earlier money arrives as view-only history beside the live ledger with an opening balance, or as live ledger entries that can be worked on here. The owner ruled the per-matter choice on 2026-11-12. The default of view-only, the lock at cutover, and writing live entries through a transfer-only path are the author's recommendation. Trust reconciliation gates cutover for both."
 ---
 

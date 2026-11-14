@@ -1,8 +1,9 @@
 ---
+number: 529
 slug: a-transferred-record-is-linked-to-its-source-in-one-table
 status: Accepted
-area: Platform
 date: 2026-11-10
+area: Platform
 summary: "The legacy source-system identifier ADR-0021 requires on every entity is one per-firm table, source_record_link, keyed by (source_system, source_kind, source_id, local_table) and naming the record here by table and key, with a transfer_run row as its provenance. It is not a column on each entity. A source record may become several records and several may become one, a link is read before any record is created so a transfer can be run twice, and the same table serves any integration that keeps an outside system's key."
 ---
 
