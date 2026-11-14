@@ -905,7 +905,9 @@ describe("a guest's page that breaks", () => {
     instance = mount(RootLayoutHarness, { target, props: { Page: ThrowingPage } });
     flushSync();
 
-    expect(target.textContent).toContain("PAGE /meetings");
+    // The application's screen names the area and the kind of failure in its summary line.
+    expect(target.textContent).toContain("Meetings");
+    expect(target.textContent).toContain("App fault");
     expect(target.textContent).not.toContain("ask the firm for a new link");
   });
 

@@ -76,12 +76,12 @@
               <span>Searched</span>
             {:else if reading === "not-searched"}
               {@render notSearched(
-                "This place could not be searched. It is reported rather than omitted, so it can never read as searched and empty.",
+                "This place couldn't be searched. It's listed so it never looks searched and empty.",
               )}
             {:else}
               <span
                 class="text-text-muted"
-                title="This check predates the record of this place. That is not the same as saying it was searched."
+                title="This check is older than the record of this place, so it may not have been searched."
               >
                 The row does not say
               </span>
@@ -100,7 +100,7 @@
               <span>Searched</span>
             {:else}
               {@render notSearched(
-                "This source could not run. It is reported rather than omitted, so it can never read as searched and empty.",
+                "This source couldn't run. It's listed so it never looks searched and empty.",
               )}
             {/if}
           </dd>
@@ -118,17 +118,17 @@
         strictnessVocabulary(scope.strictness).meaning,
       )}
       {@render fact(
-        "Raised To The Firm's Floor",
+        "Raised to the Firm's Minimum",
         scope.floorRaised ? "Yes" : "No",
         scope.floorRaised
-          ? "The requested scope fell below the firm's floor and was raised to it before the search ran."
+          ? "The requested scope was below the firm's minimum and was raised before the search ran."
           : undefined,
       )}
       {#if scope.matching === null}
         {@render fact(
           "Channels Compared",
           "The row does not say",
-          "This check predates the record of which channels ran. That is not the same as saying it compared what today's code compares.",
+          "This check is older than the record of which searches ran.",
         )}
       {:else}
         {@render fact("Name Keys", scope.matching.nameKeys.join(", ") || "None recorded")}
@@ -139,10 +139,10 @@
         {@render fact(
           "Name Roles",
           scope.matching.nameRoles === null
-            ? "Every role the corpus holds"
+            ? "All roles in the firm's records"
             : scope.matching.nameRoles.join(", "),
           scope.matching.nameRoles === null
-            ? "A distinct statement from a list that happens to name them all: a role the firm adds later is covered by this and not by that."
+            ? "Covers roles the firm adds later, unlike a list of today's roles."
             : undefined,
         )}
       {/if}
@@ -157,14 +157,14 @@
         {@render fact(
           "Traversal",
           "The row does not say",
-          "This check predates the record of the walk. That is a different fact from a walk that completed.",
+          "This check is older than the record of relationship searches.",
         )}
       {:else}
         {#if toClosure}
           {@render fact(
             "Relationships",
-            "Every recorded relationship, followed to closure",
-            "The walk followed every relationship out from the subject parties as far as each chain goes. There was no hop budget to set.",
+            "All recorded relationships, followed to the end",
+            "Every relationship was followed out from the parties as far as each chain goes.",
           )}
           {@render fact(
             "Longest Chain Followed",
@@ -184,7 +184,7 @@
           toClosure ? "The Platform's Ceiling" : "Closure Cap",
           count(scope.traversal.closureCap),
           toClosure
-            ? "The most entities one walk may reach. It is the platform's own bound, not a setting, and a walk that reaches it says so here."
+            ? "The most records one relationship search can reach. This is a fixed limit, not a setting, and the check says if it was reached."
             : undefined,
         )}
         {#if scope.traversal.truncated}
@@ -193,7 +193,7 @@
             <dd>
               <Badge
                 variant="warning"
-                title="The walk stopped at its bound. This search of the graph is incomplete, and the counts below say by how much."
+                title="The relationship search hit its limit and is incomplete. The counts below show by how much."
               >
                 Truncated
               </Badge>
@@ -216,13 +216,13 @@
         {@render fact(
           "Record Bound",
           "The row does not say",
-          "This check predates the record of the bound on what one run may write.",
+          "This check is older than the record of the per-run result limit.",
         )}
       {:else}
         {@render fact(
           "Record Bound",
           count(scope.candidates.candidateCap),
-          "The most candidates one record can carry. It is the platform's own bound, not a setting.",
+          "The most results one record can have. This is a fixed limit, not a setting.",
         )}
         {#if scope.candidates.truncated}
           <div class="flex items-baseline justify-between gap-16">
@@ -230,7 +230,7 @@
             <dd>
               <Badge
                 variant="warning"
-                title="The bound refused candidates the channels had already surfaced. The strongest evidence was kept, and a co-party surfacing is never refused."
+                title="The limit dropped some results. The strongest matches were kept, and co-party matches are never dropped."
               >
                 Truncated
               </Badge>
@@ -247,7 +247,7 @@
                   .join(", ")})`,
           )}
         {:else}
-          {@render fact("Candidate Set", "Everything the channels surfaced was recorded")}
+          {@render fact("Candidate Set", "All results were recorded")}
         {/if}
       {/if}
     </dl>

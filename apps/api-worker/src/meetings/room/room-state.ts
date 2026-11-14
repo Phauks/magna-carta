@@ -246,6 +246,10 @@ export interface StoredParticipant {
   // open rather than silently discarded, and the window is on the wire because a client that paced
   // itself differently would be refused for behaving correctly.
   readonly signalAt?: string | null;
+  // THE NAME THIS PERSON CAME IN WITH, kept only while they have chosen another for this meeting
+  // (room-naming.ts); `displayName` above is then the chosen one. Null or absent while they go by the
+  // original. Carried through a reconnect, which is why it is stored rather than read off the socket.
+  readonly accountName?: string | null;
 }
 
 /**

@@ -1,5 +1,5 @@
 /*
- * The server-rendered export formats: Word and PDF. The client holds the whole document already, so
+ * The server-rendered export format: Word. A PDF is composed in the browser (render-pdf.ts). The client holds the whole document already, so
  * the endpoint is a printer, not a data source — this module maps the page's export document down
  * to the wire shape (text faces only; the number face is a spreadsheet concern) and asks
  * POST /api/v1/reports/exports for the file's bytes.
@@ -8,13 +8,14 @@
  * file itself, so the transport lives here, with the same problem-document reading.
  */
 import {
+  ExportRenderError,
   exportCellText,
   exportGeneratedDateLine,
   exportGeneratedTimeLine,
   type TabularExportDocument,
 } from "./tabular-export.ts";
 
-export type RemoteRenderFormat = "docx" | "pdf";
+export type RemoteRenderFormat = "docx";
 
 /** Mirrors @magna-carta/export-document's renderable shape (the OpenAPI ExportRenderRequest body). */
 export interface RenderableExportSection {
@@ -31,12 +32,10 @@ export interface RenderableExportDocument {
 }
 
 /** A render the server refused or could not perform, carrying its own words for the toast. */
-export class RemoteRenderError extends Error {
-  readonly errorId: string | undefined;
+export class RemoteRenderError extends ExportRenderError {
   constructor(message: string, errorId?: string) {
-    super(message);
+    super(message, errorId);
     this.name = "RemoteRenderError";
-    this.errorId = errorId;
   }
 }
 

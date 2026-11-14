@@ -1,6 +1,9 @@
 # Tabular export rendering — Word and PDF for the export seam
 
 **Status:** Accepted (owner direction, 2026-08-31) · **Area:** Reports / Documents
+**Superseded in part (2026-11-13):** the PDF arm below is replaced. A tabular export's PDF is now
+composed in the browser by the platform's PDF composer; the route renders Word only. See the
+decision `a-tabular-export-pdf-is-composed-by-the-pdf-composer`.
 **Builds on:** the export seam decision
 ([`a-data-export-is-one-document-and-a-format-is-a-renderer`](../decisions/0411-a-data-export-is-one-document-and-a-format-is-a-renderer.md))
 and the accepted rule that an assembled PDF rides the existing conversion edge

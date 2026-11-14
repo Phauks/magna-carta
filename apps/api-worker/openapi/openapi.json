@@ -89,6 +89,12 @@
           "retryAfterSeconds": {
             "type": "integer",
             "minimum": 0
+          },
+          "operation": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string"
           }
         },
         "required": [
@@ -1276,6 +1282,7 @@
               "networkPacketLoss",
               "callerLookup",
               "outlookCalendarSync",
+              "googleCalendarSync",
               "outgoingEmail",
               "notificationDigest",
               "emailCapture",
@@ -1327,6 +1334,7 @@
               "networkPacketLoss",
               "callerLookup",
               "outlookCalendarSync",
+              "googleCalendarSync",
               "outgoingEmail",
               "notificationDigest",
               "emailCapture",
@@ -1877,6 +1885,13 @@
             "type": "string",
             "enum": [
               "read",
+              "unreachable"
+            ]
+          },
+          "backgroundState": {
+            "type": "string",
+            "enum": [
+              "read",
               "not-configured",
               "refused",
               "unreachable"
@@ -1912,6 +1927,7 @@
         },
         "required": [
           "state",
+          "backgroundState",
           "windowStart",
           "windowEnd",
           "total",
@@ -1922,6 +1938,14 @@
       "RecentErrorGroup": {
         "type": "object",
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "server",
+              "browser",
+              "background"
+            ]
+          },
           "latestErrorId": {
             "type": [
               "string",
@@ -1934,10 +1958,19 @@
               "null"
             ]
           },
-          "eventName": {
-            "type": "string"
-          },
           "where": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
             "type": [
               "string",
               "null"
@@ -1966,15 +1999,152 @@
           }
         },
         "required": [
+          "source",
           "latestErrorId",
           "service",
-          "eventName",
           "where",
+          "status",
+          "title",
           "errorName",
           "messageHead",
           "count",
           "firstSeen",
           "lastSeen"
+        ]
+      },
+      "ErrorLookupResponse": {
+        "type": "object",
+        "properties": {
+          "record": {
+            "$ref": "#/components/schemas/ErrorRecord"
+          },
+          "mintedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mintedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "record",
+          "mintedAt",
+          "mintedBy"
+        ]
+      },
+      "ErrorRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "errorId": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "server",
+              "browser"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "operation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "problemType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "messageHead": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "build": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "userId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correlationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "errorId",
+          "recordedAt",
+          "source",
+          "service",
+          "operation",
+          "status",
+          "problemType",
+          "title",
+          "errorName",
+          "messageHead",
+          "location",
+          "build",
+          "firmId",
+          "userId",
+          "correlationId"
         ]
       },
       "ReportIncidentResponse": {
@@ -2066,6 +2236,56 @@
           "breadcrumbs",
           "description",
           "context"
+        ]
+      },
+      "RecordClientErrorResponse": {
+        "type": "object",
+        "properties": {
+          "errorId": {
+            "type": "string"
+          },
+          "recorded": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "errorId",
+          "recorded"
+        ]
+      },
+      "RecordClientErrorRequest": {
+        "type": "object",
+        "properties": {
+          "errorId": {
+            "type": "string",
+            "pattern": "^client_[0-9A-HJKMNP-TV-Z]{8}$"
+          },
+          "route": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "errorName": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "build": {
+            "type": "string",
+            "maxLength": 60
+          }
+        },
+        "required": [
+          "errorId",
+          "route",
+          "errorName",
+          "build"
         ]
       },
       "FirmUsageResponse": {
@@ -5095,8 +5315,7 @@
           "format": {
             "type": "string",
             "enum": [
-              "docx",
-              "pdf"
+              "docx"
             ]
           },
           "document": {
@@ -6758,6 +6977,1220 @@
         "required": [
           "holdsInForceAtKnowledgeInstant",
           "atProduction"
+        ]
+      },
+      "AccountsReceivableAgingReport": {
+        "type": "object",
+        "properties": {
+          "asOfDate": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "unpaidMinor": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "totalMinor": {
+                "type": "integer"
+              },
+              "invoiceCount": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "integer"
+                }
+              }
+            },
+            "required": [
+              "unpaidMinor",
+              "totalMinor",
+              "invoiceCount"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "unpaidMinor": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "totalMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "unpaidMinor",
+                "totalMinor"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": "string"
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "unpaidMinor": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                },
+                "totalMinor": {
+                  "type": "integer"
+                },
+                "matters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "matterTitle": {
+                        "type": "string"
+                      },
+                      "matterNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "unpaidMinor": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer"
+                        }
+                      },
+                      "totalMinor": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "matterId",
+                      "matterTitle",
+                      "matterNumber",
+                      "locationId",
+                      "locationName",
+                      "unpaidMinor",
+                      "totalMinor"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "unpaidMinor",
+                "totalMinor",
+                "matters"
+              ]
+            }
+          }
+        },
+        "required": [
+          "asOfDate",
+          "locationId",
+          "currency",
+          "reproducibility",
+          "reproducibilityStatement",
+          "completeness",
+          "totals",
+          "offices",
+          "clients"
+        ]
+      },
+      "WorkInProgressReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "timeMinutes": {
+                "type": "integer"
+              },
+              "timeMinor": {
+                "type": "integer"
+              },
+              "costMinor": {
+                "type": "integer"
+              },
+              "onDraftMinor": {
+                "type": "integer"
+              },
+              "totalMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "timeMinutes",
+              "timeMinor",
+              "costMinor",
+              "onDraftMinor",
+              "totalMinor"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "timeMinutes": {
+                      "type": "integer"
+                    },
+                    "timeMinor": {
+                      "type": "integer"
+                    },
+                    "costMinor": {
+                      "type": "integer"
+                    },
+                    "onDraftMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "timeMinutes",
+                    "timeMinor",
+                    "costMinor",
+                    "onDraftMinor",
+                    "totalMinor"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "timeMinutes": {
+                      "type": "integer"
+                    },
+                    "timeMinor": {
+                      "type": "integer"
+                    },
+                    "costMinor": {
+                      "type": "integer"
+                    },
+                    "onDraftMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "timeMinutes",
+                    "timeMinor",
+                    "costMinor",
+                    "onDraftMinor",
+                    "totalMinor"
+                  ]
+                },
+                "matters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "matterTitle": {
+                        "type": "string"
+                      },
+                      "matterNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "figures": {
+                        "type": "object",
+                        "properties": {
+                          "timeMinutes": {
+                            "type": "integer"
+                          },
+                          "timeMinor": {
+                            "type": "integer"
+                          },
+                          "costMinor": {
+                            "type": "integer"
+                          },
+                          "onDraftMinor": {
+                            "type": "integer"
+                          },
+                          "totalMinor": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "timeMinutes",
+                          "timeMinor",
+                          "costMinor",
+                          "onDraftMinor",
+                          "totalMinor"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "matterId",
+                      "matterTitle",
+                      "matterNumber",
+                      "locationId",
+                      "locationName",
+                      "figures"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "figures",
+                "matters"
+              ]
+            }
+          },
+          "timekeepers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timekeeperUserId": {
+                  "type": "string"
+                },
+                "timekeeperName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "timeMinutes": {
+                      "type": "integer"
+                    },
+                    "timeMinor": {
+                      "type": "integer"
+                    },
+                    "costMinor": {
+                      "type": "integer"
+                    },
+                    "onDraftMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "timeMinutes",
+                    "timeMinor",
+                    "costMinor",
+                    "onDraftMinor",
+                    "totalMinor"
+                  ]
+                }
+              },
+              "required": [
+                "timekeeperUserId",
+                "timekeeperName",
+                "figures"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "reproducible",
+          "statement",
+          "locationId",
+          "currency",
+          "completeness",
+          "totals",
+          "offices",
+          "clients",
+          "timekeepers"
+        ]
+      },
+      "RealizationReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "standardValueIsLive": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "standardValueStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "standardValueMinor": {
+                "type": "integer"
+              },
+              "billedMinor": {
+                "type": "integer"
+              },
+              "creditedMinor": {
+                "type": "integer"
+              },
+              "appliedMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "standardValueMinor",
+              "billedMinor",
+              "creditedMinor",
+              "appliedMinor"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "standardValueMinor": {
+                      "type": "integer"
+                    },
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    },
+                    "appliedMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "standardValueMinor",
+                    "billedMinor",
+                    "creditedMinor",
+                    "appliedMinor"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "standardValueMinor": {
+                      "type": "integer"
+                    },
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    },
+                    "appliedMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "standardValueMinor",
+                    "billedMinor",
+                    "creditedMinor",
+                    "appliedMinor"
+                  ]
+                },
+                "matters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "matterTitle": {
+                        "type": "string"
+                      },
+                      "matterNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "locationName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "figures": {
+                        "type": "object",
+                        "properties": {
+                          "standardValueMinor": {
+                            "type": "integer"
+                          },
+                          "billedMinor": {
+                            "type": "integer"
+                          },
+                          "creditedMinor": {
+                            "type": "integer"
+                          },
+                          "appliedMinor": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "standardValueMinor",
+                          "billedMinor",
+                          "creditedMinor",
+                          "appliedMinor"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "matterId",
+                      "matterTitle",
+                      "matterNumber",
+                      "locationId",
+                      "locationName",
+                      "figures"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "figures",
+                "matters"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "locationId",
+          "currency",
+          "reproducibility",
+          "reproducibilityStatement",
+          "standardValueIsLive",
+          "standardValueStatement",
+          "completeness",
+          "totals",
+          "offices",
+          "clients"
+        ]
+      },
+      "TimekeeperProductivityReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "entryCount": {
+                "type": "integer"
+              },
+              "billableMinutes": {
+                "type": "integer"
+              },
+              "nonBillableMinutes": {
+                "type": "integer"
+              },
+              "totalMinutes": {
+                "type": "integer"
+              },
+              "billableShareBasisPoints": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "entryCount",
+              "billableMinutes",
+              "nonBillableMinutes",
+              "totalMinutes",
+              "billableShareBasisPoints"
+            ]
+          },
+          "timekeepers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timekeeperUserId": {
+                  "type": "string"
+                },
+                "timekeeperName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterCount": {
+                  "type": "integer"
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "entryCount": {
+                      "type": "integer"
+                    },
+                    "billableMinutes": {
+                      "type": "integer"
+                    },
+                    "nonBillableMinutes": {
+                      "type": "integer"
+                    },
+                    "totalMinutes": {
+                      "type": "integer"
+                    },
+                    "billableShareBasisPoints": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entryCount",
+                    "billableMinutes",
+                    "nonBillableMinutes",
+                    "totalMinutes",
+                    "billableShareBasisPoints"
+                  ]
+                }
+              },
+              "required": [
+                "timekeeperUserId",
+                "timekeeperName",
+                "matterCount",
+                "figures"
+              ]
+            }
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "entryCount": {
+                      "type": "integer"
+                    },
+                    "billableMinutes": {
+                      "type": "integer"
+                    },
+                    "nonBillableMinutes": {
+                      "type": "integer"
+                    },
+                    "totalMinutes": {
+                      "type": "integer"
+                    },
+                    "billableShareBasisPoints": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entryCount",
+                    "billableMinutes",
+                    "nonBillableMinutes",
+                    "totalMinutes",
+                    "billableShareBasisPoints"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "entryCount": {
+                      "type": "integer"
+                    },
+                    "billableMinutes": {
+                      "type": "integer"
+                    },
+                    "nonBillableMinutes": {
+                      "type": "integer"
+                    },
+                    "totalMinutes": {
+                      "type": "integer"
+                    },
+                    "billableShareBasisPoints": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entryCount",
+                    "billableMinutes",
+                    "nonBillableMinutes",
+                    "totalMinutes",
+                    "billableShareBasisPoints"
+                  ]
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "figures"
+              ]
+            }
+          },
+          "nonBillableCategories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "categoryId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "categoryName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "minutes": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "categoryId",
+                "categoryName",
+                "minutes"
+              ]
+            }
+          },
+          "taskCodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "entryCount": {
+                      "type": "integer"
+                    },
+                    "billableMinutes": {
+                      "type": "integer"
+                    },
+                    "nonBillableMinutes": {
+                      "type": "integer"
+                    },
+                    "totalMinutes": {
+                      "type": "integer"
+                    },
+                    "billableShareBasisPoints": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entryCount",
+                    "billableMinutes",
+                    "nonBillableMinutes",
+                    "totalMinutes",
+                    "billableShareBasisPoints"
+                  ]
+                }
+              },
+              "required": [
+                "code",
+                "label",
+                "figures"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "computedAt",
+          "reproducible",
+          "statement",
+          "locationId",
+          "completeness",
+          "totals",
+          "timekeepers",
+          "offices",
+          "clients",
+          "nonBillableCategories",
+          "taskCodes"
+        ]
+      },
+      "OperationalVolumesReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "liveSections": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "matters",
+                "billing",
+                "trust",
+                "costs"
+              ]
+            }
+          },
+          "liveSectionsStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "measure": {
+                  "type": "string",
+                  "enum": [
+                    "opened",
+                    "closed"
+                  ]
+                },
+                "matterTypeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTypeName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "measure",
+                "matterTypeId",
+                "matterTypeName",
+                "count"
+              ]
+            }
+          },
+          "billing": {
+            "type": "object",
+            "properties": {
+              "billsDrafted": {
+                "type": "integer"
+              },
+              "billsFinalized": {
+                "type": "integer"
+              },
+              "draftsVoided": {
+                "type": "integer"
+              },
+              "creditNotesIssued": {
+                "type": "integer"
+              },
+              "writeOffs": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "billsDrafted",
+              "billsFinalized",
+              "draftsVoided",
+              "creditNotesIssued",
+              "writeOffs"
+            ]
+          },
+          "trust": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "measure": {
+                  "type": "string",
+                  "enum": [
+                    "movement",
+                    "disbursement-requested",
+                    "disbursement-decided",
+                    "reconciliation-opened",
+                    "reconciliation-closed"
+                  ]
+                },
+                "detail": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "measure",
+                "detail",
+                "count"
+              ]
+            }
+          },
+          "costs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "disbursementClass": {
+                  "type": "string",
+                  "enum": [
+                    "hard",
+                    "soft"
+                  ]
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "disbursementClass",
+                "count"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "locationId",
+          "reproducibility",
+          "reproducibilityStatement",
+          "liveSections",
+          "liveSectionsStatement",
+          "completeness",
+          "matters",
+          "billing",
+          "trust",
+          "costs"
         ]
       },
       "BillingInvoiceAck": {
@@ -28380,6 +29813,18 @@
           "statusReason"
         ]
       },
+      "ConnectedAccountSignInStart": {
+        "type": "object",
+        "properties": {
+          "authorizationUrl": {
+            "type": "string",
+            "description": "The provider's own sign-in page. The browser is sent to it as a whole page."
+          }
+        },
+        "required": [
+          "authorizationUrl"
+        ]
+      },
       "ConnectedAccountList": {
         "type": "object",
         "properties": {
@@ -28407,7 +29852,8 @@
           "provider": {
             "type": "string",
             "enum": [
-              "microsoft"
+              "microsoft",
+              "google"
             ]
           },
           "available": {
@@ -28429,7 +29875,8 @@
           "provider": {
             "type": "string",
             "enum": [
-              "microsoft"
+              "microsoft",
+              "google"
             ]
           },
           "accountLabel": {
@@ -28458,18 +29905,6 @@
           "accountLabel",
           "status",
           "connectedAt"
-        ]
-      },
-      "ConnectedAccountSignInStart": {
-        "type": "object",
-        "properties": {
-          "authorizationUrl": {
-            "type": "string",
-            "description": "The provider's own sign-in page. The browser is sent to it as a whole page."
-          }
-        },
-        "required": [
-          "authorizationUrl"
         ]
       },
       "ConnectedAccountDisconnectAck": {
@@ -28505,7 +29940,8 @@
               "provider": {
                 "type": "string",
                 "enum": [
-                  "microsoft"
+                  "microsoft",
+                  "google"
                 ]
               },
               "accountLabel": {
@@ -44428,6 +45864,1030 @@
           "activeMemberCount"
         ]
       },
+      "RecordTransferRunListResponse": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordTransferRun"
+            }
+          }
+        },
+        "required": [
+          "runs"
+        ]
+      },
+      "RecordTransferRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sourceSystem": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "startedBy": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "abandonedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sourceSystem",
+          "label",
+          "startedBy",
+          "startedAt",
+          "completedAt",
+          "abandonedAt"
+        ]
+      },
+      "RecordTransferRunResponse": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/RecordTransferRun"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordTransferSourceFile"
+            }
+          },
+          "passes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordTransferPass"
+            }
+          }
+        },
+        "required": [
+          "run",
+          "files",
+          "passes"
+        ]
+      },
+      "RecordTransferSourceFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "delimited-text"
+            ]
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "contentSha256": {
+            "type": "string"
+          },
+          "keyColumn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rowCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "registeredAt": {
+            "type": "string"
+          },
+          "removedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sourceKind",
+          "format",
+          "fileName",
+          "byteLength",
+          "contentSha256",
+          "keyColumn",
+          "rowCount",
+          "registeredAt",
+          "removedAt"
+        ]
+      },
+      "RecordTransferPass": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "recordKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "matter"
+            ]
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "running",
+              "stalled",
+              "finished",
+              "failed"
+            ]
+          },
+          "requestedBy": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counts": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "rowsRead": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "created": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "alreadyLinked": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rejected": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "waiting": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "findings": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "columnsMissing": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "rowsRead",
+              "created",
+              "alreadyLinked",
+              "rejected",
+              "waiting",
+              "findings",
+              "columnsMissing"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fileId",
+          "recordKind",
+          "sourceKind",
+          "state",
+          "requestedBy",
+          "requestedAt",
+          "startedAt",
+          "finishedAt",
+          "failedAt",
+          "counts"
+        ]
+      },
+      "StartRecordTransferRunRequest": {
+        "type": "object",
+        "properties": {
+          "sourceSystem": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "sourceSystem",
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferSourceFileResponse": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/RecordTransferSourceFile"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "RecordTransferSourceFilePreviewResponse": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "columns",
+          "rows"
+        ]
+      },
+      "RecordTransferPassResponse": {
+        "type": "object",
+        "properties": {
+          "pass": {
+            "$ref": "#/components/schemas/RecordTransferPass"
+          }
+        },
+        "required": [
+          "pass"
+        ]
+      },
+      "RequestRecordTransferPassRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "recordKind": {
+                "type": "string",
+                "enum": [
+                  "person"
+                ]
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "keyColumn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "delimiter": {
+                "type": "string",
+                "enum": [
+                  ",",
+                  "\t",
+                  ";",
+                  "|"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/RecordTransferPersonRules"
+              }
+            },
+            "required": [
+              "recordKind",
+              "fileId",
+              "sourceKind",
+              "keyColumn",
+              "rules"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "recordKind": {
+                "type": "string",
+                "enum": [
+                  "organization"
+                ]
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "keyColumn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "delimiter": {
+                "type": "string",
+                "enum": [
+                  ",",
+                  "\t",
+                  ";",
+                  "|"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/RecordTransferOrganizationRules"
+              }
+            },
+            "required": [
+              "recordKind",
+              "fileId",
+              "sourceKind",
+              "keyColumn",
+              "rules"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "recordKind": {
+                "type": "string",
+                "enum": [
+                  "matter"
+                ]
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "keyColumn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "delimiter": {
+                "type": "string",
+                "enum": [
+                  ",",
+                  "\t",
+                  ";",
+                  "|"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/RecordTransferMatterRules"
+              }
+            },
+            "required": [
+              "recordKind",
+              "fileId",
+              "sourceKind",
+              "keyColumn",
+              "rules"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "RecordTransferPersonRules": {
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "prefix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "middle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "suffix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOrder": {
+            "type": "string",
+            "enum": [
+              "year-month-day",
+              "day-month-year",
+              "month-day-year"
+            ]
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 10
+          },
+          "phones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "fax": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "column"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 10
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "streetTwo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "dependentLocality": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "region": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "postal": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          },
+          "addressCountry": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          }
+        },
+        "required": [
+          "given",
+          "family"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferOrganizationRules": {
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 10
+          },
+          "phones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "fax": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "column"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 10
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "streetTwo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "dependentLocality": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "region": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "postal": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          },
+          "addressCountry": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          }
+        },
+        "required": [
+          "legalName"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferMatterRules": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "clientDisplayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "openedDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "closedDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOrder": {
+            "type": "string",
+            "enum": [
+              "year-month-day",
+              "day-month-year",
+              "month-day-year"
+            ]
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "client": {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              }
+            },
+            "required": [
+              "column",
+              "sourceKind"
+            ],
+            "additionalProperties": false
+          },
+          "parties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "sourceKind": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
+                },
+                "role": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "column",
+                "sourceKind",
+                "role"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 20
+          },
+          "matterType": {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "types": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              }
+            },
+            "required": [
+              "column",
+              "types"
+            ],
+            "additionalProperties": false
+          },
+          "responsibleMember": {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "members": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "otherwise": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "members"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "title",
+          "number",
+          "openedDate",
+          "dateOrder",
+          "timeZone",
+          "responsibleMember"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferPassReportResponse": {
+        "type": "object",
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/RecordTransferPassReport"
+          },
+          "failure": {
+            "$ref": "#/components/schemas/RecordTransferPassFailure"
+          }
+        },
+        "required": [
+          "report",
+          "failure"
+        ]
+      },
+      "RecordTransferPassReport": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "columnsMissing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rowsRead": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "alreadyLinked": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "reason"
+              ]
+            }
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "missing": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sourceKind": {
+                        "type": "string"
+                      },
+                      "sourceId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "sourceKind",
+                      "sourceId"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "missing"
+              ]
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "column": {
+                  "type": "string"
+                },
+                "finding": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "column",
+                "finding"
+              ]
+            }
+          },
+          "sample": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "localId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "localId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "columnsMissing",
+          "rowsRead",
+          "created",
+          "alreadyLinked",
+          "rejected",
+          "waiting",
+          "findings",
+          "sample"
+        ]
+      },
+      "RecordTransferPassFailure": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "sourceFileNotHeld",
+              "fileNotReadable",
+              "rulesNotReadable",
+              "fault"
+            ]
+          },
+          "fileFault": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "noHeader",
+              "blankColumnName",
+              "duplicateColumnName",
+              "unterminatedQuote",
+              null
+            ]
+          },
+          "lineNumber": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "reason",
+          "fileFault",
+          "lineNumber"
+        ]
+      },
       "ShippingConnectAck": {
         "type": "object",
         "properties": {
@@ -47865,7 +50325,7 @@
     },
     "/api/v1/platform/recent-errors": {
       "get": {
-        "description": "The deployment's recent failures, read back from Workers Logs: every error.captured and operation.failed event across the account's Workers over the last 24 hours, folded into one row per Worker, place and error name with its count, first and last sighting and newest Error ID. state says why there are no rows when the read could not be made: not-configured (no account id or log-read token), refused (the token was not accepted) or unreachable.",
+        "description": "The deployment's failures over the last 24 hours, folded into one row per source, Worker, place, status and error name with its count, first and last sighting and newest Error ID. Requests and browser crashes come from the control plane's error record; background failures come from Workers Logs, and backgroundState says why they are missing when the log read could not be made: not-configured (no account id or log-read token), refused or unreachable.",
         "operationId": "platform.recentErrors",
         "tags": [
           "platform"
@@ -47906,6 +50366,92 @@
           },
           "403": {
             "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/errors/{errorId}": {
+      "get": {
+        "description": "What one Error ID was: the recorded failure (the operation, the answer, the error kind, the scrubbed message head, the firm and member ids), kept for thirty days. An ID with no record still answers what a server-minted ID says about itself — when and by which Worker.",
+        "operationId": "platform.errorLookup",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.errorLookup",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^(error|client)_[A-Za-z0-9]+$"
+            },
+            "required": true,
+            "name": "errorId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record, or what the ID says about itself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorLookupResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not the shape of an Error ID",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -48000,6 +50546,100 @@
           },
           "422": {
             "description": "The body failed validation (over-cap breadcrumbs/errorIds, empty description, …)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/client-errors": {
+      "post": {
+        "description": "Keeps a crash in the browser against the client_ Error ID its crash screen shows, so the ID can be looked up in System Status. Carries the route template, the error kind, the first stack frame and the build; a message only for the engine's own kinds (TypeError, ReferenceError, RangeError), scrubbed. A second send of one ID is a no-op.",
+        "operationId": "clientErrors.record",
+        "tags": [
+          "clientErrors"
+        ],
+        "x-mc-operationId": "clientErrors.record",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:reportIncident",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "client-error",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "clientErrors"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordClientErrorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The crash is recorded (or already was)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordClientErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:reportIncident",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable, or the session member is deactivated — absent, never an existence oracle",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -54557,7 +57197,7 @@
     },
     "/api/v1/reports/exports": {
       "post": {
-        "description": "Read-shaped POST: renders the tabular export document in the request into a file and returns its bytes — a Word document composed by the platform, or that document carried across the office suite's conversion edge as a PDF. Pure computation over the caller's own payload; nothing is stored.",
+        "description": "Read-shaped POST: renders the tabular export document in the request into a Word document and returns its bytes. A tabular export's PDF is composed in the browser by the platform's PDF composer, not here. Pure computation over the caller's own payload; nothing is stored.",
         "operationId": "reports.exportRender",
         "tags": [
           "reports"
@@ -54615,7 +57255,7 @@
             }
           },
           "422": {
-            "description": "The document is past the render bounds, or the conversion has no path",
+            "description": "The document is past the render bounds, or asks for a format other than Word",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -54626,16 +57266,6 @@
           },
           "429": {
             "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -56188,6 +58818,571 @@
           },
           "422": {
             "description": "The period is not two calendar dates, it ends before it starts, the knowledge instant is not a UTC instant or is in the future, the period holds more of this account's activity than one document can carry, or the account's outstanding items are more than one reconciliation can account for",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/accounts-receivable-aging": {
+      "get": {
+        "description": "What the firm was owed at a date, by how long it had been owed (current, 1 to 30, 31 to 60, 61 to 90 and over 90 days past due), per office, client and matter. Give a knowledge instant and every figure re-derives from records that can never change; omit it and the answer covers everything known now, which is stamped and not claimed to reproduce. A bill counts from its issue date; a payment, credit or write-off from its own effective date. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.accountsReceivableAging",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.accountsReceivableAging",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "asOfDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The aging at that date",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountsReceivableAgingReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The date is not a calendar date, the knowledge instant is not a UTC instant or is in the future, or more matters have something unpaid than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/work-in-progress": {
+      "get": {
+        "description": "Unbilled time and costs as they stand now, per office, client, matter and timekeeper, with the work already on a draft bill shown in its own column. Live only: time and cost entries can be edited until they are billed and record no date for when that happened, so this report takes no date and no knowledge instant, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.workInProgress",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.workInProgress",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The work in progress now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkInProgressReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "More matters and timekeepers have unbilled work than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/realization": {
+      "get": {
+        "description": "For a period, per office, client and matter: the standard value of the time worked, what was billed, what was credited or written off, and what was applied against the bills. Billed, credited and applied re-derive from records that never change when a knowledge instant is given; the standard value is live, because time entries can be edited until billed, and the response says so beside the other three. Applied means set against a bill; the platform records no cash arriving. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.realization",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.realization",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The realization for this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealizationReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more matters had activity than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/timekeeper-productivity": {
+      "get": {
+        "description": "Time recorded in a period by work date: per timekeeper, office, client, non-billable category and task code, billable against non-billable, with the billable share. Minutes only, never money, and no target: the platform stores no billable-hour target and does not invent one. Live only, because time entries can be edited until billed: it takes no knowledge instant, says when it was computed, and is not claimed to reproduce.",
+        "operationId": "reports.timekeeperProductivity",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.timekeeperProductivity",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:productivity",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The time recorded in this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimekeeperProductivityReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:productivity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/operational-volumes": {
+      "get": {
+        "description": "How much the firm did in a period: matters opened and closed by type, bills drafted, finalized and voided, credit notes and write-offs, trust movements by kind, disbursement requests and their outcomes, reconciliations opened and closed, and costs incurred by class. Counts only, never money. The billing and trust counts honor a knowledge instant; the matter and cost counts are over records that can still change and are live, which the response names. Choosing an office narrows every count; it does not limit who may run the report.",
+        "operationId": "reports.operationalVolumes",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.operationalVolumes",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:operational",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The volumes for this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalVolumesReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:operational",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, or the knowledge instant is not a UTC instant or is in the future",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -95745,70 +98940,6 @@
         }
       }
     },
-    "/api/v1/me/connected-accounts": {
-      "get": {
-        "description": "The session member's own connected accounts, and which providers this deployment can connect.",
-        "operationId": "connectedAccounts.list",
-        "tags": [
-          "connectedAccounts"
-        ],
-        "x-mc-operationId": "connectedAccounts.list",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": null,
-        "x-mc-resource": "firm",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "connectedAccounts"
-        ],
-        "x-mc-deprecated": false,
-        "responses": {
-          "200": {
-            "description": "The member's connected accounts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectedAccountList"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the member has no such account",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/me/connected-accounts/microsoft/sign-in": {
       "post": {
         "description": "Starts connecting the session member's own Microsoft 365 account for calendar sync, and answers the address of Microsoft's sign-in page. The request asks Microsoft for the member's calendars and nothing about their mail. Nothing is stored until the member returns.",
@@ -95861,7 +98992,7 @@
             }
           },
           "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the member has no such account",
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -95955,6 +99086,247 @@
           },
           "403": {
             "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/connected-accounts/google/sign-in": {
+      "post": {
+        "description": "Starts connecting the session member's own Google account for calendar sync, and answers the address of Google's sign-in page. The request asks Google for the member's calendars and nothing about their mail. Nothing is stored until the member returns.",
+        "operationId": "connectedAccounts.startGoogleSignIn",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.startGoogleSignIn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Where to send the browser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectedAccountSignInStart"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "This deployment is not registered with the provider, so no account can connect",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/google/callback": {
+      "get": {
+        "description": "Where Google returns the member's browser after sign-in. Records the connection when the return matches a sign-in this browser started, and always redirects to the Connected Accounts screen with one word saying what happened. Not called by a client.",
+        "operationId": "connectedAccounts.finishGoogleSignIn",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.finishGoogleSignIn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "code",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "error",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Back to the Connected Accounts screen, naming the outcome"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/connected-accounts": {
+      "get": {
+        "description": "The session member's own connected accounts, and which providers this deployment can connect.",
+        "operationId": "connectedAccounts.list",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's connected accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectedAccountList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -96985,6 +100357,73 @@
           },
           "422": {
             "description": "The address or the validation token is not one this route could have issued",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar-sync/provider-notices/google/{firmId}/{connectionId}": {
+      "post": {
+        "description": "Receives Google's notice that something in a member's connected calendar changed. Called by Google and by nothing in this platform. The notice has no body: it is acted on only when its `X-Goog-Channel-Token` header carries the secret that account gave Google, and every request is answered alike whether or not it was believed.",
+        "operationId": "calendarSync.receiveGoogleNotice",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.receiveGoogleNotice",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "provider-notice",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "connectionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The notice was received"
+          },
+          "422": {
+            "description": "The address is not one this route could have issued",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -136043,6 +139482,860 @@
         }
       }
     },
+    "/api/v1/record-transfer/runs": {
+      "get": {
+        "description": "Every transfer run this firm has started, newest first.",
+        "operationId": "recordTransfer.listRuns",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.listRuns",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's transfer runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Starts a transfer run for the system the firm is leaving. A run holds the files given to it and every pass made over them; a rehearsal and the cutover are separate runs.",
+        "operationId": "recordTransfer.startRun",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.startRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRecordTransferRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The run that was started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}": {
+      "get": {
+        "description": "One run with the files given to it and the passes made over them, each pass with its state and, once finished, its counts.",
+        "operationId": "recordTransfer.getRun",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run, its files and its passes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/files": {
+      "post": {
+        "description": "Gives a source file to a run. The body is the file's bytes, kept unchanged; the file's rows are read when a pass is asked for. The same bytes given to one run a second time are refused.",
+        "operationId": "recordTransfer.addSourceFile",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.addSourceFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "required": true,
+            "name": "fileName",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
+            },
+            "required": true,
+            "name": "sourceKind",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The file as the run now holds it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferSourceFileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than a source file may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/files/{fileId}/preview": {
+      "get": {
+        "description": "The file's header row and its first three data rows, read from the stored file when asked, so a person can say what each column holds. These are values from the file; they are answered to the member and stored nowhere.",
+        "operationId": "recordTransfer.previewSourceFile",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.previewSourceFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferSourceFile_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "comma",
+                "tab",
+                "semicolon",
+                "pipe"
+              ]
+            },
+            "required": false,
+            "name": "delimiter",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The column names and the first rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferSourceFilePreviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes": {
+      "post": {
+        "description": "Asks for a pass over one of the run's files: which kind of record its rows are, which column holds each row's key, and the mapping rules that say what each column holds. The request is recorded and answered at once; the pass runs afterwards.",
+        "operationId": "recordTransfer.requestPass",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.requestPass",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecordTransferPassRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The pass was asked for and is queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes/{passId}": {
+      "get": {
+        "description": "How one pass stands: asked for, running, stalled, finished or failed, with its counts once it has finished.",
+        "operationId": "recordTransfer.getPass",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getPass",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferPass_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "passId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pass",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes/{passId}/report": {
+      "get": {
+        "description": "The whole report of a pass that has ended: every rejected row with its reason, every row waiting for a record it names, every value left out, and a sample of the records created. It holds positions, column names, fixed reasons, source keys and identifiers, and no other value from the file. A pass that failed answers why instead. Both are null while the pass has not ended.",
+        "operationId": "recordTransfer.getPassReport",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getPassReport",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferPass_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "passId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The report, or the reason there is none",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/shipping/connection": {
       "post": {
         "description": "Connects the firm's EasyPost postage account, or replaces its key. The key is stored encrypted and is never returned by any route. An administrative act: it requires firm:manageSecrets, not shipping:manage.",
@@ -137328,6 +141621,9 @@
       "name": "calendarSync"
     },
     {
+      "name": "clientErrors"
+    },
+    {
       "name": "communications"
     },
     {
@@ -137524,6 +141820,9 @@
     },
     {
       "name": "rates"
+    },
+    {
+      "name": "recordTransfer"
     },
     {
       "name": "registrations"

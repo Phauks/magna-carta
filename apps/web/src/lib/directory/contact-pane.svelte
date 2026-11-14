@@ -96,7 +96,7 @@
       }
       shownFor = null;
       points = { emails: [], phones: [], addresses: [] };
-      readFailure = stated(outcome.failure, "This record's contact details could not be read.");
+      readFailure = stated(outcome.failure, "Couldn't load this record's contact details.");
     })();
     return () => {
       cancelled = true;
@@ -226,8 +226,8 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "That could not be recorded.",
-      "Nothing was recorded; the record's contact details are as they were.",
+      "Couldn't save that.",
+      "Nothing was saved. The contact details are unchanged.",
     );
   }
 
@@ -250,7 +250,7 @@
       reloadToken += 1;
       return;
     }
-    writeFailure = stated(outcome.failure, "That could not be changed.", whenSilent);
+    writeFailure = stated(outcome.failure, "Couldn't change that.", whenSilent);
   }
 
   /**
@@ -280,8 +280,8 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "That could not be corrected.",
-      "Nothing was changed; the value is as it was.",
+      "Couldn't correct that.",
+      "Nothing was changed.",
     );
   }
 
@@ -318,7 +318,7 @@
       const outcome = await removeDirectoryContactPoint(fetch, channelOf(edit.row), edit.row.id, key);
       return outcome.kind === "ok"
         ? null
-        : stated(outcome.failure, "That could not be removed.", "Nothing more was changed.");
+        : stated(outcome.failure, "Couldn't remove that.", "Nothing more was changed.");
     }
     if (edit.kind === "update") {
       const outcome = await updateDirectoryContactPoint(
@@ -330,7 +330,7 @@
       );
       return outcome.kind === "ok"
         ? null
-        : stated(outcome.failure, "That could not be changed.", "Nothing more was changed.");
+        : stated(outcome.failure, "Couldn't change that.", "Nothing more was changed.");
     }
     const requests = contactRequestsFrom([edit.draft]);
     const preference = edit.preference;
@@ -342,7 +342,7 @@
           : null;
     return outcome === null || outcome.kind === "ok"
       ? null
-      : stated(outcome.failure, "That could not be recorded.", "Nothing more was changed.");
+      : stated(outcome.failure, "Couldn't save that.", "Nothing more was changed.");
   }
 
   async function remove(row: ContactRow): Promise<void> {
@@ -359,7 +359,7 @@
       reloadToken += 1;
       return;
     }
-    writeFailure = stated(outcome.failure, "That could not be removed.", "Nothing was removed.");
+    writeFailure = stated(outcome.failure, "Couldn't remove that.", "Nothing was removed.");
   }
 </script>
 
@@ -367,7 +367,7 @@
   {#if writeFailure !== null}
     <FailureNotice
       failure={writeFailure.failure}
-      title="The Contact Details Were Not Changed"
+      title="Contact Details Not Changed"
       fallback={writeFailure.fallback}
       whenSilent={writeFailure.whenSilent}
     />
@@ -385,7 +385,7 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure.failure}
-          title="This Record's Contact Details Could Not Be Read"
+          title="Couldn't Load Contact Details"
           fallback={readFailure.fallback}
           whenSilent={readFailure.whenSilent}
           onRetry={retry}

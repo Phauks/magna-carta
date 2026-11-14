@@ -15,7 +15,12 @@
     "./directory-transfer": "./src/directory-transfer.ts",
     "./matter-mapping": "./src/matter-mapping.ts",
     "./matter-transfer": "./src/matter-transfer.ts",
-    "./transfer-pass": "./src/transfer-pass.ts"
+    "./transfer-pass": "./src/transfer-pass.ts",
+    "./transfer-pass-statements": "./src/transfer-pass-statements.ts",
+    "./contract": "./src/contract.ts",
+    "./transfer-requests": "./src/transfer-requests.ts",
+    "./requested-pass": "./src/requested-pass.ts",
+    "./transfer-views": "./src/transfer-views.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -25,7 +30,8 @@
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "@magna-carta/matters": "workspace:*"
+    "@magna-carta/matters": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",

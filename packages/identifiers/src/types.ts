@@ -45,6 +45,7 @@ export type IntegrationConnectionId = Identifier<"integrationConnection">;
 export type IntegrationCredentialId = Identifier<"integrationCredential">;
 export type TransferRunId = Identifier<"transferRun">;
 export type TransferSourceFileId = Identifier<"transferSourceFile">;
+export type TransferPassId = Identifier<"transferPass">;
 export type LocationId = Identifier<"location">;
 export type LocationAddressId = Identifier<"locationAddress">;
 export type MemberLocationId = Identifier<"memberLocation">;

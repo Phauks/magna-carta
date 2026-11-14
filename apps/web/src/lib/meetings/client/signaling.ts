@@ -61,6 +61,11 @@ export interface MeetingParticipant {
   readonly participantId: string;
   readonly userId: string;
   readonly displayName: string;
+  /**
+   * The name they came in with (a member's account name, a guest's name from the door), present
+   * only while they go by another one they chose for this meeting. Null otherwise.
+   */
+  readonly accountName: string | null;
   /** The unit's session this participant publishes through. Null before they have published. */
   readonly sfuSessionId: string | null;
   readonly tracks: readonly MeetingTrack[];
@@ -199,6 +204,7 @@ export function readParticipants(value: unknown): readonly MeetingParticipant[] 
       participantId,
       userId: readString(entry, "userId") ?? "",
       displayName: readString(entry, "displayName") ?? "",
+      accountName: readString(entry, "accountName"),
       sfuSessionId: readString(entry, "sfuSessionId"),
       tracks,
       // Absent on a room that has not been taught presence yet, and absent is "not speaking, not

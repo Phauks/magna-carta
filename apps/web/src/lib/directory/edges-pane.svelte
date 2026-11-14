@@ -106,19 +106,19 @@
       heading: "Relationships",
       caption: "How this record connects to others in the firm's book",
       emptyTitle: "Nothing Connected To This Record",
-      readFailure: "This record's relationships could not be read.",
+      readFailure: "Couldn't load this record's relationships.",
     },
     people: {
       heading: "People",
       caption: "The people inside this organization",
       emptyTitle: "Nobody Recorded In This Organization",
-      readFailure: "The people in this organization could not be read.",
+      readFailure: "Couldn't load the people in this organization.",
     },
     organizations: {
       heading: "Organizations",
       caption: "The organizations this person is inside",
       emptyTitle: "No Organization Recorded For This Person",
-      readFailure: "This person's organizations could not be read.",
+      readFailure: "Couldn't load this person's organizations.",
     },
   };
   const words = $derived(PANE_WORDS[filter]);
@@ -352,8 +352,8 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "The relationship could not be recorded.",
-      "Nothing answered. The relationship was not recorded.",
+      "Couldn't save the relationship.",
+      "Couldn't connect. The relationship wasn't saved.",
     );
   }
 </script>
@@ -412,7 +412,7 @@
         {#if writeFailure !== null}
           <FailureNotice
             failure={writeFailure.failure}
-            title="The Relationship Was Not Recorded"
+            title="Relationship Not Saved"
             fallback={writeFailure.fallback}
             whenSilent={writeFailure.whenSilent}
           />

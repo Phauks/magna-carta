@@ -153,6 +153,12 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   and no room can reach that. A chime on a context that is not running schedules nothing rather than
   a tone that plays late. A test that mounts a screen releases `pageRecordingSounds` after each
   case, because the device outlives a screen by design.
+- `naming.ts` — what this person is called in the meeting: the `rename` frame (a name, or null for
+  the one they came in with) and its re-send. The room refuses a rename inside the hand's window
+  without naming the frame, so the module settles by the person's own roster row and sends again at
+  most three times. Every row carries `accountName` (the original) while somebody goes by a chosen
+  name; the roster draws it as "Joined as ...", and `screen/meeting-rename-dialog.svelte` is the form,
+  opened from the reader's own roster row, with a one-press way back.
 - `polls.svelte.ts` and `questions.svelte.ts` — the other two RECORDS, on chat's terms: routes and
   rows, relayed by the room as copies (`relayPollsTo` / `relayQuestionsTo`). NO READ ON A TIMER WHILE
   THE SOCKET IS HEALTHY: a full read on arrival and on reconnect, a read when a panel opens (forward
