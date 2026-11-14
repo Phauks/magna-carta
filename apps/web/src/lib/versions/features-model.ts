@@ -328,6 +328,7 @@ export const FEATURE_WORKERS: Record<string, string> = {
   discoveryProcessing: "magna-carta-discovery",
   fileContentsSearch: "magna-carta-search",
   addressSuggestions: "magna-carta-address",
+  communitySignIn: "magna-carta-community",
 };
 
 export function featureSteps(id: string): readonly string[] {

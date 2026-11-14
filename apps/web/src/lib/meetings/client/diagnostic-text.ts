@@ -37,6 +37,21 @@ function shown(value: number | null | undefined, unit = ""): string {
   return `${String(rounded)}${unit}`;
 }
 
+/** A count of times, read as a sentence: "3 times", "once", or "not reported" with no "times" after it. */
+function times(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "not reported";
+  if (value === 1) return "once";
+  return `${shown(value)} times`;
+}
+
+/** The camera layer in words: what the panel's Camera Size row says, not the wire's letter. */
+const LAYER_WORDS: Readonly<Record<string, string>> = { f: "full", h: "half", q: "quarter" };
+
+function layerWords(rid: string | null | undefined): string {
+  if (rid === null || rid === undefined) return "one size only";
+  return `${LAYER_WORDS[rid] ?? rid} size`;
+}
+
 function percent(value: number | null): string {
   return value === null ? "not reported" : `${(value * 100).toFixed(1)}%`;
 }
@@ -78,7 +93,7 @@ function inboundLines(first: InboundSample | null, last: InboundSample, seconds:
         ? "not reported"
         : shown((bufferDelay / emitted) * 1000, " ms")
     }`,
-    `  asked for a new picture ${shown(grew(first?.pliCount, last.pliCount))} times, for lost packets ${shown(grew(first?.nackCount, last.nackCount))} times`,
+    `  asked for a new picture ${times(grew(first?.pliCount, last.pliCount))}, for lost packets ${times(grew(first?.nackCount, last.nackCount))}`,
   ];
 }
 
@@ -125,10 +140,10 @@ export function diagnosticText(
     const firstUplink =
       first.uplink !== null && first.uplink.id === uplink.id ? first.uplink : null;
     lines.push(
-      `- layer ${uplink.rid ?? "single"}, picture ${size(uplink.frameWidth, uplink.frameHeight)} at ${shown(uplink.framesPerSecond, " fps")}`,
+      `- ${layerWords(uplink.rid)}, picture ${size(uplink.frameWidth, uplink.frameHeight)} at ${shown(uplink.framesPerSecond, " fps")}`,
       `  going out ${uplink.bitsPerSecond === null ? "not reported" : shown(uplink.bitsPerSecond / 1000, " kbit/s")}, far end lost ${percent(uplink.lossFraction)}`,
       `  held back by ${uplink.qualityLimitationReason ?? "not reported"}`,
-      `  asked for a new picture ${shown(grew(firstUplink?.pliCount, uplink.pliCount))} times`,
+      `  asked for a new picture ${times(grew(firstUplink?.pliCount, uplink.pliCount))}`,
     );
   }
 

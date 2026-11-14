@@ -11,6 +11,7 @@ import type {
   AppliedFigures,
   InvoiceFigures,
   Invoices,
+  MatterBalances,
   OperationalVolumes,
   PaymentsApplied,
   Realization,
@@ -168,7 +169,7 @@ export function sampleRealization(): Realization {
     reproducibilityStatement: LIVE_STATEMENT,
     standardValueIsLive: true,
     standardValueStatement:
-      "The standard value is the time recorded as it stands now, so it is live even when the rest of this report reproduces.",
+      "The standard value uses time as recorded now, so it can change even when the rest of this report can't.",
     completeness: { scope: "complete" },
     totals: figures(1_100_000, 1_000_000, 50_000, 700_000),
     offices: [
@@ -255,7 +256,7 @@ export function sampleOperationalVolumes(): OperationalVolumes {
     reproducibilityStatement: LIVE_STATEMENT,
     liveSections: ["matters", "costs"],
     liveSectionsStatement:
-      "Matters opened and closed and costs incurred are counted as those records stood when this report was produced.",
+      "Matters opened and closed and costs incurred are counted as they were when this report was produced.",
     completeness: { scope: "complete" },
     matters: [
       {
@@ -500,6 +501,43 @@ export function samplePaymentsApplied(): PaymentsApplied {
         0,
         MAIN,
       ),
+    ],
+  };
+}
+
+export function sampleMatterBalances(): MatterBalances {
+  const figures = (unbilledMinor: number, owedMinor: number, trustMinor: number) => ({
+    unbilledMinor,
+    owedMinor,
+    trustMinor,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    asOfDate: "2026-08-01",
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    currency: "USD",
+    completeness: { scope: "complete" },
+    totals: figures(1_245_000, 690_000, 1_150_000),
+    offices: [
+      { ...MAIN, figures: figures(830_000, 450_000, 800_000) },
+      { ...NORTH, figures: figures(415_000, 240_000, 350_000) },
+    ],
+    clients: [
+      {
+        ...client(0),
+        figures: figures(830_000, 450_000, 800_000),
+        matters: [
+          { ...matter(0, MAIN), figures: figures(830_000, 300_000, 500_000) },
+          { ...matter(2, MAIN), figures: figures(0, 150_000, 300_000) },
+        ],
+      },
+      {
+        ...client(1),
+        figures: figures(415_000, 240_000, 350_000),
+        matters: [{ ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) }],
+      },
     ],
   };
 }

@@ -64,7 +64,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The set was not marked as filed.",
+      "The set wasn't marked as filed.",
       "Couldn't connect, so the set is still a draft.",
     );
     return "refused";
@@ -133,8 +133,7 @@
       <Alert.Root variant="warning">
         <Alert.Title>This Can't Be Undone</Alert.Title>
         <Alert.Description>
-          The labels, titles and file versions are kept as they are now. To change the set later,
-          start an amended set.
+          Labels, titles and file versions are locked as they are now. To change the set later, start an amended set.
         </Alert.Description>
       </Alert.Root>
     </div>

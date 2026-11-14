@@ -130,6 +130,11 @@ export const ChangeNameRequest = z
     // Organization fields.
     legalName: z.string().min(1).optional(),
     displayName: z.string().nullable().optional(),
+    // A CORRECTION, NOT A CHANGE. True when the name on file was a typing mistake: the mistyped row
+    // is retired (soft-deleted, so the audit history keeps it) instead of kept as a former name,
+    // because a misspelling the person never went by is not a name they held. Absent or false is the
+    // ordinary change, which keeps the old name findable as a former one.
+    correction: z.boolean().optional(),
   })
   .meta({ id: "ChangeDirectoryNameRequest" });
 
