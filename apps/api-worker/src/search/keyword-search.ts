@@ -1,11 +1,13 @@
 import {
   listLiveSplitsForCorpus,
+  listMattersWithLiveSplits,
   listStaleMembersForCorpus,
   type IndexedDocumentId,
 } from "@magna-carta/data-access/index-split-statements";
-import type { FileId, FirmId, IndexSplitId } from "@magna-carta/identifiers/types";
-import type { CorpusScope } from "@magna-carta/search/corpus";
+import type { FileId, FirmId, IndexSplitId, MatterId } from "@magna-carta/identifiers/types";
+import { corpusOfMatter, type CorpusScope } from "@magna-carta/search/corpus";
 import type {
+  SearchHit,
   SearchIndexPort,
   SearchQueryResult,
   SplitQueryTarget,
@@ -70,4 +72,63 @@ export async function runKeywordSearch(
     limit: input.limit,
     splits,
   });
+}
+
+export interface KeywordSearchOverMattersInput {
+  readonly firmId: FirmId;
+  readonly matterIds: readonly MatterId[];
+  readonly text: string;
+  readonly limit: number;
+}
+
+// The same keyword search asked of several matters, each of its own corpus, and answered as one
+// list.
+//
+// ONE QUESTION A MATTER, AND NEVER ONE QUESTION OF SEVERAL. A query names one corpus and is handed
+// that corpus's split keys with a token that reaches no other, which is the isolation that keeps a
+// review set out of a matter search. This does not loosen it: every matter is asked through
+// `runKeywordSearch` exactly as its own search asks it, and what is new is only that the answers are
+// put together afterwards. So the cost is one engine call a matter, and the caller is what keeps
+// the matters few.
+//
+// A matter with nothing indexed is not asked. One catalog read says which of the matters hold a
+// live split, and for a client with thirty matters and files indexed on four that is four engine
+// calls instead of thirty.
+//
+// ANY ONE FAILURE IS THE ANSWER. A list put together from the matters that happened to answer
+// would read as complete and leave out a matter nobody could name, so a matter that cannot be
+// searched fails the whole question and the reader is told the files could not be searched.
+//
+// The scores the lists are merged by come from separate indexes, each scoring against its own
+// documents, so they are not on one scale. They put the strongest passages first and no more is
+// claimed of the order.
+export async function runKeywordSearchOverMatters(
+  env: Bindings,
+  input: KeywordSearchOverMattersInput,
+  port: SearchIndexPort = resolveSearchIndexPort(env),
+): Promise<SearchQueryResult> {
+  const database = firmDatabaseFor(env.FIRM_DATABASE, input.firmId);
+  const indexed = await listMattersWithLiveSplits(database, input.matterIds);
+  const results = await Promise.all(
+    indexed.map((matterId) =>
+      runKeywordSearch(
+        env,
+        {
+          firmId: input.firmId,
+          corpus: corpusOfMatter(matterId),
+          text: input.text,
+          limit: input.limit,
+        },
+        port,
+      ),
+    ),
+  );
+  const hits: SearchHit[] = [];
+  for (const result of results) {
+    if (!result.ok) return result;
+    hits.push(...result.hits);
+  }
+  // Best first. A stable sort, so passages one index scored alike stay in the order it gave them.
+  const bestFirst = hits.toSorted((left, right) => right.score - left.score);
+  return { ok: true, hits: bestFirst.slice(0, input.limit) };
 }

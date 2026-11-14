@@ -4470,6 +4470,7 @@ export type SearchTextMark = {
 export type SearchAcrossMattersAnswer = {
     query: string;
     broad: boolean;
+    fewMattersLimit: number;
     groups: Array<SearchAcrossMattersGroup>;
 };
 
@@ -4480,7 +4481,7 @@ export type SearchAcrossMattersGroup = {
     matchedFields: Array<string>;
     hits: Array<SearchAcrossMattersHit>;
     hasMore: boolean;
-    skipped: 'one-matter-only' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
+    skipped: 'one-matter-only' | 'too-many-matters' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
 };
 
 export type SearchAcrossMattersHit = {
