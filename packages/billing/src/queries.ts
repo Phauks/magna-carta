@@ -690,6 +690,12 @@ export async function readAccountsReceivableAgingAsOf(
 // be billed and what is already on a bill being reviewed.
 export const MAXIMUM_WORK_IN_PROGRESS_ROWS = 5000;
 
+// WHAT "UNBILLED" MEANS, stated once and read by both work-in-progress reads below, so the breakdown
+// and the aging cannot disagree about which entries are still to be billed. A time entry with no
+// value on it (no rate) is not work in progress in money and is left out of both.
+const UNBILLED_TIME_PREDICATE = "t.status NOT IN ('billed', 'void') AND t.amount_minor IS NOT NULL";
+const UNBILLED_COST_PREDICATE = "c.status NOT IN ('billed', 'void')";
+
 export interface WorkInProgressBreakdownRow {
   readonly kind: "time" | "cost";
   readonly matterId: string;
@@ -746,14 +752,14 @@ export async function readWorkInProgressBreakdown(
                 COUNT(*) AS entry_count, SUM(t.duration_minutes) AS minutes,
                 SUM(t.amount_minor) AS amount_minor
            FROM time_entry t
-          WHERE t.status NOT IN ('billed', 'void') AND t.amount_minor IS NOT NULL
+          WHERE ${UNBILLED_TIME_PREDICATE}
           GROUP BY t.matter_id, t.timekeeper_user_id, on_draft
          UNION ALL
          SELECT 'cost' AS kind, c.matter_id, NULL AS timekeeper_user_id,
                 CASE WHEN c.invoice_id IS NULL THEN 0 ELSE 1 END AS on_draft,
                 COUNT(*) AS entry_count, 0 AS minutes, SUM(c.amount_minor) AS amount_minor
            FROM cost_entry c
-          WHERE c.status NOT IN ('billed', 'void')
+          WHERE ${UNBILLED_COST_PREDICATE}
           GROUP BY c.matter_id, on_draft
        )
        SELECT w.kind, w.matter_id, m.title AS matter_title, m.matter_number,
@@ -1193,4 +1199,94 @@ export async function readMatterCaptions(
     locationId: row.location_id,
     locationName: row.location_name,
   }));
+}
+
+// WORK IN PROGRESS BY AGE — the same unbilled time and costs as the breakdown above (one predicate,
+// UNBILLED_TIME_PREDICATE and UNBILLED_COST_PREDICATE), placed by how long ago the work was done: a
+// time entry by its work date, a cost by the day it was incurred, counted from `asOfDate`. Work on a
+// draft bill is still unbilled and is counted. Buckets: 0 to 30 days, 31 to 60, 61 to 90, over 90.
+// The bucketing happens in SQL, one row per matter, kind and bucket.
+export const WORK_IN_PROGRESS_AGE_DAYS = [30, 60, 90] as const;
+
+export interface WorkInProgressAgeRow {
+  readonly kind: "time" | "cost";
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+  readonly clientEntityId: string | null;
+  readonly clientName: string | null;
+  readonly locationId: string | null;
+  readonly locationName: string | null;
+  // 0: 0 to 30 days old, 1: 31 to 60, 2: 61 to 90, 3: over 90.
+  readonly bucketIndex: number;
+  readonly entryCount: number;
+  readonly amountMinor: number;
+}
+
+export async function readWorkInProgressByAge(
+  database: SqlDatabase,
+  asOfDate: string,
+): Promise<{ readonly rows: readonly WorkInProgressAgeRow[]; readonly truncated: boolean }> {
+  const bucket = (dateColumn: string) => `CASE
+      WHEN julianday(?1) - julianday(${dateColumn}) <= ${WORK_IN_PROGRESS_AGE_DAYS[0]} THEN 0
+      WHEN julianday(?1) - julianday(${dateColumn}) <= ${WORK_IN_PROGRESS_AGE_DAYS[1]} THEN 1
+      WHEN julianday(?1) - julianday(${dateColumn}) <= ${WORK_IN_PROGRESS_AGE_DAYS[2]} THEN 2
+      ELSE 3 END`;
+  const { results } = await database
+    .prepare(
+      `WITH work AS (
+         SELECT 'time' AS kind, t.matter_id, ${bucket("t.work_date")} AS bucket_index,
+                COUNT(*) AS entry_count, SUM(t.amount_minor) AS amount_minor
+           FROM time_entry t
+          WHERE ${UNBILLED_TIME_PREDICATE}
+          GROUP BY t.matter_id, bucket_index
+         UNION ALL
+         SELECT 'cost' AS kind, c.matter_id, ${bucket("c.incurred_date")} AS bucket_index,
+                COUNT(*) AS entry_count, SUM(c.amount_minor) AS amount_minor
+           FROM cost_entry c
+          WHERE ${UNBILLED_COST_PREDICATE}
+          GROUP BY c.matter_id, bucket_index
+       )
+       SELECT w.kind, w.matter_id, m.title AS matter_title, m.matter_number,
+              (SELECT MIN(p.entity_id) FROM matter_party p
+                WHERE p.matter_id = w.matter_id AND p.role = 'client') AS client_entity_id,
+              m.client_display_name AS client_name,
+              m.location_id, l.name AS location_name,
+              w.bucket_index, w.entry_count, w.amount_minor
+         FROM work w
+         JOIN matter m ON m.id = w.matter_id
+         LEFT JOIN location l ON l.id = m.location_id
+        ORDER BY w.matter_id, w.kind, w.bucket_index
+        LIMIT ?2`,
+    )
+    .bind(asOfDate, MAXIMUM_WORK_IN_PROGRESS_ROWS + 1)
+    .all<{
+      kind: "time" | "cost";
+      matter_id: string;
+      matter_title: string;
+      matter_number: string | null;
+      client_entity_id: string | null;
+      client_name: string | null;
+      location_id: string | null;
+      location_name: string | null;
+      bucket_index: number;
+      entry_count: number;
+      amount_minor: number;
+    }>();
+  return {
+    truncated: results.length > MAXIMUM_WORK_IN_PROGRESS_ROWS,
+    rows: results.slice(0, MAXIMUM_WORK_IN_PROGRESS_ROWS).map((row) => ({
+      kind: row.kind,
+      matterId: row.matter_id,
+      matterTitle: row.matter_title,
+      matterNumber: row.matter_number,
+      clientEntityId: row.client_entity_id,
+      clientName: row.client_name,
+      locationId: row.location_id,
+      locationName: row.location_name,
+      bucketIndex: row.bucket_index,
+      entryCount: row.entry_count,
+      amountMinor: row.amount_minor,
+    })),
+  };
 }

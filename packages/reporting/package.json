@@ -19,7 +19,8 @@
     "./financial/invoice-register": "./src/financial/invoice-register.ts",
     "./financial/payments-applied": "./src/financial/payments-applied.ts",
     "./financial/matter-balances": "./src/financial/matter-balances.ts",
-    "./operational/matters-list": "./src/operational/matters-list.ts"
+    "./operational/matters-list": "./src/operational/matters-list.ts",
+    "./financial/aged-work-in-progress": "./src/financial/aged-work-in-progress.ts"
   },
   "scripts": {
     "test": "vp test run"

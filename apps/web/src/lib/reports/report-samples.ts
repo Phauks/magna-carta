@@ -12,6 +12,7 @@ import type {
   InvoiceFigures,
   Invoices,
   MatterBalances,
+  AgedWorkInProgress,
   MattersList,
   OperationalVolumes,
   PaymentsApplied,
@@ -572,5 +573,40 @@ export function sampleMattersList(): MattersList {
       { ...NORTH, counts: { matterCount: 1, openCount: 0, heldCount: 1, closedCount: 0 } },
     ],
     matters: [row(0, MAIN, "open"), row(1, NORTH, "hold"), row(2, MAIN, "closed")],
+  };
+}
+
+export function sampleAgedWorkInProgress(): AgedWorkInProgress {
+  const figures = (a: number, b: number, c: number, d: number, totalMinor: number) => ({
+    unbilledMinor: [a, b, c, d],
+    totalMinor,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    asOfDate: "2026-08-01",
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    currency: "USD",
+    completeness: { scope: "complete" },
+    totals: figures(700_000, 300_000, 145_000, 100_000, 1_245_000),
+    offices: [
+      { ...MAIN, figures: figures(500_000, 200_000, 30_000, 100_000, 830_000) },
+      { ...NORTH, figures: figures(200_000, 100_000, 115_000, 0, 415_000) },
+    ],
+    clients: [
+      {
+        ...client(0),
+        figures: figures(500_000, 200_000, 30_000, 100_000, 830_000),
+        matters: [
+          { ...matter(0, MAIN), figures: figures(500_000, 200_000, 30_000, 100_000, 830_000) },
+        ],
+      },
+      {
+        ...client(1),
+        figures: figures(200_000, 100_000, 115_000, 0, 415_000),
+        matters: [{ ...matter(1, NORTH), figures: figures(200_000, 100_000, 115_000, 0, 415_000) }],
+      },
+    ],
   };
 }

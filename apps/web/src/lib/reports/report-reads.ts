@@ -3,7 +3,8 @@
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
- * `reports.paymentsApplied`, `reports.matterBalances` and `reports.mattersList` in
+ * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList` and
+ * `reports.agedWorkInProgress` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -12,6 +13,7 @@
  */
 import {
   reportsAccountsReceivableAging,
+  reportsAgedWorkInProgress,
   reportsInvoices,
   reportsMatterBalances,
   reportsMattersList,
@@ -188,6 +190,37 @@ export interface MattersList {
   totals: MatterStatusCounts;
   offices: { locationId: string | null; locationName: string | null; counts: MatterStatusCounts }[];
   matters: MatterListRow[];
+}
+
+/** Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days since the work. */
+export interface AgedWorkFigures {
+  unbilledMinor: number[];
+  totalMinor: number;
+}
+
+export interface AgedWorkInProgress {
+  computedAt: string;
+  asOfDate: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  currency: "USD";
+  completeness: ReportCompleteness;
+  totals: AgedWorkFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: AgedWorkFigures }[];
+  clients: {
+    clientEntityId: string | null;
+    clientName: string | null;
+    figures: AgedWorkFigures;
+    matters: {
+      matterId: string;
+      matterTitle: string;
+      matterNumber: string | null;
+      locationId: string | null;
+      locationName: string | null;
+      figures: AgedWorkFigures;
+    }[];
+  }[];
 }
 
 export interface RealizationFigures {
@@ -472,6 +505,19 @@ export function readMattersList(
 ): Promise<ApiOutcome<MattersList>> {
   return outcome(() =>
     reportsMattersList({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+export function readAgedWorkInProgress(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<AgedWorkInProgress>> {
+  return outcome(() =>
+    reportsAgedWorkInProgress({
       fetch: fetchImpl,
       throwOnError: true,
       query: { locationId: present(query.locationId) },
