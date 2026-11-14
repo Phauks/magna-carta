@@ -151,7 +151,7 @@
   const UNSTARTED = "unstarted";
 
   const conversations = new PagedList<MagnusConversation>(
-    "Your conversations with Magnus could not be read.",
+    "Couldn't load your conversations with Magnus.",
   );
   const session = new ConversationSession(fetch);
   /*
@@ -250,20 +250,20 @@
    */
   const startRefusal = $derived.by((): string | undefined => {
     if (isSample) {
-      return "This is one of the sample matters, so there is no firm behind it to ask anything about.";
+      return "This is a sample matter, so there's no firm to ask Magnus about.";
     }
     if (availabilityFailure !== null) {
-      return "Whether Magnus can be used here could not be read, so nothing can be started.";
+      return "Couldn't check whether Magnus is available here, so nothing can be started.";
     }
-    if (availability === null) return "Whether Magnus can be used here has not been read yet.";
+    if (availability === null) return "Checking whether Magnus is available here.";
     if (availability.state === "firm-ineligible") {
-      return "The firm has not consented to sending its content to an outside model provider, so Magnus cannot be asked anything. An administrator records that decision in the firm's settings.";
+      return "The firm hasn't agreed to send its content to an outside model provider, so Magnus can't be used. An administrator can record that choice in the firm's settings.";
     }
     if (availability.state === "feature-disabled") {
-      return "The firm has not turned Magnus on. An administrator turns it on in the firm's settings.";
+      return "The firm hasn't turned on Magnus. An administrator can turn it on in the firm's settings.";
     }
     if (availability.state === "acknowledgement-required") {
-      return "Accept the disclosure on this screen before starting a conversation.";
+      return "Accept the disclosure on this screen before you start a conversation.";
     }
     return undefined;
   });
@@ -274,10 +274,10 @@
    */
   const attachRefusal = $derived.by((): string | undefined => {
     if (selected === null) {
-      return "Ask the first question to start the conversation, then attach a file to it.";
+      return "Ask a question to start the conversation, then attach a file.";
     }
     if (openMatterId === null) {
-      return "This conversation is kept on no matter, so there are no files to reach. Keep it on a matter first.";
+      return "This conversation isn't on a matter, so there are no files to attach. Move it to a matter first.";
     }
     return undefined;
   });
@@ -333,8 +333,8 @@
     if (outcome.kind !== "ok") {
       availabilityFailure = stated(
         outcome.failure,
-        "Whether Magnus can be used here could not be read.",
-        "Nothing answered, so whether Magnus can be used here is not known.",
+        "Couldn't check whether Magnus is available here.",
+        "Couldn't connect. Try again.",
       );
       return;
     }
@@ -435,8 +435,8 @@
     if (outcome.kind !== "ok") {
       acceptFailure = stated(
         outcome.failure,
-        "The disclosure was not accepted.",
-        "Nothing answered. The disclosure was not accepted, and nothing was recorded.",
+        "The disclosure wasn't accepted.",
+        "Couldn't connect. The disclosure wasn't accepted. Try again.",
       );
       return;
     }
@@ -500,7 +500,7 @@
       downloading = false;
       failureToast(
         outcome.failure,
-        "The transcript could not be read, so nothing was downloaded. Try again.",
+        "Couldn't load the transcript, so nothing was downloaded. Try again.",
       );
       return;
     }
@@ -621,8 +621,8 @@
       if (outcome.kind !== "ok") {
         startFailure = stated(
           outcome.failure,
-          "The conversation was not started, so nothing was asked.",
-          "Nothing answered. The conversation was not started and nothing was asked.",
+          "The conversation wasn't started.",
+          "Couldn't connect. The conversation wasn't started. Try again.",
         );
         return;
       }
@@ -664,8 +664,8 @@
     if (outcome.kind !== "ok") {
       detachFailure = stated(
         outcome.failure,
-        "The file was not taken off the conversation.",
-        "Nothing answered. The file is still attached.",
+        "The file wasn't removed from the conversation.",
+        "Couldn't connect. The file is still attached. Try again.",
       );
       return;
     }
@@ -684,8 +684,8 @@
     if (outcome.kind !== "ok") {
       toast.error(
         outcome.kind === "problem"
-          ? "The conversation was not moved or pinned, and is where it was."
-          : "Nothing answered, so the conversation is where it was.",
+          ? "The conversation wasn't moved or pinned."
+          : "Couldn't connect. The conversation wasn't moved. Try again.",
       );
       return;
     }
@@ -900,7 +900,7 @@
       <div class="px-24">
         <FailureNotice
           failure={startFailure.failure}
-          title="Nothing Was Asked"
+          title="Nothing Asked"
           fallback={startFailure.fallback}
           whenSilent={startFailure.whenSilent}
         />
@@ -910,9 +910,9 @@
       <div class="px-24">
         <FailureNotice
           failure={session.submitFailure}
-          title="The Message Was Not Sent"
-          fallback="The message was not sent, so Magnus was not asked."
-          whenSilent="Nothing answered. The message was not sent and Magnus was not asked."
+          title="Message Not Sent"
+          fallback="The message wasn't sent."
+          whenSilent="Couldn't connect. The message wasn't sent. Try again."
         />
       </div>
     {/if}
@@ -966,7 +966,7 @@
     nextCursor={conversations.nextCursor}
     loadingMore={conversations.loadingMore}
     emptyLine={searching
-      ? `Nothing you asked matches "${appliedSearch.trim()}".`
+      ? `No questions match "${appliedSearch.trim()}".`
       : withShelf
         ? "No conversations in General."
         : "Nothing asked yet."}
@@ -1006,8 +1006,8 @@
       {:else if readFailure !== null}
         <FailureNotice
           failure={readFailure}
-          title="Your Conversations Could Not Be Read"
-          fallback="Your conversations with Magnus could not be read."
+          title="Couldn't Load Your Conversations"
+          fallback="Couldn't load your conversations with Magnus."
           onRetry={retryRead}
         />
       {/if}
@@ -1097,9 +1097,8 @@
 {/snippet}
 
 {#if isSample}
-  <EmptyState title="No Magnus Conversations On A Sample Matter">
-    This is one of the sample matters the interface is reviewed against. It has no firm behind it,
-    so there is nothing to ask Magnus about and no transcript to read.
+  <EmptyState title="No Magnus Conversations on a Sample Matter">
+    This is a sample matter with no firm behind it, so there's nothing to ask Magnus.
   </EmptyState>
 {:else if rail === "column"}
   <!-- THE WORKSPACE IS THE DESIGN SYSTEM'S TWO-SIDED SCREEN: the rail in the navigation column, the

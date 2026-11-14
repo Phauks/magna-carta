@@ -646,7 +646,7 @@
     const outcome = await attachTimeEntryFile(fetch, entry.id, fileId, writeKey());
     if (outcome.kind !== "ok") {
       attachmentFailure =
-        "The file was not attached. The entry and the document are both unchanged.";
+        "The file wasn't attached. The entry and the document are both unchanged.";
       return;
     }
     await refreshAttachments();

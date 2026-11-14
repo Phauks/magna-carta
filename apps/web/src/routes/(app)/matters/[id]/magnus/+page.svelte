@@ -38,5 +38,5 @@
   rail="switcher"
   {isSample}
   emptyTitle="Nothing Asked About This Matter"
-  emptyDescription="No conversation is kept on this matter's file yet. Type a question below to start one."
+  emptyDescription="No conversation is on this matter yet. Type a question below to start one."
 />

@@ -53,7 +53,7 @@
   );
   const unchanged = $derived(conversation !== null && chosen === conversation.matterId);
   const refusal = $derived(
-    unchanged ? "This is where the conversation is already kept." : undefined,
+    unchanged ? "The conversation is already here." : undefined,
   );
 
   function reset(): void {
@@ -72,8 +72,8 @@
     }
     failure = stated(
       outcome.failure,
-      "The conversation was not moved, and is still kept where it was.",
-      "Nothing answered. The conversation was not moved and is still kept where it was.",
+      "The conversation wasn't moved.",
+      "Couldn't connect. The conversation wasn't moved. Try again.",
     );
     return "refused";
   }
@@ -81,9 +81,9 @@
 
 <ActionDialog
   bind:open
-  heading="Keep on a Matter"
+  heading="Move to a Matter"
   {subtitle}
-  commitLabel="Keep It Here"
+  commitLabel="Move It Here"
   commitBusyLabel="Moving"
   commitRefusal={refusal}
   unsavedChanges={!unchanged}
@@ -94,7 +94,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="It Was Not Moved"
+        title="Not Moved"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />
@@ -119,16 +119,11 @@
       <!-- The two facts a reader must hold before pressing: who can read it afterwards, and what
            goes with it. Neither is reassurance; both are consequences. -->
       <p class="text-sm text-text-muted">
-        Which matter a conversation is kept on decides who may read it. Kept on a matter, the
-        transcript is part of that matter&rsquo;s file and follows that file&rsquo;s access; kept
-        on none, it is yours and the firm&rsquo;s supervisors&rsquo; alone. Keeping it on a matter
-        does not let Magnus read the matter.
+        The matter decides who can read the conversation. On a matter, the transcript is part of that matter&rsquo;s file and follows its access. On no matter, only you and the firm&rsquo;s supervisors can read it. Magnus still can&rsquo;t read the matter.
         {#if attachmentCount === 1}
-          The one file attached to it belongs to the matter it is on now and comes off with the
-          move.
+          The one file attached to it belongs to the current matter and is removed with the move.
         {:else if attachmentCount > 1}
-          The {attachmentCount} files attached to it belong to the matter it is on now and come off
-          with the move.
+          The {attachmentCount} files attached to it belong to the current matter and are removed with the move.
         {/if}
       </p>
     </div>
