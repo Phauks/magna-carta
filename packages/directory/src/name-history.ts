@@ -23,6 +23,7 @@ import {
   flipCurrentNameToFormerStatement,
   insertNameStatement,
   insertPhoneticCodeStatements,
+  retireMistypedCurrentNameStatement,
   updateOrganizationNameStatement,
   updatePersonNameStatement,
 } from "./statements.ts";
@@ -75,11 +76,18 @@ function isPersonNameInput(input: ChangeNameInput): input is ChangePersonNameInp
 //   4. Emit a directory.entity.renamed outbox message and a domain audit row.
 //
 // The entity kind is resolved from the id handle prefix; the caller does not need to pass it.
+//
+// A CORRECTION (`kind: "correction"`) differs only in step 1: the prior name was a typing mistake,
+// so it is retired (soft-deleted) rather than kept as a former name. It is still a new row and not
+// an edit of the old one, so the phonetic codes and the trigram index travel with each row exactly
+// as they do for a change, and the outbox row still fires, because a corrected spelling can change
+// what a conflicts check finds.
 export async function changeName(
   database: BatchDatabase,
   entityId: DirectoryPersonId | DirectoryOrganizationId,
   input: ChangeNameInput,
   options: DirectoryWriteOptions,
+  kind: "change" | "correction" = "change",
 ): Promise<void> {
   // Fail fast before any write, exactly as addName does: directory_name carries no foreign key to the
   // node tables, so renaming an entity that does not exist (or has been merged away) would insert an
@@ -93,8 +101,12 @@ export async function changeName(
 
   const statements: SqlStatement[] = [];
 
-  // Step 1: flip the prior current name to former.
-  statements.push(flipCurrentNameToFormerStatement(database, entityId, now));
+  // Step 1: flip the prior current name to former, or retire it when it was mistyped.
+  statements.push(
+    kind === "correction"
+      ? retireMistypedCurrentNameStatement(database, entityId, now)
+      : flipCurrentNameToFormerStatement(database, entityId, now),
+  );
 
   if (entityKind === "person") {
     const personInput = isPersonNameInput(input)
@@ -197,7 +209,14 @@ export async function changeName(
   }
 
   // Step 4: audit row.
-  statements.push(directoryAuditStatement(database, options, "directory.entity.renamed", entityId));
+  statements.push(
+    directoryAuditStatement(
+      database,
+      options,
+      kind === "correction" ? "directory.entity.name_corrected" : "directory.entity.renamed",
+      entityId,
+    ),
+  );
 
   await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements,

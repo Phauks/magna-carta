@@ -5604,6 +5604,7 @@ export type ChangeDirectoryNameRequest = {
     suffix?: string | null;
     legalName?: string;
     displayName?: string | null;
+    correction?: boolean;
 };
 
 export type DirectoryNamePage = {
