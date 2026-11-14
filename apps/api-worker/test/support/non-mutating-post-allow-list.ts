@@ -36,6 +36,8 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
   "safeBrowse.stream":
     "The streaming twin of safeBrowse.post — the same pure read delivered as newline-delimited stage lines; nothing is written and the target URL is deliberately never logged (redaction).",
+  "calendarSync.receiveGoogleNotice":
+    "As calendarSync.receiveMicrosoftNotice: a provider's notice that a member's calendar changed, which writes no firm data and only brings that account's ordinary sync pass forward.",
   "calendarSync.receiveMicrosoftNotice":
     "A calendar provider's notice that a member's calendar changed. It writes no firm data and no row: a notice carrying the account's secret only brings that account's ordinary sync pass forward, and what the pass then changes is audited where it is changed. Auditing each notice would write a row per calendar edit per member, most of them echoes of this platform's own writes.",
   "metadata.inspect":
@@ -87,6 +89,8 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "As notifications.dismiss, undone: the member putting their own feed row back, which records nothing about the firm's conduct.",
   "notifications.markAllRead":
     "As notifications.markRead, bounded by a cursor from a page the member actually read — one member clearing their own backlog.",
+  "connectedAccounts.startGoogleSignIn":
+    "As connectedAccounts.startMicrosoftSignIn: returns the provider's sign-in address and sets a short-lived signed cookie — no write.",
   "connectedAccounts.startMicrosoftSignIn":
     "Pure credential mint: returns the provider's sign-in address and sets a short-lived signed cookie — no write. The connection is recorded and audited by the return route.",
 };

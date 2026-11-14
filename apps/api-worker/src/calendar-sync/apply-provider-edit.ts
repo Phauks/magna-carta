@@ -6,6 +6,7 @@ import {
   changeFirmEventOccurrence,
   changeMatterEventOccurrence,
 } from "@magna-carta/calendar/series-service";
+import type { CalendarProvider } from "@magna-carta/calendar/sync-contract";
 import type { SyncCopyReading } from "@magna-carta/calendar/sync-issue-statements";
 import type { OutboundDesired } from "@magna-carta/calendar/sync-outbound";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
@@ -45,6 +46,8 @@ const MANAGE_CALENDAR = assertPermission("calendar:manage");
 export interface ApplyProviderEditInput {
   readonly database: BatchDatabase;
   readonly memberUserId: UserId;
+  // Whose calendar the edit was made in, for the audit row.
+  readonly provider: CalendarProvider;
   readonly now: () => Date;
 }
 
@@ -164,7 +167,7 @@ export function providerEditApplier(
               actorUserId: input.memberUserId,
               clock: options.clock,
               metadata: {
-                provider: "microsoft",
+                provider: input.provider,
                 localKind: copy.localKind,
                 ...(occurrenceOn === undefined ? {} : { occurrenceOn }),
               },

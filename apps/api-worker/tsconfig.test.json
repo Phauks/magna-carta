@@ -109,6 +109,9 @@
       "path": "../../packages/file-type/tsconfig.build.json"
     },
     {
+      "path": "../../packages/google-calendar/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/government-links/tsconfig.build.json"
     },
     {

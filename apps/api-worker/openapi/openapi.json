@@ -26999,6 +26999,18 @@
           "statusReason"
         ]
       },
+      "ConnectedAccountSignInStart": {
+        "type": "object",
+        "properties": {
+          "authorizationUrl": {
+            "type": "string",
+            "description": "The provider's own sign-in page. The browser is sent to it as a whole page."
+          }
+        },
+        "required": [
+          "authorizationUrl"
+        ]
+      },
       "ConnectedAccountList": {
         "type": "object",
         "properties": {
@@ -27026,7 +27038,8 @@
           "provider": {
             "type": "string",
             "enum": [
-              "microsoft"
+              "microsoft",
+              "google"
             ]
           },
           "available": {
@@ -27048,7 +27061,8 @@
           "provider": {
             "type": "string",
             "enum": [
-              "microsoft"
+              "microsoft",
+              "google"
             ]
           },
           "accountLabel": {
@@ -27077,18 +27091,6 @@
           "accountLabel",
           "status",
           "connectedAt"
-        ]
-      },
-      "ConnectedAccountSignInStart": {
-        "type": "object",
-        "properties": {
-          "authorizationUrl": {
-            "type": "string",
-            "description": "The provider's own sign-in page. The browser is sent to it as a whole page."
-          }
-        },
-        "required": [
-          "authorizationUrl"
         ]
       },
       "ConnectedAccountDisconnectAck": {
@@ -27124,7 +27126,8 @@
               "provider": {
                 "type": "string",
                 "enum": [
-                  "microsoft"
+                  "microsoft",
+                  "google"
                 ]
               },
               "accountLabel": {
@@ -91591,70 +91594,6 @@
         }
       }
     },
-    "/api/v1/me/connected-accounts": {
-      "get": {
-        "description": "The session member's own connected accounts, and which providers this deployment can connect.",
-        "operationId": "connectedAccounts.list",
-        "tags": [
-          "connectedAccounts"
-        ],
-        "x-mc-operationId": "connectedAccounts.list",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": null,
-        "x-mc-resource": "firm",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "connectedAccounts"
-        ],
-        "x-mc-deprecated": false,
-        "responses": {
-          "200": {
-            "description": "The member's connected accounts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectedAccountList"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the member has no such account",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/me/connected-accounts/microsoft/sign-in": {
       "post": {
         "description": "Starts connecting the session member's own Microsoft 365 account for calendar sync, and answers the address of Microsoft's sign-in page. The request asks Microsoft for the member's calendars and nothing about their mail. Nothing is stored until the member returns.",
@@ -91707,7 +91646,7 @@
             }
           },
           "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the member has no such account",
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -91801,6 +91740,247 @@
           },
           "403": {
             "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/connected-accounts/google/sign-in": {
+      "post": {
+        "description": "Starts connecting the session member's own Google account for calendar sync, and answers the address of Google's sign-in page. The request asks Google for the member's calendars and nothing about their mail. Nothing is stored until the member returns.",
+        "operationId": "connectedAccounts.startGoogleSignIn",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.startGoogleSignIn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "Where to send the browser",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectedAccountSignInStart"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "This deployment is not registered with the provider, so no account can connect",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/google/callback": {
+      "get": {
+        "description": "Where Google returns the member's browser after sign-in. Records the connection when the return matches a sign-in this browser started, and always redirects to the Connected Accounts screen with one word saying what happened. Not called by a client.",
+        "operationId": "connectedAccounts.finishGoogleSignIn",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.finishGoogleSignIn",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "code",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "error",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Back to the Connected Accounts screen, naming the outcome"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks calendar:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/connected-accounts": {
+      "get": {
+        "description": "The session member's own connected accounts, and which providers this deployment can connect.",
+        "operationId": "connectedAccounts.list",
+        "tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-operationId": "connectedAccounts.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "connectedAccounts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's connected accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectedAccountList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -92831,6 +93011,73 @@
           },
           "422": {
             "description": "The address or the validation token is not one this route could have issued",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar-sync/provider-notices/google/{firmId}/{connectionId}": {
+      "post": {
+        "description": "Receives Google's notice that something in a member's connected calendar changed. Called by Google and by nothing in this platform. The notice has no body: it is acted on only when its `X-Goog-Channel-Token` header carries the secret that account gave Google, and every request is answered alike whether or not it was believed.",
+        "operationId": "calendarSync.receiveGoogleNotice",
+        "tags": [
+          "calendarSync"
+        ],
+        "x-mc-operationId": "calendarSync.receiveGoogleNotice",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "provider-notice",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendarSync"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,80}$"
+            },
+            "required": true,
+            "name": "connectionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The notice was received"
+          },
+          "422": {
+            "description": "The address is not one this route could have issued",
             "content": {
               "application/problem+json": {
                 "schema": {

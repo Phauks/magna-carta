@@ -1,3 +1,4 @@
+import type { CalendarProvider } from "@magna-carta/calendar/sync-contract";
 import type { CalendarSyncPort, ProviderNotice } from "@magna-carta/calendar/sync-port";
 import type { Bindings } from "../bindings.ts";
 import type { ConnectionIdentity } from "./connection-pass.ts";
@@ -27,8 +28,9 @@ export interface WatchState {
   readonly attention?: "renew" | "replace";
 }
 
-// Three days, where Microsoft allows a little under seven for a calendar's events. Short enough to
-// sit inside any provider's limit, long enough that a renewal is a rare request.
+// Three days, where Microsoft allows a little under seven for a calendar's events and Google about
+// the same. Short enough to sit inside any provider's limit, long enough that a renewal is a rare
+// request.
 export const WATCH_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
 // Renewed once less than this is left. An account's safety pass runs several times a day, so a
 // watch with two days left is renewed long before it could lapse.
@@ -37,6 +39,12 @@ export const WATCH_RENEW_WHEN_LEFT_MS = 2 * 24 * 60 * 60 * 1000;
 // Each provider has a receiving route of its own under this path, because each provider's notice
 // is a different shape.
 export const MICROSOFT_NOTICE_PATH = "/api/v1/calendar-sync/provider-notices/microsoft";
+export const GOOGLE_NOTICE_PATH = "/api/v1/calendar-sync/provider-notices/google";
+
+const NOTICE_PATHS: Readonly<Record<CalendarProvider, string>> = {
+  microsoft: MICROSOFT_NOTICE_PATH,
+  google: GOOGLE_NOTICE_PATH,
+};
 
 function trimTrailingSlashes(value: string): string {
   let end = value.length;
@@ -51,10 +59,11 @@ function trimTrailingSlashes(value: string): string {
 export function watchAddressFor(
   env: Pick<Bindings, "APP_BASE_URL">,
   identity: ConnectionIdentity,
+  provider: CalendarProvider,
 ): string | undefined {
   const stated = trimTrailingSlashes(env.APP_BASE_URL ?? "");
   if (!stated.startsWith("https://")) return undefined;
-  return `${stated}${MICROSOFT_NOTICE_PATH}/${encodeURIComponent(identity.firmId)}/${encodeURIComponent(identity.connectionId)}`;
+  return `${stated}${NOTICE_PATHS[provider]}/${encodeURIComponent(identity.firmId)}/${encodeURIComponent(identity.connectionId)}`;
 }
 
 export function newWatchSecret(): string {

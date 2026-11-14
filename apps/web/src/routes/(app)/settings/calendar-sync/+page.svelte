@@ -76,6 +76,7 @@
     type ShownCalendarChoice,
     type SyncScope,
   } from "$lib/calendar-sync/sync-settings.ts";
+  import { providerNames } from "$lib/calendar-sync/connected-accounts.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
@@ -87,6 +88,11 @@
   const settings = createQuery(() => calendarSyncReadMineOptions());
 
   const account = $derived(settings.data?.account ?? null);
+  // The member's own calendar as they call it. With no account connected there is no provider to
+  // name, and the page says "your calendar".
+  const product = $derived(
+    account === null ? "Your Calendar" : providerNames(account.provider).product,
+  );
   const calendars = $derived(settings.data?.calendars ?? null);
   // A change needs the account's calendars as they stand now, so without them nothing is offered.
   const canChange = $derived(account !== null && calendars !== null);
@@ -106,7 +112,7 @@
   );
   const shownGrid = $derived(
     DataTable.createDataTableGrid<ShownCalendarChoice>({
-      columns: shownCalendarColumns,
+      columns: () => shownCalendarColumns(product),
       rows: () => shownChoices,
       rowKey: (choice) => choice.remoteId,
       itemNoun: { singular: "calendar", plural: "calendars" },
@@ -135,7 +141,7 @@
   const openIssues = $derived(issues.data?.issues ?? []);
   const issueGrid = $derived(
     DataTable.createDataTableGrid<CalendarSyncIssue>({
-      columns: syncIssueColumns,
+      columns: () => syncIssueColumns(product),
       rows: () => openIssues,
       rowKey: issueKey,
       itemNoun: { singular: "event", plural: "events" },
@@ -269,22 +275,22 @@
 
 <SettingsScrollRegion>
   {#if openIssues.length > 0}
-    <SettingsPlate heading="Different in Outlook">
+    <SettingsPlate heading="Different in {product}">
       <SettingsDescription>
-        These are not the same in Outlook as in Magna Carta: you changed or deleted the copy there,
-        or Outlook would not take the event. Magna Carta's calendar was not changed. Put Back writes
-        the event to Outlook again as Magna Carta has it. Leave It keeps Outlook as it is.
+        These are not the same in {product} as in Magna Carta: you changed or deleted the copy there,
+        or {product} would not take the event. Magna Carta's calendar was not changed. Put Back writes
+        the event to {product} again as Magna Carta has it. Leave It keeps {product} as it is.
       </SettingsDescription>
       {#if answerRefusal !== null}
         <Alert.Root variant="danger">
           <Alert.Description>{answerRefusal}</Alert.Description>
         </Alert.Root>
       {/if}
-      <DataTable.Grid grid={issueGrid} caption="Events that are different in Outlook" cell={issueCell} />
+      <DataTable.Grid grid={issueGrid} caption="Events that are different in {product}" cell={issueCell} />
     </SettingsPlate>
   {/if}
 
-  <SettingsPlate heading="From Magna Carta to Outlook">
+  <SettingsPlate heading="From Magna Carta to {product}">
     <SettingsDescription>
       Nothing syncs unless a row below says so. A new event type starts as Not Synced until you
       choose where it goes.
@@ -308,7 +314,7 @@
         <Alert.Root variant="info">
           <Alert.Title>No account is connected</Alert.Title>
           <Alert.Description>
-            Connect your Outlook account in
+            Connect your Outlook or Google account in
             <a class="underline underline-offset-2" href="/settings/connected-accounts">
               Connected Accounts
             </a>
@@ -317,7 +323,7 @@
         </Alert.Root>
       {:else if account.status === "needs_reauth"}
         <Alert.Root variant="warning">
-          <Alert.Title>Outlook needs you to sign in again</Alert.Title>
+          <Alert.Title>{product} needs you to sign in again</Alert.Title>
           <Alert.Description>
             Your settings are kept. Connect again in
             <a class="underline underline-offset-2" href="/settings/connected-accounts">
@@ -328,9 +334,9 @@
         </Alert.Root>
       {:else if calendars === null}
         <Alert.Root variant="warning">
-          <Alert.Title>Your Outlook calendars could not be read</Alert.Title>
+          <Alert.Title>Your calendars could not be read</Alert.Title>
           <Alert.Description>
-            What you saved is shown below. It can be changed once Outlook answers again.
+            What you saved is shown below. It can be changed once {product} answers again.
           </Alert.Description>
         </Alert.Root>
       {/if}
@@ -342,16 +348,16 @@
     {#if account !== null && settings.data !== undefined}
       <SettingsPlateNote>
         {syncingSummary(settings.data.rules)} Connected as
-        {account.accountLabel ?? "your Microsoft 365 account"}.
+        {account.accountLabel ?? "your account"}.
       </SettingsPlateNote>
     {/if}
   </SettingsPlate>
 
   {#if account !== null && shownChoices.length > 0}
-    <SettingsPlate heading="From Outlook to Magna Carta">
+    <SettingsPlate heading="From {product} to Magna Carta">
       <SettingsDescription>
-        Events you make in an Outlook calendar switched on below appear on your Magna Carta
-        calendar, under My Outlook Calendar. Only you see them. Nothing is changed in Outlook, and
+        Events you make in a calendar of yours switched on below appear on your Magna Carta
+        calendar, under My Outlook Calendar. Only you see them. Nothing is changed in {product}, and
         they are not added to any matter.
       </SettingsDescription>
       {#if shownRefusal !== null}
@@ -359,8 +365,8 @@
           <Alert.Description>{shownRefusal}</Alert.Description>
         </Alert.Root>
       {/if}
-      <DataTable.Grid grid={shownGrid} caption="Your Outlook calendars" cell={shownCell} />
-      <SettingsPlateNote>{shownSummary(settings.data?.shownCalendars ?? [])}</SettingsPlateNote>
+      <DataTable.Grid grid={shownGrid} caption="Your own calendars" cell={shownCell} />
+      <SettingsPlateNote>{shownSummary(settings.data?.shownCalendars ?? [], product)}</SettingsPlateNote>
     </SettingsPlate>
   {/if}
 </SettingsScrollRegion>

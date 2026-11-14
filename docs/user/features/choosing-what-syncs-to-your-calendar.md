@@ -6,6 +6,10 @@ can be shown to you._
 
 ## What it does
 
+This page describes Outlook. A [connected Google account](connecting-your-google-calendar.md) works
+the same way, with Google Calendar wherever this page says Outlook; the one difference is noted
+under repeating events.
+
 After you [connect your Outlook account](connecting-your-outlook-calendar.md), you choose which
 kinds of Magna Carta event are copied to your Outlook calendar, and which of your calendars each
 kind goes to. Nothing is chosen for you. Until a row says otherwise, that kind of event is not
@@ -42,6 +46,9 @@ change to the calendar in Magna Carta.
 A repeating event goes to Outlook as one repeating event, not as a copy for each day. A day you
 changed in Magna Carta appears as its own entry, and a day you called off is taken out of the series
 in Outlook.
+
+Google Calendar repeats every rule Magna Carta offers on the same days, except a weekly event
+whose first day is not one of its weekdays, which is not sent.
 
 Outlook cannot repeat every rule on exactly the same days as Magna Carta. A monthly event on the
 29th, 30th or 31st, a monthly event on a fifth weekday, a yearly event on 29 February, and a weekly
