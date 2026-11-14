@@ -44,7 +44,7 @@
         {disabled}
       />
       {#if outOfOrder}
-        <p class="text-xs text-status-danger-subtle-foreground">Cannot precede the date of birth.</p>
+        <p class="text-xs text-status-danger-subtle-foreground">Can't be before the date of birth.</p>
       {/if}
     </div>
   </div>

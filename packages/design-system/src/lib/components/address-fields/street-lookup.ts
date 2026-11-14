@@ -129,6 +129,49 @@ export function groupAside(offer: AddressOffer): string {
   return offer.count === 1 ? "1 address" : `${String(offer.count)} addresses`;
 }
 
+/**
+ * An offer's one line as the two the list shows: the street, which is what somebody is choosing
+ * between, and the rest of the place, which tells two streets of the same name apart. Every service
+ * writes its line street first and comma separated ("12 Oak Street, Springfield, IL, USA"), so the
+ * line splits at its first comma; a line with none is all street.
+ */
+export function offerLines(label: string): { readonly main: string; readonly secondary: string } {
+  const comma = label.indexOf(",");
+  if (comma === -1) return { main: label.trim(), secondary: "" };
+  return { main: label.slice(0, comma).trim(), secondary: label.slice(comma + 1).trim() };
+}
+
+/** A piece of an offer's street line, and whether it is the part somebody typed. */
+export interface OfferTextSegment {
+  readonly text: string;
+  readonly matched: boolean;
+}
+
+/**
+ * The street line cut where it repeats what was typed, so the list can show which part of each
+ * offer answered the question. Letter case is ignored; the typed text is looked for at the start
+ * of the line first, then at the start of any word in it, and a line that does not contain it comes
+ * back whole and unmarked.
+ */
+export function matchedSegments(line: string, typed: string): readonly OfferTextSegment[] {
+  const query = typed.trim().toLocaleLowerCase();
+  if (query === "" || line === "") return line === "" ? [] : [{ text: line, matched: false }];
+  const lower = line.toLocaleLowerCase();
+  let at = lower.startsWith(query) ? 0 : -1;
+  if (at === -1) {
+    let from = lower.indexOf(query);
+    while (from > 0 && /\S/u.test(lower.charAt(from - 1))) from = lower.indexOf(query, from + 1);
+    at = from;
+  }
+  if (at === -1) return [{ text: line, matched: false }];
+  const end = at + query.length;
+  return [
+    { text: line.slice(0, at), matched: false },
+    { text: line.slice(at, end), matched: true },
+    { text: line.slice(end), matched: false },
+  ].filter((segment) => segment.text !== "");
+}
+
 /** The parts an offer can fill. The recipient and organization lines are the person's, never a lookup's. */
 const FILLED_BY_LOOKUP: readonly (AddressFieldKey | "country")[] = [
   "street",

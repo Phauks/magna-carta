@@ -45168,6 +45168,1030 @@
           "activeMemberCount"
         ]
       },
+      "RecordTransferRunListResponse": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordTransferRun"
+            }
+          }
+        },
+        "required": [
+          "runs"
+        ]
+      },
+      "RecordTransferRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sourceSystem": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "startedBy": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "abandonedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sourceSystem",
+          "label",
+          "startedBy",
+          "startedAt",
+          "completedAt",
+          "abandonedAt"
+        ]
+      },
+      "RecordTransferRunResponse": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/RecordTransferRun"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordTransferSourceFile"
+            }
+          },
+          "passes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordTransferPass"
+            }
+          }
+        },
+        "required": [
+          "run",
+          "files",
+          "passes"
+        ]
+      },
+      "RecordTransferSourceFile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "delimited-text"
+            ]
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "contentSha256": {
+            "type": "string"
+          },
+          "keyColumn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rowCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "registeredAt": {
+            "type": "string"
+          },
+          "removedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sourceKind",
+          "format",
+          "fileName",
+          "byteLength",
+          "contentSha256",
+          "keyColumn",
+          "rowCount",
+          "registeredAt",
+          "removedAt"
+        ]
+      },
+      "RecordTransferPass": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "recordKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "matter"
+            ]
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "running",
+              "stalled",
+              "finished",
+              "failed"
+            ]
+          },
+          "requestedBy": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "counts": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "rowsRead": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "created": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "alreadyLinked": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rejected": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "waiting": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "findings": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "columnsMissing": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "rowsRead",
+              "created",
+              "alreadyLinked",
+              "rejected",
+              "waiting",
+              "findings",
+              "columnsMissing"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "fileId",
+          "recordKind",
+          "sourceKind",
+          "state",
+          "requestedBy",
+          "requestedAt",
+          "startedAt",
+          "finishedAt",
+          "failedAt",
+          "counts"
+        ]
+      },
+      "StartRecordTransferRunRequest": {
+        "type": "object",
+        "properties": {
+          "sourceSystem": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "sourceSystem",
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferSourceFileResponse": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/RecordTransferSourceFile"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "RecordTransferSourceFilePreviewResponse": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "columns",
+          "rows"
+        ]
+      },
+      "RecordTransferPassResponse": {
+        "type": "object",
+        "properties": {
+          "pass": {
+            "$ref": "#/components/schemas/RecordTransferPass"
+          }
+        },
+        "required": [
+          "pass"
+        ]
+      },
+      "RequestRecordTransferPassRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "recordKind": {
+                "type": "string",
+                "enum": [
+                  "person"
+                ]
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "keyColumn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "delimiter": {
+                "type": "string",
+                "enum": [
+                  ",",
+                  "\t",
+                  ";",
+                  "|"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/RecordTransferPersonRules"
+              }
+            },
+            "required": [
+              "recordKind",
+              "fileId",
+              "sourceKind",
+              "keyColumn",
+              "rules"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "recordKind": {
+                "type": "string",
+                "enum": [
+                  "organization"
+                ]
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "keyColumn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "delimiter": {
+                "type": "string",
+                "enum": [
+                  ",",
+                  "\t",
+                  ";",
+                  "|"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/RecordTransferOrganizationRules"
+              }
+            },
+            "required": [
+              "recordKind",
+              "fileId",
+              "sourceKind",
+              "keyColumn",
+              "rules"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "recordKind": {
+                "type": "string",
+                "enum": [
+                  "matter"
+                ]
+              },
+              "fileId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "keyColumn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "delimiter": {
+                "type": "string",
+                "enum": [
+                  ",",
+                  "\t",
+                  ";",
+                  "|"
+                ]
+              },
+              "rules": {
+                "$ref": "#/components/schemas/RecordTransferMatterRules"
+              }
+            },
+            "required": [
+              "recordKind",
+              "fileId",
+              "sourceKind",
+              "keyColumn",
+              "rules"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "RecordTransferPersonRules": {
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "prefix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "middle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "suffix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOrder": {
+            "type": "string",
+            "enum": [
+              "year-month-day",
+              "day-month-year",
+              "month-day-year"
+            ]
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 10
+          },
+          "phones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "fax": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "column"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 10
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "streetTwo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "dependentLocality": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "region": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "postal": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          },
+          "addressCountry": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          }
+        },
+        "required": [
+          "given",
+          "family"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferOrganizationRules": {
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "maxItems": 10
+          },
+          "phones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "fax": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "column"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 10
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "streetTwo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "dependentLocality": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "region": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "postal": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          },
+          "addressCountry": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          }
+        },
+        "required": [
+          "legalName"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferMatterRules": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "clientDisplayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "openedDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "closedDate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dateOrder": {
+            "type": "string",
+            "enum": [
+              "year-month-day",
+              "day-month-year",
+              "month-day-year"
+            ]
+          },
+          "timeZone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "client": {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "sourceKind": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              }
+            },
+            "required": [
+              "column",
+              "sourceKind"
+            ],
+            "additionalProperties": false
+          },
+          "parties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "sourceKind": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]{0,62}$"
+                },
+                "role": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "column",
+                "sourceKind",
+                "role"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 20
+          },
+          "matterType": {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "types": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              }
+            },
+            "required": [
+              "column",
+              "types"
+            ],
+            "additionalProperties": false
+          },
+          "responsibleMember": {
+            "type": "object",
+            "properties": {
+              "column": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "members": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "otherwise": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "members"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "title",
+          "number",
+          "openedDate",
+          "dateOrder",
+          "timeZone",
+          "responsibleMember"
+        ],
+        "additionalProperties": false
+      },
+      "RecordTransferPassReportResponse": {
+        "type": "object",
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/RecordTransferPassReport"
+          },
+          "failure": {
+            "$ref": "#/components/schemas/RecordTransferPassFailure"
+          }
+        },
+        "required": [
+          "report",
+          "failure"
+        ]
+      },
+      "RecordTransferPassReport": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "columnsMissing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rowsRead": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "alreadyLinked": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "reason"
+              ]
+            }
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "missing": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sourceKind": {
+                        "type": "string"
+                      },
+                      "sourceId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "sourceKind",
+                      "sourceId"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "missing"
+              ]
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "column": {
+                  "type": "string"
+                },
+                "finding": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "column",
+                "finding"
+              ]
+            }
+          },
+          "sample": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "lineNumber": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "localId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rowNumber",
+                "lineNumber",
+                "localId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "columnsMissing",
+          "rowsRead",
+          "created",
+          "alreadyLinked",
+          "rejected",
+          "waiting",
+          "findings",
+          "sample"
+        ]
+      },
+      "RecordTransferPassFailure": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "sourceFileNotHeld",
+              "fileNotReadable",
+              "rulesNotReadable",
+              "fault"
+            ]
+          },
+          "fileFault": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "noHeader",
+              "blankColumnName",
+              "duplicateColumnName",
+              "unterminatedQuote",
+              null
+            ]
+          },
+          "lineNumber": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "reason",
+          "fileFault",
+          "lineNumber"
+        ]
+      },
       "ShippingConnectAck": {
         "type": "object",
         "properties": {
@@ -138302,6 +139326,860 @@
         }
       }
     },
+    "/api/v1/record-transfer/runs": {
+      "get": {
+        "description": "Every transfer run this firm has started, newest first.",
+        "operationId": "recordTransfer.listRuns",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.listRuns",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's transfer runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Starts a transfer run for the system the firm is leaving. A run holds the files given to it and every pass made over them; a rehearsal and the cutover are separate runs.",
+        "operationId": "recordTransfer.startRun",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.startRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRecordTransferRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The run that was started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}": {
+      "get": {
+        "description": "One run with the files given to it and the passes made over them, each pass with its state and, once finished, its counts.",
+        "operationId": "recordTransfer.getRun",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run, its files and its passes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/files": {
+      "post": {
+        "description": "Gives a source file to a run. The body is the file's bytes, kept unchanged; the file's rows are read when a pass is asked for. The same bytes given to one run a second time are refused.",
+        "operationId": "recordTransfer.addSourceFile",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.addSourceFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "required": true,
+            "name": "fileName",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
+            },
+            "required": true,
+            "name": "sourceKind",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The file as the run now holds it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferSourceFileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than a source file may be",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/files/{fileId}/preview": {
+      "get": {
+        "description": "The file's header row and its first three data rows, read from the stored file when asked, so a person can say what each column holds. These are values from the file; they are answered to the member and stored nowhere.",
+        "operationId": "recordTransfer.previewSourceFile",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.previewSourceFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferSourceFile_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "comma",
+                "tab",
+                "semicolon",
+                "pipe"
+              ]
+            },
+            "required": false,
+            "name": "delimiter",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The column names and the first rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferSourceFilePreviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes": {
+      "post": {
+        "description": "Asks for a pass over one of the run's files: which kind of record its rows are, which column holds each row's key, and the mapping rules that say what each column holds. The request is recorded and answered at once; the pass runs afterwards.",
+        "operationId": "recordTransfer.requestPass",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.requestPass",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestRecordTransferPassRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The pass was asked for and is queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes/{passId}": {
+      "get": {
+        "description": "How one pass stands: asked for, running, stalled, finished or failed, with its counts once it has finished.",
+        "operationId": "recordTransfer.getPass",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getPass",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferPass_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "passId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pass",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes/{passId}/report": {
+      "get": {
+        "description": "The whole report of a pass that has ended: every rejected row with its reason, every row waiting for a record it names, every value left out, and a sample of the records created. It holds positions, column names, fixed reasons, source keys and identifiers, and no other value from the file. A pass that failed answers why instead. Both are null while the pass has not ended.",
+        "operationId": "recordTransfer.getPassReport",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getPassReport",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferPass_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "passId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The report, or the reason there is none",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassReportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/shipping/connection": {
       "post": {
         "description": "Connects the firm's EasyPost postage account, or replaces its key. The key is stored encrypted and is never returned by any route. An administrative act: it requires firm:manageSecrets, not shipping:manage.",
@@ -139783,6 +141661,9 @@
     },
     {
       "name": "rates"
+    },
+    {
+      "name": "recordTransfer"
     },
     {
       "name": "registrations"

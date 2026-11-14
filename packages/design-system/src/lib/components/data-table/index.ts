@@ -41,6 +41,7 @@ export {
   type GridItemNoun,
 } from "./data-table-grid-state.svelte.ts";
 export {
+  type GridBandFoot,
   type GridCellContext,
   type GridColumn,
   type GridColumnFilterKind,

@@ -4,10 +4,16 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import * as perFirmSchema from "@magna-carta/database/per-firm-schema";
 import {
   sourceRecordLink,
+  transferPass,
   transferRun,
   transferSourceFile,
 } from "@magna-carta/database/per-firm-schema";
-import type { TransferRunId, TransferSourceFileId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  TransferPassId,
+  TransferRunId,
+  TransferSourceFileId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import { is } from "drizzle-orm";
 import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
@@ -22,10 +28,20 @@ import {
   selectSourcesOfLocalRecordStatement,
 } from "../src/source-record-link-statements.ts";
 import {
+  TRANSFER_PASS_TABLE,
+  failTransferPassStatement,
+  finishTransferPassStatement,
+  insertTransferPassStatement,
+  selectTransferPassStatement,
+  selectTransferPassesStatement,
+  startTransferPassStatement,
+} from "../src/transfer-pass-statements.ts";
+import {
   TRANSFER_RUN_TABLE,
   abandonTransferRunStatement,
   completeTransferRunStatement,
   insertTransferRunStatement,
+  selectAllTransferRunsStatement,
   selectTransferRunStatement,
   selectTransferRunsStatement,
 } from "../src/transfer-run-statements.ts";
@@ -73,6 +89,7 @@ const SQL_WORDS = new Set([
   "distinct",
   "as",
   "group",
+  "not",
 ]);
 
 // Aliases the statements introduce for computed columns; they name no column of any table.
@@ -98,6 +115,7 @@ describe("schema name sync (record-transfer SQL pinned to @magna-carta/database)
     expect(getTableConfig(transferRun).name).toBe(TRANSFER_RUN_TABLE);
     expect(getTableConfig(sourceRecordLink).name).toBe(SOURCE_RECORD_LINK_TABLE);
     expect(getTableConfig(transferSourceFile).name).toBe(TRANSFER_SOURCE_FILE_TABLE);
+    expect(getTableConfig(transferPass).name).toBe(TRANSFER_PASS_TABLE);
   });
 
   it("every name the transfer-run SQL uses is the table or one of its columns", () => {
@@ -111,6 +129,7 @@ describe("schema name sync (record-transfer SQL pinned to @magna-carta/database)
       ),
       selectTransferRunStatement(stub, RUN_ID),
       selectTransferRunsStatement(stub, "leap"),
+      selectAllTransferRunsStatement(stub),
       completeTransferRunStatement(stub, RUN_ID, NOW),
       abandonTransferRunStatement(stub, RUN_ID, NOW),
     ];
@@ -164,6 +183,46 @@ describe("schema name sync (record-transfer SQL pinned to @magna-carta/database)
       selectTransferSourceFilesStatement(stub, RUN_ID),
       recordTransferSourceFileReadStatement(stub, fileId, 1, NOW),
       recordTransferSourceFileRemovedStatement(stub, fileId, NOW),
+    ];
+    for (const statement of statements) {
+      const unknown = identifiersIn(sqlOf(statement)).filter((name) => !known.has(name));
+      expect(unknown, sqlOf(statement)).toEqual([]);
+    }
+  });
+
+  it("every name the transfer-pass SQL uses is the table or one of its columns", () => {
+    const stub = stubDatabase();
+    const known = new Set([TRANSFER_PASS_TABLE, ...columnsOf(transferPass)]);
+    const passId = "transferPass_x" as TransferPassId;
+    const report = {
+      columnsMissing: [],
+      rowsRead: 0,
+      created: 0,
+      alreadyLinked: 0,
+      rejected: [],
+      waiting: [],
+      findings: [],
+      sample: [],
+    };
+    const statements = [
+      insertTransferPassStatement(
+        stub,
+        {
+          id: passId,
+          transferRunId: RUN_ID,
+          transferSourceFileId: "transferSourceFile_x" as TransferSourceFileId,
+          recordKind: "person",
+          sourceKind: "card",
+          rulesJson: "{}",
+          requestedBy: USER_ID,
+        },
+        NOW,
+      ),
+      selectTransferPassStatement(stub, passId),
+      selectTransferPassesStatement(stub, RUN_ID),
+      startTransferPassStatement(stub, passId, NOW),
+      finishTransferPassStatement(stub, passId, report, NOW),
+      failTransferPassStatement(stub, passId, NOW),
     ];
     for (const statement of statements) {
       const unknown = identifiersIn(sqlOf(statement)).filter((name) => !known.has(name));

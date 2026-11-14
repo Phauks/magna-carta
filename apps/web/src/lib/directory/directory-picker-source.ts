@@ -62,7 +62,7 @@ export function directoryPickerSearch(
   return async (query: string): Promise<EntityPickerAnswer> => {
     const outcome = await searchDirectory(fetchImpl, query);
     if (outcome.kind !== "ok") {
-      throw new Error("The directory could not be searched.");
+      throw new Error("Couldn't search the directory.");
     }
     const hits = outcome.value.data
       .map(pickableEntityFrom)

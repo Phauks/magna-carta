@@ -1649,6 +1649,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // object storage under a key built from identifiers alone; nothing of their content is in this
   // row. file_name is what the operator's computer called the export, display text about a file.
   "transfer_source_file",
+  // One pass over a source file: the operator's mapping rules (column names and the firm's own
+  // identifiers, with the source's names for matter types and its codes for staff as lookup keys),
+  // the counts, and the key of the report object. No client's details: a report names rows by number.
+  // requested_by is administrative provenance, as transfer_run.started_by is.
+  "transfer_pass",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

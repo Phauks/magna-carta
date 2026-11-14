@@ -69,7 +69,7 @@
     if (outcome.kind !== "ok") {
       return outcome.kind === "problem" && outcome.problem.detail !== undefined
         ? outcome.problem.detail
-        : "The picture was not saved. Try again.";
+        : "The picture wasn't saved. Try again.";
     }
     photo = outcome.value.photo;
     toast.success("Photo saved");
@@ -79,7 +79,7 @@
   async function remove(): Promise<boolean> {
     const outcome = await removeDirectoryEntityPhoto(fetch, entityId, crypto.randomUUID());
     if (outcome.kind !== "ok") {
-      toast.error("The photo was not removed. Try again.");
+      toast.error("The photo wasn't removed. Try again.");
       return false;
     }
     photo = null;

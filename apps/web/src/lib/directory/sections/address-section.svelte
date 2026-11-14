@@ -24,9 +24,10 @@
    * draft to whoever owns the record.
    */
   import { administrativeAreasFor } from "@magna-carta/address-formats/administrative-areas";
-  import { postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
+  import { postalCodeAsTypedFor, postalCodeNoteFor } from "@magna-carta/address-formats/postal-code";
   import AddressFields from "@magna-carta/design-system/address-fields";
   import { addressLookup } from "$lib/addresses/address-lookup-source.ts";
+  import { googleMapsLinkFor } from "$lib/addresses/google-maps-link.ts";
   import type { AddressParts } from "@magna-carta/design-system/address-fields";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -34,6 +35,7 @@
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import Ban from "@lucide/svelte/icons/ban";
   import Check from "@lucide/svelte/icons/check";
+  import MapIcon from "@lucide/svelte/icons/map";
   import MapPin from "@lucide/svelte/icons/map-pin";
   import PenLine from "@lucide/svelte/icons/pen-line";
   import Plus from "@lucide/svelte/icons/plus";
@@ -191,6 +193,7 @@
     <ul class="flex flex-col">
       {#each rows as row (row.id)}
         {@const beingCorrected = correcting?.id === row.id}
+        {@const mapsLink = googleMapsLinkFor(row.value)}
         <li
           class="flex items-center gap-8 border-b border-border-default py-4"
           class:text-text-muted={beingCorrected}
@@ -226,6 +229,21 @@
             {/if}
           </span>
           <span class="flex shrink-0 items-center">
+            <!-- Opens the address in Google Maps in a new window (owner request 2026-11-13). A plain
+                 link, so it works for anyone who can see the address, editing or not. -->
+            {#if mapsLink !== null}
+              <Button
+                variant="ghost"
+                size="icon"
+                href={mapsLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open in Google Maps"
+                aria-label="Open {row.value} in Google Maps"
+              >
+                <MapIcon class="size-16" aria-hidden="true" />
+              </Button>
+            {/if}
             {#if correctable}
               <Button
                 variant="ghost"
@@ -303,6 +321,7 @@
       countries={countryItems}
       administrativeAreas={administrativeAreasFor(parts.country)}
       postalCodeNote={postalCodeNoteFor}
+      postalCodeAsTyped={postalCodeAsTypedFor}
       lookup={streetLookup}
       disabled={!canEdit}
     />

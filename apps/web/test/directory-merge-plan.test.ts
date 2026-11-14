@@ -142,7 +142,7 @@ describe("what the confirmation has to say", () => {
   it("states that nothing is deleted, and that nothing here undoes it", () => {
     expect(MERGE_CONSEQUENCES.length).toBeGreaterThan(0);
     expect(MERGE_CONSEQUENCES.join(" ")).toContain("archived, not deleted");
-    expect(MERGE_IRREVERSIBLE_STATEMENT).toContain("cannot be undone");
+    expect(MERGE_IRREVERSIBLE_STATEMENT).toContain("can't be undone");
   });
 
   it("carries no em dash, which the product's copy does not use", () => {
