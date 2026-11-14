@@ -22,7 +22,7 @@ CREATE TABLE `exhibit_set` (
 	`noun` text NOT NULL,
 	`prefix` text DEFAULT '' NOT NULL,
 	`sequence` text NOT NULL,
-	`start_at` integer NOT NULL,
+	`start_number` integer NOT NULL,
 	`overflow_form` text NOT NULL,
 	`state` text DEFAULT 'draft' NOT NULL,
 	`continues_from_set_id` text,
@@ -46,7 +46,7 @@ CREATE TABLE `exhibit_set` (
 	CONSTRAINT "exhibit_set_overflow_form_check" CHECK("exhibit_set"."overflow_form" IN ('doubled', 'bijective')),
 	CONSTRAINT "exhibit_set_state_check" CHECK("exhibit_set"."state" IN ('draft', 'issued')),
 	CONSTRAINT "exhibit_set_disposition_check" CHECK("exhibit_set"."disposition" IS NULL OR "exhibit_set"."disposition" IN ('filed', 'served', 'exchanged', 'lodged')),
-	CONSTRAINT "exhibit_set_shape_check" CHECK(length("exhibit_set"."name") > 0 AND "exhibit_set"."start_at" >= 1),
+	CONSTRAINT "exhibit_set_shape_check" CHECK(length("exhibit_set"."name") > 0 AND "exhibit_set"."start_number" >= 1),
 	CONSTRAINT "exhibit_set_issue_shape_check" CHECK(("exhibit_set"."state" = 'issued') = ("exhibit_set"."disposition" IS NOT NULL AND "exhibit_set"."issued_on" IS NOT NULL AND "exhibit_set"."issued_at" IS NOT NULL) AND ("exhibit_set"."state" = 'issued' OR "exhibit_set"."issued_by" IS NULL)),
 	CONSTRAINT "exhibit_set_issued_on_shape_check" CHECK("exhibit_set"."issued_on" IS NULL OR "exhibit_set"."issued_on" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
 	CONSTRAINT "exhibit_set_not_its_own_predecessor_check" CHECK(("exhibit_set"."supersedes_set_id" IS NULL OR "exhibit_set"."supersedes_set_id" <> "exhibit_set"."id") AND ("exhibit_set"."continues_from_set_id" IS NULL OR "exhibit_set"."continues_from_set_id" <> "exhibit_set"."id"))
@@ -137,7 +137,7 @@ CREATE TRIGGER `exhibit_set_member_frozen_after_issue` BEFORE UPDATE ON `exhibit
   SELECT RAISE(ABORT, 'an issued exhibit set member keeps the label, position and values it went out with');
 END;
 --> statement-breakpoint
-CREATE TRIGGER `exhibit_set_frozen_after_issue` BEFORE UPDATE ON `exhibit_set` WHEN OLD.`state` = 'issued' AND (NEW.`state` IS NOT 'issued' OR OLD.`matter_id` IS NOT NEW.`matter_id` OR OLD.`name` IS NOT NEW.`name` OR OLD.`noun` IS NOT NEW.`noun` OR OLD.`prefix` IS NOT NEW.`prefix` OR OLD.`sequence` IS NOT NEW.`sequence` OR OLD.`start_at` IS NOT NEW.`start_at` OR OLD.`overflow_form` IS NOT NEW.`overflow_form` OR OLD.`continues_from_set_id` IS NOT NEW.`continues_from_set_id` OR OLD.`supersedes_set_id` IS NOT NEW.`supersedes_set_id` OR OLD.`disposition` IS NOT NEW.`disposition` OR OLD.`issued_on` IS NOT NEW.`issued_on` OR OLD.`issued_at` IS NOT NEW.`issued_at` OR OLD.`issued_by` IS NOT NEW.`issued_by` OR OLD.`archived_at` IS NOT NEW.`archived_at` OR (OLD.`filed_copy_file_id` IS NOT NULL AND OLD.`filed_copy_file_id` IS NOT NEW.`filed_copy_file_id`)) BEGIN
+CREATE TRIGGER `exhibit_set_frozen_after_issue` BEFORE UPDATE ON `exhibit_set` WHEN OLD.`state` = 'issued' AND (NEW.`state` IS NOT 'issued' OR OLD.`matter_id` IS NOT NEW.`matter_id` OR OLD.`name` IS NOT NEW.`name` OR OLD.`noun` IS NOT NEW.`noun` OR OLD.`prefix` IS NOT NEW.`prefix` OR OLD.`sequence` IS NOT NEW.`sequence` OR OLD.`start_number` IS NOT NEW.`start_number` OR OLD.`overflow_form` IS NOT NEW.`overflow_form` OR OLD.`continues_from_set_id` IS NOT NEW.`continues_from_set_id` OR OLD.`supersedes_set_id` IS NOT NEW.`supersedes_set_id` OR OLD.`disposition` IS NOT NEW.`disposition` OR OLD.`issued_on` IS NOT NEW.`issued_on` OR OLD.`issued_at` IS NOT NEW.`issued_at` OR OLD.`issued_by` IS NOT NEW.`issued_by` OR OLD.`archived_at` IS NOT NEW.`archived_at` OR (OLD.`filed_copy_file_id` IS NOT NULL AND OLD.`filed_copy_file_id` IS NOT NEW.`filed_copy_file_id`)) BEGIN
   SELECT RAISE(ABORT, 'an issued exhibit set cannot be changed or unissued; supersede it instead');
 END;
 --> statement-breakpoint

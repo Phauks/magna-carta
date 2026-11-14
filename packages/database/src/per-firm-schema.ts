@@ -13168,7 +13168,6 @@ export const transferSourceFile = sqliteTable(
   ],
 );
 
-
 // ---------------------------------------------------------------------------------------------------
 // Exhibits — a matter's documents put in order for a filing.
 //
@@ -13267,7 +13266,7 @@ export const exhibitSet = sqliteTable(
     sequence: text("sequence", {
       enum: ["upperLetter", "lowerLetter", "arabic", "upperRoman", "lowerRoman"],
     }).notNull(),
-    startAt: integer("start_at").notNull(),
+    startNumber: integer("start_number").notNull(),
     overflowForm: text("overflow_form", { enum: ["doubled", "bijective"] }).notNull(),
     state: text("state", { enum: ["draft", "issued"] })
       .notNull()
@@ -13308,16 +13307,16 @@ export const exhibitSet = sqliteTable(
       "exhibit_set_sequence_check",
       sql`${table.sequence} IN ('upperLetter', 'lowerLetter', 'arabic', 'upperRoman', 'lowerRoman')`,
     ),
-    check("exhibit_set_overflow_form_check", sql`${table.overflowForm} IN ('doubled', 'bijective')`),
+    check(
+      "exhibit_set_overflow_form_check",
+      sql`${table.overflowForm} IN ('doubled', 'bijective')`,
+    ),
     check("exhibit_set_state_check", sql`${table.state} IN ('draft', 'issued')`),
     check(
       "exhibit_set_disposition_check",
       sql`${table.disposition} IS NULL OR ${table.disposition} IN ('filed', 'served', 'exchanged', 'lodged')`,
     ),
-    check(
-      "exhibit_set_shape_check",
-      sql`length(${table.name}) > 0 AND ${table.startAt} >= 1`,
-    ),
+    check("exhibit_set_shape_check", sql`length(${table.name}) > 0 AND ${table.startNumber} >= 1`),
     // An issued set says how, when and by whom; a draft says none of it.
     check(
       "exhibit_set_issue_shape_check",
@@ -13377,10 +13376,7 @@ export const exhibitSetMember = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("exhibit_set_member_position_unique_index").on(
-      table.exhibitSetId,
-      table.position,
-    ),
+    uniqueIndex("exhibit_set_member_position_unique_index").on(table.exhibitSetId, table.position),
     uniqueIndex("exhibit_set_member_label_unique_index")
       .on(table.exhibitSetId, table.label)
       .where(sql`${table.label} IS NOT NULL`),

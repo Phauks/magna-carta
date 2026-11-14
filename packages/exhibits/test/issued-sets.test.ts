@@ -154,7 +154,7 @@ describe("the database's freeze", () => {
     expect(() => raw.exec(`UPDATE exhibit_set SET state = 'draft' WHERE id = '${setId}'`)).toThrow(
       /cannot be changed or unissued/,
     );
-    expect(() => raw.exec(`UPDATE exhibit_set SET start_at = 4 WHERE id = '${setId}'`)).toThrow(
+    expect(() => raw.exec(`UPDATE exhibit_set SET start_number = 4 WHERE id = '${setId}'`)).toThrow(
       /cannot be changed or unissued/,
     );
     expect(() => raw.exec(`DELETE FROM exhibit_set WHERE id = '${setId}'`)).toThrow(
@@ -261,7 +261,7 @@ describe("after issue", () => {
     // Two racing writes both past the read: the partial unique index refuses the second.
     expect(() =>
       raw.exec(
-        `INSERT INTO exhibit_set (id, matter_id, name, noun, prefix, sequence, start_at, overflow_form, state, supersedes_set_id, created_at, updated_at) VALUES ('exhibitSet_racingFork0000000000000', '${MATTER}', 'Fork', 'Exhibit', '', 'upperLetter', 1, 'doubled', 'draft', '${setId}', 'x', 'x')`,
+        `INSERT INTO exhibit_set (id, matter_id, name, noun, prefix, sequence, start_number, overflow_form, state, supersedes_set_id, created_at, updated_at) VALUES ('exhibitSet_racingFork0000000000000', '${MATTER}', 'Fork', 'Exhibit', '', 'upperLetter', 1, 'doubled', 'draft', '${setId}', 'x', 'x')`,
       ),
     ).toThrow(/UNIQUE/);
   });
@@ -276,7 +276,7 @@ describe("after issue", () => {
     const trial = await continueExhibitSet(database, MATTER, setId, { name: "Trial" }, options);
     await commit(database, trial.effect);
     const row = await readExhibitSetRow(database, trial.setId);
-    expect(row?.start_at).toBe(4);
+    expect(row?.start_number).toBe(4);
     expect(labelFor(1, schemeOf(row!))).toBe("D");
     const chain = await readContinuationChain(database, trial.setId);
     expect(chain.map((set) => set.id)).toEqual([setId]);

@@ -37,7 +37,7 @@ export async function nextStartAfter(
     (highest, member) => Math.max(highest, member.position),
     0,
   );
-  return predecessor.start_at + highestPosition;
+  return predecessor.start_number + highestPosition;
 }
 
 function requireIssued(set: ExhibitSetRow): void {

@@ -200,7 +200,9 @@ describe("building and issuing an exhibit set", () => {
       { memberIds: draft.members.map((member) => member.id) },
     );
     expect(refusedReorder.status).toBe(409);
-    expect(((await refusedReorder.json()) as { type: string }).type).toContain("exhibit-set-issued");
+    expect(((await refusedReorder.json()) as { type: string }).type).toContain(
+      "exhibit-set-issued",
+    );
 
     const refusedRemoval = await send(
       "DELETE",

@@ -320,7 +320,7 @@ export async function listMatterExhibits(
       `SELECT ${columns}, f.name AS file_name, ` +
         `(SELECT json_group_array(json_object('setId', s.id, 'setName', s.name, 'state', s.state, ` +
         `'position', m.position, 'label', m.label, 'status', m.status, 'noun', s.noun, ` +
-        `'prefix', s.prefix, 'sequence', s.sequence, 'startAt', s.start_at, ` +
+        `'prefix', s.prefix, 'sequence', s.sequence, 'startAt', s.start_number, ` +
         `'overflowForm', s.overflow_form)) FROM ${EXHIBIT_SET_MEMBER_TABLE} m ` +
         `JOIN ${EXHIBIT_SET_TABLE} s ON s.id = m.exhibit_set_id ` +
         `WHERE m.matter_exhibit_id = e.id AND s.archived_at IS NULL) AS appearances_json ` +

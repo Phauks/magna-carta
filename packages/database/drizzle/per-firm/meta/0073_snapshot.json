@@ -9601,8 +9601,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "start_at": {
-          "name": "start_at",
+        "start_number": {
+          "name": "start_number",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -9828,7 +9828,7 @@
         },
         "exhibit_set_shape_check": {
           "name": "exhibit_set_shape_check",
-          "value": "length(\"exhibit_set\".\"name\") > 0 AND \"exhibit_set\".\"start_at\" >= 1"
+          "value": "length(\"exhibit_set\".\"name\") > 0 AND \"exhibit_set\".\"start_number\" >= 1"
         },
         "exhibit_set_issue_shape_check": {
           "name": "exhibit_set_issue_shape_check",

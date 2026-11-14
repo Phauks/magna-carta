@@ -18,7 +18,7 @@ export interface ExhibitSetRow {
   readonly noun: string;
   readonly prefix: string;
   readonly sequence: ExhibitScheme["sequence"];
-  readonly start_at: number;
+  readonly start_number: number;
   readonly overflow_form: ExhibitScheme["overflowForm"];
   readonly state: ExhibitSetState;
   readonly continues_from_set_id: ExhibitSetId | null;
@@ -36,7 +36,7 @@ export interface ExhibitSetRow {
 }
 
 export const SET_COLUMNS =
-  "id, matter_id, name, noun, prefix, sequence, start_at, overflow_form, state, " +
+  "id, matter_id, name, noun, prefix, sequence, start_number, overflow_form, state, " +
   "continues_from_set_id, supersedes_set_id, source_folder_id, disposition, issued_on, issued_at, issued_by, " +
   "filed_copy_file_id, created_by, created_at, updated_at, archived_at";
 
@@ -46,7 +46,7 @@ export function schemeOf(set: ExhibitSetRow): ExhibitScheme {
     noun: set.noun,
     prefix: set.prefix,
     sequence: set.sequence,
-    startAt: set.start_at,
+    startAt: set.start_number,
     overflowForm: set.overflow_form,
   };
 }
@@ -67,7 +67,7 @@ export function insertExhibitSetStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${EXHIBIT_SET_TABLE} (id, matter_id, name, noun, prefix, sequence, start_at, ` +
+      `INSERT INTO ${EXHIBIT_SET_TABLE} (id, matter_id, name, noun, prefix, sequence, start_number, ` +
         `overflow_form, state, continues_from_set_id, supersedes_set_id, created_by, created_at, ` +
         `updated_at, source_folder_id) ` +
         `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'draft', ?9, ?10, ?11, ?12, ?12, ?13)`,
@@ -99,7 +99,7 @@ export function updateDraftExhibitSetStatement(
   return database
     .prepare(
       `UPDATE ${EXHIBIT_SET_TABLE} SET name = ?2, noun = ?3, prefix = ?4, sequence = ?5, ` +
-        `start_at = ?6, overflow_form = ?7, updated_at = ?8 WHERE id = ?1 AND state = 'draft'`,
+        `start_number = ?6, overflow_form = ?7, updated_at = ?8 WHERE id = ?1 AND state = 'draft'`,
     )
     .bind(
       id,
