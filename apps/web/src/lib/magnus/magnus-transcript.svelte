@@ -85,8 +85,11 @@
     const target = document.querySelector(`[data-turn-id="${CSS.escape(currentMatchId)}"]`);
     target?.scrollIntoView({ block: "center" });
   });
-  /** Nothing in the conversation is being answered, so a message may be changed. */
-  const settled = $derived((turns ?? []).every((turn) => turn.status !== "pending"));
+  /*
+   * An answer is being written somewhere in the conversation. A message may still be changed (owner
+   * ruling, 2026-11-14): the change stops that answer, and the controls say so.
+   */
+  const answering = $derived((turns ?? []).some((turn) => turn.status === "pending"));
 
   /* Who asked, named the same way the surface names a downloaded transcript. */
   const author = conversationAuthor(() => session.conversation?.createdBy ?? null);
@@ -277,7 +280,6 @@
                           {...props}
                           variant="ghost"
                           size="icon-sm"
-                          disabled={!settled}
                           aria-label="Edit your message from {formatInstant(turn.createdAt)}"
                           onclick={() => onEdit?.(turn)}
                         >
@@ -286,7 +288,7 @@
                       {/snippet}
                     </Tooltip.Trigger>
                     <Tooltip.Content>
-                      {settled ? "Edit and Ask Again" : "Wait for the answer to finish"}
+                      {answering ? "Edit and Ask Again, Stopping the Answer" : "Edit and Ask Again"}
                     </Tooltip.Content>
                   </Tooltip.Root>
                 {/if}
@@ -298,7 +300,6 @@
                           {...props}
                           variant="ghost"
                           size="icon-sm"
-                          disabled={!settled}
                           aria-label="Remove your message from {formatInstant(turn.createdAt)}"
                           onclick={() => onRemove?.(turn)}
                         >
@@ -307,7 +308,7 @@
                       {/snippet}
                     </Tooltip.Trigger>
                     <Tooltip.Content>
-                      {settled ? "Remove" : "Wait for the answer to finish"}
+                      {answering ? "Remove, Stopping the Answer" : "Remove"}
                     </Tooltip.Content>
                   </Tooltip.Root>
                 {/if}

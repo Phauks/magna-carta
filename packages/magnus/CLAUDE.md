@@ -130,6 +130,12 @@ registered there; this file states what they mean for the code, not where they w
   and any answer to it out of what the model reads. The
   route withholds a removed turn's text from its author, who took it back, and still serves it to a
   supervisory read.
+- **An edit or a removal cancels the answer still being written; it is never refused for it** (owner
+  ruling, 2026-11-14). `submitTurn` (with `replaces.cancelling`) and `removeTurn` (with `cancelling`)
+  settle that turn `refused` / `cancelled` in their own batch, audited like any settlement. The model
+  call already in flight is not stopped: the consumer reads the turn again after it answers and, for
+  a cancelled turn, commits only the token meter and the dedup record (the tokens were spent), never
+  the answer, its documents or a completion audit.
 - **A Magnus turn's `thinking` is the model's own summary of its reasoning, and it is work product
   like `content`.** The consumer asks the port for it (`onThinking`) and writes it onto the pending
   turn at most once a second (`recordTurnThinking`, guarded on `status = 'pending'`), then once more
