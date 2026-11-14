@@ -40,32 +40,38 @@ export const DEFAULT_BUNDLE_CHOICES: BundleChoices = {
   manifest: true,
 };
 
-export const FORMAT_ITEMS = [
+/** One row of a Select: the value it stores and the words it shows. */
+interface ChoiceItem {
+  value: string;
+  label: string;
+}
+
+export const FORMAT_ITEMS: ChoiceItem[] = [
   { value: "zip", label: "Zip" },
   { value: "sevenZip", label: "7z" },
-] as const;
+];
 
-export const COMPRESSION_ITEMS = [
+export const COMPRESSION_ITEMS: ChoiceItem[] = [
   { value: "store", label: "None" },
   { value: "normal", label: "Normal" },
   { value: "maximum", label: "Smallest" },
-] as const;
+];
 
 const MEGABYTE = 1_000_000;
 
 /** Sizes that fit the places a split archive usually has to go: an email, a disc, a file share. */
-export const SPLIT_ITEMS = [
+export const SPLIT_ITEMS: ChoiceItem[] = [
   { value: "none", label: "Do not split" },
   { value: String(20 * MEGABYTE), label: "20 MB (email)" },
   { value: String(100 * MEGABYTE), label: "100 MB" },
   { value: String(650 * MEGABYTE), label: "650 MB (CD)" },
   { value: String(4_000 * MEGABYTE), label: "4 GB (DVD)" },
-] as const;
+];
 
-export const LAYOUT_ITEMS = [
+export const LAYOUT_ITEMS: ChoiceItem[] = [
   { value: "preserveTree", label: "Keep" },
   { value: "flatten", label: "Flatten" },
-] as const;
+];
 
 const EXTENSIONS: Readonly<Record<BundleFormat, string>> = { zip: "zip", sevenZip: "7z" };
 
