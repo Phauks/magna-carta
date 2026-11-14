@@ -79,8 +79,9 @@ beside the name at the top of the window, and the record's initials stand in unt
   those kinds turns the drop area red. iPhone HEIC photos are not taken yet; save them as JPEG first.
 - **Change or remove it**: press the picture, then **Edit Photo**. The same window opens on the
   current picture: move or zoom it, drag in a different one, or press **Remove Photo**.
-- When you record a new person, **Add Photo** above the name fields does the same before the person
-  is saved, and **Edit Photo** changes or removes it. If the person is saved but the picture is not,
+- When you record a new person, the picture sits at the top left, where it sits on their record:
+  press it to add a photo before the person is saved, and press it again to change or remove it.
+  The window's heading shows the name as you type it. If the person is saved but the picture is not,
   a message says so, and you can add it from their record.
 
 Adding, changing and removing a picture needs the permission to edit the Directory. Somebody who
@@ -93,7 +94,10 @@ A record answers the questions the firm keeps an answer to:
   with a prefix and any number of suffixes chosen from a list you can add to — somebody who is both
   Jr. and Esq. is recorded as both. Only the first name is required: a person who has one name is
   recorded under it, with a note on screen saying that is what the firm will file and search them
-  under. When you record a new person, **Add Other Name** opens a second full set of name fields
+  under. On a record, **Edit Name** opens the name's fields right there in the Names section, filled
+  in with the current name, so you change only the part that changed; **Save Name** keeps the old
+  name as a former name. **Add Other Name** opens the same fields for a maiden name or an alias,
+  with its kind. When you record a new person, **Add Other Name** opens a second full set of name fields
   (prefix, first, middle and last name, suffixes) for a maiden name or an alias, with its kind beside
   it; add as many as you need, and one left empty is ignored.
 - **Contact**: one line per way to reach them: email addresses, telephone numbers and fax numbers,
