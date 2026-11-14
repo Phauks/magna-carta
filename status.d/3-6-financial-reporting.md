@@ -37,3 +37,5 @@ blocked-by:
 **Daily Time (2026-11-14).** Live, on `reports:productivity`: the minutes recorded on each day of a period, per timekeeper, billable against non-billable, with each timekeeper's day count. Timekeeping's day-by-day read takes the same entries as the productivity breakdown through one shared predicate, and the totals are proved equal to Timekeeper Productivity's.
 
 **Matter Productivity (2026-11-14).** Live, on `reports:productivity`: the same breakdown Timekeeper Productivity adds up, turned so each matter is a row with its timekeepers under it, most time first. Its totals are proved equal to Timekeeper Productivity's.
+
+**Client List (2026-11-14).** Live, on `reports:operational`: every client of an opened matter, the client set from the matters package's register and each name and default contact from the directory's own listing row, with matters counted by status. Its counts are proved to add up to the Matters List's.

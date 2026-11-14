@@ -1,6 +1,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { identifierField } from "@magna-carta/identifiers/field";
 import {
+  ClientListRow,
   DailyTimeDayRow,
   DailyTimeTimekeeperRow,
   MatterListOfficeRow,
@@ -9,6 +10,7 @@ import {
   MatterStatusCounts,
   ProductivityFigures,
 } from "@magna-carta/reporting/contract";
+import { assembleClientList } from "@magna-carta/reporting/operational/client-list";
 import { assembleDailyTime } from "@magna-carta/reporting/productivity/daily-time";
 import { assembleMatterProductivity } from "@magna-carta/reporting/productivity/matter-productivity";
 import { assembleMattersList } from "@magna-carta/reporting/operational/matters-list";
@@ -86,6 +88,41 @@ const mattersListRoute = defineOpenAPIRoute(mattersListMeta, {
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+// CLIENT LIST — every client of an opened matter, with the directory's default way to reach them
+// and how many of their matters are open, on hold and closed. On `reports:operational` beside the
+// Matters List, live for the same reason, and narrowed by office the same way. No sealed identifier
+// is ever on a row.
+const ClientListResponse = z
+  .object({
+    computedAt: z.string(),
+    reproducible: z.literal(false),
+    statement: z.string(),
+    locationId: z.string().nullable(),
+    completeness: ReportCompleteness,
+    clientCount: z.number().int(),
+    totals: MatterStatusCounts,
+    mattersWithoutClient: z.number().int(),
+    clients: z.array(ClientListRow),
+  })
+  .openapi("ClientListReport");
+
+const clientListMeta: RouteMeta = { ...mattersListMeta, operationId: "reports.clientList" };
+
+const clientListRoute = defineOpenAPIRoute(clientListMeta, {
+  method: "get",
+  path: "/api/v1/reports/client-list",
+  description:
+    "Every client of a matter the firm has opened, in name order, with the directory's default email, number and place for each and how many of their matters are open, on hold and closed. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Choosing an office narrows it to clients with matters there.",
+  request: { query: mattersListQuery },
+  responses: {
+    ...mattersListRoute.responses,
+    200: {
+      description: "The firm's clients now",
+      content: { "application/json": { schema: ClientListResponse } },
     },
   },
 });
@@ -259,6 +296,26 @@ export function registerMatterReportsRoutes(app: ReportsApp, chokepoint: Chokepo
           { computedAt },
         );
         return c.json(report as unknown as z.infer<typeof MatterProductivityResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...clientListRoute, middleware: chokepointMiddleware(chokepoint, clientListRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleClientList(
+          firm.firmDatabase,
+          { locationId: query.locationId ?? null },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof ClientListResponse>, 200);
       } catch (caught) {
         if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
         throw caught;

@@ -3107,6 +3107,9 @@ importers:
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../directory
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers

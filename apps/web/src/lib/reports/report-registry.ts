@@ -34,6 +34,7 @@ import {
 } from "./reports-api.ts";
 import { sampleTrustCompliancePack } from "./trust-compliance-fixture.ts";
 import {
+  presentClientList,
   presentMattersList,
   presentOperationalVolumes,
   presentDailyTime,
@@ -59,6 +60,7 @@ import {
   readAgedWorkInProgress,
   readInvoices,
   readMatterBalances,
+  readClientList,
   readMattersList,
   readOperationalVolumes,
   readPaymentsApplied,
@@ -71,6 +73,7 @@ import {
   type AgedWorkInProgress,
   type Invoices,
   type MatterBalances,
+  type ClientList,
   type MattersList,
   type OperationalVolumes,
   type PaymentsApplied,
@@ -85,6 +88,7 @@ import {
   sampleAgedWorkInProgress,
   sampleInvoices,
   sampleMatterBalances,
+  sampleClientList,
   sampleMattersList,
   sampleOperationalVolumes,
   samplePaymentsApplied,
@@ -455,6 +459,21 @@ const mattersList = built<MattersList>({
   samplePayload: sampleMattersList,
 });
 
+const clientList = built<ClientList>({
+  id: "client-list",
+  family: "operational",
+  name: "Client List",
+  answers:
+    "Every client of a matter the firm has opened, with their email, phone and place, and how many of their matters are open, on hold and closed.",
+  permission: OPERATIONAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readClientList(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentClientList(payload),
+  samplePayload: sampleClientList,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
@@ -469,6 +488,7 @@ const REPORT_LIST = [
   matterProductivity,
   operationalVolumes,
   mattersList,
+  clientList,
 ] as const satisfies readonly ReportDeclaration[];
 
 /** Every report, in catalogue order. */

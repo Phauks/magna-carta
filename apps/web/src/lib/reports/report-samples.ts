@@ -13,6 +13,7 @@ import type {
   Invoices,
   MatterBalances,
   AgedWorkInProgress,
+  ClientList,
   MattersList,
   OperationalVolumes,
   PaymentsApplied,
@@ -771,6 +772,53 @@ export function sampleAgedWorkInProgress(): AgedWorkInProgress {
             figures: figures(200_000, 100_000, 115_000, 0, 415_000),
           },
         ],
+      },
+    ],
+  };
+}
+
+export function sampleClientList(): ClientList {
+  const counts = (open: number, held: number, closed: number) => ({
+    matterCount: open + held + closed,
+    openCount: open,
+    heldCount: held,
+    closedCount: closed,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    completeness: { scope: "complete" },
+    clientCount: 2,
+    totals: counts(2, 0, 1),
+    mattersWithoutClient: 0,
+    clients: [
+      {
+        clientEntityId: client(0).clientEntityId,
+        displayName: sampleMatter(0).client,
+        entityKind: "organization",
+        legalName: null,
+        emailAddress: "office@example.com",
+        phoneNumber: "+1 775 555 0100",
+        city: "Reno",
+        region: "NV",
+        country: "US",
+        counts: counts(1, 0, 1),
+        locationNames: [MAIN.locationName],
+      },
+      {
+        clientEntityId: client(1).clientEntityId,
+        displayName: sampleMatter(1).client,
+        entityKind: "person",
+        legalName: null,
+        emailAddress: null,
+        phoneNumber: null,
+        city: null,
+        region: null,
+        country: null,
+        counts: counts(1, 0, 0),
+        locationNames: [NORTH.locationName, MAIN.locationName],
       },
     ],
   };

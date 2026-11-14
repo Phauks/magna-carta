@@ -349,6 +349,21 @@ export const MatterListOfficeRow = z.object({
   counts: MatterStatusCounts,
 });
 
+// CLIENT LIST. The directory's row for each client, and their matters counted by status.
+export const ClientListRow = z.object({
+  clientEntityId: z.string(),
+  entityKind: z.enum(["person", "organization"]).nullable(),
+  displayName: z.string().nullable(),
+  legalName: z.string().nullable(),
+  emailAddress: z.string().nullable(),
+  phoneNumber: z.string().nullable(),
+  city: z.string().nullable(),
+  region: z.string().nullable(),
+  country: z.string().nullable(),
+  counts: MatterStatusCounts,
+  locationNames: z.array(z.string().nullable()),
+});
+
 export const MatterListRow = z.object({
   matterId: z.string(),
   matterNumber: z.string().nullable(),

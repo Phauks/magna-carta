@@ -2291,6 +2291,40 @@ export type MatterProductivityReport = {
     }>;
 };
 
+export type ClientListReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    clientCount: number;
+    totals: {
+        matterCount: number;
+        openCount: number;
+        heldCount: number;
+        closedCount: number;
+    };
+    mattersWithoutClient: number;
+    clients: Array<{
+        clientEntityId: string;
+        entityKind: 'person' | 'organization' | null;
+        displayName: string | null;
+        legalName: string | null;
+        emailAddress: string | null;
+        phoneNumber: string | null;
+        city: string | null;
+        region: string | null;
+        country: string | null;
+        counts: {
+            matterCount: number;
+            openCount: number;
+            heldCount: number;
+            closedCount: number;
+        };
+        locationNames: Array<string | null>;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -17181,6 +17215,49 @@ export type ReportsMatterProductivityResponses = {
 };
 
 export type ReportsMatterProductivityResponse = ReportsMatterProductivityResponses[keyof ReportsMatterProductivityResponses];
+
+export type ReportsClientListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/client-list';
+};
+
+export type ReportsClientListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The firm has more matters than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsClientListError = ReportsClientListErrors[keyof ReportsClientListErrors];
+
+export type ReportsClientListResponses = {
+    /**
+     * The firm's clients now
+     */
+    200: ClientListReport;
+};
+
+export type ReportsClientListResponse = ReportsClientListResponses[keyof ReportsClientListResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
