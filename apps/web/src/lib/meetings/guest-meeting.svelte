@@ -103,6 +103,7 @@
   import MeetingReactionCounts from "./screen/meeting-reaction-counts.svelte";
   import MeetingReactions from "./screen/meeting-reactions.svelte";
   import MeetingRoster from "./screen/meeting-roster.svelte";
+  import MeetingRenameDialog from "./screen/meeting-rename-dialog.svelte";
   import RecordingMark from "./screen/recording-mark.svelte";
   import RecordingNotice from "./screen/recording-notice.svelte";
   import type { Failure } from "$lib/api/problem.ts";
@@ -464,6 +465,14 @@
     if (client.sharing) void client.stopSharing();
     else void client.shareScreen();
   }
+
+  /** Whether the place this person changes their name in the meeting is open. */
+  let renameOpen = $state(false);
+  /** This browser's own roster row, which the rename dialog reads its two names from. */
+  const ownRow = $derived(
+    client.participants.find((participant) => participant.participantId === client.participantId) ??
+      null,
+  );
 </script>
 
 <svelte:head>
@@ -695,6 +704,7 @@
             presenceOf={(participant) => client.presenceOf(participant)}
             qualityOf={(participant) => client.qualityOf(participant.participantId)}
             spotlightedParticipantId={client.roomState.spotlight?.participantId ?? null}
+            onChangeName={() => (renameOpen = true)}
             showIdentifiers={false}
           />
         </aside>
@@ -821,3 +831,13 @@
     </main>
   {/if}
 </div>
+
+{#if ownRow !== null}
+  <MeetingRenameDialog
+    bind:open={renameOpen}
+    currentName={ownRow.displayName}
+    originalName={ownRow.accountName ?? ownRow.displayName}
+    guest={true}
+    onRename={(name) => client.rename(name)}
+  />
+{/if}
