@@ -3,11 +3,11 @@
  * that wants "download this" builds one of these from what it already shows and picks a renderer;
  * a new format is a new renderer over this same shape, never a per-page rewrite of the figures.
  *
- * Three formats render client-side (plain text, CSV, and an Excel workbook — see render-text.ts /
- * render-csv.ts / render-xlsx.ts). The document formats (.docx/.pdf) render server-side through
- * render-remote.ts — the office suite is the platform's one renderer of a word-processing package,
- * and its conversion edge is the one way a PDF gets made, so neither format may grow a client-side
- * generator here.
+ * Four formats render client-side: plain text, CSV, an Excel workbook and a PDF (render-text.ts,
+ * render-csv.ts, render-xlsx.ts, render-pdf.ts). The PDF is composed by the platform's PDF composer,
+ * the one way a tabular export becomes a PDF. Word renders server-side through render-remote.ts,
+ * because document assembly's guarded writer is the platform's one writer of a word-processing
+ * package; Word may not grow a client-side generator here, and a PDF may not grow a second path.
  */
 import { formatInstantDate, formatTimeOfDay } from "@magna-carta/design-system/formatters";
 import { saveToTarget } from "./save-target.ts";
@@ -35,6 +35,20 @@ export interface TabularExportDocument {
   readonly title: string;
   readonly generatedAt: Date;
   readonly sections: readonly TabularExportSection[];
+}
+
+/**
+ * An export that could not be rendered, carrying words fit to show the member as they stand, and the
+ * Error ID where a server answered with one. Both renderers that can fail this way throw it: the
+ * server's Word printer (render-remote.ts) and the browser's PDF composer (render-pdf.ts).
+ */
+export class ExportRenderError extends Error {
+  readonly errorId: string | undefined;
+  constructor(message: string, errorId?: string) {
+    super(message);
+    this.name = "ExportRenderError";
+    this.errorId = errorId;
+  }
 }
 
 /** The cell's printed face — what the text and CSV renderers write. */

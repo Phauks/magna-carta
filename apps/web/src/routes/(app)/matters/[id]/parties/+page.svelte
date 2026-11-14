@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   /*
    * The matter's parties — who is on this matter and in what role, read from and written to the
    * firm's own record.
@@ -10,13 +11,44 @@
    * here composes a combobox over the directory or a confirmation of its own; the moment it did, it
    * would be the fourth copy of each.
    *
+   * IT IS A TABLE, AND IT SAYS WHETHER EACH PARTY WAS CHECKED (owner's ask, 2026-11-14: "parties
+   * screen needs to be improved in matters as well"). Name, role, capacity, and whether the matter's
+   * latest conflicts check searched the party. A party linked after that check has never been
+   * searched for this matter, and the row says so in the warning tone, because that is the gap a
+   * conflicts procedure exists to close. The tab still owns the add row and the Remove confirmation:
+   * this screen only lays the rows out.
+   *
+   * COUNSEL ARE READ WITH THEIR FIRM (owner's ask, 2026-11-14). A counsel's row names the firm the
+   * Directory says they practice with, and offers to put that firm on the matter as counsel's firm,
+   * so the next check searches the firm as a party rather than only reaching it through a
+   * relationship. counsel-firm.ts holds which relationships count.
+   *
    * A SAMPLE matter (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no
    * firm behind it and therefore no parties to read; it says so rather than showing an empty tab,
    * because "no parties" and "not a real matter" are different facts.
    */
   import RecordParties, { type PartyLink, type RecordParty } from "@magna-carta/design-system/record-parties";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  import Badge from "@magna-carta/design-system/badge";
+  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import Unlink from "@lucide/svelte/icons/unlink";
+  import Building2 from "@lucide/svelte/icons/building-2";
+  import { readDirectoryEdges } from "$lib/directory/directory-api.ts";
+  import { todayCivil } from "$lib/calendar/calendar-window.ts";
+  import {
+    COUNSEL_FIRM_ROLES,
+    currentFirmOf,
+    isCounselRole,
+    type CounselFirm,
+  } from "$lib/matters/counsel-firm.ts";
+  import {
+    readConflictsCheck,
+    readMatterConflictsPosture,
+    type MatterConflictsPosture,
+  } from "$lib/conflicts/conflicts-api.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { matterSections } from "$lib/matters/sections.ts";
@@ -157,6 +189,131 @@
     }),
   );
 
+  // ---- whether each party was checked -----------------------------------------------------------
+
+  /*
+   * The matter's latest conflicts check, and the parties it searched. Read once per matter and again
+   * after a party is added or removed. An account that may not read conflicts gets no column rather
+   * than a column of guesses.
+   */
+  let posture = $state<MatterConflictsPosture | null>(null);
+  let searched = $state<ReadonlySet<string> | null>(null);
+  let conflictsReadable = $state(false);
+
+  $effect(() => {
+    const matterId = matter.id;
+    void reloadToken;
+    if (isSample) return;
+    let cancelled = false;
+    void (async () => {
+      const outcome = await readMatterConflictsPosture(fetch, matterId);
+      if (cancelled) return;
+      if (outcome.kind !== "ok") {
+        conflictsReadable = false;
+        return;
+      }
+      posture = outcome.value;
+      conflictsReadable = true;
+      const latestRun = outcome.value.latestCheck?.id ?? null;
+      if (latestRun === null) {
+        searched = new Set();
+        return;
+      }
+      const check = await readConflictsCheck(fetch, latestRun, latestRun);
+      if (cancelled) return;
+      searched =
+        check.kind === "ok" && check.value.record !== null
+          ? new Set(check.value.record.check.subjectEntityIds)
+          : null;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  const latestCheckName = $derived(posture?.latestCheck?.checkNumber ?? "the latest check");
+  const latestCheckId = $derived(posture?.latestCheck?.id ?? null);
+
+  /** What the Conflicts column says about one party, and in which tone. */
+  function conflictsStanding(entityId: string): { text: string; tone: "neutral" | "warning" } | null {
+    if (!conflictsReadable || posture === null) return null;
+    if (posture.latestCheck === null) return { text: "Never checked", tone: "warning" };
+    if (searched === null) return null;
+    return searched.has(entityId)
+      ? { text: `Searched in ${latestCheckName}`, tone: "neutral" }
+      : { text: "Added after the latest check", tone: "warning" };
+  }
+
+  const uncheckedCount = $derived(
+    (parties ?? []).filter((party) => conflictsStanding(party.entityId)?.tone === "warning").length,
+  );
+
+  const summary = $derived.by(() => {
+    if (parties === null || parties.length === 0) return "";
+    const count = `${String(parties.length)} ${parties.length === 1 ? "party" : "parties"}.`;
+    if (!conflictsReadable || posture === null) return count;
+    if (posture.latestCheck === null) return `${count} No conflicts check has been run yet.`;
+    if (uncheckedCount === 0) return `${count} The latest conflicts check searched every one.`;
+    return `${count} ${String(uncheckedCount)} ${uncheckedCount === 1 ? "was" : "were"} added after the latest conflicts check.`;
+  });
+
+  // ---- counsel and their firms -----------------------------------------------------------------
+
+  /** The firm each counsel on the matter practices with, by the counsel's entity; null for none. */
+  let counselFirms = $state<ReadonlyMap<string, CounselFirm | null>>(new Map());
+  let addingFirm = $state<string | null>(null);
+
+  $effect(() => {
+    const counsel = (parties ?? []).filter(
+      (party) => isCounselRole(party.role) && party.entityKind === "person",
+    );
+    const unread = counsel.filter((party) => !untrack(() => counselFirms).has(party.entityId));
+    if (unread.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const today = todayCivil();
+      const found = await Promise.all(
+        unread.map(async (party) => {
+          const outcome = await readDirectoryEdges(fetch, party.entityId);
+          return [party.entityId, outcome.kind === "ok" ? currentFirmOf(outcome.value.data, today) : null] as const;
+        }),
+      );
+      if (cancelled) return;
+      counselFirms = new Map([...untrack(() => counselFirms), ...found]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  /** Whether the firm is already on the matter, in any role. */
+  function firmOnMatter(firmId: string): boolean {
+    return (parties ?? []).some((party) => party.entityId === firmId);
+  }
+
+  /** Put a counsel's firm on the matter, in the role that matches the counsel's. */
+  async function addFirm(counselRole: string | undefined, firm: CounselFirm): Promise<void> {
+    const role = counselRole === undefined ? undefined : COUNSEL_FIRM_ROLES.get(counselRole);
+    if (role === undefined || addingFirm !== null) return;
+    addingFirm = firm.entityId;
+    writeFailure = null;
+    const result = await linkMatterParty(
+      fetch,
+      { matterId: matter.id, entityId: firm.entityId, role, capacity: null },
+      crypto.randomUUID(),
+    );
+    addingFirm = null;
+    if (result.kind === "ok") {
+      reloadToken += 1;
+      return;
+    }
+    writeFailure = stated(
+      result.failure,
+      "The firm could not be added to this matter.",
+      "Couldn't connect. The matter's parties are unchanged.",
+    );
+  }
+
   // ---- the open party --------------------------------------------------------------------------
 
   let entityOpen = $state(false);
@@ -213,10 +370,12 @@
 </svelte:head>
 
 <section class="flex flex-col gap-16">
-  <FieldLabel as="h2" class="border-b border-border-strong pb-8"
-  >
-    Parties
-  </FieldLabel>
+  <div class="flex flex-col gap-4 border-b border-border-strong pb-8">
+    <FieldLabel as="h2">Parties</FieldLabel>
+    {#if summary !== ""}
+      <p class="text-sm text-text-muted">{summary}</p>
+    {/if}
+  </div>
 
   {#if writeFailure !== null}
     <FailureNotice
@@ -232,10 +391,8 @@
       This is a sample matter for previewing screens. It has no parties.
     </EmptyState>
   {:else}
-    <!-- A form is never full-width: the tab keeps a readable measure on the matter's canvas. -->
     <RecordParties
       bind:this={partiesTab}
-      class="max-w-xl"
       parties={recordParties}
       roles={PARTY_ROLE_OPTIONS}
       allowNewRole
@@ -250,7 +407,95 @@
       onLink={(request) => void link(request)}
       onUnlink={(party) => void unlink(party)}
       onOpen={openParty}
-    />
+    >
+      {#snippet rows({ parties: shown, removeLabel, askToRemove })}
+        <DataTable.Root>
+          <DataTable.Header>
+            <DataTable.Row>
+              <DataTable.Head>Name</DataTable.Head>
+              <DataTable.Head>Role</DataTable.Head>
+              <DataTable.Head>Capacity</DataTable.Head>
+              {#if conflictsReadable}<DataTable.Head>Conflicts</DataTable.Head>{/if}
+              <DataTable.Head><span class="sr-only">Remove</span></DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            {#each shown as party (party.identifier)}
+              {@const standing = conflictsStanding(party.entityIdentifier)}
+              <DataTable.Row data-party={party.entityIdentifier}>
+                {@const firm = counselFirms.get(party.entityIdentifier)}
+                <DataTable.Cell>
+                  <div class="flex flex-col gap-4">
+                    <EntityIdentity
+                      kind={party.kind}
+                      name={party.name}
+                      onOpen={() => openParty(party)}
+                    />
+                    {#if firm !== undefined && party.role !== undefined && isCounselRole(party.role)}
+                      <!-- The firm the Directory says this counsel practices with. -->
+                      <div class="flex flex-wrap items-center gap-8 ps-24 text-sm text-text-muted" data-counsel-firm>
+                        {#if firm === null}
+                          <span>No firm recorded in the Directory</span>
+                        {:else}
+                          <span class="flex items-center gap-4">
+                            <Building2 class="size-12" aria-hidden="true" />
+                            With {firm.name ?? "an unnamed organization"}
+                          </span>
+                          {#if !firmOnMatter(firm.entityId)}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={!mayEdit || addingFirm !== null}
+                              title={mayEdit
+                                ? "Put the firm on this matter, so a conflicts check searches it as a party."
+                                : linkDisabledReason}
+                              onclick={() => void addFirm(party.role, firm)}
+                            >
+                              {addingFirm === firm.entityId ? "Adding" : "Add Their Firm"}
+                            </Button>
+                          {/if}
+                        {/if}
+                      </div>
+                    {/if}
+                  </div>
+                </DataTable.Cell>
+                <DataTable.Cell>{party.roleLabel ?? party.role ?? ""}</DataTable.Cell>
+                <DataTable.Cell>{party.capacity ?? ""}</DataTable.Cell>
+                {#if conflictsReadable}
+                  <DataTable.Cell>
+                    {#if standing !== null}
+                      {#if latestCheckId !== null && standing.tone === "neutral"}
+                        <a
+                          class="text-sm underline-offset-2 hover:underline"
+                          href="/conflicts/checks/{latestCheckId}"
+                        >
+                          {standing.text}
+                        </a>
+                      {:else}
+                        <Badge variant={standing.tone}>{standing.text}</Badge>
+                      {/if}
+                    {/if}
+                  </DataTable.Cell>
+                {/if}
+                <DataTable.Cell class="text-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!mayEdit}
+                    title={mayEdit ? undefined : linkDisabledReason}
+                    aria-label={removeLabel(party)}
+                    onclick={() => askToRemove(party)}
+                  >
+                    <Unlink class="size-16" aria-hidden="true" />
+                    Remove
+                  </Button>
+                </DataTable.Cell>
+              </DataTable.Row>
+            {/each}
+          </DataTable.Body>
+        </DataTable.Root>
+      {/snippet}
+    </RecordParties>
   {/if}
 </section>
 

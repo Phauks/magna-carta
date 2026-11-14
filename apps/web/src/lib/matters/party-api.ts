@@ -97,6 +97,10 @@ const KNOWN_ROLE_LABELS: ReadonlyMap<string, string> = new Map([
   ["witness", "Witness"],
   ["expert", "Expert"],
   ["cocounsel", "Co-counsel"],
+  // The firm a counsel practices with is a party in its own right: a conflict with the firm is a
+  // conflict whichever of its lawyers appears, so it is linked and checked like anybody else.
+  ["opposingcounselfirm", "Opposing counsel's firm"],
+  ["cocounselfirm", "Co-counsel's firm"],
 ]);
 
 export function roleLabel(role: string): string {
