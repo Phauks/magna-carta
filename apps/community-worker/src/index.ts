@@ -21,7 +21,7 @@ export default {
       version.headers.set("Cache-Control", "no-store");
       return withBoardHeaders(version);
     }
-    const { pathname, hostname } = new URL(request.url);
+    const { pathname } = new URL(request.url);
     const own =
       pathname === "/session" || pathname.startsWith("/session/") || pathname.startsWith("/api/");
     // The handoff secret may be bound from the account's Secrets Store; the board reads a string.
@@ -32,7 +32,7 @@ export default {
           context,
         )
       : await environment.ASSETS.fetch(request);
-    // The changelog's own address lists its pages; its API and session answers stay unlisted.
-    return withBoardHeaders(response, hostname.startsWith("changelog.") && !own);
+    // The Changelog page alone may be listed; every other page, the API and the session stay unlisted.
+    return withBoardHeaders(response, pathname === "/changelog" && !own);
   },
 } satisfies ExportedHandler<Bindings>;
