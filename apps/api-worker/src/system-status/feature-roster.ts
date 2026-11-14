@@ -108,7 +108,7 @@ export const FEATURE_ROSTER = [
   { id: "modelAvailabilityCheck", alternatives: [["ANTHROPIC_MODELS_API_KEY"]] },
   // Platform
   { id: "signUpBotCheck", alternatives: [["TURNSTILE_SECRET_KEY"]] },
-  { id: "communitySignIn", alternatives: [["COMMUNITY_HANDOFF_SECRET"]] },
+  { id: "communitySignIn", alternatives: [["COMMUNITY_HANDOFF_SECRET"]], worker: "community" },
   { id: "featureFlags", alternatives: [["FLAGS"]] },
   { id: "usageAnalytics", alternatives: [["TELEMETRY", "USAGE_ANALYTICS_PEPPER"]] },
   { id: "recentErrors", alternatives: [["CLOUDFLARE_ACCOUNT_ID", "OBSERVABILITY_API_TOKEN"]] },

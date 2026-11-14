@@ -74,6 +74,9 @@ describe("diagnosticText", () => {
     expect(text).toContain("packets lost 5.0%");
     expect(text).toContain("picture 1280x720 at 28 fps");
     expect(text).toContain("background blur, layout speaker");
+    // A count nobody reported reads as such, never as "not reported times".
+    expect(text).toContain("asked for a new picture not reported, for lost packets not reported");
+    expect(text).not.toContain("not reported times");
   });
 
   it("says so where nothing has been measured", () => {

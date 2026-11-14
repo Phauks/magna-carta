@@ -335,7 +335,7 @@
       <FailureNotice
         failure={setsFailure}
         title="Exhibit Sets Unavailable"
-        fallback="The exhibit sets on this matter could not be read."
+        fallback="Couldn't load this matter's exhibit sets."
         onRetry={refreshAll}
       />
     {:else if sets === null}
@@ -397,7 +397,7 @@
     {#if selected === REGISTER}
       <FieldLabel as="h2">All Exhibits on This Matter</FieldLabel>
       <DataTable.Root>
-          <DataTable.Caption class="sr-only">Every exhibit on this matter</DataTable.Caption>
+          <DataTable.Caption class="sr-only">All exhibits on this matter</DataTable.Caption>
           <DataTable.Header>
             <DataTable.Row>
               <DataTable.Head class="w-full">Title</DataTable.Head>
@@ -458,7 +458,7 @@
             <FailureNotice
               failure={detailFailure}
               title="Exhibit Set Unavailable"
-              fallback="This exhibit set could not be read."
+              fallback="Couldn't load this exhibit set."
               onRetry={() => (detailToken += 1)}
             />
           {/if}
@@ -482,7 +482,7 @@
               variant="secondary"
               size="sm"
               disabled={!isDraft || !canManage}
-              title={isDraft ? "Change how this set is numbered" : "A filed set keeps its numbering"}
+              title={isDraft ? "Change how this set is numbered" : "A filed set's numbering is locked"}
               onclick={() => (numberingOpen = true)}
             >
               <Hash class="size-16" aria-hidden="true" />{schemeSummary(set.scheme)}
@@ -525,8 +525,7 @@
                 Follows the folder {followedFolder?.name ?? "it was made from"}. Files added to it
                 join at the end.
               {:else}
-                Made from the folder {followedFolder?.name ?? "it was made from"}. It stopped
-                following the folder when it was marked as filed.
+                Made from the folder {followedFolder?.name ?? "it was made from"}. It stopped following the folder when it was marked as filed.
               {/if}
             </p>
           {/if}
@@ -535,7 +534,7 @@
             <FailureNotice
               failure={followFailure}
               title="Folder Not Checked"
-              fallback="The set could not be brought up to date with its folder. It is shown as it last stood."
+              fallback="Couldn't update the set from its folder. It's shown as it was last saved."
               onRetry={() => (detailToken += 1)}
             />
           {/if}
@@ -543,7 +542,7 @@
             <FailureNotice
               failure={actionFailure}
               title="Nothing Changed"
-              fallback="The change was not saved."
+              fallback="The change wasn't saved."
             />
           {/if}
 

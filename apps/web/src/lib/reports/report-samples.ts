@@ -169,7 +169,7 @@ export function sampleRealization(): Realization {
     reproducibilityStatement: LIVE_STATEMENT,
     standardValueIsLive: true,
     standardValueStatement:
-      "The standard value is the time recorded as it stands now, so it is live even when the rest of this report reproduces.",
+      "The standard value uses time as recorded now, so it can change even when the rest of this report can't.",
     completeness: { scope: "complete" },
     totals: figures(1_100_000, 1_000_000, 50_000, 700_000),
     offices: [
@@ -256,7 +256,7 @@ export function sampleOperationalVolumes(): OperationalVolumes {
     reproducibilityStatement: LIVE_STATEMENT,
     liveSections: ["matters", "costs"],
     liveSectionsStatement:
-      "Matters opened and closed and costs incurred are counted as those records stood when this report was produced.",
+      "Matters opened and closed and costs incurred are counted as they were when this report was produced.",
     completeness: { scope: "complete" },
     matters: [
       {
