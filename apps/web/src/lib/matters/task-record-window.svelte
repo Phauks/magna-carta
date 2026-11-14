@@ -749,7 +749,7 @@
     {#if (task === null && parent === null) || (task !== null && task.parentTaskId === null)}
       <!-- Whether the task repeats. A sub-task repeats with its parent, so it is not asked here. -->
       {#if repeats}
-        <div class="flex flex-wrap items-center gap-8 rounded-md border border-border-subtle bg-surface-sunken p-8">
+        <div class="flex flex-wrap items-center gap-8 rounded-md border border-border-default bg-surface-sunken p-8">
           <Repeat aria-hidden="true" class="size-16 shrink-0 text-text-muted" />
           <span class="min-w-0 flex-1 text-sm">{repeatSentence}</span>
           <Button size="sm" variant="secondary" disabled={fieldsLocked} onclick={() => (repeatDialogOpen = true)}>

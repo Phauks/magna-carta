@@ -33,7 +33,11 @@ const lookup: BandLookup = {
   ],
   teams: [{ id: "team_litigation", name: "Litigation Team" }],
   matterIdOf: (title) =>
-    title === "The Firm's Own Work" ? null : title === "Okafor Estate" ? "matter_okafor" : undefined,
+    title === "The Firm's Own Work"
+      ? null
+      : title === "Okafor Estate"
+        ? "matter_okafor"
+        : undefined,
   today: "2026-11-14",
 };
 
@@ -78,7 +82,9 @@ describe("presetsForBand", () => {
   });
 
   it("puts the task on the band's matter, or on the firm's own work", () => {
-    expect(presetsForBand("matter", "Okafor Estate", lookup)).toEqual({ matterId: "matter_okafor" });
+    expect(presetsForBand("matter", "Okafor Estate", lookup)).toEqual({
+      matterId: "matter_okafor",
+    });
     expect(presetsForBand("matter", "The Firm's Own Work", lookup)).toEqual({ matterId: null });
     expect(presetsForBand("matter", "A matter you cannot open", lookup)).toEqual({});
   });

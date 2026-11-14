@@ -301,7 +301,11 @@ export interface BandLookup {
  * does not have, a name two members share, a past due date — presets nothing for that question,
  * and the task takes the window's defaults there rather than a guess.
  */
-export function presetsForBand(groupBy: TaskGroupBy, key: string | null, lookup: BandLookup): BandPresets {
+export function presetsForBand(
+  groupBy: TaskGroupBy,
+  key: string | null,
+  lookup: BandLookup,
+): BandPresets {
   if (key === null || groupBy === "none") return {};
   switch (groupBy) {
     case "list":
@@ -309,7 +313,9 @@ export function presetsForBand(groupBy: TaskGroupBy, key: string | null, lookup:
     case "status": {
       const list = lookup.lists.find((candidate) => candidate.isDefault) ?? lookup.lists[0];
       const status = list?.statuses.find((candidate) => candidate.name === key);
-      return list === undefined || status === undefined ? {} : { listId: list.id, statusId: status.id };
+      return list === undefined || status === undefined
+        ? {}
+        : { listId: list.id, statusId: status.id };
     }
     case "due":
       if (key === "today") return { dueOn: lookup.today };
