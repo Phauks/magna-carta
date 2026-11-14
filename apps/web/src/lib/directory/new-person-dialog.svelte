@@ -146,7 +146,7 @@
           crypto.randomUUID(),
         );
         if (photo.kind !== "ok") {
-          toast.error("The person was saved, but the photo was not. Add it from their record.");
+          toast.error("The person was saved, but the photo wasn't. Add it from their record.");
         }
       }
       onCreated(outcome.value.id, personDraftDisplayName(draft));
@@ -154,7 +154,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The person could not be recorded.",
+      "Couldn't save the person.",
       "Nothing was recorded, so nothing was half-recorded.",
     );
     return "refused";
@@ -177,7 +177,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Person Was Not Recorded"
+        title="Person Not Saved"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />

@@ -315,8 +315,7 @@ export function personDraftRefusal(draft: PersonDraft): string | undefined {
 export function personDraftWarning(draft: PersonDraft): string | null {
   if (draft.name.given.trim() === "") return null;
   return draft.name.family.trim() === ""
-    ? "This person will be recorded with no last name. Their first name is what the firm will " +
-        "file, search and check conflicts under."
+    ? "This person will be saved with no last name. Their first name is used for searches and conflicts checks."
     : null;
 }
 
