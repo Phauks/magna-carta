@@ -23,6 +23,7 @@ import type {
   MeetingId,
 } from "@magna-carta/identifiers/types";
 import { readLiveHostGrant } from "./hosting-statements.ts";
+import { freeRoomAddressName, roomAddressNames } from "./meeting-addresses.ts";
 import type { MeetingLobbyMode } from "./lobby-types.ts";
 import {
   END_MEETING_GUARD,
@@ -40,15 +41,16 @@ import {
   readFirmEventForMove,
   readFirmEventParticipantsForMove,
   readMemberDisplayName,
-  readPersonalRoomByLinkCode,
+  readPersonalRoomByAddressName,
   readPersonalRoomForOwner,
   readPersonalRoomOpenSession,
+  readTakenRoomAddressNames,
   readVisibleMatter,
   replacePersonalRoomLinkStatement,
   updatePersonalRoomDefaultsStatement,
 } from "./personal-room-statements.ts";
 import {
-  isPersonalRoomLinkCode,
+  isPersonalRoomAddress,
   newPersonalRoomLinkCode,
   personalRoomEventTitle,
   refusePersonalRoom,
@@ -85,6 +87,15 @@ export async function ensurePersonalRoom(
   }
   const now = options.clock.now();
   const id = newIdentifier("meetingPersonalRoom", options.randomSource);
+  const linkCode = newPersonalRoomLinkCode(options.randomSource);
+  // The room's address by name. A name with no plain first word is addressed by its link code.
+  const candidates = roomAddressNames(
+    (await readMemberDisplayName(database, options.actorUserId)) ?? "",
+  );
+  const addressName =
+    candidates.length === 0
+      ? linkCode
+      : freeRoomAddressName(candidates, await readTakenRoomAddressNames(database, candidates));
   return {
     room: undefined,
     effect: {
@@ -92,7 +103,8 @@ export async function ensurePersonalRoom(
         insertPersonalRoomStatement(database, {
           id,
           ownerUserId: options.actorUserId,
-          linkCode: newPersonalRoomLinkCode(options.randomSource),
+          linkCode,
+          addressName,
           now,
         }),
         domainAuditStatement(database, {
@@ -424,19 +436,25 @@ export async function openPersonalRoom(
 
 /** What a room's link answers: whose room it is, and the session to join when one is open. */
 export type PersonalRoomArrival =
-  | { readonly state: "closed"; readonly ownerDisplayName: string; readonly isOwner: boolean }
+  | {
+      readonly state: "closed";
+      readonly ownerDisplayName: string;
+      readonly isOwner: boolean;
+      readonly addressName: string;
+    }
   | {
       readonly state: "open";
       readonly ownerDisplayName: string;
       readonly isOwner: boolean;
+      readonly addressName: string;
       readonly meetingId: MeetingId;
     };
 
 async function readLinkedRoom(database: SqlDatabase, linkCode: string) {
   // A string that cannot be a code is refused before any read, with the same answer an unknown code
   // gets, so a probe learns nothing from the difference.
-  const room = isPersonalRoomLinkCode(linkCode)
-    ? await readPersonalRoomByLinkCode(database, linkCode)
+  const room = isPersonalRoomAddress(linkCode)
+    ? await readPersonalRoomByAddressName(database, linkCode)
     : undefined;
   if (room === undefined || room.owner_active !== 1) {
     refusePersonalRoom("personal-room-unknown", "that link does not open a room");
@@ -453,10 +471,17 @@ export async function readPersonalRoomAtLink(
   const room = await readLinkedRoom(database, linkCode);
   const isOwner = room.owner_user_id === options.actorUserId;
   const open = await readPersonalRoomOpenSession(database, room.id);
+  const addressName = room.address_name ?? room.link_code;
   if (open === undefined || !isInUse(open)) {
-    return { state: "closed", ownerDisplayName: room.owner_display_name, isOwner };
+    return { state: "closed", ownerDisplayName: room.owner_display_name, isOwner, addressName };
   }
-  return { state: "open", ownerDisplayName: room.owner_display_name, isOwner, meetingId: open.id };
+  return {
+    state: "open",
+    ownerDisplayName: room.owner_display_name,
+    isOwner,
+    addressName,
+    meetingId: open.id,
+  };
 }
 
 /**
