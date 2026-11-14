@@ -8276,6 +8276,623 @@
           "costs"
         ]
       },
+      "InvoicesReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "invoiceCount": {
+                "type": "integer"
+              },
+              "billedMinor": {
+                "type": "integer"
+              },
+              "creditedMinor": {
+                "type": "integer"
+              },
+              "appliedMinor": {
+                "type": "integer"
+              },
+              "unpaidMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "invoiceCount",
+              "billedMinor",
+              "creditedMinor",
+              "appliedMinor",
+              "unpaidMinor"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "invoiceCount": {
+                      "type": "integer"
+                    },
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    },
+                    "appliedMinor": {
+                      "type": "integer"
+                    },
+                    "unpaidMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "invoiceCount",
+                    "billedMinor",
+                    "creditedMinor",
+                    "appliedMinor",
+                    "unpaidMinor"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": "string"
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "invoiceCount": {
+                      "type": "integer"
+                    },
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    },
+                    "appliedMinor": {
+                      "type": "integer"
+                    },
+                    "unpaidMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "invoiceCount",
+                    "billedMinor",
+                    "creditedMinor",
+                    "appliedMinor",
+                    "unpaidMinor"
+                  ]
+                },
+                "invoices": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "invoiceId": {
+                        "type": "string"
+                      },
+                      "invoiceNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "issueDate": {
+                        "type": "string"
+                      },
+                      "dueDate": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "figures": {
+                        "type": "object",
+                        "properties": {
+                          "invoiceCount": {
+                            "type": "integer"
+                          },
+                          "billedMinor": {
+                            "type": "integer"
+                          },
+                          "creditedMinor": {
+                            "type": "integer"
+                          },
+                          "appliedMinor": {
+                            "type": "integer"
+                          },
+                          "unpaidMinor": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "invoiceCount",
+                          "billedMinor",
+                          "creditedMinor",
+                          "appliedMinor",
+                          "unpaidMinor"
+                        ]
+                      },
+                      "matters": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "matterId": {
+                              "type": "string"
+                            },
+                            "matterTitle": {
+                              "type": "string"
+                            },
+                            "matterNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locationName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "figures": {
+                              "type": "object",
+                              "properties": {
+                                "invoiceCount": {
+                                  "type": "integer"
+                                },
+                                "billedMinor": {
+                                  "type": "integer"
+                                },
+                                "creditedMinor": {
+                                  "type": "integer"
+                                },
+                                "appliedMinor": {
+                                  "type": "integer"
+                                },
+                                "unpaidMinor": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "invoiceCount",
+                                "billedMinor",
+                                "creditedMinor",
+                                "appliedMinor",
+                                "unpaidMinor"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "matterId",
+                            "matterTitle",
+                            "matterNumber",
+                            "locationId",
+                            "locationName",
+                            "figures"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "invoiceId",
+                      "invoiceNumber",
+                      "issueDate",
+                      "dueDate",
+                      "figures",
+                      "matters"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "figures",
+                "invoices"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "locationId",
+          "currency",
+          "reproducibility",
+          "reproducibilityStatement",
+          "completeness",
+          "totals",
+          "offices",
+          "clients"
+        ]
+      },
+      "PaymentsAppliedReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "entryCount": {
+                "type": "integer"
+              },
+              "paymentMinor": {
+                "type": "integer"
+              },
+              "trustTransferMinor": {
+                "type": "integer"
+              },
+              "clientCreditMinor": {
+                "type": "integer"
+              },
+              "creditNoteMinor": {
+                "type": "integer"
+              },
+              "writeOffMinor": {
+                "type": "integer"
+              },
+              "reversalMinor": {
+                "type": "integer"
+              },
+              "totalMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "entryCount",
+              "paymentMinor",
+              "trustTransferMinor",
+              "clientCreditMinor",
+              "creditNoteMinor",
+              "writeOffMinor",
+              "reversalMinor",
+              "totalMinor"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "entryCount": {
+                      "type": "integer"
+                    },
+                    "paymentMinor": {
+                      "type": "integer"
+                    },
+                    "trustTransferMinor": {
+                      "type": "integer"
+                    },
+                    "clientCreditMinor": {
+                      "type": "integer"
+                    },
+                    "creditNoteMinor": {
+                      "type": "integer"
+                    },
+                    "writeOffMinor": {
+                      "type": "integer"
+                    },
+                    "reversalMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "entryCount",
+                    "paymentMinor",
+                    "trustTransferMinor",
+                    "clientCreditMinor",
+                    "creditNoteMinor",
+                    "writeOffMinor",
+                    "reversalMinor",
+                    "totalMinor"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientEntityId": {
+                  "type": "string"
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "entryCount": {
+                      "type": "integer"
+                    },
+                    "paymentMinor": {
+                      "type": "integer"
+                    },
+                    "trustTransferMinor": {
+                      "type": "integer"
+                    },
+                    "clientCreditMinor": {
+                      "type": "integer"
+                    },
+                    "creditNoteMinor": {
+                      "type": "integer"
+                    },
+                    "writeOffMinor": {
+                      "type": "integer"
+                    },
+                    "reversalMinor": {
+                      "type": "integer"
+                    },
+                    "totalMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "entryCount",
+                    "paymentMinor",
+                    "trustTransferMinor",
+                    "clientCreditMinor",
+                    "creditNoteMinor",
+                    "writeOffMinor",
+                    "reversalMinor",
+                    "totalMinor"
+                  ]
+                }
+              },
+              "required": [
+                "clientEntityId",
+                "clientName",
+                "figures"
+              ]
+            }
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "applicationId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trust_transfer",
+                    "payment",
+                    "credit_note",
+                    "client_credit",
+                    "write_off",
+                    "reversal"
+                  ]
+                },
+                "reversesKind": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "trust_transfer",
+                    "payment",
+                    "credit_note",
+                    "client_credit",
+                    "write_off",
+                    null
+                  ]
+                },
+                "effectiveDate": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "invoiceId": {
+                  "type": "string"
+                },
+                "invoiceNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientEntityId": {
+                  "type": "string"
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterId": {
+                  "type": "string"
+                },
+                "matterTitle": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "applicationId",
+                "kind",
+                "reversesKind",
+                "effectiveDate",
+                "amountMinor",
+                "reason",
+                "invoiceId",
+                "invoiceNumber",
+                "clientEntityId",
+                "clientName",
+                "matterId",
+                "matterTitle",
+                "matterNumber",
+                "locationId",
+                "locationName"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "locationId",
+          "currency",
+          "reproducibility",
+          "reproducibilityStatement",
+          "completeness",
+          "totals",
+          "offices",
+          "clients",
+          "entries"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -59645,6 +60262,250 @@
           },
           "422": {
             "description": "The period is not two calendar dates or ends before it starts, or the knowledge instant is not a UTC instant or is in the future",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/invoices": {
+      "get": {
+        "description": "Every bill issued in a period, by office and client, with each bill's matters: what was billed, what was credited or written off and what was applied against it by the period's last day, and what was still unpaid then. Give a knowledge instant and every figure re-derives from records that can never change; omit it and the answer covers everything known now, which is stamped and not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.invoices",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.invoices",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bills issued in this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoicesReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more bills were issued than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/payments-applied": {
+      "get": {
+        "description": "Everything set against a bill in a period, one entry each: payments, transfers from trust, client credits, credit notes, write-offs, and the reversal of any of them as its own negative entry naming what it reverses. Totals by kind, office and client. Applied, not received: the platform records what was set against a bill, not cash arriving. Give a knowledge instant and the report re-derives from records that can never change. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.paymentsApplied",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.paymentsApplied",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What was applied to bills in this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentsAppliedReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was applied than one report can list",
             "content": {
               "application/problem+json": {
                 "schema": {
