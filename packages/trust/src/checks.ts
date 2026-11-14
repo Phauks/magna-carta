@@ -92,7 +92,10 @@ interface StockRow {
 function parseStoredFields(text: string): readonly CheckField[] {
   const parsed = parseCheckFields(JSON.parse(text));
   if (parsed === null) {
-    throw new TrustValidationError("check-stock-unreadable", "a stored check layout could not be read");
+    throw new TrustValidationError(
+      "check-stock-unreadable",
+      "a stored check layout could not be read",
+    );
   }
   return parsed;
 }
@@ -172,7 +175,10 @@ export async function composeTrustCheckStockSave(
     throw new TrustValidationError("check-stock-invalid", "a check stock needs a name");
   }
   if (!(CHECK_PAGE_LAYOUTS as readonly string[]).includes(input.pageLayout)) {
-    throw new TrustValidationError("check-stock-invalid", "that page layout is not one this prints");
+    throw new TrustValidationError(
+      "check-stock-invalid",
+      "that page layout is not one this prints",
+    );
   }
   const problem = checkFieldListProblem(input.fields);
   if (problem !== null) throw new TrustValidationError("check-stock-invalid", problem);
@@ -185,7 +191,10 @@ export async function composeTrustCheckStockSave(
     }
   }
   if (!Number.isSafeInteger(input.startingCheckNumber) || input.startingCheckNumber < 1) {
-    throw new TrustValidationError("check-stock-invalid", "the starting check number is a whole number from 1");
+    throw new TrustValidationError(
+      "check-stock-invalid",
+      "the starting check number is a whole number from 1",
+    );
   }
   const current = await readCurrentTrustCheckStock(database, input.trustAccountId);
   const version = (current?.version ?? 0) + 1;
@@ -234,7 +243,9 @@ export async function readNextTrustCheckNumber(
   stock: TrustCheckStockSnapshot | null,
 ): Promise<number> {
   const { results } = await database
-    .prepare(`SELECT MAX(check_number) AS highest FROM ${TRUST_CHECK_TABLE} WHERE trust_account_id = ?1`)
+    .prepare(
+      `SELECT MAX(check_number) AS highest FROM ${TRUST_CHECK_TABLE} WHERE trust_account_id = ?1`,
+    )
     .bind(trustAccountId)
     .all<{ highest: number | null }>();
   const highest = results[0]?.highest ?? 0;
@@ -468,7 +479,10 @@ export async function composeTrustCheckPrint(
     );
   }
   if (new Set(input.movementIds).size !== input.movementIds.length) {
-    throw new TrustValidationError("check-print-duplicate", "a payment is named twice in one batch");
+    throw new TrustValidationError(
+      "check-print-duplicate",
+      "a payment is named twice in one batch",
+    );
   }
   const stock = await readCurrentTrustCheckStock(database, input.trustAccountId);
   if (stock === null) {
@@ -524,8 +538,9 @@ export async function composeTrustCheckPrint(
 export function isTrustCheckNumberConflict(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return (
-    message.includes("UNIQUE constraint failed: trust_check.trust_account_id, trust_check.check_number") ||
-    message.includes("trust_check_account_number_unique_index")
+    message.includes(
+      "UNIQUE constraint failed: trust_check.trust_account_id, trust_check.check_number",
+    ) || message.includes("trust_check_account_number_unique_index")
   );
 }
 
@@ -600,7 +615,10 @@ export async function composeTrustCheckResults(
   for (const result of input.results) {
     const row = byId.get(result.checkId);
     if (row === undefined) {
-      throw new TrustValidationError("unknown-trust-check", `no such check on this account: ${result.checkId}`);
+      throw new TrustValidationError(
+        "unknown-trust-check",
+        `no such check on this account: ${result.checkId}`,
+      );
     }
     if (row.status !== "numbered") {
       throw new TrustValidationError(
@@ -615,8 +633,7 @@ export async function composeTrustCheckResults(
         id,
         checkId: result.checkId,
         kind: result.outcome,
-        reason:
-          result.outcome === "spoiled" ? (result.reason?.trim() || SPOILED_IN_PRINTING) : null,
+        reason: result.outcome === "spoiled" ? result.reason?.trim() || SPOILED_IN_PRINTING : null,
         recordedBy: input.recordedBy,
         recordedAt,
       }),
@@ -648,10 +665,16 @@ export async function composeTrustCheckVoid(
   }
   const [row] = await readRegisterRowsById(database, input.trustAccountId, [input.checkId]);
   if (row === undefined) {
-    throw new TrustValidationError("unknown-trust-check", `no such check on this account: ${input.checkId}`);
+    throw new TrustValidationError(
+      "unknown-trust-check",
+      `no such check on this account: ${input.checkId}`,
+    );
   }
   if (row.status === "spoiled" || row.status === "voided") {
-    throw new TrustValidationError("check-already-answered", `check ${row.checkNumber} is already ${row.status}`);
+    throw new TrustValidationError(
+      "check-already-answered",
+      `check ${row.checkNumber} is already ${row.status}`,
+    );
   }
   const id = newIdentifier("trustCheckEvent", options.randomSource);
   return {

@@ -23,4 +23,3 @@ export function liveTrustCheckPredicate(alias: string): string {
 export function liveTrustCheckNumberExpression(movementAlias: string): string {
   return `(SELECT CAST(live_check.check_number AS TEXT) FROM ${TRUST_CHECK_TABLE} live_check WHERE live_check.movement_id = ${movementAlias}.id AND ${liveTrustCheckPredicate("live_check")} ORDER BY live_check.check_number DESC LIMIT 1)`;
 }
-

@@ -630,7 +630,11 @@ impl Flow<'_, '_> {
         {
             return;
         }
-        let face = if placed.bold { Face::Bold } else { Face::Regular };
+        let face = if placed.bold {
+            Face::Bold
+        } else {
+            Face::Regular
+        };
         let text = clean(&placed.text).replace('\n', " ");
         let mut marks = Vec::new();
         if placed.outline {
@@ -1631,7 +1635,12 @@ mod tests {
         let document = ComposedDocument {
             blocks: vec![
                 placed("Desert Title Company", 80.0, None, Alignment::Start),
-                placed("Three thousand and 00/100", 30.0, Some('*'), Alignment::Start),
+                placed(
+                    "Three thousand and 00/100",
+                    30.0,
+                    Some('*'),
+                    Alignment::Start,
+                ),
                 placed("**3,000.00", 400.0, None, Alignment::End),
                 Block::Title("Flow".to_string()),
             ],
@@ -1643,7 +1652,9 @@ mod tests {
             .marks
             .iter()
             .filter_map(|mark| match mark {
-                Mark::Text { x, baseline, text, .. } => Some((*x, *baseline, text.clone())),
+                Mark::Text {
+                    x, baseline, text, ..
+                } => Some((*x, *baseline, text.clone())),
                 _ => None,
             })
             .collect();

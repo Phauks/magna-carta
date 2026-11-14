@@ -188,7 +188,8 @@ export function checkFieldListProblem(fields: readonly CheckField[]): string | n
     if (problem !== null) return problem;
   }
   for (const required of ["date", "payee", "amount", "amount_words"] as const) {
-    if (!seen.has(required)) return `A check needs the ${CHECK_FIELD_LABELS[required].toLowerCase()}.`;
+    if (!seen.has(required))
+      return `A check needs the ${CHECK_FIELD_LABELS[required].toLowerCase()}.`;
   }
   return null;
 }
@@ -260,7 +261,9 @@ function underOneThousand(value: number): string {
  */
 export function amountInWords(amountMinor: number): string {
   if (!Number.isSafeInteger(amountMinor) || amountMinor < 1 || amountMinor >= 100_000_000_000_000) {
-    throw new RangeError("a check amount is a whole number of cents from 1 to under a trillion dollars");
+    throw new RangeError(
+      "a check amount is a whole number of cents from 1 to under a trillion dollars",
+    );
   }
   const { dollars, cents } = dollarsAndCents(amountMinor);
   // Read the dollars three digits at a time from the right, as they are spoken.
@@ -269,7 +272,9 @@ export function amountInWords(amountMinor: number): string {
     const group = Number(dollars.slice(Math.max(0, end - 3), end));
     if (group > 0) {
       const scaleWord = SCALES[scale] as string;
-      groups.unshift(scaleWord === "" ? underOneThousand(group) : `${underOneThousand(group)} ${scaleWord}`);
+      groups.unshift(
+        scaleWord === "" ? underOneThousand(group) : `${underOneThousand(group)} ${scaleWord}`,
+      );
     }
   }
   const words = groups.length === 0 ? "zero" : groups.join(" ");

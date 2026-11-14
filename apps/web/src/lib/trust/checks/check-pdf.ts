@@ -15,7 +15,8 @@ export function composeCheckPdf(document: ComposeDocument): Promise<Blob> {
   return new Promise<Blob>((resolve, reject) => {
     worker.addEventListener("message", (event: MessageEvent<CheckPdfReply>) => {
       worker.terminate();
-      if (event.data.kind === "done") resolve(new Blob([event.data.pdf], { type: "application/pdf" }));
+      if (event.data.kind === "done")
+        resolve(new Blob([event.data.pdf], { type: "application/pdf" }));
       else reject(new CheckPdfError(event.data.reason));
     });
     worker.addEventListener("error", () => {

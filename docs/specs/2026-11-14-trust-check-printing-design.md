@@ -45,16 +45,16 @@ of its own stock; this does.
 
 **`trust_check`**: one row per check number ever used on an account. Append-only (triggers).
 
-| Column                                | Meaning                                                                |
-| ------------------------------------- | ---------------------------------------------------------------------- |
-| `id`                                  | `trustCheck_` handle                                                   |
-| `trust_account_id`                    | the account the paper belongs to                                       |
-| `check_number`                        | integer, unique per account, never reused                              |
-| `movement_id`                         | the disbursement it pays; null for a number voided with no payment     |
-| `stock_id`                            | the layout version it printed with; null for a number voided unprinted |
-| `payee`, `amount_minor`, `currency`   | copied from the movement at numbering, so the register reads alone     |
-| `effective_date`                      | the date printed on the check                                          |
-| `numbered_by`, `numbered_at`          | who printed it and when                                                |
+| Column                              | Meaning                                                                |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `id`                                | `trustCheck_` handle                                                   |
+| `trust_account_id`                  | the account the paper belongs to                                       |
+| `check_number`                      | integer, unique per account, never reused                              |
+| `movement_id`                       | the disbursement it pays; null for a number voided with no payment     |
+| `stock_id`                          | the layout version it printed with; null for a number voided unprinted |
+| `payee`, `amount_minor`, `currency` | copied from the movement at numbering, so the register reads alone     |
+| `effective_date`                    | the date printed on the check                                          |
+| `numbered_by`, `numbered_at`        | who printed it and when                                                |
 
 **`trust_check_event`**: append-only. `check_id`, `kind` (`printed`, `spoiled`, `voided`), `reason`
 (required on `spoiled` and `voided`), `recorded_by`, `recorded_at`. The current status is the latest
@@ -102,17 +102,17 @@ disbursement (direct, approved request, earned-fee transfer) feeds the queue wit
 
 **`trust_check_stock`**: one row per saved version, current = latest per account. Append-only.
 
-| Column                    | Meaning                                                                   |
-| ------------------------- | ------------------------------------------------------------------------- |
-| `trust_account_id`        | the account                                                               |
-| `version`                 | dense per account                                                         |
-| `name`                    | "IOLTA checks, voucher bottom"                                            |
-| `page_layout`             | `check_top`, `check_middle`, `check_bottom`, `three_per_page`             |
-| `fields`                  | JSON list, below                                                          |
-| `shift_x_mils`, `shift_y_mils` | whole-page offset, thousandths of an inch                            |
-| `starting_check_number`   | the number on the first sheet of the current box                          |
-| `scan_object_key`, `scan_sha256` | the straightened scan in the firm's bucket; null until scanned     |
-| `saved_by`, `saved_at`    |                                                                           |
+| Column                           | Meaning                                                        |
+| -------------------------------- | -------------------------------------------------------------- |
+| `trust_account_id`               | the account                                                    |
+| `version`                        | dense per account                                              |
+| `name`                           | "IOLTA checks, voucher bottom"                                 |
+| `page_layout`                    | `check_top`, `check_middle`, `check_bottom`, `three_per_page`  |
+| `fields`                         | JSON list, below                                               |
+| `shift_x_mils`, `shift_y_mils`   | whole-page offset, thousandths of an inch                      |
+| `starting_check_number`          | the number on the first sheet of the current box               |
+| `scan_object_key`, `scan_sha256` | the straightened scan in the firm's bucket; null until scanned |
+| `saved_by`, `saved_at`           |                                                                |
 
 A **field** is `{ kind, xMils, yMils, widthMils, sizePoints, align }`, measured from the check's
 top-left corner in thousandths of an inch (integers, so nothing drifts in floating point, and inches

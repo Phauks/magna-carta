@@ -34,7 +34,9 @@ describe("check document", () => {
   });
 
   it("moves every line by the stock's shift", () => {
-    const shifted = checkBatchDocument({ ...stock, shiftXMils: 100, shiftYMils: -50 }, [SAMPLE_CHECK]);
+    const shifted = checkBatchDocument({ ...stock, shiftXMils: 100, shiftYMils: -50 }, [
+      SAMPLE_CHECK,
+    ]);
     const plain = checkBatchDocument(stock, [SAMPLE_CHECK]);
     shifted.blocks.forEach((block, index) => {
       const before = plain.blocks[index];
@@ -60,7 +62,9 @@ describe("check document", () => {
 
   it("outlines every box on the test page", () => {
     const test = checkTestPageDocument(stock);
-    const outlined = test.blocks.filter((block) => block.type === "placed" && block.outline === true);
+    const outlined = test.blocks.filter(
+      (block) => block.type === "placed" && block.outline === true,
+    );
     // The check's own edge plus each field.
     expect(outlined).toHaveLength(STANDARD_CHECK_FIELDS.length + 1);
   });

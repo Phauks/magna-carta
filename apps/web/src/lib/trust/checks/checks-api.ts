@@ -30,7 +30,9 @@ export type {
   TrustChecksResponse,
 } from "@magna-carta/api-client";
 
-export async function readTrustChecks(trustAccountId: string): Promise<ApiOutcome<TrustChecksResponse>> {
+export async function readTrustChecks(
+  trustAccountId: string,
+): Promise<ApiOutcome<TrustChecksResponse>> {
   try {
     const { data } = await trustChecks({ query: { trustAccountId }, throwOnError: true });
     return { kind: "ok", value: data };
@@ -141,7 +143,8 @@ export async function readTrustCheckStockScanUrl(trustAccountId: string): Promis
       parseAs: "blob",
       throwOnError: true,
     });
-    return data instanceof Blob ? URL.createObjectURL(data) : null;
+    const scan: unknown = data;
+    return scan instanceof Blob ? URL.createObjectURL(scan) : null;
   } catch {
     return null;
   }

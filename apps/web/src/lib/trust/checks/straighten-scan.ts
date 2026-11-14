@@ -47,7 +47,8 @@ function solve(matrix: number[][], vector: number[]): number[] | null {
   const solution = new Array<number>(size).fill(0);
   for (let row = size - 1; row >= 0; row -= 1) {
     let sum = rows[row]![size]!;
-    for (let column = row + 1; column < size; column += 1) sum -= rows[row]![column]! * solution[column]!;
+    for (let column = row + 1; column < size; column += 1)
+      sum -= rows[row]![column]! * solution[column]!;
     solution[row] = sum / rows[row]![row]!;
   }
   return solution;
@@ -72,7 +73,16 @@ export function homography(from: Corners, to: Corners): readonly number[] | null
 }
 
 export function applyHomography(coefficients: readonly number[], point: Point): Point {
-  const [a, b, c, d, e, f, g, h] = coefficients as [number, number, number, number, number, number, number, number];
+  const [a, b, c, d, e, f, g, h] = coefficients as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
   const w = g * point.x + h * point.y + 1;
   return { x: (a * point.x + b * point.y + c) / w, y: (d * point.x + e * point.y + f) / w };
 }

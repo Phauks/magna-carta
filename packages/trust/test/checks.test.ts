@@ -51,7 +51,11 @@ async function fundedAccount() {
     options,
   );
   await commit(fixture.database, deposit.effect);
-  const node = await loadMatterTrustLeaf(fixture.database, fixture.trustAccountId, matterId as never);
+  const node = await loadMatterTrustLeaf(
+    fixture.database,
+    fixture.trustAccountId,
+    matterId as never,
+  );
   return { fixture, node };
 }
 
@@ -82,7 +86,10 @@ async function pay(
   return paid.movementId;
 }
 
-async function saveStock(setup: Awaited<ReturnType<typeof fundedAccount>>, startingCheckNumber = 10_422) {
+async function saveStock(
+  setup: Awaited<ReturnType<typeof fundedAccount>>,
+  startingCheckNumber = 10_422,
+) {
   const saved = await composeTrustCheckStockSave(
     setup.fixture.database,
     {
@@ -125,7 +132,14 @@ describe("check layout", () => {
   });
 
   it("refuses a field in the MICR band", () => {
-    const memo = { kind: "memo", xMils: 700, yMils: 2_900, widthMils: 3_000, sizePoints: 10, align: "start" } as const;
+    const memo = {
+      kind: "memo",
+      xMils: 700,
+      yMils: 2_900,
+      widthMils: 3_000,
+      sizePoints: 10,
+      align: "start",
+    } as const;
     expect(checkFieldProblem(memo)).toMatch(/MICR band/);
   });
 
@@ -142,7 +156,10 @@ describe("check printing", () => {
     const queued = await pay(setup, 300_000, "Desert Title Company");
     await pay(setup, 8_400, "Clark County Recorder", "check", "2207");
     await pay(setup, 5_000, "Wired Away", "wire");
-    const queue = await readTrustChecksToPrint(setup.fixture.database, setup.fixture.trustAccountId);
+    const queue = await readTrustChecksToPrint(
+      setup.fixture.database,
+      setup.fixture.trustAccountId,
+    );
     expect(queue.map((item) => item.movementId)).toEqual([queued]);
     expect(queue[0]).toMatchObject({ payee: "Desert Title Company", amountMinor: 300_000 });
   });
@@ -153,7 +170,11 @@ describe("check printing", () => {
     await expect(
       composeTrustCheckPrint(
         setup.fixture.database,
-        { trustAccountId: setup.fixture.trustAccountId, movementIds: [movementId], numberedBy: RECORDER },
+        {
+          trustAccountId: setup.fixture.trustAccountId,
+          movementIds: [movementId],
+          numberedBy: RECORDER,
+        },
         options,
       ),
     ).rejects.toMatchObject({ code: "check-stock-missing" });
@@ -235,10 +256,20 @@ describe("check printing", () => {
     const checkId = printed.checks[0]!.checkId;
     await commit(
       database,
-      (await composeTrustCheckResults(database, { trustAccountId, results: [{ checkId, outcome: "printed" }], recordedBy: RECORDER }, options)).effect,
+      (
+        await composeTrustCheckResults(
+          database,
+          { trustAccountId, results: [{ checkId, outcome: "printed" }], recordedBy: RECORDER },
+          options,
+        )
+      ).effect,
     );
     await expect(
-      composeTrustCheckVoid(database, { trustAccountId, checkId, reason: " ", recordedBy: RECORDER }, options),
+      composeTrustCheckVoid(
+        database,
+        { trustAccountId, checkId, reason: " ", recordedBy: RECORDER },
+        options,
+      ),
     ).rejects.toMatchObject({ code: "check-void-reason-missing" });
     const voided = await composeTrustCheckVoid(
       database,
@@ -248,14 +279,14 @@ describe("check printing", () => {
     await commit(database, voided.effect);
     expect((await readTrustChecksToPrint(database, trustAccountId)).length).toBe(1);
     await expect(
-      composeTrustCheckVoid(database, { trustAccountId, checkId, reason: "Again", recordedBy: RECORDER }, options),
+      composeTrustCheckVoid(
+        database,
+        { trustAccountId, checkId, reason: "Again", recordedBy: RECORDER },
+        options,
+      ),
     ).rejects.toMatchObject({ code: "check-already-answered" });
     // The trigger holds the same rule for a caller that skipped the composer.
-    await expect(
-      expectRefusal(() =>
-        commit(database, voided.effect),
-      ),
-    ).rejects.toThrow();
+    await expect(expectRefusal(() => commit(database, voided.effect))).rejects.toThrow();
   });
 
   it("voids an unused number and moves the next number past it", async () => {
@@ -286,7 +317,11 @@ describe("check printing", () => {
     );
     await commit(database, stock.effect);
     // A starting number below a used one never reuses it.
-    expect(await readNextTrustCheckNumber(database, trustAccountId, { startingCheckNumber: 100 } as never)).toBe(501);
+    expect(
+      await readNextTrustCheckNumber(database, trustAccountId, {
+        startingCheckNumber: 100,
+      } as never),
+    ).toBe(501);
   });
 
   it("refuses a stock with a field in the MICR band", async () => {
@@ -318,9 +353,19 @@ describe("check printing", () => {
     const first = await pay(setup, 300_000, "Desert Title Company");
     const second = await pay(setup, 125_000, "Jordan Smith");
     const { database, trustAccountId } = setup.fixture;
-    const one = await composeTrustCheckPrint(database, { trustAccountId, movementIds: [first], numberedBy: RECORDER }, options);
-    const two = await composeTrustCheckPrint(database, { trustAccountId, movementIds: [second], numberedBy: RECORDER }, options);
+    const one = await composeTrustCheckPrint(
+      database,
+      { trustAccountId, movementIds: [first], numberedBy: RECORDER },
+      options,
+    );
+    const two = await composeTrustCheckPrint(
+      database,
+      { trustAccountId, movementIds: [second], numberedBy: RECORDER },
+      options,
+    );
     await commit(database, one.effect);
-    await expect(expectRefusal(() => commit(database, two.effect))).rejects.toThrow(/UNIQUE|unique/);
+    await expect(expectRefusal(() => commit(database, two.effect))).rejects.toThrow(
+      /UNIQUE|unique/,
+    );
   });
 });

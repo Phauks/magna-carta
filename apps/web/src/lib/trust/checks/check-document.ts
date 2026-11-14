@@ -58,7 +58,9 @@ export function checkDateText(civilDate: string): string {
 }
 
 export function matterText(check: PrintableCheck): string {
-  return [check.matterNumber, check.matterTitle].filter((part) => part !== null && part !== "").join(" ");
+  return [check.matterNumber, check.matterTitle]
+    .filter((part) => part !== null && part !== "")
+    .join(" ");
 }
 
 /** What one field reads on one check. */
@@ -102,7 +104,11 @@ function checkBlocks(
 }
 
 /** The voucher stub: the same check's particulars, for the firm's file copy and the payee's. */
-function stubBlocks(stock: CheckStockLayout, check: PrintableCheck, topMils: number): ComposeBlock[] {
+function stubBlocks(
+  stock: CheckStockLayout,
+  check: PrintableCheck,
+  topMils: number,
+): ComposeBlock[] {
   const left = 500 + stock.shiftXMils;
   const top = topMils + 400 + stock.shiftYMils;
   const rows: [string, string][] = [

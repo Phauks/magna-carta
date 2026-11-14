@@ -85,6 +85,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         href: "/developer-console/calendar-day-states",
         note: "Every month-grid day state, today and selected among them",
       },
+      {
+        label: "Trust checks",
+        href: "/developer-console/trust-checks",
+        note: "The Checks screen and the check stock editor over fixtures, in each state",
+      },
     ],
   },
   {

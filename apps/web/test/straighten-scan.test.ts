@@ -37,7 +37,9 @@ describe("straighten a scanned check", () => {
       { x: 2, y: 2 },
       { x: 3, y: 3 },
     ];
-    expect(straightenScan({ width: 4, height: 4, data: new Uint8ClampedArray(64) }, line)).toBeNull();
+    expect(
+      straightenScan({ width: 4, height: 4, data: new Uint8ClampedArray(64) }, line),
+    ).toBeNull();
   });
 
   it("flattens a dark mark at the check's top-left into the output's top-left", () => {

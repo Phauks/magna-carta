@@ -6158,10 +6158,7 @@ export const trustCheckEvent = sqliteTable(
   },
   (table) => [
     index("trust_check_event_check_index").on(table.checkId, table.recordedAt),
-    check(
-      "trust_check_event_kind_check",
-      sql`${table.kind} IN ('printed', 'spoiled', 'voided')`,
-    ),
+    check("trust_check_event_kind_check", sql`${table.kind} IN ('printed', 'spoiled', 'voided')`),
     check(
       "trust_check_event_reason_check",
       sql`${table.kind} = 'printed' OR length(${table.reason}) > 0`,

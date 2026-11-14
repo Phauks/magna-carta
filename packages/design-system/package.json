@@ -89,6 +89,7 @@
     "./scroll-edge-hint": "./src/lib/components/scroll-edge-hint/index.ts",
     "./source-quote": "./src/lib/components/source-quote/index.ts",
     "./segmented-control": "./src/lib/components/segmented-control/index.ts",
+    "./placement-board": "./src/lib/components/placement-board/index.ts",
     "./select": "./src/lib/components/select/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
     "./service-marks": "./src/lib/components/service-marks/index.ts",
