@@ -47,8 +47,8 @@
     }
     failure = stated(
       outcome.failure,
-      "The conversation was not deleted.",
-      "Nothing answered. The conversation was not deleted and is unchanged.",
+      "The conversation wasn't deleted.",
+      "Couldn't connect. The conversation wasn't deleted. Try again.",
     );
     return "refused";
   }
@@ -78,9 +78,7 @@
 
   {#snippet fields()}
     <p class="text-sm">
-      Every message in this conversation, yours and the answers, is removed and cannot be recovered.
-      What stays on the firm&rsquo;s record is that a conversation existed and was deleted, never
-      what was in it.
+      Every message in this conversation is deleted and can&rsquo;t be recovered. The firm&rsquo;s record shows only that a conversation existed and was deleted, not what was in it.
     </p>
   {/snippet}
 </ActionDialog>

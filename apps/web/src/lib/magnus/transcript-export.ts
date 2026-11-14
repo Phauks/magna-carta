@@ -76,7 +76,7 @@ export function transcriptMarkdown(
 ): string {
   const lines: string[] = [];
   lines.push(`# ${conversationDisplayName(conversation)}`, "");
-  lines.push(`- Matter: ${heading.matterLine ?? "Not kept on a matter"}`);
+  lines.push(`- Matter: ${heading.matterLine ?? "Not on a matter"}`);
   lines.push(`- Started: ${formatInstant(conversation.createdAt)}`);
   lines.push(`- Downloaded: ${formatInstant(heading.downloadedAt)}`);
   lines.push("", "A conversation with Magnus, the assistant in Magna Carta. Magnus can be wrong.");

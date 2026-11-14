@@ -256,15 +256,14 @@ export interface MagnusSubmittedTurn {
 export const TURN_FAILURE_SENTENCES: Readonly<Record<MagnusTurnFailureLabel, string>> =
   Object.freeze({
     "model-unavailable":
-      "The model did not answer, so this question was not put to it. Ask it again; if it keeps failing, an administrator can check the firm's assistant settings.",
+      "The model didn't respond, so this question wasn't asked. Ask again. If it keeps failing, an administrator can check Magnus in the firm's settings.",
     "not-eligible":
-      "The firm's assistant settings closed while this question was waiting, so it was never sent. An administrator turns the assistant back on in the firm's settings.",
+      "Magnus was turned off while this question was waiting, so it wasn't sent. An administrator can turn it back on in the firm's settings.",
     "ceiling-reached":
-      "The firm's daily allowance for the assistant was spent before this question was answered. The allowance resets tomorrow, and an administrator can raise it in the firm's settings.",
-    "too-large":
-      "The message was longer than one turn can carry, so nothing was sent. Shorten it and ask again.",
+      "The firm's daily allowance for Magnus ran out before this question was answered. It resets tomorrow. An administrator can raise it in the firm's settings.",
+    "too-large": "This message is too long to send. Shorten it and ask again.",
     cancelled:
-      "This question was cancelled before it was answered. Ask it again if you still want it.",
+      "This question was cancelled before it was answered. Ask again if you still need it.",
   });
 
 /** The failure sentence for a settled turn, or null where it settled with an answer. */

@@ -39,40 +39,8 @@
   "apps/web/src/lib/documents/text-document-editor.svelte": {
     "nothing-answered": 1
   },
-  "apps/web/src/lib/magnus/attach-file-dialog.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/magnus/conversation-delete-dialog.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/magnus/conversation-name.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/magnus/folder-delete-dialog.svelte": {
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/magnus/folder-name-dialog.svelte": {
-    "nothing-answered": 2
-  },
-  "apps/web/src/lib/magnus/magnus-api.ts": {
-    "nothing-answered": 1
-  },
   "apps/web/src/lib/magnus/magnus-disclosure.svelte": {
     "machinery": 2
-  },
-  "apps/web/src/lib/magnus/magnus-surface.svelte": {
-    "is-where": 2,
-    "nothing-answered": 6
-  },
-  "apps/web/src/lib/magnus/magnus-vocabulary.ts": {
-    "machinery": 1
-  },
-  "apps/web/src/lib/magnus/move-conversation-dialog.svelte": {
-    "is-where": 1,
-    "nothing-answered": 1
-  },
-  "apps/web/src/lib/magnus/turn-remove-dialog.svelte": {
-    "nothing-answered": 1
   },
   "apps/web/src/lib/matters/sections.ts": {
     "machinery": 1
