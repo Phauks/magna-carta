@@ -36,6 +36,7 @@
    * NOTHING ABOUT A CONVERSATION IS LOGGED HERE. Not a console line, not a diagnostics record: a
    * failure reports what the server said about the request, never what anybody typed.
    */
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
   import { tick, type Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
@@ -377,15 +378,16 @@
    */
   async function applySearch(next: string): Promise<void> {
     appliedSearch = next;
-    conversations.reset(`${subject}:${next.trim()}`);
+    // The rows on screen stay until the matches land, for the reason a change of order keeps them.
     reloadShelf();
     await conversations.load(readPage);
     if (showMatter) void citations.resolve((conversations.items ?? []).map((row) => row.matterId));
   }
 
   function reorder(next: ConversationSort): void {
+    // The rows on screen stay until the new order lands: blanking them put the whole surface back
+    // into its loading state, which read as the page reloading.
     sort = next;
-    conversations.reset(subject);
     void loadConversations();
   }
 
@@ -496,7 +498,10 @@
     const outcome = await readWholeTranscript(fetch, conversation.id);
     if (outcome.kind !== "ok") {
       downloading = false;
-      toast.error("The transcript could not be read, so nothing was downloaded. Try again.");
+      failureToast(
+        outcome.failure,
+        "The transcript could not be read, so nothing was downloaded. Try again.",
+      );
       return;
     }
     const document = transcriptMarkdown(conversation, outcome.value, {
@@ -757,7 +762,20 @@
   <header
     class="flex items-center justify-between gap-16 border-b border-border-default py-8 ps-24 pe-16"
   >
-    <div class="flex min-w-0 flex-col items-start gap-2">
+    <!-- Find takes the name's place in the head row while it is open (owner ruling, 2026-11-14), so
+         opening it never pushes the conversation down and never crowds the controls beside it. -->
+    {#if findOpen}
+      <ConversationFindBar
+        bind:this={findBar}
+        bind:value={() => findText, setFindText}
+        matchCount={findMatches.length}
+        current={findCurrent}
+        reading={findReading}
+        onStep={(step) => (findIndex = steppedMatch(findCurrent, findMatches.length, step))}
+        onClose={closeFind}
+      />
+    {:else}
+    <div class="flex min-w-0 flex-1 flex-col items-start gap-2">
       <ConversationName
         bind:this={conversationName}
         conversation={selected}
@@ -780,6 +798,7 @@
         </button>
       {/if}
     </div>
+    {/if}
     <div class="flex shrink-0 items-center gap-2">
       <Tooltip.Root>
         <Tooltip.Trigger>
@@ -829,7 +848,10 @@
             }
           : null}
         onShelve={(next) => void shelveSelected(next)}
-        onRename={() => conversationName?.rename()}
+        onRename={() => {
+          closeFind();
+          void tick().then(() => conversationName?.rename());
+        }}
         onFind={() => void openFind()}
         onMove={() => (movingConversation = selected)}
         onDownload={() => void downloadTranscript()}
@@ -850,17 +872,6 @@
   <Conversation.Root class="min-h-0 min-w-0 flex-1">
     {#if selectedId !== null}
       {@render conversationHeadRow()}
-      {#if findOpen}
-        <ConversationFindBar
-          bind:this={findBar}
-          bind:value={() => findText, setFindText}
-          matchCount={findMatches.length}
-          current={findCurrent}
-          reading={findReading}
-          onStep={(step) => (findIndex = steppedMatch(findCurrent, findMatches.length, step))}
-          onClose={closeFind}
-        />
-      {/if}
       <MagnusTranscript
         {session}
         onEdit={startEditing}
@@ -1097,7 +1108,7 @@
        composer pinned beneath it, which is why the content column does not scroll as a whole. The
        rail stands only while the assistant is open here: behind a closed gate there is no record to
        order, and the content column carries the gate's own words. -->
-  <NavigationLayout navigationLabel="Conversations" navigationWidth="standard" contentScrolls={false}>
+  <NavigationLayout navigationLabel="Conversations" navigationWidth="wide" contentScrolls={false}>
     {#snippet navigation()}
       {#if isOpen || reading}
         <LoadingRegion

@@ -37,14 +37,15 @@ describe("BUCKETS", () => {
       "incident-report": { limit: 5, windowSeconds: 300 },
       "guest-arrival": { limit: 20, windowSeconds: 60 },
       "meeting-question-upvote": { limit: 30, windowSeconds: 60 },
+      "client-error": { limit: 20, windowSeconds: 300 },
       "provider-notice": { limit: 3000, windowSeconds: 60 },
     });
   });
 
-  it("keys exactly the upvote bucket by the member rather than by the firm", () => {
+  it("keys exactly the upvote and client-error buckets by the member rather than by the firm", () => {
     // A bucket named here stands in for the firm's on its route, so the list is the whole of where
     // one member's loop is bounded on its own — widening it is a decision, not a side effect.
-    expect([...MEMBER_SCOPED_BUCKETS]).toEqual(["meeting-question-upvote"]);
+    expect([...MEMBER_SCOPED_BUCKETS]).toEqual(["meeting-question-upvote", "client-error"]);
   });
 
   it("keeps the auth bucket above the credential ladder it shares a visitor with", () => {
