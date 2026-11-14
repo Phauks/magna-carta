@@ -45,7 +45,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The exhibit was not withdrawn.",
+      "The exhibit wasn't withdrawn.",
       "Couldn't connect, so the exhibit stands.",
     );
     return "refused";
@@ -79,7 +79,7 @@
     <div class="flex flex-col gap-16">
       {#if member !== null}
         <p class="text-sm">
-          {member.caption}, {member.title}. It keeps its label and is marked withdrawn.
+          {member.caption}, {member.title}. It's marked withdrawn and keeps its label.
         </p>
       {/if}
       <LabelledField label="Reason">

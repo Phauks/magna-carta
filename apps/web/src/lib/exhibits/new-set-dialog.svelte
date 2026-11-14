@@ -75,7 +75,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The set was not started.",
+      "The set wasn't started.",
       "Couldn't connect, so no set was started.",
     );
     return "refused";
@@ -141,8 +141,7 @@
             </Select.Content>
           </Select.Root>
           <p class="text-xs text-text-muted">
-            The files in the folder become the exhibits, in name order. Files added to or taken out
-            of the folder join or leave the set until it is marked as filed.
+            The folder's files become the exhibits, in name order. Until the set is marked as filed, files added to or removed from the folder join or leave the set.
           </p>
         </div>
       {:else}

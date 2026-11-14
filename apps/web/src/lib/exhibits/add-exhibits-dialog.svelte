@@ -90,7 +90,7 @@
       if (created.kind !== "ok") {
         failure = stated(
           created.failure,
-          `${file.name} could not be made an exhibit, so nothing was added.`,
+          `Couldn't make ${file.name} an exhibit, so nothing was added.`,
           "Couldn't connect, so nothing was added.",
         );
         return "refused";
@@ -104,7 +104,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The exhibits were not added to the set.",
+      "The exhibits weren't added to the set.",
       "Couldn't connect, so nothing was added.",
     );
     return "refused";
@@ -145,7 +145,7 @@
       {#if files === null}
         <p class="text-sm text-text-muted" aria-live="polite">Reading this matter's files</p>
       {:else if offered.length === 0}
-        <EmptyState title="Every file on this matter is already in the set." />
+        <EmptyState title="All files on this matter are already in the set." />
       {:else if shown.length === 0}
         <EmptyState title="No files match that search." />
       {:else}
