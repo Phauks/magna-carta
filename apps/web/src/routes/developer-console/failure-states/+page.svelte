@@ -189,7 +189,7 @@
     </section>
 
     <section class="flex flex-col gap-8">
-      <h2 class="text-lg font-semibold">Toast — a failure with nowhere else to go</h2>
+      <h2 class="text-lg font-semibold">Toast: a failure with nowhere else to go</h2>
       <p class="max-w-prose text-xs text-text-muted">
         The surface's own sentence, the summary line beneath it, and Copy details.
       </p>
