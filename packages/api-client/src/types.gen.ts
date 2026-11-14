@@ -7732,12 +7732,15 @@ export type PersonalRoom = {
     id: string;
     linkCode: string;
     addressName: string;
+    name: string;
+    title: string | null;
     medium: 'video' | 'audio';
     lobby: 'off' | 'on';
     openMeetingId: string | null;
 } | null;
 
 export type UpdatePersonalRoomRequest = {
+    title?: string | null;
     medium?: 'video' | 'audio';
     lobby?: 'off' | 'on';
 };
@@ -7761,6 +7764,7 @@ export type FirmRoom = {
     name: string;
     linkCode: string | null;
     addressName: string | null;
+    title: string | null;
     medium: 'video' | 'audio' | null;
     openMeetingId: string | null;
     inTheRoom: number;
@@ -7772,6 +7776,9 @@ export type PersonalRoomAtLink = {
     ownerDisplayName: string;
     isOwner: boolean;
     addressName: string;
+    roomName: string;
+    kind: 'personal' | 'shared';
+    mayOpen: boolean;
     meetingId: string | null;
 };
 
@@ -7781,6 +7788,33 @@ export type MoveMeetingToMatterResponse = {
 
 export type MoveMeetingToMatterRequest = {
     matterId: string;
+};
+
+export type SharedRoomsResponse = {
+    rooms: Array<SharedRoom>;
+};
+
+export type SharedRoom = {
+    id: string;
+    name: string;
+    addressName: string;
+    medium: 'video' | 'audio';
+    lobby: 'off' | 'on';
+    setUpBy: string;
+    openMeetingId: string | null;
+    inTheRoom: number;
+};
+
+export type CreateSharedRoomRequest = {
+    title: string;
+    medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
+};
+
+export type UpdateSharedRoomRequest = {
+    title?: string;
+    medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
 };
 
 export type MeetingByCodeResponse = {
@@ -36891,6 +36925,257 @@ export type MeetingsMoveToMatterResponses = {
 };
 
 export type MeetingsMoveToMatterResponse = MeetingsMoveToMatterResponses[keyof MeetingsMoveToMatterResponses];
+
+export type MeetingsListSharedRoomsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms';
+};
+
+export type MeetingsListSharedRoomsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsListSharedRoomsError = MeetingsListSharedRoomsErrors[keyof MeetingsListSharedRoomsErrors];
+
+export type MeetingsListSharedRoomsResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsListSharedRoomsResponse = MeetingsListSharedRoomsResponses[keyof MeetingsListSharedRoomsResponses];
+
+export type MeetingsCreateSharedRoomData = {
+    body: CreateSharedRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms';
+};
+
+export type MeetingsCreateSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsCreateSharedRoomError = MeetingsCreateSharedRoomErrors[keyof MeetingsCreateSharedRoomErrors];
+
+export type MeetingsCreateSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsCreateSharedRoomResponse = MeetingsCreateSharedRoomResponses[keyof MeetingsCreateSharedRoomResponses];
+
+export type MeetingsRetireSharedRoomData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        roomId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms/{roomId}';
+};
+
+export type MeetingsRetireSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsRetireSharedRoomError = MeetingsRetireSharedRoomErrors[keyof MeetingsRetireSharedRoomErrors];
+
+export type MeetingsRetireSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsRetireSharedRoomResponse = MeetingsRetireSharedRoomResponses[keyof MeetingsRetireSharedRoomResponses];
+
+export type MeetingsUpdateSharedRoomData = {
+    body: UpdateSharedRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        roomId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms/{roomId}';
+};
+
+export type MeetingsUpdateSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsUpdateSharedRoomError = MeetingsUpdateSharedRoomErrors[keyof MeetingsUpdateSharedRoomErrors];
+
+export type MeetingsUpdateSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsUpdateSharedRoomResponse = MeetingsUpdateSharedRoomResponses[keyof MeetingsUpdateSharedRoomResponses];
+
+export type MeetingsOpenRoomAtAddressData = {
+    body: OpenPersonalRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        linkCode: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/rooms/{linkCode}/open';
+};
+
+export type MeetingsOpenRoomAtAddressErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsOpenRoomAtAddressError = MeetingsOpenRoomAtAddressErrors[keyof MeetingsOpenRoomAtAddressErrors];
+
+export type MeetingsOpenRoomAtAddressResponses = {
+    /**
+     * The session to join
+     */
+    200: OpenPersonalRoomResponse;
+};
+
+export type MeetingsOpenRoomAtAddressResponse = MeetingsOpenRoomAtAddressResponses[keyof MeetingsOpenRoomAtAddressResponses];
 
 export type MeetingsGetByCodeData = {
     body?: never;

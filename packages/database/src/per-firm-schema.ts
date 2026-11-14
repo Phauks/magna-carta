@@ -8950,17 +8950,36 @@ export const meetingPersonalRoom = sqliteTable(
     // changed when the owner's name is, because a link that moves is a link that stops working. The
     // link code beside it still works, and Get a New Link still replaces it.
     addressName: text("address_name"),
+    // A MEMBER'S OWN ROOM, or a ROOM THE FIRM SHARES (a conference room, "Red Room"). A member has at
+    // most one room of their own; a shared room is set up by a member who holds `meetings:host`
+    // (`owner_user_id` is who set it up) and is opened by anybody who does.
+    kind: text("kind", { enum: ["personal", "shared"] })
+      .notNull()
+      .default("personal"),
+    // The room's name. A shared room always has one; a member's own room is called "<name>'s Room"
+    // until they give it a name of their own.
+    title: text("title"),
+    // When a shared room was taken off the firm's list. Its sessions stay on the record; its address
+    // names nothing and is free to be given to another room.
+    retiredAt: text("retired_at"), // ISO-8601 instant
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("meeting_personal_room_owner_unique_index").on(table.ownerUserId),
+    uniqueIndex("meeting_personal_room_owner_unique_index")
+      .on(table.ownerUserId)
+      .where(sql`${table.kind} = 'personal'`),
     uniqueIndex("meeting_personal_room_address_name_unique_index")
       .on(table.addressName)
       .where(sql`${table.addressName} IS NOT NULL`),
     uniqueIndex("meeting_personal_room_link_code_unique_index").on(table.linkCode),
     check("meeting_personal_room_medium_check", sql`${table.medium} IN ('video', 'audio')`),
     check("meeting_personal_room_lobby_check", sql`${table.lobby} IN ('off', 'on')`),
+    check("meeting_personal_room_kind_check", sql`${table.kind} IN ('personal', 'shared')`),
+    check(
+      "meeting_personal_room_title_check",
+      sql`${table.title} IS NULL OR length(${table.title}) BETWEEN 1 AND 80`,
+    ),
     check(
       "meeting_personal_room_address_name_shape_check",
       sql`${table.addressName} IS NULL OR (length(${table.addressName}) BETWEEN 1 AND 40 AND ${table.addressName} NOT GLOB '*[^a-z0-9-]*')`,

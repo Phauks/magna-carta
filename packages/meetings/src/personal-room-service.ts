@@ -21,9 +21,15 @@ import type {
   MatterEventId,
   MatterId,
   MeetingId,
+  MeetingPersonalRoomId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 import { readLiveHostGrant } from "./hosting-statements.ts";
-import { freeRoomAddressName, roomAddressNames } from "./meeting-addresses.ts";
+import {
+  freeRoomAddressName,
+  roomAddressFromTitle,
+  roomAddressNames,
+} from "./meeting-addresses.ts";
 import type { MeetingLobbyMode } from "./lobby-types.ts";
 import {
   END_MEETING_GUARD,
@@ -37,6 +43,10 @@ import {
   deleteMovedFirmEventParticipantsStatement,
   deleteMovedFirmEventStatement,
   insertPersonalRoomStatement,
+  insertSharedRoomStatement,
+  readRoomById,
+  renameRoomStatement,
+  retireSharedRoomStatement,
   moveMeetingToMatterEventStatement,
   readFirmEventForMove,
   readFirmEventParticipantsForMove,
@@ -50,10 +60,13 @@ import {
   updatePersonalRoomDefaultsStatement,
 } from "./personal-room-statements.ts";
 import {
+  cleanRoomTitle,
   isPersonalRoomAddress,
   newPersonalRoomLinkCode,
   personalRoomEventTitle,
   refusePersonalRoom,
+  roomDisplayName,
+  type MeetingRoomKind,
   type MeetingPersonalRoomRow,
   type PersonalRoomOpenSession,
 } from "./personal-room-types.ts";
@@ -71,6 +84,197 @@ export const REPLACE_LINK_GUARD = "meeting.personalRoom.replaceLink";
 export const MOVE_TO_MATTER_GUARD = "meeting.personalRoom.moveToMatter";
 /** The guard on deleting the firm event a move leaves behind. */
 export const MOVE_DELETE_EVENT_GUARD = "meeting.personalRoom.moveDeleteEvent";
+/** The guard on renaming a room: somebody else renamed or retired it between the read and the write. */
+export const RENAME_ROOM_GUARD = "meeting.personalRoom.rename";
+/** The guard on retiring a shared room: somebody else retired it first. */
+export const RETIRE_ROOM_GUARD = "meeting.personalRoom.retire";
+
+const NOTHING: EffectWrite = { statements: [], outboxMessages: [] };
+
+/**
+ * The first free address for a room called `title`, or for a member's own room with no name of its
+ * own, the one made from its owner's name. A room keeps the address it has when that is still the
+ * first choice, so renaming a room back to what it was called keeps its link.
+ */
+async function addressFor(
+  database: SqlDatabase,
+  title: string | null,
+  ownerUserId: UserId,
+  fallback: string,
+  current: string | null,
+): Promise<string> {
+  const candidates =
+    title === null
+      ? roomAddressNames((await readMemberDisplayName(database, ownerUserId)) ?? "")
+      : roomAddressFromTitle(title);
+  if (candidates.length === 0) return fallback;
+  if (current !== null && candidates.includes(current)) return current;
+  const taken = new Set(await readTakenRoomAddressNames(database, candidates));
+  if (current !== null) taken.delete(current);
+  return freeRoomAddressName(candidates, taken);
+}
+
+function requireTitle(typed: string): string {
+  const title = cleanRoomTitle(typed);
+  if (title === undefined) {
+    refusePersonalRoom("personal-room-invalid-title", "a room's name is 1 to 80 characters");
+  }
+  return title;
+}
+
+async function requireSharedRoom(
+  database: SqlDatabase,
+  roomId: MeetingPersonalRoomId,
+): Promise<MeetingPersonalRoomRow> {
+  const room = await readRoomById(database, roomId);
+  if (room === undefined || room.kind !== "shared" || room.retired_at !== null) {
+    refusePersonalRoom("personal-room-unknown", "that is not one of the firm's rooms");
+  }
+  return room;
+}
+
+/**
+ * A ROOM THE FIRM SHARES, such as "Red Room": set up by a member who may host, named for the place,
+ * addressed by its name (/room/red-room), and opened by anybody who may host. The caller (the route)
+ * has already asked `meetings:host`.
+ */
+export async function createSharedRoom(
+  database: SqlDatabase,
+  input: {
+    readonly title: string;
+    readonly medium?: MeetingMedium;
+    readonly lobby?: MeetingLobbyMode;
+  },
+  options: MeetingServiceOptions,
+): Promise<{ roomId: MeetingPersonalRoomId; effect: EffectWrite }> {
+  const title = requireTitle(input.title);
+  const id = newIdentifier("meetingPersonalRoom", options.randomSource);
+  const linkCode = newPersonalRoomLinkCode(options.randomSource);
+  const addressName = await addressFor(database, title, options.actorUserId, linkCode, null);
+  const now = options.clock.now();
+  return {
+    roomId: id,
+    effect: {
+      statements: [
+        insertSharedRoomStatement(database, {
+          id,
+          setUpByUserId: options.actorUserId,
+          linkCode,
+          addressName,
+          title,
+          medium: input.medium ?? "video",
+          // On by default, like a member's room: a room named for a place is a link that travels.
+          lobby: input.lobby ?? "on",
+          now,
+        }),
+        // The name stays out of the log, like a meeting's title: it can say who a room is for.
+        domainAuditStatement(database, {
+          event: "meetings.personalRoom.created",
+          subjectId: id,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { kind: "shared" },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/**
+ * A ROOM'S NAME. `room` is the caller's own room (`own`) or a shared room by its handle, which any
+ * member who may host can rename. `null` puts a member's own room back to being called by their name.
+ * The address follows the name, and the old one stops working.
+ */
+export async function renameRoom(
+  database: SqlDatabase,
+  room: "own" | MeetingPersonalRoomId,
+  typed: string | null,
+  options: MeetingServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const target =
+    room === "own"
+      ? await requireOwnRoom(database, options)
+      : await requireSharedRoom(database, room);
+  const title = typed === null ? null : requireTitle(typed);
+  if (title === null && target.kind === "shared") {
+    refusePersonalRoom("personal-room-invalid-title", "a shared room always has a name");
+  }
+  const addressName = await addressFor(
+    database,
+    title,
+    target.owner_user_id,
+    target.link_code,
+    target.address_name,
+  );
+  if (title === target.title && addressName === target.address_name) return { effect: NOTHING };
+  const now = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        guarded(
+          renameRoomStatement(database, {
+            id: target.id,
+            previousAddressName: target.address_name,
+            title,
+            addressName,
+            now,
+          }),
+          RENAME_ROOM_GUARD,
+        ),
+        domainAuditStatement(database, {
+          event: "meetings.personalRoom.renamed",
+          subjectId: target.id,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { kind: target.kind, addressChanged: addressName !== target.address_name },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/** A shared room's standing choices, changed by any member who may host. */
+export async function updateSharedRoomDefaults(
+  database: SqlDatabase,
+  roomId: MeetingPersonalRoomId,
+  input: { readonly medium?: MeetingMedium; readonly lobby?: MeetingLobbyMode },
+  options: MeetingServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  return changeDefaults(database, await requireSharedRoom(database, roomId), input, options);
+}
+
+/**
+ * A shared room taken off the firm's list. A session open in it carries on; its address is given up
+ * at once, so the link names nothing and the name is free for another room.
+ */
+export async function retireSharedRoom(
+  database: SqlDatabase,
+  roomId: MeetingPersonalRoomId,
+  options: MeetingServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const room = await requireSharedRoom(database, roomId);
+  const now = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        guarded(retireSharedRoomStatement(database, { id: room.id, now }), RETIRE_ROOM_GUARD),
+        domainAuditStatement(database, {
+          event: "meetings.personalRoom.retired",
+          subjectId: room.id,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: {},
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
 
 /**
  * The caller's room, made when it does not exist yet. Returns the row when it exists and the write
@@ -178,7 +382,15 @@ export async function updatePersonalRoomDefaults(
   input: { readonly medium?: MeetingMedium; readonly lobby?: MeetingLobbyMode },
   options: MeetingServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const room = await requireOwnRoom(database, options);
+  return changeDefaults(database, await requireOwnRoom(database, options), input, options);
+}
+
+async function changeDefaults(
+  database: SqlDatabase,
+  room: MeetingPersonalRoomRow,
+  input: { readonly medium?: MeetingMedium; readonly lobby?: MeetingLobbyMode },
+  options: MeetingServiceOptions,
+): Promise<{ effect: EffectWrite }> {
   const medium = input.medium ?? room.medium;
   const lobby = input.lobby ?? room.lobby;
   if (medium === room.medium && lobby === room.lobby) {
@@ -278,7 +490,40 @@ export async function openPersonalRoom(
   endedMeetingId: MeetingId | null;
   effect: EffectWrite;
 }> {
-  const room = await requireOwnRoom(database, options);
+  return openRoomSession(database, await requireOwnRoom(database, options), input, options);
+}
+
+/**
+ * Opening the room at an address: a member's own room by its owner alone, and a shared room by any
+ * member who may host (`mayHost`, which the route reads off the session).
+ */
+export async function openRoomAtAddress(
+  database: SqlDatabase,
+  addressName: string,
+  input: OpenPersonalRoomInput,
+  options: MeetingServiceOptions & { readonly mayHost: boolean },
+): ReturnType<typeof openPersonalRoom> {
+  const room = await readLinkedRoom(database, addressName);
+  if (!mayOpen(room, options.actorUserId, options.mayHost)) {
+    refusePersonalRoom("personal-room-not-owner", "only the room's owner opens it");
+  }
+  return openRoomSession(database, room, input, options);
+}
+
+function mayOpen(
+  room: { readonly kind: MeetingRoomKind; readonly owner_user_id: UserId },
+  userId: UserId,
+  mayHost: boolean,
+): boolean {
+  return room.kind === "shared" ? mayHost : room.owner_user_id === userId;
+}
+
+async function openRoomSession(
+  database: SqlDatabase,
+  room: MeetingPersonalRoomRow,
+  input: OpenPersonalRoomInput,
+  options: MeetingServiceOptions,
+): ReturnType<typeof openPersonalRoom> {
   const open = await readPersonalRoomOpenSession(database, room.id);
   if (open !== undefined && isInUse(open)) {
     return {
@@ -302,8 +547,10 @@ export async function openPersonalRoom(
   const ending = open === undefined ? [] : await endAbandonedSession(database, open, options);
   const now = options.clock.now();
   const startsAt = zonedReading(Date.parse(now), input.timeZone);
-  const ownerName = (await readMemberDisplayName(database, options.actorUserId)) ?? "A colleague";
-  const title = personalRoomEventTitle(ownerName);
+  // The event says which room it was: a shared room's name, or the name a member gave their own,
+  // or, for a member's room they never named, whose it is.
+  const ownerName = (await readMemberDisplayName(database, room.owner_user_id)) ?? "A colleague";
+  const title = room.title ?? personalRoomEventTitle(ownerName);
 
   const eventStatements: EffectStatement[] = [];
   let eventKind: "matter" | "firm";
@@ -435,20 +682,20 @@ export async function openPersonalRoom(
 }
 
 /** What a room's link answers: whose room it is, and the session to join when one is open. */
+interface RoomAtLinkFacts {
+  readonly ownerDisplayName: string;
+  readonly isOwner: boolean;
+  readonly addressName: string;
+  // What the room is called, and whether it is the firm's rather than a member's.
+  readonly roomName: string;
+  readonly kind: MeetingRoomKind;
+  // Whether the caller may open it: its owner for a member's room, anybody who may host for a shared one.
+  readonly mayOpen: boolean;
+}
+
 export type PersonalRoomArrival =
-  | {
-      readonly state: "closed";
-      readonly ownerDisplayName: string;
-      readonly isOwner: boolean;
-      readonly addressName: string;
-    }
-  | {
-      readonly state: "open";
-      readonly ownerDisplayName: string;
-      readonly isOwner: boolean;
-      readonly addressName: string;
-      readonly meetingId: MeetingId;
-    };
+  | (RoomAtLinkFacts & { readonly state: "closed" })
+  | (RoomAtLinkFacts & { readonly state: "open"; readonly meetingId: MeetingId });
 
 async function readLinkedRoom(database: SqlDatabase, linkCode: string) {
   // A string that cannot be a code is refused before any read, with the same answer an unknown code
@@ -456,7 +703,8 @@ async function readLinkedRoom(database: SqlDatabase, linkCode: string) {
   const room = isPersonalRoomAddress(linkCode)
     ? await readPersonalRoomByAddressName(database, linkCode)
     : undefined;
-  if (room === undefined || room.owner_active !== 1) {
+  // A member's room goes when they leave the firm; a shared room is the firm's and does not.
+  if (room === undefined || (room.kind === "personal" && room.owner_active !== 1)) {
     refusePersonalRoom("personal-room-unknown", "that link does not open a room");
   }
   return room;
@@ -466,22 +714,20 @@ async function readLinkedRoom(database: SqlDatabase, linkCode: string) {
 export async function readPersonalRoomAtLink(
   database: SqlDatabase,
   linkCode: string,
-  options: MeetingServiceOptions,
+  options: MeetingServiceOptions & { readonly mayHost?: boolean },
 ): Promise<PersonalRoomArrival> {
   const room = await readLinkedRoom(database, linkCode);
-  const isOwner = room.owner_user_id === options.actorUserId;
-  const open = await readPersonalRoomOpenSession(database, room.id);
-  const addressName = room.address_name ?? room.link_code;
-  if (open === undefined || !isInUse(open)) {
-    return { state: "closed", ownerDisplayName: room.owner_display_name, isOwner, addressName };
-  }
-  return {
-    state: "open",
+  const facts: RoomAtLinkFacts = {
     ownerDisplayName: room.owner_display_name,
-    isOwner,
-    addressName,
-    meetingId: open.id,
+    isOwner: room.kind === "personal" && room.owner_user_id === options.actorUserId,
+    addressName: room.address_name ?? room.link_code,
+    roomName: roomDisplayName(room, room.owner_display_name),
+    kind: room.kind,
+    mayOpen: mayOpen(room, options.actorUserId, options.mayHost ?? false),
   };
+  const open = await readPersonalRoomOpenSession(database, room.id);
+  if (open === undefined || !isInUse(open)) return { ...facts, state: "closed" };
+  return { ...facts, state: "open", meetingId: open.id };
 }
 
 /**
@@ -493,7 +739,7 @@ export async function readPersonalRoomAtLink(
 export async function arriveAtPersonalRoom(
   database: SqlDatabase,
   linkCode: string,
-  options: MeetingServiceOptions,
+  options: MeetingServiceOptions & { readonly mayHost?: boolean },
 ): Promise<{ arrival: PersonalRoomArrival; effect: EffectWrite }> {
   const arrival = await readPersonalRoomAtLink(database, linkCode, options);
   const nothing = { statements: [], outboxMessages: [] };
