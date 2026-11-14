@@ -503,7 +503,7 @@
     if (outcome.kind !== "ok") {
       saveFailure = stated(
         outcome.failure,
-        "The change was not saved.",
+        "The change wasn't saved.",
         "Couldn't connect. The change wasn't saved.",
       );
       return;
@@ -652,7 +652,7 @@
     if (failure !== null) {
       return verbRefused(
         failure,
-        "The change was not saved.",
+        "The change wasn't saved.",
         "Couldn't connect. The change wasn't saved and the series is unchanged.",
       );
     }

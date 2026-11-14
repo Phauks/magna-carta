@@ -403,6 +403,20 @@ const fileContentsSource: MatterSearchSource = {
 // the term into a LIKE with no ESCAPE clause, so a custody number containing an underscore matches
 // more than it should. Everything built here escapes, because the shared builder does it. The
 // register's own route is another stream's file and is not touched from here.
+const CUSTODY_ROW: SearchRowColumns = {
+  idColumn: `${CUSTODY_PACKET_TABLE}.id`,
+  matterExpression: `${CUSTODY_PACKET_TABLE}.matter_id`,
+  sortExpression: `${CUSTODY_PACKET_TABLE}.created_at`,
+  titleExpression: `${CUSTODY_PACKET_TABLE}.name`,
+  snippetExpression: "NULL",
+  // Where it is and what state it is in — the two facts somebody searching for an original
+  // actually wants, and the reason a hit here often needs no click at all.
+  secondaryExpression: `${CUSTODY_PACKET_TABLE}.custody_number || ' · ' || ${CUSTODY_PACKET_TABLE}.status`,
+  actorExpression: "NULL",
+};
+
+const CUSTODY_MATCH = `(${CUSTODY_PACKET_TABLE}.name LIKE ? ESCAPE '\\' OR ${CUSTODY_PACKET_TABLE}.custody_number LIKE ? ESCAPE '\\')`;
+
 const custodySource: MatterSearchSource = {
   key: "custody",
   sectionSlug: "custodian",
@@ -422,23 +436,34 @@ const custodySource: MatterSearchSource = {
       boundedSearchSelect(request.database, {
         request,
         from: CUSTODY_PACKET_TABLE,
-        idColumn: `${CUSTODY_PACKET_TABLE}.id`,
-        matterExpression: `${CUSTODY_PACKET_TABLE}.matter_id`,
-        sortExpression: `${CUSTODY_PACKET_TABLE}.created_at`,
-        titleExpression: `${CUSTODY_PACKET_TABLE}.name`,
-        snippetExpression: "NULL",
-        // Where it is and what state it is in — the two facts somebody searching for an original
-        // actually wants, and the reason a hit here often needs no click at all.
-        secondaryExpression: `${CUSTODY_PACKET_TABLE}.custody_number || ' · ' || ${CUSTODY_PACKET_TABLE}.status`,
-        actorExpression: "NULL",
-        conditions: [
-          `(${CUSTODY_PACKET_TABLE}.name LIKE ? ESCAPE '\\' OR ${CUSTODY_PACKET_TABLE}.custody_number LIKE ? ESCAPE '\\')`,
-        ],
+        ...CUSTODY_ROW,
+        conditions: [CUSTODY_MATCH],
         bindings: [term, term],
       }),
     ];
   },
   project: projectInto("custody", "custodian"),
+  // The same packets, by the same two columns, on every matter the reader may see, behind the same
+  // custody:read. A packet held for no matter, and one on the holding matter the register keeps
+  // for itself, are on no matter this predicate admits, so neither is in the answer: the custody
+  // register's own search is where those are found. It reads the packet table, which holds one
+  // row per packet of originals and is the smallest table any place here reads.
+  acrossMatters: {
+    reads: "names",
+    matchedFields: ["packet names", "custody numbers"],
+    buildStatements: (request) => {
+      const term = likeContainsTerm(request.query);
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from: CUSTODY_PACKET_TABLE,
+          ...CUSTODY_ROW,
+          conditions: [CUSTODY_MATCH],
+          bindings: [term, term],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- calls and texts ---------------------------------------------------------------------------
@@ -567,6 +592,37 @@ const PARTY_DISPLAY_NAME =
   `WHERE ${DIRECTORY_ORGANIZATION_TABLE}.id = ${MATTER_PARTY_TABLE}.entity_id ` +
   `AND ${DIRECTORY_ORGANIZATION_TABLE}.deleted_at IS NULL AND ${DIRECTORY_ORGANIZATION_TABLE}.status = 'active'))`;
 
+// What a party row is, apart from its order: the same name and the same second line whichever
+// reach the statement has.
+const PARTY_ROW = {
+  idColumn: `${MATTER_PARTY_TABLE}.id`,
+  matterExpression: `${MATTER_PARTY_TABLE}.matter_id`,
+  titleExpression: PARTY_DISPLAY_NAME,
+  snippetExpression: "NULL",
+  // What they are to this matter — the role, and the capacity where the firm recorded one.
+  secondaryExpression:
+    `CASE WHEN ${MATTER_PARTY_TABLE}.capacity IS NULL THEN ${MATTER_PARTY_TABLE}.role ` +
+    `ELSE ${MATTER_PARTY_TABLE}.role || ' · ' || ${MATTER_PARTY_TABLE}.capacity END`,
+  actorExpression: "NULL",
+} satisfies Omit<SearchRowColumns, "sortExpression">;
+
+const PARTY_CONDITIONS = [
+  `${MATTER_PARTY_TABLE}.deleted_at IS NULL`,
+  `${PARTY_DISPLAY_NAME} IS NOT NULL`,
+  `(${PARTY_DISPLAY_NAME} LIKE ? ESCAPE '\\' OR ${MATTER_PARTY_TABLE}.capacity LIKE ? ESCAPE '\\')`,
+];
+
+// Every person and organization a text names, by the rule PARTY_DISPLAY_NAME reads a name by: a
+// deleted entity and one that is not active have no name to match. Two bindings, the same term.
+const ENTITIES_NAMED =
+  `SELECT ${DIRECTORY_PERSON_TABLE}.id FROM ${DIRECTORY_PERSON_TABLE} ` +
+  `WHERE ${DIRECTORY_PERSON_TABLE}.display_name LIKE ? ESCAPE '\\' ` +
+  `AND ${DIRECTORY_PERSON_TABLE}.deleted_at IS NULL AND ${DIRECTORY_PERSON_TABLE}.status = 'active' ` +
+  `UNION ALL ` +
+  `SELECT ${DIRECTORY_ORGANIZATION_TABLE}.id FROM ${DIRECTORY_ORGANIZATION_TABLE} ` +
+  `WHERE ${DIRECTORY_ORGANIZATION_TABLE}.display_name LIKE ? ESCAPE '\\' ` +
+  `AND ${DIRECTORY_ORGANIZATION_TABLE}.deleted_at IS NULL AND ${DIRECTORY_ORGANIZATION_TABLE}.status = 'active'`;
+
 const partiesSource: MatterSearchSource = {
   key: "parties",
   sectionSlug: "parties",
@@ -587,29 +643,68 @@ const partiesSource: MatterSearchSource = {
       boundedSearchSelect(request.database, {
         request,
         from: MATTER_PARTY_TABLE,
-        idColumn: `${MATTER_PARTY_TABLE}.id`,
-        matterExpression: `${MATTER_PARTY_TABLE}.matter_id`,
+        ...PARTY_ROW,
         // Alphabetical, because a party list is read as a roll rather than as a history. Case-folded
         // so the order does not depend on how a name happens to be capitalized.
         sortExpression: `LOWER(${PARTY_DISPLAY_NAME})`,
-        titleExpression: PARTY_DISPLAY_NAME,
-        snippetExpression: "NULL",
-        // What they are to this matter — the role, and the capacity where the firm recorded one.
-        secondaryExpression:
-          `CASE WHEN ${MATTER_PARTY_TABLE}.capacity IS NULL THEN ${MATTER_PARTY_TABLE}.role ` +
-          `ELSE ${MATTER_PARTY_TABLE}.role || ' · ' || ${MATTER_PARTY_TABLE}.capacity END`,
-        actorExpression: "NULL",
-        conditions: [
-          `${MATTER_PARTY_TABLE}.deleted_at IS NULL`,
-          `${PARTY_DISPLAY_NAME} IS NOT NULL`,
-          `(${PARTY_DISPLAY_NAME} LIKE ? ESCAPE '\\' OR ${MATTER_PARTY_TABLE}.capacity LIKE ? ESCAPE '\\')`,
-        ],
+        conditions: PARTY_CONDITIONS,
         bindings: [term, term],
         ascending: true,
       }),
     ];
   },
   project: projectInto("parties", "parties"),
+  // Who is a party to which matter, on every matter the reader may see. It answers a different
+  // question from the directory's own search of people: that one finds the person, and this one
+  // finds each matter they are on and what they are to it. Open to any member of the firm for the
+  // reason it is inside a matter, and it reads display names and capacities and nothing else.
+  //
+  // NEWEST FIRST, by when the party was put on the matter. A roll in alphabetical order is right
+  // for one matter's parties and wrong here, where one name can be on many matters and the reader
+  // is most often after the recent one.
+  //
+  // TWO STATEMENTS, BECAUSE THERE IS NO MATTER TO DRIVE FROM. Inside a matter the party table
+  // leads and each name is a lookup, which is right for a handful of rows. With no matter that
+  // same shape looks every party's name up to test it: about 100 ms on 50,000 parties in
+  // scripts/measure-across-matters.mts. So the first statement finds the people and organizations
+  // the text names and reaches their party rows through the entity index, and the second finds
+  // the rows matched by capacity alone, which is a column on the party table itself. A row that
+  // matches both ways answers in the first and is refused by the second, so none answers twice.
+  acrossMatters: {
+    reads: "names",
+    matchedFields: ["party names", "the capacity they act in"],
+    buildStatements: (request) => {
+      const term = likeContainsTerm(request.query);
+      const newestFirst = {
+        ...PARTY_ROW,
+        sortExpression: `${MATTER_PARTY_TABLE}.created_at`,
+      };
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from: MATTER_PARTY_TABLE,
+          ...newestFirst,
+          conditions: [
+            `${MATTER_PARTY_TABLE}.deleted_at IS NULL`,
+            `${MATTER_PARTY_TABLE}.entity_id IN (${ENTITIES_NAMED})`,
+          ],
+          bindings: [term, term],
+        }),
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from: MATTER_PARTY_TABLE,
+          ...newestFirst,
+          conditions: [
+            `${MATTER_PARTY_TABLE}.deleted_at IS NULL`,
+            `${MATTER_PARTY_TABLE}.capacity LIKE ? ESCAPE '\\'`,
+            `${PARTY_DISPLAY_NAME} IS NOT NULL`,
+            `${PARTY_DISPLAY_NAME} NOT LIKE ? ESCAPE '\\'`,
+          ],
+          bindings: [term, term],
+        }),
+      ];
+    },
+  },
 };
 
 // ---- time ------------------------------------------------------------------------------------
@@ -824,6 +919,28 @@ const calendarSource: MatterSearchSource = {
 // line is the right identity — it is what matched, and it is what a keyset walks — while the Billing
 // tab is organised by invoice, so a link carrying the line id would land on a page that cannot
 // resolve it. Two different facts, kept as two.
+const INVOICE_NUMBER_OF_LINE =
+  `(SELECT ${INVOICE_TABLE}.invoice_number FROM ${INVOICE_TABLE} ` +
+  `WHERE ${INVOICE_TABLE}.id = ${INVOICE_LINE_TABLE}.invoice_id)`;
+const INVOICE_STATUS_OF_LINE =
+  `(SELECT ${INVOICE_TABLE}.status FROM ${INVOICE_TABLE} ` +
+  `WHERE ${INVOICE_TABLE}.id = ${INVOICE_LINE_TABLE}.invoice_id)`;
+
+const BILLING_ROW: SearchRowColumns = {
+  idColumn: `${INVOICE_LINE_TABLE}.id`,
+  linkIdExpression: `${INVOICE_LINE_TABLE}.invoice_id`,
+  matterExpression: `${INVOICE_LINE_TABLE}.matter_id`,
+  sortExpression: `${INVOICE_LINE_TABLE}.created_at`,
+  titleExpression: `${INVOICE_LINE_TABLE}.description`,
+  snippetExpression: "NULL",
+  // The bill it is on and where that bill stands. A draft has no number yet, and saying
+  // "Draft" is the honest reading of a null rather than an empty cell.
+  secondaryExpression: `COALESCE(${INVOICE_NUMBER_OF_LINE}, 'Draft') || ' · ' || COALESCE(${INVOICE_STATUS_OF_LINE}, 'draft')`,
+  actorExpression: "NULL",
+};
+
+const BILLING_MATCH = `(${INVOICE_LINE_TABLE}.description LIKE ? ESCAPE '\\' OR ${INVOICE_NUMBER_OF_LINE} LIKE ? ESCAPE '\\')`;
+
 const billingSource: MatterSearchSource = {
   key: "billing",
   sectionSlug: "billing",
@@ -839,34 +956,51 @@ const billingSource: MatterSearchSource = {
   buildStatements: (request) => {
     if (tooShort(request, 2)) return [];
     const term = likeContainsTerm(request.query.trim());
-    const invoiceNumber =
-      `(SELECT ${INVOICE_TABLE}.invoice_number FROM ${INVOICE_TABLE} ` +
-      `WHERE ${INVOICE_TABLE}.id = ${INVOICE_LINE_TABLE}.invoice_id)`;
-    const invoiceStatus =
-      `(SELECT ${INVOICE_TABLE}.status FROM ${INVOICE_TABLE} ` +
-      `WHERE ${INVOICE_TABLE}.id = ${INVOICE_LINE_TABLE}.invoice_id)`;
     return [
       boundedSearchSelect(request.database, {
         request,
         from: INVOICE_LINE_TABLE,
-        idColumn: `${INVOICE_LINE_TABLE}.id`,
-        linkIdExpression: `${INVOICE_LINE_TABLE}.invoice_id`,
-        matterExpression: `${INVOICE_LINE_TABLE}.matter_id`,
-        sortExpression: `${INVOICE_LINE_TABLE}.created_at`,
-        titleExpression: `${INVOICE_LINE_TABLE}.description`,
-        snippetExpression: "NULL",
-        // The bill it is on and where that bill stands. A draft has no number yet, and saying
-        // "Draft" is the honest reading of a null rather than an empty cell.
-        secondaryExpression: `COALESCE(${invoiceNumber}, 'Draft') || ' · ' || COALESCE(${invoiceStatus}, 'draft')`,
-        actorExpression: "NULL",
-        conditions: [
-          `(${INVOICE_LINE_TABLE}.description LIKE ? ESCAPE '\\' OR ${invoiceNumber} LIKE ? ESCAPE '\\')`,
-        ],
+        ...BILLING_ROW,
+        conditions: [BILLING_MATCH],
         bindings: [term, term],
       }),
     ];
   },
   project: projectInto("billing", "billing"),
+  // The same lines, by the same two columns, on every matter the reader may see, behind the same
+  // billing:read. The reach is still each LINE's own matter: an invoice that bills two of a
+  // client's matters answers with the lines on the matters this reader may see and with no others.
+  //
+  // THE INVOICE IS JOINED HERE AND LOOKED UP INSIDE A MATTER, for what each costs. Inside a matter
+  // the lines are few and a lookup for each is nothing. With no matter every line the firm holds
+  // is read, and looking the invoice up once for the match and twice more for the second line was
+  // most of the cost in scripts/measure-across-matters.mts; a join reaches it once. Every line has
+  // an invoice, so the join drops none, and the second line is composed by the same rule.
+  //
+  // It still reads every invoice line the firm holds, so its cost grows with how much the firm has
+  // billed and not with the answer. The script is the reading that says that is affordable today,
+  // and the size at which these descriptions belong in the record index instead.
+  acrossMatters: {
+    reads: "names",
+    matchedFields: ["invoice line descriptions", "invoice numbers"],
+    buildStatements: (request) => {
+      const term = likeContainsTerm(request.query);
+      return [
+        visibleMattersSearchSelect(request.database, {
+          request,
+          from:
+            `${INVOICE_LINE_TABLE} JOIN ${INVOICE_TABLE} ` +
+            `ON ${INVOICE_TABLE}.id = ${INVOICE_LINE_TABLE}.invoice_id`,
+          ...BILLING_ROW,
+          secondaryExpression: `COALESCE(${INVOICE_TABLE}.invoice_number, 'Draft') || ' · ' || COALESCE(${INVOICE_TABLE}.status, 'draft')`,
+          conditions: [
+            `(${INVOICE_LINE_TABLE}.description LIKE ? ESCAPE '\\' OR ${INVOICE_TABLE}.invoice_number LIKE ? ESCAPE '\\')`,
+          ],
+          bindings: [term, term],
+        }),
+      ];
+    },
+  },
 };
 
 // The registry, in the order the matter's own section strip reads. A group renders in this order, so

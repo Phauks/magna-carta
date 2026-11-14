@@ -180,7 +180,7 @@ const trustCompliance = built<TrustCompliancePack>({
   family: "trust-compliance",
   name: "Trust Compliance Report",
   answers:
-    "For one trust account over one period: every movement of client money, each client's and matter's ledger, what the firm attested to at each reconciliation, and what did not tie out.",
+    "For one trust account over one period: every movement of client money, each client and matter ledger, each reconciliation, and anything that didn't balance.",
   permission: TRUST_COMPLIANCE_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -210,8 +210,7 @@ const accountsReceivableAging = built<AccountsReceivableAging>({
   id: "accounts-receivable-aging",
   family: "financial",
   name: "Accounts Receivable Aging",
-  answers:
-    "What the firm is owed, by how long it has been owed, per client, matter and office, at a stated date.",
+  answers: "What the firm is owed and for how long, by client, matter and office, as of a date.",
   permission: FINANCIAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -246,7 +245,7 @@ const realization = built<Realization>({
   family: "financial",
   name: "Realization",
   answers:
-    "For a period: the standard value of time recorded, what was billed, what was credited or written off, and what was applied.",
+    "For a period: the standard value of time recorded, what was billed, credited or written off, and what was applied.",
   permission: FINANCIAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -267,7 +266,7 @@ const timekeeperProductivity = built<TimekeeperProductivity>({
   family: "productivity",
   name: "Timekeeper Productivity",
   answers:
-    "Hours recorded by each timekeeper in a period, billable against non-billable, by client, task code and office.",
+    "Hours recorded by each timekeeper in a period, billable and non-billable, by client, task code and office.",
   permission: PRODUCTIVITY_REPORTS_PERMISSION,
   temporal: "live-only",
   stage: "alpha",
@@ -287,7 +286,7 @@ const operationalVolumes = built<OperationalVolumes>({
   family: "operational",
   name: "Operational Volumes",
   answers:
-    "How much the firm did in a period: matters opened and closed, bills drafted and finalized, trust movements, disbursement requests, reconciliations.",
+    "Firm activity in a period: matters opened and closed, bills drafted and finalized, trust movements, disbursement requests and reconciliations.",
   permission: OPERATIONAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -308,7 +307,7 @@ const invoices = built<Invoices>({
   family: "financial",
   name: "Invoices",
   answers:
-    "Every bill issued in a period, per office and client: what was billed, credited, applied and still unpaid at the period's end.",
+    "All bills issued in a period, by office and client: what was billed, credited, applied and still unpaid at the end of the period.",
   permission: FINANCIAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -329,7 +328,7 @@ const paymentsApplied = built<PaymentsApplied>({
   family: "financial",
   name: "Payments Applied",
   answers:
-    "Everything set against a bill in a period: payments, transfers from trust, credits, write-offs and reversals, per office and client.",
+    "Everything applied to bills in a period, by office and client: payments, trust transfers, credits, write-offs and reversals.",
   permission: FINANCIAL_REPORTS_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",

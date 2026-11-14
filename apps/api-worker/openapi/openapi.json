@@ -24520,6 +24520,9 @@
               "string",
               "null"
             ]
+          },
+          "correction": {
+            "type": "boolean"
           }
         }
       },
