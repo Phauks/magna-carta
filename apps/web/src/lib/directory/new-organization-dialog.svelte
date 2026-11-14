@@ -69,7 +69,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The record could not be created.",
+      "Couldn't create the record.",
       "Nothing was recorded, so nothing was half-created.",
     );
     return "refused";
@@ -92,7 +92,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Record Could Not Be Created"
+        title="Couldn't Create the Record"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />

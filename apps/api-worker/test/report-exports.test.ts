@@ -97,20 +97,14 @@ describe("POST /api/v1/reports/exports", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 
-  it("answers the PDF arm honestly when the engine is not reachable in this environment", async () => {
-    // The local pool's CONVERT stub satisfies startup validation only, so the conversion cannot
-    // succeed here; what the route owes the caller in that state is a retryable 503, never an
-    // Error ID for an engine that is warming. The success arm differs from the docx arm only in
-    // which bytes it returns, and the live edge is exercised daily by the assembly consumer.
+  it("refuses a PDF: a tabular export's PDF is composed in the browser, not here", async () => {
     const cookie = await signInForSessionCookie("export-ok@example.com");
     const response = await SELF.fetch("https://example.com/api/v1/reports/exports", {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ format: "pdf", document: renderableDocument }),
     });
-    expect(response.status).toBe(503);
-    const problem = (await response.json()) as { type?: string };
-    expect(problem.type).toContain("service-unavailable");
+    expect(response.status).toBe(422);
   });
 
   it("emits the route into the OpenAPI document with its metadata", async () => {

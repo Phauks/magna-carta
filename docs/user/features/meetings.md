@@ -180,6 +180,15 @@ If you close the tab, or your connection drops, you are shown as having left wit
 So you cannot get stuck in a room by walking away from it, and nobody is left looking at a tile with
 nobody behind it for long.
 
+### Changing the name you go by
+
+To go by another name in a meeting, such as the conference room you are sitting in, press the pencil
+on your own row under **People** and type the name. It is for this meeting only. Everybody else sees
+the name you joined with beside it ("Joined as ..."), so a chosen name never hides who you are, and
+the meeting's attendance record keeps your account's name. Your chosen name stays if your connection
+drops and comes back. **Use My Account Name** in the same window puts your own name back in one
+press. A guest can change their name the same way, and goes back with **Use the Name I Joined With**.
+
 ## Connection quality
 
 Beside each person's name, on their tile and in the list down the side, is a small set of bars

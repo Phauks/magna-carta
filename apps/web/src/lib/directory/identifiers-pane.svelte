@@ -82,7 +82,7 @@
       }
       shownFor = null;
       held = [];
-      readFailure = stated(outcome.failure, "What this record holds could not be read.");
+      readFailure = stated(outcome.failure, "Couldn't load this record's details.");
     })();
     return () => {
       cancelled = true;
@@ -205,7 +205,7 @@
       reloadToken += 1;
       return;
     }
-    writeFailure = stated(outcome.failure, "The identifier could not be sealed.", "Nothing was sealed.");
+    writeFailure = stated(outcome.failure, "Couldn't seal the identifier.", "Nothing was sealed.");
   }
 </script>
 
@@ -220,7 +220,7 @@
   {#if writeFailure !== null}
     <FailureNotice
       failure={writeFailure.failure}
-      title="The Identifier Was Not Sealed"
+      title="Identifier Not Sealed"
       fallback={writeFailure.fallback}
       whenSilent={writeFailure.whenSilent}
     />
@@ -230,7 +230,7 @@
     loading={held === null}
     {refreshing}
     failed={readFailure !== null}
-    label="Reading what this record holds"
+    label="Reading this record's details"
     onRetry={retry}
     class="flex flex-col gap-8"
   >
@@ -238,7 +238,7 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure.failure}
-          title="What This Record Holds Could Not Be Read"
+          title="Couldn't Load Details"
           fallback={readFailure.fallback}
           whenSilent={readFailure.whenSilent}
           onRetry={retry}

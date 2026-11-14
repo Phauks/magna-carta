@@ -90,7 +90,7 @@
     if (!allowCreate) return undefined;
     if (!sessionPermissions.settled) return "Checking whether your account may add to the directory.";
     // A read that failed and a permission not held are different facts, and the line says which.
-    if (sessionPermissions.failed) return "Your session could not be read, so nothing can be added.";
+    if (sessionPermissions.failed) return "Couldn't load your session, so nothing can be added.";
     return sessionPermissions.holds(DIRECTORY_EDIT_PERMISSION)
       ? undefined
       : permissionRefusal("Adding to the directory", DIRECTORY_EDIT_PERMISSION);

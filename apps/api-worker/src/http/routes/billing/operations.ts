@@ -50,6 +50,11 @@ export const OPERATIONS: readonly string[] = [
   "costs.submit",
   "costs.update",
   "costs.void",
+  "reports.accountsReceivableAging",
   "reports.exportRender",
+  "reports.operationalVolumes",
+  "reports.realization",
+  "reports.timekeeperProductivity",
   "reports.trustCompliancePack",
+  "reports.workInProgress",
 ];

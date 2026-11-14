@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./operational-counts": "./src/operational-counts.ts",
     "./cost-entry-service": "./src/cost-entry-service.ts",
     "./cost-entry-statements": "./src/cost-entry-statements.ts",
     "./cost-validation": "./src/cost-validation.ts",

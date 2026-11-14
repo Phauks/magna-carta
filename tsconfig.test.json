@@ -173,6 +173,9 @@
       "path": "packages/gpu-benchmark/tsconfig.test.json"
     },
     {
+      "path": "packages/house-document/tsconfig.test.json"
+    },
+    {
       "path": "packages/identifiers/tsconfig.test.json"
     },
     {

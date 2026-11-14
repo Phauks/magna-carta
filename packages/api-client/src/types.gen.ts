@@ -1260,7 +1260,7 @@ export type FirmSearchRebuildResponse = {
 };
 
 export type ExportRenderRequest = {
-    format: 'docx' | 'pdf';
+    format: 'docx';
     document: {
         title: string;
         stampLines: Array<string>;
@@ -1612,6 +1612,255 @@ export type TrustComplianceExceptions = {
             computedBalanceMinor: number;
         }>;
     };
+};
+
+export type AccountsReceivableAgingReport = {
+    asOfDate: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+        invoiceCount: Array<number> | null;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            unpaidMinor: Array<number>;
+            totalMinor: number;
+        }>;
+    }>;
+};
+
+export type WorkInProgressReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    currency: 'USD';
+    completeness: ReportCompleteness;
+    totals: {
+        timeMinutes: number;
+        timeMinor: number;
+        costMinor: number;
+        onDraftMinor: number;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                timeMinutes: number;
+                timeMinor: number;
+                costMinor: number;
+                onDraftMinor: number;
+                totalMinor: number;
+            };
+        }>;
+    }>;
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+    }>;
+};
+
+export type RealizationReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    standardValueIsLive: true;
+    standardValueStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        standardValueMinor: number;
+        billedMinor: number;
+        creditedMinor: number;
+        appliedMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            standardValueMinor: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            standardValueMinor: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                standardValueMinor: number;
+                billedMinor: number;
+                creditedMinor: number;
+                appliedMinor: number;
+            };
+        }>;
+    }>;
+};
+
+export type TimekeeperProductivityReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+        totalMinutes: number;
+        billableShareBasisPoints: number | null;
+    };
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        matterCount: number;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    nonBillableCategories: Array<{
+        categoryId: string | null;
+        categoryName: string | null;
+        minutes: number;
+    }>;
+    taskCodes: Array<{
+        code: string | null;
+        label: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+};
+
+export type OperationalVolumesReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    liveSections: Array<'matters' | 'billing' | 'trust' | 'costs'>;
+    liveSectionsStatement: string;
+    completeness: ReportCompleteness;
+    matters: Array<{
+        measure: 'opened' | 'closed';
+        matterTypeId: string | null;
+        matterTypeName: string | null;
+        count: number;
+    }>;
+    billing: {
+        billsDrafted: number;
+        billsFinalized: number;
+        draftsVoided: number;
+        creditNotesIssued: number;
+        writeOffs: number;
+    };
+    trust: Array<{
+        measure: 'movement' | 'disbursement-requested' | 'disbursement-decided' | 'reconciliation-opened' | 'reconciliation-closed';
+        detail: string | null;
+        count: number;
+    }>;
+    costs: Array<{
+        disbursementClass: 'hard' | 'soft';
+        count: number;
+    }>;
 };
 
 export type BillingInvoiceAck = {
@@ -10292,6 +10541,219 @@ export type SupportDiagnosticOverview = {
     activeMemberCount: number;
 };
 
+export type RecordTransferRunListResponse = {
+    runs: Array<RecordTransferRun>;
+};
+
+export type RecordTransferRun = {
+    id: string;
+    sourceSystem: string;
+    label: string;
+    startedBy: string;
+    startedAt: string;
+    completedAt: string | null;
+    abandonedAt: string | null;
+};
+
+export type RecordTransferRunResponse = {
+    run: RecordTransferRun;
+    files: Array<RecordTransferSourceFile>;
+    passes: Array<RecordTransferPass>;
+};
+
+export type RecordTransferSourceFile = {
+    id: string;
+    sourceKind: string;
+    format: 'delimited-text';
+    fileName: string;
+    byteLength: number;
+    contentSha256: string;
+    keyColumn: string | null;
+    rowCount: number | null;
+    registeredAt: string;
+    removedAt: string | null;
+};
+
+export type RecordTransferPass = {
+    id: string;
+    fileId: string;
+    recordKind: 'person' | 'organization' | 'matter';
+    sourceKind: string;
+    state: 'requested' | 'running' | 'stalled' | 'finished' | 'failed';
+    requestedBy: string;
+    requestedAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    failedAt: string | null;
+    counts: {
+        rowsRead: number;
+        created: number;
+        alreadyLinked: number;
+        rejected: number;
+        waiting: number;
+        findings: number;
+        columnsMissing: number;
+    } | null;
+};
+
+export type StartRecordTransferRunRequest = {
+    sourceSystem: string;
+    label: string;
+};
+
+export type RecordTransferSourceFileResponse = {
+    file: RecordTransferSourceFile;
+};
+
+export type RecordTransferSourceFilePreviewResponse = {
+    columns: Array<string>;
+    rows: Array<Array<string>>;
+};
+
+export type RecordTransferPassResponse = {
+    pass: RecordTransferPass;
+};
+
+export type RequestRecordTransferPassRequest = {
+    recordKind: 'person';
+    fileId: string;
+    sourceKind: string;
+    keyColumn: string;
+    delimiter?: ',' | '\t' | ';' | '|';
+    rules: RecordTransferPersonRules;
+} | {
+    recordKind: 'organization';
+    fileId: string;
+    sourceKind: string;
+    keyColumn: string;
+    delimiter?: ',' | '\t' | ';' | '|';
+    rules: RecordTransferOrganizationRules;
+} | {
+    recordKind: 'matter';
+    fileId: string;
+    sourceKind: string;
+    keyColumn: string;
+    delimiter?: ',' | '\t' | ';' | '|';
+    rules: RecordTransferMatterRules;
+};
+
+export type RecordTransferPersonRules = {
+    given: string;
+    family: string;
+    prefix?: string;
+    middle?: string;
+    suffix?: string;
+    dateOfBirth?: string;
+    dateOrder?: 'year-month-day' | 'day-month-year' | 'month-day-year';
+    emails?: Array<string>;
+    phones?: Array<{
+        column: string;
+        fax?: boolean;
+    }>;
+    address?: {
+        street?: string;
+        streetTwo?: string;
+        dependentLocality?: string;
+        city?: string;
+        region?: string;
+        postal?: string;
+    };
+    addressCountry?: string;
+};
+
+export type RecordTransferOrganizationRules = {
+    legalName: string;
+    emails?: Array<string>;
+    phones?: Array<{
+        column: string;
+        fax?: boolean;
+    }>;
+    address?: {
+        street?: string;
+        streetTwo?: string;
+        dependentLocality?: string;
+        city?: string;
+        region?: string;
+        postal?: string;
+    };
+    addressCountry?: string;
+};
+
+export type RecordTransferMatterRules = {
+    title: string;
+    number: string;
+    description?: string;
+    clientDisplayName?: string;
+    openedDate: string;
+    closedDate?: string;
+    dateOrder: 'year-month-day' | 'day-month-year' | 'month-day-year';
+    timeZone: string;
+    client?: {
+        column: string;
+        sourceKind: string;
+    };
+    parties?: Array<{
+        column: string;
+        sourceKind: string;
+        role: string;
+    }>;
+    matterType?: {
+        column: string;
+        types: {
+            [key: string]: string;
+        };
+    };
+    responsibleMember: {
+        column?: string;
+        members: {
+            [key: string]: string;
+        };
+        otherwise?: string;
+    };
+};
+
+export type RecordTransferPassReportResponse = {
+    report: RecordTransferPassReport;
+    failure: RecordTransferPassFailure;
+};
+
+export type RecordTransferPassReport = {
+    columnsMissing: Array<string>;
+    rowsRead: number;
+    created: number;
+    alreadyLinked: number;
+    rejected: Array<{
+        rowNumber: number;
+        lineNumber: number;
+        reason: string;
+    }>;
+    waiting: Array<{
+        rowNumber: number;
+        lineNumber: number;
+        missing: Array<{
+            sourceKind: string;
+            sourceId: string;
+        }>;
+    }>;
+    findings: Array<{
+        rowNumber: number;
+        lineNumber: number;
+        column: string;
+        finding: string;
+    }>;
+    sample: Array<{
+        rowNumber: number;
+        lineNumber: number;
+        localId: string;
+    }>;
+} | null;
+
+export type RecordTransferPassFailure = {
+    reason: 'sourceFileNotHeld' | 'fileNotReadable' | 'rulesNotReadable' | 'fault';
+    fileFault: 'noHeader' | 'blankColumnName' | 'duplicateColumnName' | 'unterminatedQuote' | null;
+    lineNumber: number | null;
+} | null;
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -14637,17 +15099,13 @@ export type ReportsExportRenderErrors = {
      */
     403: Problem;
     /**
-     * The document is past the render bounds, or the conversion has no path
+     * The document is past the render bounds, or asks for a format other than Word
      */
     422: Problem;
     /**
      * Rate limit exceeded
      */
     429: Problem;
-    /**
-     * The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.
-     */
-    503: Problem;
 };
 
 export type ReportsExportRenderError = ReportsExportRenderErrors[keyof ReportsExportRenderErrors];
@@ -15292,6 +15750,231 @@ export type ReportsTrustCompliancePackResponses = {
 };
 
 export type ReportsTrustCompliancePackResponse = ReportsTrustCompliancePackResponses[keyof ReportsTrustCompliancePackResponses];
+
+export type ReportsAccountsReceivableAgingData = {
+    body?: never;
+    path?: never;
+    query: {
+        asOfDate: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/accounts-receivable-aging';
+};
+
+export type ReportsAccountsReceivableAgingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The date is not a calendar date, the knowledge instant is not a UTC instant or is in the future, or more matters have something unpaid than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsAccountsReceivableAgingError = ReportsAccountsReceivableAgingErrors[keyof ReportsAccountsReceivableAgingErrors];
+
+export type ReportsAccountsReceivableAgingResponses = {
+    /**
+     * The aging at that date
+     */
+    200: AccountsReceivableAgingReport;
+};
+
+export type ReportsAccountsReceivableAgingResponse = ReportsAccountsReceivableAgingResponses[keyof ReportsAccountsReceivableAgingResponses];
+
+export type ReportsWorkInProgressData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/work-in-progress';
+};
+
+export type ReportsWorkInProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters and timekeepers have unbilled work than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsWorkInProgressError = ReportsWorkInProgressErrors[keyof ReportsWorkInProgressErrors];
+
+export type ReportsWorkInProgressResponses = {
+    /**
+     * The work in progress now
+     */
+    200: WorkInProgressReport;
+};
+
+export type ReportsWorkInProgressResponse = ReportsWorkInProgressResponses[keyof ReportsWorkInProgressResponses];
+
+export type ReportsRealizationData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/realization';
+};
+
+export type ReportsRealizationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more matters had activity than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsRealizationError = ReportsRealizationErrors[keyof ReportsRealizationErrors];
+
+export type ReportsRealizationResponses = {
+    /**
+     * The realization for this period
+     */
+    200: RealizationReport;
+};
+
+export type ReportsRealizationResponse = ReportsRealizationResponses[keyof ReportsRealizationResponses];
+
+export type ReportsTimekeeperProductivityData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/timekeeper-productivity';
+};
+
+export type ReportsTimekeeperProductivityErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsTimekeeperProductivityError = ReportsTimekeeperProductivityErrors[keyof ReportsTimekeeperProductivityErrors];
+
+export type ReportsTimekeeperProductivityResponses = {
+    /**
+     * The time recorded in this period
+     */
+    200: TimekeeperProductivityReport;
+};
+
+export type ReportsTimekeeperProductivityResponse = ReportsTimekeeperProductivityResponses[keyof ReportsTimekeeperProductivityResponses];
+
+export type ReportsOperationalVolumesData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/operational-volumes';
+};
+
+export type ReportsOperationalVolumesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or the knowledge instant is not a UTC instant or is in the future
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsOperationalVolumesError = ReportsOperationalVolumesErrors[keyof ReportsOperationalVolumesErrors];
+
+export type ReportsOperationalVolumesResponses = {
+    /**
+     * The volumes for this period
+     */
+    200: OperationalVolumesReport;
+};
+
+export type ReportsOperationalVolumesResponse = ReportsOperationalVolumesResponses[keyof ReportsOperationalVolumesResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
@@ -48479,6 +49162,364 @@ export type SupportDiagnosticsOverviewResponses = {
 };
 
 export type SupportDiagnosticsOverviewResponse = SupportDiagnosticsOverviewResponses[keyof SupportDiagnosticsOverviewResponses];
+
+export type RecordTransferListRunsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/record-transfer/runs';
+};
+
+export type RecordTransferListRunsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferListRunsError = RecordTransferListRunsErrors[keyof RecordTransferListRunsErrors];
+
+export type RecordTransferListRunsResponses = {
+    /**
+     * The firm's transfer runs
+     */
+    200: RecordTransferRunListResponse;
+};
+
+export type RecordTransferListRunsResponse = RecordTransferListRunsResponses[keyof RecordTransferListRunsResponses];
+
+export type RecordTransferStartRunData = {
+    body: StartRecordTransferRunRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/record-transfer/runs';
+};
+
+export type RecordTransferStartRunErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run has ended, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferStartRunError = RecordTransferStartRunErrors[keyof RecordTransferStartRunErrors];
+
+export type RecordTransferStartRunResponses = {
+    /**
+     * The run that was started
+     */
+    201: RecordTransferRunResponse;
+};
+
+export type RecordTransferStartRunResponse = RecordTransferStartRunResponses[keyof RecordTransferStartRunResponses];
+
+export type RecordTransferGetRunData = {
+    body?: never;
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}';
+};
+
+export type RecordTransferGetRunErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferGetRunError = RecordTransferGetRunErrors[keyof RecordTransferGetRunErrors];
+
+export type RecordTransferGetRunResponses = {
+    /**
+     * The run, its files and its passes
+     */
+    200: RecordTransferRunResponse;
+};
+
+export type RecordTransferGetRunResponse = RecordTransferGetRunResponses[keyof RecordTransferGetRunResponses];
+
+export type RecordTransferAddSourceFileData = {
+    body: unknown;
+    path: {
+        runId: string;
+    };
+    query: {
+        fileName: string;
+        sourceKind: string;
+    };
+    url: '/api/v1/record-transfer/runs/{runId}/files';
+};
+
+export type RecordTransferAddSourceFileErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The file is larger than a source file may be
+     */
+    413: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferAddSourceFileError = RecordTransferAddSourceFileErrors[keyof RecordTransferAddSourceFileErrors];
+
+export type RecordTransferAddSourceFileResponses = {
+    /**
+     * The file as the run now holds it
+     */
+    201: RecordTransferSourceFileResponse;
+};
+
+export type RecordTransferAddSourceFileResponse = RecordTransferAddSourceFileResponses[keyof RecordTransferAddSourceFileResponses];
+
+export type RecordTransferPreviewSourceFileData = {
+    body?: never;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query?: {
+        delimiter?: 'comma' | 'tab' | 'semicolon' | 'pipe';
+    };
+    url: '/api/v1/record-transfer/runs/{runId}/files/{fileId}/preview';
+};
+
+export type RecordTransferPreviewSourceFileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferPreviewSourceFileError = RecordTransferPreviewSourceFileErrors[keyof RecordTransferPreviewSourceFileErrors];
+
+export type RecordTransferPreviewSourceFileResponses = {
+    /**
+     * The column names and the first rows
+     */
+    200: RecordTransferSourceFilePreviewResponse;
+};
+
+export type RecordTransferPreviewSourceFileResponse = RecordTransferPreviewSourceFileResponses[keyof RecordTransferPreviewSourceFileResponses];
+
+export type RecordTransferRequestPassData = {
+    body: RequestRecordTransferPassRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/passes';
+};
+
+export type RecordTransferRequestPassErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferRequestPassError = RecordTransferRequestPassErrors[keyof RecordTransferRequestPassErrors];
+
+export type RecordTransferRequestPassResponses = {
+    /**
+     * The pass was asked for and is queued
+     */
+    202: RecordTransferPassResponse;
+};
+
+export type RecordTransferRequestPassResponse = RecordTransferRequestPassResponses[keyof RecordTransferRequestPassResponses];
+
+export type RecordTransferGetPassData = {
+    body?: never;
+    path: {
+        runId: string;
+        passId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/passes/{passId}';
+};
+
+export type RecordTransferGetPassErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferGetPassError = RecordTransferGetPassErrors[keyof RecordTransferGetPassErrors];
+
+export type RecordTransferGetPassResponses = {
+    /**
+     * The pass
+     */
+    200: RecordTransferPassResponse;
+};
+
+export type RecordTransferGetPassResponse = RecordTransferGetPassResponses[keyof RecordTransferGetPassResponses];
+
+export type RecordTransferGetPassReportData = {
+    body?: never;
+    path: {
+        runId: string;
+        passId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/passes/{passId}/report';
+};
+
+export type RecordTransferGetPassReportErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferGetPassReportError = RecordTransferGetPassReportErrors[keyof RecordTransferGetPassReportErrors];
+
+export type RecordTransferGetPassReportResponses = {
+    /**
+     * The report, or the reason there is none
+     */
+    200: RecordTransferPassReportResponse;
+};
+
+export type RecordTransferGetPassReportResponse = RecordTransferGetPassReportResponses[keyof RecordTransferGetPassReportResponses];
 
 export type ShippingDisconnectCarrierData = {
     body?: never;

@@ -356,8 +356,9 @@ export default defineConfig({
           "docker build --network=host --output type=local,dest=packages/mls/src/pkg -f crates/mls-core/wasm.Dockerfile crates",
       },
       // The PDF composer. The sign Worker imports it (it composes the Certificate of Completion), and
-      // so does the SPA (the File Workbench saves an email as a PDF with it), so the composite above
-      // builds it and both the sign Worker's and the interface Worker's builds name it.
+      // so does the SPA (every tabular export's PDF, apps/web/src/lib/export/render-pdf.ts, and the
+      // File Workbench saving an email as a PDF), so the composite above builds it and both the sign
+      // Worker's and the interface Worker's builds name it.
       "rust-wasm-build-pdf-compose": {
         command:
           "docker build --network=host --output type=local,dest=packages/pdf-compose/src/pkg -f crates/pdf-compose-core/wasm.Dockerfile crates",
