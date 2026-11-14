@@ -283,11 +283,11 @@
   name: Metadata inspector & scrubber
   scope: Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   evidence: packages/metadata + apps/api-worker/src/http/routes/files/metadata.ts.
-  notes: HEIC/PDF and a Container engine deferred; backend only, no screen yet. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md).
+  notes: HEIC/PDF and a Container engine deferred; the screen is the File Workbench Metadata tab, which runs the package in the browser. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md).
 
 - id: integrations.tools.file-integrity
   name: File hash & integrity

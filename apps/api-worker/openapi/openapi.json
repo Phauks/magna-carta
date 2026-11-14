@@ -30923,6 +30923,9 @@
           "linkCode": {
             "type": "string"
           },
+          "addressName": {
+            "type": "string"
+          },
           "medium": {
             "type": "string",
             "enum": [
@@ -30947,6 +30950,7 @@
         "required": [
           "id",
           "linkCode",
+          "addressName",
           "medium",
           "lobby",
           "openMeetingId"
@@ -31034,6 +31038,12 @@
               "null"
             ]
           },
+          "addressName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "medium": {
             "type": [
               "string",
@@ -31063,6 +31073,7 @@
           "userId",
           "name",
           "linkCode",
+          "addressName",
           "medium",
           "openMeetingId",
           "inTheRoom",
@@ -31085,6 +31096,9 @@
           "isOwner": {
             "type": "boolean"
           },
+          "addressName": {
+            "type": "string"
+          },
           "meetingId": {
             "type": [
               "string",
@@ -31096,6 +31110,7 @@
           "state",
           "ownerDisplayName",
           "isOwner",
+          "addressName",
           "meetingId"
         ]
       },
@@ -31119,6 +31134,17 @@
         },
         "required": [
           "matterId"
+        ]
+      },
+      "MeetingByCodeResponse": {
+        "type": "object",
+        "properties": {
+          "meetingId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "meetingId"
         ]
       },
       "StartedMeeting": {
@@ -31226,6 +31252,12 @@
               "null"
             ]
           },
+          "joinCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
           },
@@ -31321,6 +31353,7 @@
           "eventId",
           "matterId",
           "matterTitle",
+          "joinCode",
           "title",
           "startsOn",
           "startsAtTime",
@@ -102799,7 +102832,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^[a-z0-9]{10}$"
+              "pattern": "^[a-z0-9-]{1,40}$"
             },
             "required": true,
             "name": "linkCode",
@@ -102884,7 +102917,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^[a-z0-9]{10}$"
+              "pattern": "^[a-z0-9-]{1,40}$"
             },
             "required": true,
             "name": "linkCode",
@@ -103107,6 +103140,92 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meetings/by-code/{joinCode}": {
+      "get": {
+        "description": "The meeting a nine-digit meeting address names, as its id.",
+        "operationId": "meetings.getByCode",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.getByCode",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{9}$",
+              "example": "482917305"
+            },
+            "required": true,
+            "name": "joinCode",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The meeting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingByCodeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No meeting this member can reach at that address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -3,6 +3,7 @@ import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.
 import { registerCallerLookupRoutes } from "./caller-lookup.ts";
 import { registerCommunicationsRoutes } from "./communications.ts";
 import { registerMeetingsRoutes } from "./meetings.ts";
+import { registerMeetingByCodeRoutes } from "./meeting-by-code.ts";
 import { registerMeetingChatRoutes } from "./meeting-chat.ts";
 import { registerMeetingPersonalRoomRoutes } from "./meeting-personal-rooms.ts";
 import { registerMeetingHostingRoutes } from "./meeting-hosting.ts";
@@ -41,6 +42,8 @@ export function mountCommunications(
   // Ahead of the meeting routes so its literal paths (`/meetings/personal-room`, `/meetings/rooms/…`)
   // are matched before the meeting-id pattern beside them.
   registerMeetingPersonalRoomRoutes(domain, chokepoint);
+  // A meeting by its nine-digit address, ahead of the meeting-id pattern for the same reason.
+  registerMeetingByCodeRoutes(domain, chokepoint);
   registerMeetingsRoutes(domain, chokepoint);
   // The meeting's chat, which is the subsystem's one piece of stored content: kept on the record
   // like a filed message rather than discarded with the room, so what was said in a meeting on a
