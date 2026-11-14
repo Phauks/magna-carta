@@ -10,7 +10,7 @@
   status: partial
   slices: 3-6-financial-reporting
   spec: docs/specs/2026-09-07-report-screen-design.md
-  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/api-worker/src/http/routes/billing/reports.ts serves it; apps/web/src/lib/reports/report-registry.ts declares every report and the /reports and /reports/<id> screens render from it. The financial, productivity and operational families are declared at stage soon and unbuilt, and the delivery surface is unbuilt.
+  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/api-worker/src/http/routes/billing/reports.ts serves it; apps/web/src/lib/reports/report-registry.ts declares every report and the /reports and /reports/<id> screens render from it. The financial, productivity and operational families are built (aging, work in progress, realization, timekeeper productivity, operational volumes) and run on the same screen; profitability and the scheduled delivery surface are unbuilt.
   audience: public
   public-summary: Reports on money, time, trust compliance and productivity — on screen, exported, or sent to you on a schedule.
   notes: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design.
@@ -39,33 +39,37 @@
 - id: reports.financial
   name: Financial reports
   scope: WIP, A/R aging, realization, and profitability reports.
-  status: planned
+  status: partial
+  surface: screen
   slices: 3-6-financial-reporting, 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
-  evidence: Time/WIP, costs and billing substrates are shipped; sub-slice 3·6·2 plans as-of A/R aging, live work-in-progress, and realization. All three are declared at stage soon in apps/web/src/lib/reports/report-registry.ts and render in the /reports catalogue disabled, naming what each waits on.
+  evidence: Billing owns the reads (packages/billing/src/queries.ts readAccountsReceivableAgingAsOf, readWorkInProgressBreakdown, readRealizationBreakdown; packages/billing/test/aging-as-of.test.ts and work-in-progress-breakdown.test.ts prove each against the live aggregate); packages/reporting/src/financial/ adds them into offices, clients, matters and timekeepers; GET /api/v1/reports/accounts-receivable-aging, /work-in-progress and /realization serve them on reports:financial; /reports/<id> draws totals first, a by-office table ruled off with the report's total, then a sortable by-client table that opens onto matters (the owner's pick B, 2026-11-13).
   notes: Profitability is deferred — no timekeeper cost rate exists in the schema; work in progress is live-only because its stores are mutable and carry no billed_at/voided_at.
 
 - id: reports.productivity
   name: Productivity reports
   scope: Timekeeper and staff productivity reporting.
-  status: planned
+  status: shipped
+  surface: screen
   slices: 3-6-financial-reporting
-  evidence: Planned as sub-slice 3·6·3 on its own permission key; time-entry data model shipped as substrate. Declared at stage soon in the report registry and listed in the /reports catalogue.
+  evidence: packages/timekeeping/src/productivity-statements.ts reads minutes recorded by timekeeper, matter, billable, non-billable category and task code; packages/reporting/src/productivity/timekeeper-productivity.ts adds them into timekeepers, offices, clients and task codes, each summing to the same total (packages/reporting/test/productivity.test.ts); GET /api/v1/reports/timekeeper-productivity serves it on reports:productivity and /reports/timekeeper-productivity runs it.
   notes: Live-only (mutable store); no attainment figure, because the platform stores no billable-hour target.
 
 - id: reports.operational
   name: Operational reports
   scope: Operational reporting over firm activity.
-  status: planned
+  status: shipped
+  surface: screen
   slices: 3-6-financial-reporting
-  evidence: Planned as sub-slice 3·6·4 — counts and dates over the matter, invoice, trust and cost records, deliberately summing no money. Declared at stage soon in the report registry and listed in the /reports catalogue.
+  evidence: Each domain counts its own records (packages/billing, matters, trust and costs, each src/operational-counts.ts); packages/reporting/src/operational/operational-volumes.ts places them side by side, billing and trust bitemporal and matters and costs labelled live; GET /api/v1/reports/operational-volumes serves it on reports:operational and /reports/operational-volumes runs it. Counts only, never money.
 
 - id: reports.location-rollups
   name: Per-location roll-ups
   scope: Financial and productivity reports filter and subtotal by office; trust reports inherently per-account/per-location.
-  status: planned
+  status: shipped
+  surface: screen
   slices: 3-6-financial-reporting
   adrs: ADR-0031
-  evidence: Locations model shipped (packages/locations); roll-ups planned in each report sub-slice, with location held as a filter and never an access gate.
+  evidence: Every financial, productivity and operational read takes an optional locationId and, with none, subtotals every office (a by-office table in each report); the run screen's Office picker narrows the rows and is a filter, never a gate.
 
 - id: reports.scheduling
   name: Scheduled generation
@@ -82,7 +86,7 @@
   surface: screen
   slices: 3-6-financial-reporting
   adrs: ADR-0162
-  evidence: The tabular export framework is live on Firm Usage and on every report screen in every format — text, CSV, and Excel render in the browser ($lib/export), Word and PDF render server-side (POST /api/v1/reports/exports composes through document assembly, PDF across the live office-suite conversion edge). A report's presentation IS the export document's shape, so a report declared in the registry exports with no per-report code. Every export taken is kept on the member's download register (/downloads) for seven days and can be taken again in any format.
+  evidence: The tabular export framework is live on Firm Usage and on every report screen in every format — text, CSV, and Excel render in the browser ($lib/export), Word renders server-side (POST /api/v1/reports/exports composes through document assembly), and PDF is composed in the browser by the platform's PDF composer (apps/web/src/lib/export/render-pdf.ts over @magna-carta/pdf-compose, in a Web Worker), the one way a tabular export becomes a PDF. A report's presentation IS the export document's shape, so a report declared in the registry exports with no per-report code. Every export taken is kept on the member's download register (/downloads) for seven days and can be taken again in any format.
 
 - id: reports.download-register
   name: Download register

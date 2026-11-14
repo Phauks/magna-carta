@@ -138,7 +138,14 @@ export async function admitParticipant(
     await putParticipant(room, attachment.attendanceId, {
       userId: attachment.userId,
       participantKind: viewerKindOf(attachment),
-      displayName: attachment.displayName,
+      // A NAME CHOSEN FOR THIS MEETING SURVIVES A RECONNECT, which writes this record afresh from the
+      // socket's attachment: dropping it would undo the person's own choice because their network
+      // blinked. The attachment's name is what they came in with, so it is the original either way.
+      displayName:
+        (existing?.accountName ?? null) === null
+          ? attachment.displayName
+          : (existing?.displayName ?? attachment.displayName),
+      accountName: (existing?.accountName ?? null) === null ? null : attachment.displayName,
       sfuSessionId: null,
       tracks: [],
       // A socket is open again, so whatever grace was running for this stay is over. Left set, the

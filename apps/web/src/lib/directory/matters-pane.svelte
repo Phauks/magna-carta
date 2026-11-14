@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * The matters this record is a party to, and the hat it wears on each.
+   * Matters this record is a party to, and its role on each.
    *
    * AN ENTITY IS NOT A ROLE, and this pane is where that distinction is kept. The record is the
    * person or the organization; that they are the client on one matter, an opposing party on
@@ -89,7 +89,7 @@
       }
       shownFor = null;
       parties = [];
-      readFailure = stated(outcome.failure, "The matters this record is on could not be read.");
+      readFailure = stated(outcome.failure, "Couldn't load this record's matters.");
     })();
     return () => {
       cancelled = true;
@@ -130,7 +130,7 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure.failure}
-          title="The Matters Could Not Be Read"
+          title="Couldn't Load Matters"
           fallback={readFailure.fallback}
           whenSilent={readFailure.whenSilent}
           onRetry={retry}
@@ -166,7 +166,7 @@
 {#snippet partyTable(rows: readonly DirectoryEntityMatterParty[])}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">
-      The matters this record is a party to, and the hat it wears on each
+      Matters this record is a party to, and its role on each
     </DataTable.Caption>
     <DataTable.Header>
       <DataTable.Row>

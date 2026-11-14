@@ -104,5 +104,10 @@ package deliberately does not depend on.
   and nobody else. `stale-epoch` and `not-in-group` are their two refusals, both non-fatal. A welcome
   at the room's ceiling of three hundred is about 80 KB of base64, which is why
   `MAX_MEETING_FRAME_BYTES` is a quarter of a megabyte.
+- **A chosen name is a frame, and the original rides beside it.** `rename` carries a trimmed name
+  (1 to `MAX_MEETING_DISPLAY_NAME_LENGTH`, no control characters) or null for the name the person
+  came in with; the room keeps it on the participant record (so it survives a reconnect and dies with
+  the room), paces it on the hand's window, and every roster row carries `accountName` while a chosen
+  name is in use. The meeting's record of who attended never sees a chosen name.
 - **The version is stated, never negotiated.** `MEETING_PROTOCOL_VERSION` rides on every frame in
   both directions and is bumped only when a shape changes incompatibly.

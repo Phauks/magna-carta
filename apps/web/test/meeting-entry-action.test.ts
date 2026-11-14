@@ -97,6 +97,11 @@ beforeEach(() => {
   asked = [];
   started = [];
   queryClient.clear();
+  // THE MEETING'S OWN TAB, reserved on the press. happy-dom's window.open would load the room's
+  // address over the network, which no test serves, and the refused fetch landed after the case as
+  // an unhandled rejection. A browser that blocks the tab is the case this stands in for: the room
+  // then opens in this tab, through the navigation stub.
+  vi.spyOn(window, "open").mockImplementation(() => null);
 });
 
 afterEach(() => {
@@ -106,6 +111,7 @@ afterEach(() => {
   sessionPermissions.session = null;
   sessionPermissions.settled = false;
   client.setConfig({ baseUrl: "", fetch: globalThis.fetch });
+  vi.restoreAllMocks();
 });
 
 describe("a member who may not join a meeting", () => {

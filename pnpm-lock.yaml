@@ -473,6 +473,9 @@ importers:
       '@magna-carta/property-links':
         specifier: workspace:*
         version: link:../../packages/property-links
+      '@magna-carta/record-transfer':
+        specifier: workspace:*
+        version: link:../../packages/record-transfer
       '@magna-carta/reporting':
         specifier: workspace:*
         version: link:../../packages/reporting
@@ -917,6 +920,9 @@ importers:
       '@magna-carta/build-identity':
         specifier: workspace:*
         version: link:../../packages/build-identity
+      '@magna-carta/house-document':
+        specifier: workspace:*
+        version: link:../../packages/house-document
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
@@ -1027,6 +1033,9 @@ importers:
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../../packages/directory
+      '@magna-carta/disarm':
+        specifier: workspace:*
+        version: link:../../packages/disarm
       '@magna-carta/email':
         specifier: workspace:*
         version: link:../../packages/email
@@ -2336,6 +2345,18 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/house-document:
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/identifiers:
     dependencies:
       nanoid:
@@ -3009,6 +3030,9 @@ importers:
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../matters
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/database':
         specifier: workspace:*
@@ -3031,9 +3055,15 @@ importers:
 
   packages/reporting:
     dependencies:
+      '@magna-carta/billing':
+        specifier: workspace:*
+        version: link:../billing
       '@magna-carta/civil-time':
         specifier: workspace:*
         version: link:../civil-time
+      '@magna-carta/costs':
+        specifier: workspace:*
+        version: link:../costs
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
@@ -3043,16 +3073,25 @@ importers:
       '@magna-carta/ledger':
         specifier: workspace:*
         version: link:../ledger
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
+      '@magna-carta/money':
+        specifier: workspace:*
+        version: link:../money
+      '@magna-carta/timekeeping':
+        specifier: workspace:*
+        version: link:../timekeeping
       '@magna-carta/trust':
         specifier: workspace:*
         version: link:../trust
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
-      '@magna-carta/money':
-        specifier: workspace:*
-        version: link:../money
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
@@ -3198,6 +3237,9 @@ importers:
 
   packages/signing:
     dependencies:
+      '@magna-carta/house-document':
+        specifier: workspace:*
+        version: link:../house-document
       asn1js:
         specifier: 'catalog:'
         version: 3.1.0

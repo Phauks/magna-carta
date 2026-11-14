@@ -18,6 +18,9 @@
       "path": "../../packages/build-identity/tsconfig.build.json"
     },
     {
+      "path": "../../packages/house-document/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/pdf/tsconfig.build.json"
     },
     {

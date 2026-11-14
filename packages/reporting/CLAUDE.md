@@ -24,6 +24,13 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
 - `src/trust-compliance/pack.ts` — `assembleTrustCompliancePack`, its options, and the pack shape
   version
 - `src/trust-compliance/types.ts` — the pack's seven sections
+- `src/financial/` — accounts receivable aging (as of a date), work in progress (live) and
+  realization: billing's per-matter rows added into offices, clients and matters
+- `src/productivity/timekeeper-productivity.ts` — minutes recorded, never money, never a target
+- `src/operational/operational-volumes.ts` — each domain's own counts side by side, the live
+  sections named
+- `src/contract.ts` — the wire rows of the financial, productivity and operational reports; the
+  routes in `apps/api-worker/src/http/routes/billing/` build each top-level response over them
 - `test/purity.test.ts` — the read-only fitness function
 - `test/agreement.test.ts` — every decomposition equals the aggregate its owner produces
 - `test/reproducibility.test.ts` — the property the whole surface exists to deliver

@@ -15,7 +15,13 @@
   },
   "references": [
     {
+      "path": "../billing/tsconfig.build.json"
+    },
+    {
       "path": "../civil-time/tsconfig.build.json"
+    },
+    {
+      "path": "../costs/tsconfig.build.json"
     },
     {
       "path": "../data-access/tsconfig.build.json"
@@ -30,7 +36,13 @@
       "path": "../ledger/tsconfig.build.json"
     },
     {
+      "path": "../matters/tsconfig.build.json"
+    },
+    {
       "path": "../money/tsconfig.build.json"
+    },
+    {
+      "path": "../timekeeping/tsconfig.build.json"
     },
     {
       "path": "../trust/tsconfig.build.json"

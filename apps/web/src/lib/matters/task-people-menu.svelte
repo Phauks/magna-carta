@@ -19,6 +19,7 @@
     teams = [],
     disabled = false,
     disabledReason,
+    summary,
     onchange,
   }: {
     /** Names the control and heads its menu: "Assigned To", "Watchers". */
@@ -29,6 +30,9 @@
     teams?: readonly TaskTeam[];
     disabled?: boolean;
     disabledReason?: string;
+    /** Who is chosen, as words, read on the trigger in place of the label where a row has no room
+     * for both: the add row's Assigned To cell. The menu is still headed by the label. */
+    summary?: string;
     onchange: (next: AssigneeInput[]) => void;
   } = $props();
 
@@ -52,11 +56,18 @@
 <DropdownMenu.Root>
   <DropdownMenu.Trigger
     {disabled}
-    class={buttonClasses({ variant: "secondary", size: "sm" })}
+    class={summary === undefined
+      ? buttonClasses({ variant: "secondary", size: "sm" })
+      : `${buttonClasses({ variant: "ghost", size: "sm" })} min-w-0 px-4 font-normal`}
     title={disabled ? disabledReason : `Choose ${label.toLowerCase()}`}
+    aria-label={summary === undefined ? undefined : `${label}: ${summary}. Change it`}
   >
     <Users aria-hidden="true" />
-    {label}
+    {#if summary === undefined}
+      {label}
+    {:else}
+      <span class="truncate">{summary}</span>
+    {/if}
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="start" class="mc-scrollbar max-h-96 overflow-y-auto">
     {#if teams.length > 0}

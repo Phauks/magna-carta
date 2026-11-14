@@ -106,7 +106,7 @@
       }
       shownFor = null;
       carried = [];
-      readFailure = stated(assigned.failure, "This record's categories could not be read.");
+      readFailure = stated(assigned.failure, "Couldn't load this record's categories.");
     })();
     return () => {
       cancelled = true;
@@ -221,8 +221,8 @@
       if (made.kind !== "ok") {
         assignFailure = stated(
           made.failure,
-          "The category could not be added.",
-          "The category was not added, and the record was not filed.",
+          "Couldn't add the category.",
+          "The category wasn't added, and the record wasn't saved.",
         );
         return "refused";
       }
@@ -251,8 +251,8 @@
     }
     assignFailure = stated(
       outcome.failure,
-      "The category could not be assigned.",
-      "The category was not assigned.",
+      "Couldn't assign the category.",
+      "The category wasn't assigned.",
     );
     return "refused";
   }
@@ -287,7 +287,7 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure.failure}
-          title="The Categories Could Not Be Read"
+          title="Couldn't Load Categories"
           fallback={readFailure.fallback}
           whenSilent={readFailure.whenSilent}
           onRetry={retry}
@@ -351,7 +351,7 @@
     {#if assignFailure !== null}
       <FailureNotice
         failure={assignFailure.failure}
-        title="The Category Was Not Assigned"
+        title="Category Not Assigned"
         fallback={assignFailure.fallback}
         whenSilent={assignFailure.whenSilent}
       />
