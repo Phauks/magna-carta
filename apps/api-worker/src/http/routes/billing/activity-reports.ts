@@ -60,6 +60,12 @@ const TimekeeperProductivityResponse = z
   })
   .openapi("TimekeeperProductivityReport");
 
+const productivityQuery = z.object({
+  periodStart: civilDate,
+  periodEnd: civilDate,
+  locationId: identifierField("location").optional(),
+});
+
 const productivityMeta: RouteMeta = {
   operationId: "reports.timekeeperProductivity",
   surface: "app",
@@ -76,13 +82,7 @@ const productivityRoute = defineOpenAPIRoute(productivityMeta, {
   path: "/api/v1/reports/timekeeper-productivity",
   description:
     "Time recorded in a period by work date: per timekeeper, office, client, non-billable category and task code, billable against non-billable, with the billable share. Minutes only, never money, and no target: the platform stores no billable-hour target and does not invent one. Live only, because time entries can be edited until billed: it takes no knowledge instant, says when it was computed, and is not claimed to reproduce.",
-  request: {
-    query: z.object({
-      periodStart: civilDate,
-      periodEnd: civilDate,
-      locationId: identifierField("location").optional(),
-    }),
-  },
+  request: { query: productivityQuery },
   responses: {
     200: {
       description: "The time recorded in this period",
