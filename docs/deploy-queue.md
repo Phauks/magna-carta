@@ -473,15 +473,12 @@ administrator of the firm's Google Workspace:
    once only; copy it at creation.
 7. **Create two secrets in the Cloudflare Secrets Store** (dashboard, **Secrets Store → Create
    secret**, scope _Workers_), named exactly `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET`.
-8. **Bind them to the app Worker** in a small pull request: two `secrets_store_secrets` entries in
-   `apps/api-worker/wrangler.jsonc`, named `SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_ID` and
-   `SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_SECRET`. The binding comes after the secret exists, the order
-   [`docs/conventions/operations.md`](conventions/operations.md) gives under _Secrets Store_. The
-   Worker already looks for both names (`apps/api-worker/src/stored-secret-names.ts`). To switch
-   the feature on without waiting for that pull request, set the same two names as secrets on the
-   Worker itself (**Worker → Settings → Variables and Secrets**); the Worker reads either place.
-   Both being present is what switches the feature on; there is no other flag, and both are
-   deliberately absent from `wrangler.jsonc`'s `secrets.required`.
+   `apps/api-worker/wrangler.jsonc` binds both names (`SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_ID`,
+   `SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_SECRET`), added on 2026-11-14 after the owner created the
+   two secrets. Both being readable is what switches the feature on; there is no other flag, and
+   both are deliberately absent from `wrangler.jsonc`'s `secrets.required`. A secret of the same
+   name on the Worker itself is the fallback
+   ([`docs/conventions/operations.md`](conventions/operations.md), _Secrets Store_).
 
 Magna Carta asks members for two permissions and no others: `calendar.events` and
 `calendar.calendarlist.readonly`. Nothing under Gmail.
