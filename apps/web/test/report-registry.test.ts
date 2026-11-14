@@ -68,6 +68,7 @@ describe("the report registry", () => {
       ["matter-balances", { trustAccount: false, office: true, period: "none" }],
       ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
       ["daily-time", { trustAccount: false, office: true, period: "span" }],
+      ["matter-productivity", { trustAccount: false, office: true, period: "span" }],
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
       ["matters-list", { trustAccount: false, office: true, period: "none" }],
     ]);
@@ -87,6 +88,7 @@ describe("the report registry", () => {
       "matter-balances": "live-only",
       "timekeeper-productivity": "live-only",
       "daily-time": "live-only",
+      "matter-productivity": "live-only",
       "operational-volumes": "bitemporal",
       "matters-list": "live-only",
     });

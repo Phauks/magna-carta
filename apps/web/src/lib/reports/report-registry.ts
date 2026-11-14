@@ -37,6 +37,7 @@ import {
   presentMattersList,
   presentOperationalVolumes,
   presentDailyTime,
+  presentMatterProductivity,
   presentTimekeeperProductivity,
 } from "./activity-presenters.ts";
 import {
@@ -63,6 +64,7 @@ import {
   readPaymentsApplied,
   readRealization,
   readDailyTime,
+  readMatterProductivity,
   readTimekeeperProductivity,
   readWorkInProgress,
   type AccountsReceivableAging,
@@ -74,6 +76,7 @@ import {
   type PaymentsApplied,
   type Realization,
   type DailyTime,
+  type MatterProductivity,
   type TimekeeperProductivity,
   type WorkInProgress,
 } from "./report-reads.ts";
@@ -87,6 +90,7 @@ import {
   samplePaymentsApplied,
   sampleRealization,
   sampleDailyTime,
+  sampleMatterProductivity,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
 } from "./report-samples.ts";
@@ -338,6 +342,26 @@ const dailyTime = built<DailyTime>({
   samplePayload: sampleDailyTime,
 });
 
+const matterProductivity = built<MatterProductivity>({
+  id: "matter-productivity",
+  family: "productivity",
+  name: "Matter Productivity",
+  answers:
+    "Hours recorded on each matter in a period, billable and non-billable, and who recorded them.",
+  permission: PRODUCTIVITY_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readMatterProductivity(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      locationId: scope.office,
+    }),
+  present: presentMatterProductivity,
+  samplePayload: sampleMatterProductivity,
+});
+
 const operationalVolumes = built<OperationalVolumes>({
   id: "operational-volumes",
   family: "operational",
@@ -442,6 +466,7 @@ const REPORT_LIST = [
   matterBalances,
   timekeeperProductivity,
   dailyTime,
+  matterProductivity,
   operationalVolumes,
   mattersList,
 ] as const satisfies readonly ReportDeclaration[];
