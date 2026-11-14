@@ -345,8 +345,7 @@ export const SCROLL_EDGE_HINTS_DEFINITION: SettingDefinition = {
   id: "accessibility.scroll-edge-hints",
   sectionId: "accessibility",
   label: "Scroll Edge Markers",
-  description:
-    "A thin rule at the edge of a list or table while there is more to see that way.",
+  description: "A thin rule at the edge of a list or table while there is more to see that way.",
   kind: "switch",
   defaultValue: true,
   sensitivity: "open",

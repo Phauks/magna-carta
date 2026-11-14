@@ -43,7 +43,13 @@ const densityPermutations = ["compact"].map((density) => ({
 // Same shape for the typeface axis: each non-default reading face re-points font.sans only (a font
 // stack is theme-, mode- and density-invariant); "inter" is the primitive truth and needs no
 // overlay.
-const typefacePermutations = ["atkinson-hyperlegible", "lexend", "opendyslexic", "serif", "system"].map((typeface) => ({
+const typefacePermutations = [
+  "atkinson-hyperlegible",
+  "lexend",
+  "opendyslexic",
+  "serif",
+  "system",
+].map((typeface) => ({
   input: { theme: "chancery", mode: "light", typeface },
   include: ["font.sans"],
   prepare: (css) => `:root[data-typeface="${typeface}"] {\n${css}\n}`,
@@ -61,13 +67,11 @@ const typefaceSamplePermutations = [
   "opendyslexic",
   "serif",
   "system",
-].map(
-  (typeface) => ({
-    input: { theme: "chancery", mode: "light", typeface },
-    include: ["font.sans"],
-    prepare: (css) => `[data-typeface-sample="${typeface}"] {\n${css}\n}`,
-  }),
-);
+].map((typeface) => ({
+  input: { theme: "chancery", mode: "light", typeface },
+  include: ["font.sans"],
+  prepare: (css) => `[data-typeface-sample="${typeface}"] {\n${css}\n}`,
+}));
 
 const permutations = [
   ...themeModePermutations,
