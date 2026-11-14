@@ -6,7 +6,11 @@ import {
 import { completeScope, type ReportCompleteness } from "../completeness.ts";
 import { ReportingValidationError } from "../reporting-validation.ts";
 import { resolveLiveOnlyPeriod } from "../temporal.ts";
-import { productivityStatement, Tally, type ProductivityFigures } from "./timekeeper-productivity.ts";
+import {
+  productivityStatement,
+  Tally,
+  type ProductivityFigures,
+} from "./timekeeper-productivity.ts";
 
 // DAILY TIME — how much time was recorded on each day of a period, and by whom, billable against
 // non-billable. Minutes only, never money, and no target: the same footing as Timekeeper

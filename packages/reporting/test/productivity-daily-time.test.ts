@@ -2,7 +2,13 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { describe, expect, it } from "vitest";
 import { assembleDailyTime } from "../src/productivity/daily-time.ts";
 import { assembleTimekeeperProductivity } from "../src/productivity/timekeeper-productivity.ts";
-import { AUTHORIZER, RECORDER, reportingFixture, seedMatter, type ReportingFixture } from "./support.ts";
+import {
+  AUTHORIZER,
+  RECORDER,
+  reportingFixture,
+  seedMatter,
+  type ReportingFixture,
+} from "./support.ts";
 
 // DAILY TIME. Timekeeping reads the same entries day by day as it reads for the productivity
 // breakdown; the totals must equal Timekeeper Productivity's for the same period, and each day must

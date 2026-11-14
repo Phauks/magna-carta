@@ -7,11 +7,7 @@
  * volumes are counts and never money. Every figure is the payload's; the tiles are its totals and
  * fields, and nothing here adds two counts.
  */
-import {
-  formatDate,
-  formatInstantDate,
-  formatNumber,
-} from "@magna-carta/design-system/formatters";
+import { formatDate, formatInstantDate, formatNumber } from "@magna-carta/design-system/formatters";
 import {
   completenessLine,
   type ReportCell,
@@ -50,12 +46,7 @@ function productivityCells(figures: ProductivityFigures): ReportCell[] {
   ];
 }
 
-const PRODUCTIVITY_HEADINGS = [
-  "Billable",
-  "Non-billable",
-  "Total",
-  "Billable share",
-];
+const PRODUCTIVITY_HEADINGS = ["Billable", "Non-billable", "Total", "Billable share"];
 
 export function presentTimekeeperProductivity(
   report: TimekeeperProductivity,
@@ -78,9 +69,7 @@ export function presentTimekeeperProductivity(
     {
       label: "Billable share",
       value:
-        totals.billableShareBasisPoints === null
-          ? "-"
-          : shareText(totals.billableShareBasisPoints),
+        totals.billableShareBasisPoints === null ? "-" : shareText(totals.billableShareBasisPoints),
       detail: null,
       tone: "plain",
     },
@@ -120,10 +109,7 @@ export function presentTimekeeperProductivity(
         title: "By Timekeeper",
         headers: ["Timekeeper", "Matters", ...PRODUCTIVITY_HEADINGS],
         rows: report.timekeepers.map((timekeeper) => [
-          captionOr(
-            timekeeper.timekeeperName,
-            captions.member(timekeeper.timekeeperUserId),
-          ),
+          captionOr(timekeeper.timekeeperName, captions.member(timekeeper.timekeeperUserId)),
           countCell(timekeeper.matterCount),
           ...productivityCells(timekeeper.figures),
         ]),
@@ -177,10 +163,7 @@ export function presentTimekeeperProductivity(
 
 // ---- daily time -----------------------------------------------------------------------------------
 
-export function presentDailyTime(
-  report: DailyTime,
-  captions: ReportCaptions,
-): ReportPresentation {
+export function presentDailyTime(report: DailyTime, captions: ReportCaptions): ReportPresentation {
   const totals = report.totals;
   const summary: ReportSummaryTile[] = [
     {
@@ -198,9 +181,7 @@ export function presentDailyTime(
     {
       label: "Billable share",
       value:
-        totals.billableShareBasisPoints === null
-          ? "-"
-          : shareText(totals.billableShareBasisPoints),
+        totals.billableShareBasisPoints === null ? "-" : shareText(totals.billableShareBasisPoints),
       detail: null,
       tone: "plain",
     },
@@ -211,10 +192,7 @@ export function presentDailyTime(
       tone: "total",
     },
   ];
-  const timekeeperCaption = (entry: {
-    timekeeperUserId: string;
-    timekeeperName: string | null;
-  }) =>
+  const timekeeperCaption = (entry: { timekeeperUserId: string; timekeeperName: string | null }) =>
     captionOr(entry.timekeeperName, captions.member(entry.timekeeperUserId));
 
   return {
@@ -298,10 +276,7 @@ const COST_CLASS_LABELS: Readonly<Record<"hard" | "soft", string>> = {
  * row and adds nothing.
  */
 function matterTypeRows(report: OperationalVolumes): ReportCell[][] {
-  const byType = new Map<
-    string,
-    { name: string; opened: number; closed: number }
-  >();
+  const byType = new Map<string, { name: string; opened: number; closed: number }>();
   for (const row of report.matters) {
     const key = row.matterTypeId ?? "";
     const entry = byType.get(key) ?? {
@@ -320,9 +295,7 @@ function matterTypeRows(report: OperationalVolumes): ReportCell[][] {
   ]);
 }
 
-export function presentOperationalVolumes(
-  report: OperationalVolumes,
-): ReportPresentation {
+export function presentOperationalVolumes(report: OperationalVolumes): ReportPresentation {
   const billing = report.billing;
   const tile = (label: string, count: number): ReportSummaryTile => ({
     label,
@@ -377,9 +350,7 @@ export function presentOperationalVolumes(
         headers: ["Measure", "Kind", "Count"],
         rows: report.trust.map((row) => [
           TRUST_MEASURE_LABELS[row.measure],
-          row.detail === null
-            ? ""
-            : (TRUST_DETAIL_LABELS[row.detail] ?? row.detail),
+          row.detail === null ? "" : (TRUST_DETAIL_LABELS[row.detail] ?? row.detail),
           countCell(row.count),
         ]),
         endAlignedColumns: [2],

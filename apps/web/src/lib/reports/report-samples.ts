@@ -5,10 +5,7 @@
  * total, because the fixture is drawn through the same presenter as the answer and a test over it
  * asserts the presenter printed the payload's figures.
  */
-import {
-  sampleMatter,
-  samplePerson,
-} from "@magna-carta/design-system/loading-fixtures";
+import { sampleMatter, samplePerson } from "@magna-carta/design-system/loading-fixtures";
 import type {
   AccountsReceivableAging,
   AppliedFigures,
@@ -39,10 +36,7 @@ const NORTH = {
   locationName: "North Office",
 };
 
-function matter(
-  index: number,
-  office: { locationId: string; locationName: string },
-) {
+function matter(index: number, office: { locationId: string; locationName: string }) {
   const sample = sampleMatter(index);
   return {
     matterId: `matter_sample_${String(index)}`,
@@ -281,18 +275,12 @@ export function sampleTimekeeperProductivity(): TimekeeperProductivity {
     nonBillableCategories: [
       { categoryId: "category_sample", categoryName: "Training", minutes: 60 },
     ],
-    taskCodes: [
-      { code: null, label: null, figures: figures(4, 210, 60, 7778) },
-    ],
+    taskCodes: [{ code: null, label: null, figures: figures(4, 210, 60, 7778) }],
   };
 }
 
 export function sampleDailyTime(): DailyTime {
-  const figures = (
-    entryCount: number,
-    billableMinutes: number,
-    nonBillableMinutes: number,
-  ) => {
+  const figures = (entryCount: number, billableMinutes: number, nonBillableMinutes: number) => {
     const totalMinutes = billableMinutes + nonBillableMinutes;
     return {
       entryCount,
@@ -300,9 +288,7 @@ export function sampleDailyTime(): DailyTime {
       nonBillableMinutes,
       totalMinutes,
       billableShareBasisPoints:
-        totalMinutes === 0
-          ? null
-          : Math.round((billableMinutes * 10000) / totalMinutes),
+        totalMinutes === 0 ? null : Math.round((billableMinutes * 10000) / totalMinutes),
     };
   };
   const one = {
@@ -500,12 +486,7 @@ export function samplePaymentsApplied(): PaymentsApplied {
     index: number,
     values: Pick<
       PaymentsApplied["entries"][number],
-      | "kind"
-      | "reversesKind"
-      | "effectiveDate"
-      | "amountMinor"
-      | "reason"
-      | "invoiceNumber"
+      "kind" | "reversesKind" | "effectiveDate" | "amountMinor" | "reason" | "invoiceNumber"
     >,
     clientIndex: number,
     office: { locationId: string; locationName: string },
@@ -642,11 +623,7 @@ export function samplePaymentsApplied(): PaymentsApplied {
 }
 
 export function sampleMatterBalances(): MatterBalances {
-  const figures = (
-    unbilledMinor: number,
-    owedMinor: number,
-    trustMinor: number,
-  ) => ({
+  const figures = (unbilledMinor: number, owedMinor: number, trustMinor: number) => ({
     unbilledMinor,
     owedMinor,
     trustMinor,
@@ -676,9 +653,7 @@ export function sampleMatterBalances(): MatterBalances {
       {
         ...client(1),
         figures: figures(415_000, 240_000, 350_000),
-        matters: [
-          { ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) },
-        ],
+        matters: [{ ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) }],
       },
     ],
   };
@@ -718,22 +693,12 @@ export function sampleMattersList(): MattersList {
         counts: { matterCount: 1, openCount: 0, heldCount: 1, closedCount: 0 },
       },
     ],
-    matters: [
-      row(0, MAIN, "open"),
-      row(1, NORTH, "hold"),
-      row(2, MAIN, "closed"),
-    ],
+    matters: [row(0, MAIN, "open"), row(1, NORTH, "hold"), row(2, MAIN, "closed")],
   };
 }
 
 export function sampleAgedWorkInProgress(): AgedWorkInProgress {
-  const figures = (
-    a: number,
-    b: number,
-    c: number,
-    d: number,
-    totalMinor: number,
-  ) => ({
+  const figures = (a: number, b: number, c: number, d: number, totalMinor: number) => ({
     unbilledMinor: [a, b, c, d],
     totalMinor,
   });
