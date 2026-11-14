@@ -390,7 +390,7 @@ export type ServiceVersion = {
 };
 
 export type ConnectedServiceStatus = {
-    id: 'realtime';
+    id: 'realtime' | 'googleCalendar' | 'microsoftCalendar';
     state: 'connected' | 'not-configured' | 'refused' | 'unreachable';
     latencyMilliseconds: number | null;
 };
