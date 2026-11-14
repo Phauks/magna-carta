@@ -32,7 +32,7 @@ const TRUST_COMPLIANCE = "reports:trustCompliance" as const;
 
 // A real calendar date, not a shape: a bare pattern accepts 2026-02-30, which the reporting package
 // refuses anyway but which a member should never have had to travel that far to hear about.
-const civilDate = z
+export const civilDate = z
   .string()
   .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
@@ -40,7 +40,7 @@ const civilDate = z
 // The knowledge instant, in exactly the shape `recorded_at` is written in. Strict rather than
 // permissive: the value is compared lexicographically against stored instants, so a different shape
 // would filter wrong rather than fail — quietly dropping rows the caller meant to include.
-const knowledgeInstant = z.string().regex(CANONICAL_INSTANT_PATTERN);
+export const knowledgeInstant = z.string().regex(CANONICAL_INSTANT_PATTERN);
 
 const trustCompliancePackQuery = z.object({
   periodStart: civilDate,
@@ -60,7 +60,7 @@ const trustCompliancePackQuery = z.object({
 
 const trustAccountPath = z.object({ trustAccountId: identifierField("trustAccount") });
 
-const ReportCompleteness = z
+export const ReportCompleteness = z
   .discriminatedUnion("scope", [
     z.object({ scope: z.literal("complete") }),
     z.object({
@@ -71,7 +71,7 @@ const ReportCompleteness = z
   ])
   .openapi("ReportCompleteness");
 
-const ReportReproducibility = z
+export const ReportReproducibility = z
   .discriminatedUnion("reproducible", [
     z.object({
       reproducible: z.literal(true),

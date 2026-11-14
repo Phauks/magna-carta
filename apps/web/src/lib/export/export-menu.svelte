@@ -16,10 +16,16 @@
   import { keepExportOnShelf, readDownloadPreferences } from "./download-shelf.ts";
   import { markShelfChanged } from "./download-shelf-signal.svelte.ts";
   import { renderCsvExport } from "./render-csv.ts";
-  import { RemoteRenderError, renderRemoteExport } from "./render-remote.ts";
+  import { renderPdfExport } from "./render-pdf.ts";
+  import { renderRemoteExport } from "./render-remote.ts";
   import { renderTextExport } from "./render-text.ts";
   import { renderXlsxExport } from "./render-xlsx.ts";
-  import { exportFilename, saveExport, type TabularExportDocument } from "./tabular-export.ts";
+  import {
+    ExportRenderError,
+    exportFilename,
+    saveExport,
+    type TabularExportDocument,
+  } from "./tabular-export.ts";
 
   let {
     exportDocument,
@@ -35,8 +41,8 @@
     readonly extension: string;
     readonly contentType: string;
     /**
-     * Sync string for the text formats; a Blob promise for the Excel renderer (lazy library) and
-     * for the document formats, which render server-side through render-remote.ts.
+     * Sync string for the text formats; a Blob promise for the Excel renderer (lazy library), the
+     * PDF composer (a Web Worker) and Word, which renders server-side through render-remote.ts.
      */
     readonly render: (renderedDocument: TabularExportDocument) => string | Promise<Blob>;
   }
@@ -64,7 +70,7 @@
       label: "PDF (.pdf)",
       extension: "pdf",
       contentType: "application/pdf",
-      render: (renderedDocument) => renderRemoteExport(renderedDocument, "pdf"),
+      render: renderPdfExport,
     },
     {
       label: "CSV (.csv)",
@@ -154,7 +160,7 @@
       // Only reachable on the immediate path, where a render happens here; the document formats
       // render server-side, so the server's own sentence is the actionable one.
       const message =
-        failure instanceof RemoteRenderError
+        failure instanceof ExportRenderError
           ? failure.errorId === undefined
             ? failure.message
             : `${failure.message} (Error ID ${failure.errorId})`

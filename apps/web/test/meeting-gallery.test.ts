@@ -51,6 +51,7 @@ function participant(ordinal: number, over: Partial<MeetingParticipant> = {}): M
     participantId,
     userId: `user_${ordinal}`,
     displayName: `Member ${ordinal}`,
+    accountName: null,
     sfuSessionId: `session_${ordinal}`,
     tracks: [{ trackName: `${participantId}:audio`, kind: "audio" }],
     speaking: false,
@@ -296,6 +297,32 @@ describe("the roster rail", () => {
     expect(target.querySelector('[aria-label="Speaking"]')).not.toBeNull();
     expect(target.querySelector('[aria-label="Microphone off"]')).not.toBeNull();
     expect(target.textContent).toContain("(you)");
+  });
+
+  it("says the name somebody joined with beside a chosen one, and offers the rename on the reader's own row only", () => {
+    let opened = 0;
+    instance = mount(MeetingRoster, {
+      target,
+      props: {
+        participants: [
+          participant(1, { displayName: "Red Room", accountName: "Rosalind Chase" }),
+          participant(2, { displayName: "Marcus Webb" }),
+        ],
+        ownParticipantId: "attendance_1",
+        onChangeName: () => {
+          opened += 1;
+        },
+      },
+    });
+    flushSync();
+
+    expect(target.textContent).toContain("Red Room");
+    expect(target.textContent).toContain("Joined as Rosalind Chase");
+    expect(target.textContent).not.toContain("Joined as Marcus Webb");
+    const rename = target.querySelectorAll<HTMLButtonElement>('[aria-label="Change My Name"]');
+    expect(rename).toHaveLength(1);
+    rename[0]?.click();
+    expect(opened).toBe(1);
   });
 
   it("carries the same badges and the same spotlight mark as a tile", () => {

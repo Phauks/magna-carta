@@ -70,7 +70,7 @@ describe("renderRemoteExport", () => {
         { status: 503, headers: { "content-type": "application/problem+json" } },
       )) as typeof fetch;
 
-    const failure = await renderRemoteExport(exportDocument, "pdf", fakeFetch).catch(
+    const failure = await renderRemoteExport(exportDocument, "docx", fakeFetch).catch(
       (caught: unknown) => caught,
     );
     expect(failure).toBeInstanceOf(RemoteRenderError);
