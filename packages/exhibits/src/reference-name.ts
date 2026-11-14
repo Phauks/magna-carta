@@ -39,9 +39,7 @@ export function referenceNameBaseFor(title: string): string {
     .filter((word) => word.length > 0);
   let name = words
     .map((word, index) =>
-      index === 0
-        ? word.toLowerCase()
-        : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+      index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
     )
     .join("");
   if (!/^[a-z]/.test(name)) {

@@ -162,7 +162,11 @@ export async function readAttachableFile(
         `WHERE f.id = ?1 AND f.deleted_at IS NULL`,
     )
     .bind(fileId)
-    .all<{ matter_id: MatterId; current_version_id: FileVersionId | null; status: string | null }>();
+    .all<{
+      matter_id: MatterId;
+      current_version_id: FileVersionId | null;
+      status: string | null;
+    }>();
   const row = results[0];
   if (row === undefined) return undefined;
   return {

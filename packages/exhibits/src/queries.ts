@@ -8,16 +8,15 @@ import type {
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
-import { EXHIBIT_COLUMNS, MATTER_EXHIBIT_TABLE, type MatterExhibitRow } from "./exhibit-statements.ts";
+import {
+  EXHIBIT_COLUMNS,
+  MATTER_EXHIBIT_TABLE,
+  type MatterExhibitRow,
+} from "./exhibit-statements.ts";
 import { captionFor, labelFor } from "./label.ts";
 import { EXHIBIT_SET_MEMBER_TABLE } from "./member-statements.ts";
 import type { ExhibitScheme } from "./scheme.ts";
-import {
-  EXHIBIT_SET_TABLE,
-  SET_COLUMNS,
-  schemeOf,
-  type ExhibitSetRow,
-} from "./set-statements.ts";
+import { EXHIBIT_SET_TABLE, SET_COLUMNS, schemeOf, type ExhibitSetRow } from "./set-statements.ts";
 import {
   MAX_CHAIN_DEPTH,
   type ExhibitDisposition,

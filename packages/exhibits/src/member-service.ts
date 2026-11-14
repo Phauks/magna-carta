@@ -59,7 +59,10 @@ export async function addMembers(
       throw new ExhibitValidationError("exhibit-unknown-exhibit", "no such exhibit on this matter");
     }
     if (present.has(exhibitId)) {
-      throw new ExhibitValidationError("exhibit-already-in-set", "that exhibit is already in the set");
+      throw new ExhibitValidationError(
+        "exhibit-already-in-set",
+        "that exhibit is already in the set",
+      );
     }
   }
   const now = options.clock.now();

@@ -99,8 +99,7 @@ export const optionalDescription = (value: unknown): string | null =>
   optionalText(value, "description", MAX_DESCRIPTION_LENGTH);
 export const assertSetName = (value: unknown): string =>
   assertText(value, "name", MAX_SET_NAME_LENGTH);
-export const assertBasis = (value: unknown): string =>
-  assertText(value, "basis", MAX_BASIS_LENGTH);
+export const assertBasis = (value: unknown): string => assertText(value, "basis", MAX_BASIS_LENGTH);
 
 export function assertSourceKind(value: unknown): ExhibitSourceKind {
   const kinds: readonly unknown[] = EXHIBIT_SOURCE_KINDS;

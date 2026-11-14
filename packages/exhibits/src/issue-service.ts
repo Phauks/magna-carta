@@ -68,7 +68,10 @@ export async function issueExhibitSet(
   }
   assertDraft(row);
   if (set.members.length === 0) {
-    throw new ExhibitValidationError("exhibit-set-empty", "a set with no exhibits cannot be issued");
+    throw new ExhibitValidationError(
+      "exhibit-set-empty",
+      "a set with no exhibits cannot be issued",
+    );
   }
 
   const filedCopyFileId = input.filedCopyFileId ?? null;

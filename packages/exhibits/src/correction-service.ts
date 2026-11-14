@@ -89,7 +89,8 @@ export async function correctMember(
             matterId,
             setId,
             correctedTitle: input.title !== undefined,
-            previousFileVersionId: member.corrected_file_version_id ?? member.file_version_id_as_issued,
+            previousFileVersionId:
+              member.corrected_file_version_id ?? member.file_version_id_as_issued,
             fileVersionId,
           },
         }),

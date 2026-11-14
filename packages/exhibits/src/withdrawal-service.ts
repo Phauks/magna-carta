@@ -35,7 +35,10 @@ export async function withdrawMember(
     throw new ExhibitValidationError("exhibit-unknown-member", "no such member in this set");
   }
   if (member.status === "withdrawn") {
-    throw new ExhibitValidationError("exhibit-member-withdrawn", "that exhibit is already withdrawn");
+    throw new ExhibitValidationError(
+      "exhibit-member-withdrawn",
+      "that exhibit is already withdrawn",
+    );
   }
   const now = options.clock.now();
   return {

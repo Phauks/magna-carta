@@ -223,6 +223,20 @@ export const PROBLEM_TYPES = {
   // column is readable by anyone holding the decrypt permission, and for a self-custodied asset the
   // phrase IS the asset. The correct home is a sealed envelope in the safekeeping register.
   "matter-asset-credential-storage-refused": "matter-asset-credential-storage-refused",
+  // Exhibits. An operation that needs a draft set on one that has been issued (HTTP 409): the
+  // order, members and numbering of a set that went out are fixed, and the remedy is a superseding
+  // set. The reverse — withdrawing or correcting on a draft — is its own slug, because the remedy
+  // differs (edit the draft directly).
+  "exhibit-set-issued": "exhibit-set-issued",
+  "exhibit-set-not-issued": "exhibit-set-not-issued",
+  // The set, or its membership, moved between the read and the write (HTTP 409): a member was
+  // added or removed, a racing write took a position, or the set was issued or superseded first.
+  // Read it again and redo the change.
+  "exhibit-set-changed": "exhibit-set-changed",
+  // A member-supplied reference name another exhibit on the matter already holds (HTTP 409).
+  "exhibit-reference-name-taken": "exhibit-reference-name-taken",
+  // The file is not on this matter, or has no clean version to attach or issue (HTTP 422).
+  "exhibit-file-unavailable": "exhibit-file-unavailable",
   // A bulk entry carrying more rows than one commit takes (HTTP 422). A REFUSAL and never a
   // truncation: a caller that sent sixty rows and silently had fifty written cannot tell that from
   // fifty rows it never sent.

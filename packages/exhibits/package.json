@@ -22,7 +22,8 @@
     "./issue-service": "./src/issue-service.ts",
     "./withdrawal-service": "./src/withdrawal-service.ts",
     "./correction-service": "./src/correction-service.ts",
-    "./supersession-service": "./src/supersession-service.ts"
+    "./supersession-service": "./src/supersession-service.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -31,7 +32,8 @@
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

@@ -33,7 +33,10 @@ export async function nextStartAfter(
   predecessor: ExhibitSetRow,
 ): Promise<number> {
   const members = await readMemberRows(database, predecessor.id);
-  const highestPosition = members.reduce((highest, member) => Math.max(highest, member.position), 0);
+  const highestPosition = members.reduce(
+    (highest, member) => Math.max(highest, member.position),
+    0,
+  );
   return predecessor.start_at + highestPosition;
 }
 
