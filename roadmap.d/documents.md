@@ -508,8 +508,9 @@
 - id: documents.conversion.email-to-pdf
   name: Email MSG/EML to PDF
   scope: Render parsed email as PDF for producing email as exhibits; closes the registry's eml/msg edges.
-  status: not-started
-  evidence: email-core-parse-engine fragment names the email-to-PDF render engine as next; parse engine is deliberately parse-only.
+  status: partial
+  surface: screen
+  evidence: packages/email/src/message-document.ts lays a parsed message out as a pdf-compose document; the File Workbench Email tab saves it. Conversion-registry eml/msg edges and the matter documents convert menu are still to come.
 
 - id: documents.conversion.searchable-pdf
   name: Scanned PDF to searchable PDF
@@ -995,8 +996,8 @@
   name: Email Inspector
   scope: Worker route exposing the parse engine, surfaced as the File Workbench's Email tab.
   status: shipped
-  surface: awaiting-screen
-  evidence: apps/api-worker/src/http/routes/email/email-inspector.ts. The tab exists and renders the pending treatment; the route has no panel reading it yet. The email-inspector catalog row is retired into this tab.
+  surface: screen
+  evidence: apps/web/src/lib/tools/file-workbench/panels/email-panel.svelte reads the message in the browser through @magna-carta/email (headers, route, authentication, body, attachments that open on the bench). apps/api-worker/src/http/routes/email/email-inspector.ts serves the same parse for server callers.
 
 - id: documents.engine-host
   name: Engine-host harness

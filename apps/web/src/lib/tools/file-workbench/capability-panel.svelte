@@ -23,12 +23,14 @@
     file,
     files,
     onOpenCapability,
+    onAddFiles,
   }: {
     capability: CapabilityModule;
     file: WorkbenchFile;
     /** The whole selection for a `selection`-scoped capability; the file in focus otherwise. */
     files: readonly WorkbenchFile[];
     onOpenCapability?: (capability: CapabilityModule) => void;
+    onAddFiles?: (files: readonly File[]) => void;
   } = $props();
 
   const applicability = $derived(capability.applies(file));
@@ -38,7 +40,7 @@
 {#if !applicability.applies}
   <Absence kind="not-applicable" reason={applicability.reason} />
 {:else if Panel}
-  <Panel {file} {files} {onOpenCapability} />
+  <Panel {file} {files} {onOpenCapability} {onAddFiles} />
 {:else}
   <PendingCapability
     action={capability.pendingAction}
