@@ -22,7 +22,7 @@
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Avatar from "@magna-carta/design-system/avatar";
-  import Button from "@magna-carta/design-system/button";
+  import Camera from "@lucide/svelte/icons/camera";
   import { personInitials } from "@magna-carta/design-system/formatters";
   import { toast } from "@magna-carta/design-system/toast";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -88,6 +88,8 @@
   const refusal = $derived(personDraftRefusal(draft));
   const warning = $derived(personDraftWarning(draft));
   const started = $derived(personDraftStarted(draft));
+  /** The name as typed so far, which heads the panel the way a record's name heads its window. */
+  const typedName = $derived(personDraftDisplayName(draft).trim());
   const contactRows = $derived(
     draft.contacts
       .filter((contact) => contact.kind !== "address")
@@ -161,10 +163,41 @@
   }
 </script>
 
+<!-- The photo stands at the top left, where the record window puts it, so the person being entered
+     reads as the record they will become. Pressing it adds or changes the picture. -->
+{#snippet newPersonPhoto()}
+  <span class="relative shrink-0">
+    <button
+      type="button"
+      class="shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-focus-ring"
+      aria-label={photoBase64 === null ? "Add a photo of the new person" : "Edit the new person's photo"}
+      title={photoBase64 === null ? "Add Photo" : "Edit Photo"}
+      onclick={() => (cropping = true)}
+    >
+      <Avatar.Root class="size-48 shrink-0">
+        {#if photoBase64 !== null}
+          <Avatar.Image src={`data:image/jpeg;base64,${photoBase64}`} alt="The new person's photo" />
+        {/if}
+        <Avatar.Fallback>{personInitials(typedName)}</Avatar.Fallback>
+      </Avatar.Root>
+    </button>
+    {#if photoBase64 === null}
+      <span
+        class="pointer-events-none absolute -end-4 -bottom-4 flex size-20 items-center justify-center rounded-full border border-border-default bg-surface-raised"
+        aria-hidden="true"
+      >
+        <Camera class="size-12" />
+      </span>
+    {/if}
+  </span>
+{/snippet}
+
 <ActionDialog
   bind:open
   kind="form"
-  heading="New Person"
+  heading={typedName === "" ? "New Person" : typedName}
+  subtitle={typedName === "" ? undefined : { facts: ["New Person"] }}
+  leading={newPersonPhoto}
   commitLabel="Save"
   commitBusyLabel="Saving"
   commitRefusal={refusal}
@@ -198,18 +231,6 @@
     <RecordSections sections={counts} label="Sections of the new person">
       {#snippet section(part)}
         {#if part.id === "names"}
-          <!-- The photo leads the record, as it leads the record window's header. -->
-          <div class="flex items-center gap-16">
-            <Avatar.Root class="size-48 shrink-0">
-              {#if photoBase64 !== null}
-                <Avatar.Image src={`data:image/jpeg;base64,${photoBase64}`} alt="The new person's photo" />
-              {/if}
-              <Avatar.Fallback>{personInitials(personDraftDisplayName(draft))}</Avatar.Fallback>
-            </Avatar.Root>
-            <Button variant="secondary" size="sm" disabled={busy} onclick={() => (cropping = true)}>
-              {photoBase64 === null ? "Add Photo" : "Edit Photo"}
-            </Button>
-          </div>
           <NamesSection
             bind:name={draft.name}
             bind:otherNames={draft.otherNames}

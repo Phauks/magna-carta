@@ -17,6 +17,7 @@
    * ARTIFACTS lists the documents Magnus wrote; opening one shows it with its versions
    * (artifact-view.svelte).
    */
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
   import Download from "@lucide/svelte/icons/download";
   import Eye from "@lucide/svelte/icons/eye";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -103,7 +104,10 @@
     const outcome = await readArtifactVersion(fetchImpl, conversationId, artifactId, versionNumber);
     downloadingId = null;
     if (outcome.kind !== "ok") {
-      toast.error("The document could not be read, so nothing was downloaded. Try again.");
+      failureToast(
+        outcome.failure,
+        "The document could not be read, so nothing was downloaded. Try again.",
+      );
       return;
     }
     const name = artifactFileName(title, versionNumber, "md");
@@ -123,7 +127,7 @@
     const outcome = await session.setPermission("own-matter-conversations", granted);
     changingPermission = false;
     if (outcome !== null && outcome.kind !== "ok") {
-      toast.error("Nothing changed. The permission is as it was.");
+      failureToast(outcome.failure, "Nothing changed. The permission is as it was.");
     }
   }
 
@@ -131,7 +135,8 @@
     if (openDocument === null) return false;
     const outcome = await session.restoreVersion(openDocument.artifactId, versionNumber);
     if (outcome === null || outcome.kind !== "ok") {
-      toast.error("The version was not restored. Nothing changed.");
+      if (outcome === null) toast.error("The version was not restored. Nothing changed.");
+      else failureToast(outcome.failure, "The version was not restored. Nothing changed.");
       return false;
     }
     return true;

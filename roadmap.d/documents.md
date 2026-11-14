@@ -756,22 +756,23 @@
   name: TypeScript bundle lane
   scope: In-Worker lane for plain streaming bundles (formats/layout/manifest/options in the file-manager package).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: packages/file-manager/src/bundle-formats.ts, bundle-layout.ts, bundle-manifest.ts, bundle-options.ts, bundle-paths.ts, contents-manifest.ts.
 
 - id: documents.bundling.container-lane
   name: Container bundle lane
   scope: Heavy/encrypted lane — alternative formats, compression, AES-256, multi-volume — in a dedicated Rust container behind its own worker.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: containers/bundle + apps/bundle-worker on main.
   notes: Lanes return 503 until the image is deployed and BUNDLE_SERVICE binds (per the status fragment).
 
 - id: documents.bundling.ui
   name: Bundling UI
   scope: User-facing bundle configuration surface.
-  status: not-started
-  evidence: Status fragment: UI deferred.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/lib/file-manager/bundle-dialog.svelte and bundle-request.ts, opened from the matter file manager's Download as Bundle (a selection) and Download Matter as Bundle (the empty space) menu items; a background build is watched until ready and listed in the download tray.
 
 - id: documents.ocr
   name: OCR

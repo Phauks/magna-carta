@@ -14,6 +14,7 @@
   import { guidanceFor } from "./guidance.ts";
   import { failureRows, STANDARD_REMEDY_STEPS } from "./failure-view.ts";
   import { currentTrace } from "./current-trace.ts";
+  import { failureSummaryWithId } from "./failure-summary.ts";
   import type { Failure } from "$lib/api/problem.ts";
 
   let {
@@ -66,6 +67,7 @@
   {trace}
   showTrace={scale === "screen"}
   steps={remedySteps}
+  summary={failureSummaryWithId(failure)}
 >
   {#snippet actions()}
     <FailureRemedy

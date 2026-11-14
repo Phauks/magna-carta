@@ -36,6 +36,7 @@
    * NOTHING ABOUT A CONVERSATION IS LOGGED HERE. Not a console line, not a diagnostics record: a
    * failure reports what the server said about the request, never what anybody typed.
    */
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
   import { tick, type Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
@@ -497,7 +498,10 @@
     const outcome = await readWholeTranscript(fetch, conversation.id);
     if (outcome.kind !== "ok") {
       downloading = false;
-      toast.error("The transcript could not be read, so nothing was downloaded. Try again.");
+      failureToast(
+        outcome.failure,
+        "The transcript could not be read, so nothing was downloaded. Try again.",
+      );
       return;
     }
     const document = transcriptMarkdown(conversation, outcome.value, {
