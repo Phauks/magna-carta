@@ -52,6 +52,7 @@
     row,
     onchange,
     fillsCell = false,
+    invalid = false,
   }: {
     options: readonly ChoiceOption[];
     /** The chosen value, or the empty string where nothing is chosen. Bindable. */
@@ -76,6 +77,11 @@
      * The field still fills its holder exactly as before; it only stops asking for more.
      */
     fillsCell?: boolean;
+    /**
+     * The field stands refused: its edge turns red and nothing else changes. A refusal on a field
+     * is a highlight and never a line of text, so the reason stays with the caller's own label.
+     */
+    invalid?: boolean;
   } = $props();
 
   /** What has been typed. Meaningful only while the field is being searched. */
@@ -135,6 +141,7 @@
     id={inputId}
     fieldName={label}
     {title}
+    aria-invalid={invalid ? "true" : undefined}
     autocomplete="off"
     spellcheck={false}
     size={fillsCell ? 1 : undefined}
