@@ -74,7 +74,6 @@
   function siteLink(id: string, label: string): AboutLink {
     const site = ECOSYSTEM_SITES.find((candidate) => candidate.id === id);
     if (site?.href) return { label, kind: "external", href: site.href };
-    if (site?.route !== undefined) return { label, kind: "route", route: site.route };
     return { label, kind: "soon" };
   }
 
