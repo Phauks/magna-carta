@@ -75,10 +75,15 @@ describe("messageDocument", () => {
   });
 
   it("adds every header on its own page only when asked", () => {
-    expect(messageDocument(message()).blocks.some((block) => block.type === "pageBreak")).toBe(false);
+    expect(messageDocument(message()).blocks.some((block) => block.type === "pageBreak")).toBe(
+      false,
+    );
     const withHeaders = messageDocument(message(), { includeFullHeaders: true });
     const last = withHeaders.blocks.at(-1);
-    expect(last?.type === "table" && last.rows[1]).toEqual(["Received", "from a by b; Tue, 4 Nov 2026"]);
+    expect(last?.type === "table" && last.rows[1]).toEqual([
+      "Received",
+      "from a by b; Tue, 4 Nov 2026",
+    ]);
   });
 
   it("says so when there is no body, and names an untitled message", () => {

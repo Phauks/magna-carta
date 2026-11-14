@@ -12,13 +12,13 @@
     "test": "vp test run",
     "build:wasm": "wasm-pack build ../../crates/email-core --target web --out-dir ../../packages/email/src/pkg --release --no-opt"
   },
+  "dependencies": {
+    "@magna-carta/pdf-compose": "workspace:*"
+  },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
-  },
-  "dependencies": {
-    "@magna-carta/pdf-compose": "workspace:*"
   }
 }

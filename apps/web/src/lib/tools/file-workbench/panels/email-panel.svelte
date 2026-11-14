@@ -181,8 +181,8 @@
 {:else if reading.kind === "failed"}
   <Absence kind="failed" reason={reading.reason} />
 {:else if message !== null}
-  <div class="flex flex-col gap-24">
-    <div class="grid gap-16 lg:grid-cols-2">
+  <div class="@container flex flex-col gap-24">
+    <div class="grid gap-16 @5xl:grid-cols-2">
       <div class="flex min-w-0 flex-col gap-16">
         <FactTable title="Message" facts={headerFacts} />
 
@@ -266,7 +266,7 @@
           </DataTable.Header>
           <DataTable.Body>
             <DataTable.Row>
-              <DataTable.Cell class="max-h-[28rem] overflow-y-auto whitespace-pre-wrap break-words">
+              <DataTable.Cell class="mc-scrollbar max-h-96 overflow-y-auto whitespace-pre-wrap break-words">
                 {body ?? "This message has no text body."}
               </DataTable.Cell>
             </DataTable.Row>

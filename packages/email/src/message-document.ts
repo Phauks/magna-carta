@@ -65,7 +65,8 @@ const KIND_NAMES: Readonly<Record<string, string>> = {
   "application/vnd.ms-excel": "Excel workbook",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel workbook",
   "application/vnd.ms-powerpoint": "PowerPoint presentation",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint presentation",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    "PowerPoint presentation",
   "application/zip": "Zip archive",
   "message/rfc822": "Email message",
   "application/vnd.ms-outlook": "Email message",
@@ -108,7 +109,10 @@ export function messageDocument(
   push("Bcc", addressLine(message.bcc));
   push("Subject", subject);
 
-  const blocks: ComposeBlock[] = [{ type: "title", text: subject }, { type: "fields", fields }];
+  const blocks: ComposeBlock[] = [
+    { type: "title", text: subject },
+    { type: "fields", fields },
+  ];
   blocks.push({ type: "rule" });
 
   const paragraphs = bodyParagraphs(message);
@@ -147,7 +151,10 @@ export function messageDocument(
         { heading: "Header", weight: 1 },
         { heading: "Value", weight: 3 },
       ],
-      rows: message.rawHeaders.map((header) => [header.name, header.value.replace(/\s+/g, " ").trim()]),
+      rows: message.rawHeaders.map((header) => [
+        header.name,
+        header.value.replace(/\s+/g, " ").trim(),
+      ]),
     });
   }
 
