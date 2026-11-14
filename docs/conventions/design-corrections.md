@@ -311,6 +311,11 @@ is usually the fastest way to understand the rule.
 - **The reading face is Inter.** Atkinson Hyperlegible's slashed zero made every date and amount
   read as code ("2Ø26"), and the face has no plain zero to switch to. Atkinson stays a choice under
   Settings > Text. _(app visual refresh, 2026-11-14)_
+- **No tracked capitals for structure.** Table column headers, filter headings, the grid's scope
+  line and the sidebar's group headings take the label voice in their own case; the fill, the rule
+  and the position already say they are structure. A table row's title link is plain ink that
+  underlines under the pointer, not a column of underlines. The scroll-edge rule is neutral: gold is
+  kept for what is active or focused. _(app visual refresh, 2026-11-14)_
 - **Two to four choices are shown, not hidden in a list.** A closed choice that small is a
   `SegmentedControl`, every option on screen and the chosen one raised; five or more is a Select.
   A choice not built yet stays in the track, refused, with its reason on hover. It takes a row of
@@ -1662,7 +1667,10 @@ The owner, asked to pick one of three directions for the app as a whole:
 - **"Atkinson's slashed zero makes dates and money look like code."** No plain zero exists in the
   face, so the default became Inter (the direction A body face), and dates became typed. Promoted to
   _Data entry_.
-- **Still to come in later passes:** the shell and tables in direction A.
+- **Capitals, underlines and a gold edge on every list.** Column headers, sidebar groups and
+  filter headings were tracked capitals, every matter title was underlined, and the scroll-edge
+  rule drew a gold line down the table's side. Promoted to _Data entry_.
+- **Still to come in later passes:** dot statuses, the top bar, and the near-identical greys.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 

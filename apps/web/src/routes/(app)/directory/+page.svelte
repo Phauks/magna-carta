@@ -344,7 +344,7 @@
          beneath it. Not an EntityIdentity — that mark says which side of the DIRECTORY a record
          is, and a matter is on neither side of it. -->
     <span class="flex flex-col">
-      <a class="underline underline-offset-2" href="/matters/{row.matterId}">{listingName(row)}</a>
+      <a class="underline-offset-2 hover:underline" href="/matters/{row.matterId}">{listingName(row)}</a>
       {#if row.matterNumber !== ""}
         <span class="text-xs text-text-muted">{row.matterNumber}</span>
       {/if}

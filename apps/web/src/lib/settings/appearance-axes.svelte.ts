@@ -331,7 +331,7 @@ export function applyHighContrast(next: boolean): void {
  * On/Off labels. A label that no longer maps yields null (the trail hides Restore for it).
  */
 /*
- * Scroll Edge Markers — the gilt rule that draws at the edge of a scroll area while there is more
+ * Scroll Edge Markers — the rule that draws at the edge of a scroll area while there is more
  * content that way (above and below the sidebar's nav list, left and right of a register). A
  * SWITCH, on the High Contrast reasoning: a genuine boolean is a switch, and the dropdowns-over-
  * radios rule governs enumerated option lists.
@@ -346,7 +346,7 @@ export const SCROLL_EDGE_HINTS_DEFINITION: SettingDefinition = {
   sectionId: "accessibility",
   label: "Scroll Edge Markers",
   description:
-    "A thin gold rule at the edge of a list or table while there is more to see that way.",
+    "A thin rule at the edge of a list or table while there is more to see that way.",
   kind: "switch",
   defaultValue: true,
   sensitivity: "open",
