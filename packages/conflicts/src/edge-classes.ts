@@ -34,7 +34,18 @@ export const EDGE_TYPES_BY_CLASS: Readonly<Record<EdgeClass, readonly string[]>>
     "shareholder_of",
     "point_of_contact_for",
   ],
-  family: ["relationship", "beneficiary_of", "guardian_of"],
+  family: [
+    "relationship",
+    "beneficiary_of",
+    "guardian_of",
+    "spouse_of",
+    "parent_of",
+    "child_of",
+    "sibling_of",
+    "grandparent_of",
+    "grandchild_of",
+    "family_member_of",
+  ],
   representation: ["representation", "role_assignment"],
 });
 

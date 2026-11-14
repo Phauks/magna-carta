@@ -192,6 +192,24 @@ describe("resolve", () => {
 });
 
 describe("partsFromDetails", () => {
+  it("keeps a United States ZIP+4 when Google has the four-digit suffix", () => {
+    const parts = partsFromDetails(
+      {
+        ...RENO_DETAILS,
+        addressComponents: [
+          ...RENO_DETAILS.addressComponents,
+          { longText: "1234", shortText: "1234", types: ["postal_code_suffix"] },
+        ],
+      },
+      "US",
+    );
+    expect(parts.postal).toBe("89501-1234");
+  });
+
+  it("keeps the five-digit ZIP Code when there is no suffix", () => {
+    expect(partsFromDetails(RENO_DETAILS, "US").postal).toBe("89501");
+  });
+
   it("puts a unit Google knows on the second line behind #", () => {
     const parts = partsFromDetails(
       {

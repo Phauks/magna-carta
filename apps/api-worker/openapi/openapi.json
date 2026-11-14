@@ -13031,7 +13031,13 @@
                         "userAgent": {
                           "type": "string"
                         },
+                        "location": {
+                          "type": "string"
+                        },
                         "proofReference": {
+                          "type": "string"
+                        },
+                        "codeDestination": {
                           "type": "string"
                         }
                       },
@@ -20496,6 +20502,1074 @@
           "assetClass"
         ]
       },
+      "ExhibitSchemePresets": {
+        "type": "object",
+        "properties": {
+          "defaultScheme": {
+            "$ref": "#/components/schemas/ExhibitScheme"
+          },
+          "presets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "scheme": {
+                  "$ref": "#/components/schemas/ExhibitScheme"
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "scheme"
+              ]
+            }
+          }
+        },
+        "required": [
+          "defaultScheme",
+          "presets"
+        ]
+      },
+      "ExhibitScheme": {
+        "type": "object",
+        "properties": {
+          "noun": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "prefix": {
+            "type": "string",
+            "maxLength": 12
+          },
+          "sequence": {
+            "type": "string",
+            "enum": [
+              "upperLetter",
+              "lowerLetter",
+              "arabic",
+              "upperRoman",
+              "lowerRoman"
+            ]
+          },
+          "startAt": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "overflowForm": {
+            "type": "string",
+            "enum": [
+              "doubled",
+              "bijective"
+            ]
+          }
+        },
+        "required": [
+          "noun",
+          "prefix",
+          "sequence",
+          "startAt",
+          "overflowForm"
+        ]
+      },
+      "MatterExhibitList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterExhibit"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "MatterExhibit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^matterExhibit_[A-Za-z0-9_-]{21}$"
+          },
+          "referenceName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "matterFile",
+              "assembledDocument",
+              "custodyItemScan",
+              "discoveryDocument"
+            ]
+          },
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "fileName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pinnedFileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "batesBegin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "batesEnd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "appearances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExhibitAppearance"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "referenceName",
+          "title",
+          "description",
+          "sourceKind",
+          "fileId",
+          "fileName",
+          "pinnedFileVersionId",
+          "pageCount",
+          "batesBegin",
+          "batesEnd",
+          "createdAt",
+          "updatedAt",
+          "archivedAt",
+          "appearances"
+        ]
+      },
+      "ExhibitAppearance": {
+        "type": "object",
+        "properties": {
+          "setId": {
+            "type": "string",
+            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+          },
+          "setName": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "issued"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "withdrawn"
+            ]
+          }
+        },
+        "required": [
+          "setId",
+          "setName",
+          "state",
+          "label",
+          "status"
+        ]
+      },
+      "CreatedExhibit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^matterExhibit_[A-Za-z0-9_-]{21}$"
+          },
+          "referenceName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "referenceName"
+        ]
+      },
+      "CreateExhibitRequest": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "matterFile",
+              "assembledDocument",
+              "custodyItemScan",
+              "discoveryDocument"
+            ]
+          },
+          "referenceName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "pinnedFileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^fileVersion_[A-Za-z0-9_-]{21}$"
+          },
+          "pageCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "fileId",
+          "title"
+        ]
+      },
+      "EditExhibitRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          },
+          "pinnedFileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^fileVersion_[A-Za-z0-9_-]{21}$"
+          },
+          "pageCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "archived": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "CreatedExhibitSet": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CreateExhibitSetFromFolderRequest": {
+        "type": "object",
+        "properties": {
+          "folderId": {
+            "type": "string",
+            "pattern": "^folder_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/ExhibitSchemeInput"
+          }
+        },
+        "required": [
+          "folderId"
+        ]
+      },
+      "ExhibitSchemeInput": {
+        "type": "object",
+        "properties": {
+          "noun": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "prefix": {
+            "type": "string",
+            "maxLength": 12
+          },
+          "sequence": {
+            "type": "string",
+            "enum": [
+              "upperLetter",
+              "lowerLetter",
+              "arabic",
+              "upperRoman",
+              "lowerRoman"
+            ]
+          },
+          "startAt": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "overflowForm": {
+            "type": "string",
+            "enum": [
+              "doubled",
+              "bijective"
+            ]
+          }
+        }
+      },
+      "ExhibitSetFolderFollowed": {
+        "type": "object",
+        "properties": {
+          "addedMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            }
+          },
+          "removedMemberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            }
+          }
+        },
+        "required": [
+          "addedMemberIds",
+          "removedMemberIds"
+        ]
+      },
+      "ExhibitSetList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExhibitSetSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ExhibitSetSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+          },
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/ExhibitScheme"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "issued"
+            ]
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "continuesFromSetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supersedesSetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supersededBySetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceFolderId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disposition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "filed",
+              "served",
+              "exchanged",
+              "lodged",
+              null
+            ]
+          },
+          "issuedOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issuedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issuedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filedCopyFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "name",
+          "scheme",
+          "state",
+          "memberCount",
+          "continuesFromSetId",
+          "supersedesSetId",
+          "supersededBySetId",
+          "sourceFolderId",
+          "disposition",
+          "issuedOn",
+          "issuedAt",
+          "issuedBy",
+          "filedCopyFileId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateExhibitSetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/ExhibitSchemeInput"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ExhibitSetDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+          },
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/ExhibitScheme"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "issued"
+            ]
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "continuesFromSetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supersedesSetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supersededBySetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceFolderId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "disposition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "filed",
+              "served",
+              "exchanged",
+              "lodged",
+              null
+            ]
+          },
+          "issuedOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issuedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issuedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filedCopyFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExhibitSetMember"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "name",
+          "scheme",
+          "state",
+          "memberCount",
+          "continuesFromSetId",
+          "supersedesSetId",
+          "supersededBySetId",
+          "sourceFolderId",
+          "disposition",
+          "issuedOn",
+          "issuedAt",
+          "issuedBy",
+          "filedCopyFileId",
+          "createdAt",
+          "updatedAt",
+          "members"
+        ]
+      },
+      "ExhibitSetMember": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+          },
+          "exhibitId": {
+            "type": "string",
+            "pattern": "^matterExhibit_[A-Za-z0-9_-]{21}$"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "referenceName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "matterFile",
+              "assembledDocument",
+              "custodyItemScan",
+              "discoveryDocument"
+            ]
+          },
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "fileName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pinnedFileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "batesBegin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "batesEnd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "withdrawn"
+            ]
+          },
+          "withdrawnAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "withdrawalBasis": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "titleAsIssued": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fileVersionIdAsIssued": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correctedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correctionBasis": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "exhibitId",
+          "position",
+          "label",
+          "caption",
+          "referenceName",
+          "title",
+          "description",
+          "sourceKind",
+          "fileId",
+          "fileName",
+          "pinnedFileVersionId",
+          "fileVersionId",
+          "pageCount",
+          "batesBegin",
+          "batesEnd",
+          "status",
+          "withdrawnAt",
+          "withdrawalBasis",
+          "titleAsIssued",
+          "fileVersionIdAsIssued",
+          "correctedAt",
+          "correctionBasis"
+        ]
+      },
+      "EditExhibitSetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/ExhibitSchemeInput"
+          },
+          "archived": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "AddedExhibitSetMembers": {
+        "type": "object",
+        "properties": {
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            }
+          }
+        },
+        "required": [
+          "memberIds"
+        ]
+      },
+      "AddExhibitSetMembersRequest": {
+        "type": "object",
+        "properties": {
+          "exhibitIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^matterExhibit_[A-Za-z0-9_-]{21}$"
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "exhibitIds"
+        ]
+      },
+      "ExhibitLabelMoves": {
+        "type": "object",
+        "properties": {
+          "moves": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "memberId": {
+                  "type": "string",
+                  "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+                },
+                "from": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "memberId",
+                "from",
+                "to"
+              ]
+            }
+          }
+        },
+        "required": [
+          "moves"
+        ]
+      },
+      "ReorderExhibitSetRequest": {
+        "type": "object",
+        "properties": {
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "memberIds"
+        ]
+      },
+      "IssuedExhibitSet": {
+        "type": "object",
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "memberId": {
+                  "type": "string",
+                  "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "memberId",
+                "label"
+              ]
+            }
+          }
+        },
+        "required": [
+          "labels"
+        ]
+      },
+      "IssueExhibitSetRequest": {
+        "type": "object",
+        "properties": {
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "filed",
+              "served",
+              "exchanged",
+              "lodged"
+            ]
+          },
+          "issuedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "filedCopyFileId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "disposition",
+          "issuedOn"
+        ]
+      },
+      "WithdrawExhibitRequest": {
+        "type": "object",
+        "properties": {
+          "basis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "basis"
+        ]
+      },
+      "CorrectExhibitRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "fileVersionId": {
+            "type": "string",
+            "pattern": "^fileVersion_[A-Za-z0-9_-]{21}$"
+          },
+          "basis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "basis"
+        ]
+      },
+      "SupersedeExhibitSetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "continueNumbering": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContinueExhibitSetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
       "CreatedDirectoryEntityResponse": {
         "type": "object",
         "properties": {
@@ -21034,7 +22108,14 @@
               "shareholder_of",
               "beneficiary_of",
               "guardian_of",
-              "point_of_contact_for"
+              "point_of_contact_for",
+              "spouse_of",
+              "parent_of",
+              "child_of",
+              "sibling_of",
+              "grandparent_of",
+              "grandchild_of",
+              "family_member_of"
             ]
           },
           "personIs": {
@@ -21940,7 +23021,14 @@
               "shareholder_of",
               "beneficiary_of",
               "guardian_of",
-              "point_of_contact_for"
+              "point_of_contact_for",
+              "spouse_of",
+              "parent_of",
+              "child_of",
+              "sibling_of",
+              "grandparent_of",
+              "grandchild_of",
+              "family_member_of"
             ]
           },
           "role": {
@@ -69007,11 +70095,68 @@
                             },
                             "proofReference": {
                               "type": "string"
+                            },
+                            "codeDestination": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 320
                             }
                           },
                           "required": [
                             "level"
                           ]
+                        },
+                        "signatureImages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "imageBase64": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 350000
+                              },
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 50000
+                                },
+                                "maxItems": 200
+                              }
+                            },
+                            "required": [
+                              "imageBase64"
+                            ]
+                          },
+                          "maxItems": 8
+                        },
+                        "initialsImages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "imageBase64": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 350000
+                              },
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 50000
+                                },
+                                "maxItems": 200
+                              }
+                            },
+                            "required": [
+                              "imageBase64"
+                            ]
+                          },
+                          "maxItems": 8
                         }
                       },
                       "required": [
@@ -81206,6 +82351,2371 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-scheme-presets": {
+      "get": {
+        "description": "The default numbering a new set takes, and the starter numberings a member may copy into a set. None is tied to a court; copying one writes its values onto the set.",
+        "operationId": "exhibits.listSchemePresets",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.listSchemePresets",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The presets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExhibitSchemePresets"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibits": {
+      "get": {
+        "description": "Every exhibit on the matter, oldest first, with the sets each one appears in and the label it carries in each. A draft set's label is computed from the current order; an issued set's is the label it went out with.",
+        "operationId": "exhibits.listExhibits",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.listExhibits",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's exhibits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterExhibitList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Makes a document already on the matter an exhibit. The file must have a clean version. The reference name an in-text citation uses is minted from this first title and never changes; supply one to choose it.",
+        "operationId": "exhibits.createExhibit",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.createExhibit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExhibitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new exhibit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibits/{exhibitId}": {
+      "patch": {
+        "description": "Retitles an exhibit, pins it to a version of its file or floats it on the current one, or archives it. A draft set shows the change at once; an issued set keeps what went out. The reference name does not move.",
+        "operationId": "exhibits.editExhibit",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.editExhibit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterExhibit_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "exhibitId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditExhibitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^matterExhibit_[A-Za-z0-9_-]{21}$"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/from-folder": {
+      "post": {
+        "description": "Makes an exhibit set from a folder: each file directly in the folder with a clean version becomes an exhibit, in name order, and the set follows the folder while it is a draft. A file that already is an exhibit on the matter keeps its exhibit. The set takes the folder's name unless one is given.",
+        "operationId": "exhibits.createExhibitSetFromFolder",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.createExhibitSetFromFolder",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExhibitSetFromFolderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/follow-folder": {
+      "post": {
+        "description": "Brings a draft that follows a folder up to date with it. Files now in the folder join at the end in name order once they have a clean version; exhibits whose file has left the folder leave the set, and the rest close up in their current order. Refused on an issued set and on a set built by hand.",
+        "operationId": "exhibits.followExhibitSetFolder",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.followExhibitSetFolder",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What joined and what left",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExhibitSetFolderFollowed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets": {
+      "get": {
+        "description": "Every exhibit set on the matter, newest first, with its numbering, whether it has been issued and how, how many exhibits it holds, and which set replaced it if one did.",
+        "operationId": "exhibits.listExhibitSets",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.listExhibitSets",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's exhibit sets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExhibitSetList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Starts an empty exhibit set for one filing. With no numbering given it takes the default: Exhibit A, B, C, and AA, BB, CC after Z.",
+        "operationId": "exhibits.createExhibitSet",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.createExhibitSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExhibitSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}": {
+      "get": {
+        "description": "One set and its exhibits in order, each with its label. A draft's labels are computed from the order now; an issued set's are the labels, titles and file versions it went out with.",
+        "operationId": "exhibits.readExhibitSet",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.readExhibitSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExhibitSetDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Renames or renumbers a draft set, or archives it. Every label follows a numbering change at once. An issued set is refused: its name and numbering went out with it.",
+        "operationId": "exhibits.editExhibitSet",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.editExhibitSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditExhibitSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/members": {
+      "post": {
+        "description": "Adds exhibits to the end of a draft set, in the order given. A document appears once in a set.",
+        "operationId": "exhibits.addExhibitSetMembers",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.addExhibitSetMembers",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddExhibitSetMembersRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddedExhibitSetMembers"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/members/{memberId}": {
+      "delete": {
+        "description": "Takes an exhibit out of a draft set. The exhibits after it move up one label. The exhibit itself stays on the matter. An issued set's exhibits are withdrawn instead.",
+        "operationId": "exhibits.removeExhibitSetMember",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.removeExhibitSetMember",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "exhibits.addExhibitSetMembers"
+        },
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "memberId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/order": {
+      "put": {
+        "description": "Replaces the order of a draft set in one step. The order names every member exactly once; a member added or removed since the set was read refuses it. Answers with every label that moved.",
+        "operationId": "exhibits.reorderExhibitSet",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.reorderExhibitSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderExhibitSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The labels that moved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExhibitLabelMoves"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/issue": {
+      "post": {
+        "description": "Records that a draft set went out — filed, served, exchanged or lodged — on the date given. Every label, title and file version is written down as it is now and can never change; the set cannot be unissued. Answers with the labels it froze.",
+        "operationId": "exhibits.issueExhibitSet",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.issueExhibitSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:issue",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueExhibitSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The labels the set went out with",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/members/{memberId}/withdraw": {
+      "post": {
+        "description": "Withdraws one exhibit from an issued set, with the reason. It keeps its label, and no later exhibit in this set or one continuing it is given that label.",
+        "operationId": "exhibits.withdrawExhibit",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.withdrawExhibit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:issue",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "memberId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawExhibitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/members/{memberId}/correct": {
+      "post": {
+        "description": "Corrects the record of an issued exhibit: a mistyped title, or the wrong version recorded. The correction is kept beside what was recorded at issue, with who made it and why. It never changes a label or the order.",
+        "operationId": "exhibits.correctExhibit",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.correctExhibit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:issue",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSetMember_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "memberId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectExhibitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Done",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/supersede": {
+      "post": {
+        "description": "Starts the amended set that replaces an issued one: a draft holding the same exhibits in the same order, minus any withdrawn. A set is replaced at most once.",
+        "operationId": "exhibits.supersedeExhibitSet",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.supersedeExhibitSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:issue",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupersedeExhibitSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/exhibit-sets/{setId}/continue": {
+      "post": {
+        "description": "Starts an empty draft whose numbering picks up after an issued set, past every label it used, withdrawn ones included.",
+        "operationId": "exhibits.continueExhibitSet",
+        "tags": [
+          "exhibits"
+        ],
+        "x-mc-operationId": "exhibits.continueExhibitSet",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "exhibits:manage",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "exhibits"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "setId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContinueExhibitSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedExhibitSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, exhibit, set or member is unknown, or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The set has been issued (or is not issued yet), it changed since it was read, the reference name is taken, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the file has no clean version on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -133870,6 +137380,9 @@
     },
     {
       "name": "esign"
+    },
+    {
+      "name": "exhibits"
     },
     {
       "name": "fees"

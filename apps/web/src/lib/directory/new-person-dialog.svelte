@@ -207,13 +207,8 @@
               <Avatar.Fallback>{personInitials(personDraftDisplayName(draft))}</Avatar.Fallback>
             </Avatar.Root>
             <Button variant="secondary" size="sm" disabled={busy} onclick={() => (cropping = true)}>
-              {photoBase64 === null ? "Add Photo" : "Change Photo"}
+              {photoBase64 === null ? "Add Photo" : "Edit Photo"}
             </Button>
-            {#if photoBase64 !== null}
-              <Button variant="ghost" size="sm" disabled={busy} onclick={() => (photoBase64 = null)}>
-                Remove Photo
-              </Button>
-            {/if}
           </div>
           <NamesSection
             bind:name={draft.name}
@@ -285,8 +280,13 @@
 
 <PhotoCropDialog
   bind:open={cropping}
-  heading={photoBase64 === null ? "Add Photo" : "Change Photo"}
+  heading={photoBase64 === null ? "Add Photo" : "Edit Photo"}
   subject={personDraftDisplayName(draft) || "New Person"}
+  current={photoBase64 === null ? null : `data:image/jpeg;base64,${photoBase64}`}
+  onRemove={async () => {
+    photoBase64 = null;
+    return true;
+  }}
   onSave={async (imageBase64) => {
     photoBase64 = imageBase64;
     return null;
