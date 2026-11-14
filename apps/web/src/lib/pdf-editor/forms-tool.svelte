@@ -87,7 +87,7 @@
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
       file,
-      "This document is locked with a password. Unlock it in the File Workbench, save the unlocked copy, and fill that.",
+      "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and fill that.",
     );
     if (gone) {
       if (opened.kind === "ready") opened.source.close();
@@ -160,7 +160,7 @@
 {:else if phase.kind === "refused"}
   <div class="p-24">
     <Alert.Root variant="warning">
-      <Alert.Title>This Form Cannot Be Filled Here</Alert.Title>
+      <Alert.Title>This Form Can't Be Filled Here</Alert.Title>
       <Alert.Description>{phase.message}</Alert.Description>
     </Alert.Root>
   </div>
@@ -255,7 +255,7 @@
       <div class="flex flex-none flex-col gap-8 border-t border-border-default p-16">
         <div class="flex items-start gap-8">
           <Checkbox id="forms-flatten" checked={flatten} disabled={fields.length === 0} onCheckedChange={(checked) => (flatten = checked)} />
-          <Label for="forms-flatten">Flatten, so the answers become part of the page and can no longer be changed</Label>
+          <Label for="forms-flatten">Flatten, so answers become part of the page and can't be changed</Label>
         </div>
         {#if result.kind === "done" && result.filed.kind === "filed"}
           <Alert.Root variant="success">
@@ -265,7 +265,7 @@
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">
             <Alert.Title>Not Filed</Alert.Title>
-            <Alert.Description>The filled form was made but could not be filed on the matter. Download it now; nothing was saved.</Alert.Description>
+            <Alert.Description>The filled form was made but couldn't be saved to the matter. Download it now; nothing was saved.</Alert.Description>
             <Button variant="secondary" size="sm" class="self-start" href={result.filed.url} download={result.filed.name}>Download</Button>
           </Alert.Root>
         {:else if result.kind === "failed"}

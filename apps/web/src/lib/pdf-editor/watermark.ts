@@ -91,7 +91,7 @@ export function parsePageList(
     const part = piece.trim();
     if (part === "") continue;
     const match = /^(\d+)\s*(?:-\s*(\d+))?$/.exec(part);
-    if (match === null) return { problem: `"${part}" is not a page or a range like 2-5.` };
+    if (match === null) return { problem: `"${part}" isn't a page or a range like 2-5.` };
     const from = Number(match[1]);
     const to = match[2] === undefined ? from : Number(match[2]);
     if (from < 1 || to < 1) return { problem: "Pages are counted from 1." };
@@ -119,7 +119,7 @@ export function watermarkProblems(
       problems.text = `Keep it to ${WATERMARK_LIMITS.textLength} characters.`;
     } else if (!printableInStandardFonts(text)) {
       problems.text =
-        "This has a character the watermark cannot print. Use letters, numbers and punctuation.";
+        "This has a character the watermark can't print. Use letters, numbers and punctuation.";
     }
     if (
       !(
