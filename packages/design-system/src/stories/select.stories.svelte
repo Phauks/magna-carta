@@ -249,7 +249,7 @@
       });
     });
 
-    await step("Typeahead jumps to a far matching option", async () => {
+    await step("Typing narrows the list to a far option and highlights it", async () => {
       await userEvent.keyboard("z");
       await waitFor(() =>
         expect(body.getByRole("option", { name: "Zulu" })).toHaveAttribute("data-highlighted"),
@@ -267,6 +267,82 @@
     <!-- Stood off the viewport edge as a control is in the app's canvas: flush against the edge,
          Bits would hold the listbox the collision padding in, and the alignment step measures
          the panel's edge against the trigger's. -->
+    <div class="p-24">
+      <Select.Root {...args} items={PHONETIC_ITEMS}>
+        <Select.Trigger class="max-w-sm" aria-label="Code word">
+          <Select.Value placeholder="Code word" />
+        </Select.Trigger>
+        <Select.Content>
+          {#each PHONETIC as word (word)}
+            <Select.Item value={word.toLowerCase()} label={word} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
+    </div>
+  {/snippet}
+</Story>
+
+<!--
+  Typing narrows a long list: past seven options, what is typed while the list is open filters the
+  rows by any part of their name, the top match is highlighted for Enter, Backspace widens again,
+  and Escape clears the search before it closes anything. Hidden from the catalog.
+-->
+<Story
+  name="Typing narrows a long list"
+  tags={["!dev", "!autodocs"]}
+  play={async ({ canvas, step }) => {
+    const trigger = canvas.getByRole("combobox", { name: "Code word" });
+    const body = within(document.body);
+
+    await step("The open list offers a search", async () => {
+      await userEvent.click(trigger);
+      await body.findByRole("listbox");
+      await waitFor(() => expect(body.getByText("Type to search")).toBeVisible());
+      await expect(body.getAllByRole("option")).toHaveLength(26);
+    });
+
+    await step("Typing keeps only the rows that contain it, anywhere in the name", async () => {
+      await userEvent.keyboard("ec");
+      await waitFor(() =>
+        expect(body.getAllByRole("option").map((option) => option.textContent?.trim())).toEqual([
+          "Echo",
+          "Quebec",
+        ]),
+      );
+      await waitFor(() =>
+        expect(body.getByRole("option", { name: "Echo" })).toHaveAttribute("data-highlighted"),
+      );
+    });
+
+    await step("Backspace widens the list again", async () => {
+      await userEvent.keyboard("{Backspace}");
+      await waitFor(() => expect(body.getAllByRole("option").length).toBeGreaterThan(2));
+    });
+
+    await step("A search nothing answers says so", async () => {
+      await userEvent.keyboard("qqq");
+      await waitFor(() => expect(body.queryAllByRole("option")).toHaveLength(0));
+      await waitFor(() => expect(body.getByText("No matches")).toBeVisible());
+    });
+
+    await step("Escape clears the search and leaves the list open", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.getAllByRole("option")).toHaveLength(26));
+      await expect(body.getByRole("listbox")).toBeInTheDocument();
+    });
+
+    await step("Enter chooses the top match", async () => {
+      await userEvent.keyboard("quebec");
+      await waitFor(() =>
+        expect(body.getByRole("option", { name: "Quebec" })).toHaveAttribute("data-highlighted"),
+      );
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
+      await expect(trigger).toHaveTextContent("Quebec");
+    });
+  }}
+>
+  {#snippet template(args: SelectStoryArgs)}
     <div class="p-24">
       <Select.Root {...args} items={PHONETIC_ITEMS}>
         <Select.Trigger class="max-w-sm" aria-label="Code word">

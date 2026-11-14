@@ -14,8 +14,13 @@
      state by re-clicking the selected option (a multiple select ignores it). A required field that
      must keep a value once chosen passes `allowDeselect={false}`. bits closes a single select when a
      NEW value is picked but not when the current one is deselected; we close it on deselect too, so
-     every single-select pick (set or clear) closes consistently. */
+     every single-select pick (set or clear) closes consistently.
+
+     A list longer than SEARCH_THRESHOLD options (counted from `items`) narrows as it is typed into
+     while open; see select-search.svelte.ts. Root owns that query and clears it when the list
+     closes. */
   import { Select as SelectPrimitive } from "bits-ui";
+  import { SelectSearch, setSelectSearch } from "./select-search.svelte.ts";
 
   let {
     value = $bindable(),
@@ -27,8 +32,21 @@
   // restProps still carries `type` and `items` (only `value` was pulled out for binding); read them
   // through a narrow view rather than re-typing the discriminated union.
   const ordering = $derived(
-    restProps as { type?: "single" | "multiple"; items?: ReadonlyArray<{ value: string }> },
+    restProps as {
+      type?: "single" | "multiple";
+      items?: ReadonlyArray<{ value: string; label?: string }>;
+    },
   );
+
+  const search = setSelectSearch(
+    new SelectSearch({
+      labels: () => (ordering.items ?? []).map((item) => item.label ?? item.value),
+      isOpen: () => open,
+    }),
+  );
+  $effect(() => {
+    if (!open) search.clear();
+  });
 
   // A pure reorder (no write-back): bits feeds the trigger and the hidden inputs from whatever the
   // bind getter returns, so presenting the multiple value in list order makes the display and the
