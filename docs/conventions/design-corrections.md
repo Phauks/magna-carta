@@ -1682,7 +1682,7 @@ The owner, reviewing in-app About pages and then About windows:
   in-app About states facts about the copy in front of the reader and carries no product prose;
   describing the product is the public site's job.
 - **It is a window, opened from Websites > About Magna Carta**, standing in for the public site
-  until that has an address, as the Changelog screen does for its own site.
+  until that has an address.
 - **"Two columns with links on right and other stuff on left."** The owner chose the variant whose
   left column is the chrome-register ink panel carrying the brand mark and the facts (version,
   released, signed in as, firm, environment, browser) with Copy Version Details at its foot, and
