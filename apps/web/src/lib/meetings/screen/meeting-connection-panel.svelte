@@ -23,32 +23,29 @@
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import { buttonClasses } from "@magna-carta/design-system/button";
-  import EventRail from "@magna-carta/design-system/event-rail";
-  import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import MeetingQualityMark from "./meeting-quality-mark.svelte";
   import { participantInitials } from "./meeting-tiles.ts";
-  import type { ConnectionParticipantModel, UplinkModel } from "./meeting-connection.ts";
+  import {
+    CAMERA_LAYER_WORDS,
+    type ConnectionParticipantModel,
+    type UplinkModel,
+  } from "./meeting-connection.ts";
   import type { ConnectionQuality } from "$lib/meetings/client/connection-quality.ts";
-
-  /**
-   * How much of the wire's history the panel draws.
-   *
-   * The ring behind it is longer, and all of it would make a floating panel taller than the room it
-   * floats over. What a reader wants here is the last thing that happened and what led to it.
-   */
-  const EVENTS_SHOWN = 10;
 
   let {
     uplink,
     participants,
-    events,
+    site = null,
+    onOpen,
     onCopy,
   }: {
     uplink: UplinkModel;
     /** Everybody else in the room, in the order the roster names them. */
     participants: readonly ConnectionParticipantModel[];
-    /** What has happened on the wire, oldest first. */
-    events: readonly EventRailEvent[];
+    /** The Cloudflare site serving the meeting, by its code, where it is known. */
+    site?: string | null;
+    /** Told when the panel opens, so the screen can read what only an open panel shows. */
+    onOpen?: () => void;
     /**
      * Copy the last few minutes of numbers as text to paste to whoever is helping. Absent where the
      * screen does not offer it.
@@ -64,10 +61,21 @@
     unknown: "Not measured yet",
   };
 
+  /**
+   * What each reading means, so "Good" is not a word on its own. The edges are the ones
+   * `connection-quality.ts` judges by.
+   */
+  const QUALITY_MEANING: Record<ConnectionQuality, string> = {
+    good: "Under 2% of packets lost and a round trip under 200 ms.",
+    fair: "Some packets lost (2 to 8%) or a round trip of 200 to 400 ms: the picture may soften.",
+    poor: "Over 8% of packets lost or a round trip over 400 ms: expect freezes and broken sound.",
+    unknown: "Measured a few seconds after you join.",
+  };
+
   /** A picture's size, as a reader would say it out loud. */
   function resolution(width: number | null, height: number | null): string | null {
     if (width === null || height === null) return null;
-    return `${width} by ${height}`;
+    return `${width} by ${height} pixels`;
   }
 
   /**
@@ -91,12 +99,24 @@
 
   const resolutionText = $derived(resolution(uplink.frameWidth, uplink.frameHeight));
   const rateText = $derived(rate(uplink.bitsPerSecond));
+  const uploadText = $derived(rate(uplink.uploadBitsPerSecond));
+  const downloadText = $derived(rate(uplink.downloadBitsPerSecond));
+  const layerText = $derived(
+    uplink.rid === null ? null : (CAMERA_LAYER_WORDS[uplink.rid] ?? uplink.rid),
+  );
+  const serverText = $derived.by(() => {
+    const server = uplink.server;
+    const where = site === null ? "Cloudflare" : `Cloudflare, site ${site}`;
+    if (server === null) return site === null ? null : where;
+    const route = server.relayed ? "through a relay" : "direct";
+    const transport = server.protocol === null ? "" : `, ${server.protocol.toUpperCase()}`;
+    return `${where} (${route}${transport})`;
+  });
   const lossText = $derived(share(uplink.lossFraction));
   const roundTripText = $derived(milliseconds(uplink.roundTripMilliseconds));
-  const shown = $derived(events.slice(Math.max(0, events.length - EVENTS_SHOWN)));
 </script>
 
-<Popover.Root>
+<Popover.Root onOpenChange={(open) => (open ? onOpen?.() : undefined)}>
   <!-- The hover names the control and nothing else, like every control in this band. The tooltip
        and the popover share ONE button through the tooltip trigger's child snippet; two elements
        would be two controls. The mark itself is the glyph, so the band says how the connection is
@@ -131,30 +151,58 @@
       </p>
     </div>
 
-    <div class="grid min-h-0 grid-cols-1 gap-24 sm:grid-cols-2">
+    <div
+      class="grid min-h-0 grid-cols-1 gap-24 {participants.length > 0 ? 'sm:grid-cols-2' : ''}"
+    >
     <div class="mc-scrollbar flex min-h-0 flex-col gap-16 overflow-y-auto">
     <DefinitionList.Root>
       <DefinitionList.Row term="Quality">
-        <span class="flex items-center gap-8">
-          <MeetingQualityMark quality={uplink.quality} />
-          {QUALITY_WORD[uplink.quality]}
+        <span class="flex flex-col gap-4">
+          <span class="flex items-center gap-8">
+            <MeetingQualityMark quality={uplink.quality} />
+            {QUALITY_WORD[uplink.quality]}
+          </span>
+          <span class="text-xs text-text-muted">{QUALITY_MEANING[uplink.quality]}</span>
         </span>
+      </DefinitionList.Row>
+      <DefinitionList.Row term="Server" empty={serverText === null}>
+        {#if serverText !== null}
+          <span class="flex flex-col gap-4">
+            {serverText}
+            {#if uplink.server?.address}
+              <span class="text-xs text-text-muted tabular-nums">{uplink.server.address}</span>
+            {/if}
+          </span>
+        {/if}
       </DefinitionList.Row>
       <DefinitionList.Row term="Picture" empty={resolutionText === null}>
         {#if resolutionText !== null}
           <span class="tabular-nums">{resolutionText}</span>
         {/if}
       </DefinitionList.Row>
-      <!-- The camera is offered in three sizes and the room asks for one of them; which one
-           it is asking for is the difference between a soft picture and a broken connection. -->
-      <DefinitionList.Row term="Layer" empty={uplink.rid === null}>
-        {#if uplink.rid !== null}
-          {uplink.rid}
+      <!-- The camera is sent in three sizes so each viewer gets the one their tile needs; this is
+           the size shown above, and its own rate. -->
+      <DefinitionList.Row term="Camera Size" empty={layerText === null}>
+        {#if layerText !== null}
+          <span class="flex flex-col gap-4">
+            <span>
+              {layerText}{#if rateText !== null}, <span class="tabular-nums">{rateText}</span>{/if}
+            </span>
+            <span class="text-xs text-text-muted">
+              Your camera is sent at full, half and quarter size, and each person receives the size
+              their screen shows you at.
+            </span>
+          </span>
         {/if}
       </DefinitionList.Row>
-      <DefinitionList.Row term="Going Out" empty={rateText === null}>
-        {#if rateText !== null}
-          <span class="tabular-nums">{rateText}</span>
+      <DefinitionList.Row term="Upload" empty={uploadText === null}>
+        {#if uploadText !== null}
+          <span class="tabular-nums">{uploadText}</span>
+        {/if}
+      </DefinitionList.Row>
+      <DefinitionList.Row term="Download" empty={downloadText === null}>
+        {#if downloadText !== null}
+          <span class="tabular-nums">{downloadText}</span>
         {/if}
       </DefinitionList.Row>
       <DefinitionList.Row term="Packets Lost" empty={lossText === null}>
@@ -181,6 +229,7 @@
     {/if}
     </div>
 
+    {#if participants.length > 0}
     <div class="mc-scrollbar flex min-h-0 flex-col gap-16 overflow-y-auto">
     <!-- The people, not the tiles: a colleague whose voice is being pulled while their
          picture is not is still somebody whose connection can be answered for. -->
@@ -196,20 +245,10 @@
           <span class="text-sm text-text-muted">{QUALITY_WORD[participant.quality]}</span>
           <MeetingQualityMark quality={participant.quality} />
         </li>
-      {:else}
-        <li class="text-sm text-text-muted">
-          Nobody else is in the room, so nothing is coming in.
-        </li>
       {/each}
     </ul>
-
-    <EventRail
-      events={shown}
-      label="What has happened on this connection"
-      emptyMessage="Nothing has happened on this connection yet."
-      note="The last few moments only, kept in this tab while it is open."
-    />
     </div>
+    {/if}
     </div>
   </Popover.Content>
 </Popover.Root>
