@@ -1,8 +1,9 @@
 ---
+number: 532
 slug: a-tabular-export-pdf-is-composed-by-the-pdf-composer
 status: Accepted
-area: Reports
 date: 2026-11-13
+area: Reports
 summary: "Every tabular export's PDF (a report, the bulk download, the download tray, a conflicts report, a Directory printout) is composed in the browser by the platform's PDF composer, crates/pdf-compose-core through @magna-carta/pdf-compose, in a Web Worker. The export route renders Word only; its PDF arm, the Word document carried across the office suite's conversion edge, is removed, so there is one way such a PDF is made."
 ---
 

@@ -1,8 +1,9 @@
 ---
+number: 531
 slug: a-transfer-pass-runs-on-the-queue-and-is-taken-once
 status: Accepted
-area: Platform
 date: 2026-11-14
+area: Platform
 summary: "A pass over a record transfer's source file is recorded as a transfer_pass row and run by the firm's shared job queue, never on the request. The first delivery takes the pass; a pass whose job died is shown as stalled and is never restarted, because asking for the pass again repeats nothing. The whole report is one object beside the source file and the row carries its counts. One permission, firm:transferRecords, seeded to Owner/Admin, gates every transfer route."
 ---
 

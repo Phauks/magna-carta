@@ -1,8 +1,9 @@
 ---
+number: 533
 slug: every-error-id-resolves-to-a-record
 status: Accepted
-area: Observability
 date: 2026-11-14
+area: Observability
 summary: "Every Error ID a member is shown is kept for thirty days in the control plane's error_record table: the problems the API answers (except 401 and 429) and the browser crashes the app reports. Records hold labels and code names only. A problem reply names its operation and, on a fault, an engine-written cause, and every failure surface leads with a summary of area, action and kind of failure."
 ---
 

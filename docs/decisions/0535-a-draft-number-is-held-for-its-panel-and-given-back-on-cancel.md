@@ -1,8 +1,9 @@
 ---
+number: 535
 slug: a-draft-number-is-held-for-its-panel-and-given-back-on-cancel
 status: Accepted
-area: Platform
 date: 2026-11-14
+area: Platform
 summary: "A panel creating a numbered record holds the number it will be saved under (number_reservation), renews it while open, and gives it back on cancel or after fifteen minutes. The draw planner takes the holder's own value, then the lowest value given back, before moving the counter, so no run keeps a gap. Invoice and time entry numbers are not held."
 ---
 
