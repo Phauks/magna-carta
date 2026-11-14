@@ -1,5 +1,6 @@
 /*
- * The financial reports, arranged for a screen and a file: aging, work in progress, realization.
+ * The financial reports, arranged for a screen and a file: aging, work in progress, aged work in
+ * progress, realization.
  *
  * TOTALS FIRST, THEN TABLES (the owner's pick, 2026-11-13). Each report opens with a row of its own
  * totals, then a table by office ruled off with the report's total, then a sortable table by client
@@ -20,6 +21,8 @@ import { captionOr, counted, hoursCell, hoursText, moneyCell, moneyText } from "
 import {
   AGING_BUCKET_LABELS,
   type AccountsReceivableAging,
+  type AgedWorkFigures,
+  type AgedWorkInProgress,
   type AgingFigures,
   type Realization,
   type RealizationFigures,
@@ -239,6 +242,88 @@ export function presentWorkInProgress(
         sortable: true,
         note: "Costs belong to no timekeeper, so this table carries time alone.",
         whenEmpty: "No timekeeper has unbilled time.",
+      },
+    ],
+  };
+}
+
+// ---- aged work in progress -------------------------------------------------------------------------
+
+const AGE_LABELS = ["0 to 30 days", "31 to 60 days", "61 to 90 days", "Over 90 days"] as const;
+const AGE_HEADINGS = ["0 to 30", "31 to 60", "61 to 90", "Over 90", "Total"];
+const OVER_NINETY_AGE = 3;
+
+function agedWorkCells(figures: AgedWorkFigures): ReportCell[] {
+  return [
+    ...figures.unbilledMinor.map((amount) => moneyCell(amount)),
+    moneyCell(figures.totalMinor),
+  ];
+}
+
+/**
+ * Aged Work in Progress: a tile per age and the total, the by-office table ruled off with the
+ * payload's total, then a sortable table by client opening onto matters. Work over ninety days old
+ * reads in the attention tone, as debt over ninety days does on the aging.
+ */
+export function presentAgedWorkInProgress(report: AgedWorkInProgress): ReportPresentation {
+  const summary: ReportSummaryTile[] = AGE_LABELS.map((label, index) => {
+    const amount = report.totals.unbilledMinor[index] ?? 0;
+    return {
+      label,
+      value: moneyText(amount),
+      detail: null,
+      tone: index === OVER_NINETY_AGE && amount !== 0 ? "attention" : "plain",
+    };
+  });
+  summary.push({
+    label: "Total unbilled",
+    value: moneyText(report.totals.totalMinor),
+    detail: counted(report.clients.length, "client", "clients"),
+    tone: "total",
+  });
+  return {
+    title: "Aged Work in Progress",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-office",
+        title: "By Office",
+        headers: ["Office", ...AGE_HEADINGS],
+        rows: report.offices.map((office) => [
+          captionOr(office.locationName, NO_OFFICE),
+          ...agedWorkCells(office.figures),
+        ]),
+        endAlignedColumns: [1, 2, 3, 4, 5],
+        attentionColumns: [OVER_NINETY_AGE + 1],
+        totalRow: [totalLabel(report.locationId), ...agedWorkCells(report.totals)],
+        whenEmpty: "Nothing is unbilled.",
+      },
+      {
+        id: "by-client",
+        title: "By Client",
+        headers: ["Client", "Office", ...AGE_HEADINGS],
+        rows: report.clients.map((client) => [
+          captionOr(client.clientName, client.clientEntityId ?? NO_CLIENT),
+          clientOffice(client.matters),
+          ...agedWorkCells(client.figures),
+        ]),
+        rowDetails: report.clients.map((client) =>
+          client.matters.map((matter) => [
+            matterCaption(matter),
+            captionOr(matter.locationName, NO_OFFICE),
+            ...agedWorkCells(matter.figures),
+          ]),
+        ),
+        endAlignedColumns: [2, 3, 4, 5, 6],
+        attentionColumns: [OVER_NINETY_AGE + 2],
+        sortable: true,
+        subordinateColumns: [1],
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No client has unbilled work.",
       },
     ],
   };

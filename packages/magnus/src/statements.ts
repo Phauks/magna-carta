@@ -777,6 +777,20 @@ export async function readTurnAtSequence(
 }
 
 // Whether an answer is still being written anywhere in the conversation.
+// The answer still being written in a conversation, if any: what an edit or a removal cancels.
+export async function readPendingAnswer(
+  database: SqlDatabase,
+  conversationId: MagnusConversationId,
+): Promise<MagnusTurnId | null> {
+  const { results } = await database
+    .prepare(
+      `SELECT id FROM ${MAGNUS_TURN_TABLE} WHERE conversation_id = ?1 AND speaker = 'magnus' AND status = 'pending' LIMIT 1`,
+    )
+    .bind(conversationId)
+    .all<{ id: string }>();
+  return (results[0]?.id as MagnusTurnId | undefined) ?? null;
+}
+
 export async function hasPendingTurn(
   database: SqlDatabase,
   conversationId: MagnusConversationId,

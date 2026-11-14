@@ -443,6 +443,26 @@ describe("GET /api/v1/reports/matters-list", () => {
   });
 });
 
+describe("GET /api/v1/reports/aged-work-in-progress", () => {
+  const url = "https://example.com/api/v1/reports/aged-work-in-progress";
+
+  it("answers the Owner with four age buckets that add up to the total", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { unbilledMinor: number[]; totalMinor: number };
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.totals.unbilledMinor).toHaveLength(4);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/realization", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/realization?${query}`;
 

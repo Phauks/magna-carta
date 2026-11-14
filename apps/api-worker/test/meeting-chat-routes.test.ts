@@ -313,6 +313,19 @@ describe("saying something in a meeting", () => {
     expect((await readJson<{ type: string }>(response)).type).toContain("meeting-message-too-long");
   });
 
+  it("refuses a file the meeting cannot share as one that is not there", async () => {
+    const meetingId = await joinedMeeting();
+    const response = await post(`/api/v1/meetings/${meetingId}/messages`, ownerCookie, {
+      body: "",
+      attachedFileId: newIdentifier("file"),
+    });
+
+    expect(response.status).toBe(404);
+    expect((await readJson<{ type: string }>(response)).type).toContain(
+      "meeting-message-file-unavailable",
+    );
+  });
+
   it("refuses an empty message", async () => {
     const meetingId = await joinedMeeting();
     const response = await post(`/api/v1/meetings/${meetingId}/messages`, ownerCookie, {

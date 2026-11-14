@@ -250,7 +250,16 @@ export function readChatMessage(value: unknown): MeetingMessage | null {
     body: readString(value, "body") ?? "",
     redactedAt: readString(value, "redactedAt"),
     redactedByUserId: readString(value, "redactedByUserId"),
+    attachedFile: readAttachedFile(value.attachedFile),
   };
+}
+
+/** The file a message points at, or null where it names none or names it in a shape it cannot. */
+function readAttachedFile(value: unknown): { id: string; name: string } | null {
+  if (!isRecord(value)) return null;
+  const id = readString(value, "id");
+  const name = readString(value, "name");
+  return id === null || name === null ? null : { id, name };
 }
 
 /** A simulcast layer as a frame states it, or null where the frame named something else. */

@@ -105,7 +105,8 @@ the top of the page, so that line is left out.
 ## Editing or Removing Your Own Message
 
 Under each message you sent there are two more buttons beside the copy button. They are there only
-in a conversation you started, and only when Magnus is not in the middle of an answer.
+in a conversation you started. You can use them while Magnus is still answering: editing or removing
+a message stops that answer, and an edit asks again with the new version.
 
 - **Edit and Ask Again** (the pencil) puts your message back in the box so you can change it. Press
   **Send Edit** and Magnus answers the new version. Your old message and everything after it leave
