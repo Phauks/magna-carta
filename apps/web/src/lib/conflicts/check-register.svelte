@@ -77,7 +77,7 @@
     search?: string;
   } = $props();
 
-  const list = new PagedList<ConflictsCheckSummary>("The firm's conflicts log could not be read.");
+  const list = new PagedList<ConflictsCheckSummary>("Couldn't load the firm's conflicts log.");
   const checks = $derived(list.items);
   const loadFailure = $derived(list.failure);
 
@@ -166,7 +166,7 @@
   {#if loadFailure !== null}
     <FailureNotice
       failure={loadFailure}
-      title="The Conflicts Log Could Not Be Read"
+      title="Couldn't Load the Conflicts Log"
       fallback={list.failureMessage ?? undefined}
       onRetry={reread}
     />
