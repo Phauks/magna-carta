@@ -23,8 +23,15 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Six reports run today: the trust compliance report, accounts receivable aging, work in progress,
-realization, timekeeper productivity, and operational volumes.
+Eight reports run today: the trust compliance report, accounts receivable aging, work in progress,
+realization, invoices, payments applied, timekeeper productivity, and operational volumes.
+
+- **Invoices** lists every bill issued in the period you choose, by office and by client. For each
+  bill it shows what was billed, what was credited or written off, what was applied against it by
+  the last day of the period, and what was still unpaid then. Open a client to see their bills.
+- **Payments Applied** lists everything set against a bill in the period: payments, transfers from
+  trust, client credits, credit notes and write-offs. A reversal appears as its own negative line,
+  saying what it reverses. It shows what was set against bills, not money arriving in the bank.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count
