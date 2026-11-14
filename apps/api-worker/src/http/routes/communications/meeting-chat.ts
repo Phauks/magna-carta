@@ -26,6 +26,7 @@ import {
   MAX_MEETING_MESSAGE_PAGE_SIZE,
   MEETING_PARTICIPANT_KINDS,
 } from "@magna-carta/meetings/chat-types";
+import { MeetingMessageFile } from "@magna-carta/meetings/chat-contract";
 import { MeetingChatValidationError } from "@magna-carta/meetings/chat-validation";
 import { readMeeting } from "@magna-carta/meetings/meeting-statements";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
@@ -50,6 +51,7 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 // One refusal for every way a room is out of reach is a rule that only holds if every door in the
 // family gives the same answer, and two copies of the switch are two places for that to stop being
 // true.
+import { chatErrorResponse } from "./meeting-chat-refusals.ts";
 import { meetingErrorResponse, meetingRoomFor } from "./meetings.ts";
 import { assertPermission } from "@magna-carta/access-control/registry";
 
@@ -116,7 +118,7 @@ export const MeetingMessage = z
     redactedByUserId: z.string().nullable(),
     // A file shared with the line, by its handle and its name now. Null on an ordinary line, once
     // the line is taken back, and once the file is deleted.
-    attachedFile: z.object({ id: z.string(), name: z.string() }).nullable(),
+    attachedFile: MeetingMessageFile.nullable(),
   })
   .openapi("MeetingMessage");
 
@@ -325,59 +327,6 @@ function notFound(c: Context): ProblemResponse<404> {
     status: 404,
     detail: "No such meeting in this firm.",
   });
-}
-
-function chatErrorResponse(
-  c: Context,
-  caught: MeetingChatValidationError,
-): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<422> {
-  switch (caught.code) {
-    // A handle naming nothing and a message in another meeting, kept indistinguishable for the
-    // reason an unreachable room is.
-    case "meeting-message-not-found":
-      return problemJson(c, {
-        type: "meeting-message-not-found",
-        title: "Not found",
-        status: 404,
-        detail: caught.message,
-      });
-    case "meeting-message-too-long":
-      return problemJson(c, {
-        type: "meeting-message-too-long",
-        title: "That message is too long",
-        status: 422,
-        detail: caught.message,
-      });
-    // Empty is an ordinary shape refusal — there is nothing specific for a surface to do about it
-    // beyond what a validation problem already says.
-    case "meeting-message-empty":
-      return problemJson(c, {
-        type: "validation",
-        title: "That message is empty",
-        status: 422,
-        detail: caught.message,
-      });
-    // A file the room cannot share. Absent rather than forbidden, so a guess at a handle learns
-    // nothing about whether it names a file elsewhere.
-    case "meeting-message-file-unavailable":
-      return problemJson(c, {
-        type: "meeting-message-file-unavailable",
-        title: "That file cannot be shared here",
-        status: 404,
-        detail: caught.message,
-      });
-    // Somebody else's words, and the caller is not hosting. A permission answer rather than an
-    // absence, because the message is one they can see in the transcript — pretending it is not
-    // there would be a worse answer than saying it is not theirs to remove.
-    case "meeting-message-not-redactable":
-      return problemJson(c, {
-        type: "permission-denied",
-        title: "Permission denied",
-        status: 403,
-        detail: caught.message,
-        requestAccess: false,
-      });
-  }
 }
 
 // ---- helpers ----
