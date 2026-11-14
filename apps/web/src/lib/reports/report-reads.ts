@@ -2,8 +2,8 @@
  * The financial, productivity and operational reads.
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
- * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices` and
- * `reports.paymentsApplied` in
+ * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
+ * `reports.paymentsApplied` and `reports.matterBalances` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -13,6 +13,7 @@
 import {
   reportsAccountsReceivableAging,
   reportsInvoices,
+  reportsMatterBalances,
   reportsOperationalVolumes,
   reportsPaymentsApplied,
   reportsRealization,
@@ -115,6 +116,42 @@ export interface WorkInProgress {
     timekeeperUserId: string;
     timekeeperName: string | null;
     figures: WorkInProgressFigures;
+  }[];
+}
+
+/** Three facts per matter, never added to one another. */
+export interface MatterBalanceFigures {
+  unbilledMinor: number;
+  owedMinor: number;
+  trustMinor: number;
+}
+
+export interface MatterBalances {
+  computedAt: string;
+  asOfDate: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  currency: "USD";
+  completeness: ReportCompleteness;
+  totals: MatterBalanceFigures;
+  offices: {
+    locationId: string | null;
+    locationName: string | null;
+    figures: MatterBalanceFigures;
+  }[];
+  clients: {
+    clientEntityId: string | null;
+    clientName: string | null;
+    figures: MatterBalanceFigures;
+    matters: {
+      matterId: string;
+      matterTitle: string;
+      matterNumber: string | null;
+      locationId: string | null;
+      locationName: string | null;
+      figures: MatterBalanceFigures;
+    }[];
   }[];
 }
 
@@ -374,6 +411,19 @@ export function readWorkInProgress(
 ): Promise<ApiOutcome<WorkInProgress>> {
   return outcome(() =>
     reportsWorkInProgress({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+export function readMatterBalances(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<MatterBalances>> {
+  return outcome(() =>
+    reportsMatterBalances({
       fetch: fetchImpl,
       throwOnError: true,
       query: { locationId: present(query.locationId) },
