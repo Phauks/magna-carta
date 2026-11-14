@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { Bindings } from "../bindings.ts";
 import type {
   SearchCompactionCoordinator,
@@ -40,7 +40,7 @@ function inFlight(status: SearchCompactionState["status"]): boolean {
 }
 
 export class SearchCompactionJob
-  extends DurableObject<Bindings>
+  extends StoredSecretsDurableObject
   implements SearchCompactionCoordinator
 {
   async start(message: SearchCompactionMessage): Promise<SearchCompactionStartOutcome> {

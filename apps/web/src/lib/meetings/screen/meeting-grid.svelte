@@ -3,7 +3,11 @@
    * The tiles, arranged. A working surface: it takes the height it is given and keeps it, so the
    * room does not reflow as people join and leave.
    *
-   * ONE THING GETS THE LARGE SLOT. A screen share, first: everything a meeting is for while
+   * EVERY PICTURE KEEPS THE CAMERA'S SHAPE. The gallery measures the space it has and draws each tile
+ * as large as it can at sixteen by nine (meeting-layout.ts), so two people on a laptop sit side by
+ * side rather than as two tall strips. In speaker view the others are a strip along the top.
+ *
+ * ONE THING GETS THE LARGE SLOT. A screen share, first: everything a meeting is for while
    * somebody is sharing is in that picture — the draft, the exhibit, the spreadsheet — so the faces
    * step down to a strip and the share takes the rest. Failing that, the speaker, where the member
    * has asked for speaker view. With neither there is no large slot: equal tiles, because the room
@@ -16,7 +20,8 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Button from "@magna-carta/design-system/button";
   import MeetingTile from "./meeting-tile.svelte";
-  import type { MeetingTileModel } from "./meeting-tiles.ts";
+  import { arrangeTiles, TILE_ASPECT } from "./meeting-layout.ts";
+  import { isOwnCamera, type MeetingTileModel } from "./meeting-tiles.ts";
   import type { MeetingMedium } from "@magna-carta/meeting-protocol/types";
   import type { Snippet } from "svelte";
 
@@ -29,8 +34,10 @@
     pages = 1,
     roomSize = 0,
     onPage,
+    mirrorSelf = false,
     onPin,
     hostMenu,
+    onPictureAttached,
   }: {
     /** The people on this page, this browser's own preview first. */
     tiles: readonly MeetingTileModel[];
@@ -51,6 +58,8 @@
     /** Everybody in the room, this browser included, for the count under the tiles. */
     roomSize?: number;
     onPage?: (page: number) => void;
+    /** Draw this browser's own camera as a mirror shows it. The room receives it unflipped. */
+    mirrorSelf?: boolean;
     /** Pin or unpin somebody. Absent where pinning is not offered. */
     onPin?: (participantId: string) => void;
     /**
@@ -61,6 +70,8 @@
      * screen that holds the roles. Absent for everybody else.
      */
     hostMenu?: Snippet<[MeetingTileModel]>;
+    /** Told where a tile started a new picture, for the diagnostics: the large slot, the strip or the gallery. */
+    onPictureAttached?: (where: "large picture" | "strip" | "gallery") => void;
   } = $props();
 
   /** What takes the large slot, where anything does. */
@@ -69,6 +80,16 @@
   const rest = $derived(
     large === null ? tiles : tiles.filter((tile) => tile.key !== large.key),
   );
+  /** The space the large picture or the gallery has, as the browser last measured it. */
+  let stageWidth = $state(0);
+  let stageHeight = $state(0);
+  /** The strip's height in pixels: room for a face and a name, never more than a fifth of a laptop. */
+  const STRIP_HEIGHT = 112;
+  const stripTileWidth = Math.round(STRIP_HEIGHT * TILE_ASPECT);
+  /** The space between gallery tiles, which is the gap-16 the gallery is drawn with. */
+  const GALLERY_GAP = 16;
+  const galleryFit = $derived(arrangeTiles(rest.length, stageWidth, stageHeight, GALLERY_GAP));
+  const largeFit = $derived(arrangeTiles(1, stageWidth, stageHeight, 0));
   const onFirstPage = $derived(page <= 0);
   const onLastPage = $derived(page >= pages - 1);
 </script>
@@ -78,9 +99,12 @@
   the two arrangements cannot drift into offering different things on the same tile — a pin on one
   and none on the other is exactly the kind of difference nobody notices until somebody reports it.
 -->
-{#snippet personTile(tile: MeetingTileModel)}
+{#snippet personTile(tile: MeetingTileModel, size: string | undefined, sizing: string)}
   <MeetingTile
-    class="min-h-0"
+    onPictureAttached={() => onPictureAttached?.(large === null ? "gallery" : "strip")}
+    class="min-h-0 {sizing}"
+    style={size}
+    mirrored={mirrorSelf && isOwnCamera(tile)}
     stream={tile.stream}
     name={tile.name}
     microphoneOff={tile.microphoneOff}
@@ -109,38 +133,65 @@
 
 <div class="flex h-full min-h-0 flex-col gap-16">
   {#if large !== null}
-    <MeetingTile
-      class="min-h-0 flex-1"
-      stream={large.stream}
-      name={large.name}
-      microphoneOff={large.microphoneOff}
-      speaking={large.speaking}
-      pinned={large.pinned}
-      videoPulled={large.videoPulled}
-      quality={large.quality}
-      hostRole={large.hostRole}
-      spotlighted={large.spotlighted}
-    handRaised={large.handRaised}
-    reactions={large.reactions}
-      {medium}
-    >
-      {#snippet menu()}
-        {#if large.participantId !== null && !large.local}
-          {@render hostMenu?.(large)}
-        {/if}
-      {/snippet}
-    </MeetingTile>
+    <!-- Speaker view, or a share: a strip of everybody else along the top, and the large picture
+         under it, fitted to the camera's shape rather than stretched to the room's. -->
+    {#if rest.length > 0}
+      <div
+        class="mc-scrollbar flex shrink-0 justify-center gap-12 overflow-x-auto"
+        style="block-size: {STRIP_HEIGHT}px"
+      >
+        {#each rest as tile (tile.key)}
+          {@render personTile(tile, `inline-size: ${stripTileWidth}px; block-size: 100%`, "shrink-0")}
+        {/each}
+      </div>
+    {/if}
     <div
-      class="mc-scrollbar grid min-h-0 shrink-0 basis-1/4 auto-rows-fr grid-cols-3 gap-16 overflow-y-auto sm:grid-cols-4 xl:grid-cols-6"
+      class="flex min-h-0 flex-1 items-center justify-center"
+      bind:clientWidth={stageWidth}
+      bind:clientHeight={stageHeight}
     >
-      {#each rest as tile (tile.key)}
-        {@render personTile(tile)}
-      {/each}
+      <MeetingTile
+        class={largeFit.tileWidth > 0 ? "" : "h-full w-full"}
+        style={largeFit.tileWidth > 0
+          ? `inline-size: ${largeFit.tileWidth}px; block-size: ${largeFit.tileHeight}px`
+          : undefined}
+        stream={large.stream}
+        name={large.name}
+        microphoneOff={large.microphoneOff}
+        speaking={large.speaking}
+        pinned={large.pinned}
+        videoPulled={large.videoPulled}
+        quality={large.quality}
+        hostRole={large.hostRole}
+        spotlighted={large.spotlighted}
+        handRaised={large.handRaised}
+        reactions={large.reactions}
+        mirrored={mirrorSelf && isOwnCamera(large)}
+        fit={large.microphoneOff === null ? "contain" : "cover"}
+        onPictureAttached={() => onPictureAttached?.("large picture")}
+        {medium}
+      >
+        {#snippet menu()}
+          {#if large.participantId !== null && !large.local}
+            {@render hostMenu?.(large)}
+          {/if}
+        {/snippet}
+      </MeetingTile>
     </div>
   {:else}
-    <div class="grid min-h-0 flex-1 auto-rows-fr gap-16 sm:grid-cols-2 xl:grid-cols-3">
+    <div
+      class="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-16"
+      bind:clientWidth={stageWidth}
+      bind:clientHeight={stageHeight}
+    >
       {#each rest as tile (tile.key)}
-        {@render personTile(tile)}
+        {@render personTile(
+          tile,
+          galleryFit.tileWidth > 0
+            ? `inline-size: ${galleryFit.tileWidth}px; block-size: ${galleryFit.tileHeight}px`
+            : undefined,
+          galleryFit.tileWidth > 0 ? "" : "aspect-video w-full",
+        )}
       {/each}
     </div>
   {/if}

@@ -35,6 +35,12 @@ routes requests through the chokepoint into those packages.
   provisioners. `src/event-dispatch.ts` is the one module that reaches both sides, because it is the
   event router. The seam is held by `test/http-background-boundary-scan.test.ts`; the one deliberate
   door from the HTTP side to a sweep is `src/http/request-path-sweep.ts`, outside the route tree.
+- `src/stored-secrets.ts` — the resolver the three handlers in `index.ts` run before anything else
+  over the secrets this Worker reads (`API_WORKER_SECRET_NAMES`, in `src/stored-secret-names.ts`,
+  which System Status also reads to say where each secret came from), and `StoredSecretsDurableObject`, the
+  base every Durable Object here extends instead of `DurableObject` so a secret bound from the
+  Secrets Store reaches it as a string. A new secret joins the list; a new Durable Object extends
+  the base, and awaits `storedSecretsReady` before constructor work that reads a secret.
 - `src/bindings.ts` — the `Bindings` env shape, the no-barrel single home for the env type, imported by
   both sides of the Worker. `src/auth-instance.ts` holds the per-env Better Auth instance and its
   counted email port; `src/worker-logger.ts` the per-env Workers logger.
@@ -89,8 +95,9 @@ routes requests through the chokepoint into those packages.
   nothing left to send: it reads back only the copies the platform wrote, puts a deadline's copy back, raises a
   deleted copy as a `connection_sync_issue` for the member to answer, and hands an edited copy to
   `apply-provider-edit.ts`, which carries the edit to the event through the calendar's own service
-  when the member holds `calendar:manage` and otherwise leaves it a question. A deleted copy never
-  cancels an event. `change-watch.ts` keeps the provider's standing request to say
+  when the member holds `calendar:manage` and otherwise leaves it a question. One day of a series
+  changed on its own is asked for last and carried as that day's own row; where it cannot be
+  carried the day is written back, with no question. A deleted copy never cancels an event. `change-watch.ts` keeps the provider's standing request to say
   when the member's calendar changes: the object stores the watch and its secret, every pass that
   reaches the provider renews it, and `http/routes/calendar/provider-notices.ts` (public, one route
   per provider) hands a notice to the object, which believes it only by that secret and then only

@@ -49,7 +49,7 @@ export const OPEN_METHODS: readonly OpenMethodPresentation[] = [
     id: "office-editor",
     label: "Browser Editor",
     description:
-      "Opens in the office editor served inside the application. The document stays in the firm's storage; the editor reads and saves it through the platform, and every save is a new version.",
+      "Opens in the built-in office editor. The document stays in the firm's storage, and every save is a new version.",
   },
   {
     id: "text-editor",
@@ -60,19 +60,18 @@ export const OPEN_METHODS: readonly OpenMethodPresentation[] = [
   {
     id: "pdf-viewer",
     label: "PDF Reader",
-    description:
-      "Opens in the platform's own reader, which draws the pages itself. Nothing here can change a PDF.",
+    description: "Opens in the built-in PDF reader. PDFs can't be changed here.",
   },
   {
     id: "preview",
     label: "Preview Panel",
     description:
-      "Opens the preview beside the file list. Where a format cannot be shown, the panel says so and offers the download.",
+      "Opens the preview beside the file list. If a format can't be shown, you can download it instead.",
   },
   {
     id: "archive",
     label: "Opens Into Itself",
-    description: "An archive opens as a folder in the file manager, listing what it holds.",
+    description: "Archives open as a folder in the file manager.",
   },
   {
     id: "download",
@@ -240,7 +239,7 @@ export const FILE_TYPE_FAMILIES: readonly FileTypeFamily[] = [
     label: "Drawings and Diagrams",
     method: "office-editor",
     extensions: [...DRAW_EXTENSIONS].toSorted(),
-    note: "The editor's own list for drawings, less the images and PDFs the platform shows itself.",
+    note: "The editor's drawing formats, except images and PDFs, which Magna Carta shows itself.",
   },
   platformFamily("text-and-code", "Plain Text and Code", "text-editor", ["text", "code"]),
   platformFamily("pdf", "PDF Documents", "pdf-viewer", ["pdf"]),

@@ -20,6 +20,7 @@ import type {
   ProviderEventWrite,
 } from "@magna-carta/calendar/sync-port";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { isOccurrenceOf, movedLikeOccurrence } from "@magna-carta/civil-time/recurrence";
 import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import type { IntegrationProblem } from "@magna-carta/integrations/problem";
@@ -40,12 +41,23 @@ import type { IntegrationProblem } from "@magna-carta/integrations/problem";
 // A deadline's copy is always put back as it was sent, without asking, because a deadline that
 // reads a day late in somebody's calendar is the one difference that can hurt a client.
 //
+// ONE DAY OF A SERIES, CHANGED ON ITS OWN, is looked for last. A series leaves as one copy with
+// its rule, so a member who drags next Tuesday's sitting to the afternoon has changed nothing the
+// comparison above can see. Each series' changed days are asked for, and a day that reads
+// differently is carried to the event as that day's own change, exactly as "this event only" does
+// in the event's own window. A day whose change cannot be carried is written back as it was sent:
+// there is no question to ask about one day, and a day that reads wrong is the worse outcome. A
+// day the member deleted is not seen, and is never a cancellation.
+//
 // Only copies this platform wrote are read. The provider is asked for the events carrying the
 // platform's own mark and for nothing else, so an event the member made themselves is never seen.
 
 // A copy missing from the list is confirmed one at a time before it is called gone, and a pass
 // asks for only this many confirmations. The rest wait for the next pass.
 const REMOVAL_CONFIRMATIONS_PER_PASS = 25;
+
+// A pass asks about the changed days of only this many series. Each is one request.
+const SERIES_LOOKS_PER_PASS = 100;
 
 const blankToNull = (text: string | null): string | null =>
   text === null || text.trim() === "" ? null : text.trim();
@@ -136,7 +148,18 @@ export interface ProviderChangesInput {
     copy: OutboundDesired,
     sent: SyncCopyReading,
     found: SyncCopyReading,
+    // Present when the edit is to one day of a series: the day it fell on before the edit.
+    occurrenceOn?: string,
   ) => Promise<ProviderEditDecision>;
+}
+
+// One day of a series as it was sent: the series' own reading, carried onto that day.
+export function readingOfSeriesDay(series: SyncCopyReading, occurrenceOn: string): SyncCopyReading {
+  return {
+    ...series,
+    startsOn: occurrenceOn,
+    endsOn: movedLikeOccurrence(series.endsOn, series.startsOn, occurrenceOn),
+  };
 }
 
 export type ProviderChangesOutcome =
@@ -279,5 +302,51 @@ export async function noticeProviderChanges(
   }
 
   await deleteSyncIssuesWithoutLinkStatement(database, connectionId).run();
+
+  let seriesLooksLeft = SERIES_LOOKS_PER_PASS;
+  for (const copy of input.desired) {
+    const repeats = copy.event.repeats;
+    if (repeats === undefined || repeats === null || repeats.rule === null) continue;
+    const link = linkByKey.get(keyText(copy.localKind, copy.localId));
+    if (link === undefined || link.state !== "synced" || link.remote_event_id === null) continue;
+    if (seriesLooksLeft === 0) break;
+    seriesLooksLeft -= 1;
+
+    const changed = await port.listSeriesChangedDays(link.remote_event_id);
+    if (!changed.ok) return { kind: "stopped", problem: changed.problem, report };
+    const seriesSent = readingOfWrite(copy.event);
+    for (const day of changed.value ?? []) {
+      const occurrenceOn = zonedReading(
+        day.originalStartsAtMilliseconds,
+        copy.event.timeZone,
+      ).civilDate;
+      // A day with a row of its own is about to be taken out of the provider's series, and a day
+      // the rule does not fall on is one this pass has misread. Neither is touched.
+      if (repeats.skippedDays.includes(occurrenceOn)) continue;
+      if (!isOccurrenceOf(repeats.rule, copy.event.startsOn, occurrenceOn)) continue;
+      const sent = readingOfSeriesDay(seriesSent, occurrenceOn);
+      const found = readingOfSnapshot(day, copy.event.timeZone);
+      if (sameReading(sent, found)) continue;
+
+      const decision =
+        input.applyEdit === undefined
+          ? "put-back"
+          : await input.applyEdit(copy, sent, found, occurrenceOn);
+      if (decision === "applied") {
+        // The day now has a row of its own. The next pass sends that row as an event and takes
+        // this day out of the provider's series.
+        report.applied += 1;
+        continue;
+      }
+      const written = await port.updateSeriesDay(day.remoteId, {
+        ...copy.event,
+        startsOn: sent.startsOn,
+        endsOn: sent.endsOn === sent.startsOn ? null : sent.endsOn,
+        repeats: null,
+      });
+      if (!written.ok) return { kind: "stopped", problem: written.problem, report };
+      if (written.value.found) report.putBack += 1;
+    }
+  }
   return { kind: "looked", report };
 }

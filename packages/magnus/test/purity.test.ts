@@ -108,7 +108,7 @@ describe("audit builders cannot receive turn content (fitness)", () => {
   );
 
   it("finds every builder", () => {
-    expect(builders.length).toBe(17);
+    expect(builders.length).toBe(20);
   });
 
   it("each takes exactly (database, context, identifierOnlyInput)", () => {

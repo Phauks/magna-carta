@@ -17,6 +17,7 @@
    */
   import type { Snippet } from "svelte";
   import Columns3 from "@lucide/svelte/icons/columns-3";
+  import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import Pin from "@lucide/svelte/icons/pin";
   import * as ContextMenu from "../context-menu/index.ts";
@@ -45,6 +46,7 @@
   const pinnedEnd = $derived(column.pinnedEnd === true);
   const pinned = $derived(pinnedEnd || grid.isPinned(column.id));
   const anchored = $derived(column.anchored === true);
+  const shown = $derived(grid.isColumnVisible(column.id));
   // A column with nothing to filter on contributes no group, and so no rule above the next one.
   const filterable = $derived(gridColumnFilterKind(column) !== "none");
 </script>
@@ -56,14 +58,26 @@
   {#if filterable}
     <ContextMenu.Separator />
   {/if}
-  <ContextMenu.Item
-    disabled={anchored}
-    title={anchored ? `${column.label} always shows` : `Stop showing the ${column.label} column`}
-    onSelect={() => grid.setColumnVisible(column.id, false)}
-  >
-    <EyeOff class="mc-table-grid-head-menu-icon" aria-hidden="true" />
-    Hide {column.label}
-  </ContextMenu.Item>
+  {#if shown}
+    <ContextMenu.Item
+      disabled={anchored}
+      title={anchored ? `${column.label} always shows` : `Stop showing the ${column.label} column`}
+      onSelect={() => grid.setColumnVisible(column.id, false)}
+    >
+      <EyeOff class="mc-table-grid-head-menu-icon" aria-hidden="true" />
+      Hide {column.label}
+    </ContextMenu.Item>
+  {:else}
+    <!-- The menu outlives its own column: the roster below can hide it while the menu stays open,
+         so the row turns round and brings it back. -->
+    <ContextMenu.Item
+      title={`Show the ${column.label} column again`}
+      onSelect={() => grid.setColumnVisible(column.id, true)}
+    >
+      <Eye class="mc-table-grid-head-menu-icon" aria-hidden="true" />
+      Show {column.label}
+    </ContextMenu.Item>
+  {/if}
   <ContextMenu.Item
     disabled={pinnedEnd}
     title={pinnedEnd

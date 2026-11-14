@@ -200,7 +200,7 @@
     formFailure = stated(
       outcome.failure,
       editing === null ? "The resource was not added." : "The change was not saved.",
-      "Nothing answered, so nothing changed; pressing again tries once more.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
     return "refused";
   }

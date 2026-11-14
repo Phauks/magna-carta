@@ -191,7 +191,7 @@
   const closedRefusal = $derived(closure === null ? undefined : ROUND_ALREADY_CLOSED);
 
   const EDIT_REFUSAL =
-    "A diligence file is a record of what was done and when. An attempt is appended and a round is closed; nothing in it is corrected in place.";
+    "A diligence file is a record of what was done and when. Attempts are added and rounds are closed; nothing is edited afterwards.";
 
   /*
    * The attempts, as the one table. Oldest first is the server's own order and the order a reader

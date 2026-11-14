@@ -83,7 +83,7 @@
       heading: "What's new",
       links: [
         siteLink("changelog", "Changelog"),
-        { label: "Full version report", kind: "route", route: "/settings/versions" },
+        { label: "System Status", kind: "route", route: "/settings/system-status" },
       ],
     },
     {

@@ -138,7 +138,7 @@
     failure = stated(
       outcome.failure,
       "The copy could not be linked.",
-      "Nothing answered. Nothing was filed against this packet.",
+      "Couldn't connect. Nothing was saved to this packet.",
     );
     return "refused";
   }

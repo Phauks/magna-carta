@@ -213,7 +213,7 @@
     relateFailure = stated(
       outcome.failure,
       "The settings were not related.",
-      "Nothing answered, so nothing was related; pressing again tries once.",
+      "Couldn't connect. Nothing was linked. Try again.",
     );
     return "refused";
   }
@@ -406,7 +406,7 @@
       <div class="flex flex-col gap-4">
         <Label for="{idPrefix}-relate-note">Note</Label>
         <Input id="{idPrefix}-relate-note" bind:value={relateNote} />
-        <p class="text-xs text-text-muted">Why they belong together, in a few words; optional.</p>
+        <p class="text-xs text-text-muted">Reason (optional)</p>
       </div>
     </div>
   {/snippet}

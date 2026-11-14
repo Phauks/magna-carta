@@ -105,13 +105,13 @@
       return {
         value: "Not checked",
         detail:
-          "The platform is not set up to read the provider's live model list, so the roster above is the verified catalog alone.",
+          "Magna Carta can't check the provider's live model list, so only the verified models above are shown.",
       };
     }
     if (provider.status === "unreachable") {
       return {
         value: "Unavailable",
-        detail: `The provider's model list could not be read${provider.checkedAt === null ? "" : ` at ${formatInstant(provider.checkedAt)}`}; the roster above is unaffected.`,
+        detail: `The provider's model list couldn't be loaded${provider.checkedAt === null ? "" : ` at ${formatInstant(provider.checkedAt)}`}. The models above are unaffected.`,
       };
     }
     const waiting = provider.awaitingVerification.map((model) => model.displayName);
@@ -119,8 +119,8 @@
       value: provider.checkedAt === null ? "Checked" : `Checked ${formatInstant(provider.checkedAt)}`,
       detail:
         waiting.length === 0
-          ? "Every model the provider lists that the platform could offer is on the roster."
-          : `Published but not on the roster yet: ${waiting.join(", ")}. A model is added only once its retention terms are verified; one that requires the provider to keep your content is never offered.`,
+          ? "Every model the provider offers that Magna Carta supports is listed."
+          : `Released but not listed yet: ${waiting.join(", ")}. A model is added once its data retention terms are checked. Models that keep your content are never offered.`,
     };
   });
 
@@ -176,7 +176,7 @@
         failure={draft.saveFailure}
         title="The Change Was Not Saved"
         fallback="Nothing changed. What you chose is still staged."
-        whenSilent="Nothing answered, so nothing changed. What you chose is still staged."
+        whenSilent="Couldn't connect. Nothing changed, and your choices are still here."
         onRetry={() => void draft.commit()}
       />
     {/if}
@@ -195,7 +195,7 @@
         failure={draft.readFailure}
         title="The AI Settings Could Not Be Read"
         fallback="The firm's AI settings were not read, so this page cannot say where the firm stands."
-        whenSilent="Nothing answered, so this page cannot say where the firm stands."
+        whenSilent="Couldn't connect, so the firm's status can't be shown."
         onRetry={() => void draft.load()}
       />
     {:else}
@@ -265,7 +265,7 @@
             {@render modelFact(
               "Model",
               "—",
-              "The platform no longer carries the model this firm last selected.",
+              "The model this firm last chose is no longer available.",
             )}
           {:else}
             {@render modelFact("Model", shownModel.displayName, shownModel.modelId)}
@@ -298,8 +298,8 @@
                 "Effort Levels",
                 shownModel.effortLevels.map(effortLabel).join(", "),
                 shownModel.defaultEffort === null
-                  ? "How much thinking a request may spend; each feature chooses per request."
-                  : `How much thinking a request may spend; each feature chooses per request, and ${effortLabel(shownModel.defaultEffort).toLowerCase()} applies when it names none.`,
+                  ? "How much effort a request may use. Each feature chooses per request."
+                  : `How much effort a request may use. Each feature chooses per request, and ${effortLabel(shownModel.defaultEffort).toLowerCase()} applies when it doesn't.`,
               )}
             {/if}
           {/if}
@@ -307,7 +307,7 @@
             {@render modelFact(
               "Roster",
               `Catalog version ${String(draft.committed.catalog.version)}, effective ${draft.committed.catalog.effectiveDate}`,
-              "The platform's verification pass is what keeps it current; a model joins the roster only once its retention facts have been checked.",
+              "A model is added only after its data retention terms are checked.",
             )}
           {/if}
           {#if providerSummary !== null}
@@ -363,8 +363,7 @@
           Your firm has consented: members with permission can ask the assistant questions, and what
           they type may be sent to the model above.
         {:else if draft.stagedValue(AI_PROCESSING_ELIGIBILITY_DEFINITION) !== true}
-          Nothing is sent to any model. Third-party AI processing is off, so the assistant is off
-          with it — turning Magnus on alone changes nothing.
+          Nothing is sent to any AI model. Third-party AI processing is off, so the assistant is off too.
         {:else}
           Nothing is sent to any model on the assistant's behalf. Magnus is off; other AI features
           are unaffected.

@@ -270,7 +270,7 @@ function namesJoined(names: readonly string[]): string {
 export function proposalPendingSentence(approvers: readonly TrustEligibleApprover[]): string {
   const names = approvers.map((approver) => approver.displayName).filter((name) => name !== "");
   if (names.length === 0) {
-    return "Proposed. Waiting on a member who holds the authority to release client money.";
+    return "Proposed. Waiting for someone with authority to release client money.";
   }
   return `Proposed. Waiting on ${namesJoined(names)}.`;
 }

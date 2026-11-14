@@ -17,7 +17,7 @@
     padding-inline-end: var(--mc-space-4);
     border-style: solid;
     border-width: var(--mc-border-width-default);
-    border-color: var(--mc-border-default);
+    border-color: var(--mc-border-field);
     border-radius: var(--mc-radius-md);
     background-color: var(--mc-surface-field);
     transition-property: border-color, outline-color;
@@ -28,9 +28,18 @@
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
   }
+
+  /* The edge answers the pointer one step darker before the field is focused, so a box feels
+     live under the hand. Focus, a refusal and a disabled field each keep their own edge. */
+  .mc-combobox-input-wrapper:hover:not(:focus-within):not(:has([aria-invalid="true"])):not(
+      :has(:disabled)
+    ) {
+    border-color: var(--mc-border-field-hover);
+  }
+
   .mc-combobox-input-wrapper:focus-within {
-    border-color: var(--mc-focus-ring);
-    outline-color: var(--mc-focus-ring);
+    border-color: var(--mc-text-default);
+    outline-color: var(--mc-accent-strong);
     outline-width: var(--mc-focus-ring-width);
     outline-offset: var(--mc-space-0);
   }

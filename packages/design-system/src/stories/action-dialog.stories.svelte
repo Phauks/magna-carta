@@ -41,7 +41,7 @@
     args: {
       heading: "Write Off a Balance",
       subtitle: {
-        reference: { kind: "Invoice", number: "2026-0147" },
+        reference: { kind: "Bill", number: "2026-0147" },
         facts: ["this matter still owes $4,120.00"],
       },
       commitLabel: "Write It Off",
@@ -419,7 +419,7 @@
     kind="form"
     unsavedChanges={false}
     {fields}
-    commitSoon={{ reason: "a trust account being served for this firm" }}
+    commitSoon={{ reason: "choosing a trust account" }}
     onCommit={succeed}
   />
 {/snippet}
@@ -850,7 +850,7 @@
 
     await step("It says what it waits on, as the control's own description", () => {
       expect(commit).toHaveAccessibleDescription(
-        "Not built yet. Waiting on a trust account being served for this firm.",
+        "Not built yet: choosing a trust account.",
       );
     });
 

@@ -219,8 +219,11 @@
 - id: documents.scanning.cdr
   name: CDR disarmed rendition
   scope: Optional content-disarmed copy of document types while the original is preserved byte-for-byte for evidence.
-  status: not-started
-  evidence: No CDR artifact in the tree; named as an optional pipeline stage in the white paper's untrusted-file-handling design.
+  status: partial
+  surface: internal
+  spec: docs/specs/2026-11-13-content-disarm-design.md
+  evidence: crates/disarm-core (PDF, Office packages, RTF and pictures, each re-verified after writing) + @magna-carta/disarm, its WebAssembly edge. Nothing calls it yet.
+  notes: In-house Rust by the owner's 2026-11-10 ruling. Next are the File Workbench's Disarm tab and a pipeline stage that files a rendition beside an upload; legacy binary Office files are refused until they are converted to their package form first.
 
 - id: documents.scanning.waf-prefilter
   name: WAF edge pre-filter

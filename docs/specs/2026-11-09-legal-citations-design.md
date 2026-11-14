@@ -1,7 +1,7 @@
 # Legal citations — design
 
 **Status:** Accepted (design) · **Date:** 2026-11-09 · **Owner:** Trevor Goldsmith
-**Decides:** ADR-legal-citations-follow-the-indigo-book-with-per-court-formats (new)
+**Decides:** ADR-0501 (new)
 **Builds on:** the Tools catalog (`packages/tools/CLAUDE.md`), the trust-jurisdiction profile
 pattern (`packages/trust-jurisdictions`), the legal-research integration port (white paper,
 _Integration platform_), the Magnus source card rulings (`docs/conventions/magnus-rulings.md`).

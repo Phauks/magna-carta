@@ -390,7 +390,7 @@
     failure = stated(
       outcome.failure,
       "The event could not be recorded.",
-      "Nothing answered. The event was not recorded, so pressing again records it once.",
+      "Couldn't connect. The event wasn't saved. Try again.",
     );
     return "refused";
   }
@@ -691,8 +691,7 @@
           <!-- An all-members firm event lists nobody: it is on every calendar by construction, so a
                list here would be a list the record ignores. -->
           <p class="text-sm text-text-muted">
-            Everyone at the firm is on this event, so there is no list to keep. Choose "The people
-            listed" as the audience on Details to name who is at it.
+            Everyone at the firm is on this event. To name specific people, choose "The people listed" as the audience on Details.
           </p>
         {/if}
       </Tabs.Content>

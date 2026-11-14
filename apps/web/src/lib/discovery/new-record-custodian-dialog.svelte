@@ -81,7 +81,7 @@
     failure = stated(
       outcome.failure,
       "The Custodian of Record could not be added.",
-      "Nothing answered. Nothing was added, so pressing again adds one.",
+      "Couldn't connect. Nothing was added. Try again.",
     );
     return "refused";
   }
@@ -130,16 +130,14 @@
 
       {#if kind === "unattributed"}
         <p class="text-text-muted text-sm">
-          Material that arrived with no custodial attribution. Recording that is a statement the firm
-          can make to a court; leaving the question blank is not.
+          Material that arrived with no custodian. Recording this is a statement the firm can make to a court; leaving it blank is not.
         </p>
       {:else}
         <div class="flex flex-col gap-8">
           <Label for="new-record-custodian-name">Name</Label>
           <Input id="new-record-custodian-name" disabled={busy} bind:value={displayName} />
           <p class="text-text-muted text-sm">
-            As the production names them. They do not have to be in the firm's Directory — a
-            production may name somebody the firm has never met.
+            As named in the production. They don't need to be in the firm's Directory.
           </p>
         </div>
       {/if}

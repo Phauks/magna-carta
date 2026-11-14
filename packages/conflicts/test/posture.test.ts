@@ -156,11 +156,11 @@ test("an unavailable source carries its reason and is never reported as searched
   });
   const posture = await readMatterConflictsPosture(value.database, MATTER);
   const content = posture.unavailableSources.find((entry) => entry.source === "content");
-  expect(content?.reason).toContain("no corpus exists");
+  expect(content?.reason).toContain("Nothing indexes the text of documents");
   const priorFirm = posture.unavailableSources.find(
     (entry) => entry.source === "prior_firm_history",
   );
-  expect(priorFirm?.reason).toContain("no data is recorded");
+  expect(priorFirm?.reason).toContain("Nothing is recorded for it yet");
   expect(posture.unavailableSources.some((entry) => entry.source === "party")).toBe(false);
 });
 

@@ -63,7 +63,6 @@
   import type { DirectoryContactUse } from "../directory-api.ts";
   import { EMAIL_USES } from "../directory-vocabulary.ts";
   import PhoneNumberField from "../phone-number-field.svelte";
-  import SectionHeading from "./section-heading.svelte";
 
   let {
     rows,
@@ -162,8 +161,6 @@
 </script>
 
 <section class="flex flex-col gap-12">
-  <SectionHeading label="Ways To Reach Them" count={rows.length} />
-
   <ul class="flex flex-col">
     {#each rows as row (row.id)}
       {@const Glyph = glyphOf(row.kind)}

@@ -18,7 +18,7 @@
  *   - `href` — where the entry goes. `null` means there is nowhere to go yet, and the entry renders
  *     as a plain, unlinked row or tile rather than a disabled-looking control. A registry decides
  *     this from its own maturity stage; the catalogue does not read the stage to guess it.
- *   - `waitsOn` — the noun phrase completing "Not built yet. Waiting on …", where the registry knows
+ *   - `waitsOn` — the noun phrase completing "Not built yet: …", where the registry knows
  *     the dependency. Absent where it does not; the entry then says only what its badge says.
  */
 import type { Component } from "svelte";

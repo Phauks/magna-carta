@@ -127,7 +127,7 @@
       address={email.trim()}
       instruction="If that address has an account, a reset link is on its way. Open it and choose a new password."
       {sentAt}
-      remedy="If it does not arrive, check the spam folder and confirm the address is the one you sign in with — the mail only goes to an address that has an account."
+      remedy="If it doesn't arrive, check your spam folder and make sure this is the address you sign in with."
       back={() => goto("/login")}
     />
   {:else}

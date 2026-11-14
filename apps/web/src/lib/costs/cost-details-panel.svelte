@@ -175,8 +175,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
         {#if sole.status === "billed"}
           {#if sole.invoiceId == null}
             <p class="text-xs text-text-muted">
-              Billed. Which bill took it up is not recorded on this cost, so there is nothing to
-              open: the matter's Billing section is where the bill itself is found.
+              Billed, but the bill isn't linked to this cost. Find it in the matter's Billing section.
             </p>
           {:else}
             <Button

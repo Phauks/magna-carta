@@ -150,6 +150,6 @@ describe("a hand-picked range", () => {
     const outcome = customRangeOutcome("2026-08-07", "2026-08-01");
     expect(outcome.kind).toBe("refused");
     if (outcome.kind !== "refused") return;
-    expect(outcome.reason).toContain("reads forwards");
+    expect(outcome.reason).toContain("range isn't applied");
   });
 });

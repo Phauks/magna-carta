@@ -113,9 +113,9 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
     return {
       ...base,
       tone: "warning",
-      title: "The registry did not answer",
+      title: "The registry didn't respond",
       message:
-        "The registry's lookup service is rate-limiting or unavailable. It was tried several times automatically; wait a moment, then look up again.",
+        "The registry's lookup service is busy or unavailable. Wait a moment, then try again.",
     };
   }
   if (problem.status >= 500) {

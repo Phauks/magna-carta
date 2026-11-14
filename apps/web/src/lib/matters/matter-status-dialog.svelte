@@ -323,7 +323,7 @@
     physicalFileFailure = stated(
       outcome.failure,
       "Where the file is kept was not recorded.",
-      "Nothing answered. The matter's paper file is unchanged.",
+      "Couldn't connect. The paper file is unchanged.",
     );
   }
 
@@ -347,7 +347,7 @@
     destructionFailure = stated(
       outcome.failure,
       "The destruction date was not recorded.",
-      "Nothing answered. The matter's paper file is unchanged.",
+      "Couldn't connect. The paper file is unchanged.",
     );
   }
 
@@ -373,7 +373,7 @@
     numberFailure = stated(
       outcome.failure,
       "The number was not set.",
-      "Nothing answered. The matter's number is unchanged.",
+      "Couldn't connect. The matter number is unchanged.",
     );
   }
 
@@ -556,9 +556,7 @@
       {#if numberEditable}
         <!-- What the field is for, beside it at all times rather than arriving with a form. -->
         <p class="text-xs text-text-subtle">
-          A court's number, a number from the firm's old system, or a correction. It has to be
-          unique in the firm and able to stand in a link; the number it replaces stays on the
-          record.
+          A court number, a number from the firm's old system, or a correction. It must be unique in the firm and usable in a link. The old number stays on record.
         </p>
       {/if}
       {#if numberError !== null}
@@ -874,13 +872,10 @@
          say that rather than leave a guess standing. -->
     {#if !isSample && physicalFileBlock === null}
       <p class="text-xs text-text-subtle">
-        The office the firm keeps this matter's folder at. Not the office the matter is run out of:
-        a file that has been boxed elsewhere is recorded where it actually is.
+        The office where this matter's paper file is kept, which may differ from the office handling the matter.
       </p>
       <p class="text-xs text-text-subtle">
-        Destroy After is set when the matter closes, no earlier than the firm's minimum retention,
-        and can be moved later or cleared here once it is closed. It appears on the calendar under
-        File Destruction Dates; nothing is destroyed when it arrives.
+        Destroy After is set when the matter closes, no earlier than the firm's minimum retention, and can be changed or cleared later. It appears on the calendar under File Destruction Dates. Nothing is destroyed automatically.
       </p>
     {/if}
     {#if physicalFileFailure !== null}

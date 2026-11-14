@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { StoredSecretsDurableObject } from "../stored-secrets.ts";
 import type { Bindings } from "../bindings.ts";
 import type {
   RecoveryCoordinator,
@@ -48,7 +48,10 @@ function isTerminal(status: RecoveryJobState["status"]): boolean {
   );
 }
 
-export class RecoveryJobCoordinator extends DurableObject<Bindings> implements RecoveryCoordinator {
+export class RecoveryJobCoordinator
+  extends StoredSecretsDurableObject
+  implements RecoveryCoordinator
+{
   async start(input: RecoveryStartInput): Promise<RecoveryJobState> {
     const existing = (await this.ctx.storage.get<RecoveryJobState>("state")) ?? null;
     if (existing !== null) return existing; // idempotent submit

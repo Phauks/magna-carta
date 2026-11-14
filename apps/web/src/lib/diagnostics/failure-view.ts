@@ -15,9 +15,10 @@ export function failureRows(failure: Failure): FailureDetailRow[] {
   const problem = failure.problem;
   return [
     { label: "Request", value: failure.request, mono: true },
-    { label: "Answer", value: problem === null ? "Nothing answered" : String(problem.status) },
+    { label: "Answer", value: problem === null ? "Couldn't connect" : String(problem.status) },
     { label: "Time", value: formatInstant(failure.failedAt) },
     { label: "Error ID", value: problem?.errorId ?? "None issued", mono: true },
+    ...(failure.cause === undefined ? [] : [{ label: "Cause", value: failure.cause, mono: true }]),
   ];
 }
 

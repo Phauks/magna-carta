@@ -1,5 +1,6 @@
 import { getContainer } from "@cloudflare/containers";
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
+import { resolveStoredSecrets } from "@magna-carta/worker-secrets/stored-secrets";
 import { forwardIdentify } from "./forward-identify.ts";
 import { forwardScan } from "./forward-scan.ts";
 import { forwardHistogram } from "./forward-histogram.ts";
@@ -63,7 +64,12 @@ export default {
 
   scheduled(controller: ScheduledController, env: Bindings, executionContext: ExecutionContext) {
     if (controller.cron === SIG_REFRESH_CRON) {
-      executionContext.waitUntil(triggerSignatureRefresh(env.SCAN_BUILD_DEPLOY_HOOK_URL));
+      // May be bound from the account's Secrets Store (SECRETS_STORE_SCAN_BUILD_DEPLOY_HOOK_URL).
+      executionContext.waitUntil(
+        resolveStoredSecrets(env, ["SCAN_BUILD_DEPLOY_HOOK_URL"]).then((resolved) =>
+          triggerSignatureRefresh(resolved.SCAN_BUILD_DEPLOY_HOOK_URL),
+        ),
+      );
     } else if (controller.cron === SCAN_WARM_CRON) {
       executionContext.waitUntil(
         pokeContainer(getContainer(env.SCAN_CONTAINER, SCAN_PRIMARY_SHARD_NAME)),

@@ -138,8 +138,7 @@
         failure = stated(
           outcome.failure,
           "The documents could not be added to the load.",
-          "Nothing answered. Whatever had already been added is still on the load; asking again " +
-            "continues from there rather than adding anything twice.",
+          "Couldn't connect. Anything already added is still on the load, and trying again picks up where it stopped.",
         );
         return "refused";
       }
@@ -151,8 +150,7 @@
     }
     failure = stated(
       { problem: null, request: `POST /api/v1/loads/${loadId}/internal-selection`, failedAt: new Date() },
-      "The load is part-filled: it did not finish in the turns allowed. Nothing is lost — opening " +
-        "this again continues from where it stopped.",
+      "The load is partly filled because it didn't finish in time. Nothing is lost. Open it again to continue.",
     );
     return "refused";
   }
@@ -186,8 +184,7 @@
       <!-- What picking a version actually does, said beside the picking rather than in the line that
            names the subject. Nothing is copied, so the load is a set of pointers. -->
       <p class="text-xs text-text-muted">
-        Each document becomes a pointer at the version you pick. Nothing is copied, and a later
-        version does not change what is under review.
+        Each document links to the version you pick. Nothing is copied, and later versions don't change what's under review.
       </p>
 
       <div class="flex flex-col gap-8">
@@ -210,8 +207,7 @@
           </Select.Content>
         </Select.Root>
         <p class="text-text-muted text-sm">
-          Whose records these are. Every document in a corpus carries one, and it is the first thing
-          a review is narrowed by.
+          Whose records these are. Every document has one, and reviews are usually narrowed by it first.
         </p>
       </div>
 
@@ -247,8 +243,7 @@
         </ul>
       {:else if files !== null}
         <p class="text-text-muted text-sm">
-          This matter holds no files yet. Documents reach a review set from the matter's own file
-          record, so there is nothing here to put in one.
+          This matter has no files yet, so there's nothing to add.
         </p>
       {/if}
 

@@ -108,8 +108,7 @@ export function uploadReadinessRow(report: UploadReadinessReport): HealthRow {
     reading: "healthy",
     status: "Ready",
     detail:
-      "Files go from the browser straight to the firm's storage; every precondition of an upload " +
-      "holds, checked just now.",
+      "Files upload straight from the browser to the firm's storage. The upload check just passed.",
   };
 }
 

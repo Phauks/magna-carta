@@ -226,7 +226,7 @@
         saveFailure = stated(
           created.failure,
           "The office was not saved.",
-          "Nothing answered. Nothing was saved.",
+          "Couldn't connect. Nothing was saved.",
         );
         return;
       }
@@ -238,7 +238,7 @@
         saveFailure = stated(
           updated.failure,
           "The change was not saved.",
-          "Nothing answered. Nothing was changed.",
+          "Couldn't connect. Nothing changed.",
         );
         return;
       }
@@ -250,7 +250,7 @@
         setAddresses.failure,
         creating
           ? "The office was saved, but its addresses were not."
-          : "The office's own fields were saved; its addresses were not.",
+          : "The office's details were saved, but its addresses weren't.",
       );
       return;
     }
@@ -851,7 +851,7 @@
         )}
         {#if pendingLogo === null}
           <DefinitionList.Empty>
-            No logo chosen. The office prints the firm's mark until it has one of its own.
+            No logo chosen. The office uses the firm's logo until it has its own.
           </DefinitionList.Empty>
         {:else}
           <DefinitionList.Empty>Set when the office is saved.</DefinitionList.Empty>
@@ -859,7 +859,7 @@
       {:else if record?.letterheadSource === "firm"}
         {@render fact("Mark", "The firm's primary mark")}
         <DefinitionList.Empty>
-          This office has no logo of its own, so its letterhead prints the firm's.
+          This office has no logo, so its letterhead uses the firm's.
         </DefinitionList.Empty>
       {:else}
         {#each logoFacts as entry (entry.label)}
@@ -867,14 +867,13 @@
         {/each}
         {#if record !== null && record.letterheadSource === "none"}
           <DefinitionList.Empty>
-            This office prints no mark: it has no logo of its own, and the firm has set no primary
-            brand image.
+            This office's letterhead has no logo: neither the office nor the firm has set one.
           </DefinitionList.Empty>
         {/if}
       {/if}
     </DefinitionList.Root>
     {#if canManage}
-      <LabelledField label="Logo" hint="A PNG or a JPEG. Its height follows from its own proportions.">
+      <LabelledField label="Logo" hint="A PNG or JPEG. Its height is set by its proportions.">
         {#snippet children({ props })}
           <FileInput
             {...props}
@@ -971,8 +970,7 @@
   {/snippet}
   {#snippet fields()}
     <p class="text-sm">
-      A closed office stops being offered wherever an office is chosen. Its record, the matters
-      numbered against it and the documents produced on its letterhead all stand.
+      A closed office is no longer offered in office lists. Its record, matters and letterhead documents are kept.
     </p>
   {/snippet}
 </ActionDialog>

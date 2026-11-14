@@ -395,6 +395,9 @@ function harness(
   } as unknown as MeetingClientSeams;
 
   const client = new MeetingClient(seams);
+  // These cases page the even gallery; a room opens in speaker view, and the cases about it ask for
+  // it by pressing the toggle.
+  client.setSpeakerView(false);
   opened.push(client);
   client.join({
     meetingId: "meeting_1",

@@ -116,7 +116,7 @@
     failure = stated(
       outcome.failure,
       "Nothing went in: the cushion holds what it held.",
-      "Nothing answered, so nothing went in. Retrying sends this same submission rather than a second top-up.",
+      "Couldn't connect. Nothing was deposited, and trying again won't deposit twice.",
     );
     return "refused";
   }
@@ -209,7 +209,7 @@
 
       <LabelledField
         label="Description"
-        hint="Why the firm's own money is going in. It is the line the ledger entry reads."
+        hint="Why the firm is adding its own money. This becomes the ledger entry's description."
         error={fieldRefusal(serverProblem, "description")}
       >
         {#snippet children({ props })}

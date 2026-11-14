@@ -94,6 +94,7 @@ import type {
   LocationId,
   MagnusConversationId,
   MagnusFolderId,
+  MagnusArtifactId,
   MagnusTurnId,
   MatterAssetDocumentId,
   MatterAssetEncumbranceId,
@@ -179,6 +180,8 @@ import type {
   ShipmentLabelId,
   TimeEntryId,
   TrackingEventId,
+  TransferRunId,
+  TransferSourceFileId,
   TrustAccountId,
   TrustAuthorizationPolicyId,
   TrustBankStatementId,
@@ -10250,6 +10253,76 @@ export const magnusConversationShelf = sqliteTable(
   ],
 );
 
+// What Magnus may read beyond the conversation itself, granted per conversation by its author. A
+// row is a permission turned on; no row is off, which is every permission's default. One row per
+// permission rather than a column per permission, because the list grows as Magnus learns to read
+// more (the firm's records, the client, the firm library), and each later one is a new value in the
+// CHECK rather than a new column on every conversation.
+export const magnusConversationPermission = sqliteTable(
+  "magnus_conversation_permission",
+  {
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // `own-matter-conversations`: the author's own other conversations kept on the same matter.
+    permission: text("permission", { enum: ["own-matter-conversations"] }).notNull(),
+    grantedBy: text("granted_by").notNull().$type<UserId>(),
+    grantedAt: text("granted_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.conversationId, table.permission] }),
+    check(
+      "magnus_conversation_permission_check",
+      sql`${table.permission} IN ('own-matter-conversations')`,
+    ),
+  ],
+);
+
+// A document Magnus wrote in a conversation: a letter, a table, a timeline. It belongs to the
+// conversation and goes with it; saving it to a matter's files makes a separate file. The text of each
+// version is a row, not an object, for the reason a turn is: a version is capped (limits.ts in the
+// magnus package), so it is not bulk content.
+export const magnusArtifact = sqliteTable(
+  "magnus_artifact",
+  {
+    id: text("id").primaryKey().$type<MagnusArtifactId>(), // magnusArtifact_ handle
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    // The name Magnus gave it. Magnus revises a document by writing it again under the same name.
+    title: text("title").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("magnus_artifact_conversation_index").on(table.conversationId)],
+);
+
+// One version of a document Magnus wrote. Versions are only ever added: a revision by Magnus and a
+// member restoring an earlier version each add one, so the history is never rewritten.
+export const magnusArtifactVersion = sqliteTable(
+  "magnus_artifact_version",
+  {
+    artifactId: text("artifact_id")
+      .notNull()
+      .$type<MagnusArtifactId>()
+      .references(() => magnusArtifact.id),
+    versionNumber: integer("version_number").notNull(),
+    content: text("content").notNull(),
+    // What changed, in a few words, as Magnus or the restore described it.
+    note: text("note"),
+    // The answer that wrote this version; null for a version a member restored.
+    writtenByTurnId: text("written_by_turn_id").$type<MagnusTurnId>(),
+    // The member who asked for it, or who restored it. Not a foreign key, like the conversation's
+    // own author: the record outlives the member row.
+    memberUserId: text("member_user_id").notNull().$type<UserId>(),
+    restoredFromVersion: integer("restored_from_version"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.artifactId, table.versionNumber] })],
+);
+
 // ---------------------------------------------------------------------------------------------
 // Discovery — the corpus of documents under review on a matter.
 //
@@ -12117,7 +12190,16 @@ export const meetingPoll = sqliteTable(
     // held by the ANSWER table rather than by a read filter — see `meeting_poll_answer`.
     anonymous: integer("anonymous", { mode: "boolean" }).notNull(),
     // How many options one participation may name. One is an ordinary poll; more is "choose up to".
+    // On a ranking it is every option, since each participant puts them all in order.
     maxChoices: integer("max_choices").notNull().default(1),
+    // WHAT KIND OF QUESTION IT IS. `one` and `multiple` pick options; `ranking` puts every option in
+    // order, each answer row carrying its place; `score` is a rating, its options the points of the
+    // scale ("1" to "5"), so the tally is the ordinary one and the average is read off positions.
+    // Added as a column with its own CHECK rather than read off `max_choices`, because a ranking and
+    // a "choose up to" poll can both let a participant name several options.
+    kind: text("kind", { enum: ["one", "multiple", "ranking", "score"] })
+      .notNull()
+      .default("one"),
     openedAt: text("opened_at").notNull(), // ISO-8601 instant
     // Closed says who closed it and when, or neither. A closed poll refuses answers.
     closedAt: text("closed_at"), // ISO-8601 instant
@@ -12137,6 +12219,7 @@ export const meetingPoll = sqliteTable(
     // Between one and the most options a poll may carry, since a participation can name no more
     // options than exist.
     check("meeting_poll_max_choices_check", sql`${table.maxChoices} BETWEEN 1 AND 10`),
+    check("meeting_poll_kind_check", sql`${table.kind} IN ('one', 'multiple', 'ranking', 'score')`),
     check(
       "meeting_poll_question_length_check",
       sql`length(${table.question}) > 0 AND length(${table.question}) <= 500`,
@@ -12246,6 +12329,9 @@ export const meetingPollAnswer = sqliteTable(
       enum: ["member", "guest", "attendee"],
     }),
     participantId: text("participant_id"),
+    // The place a participant put this option on a ranking poll, 1 being first; null on every other
+    // kind. It says nothing about who, so an anonymous ranking stays anonymous.
+    rank: integer("rank"),
   },
   (table) => [
     foreignKey({
@@ -12259,6 +12345,10 @@ export const meetingPollAnswer = sqliteTable(
       "meeting_poll_answer_participant_shape_check",
       sql`(${table.participantKind} IS NULL AND ${table.participantId} IS NULL)
         OR (${table.participantKind} IS NOT NULL AND ${table.participantId} IS NOT NULL)`,
+    ),
+    check(
+      "meeting_poll_answer_rank_check",
+      sql`${table.rank} IS NULL OR ${table.rank} BETWEEN 1 AND 10`,
     ),
     check(
       "meeting_poll_answer_participant_kind_check",
@@ -12927,6 +13017,154 @@ export const meetingSummaryActionItem = sqliteTable(
       sql`${table.ordinal} >= 0 AND length(${table.text}) > 0`,
     ),
     check("meeting_summary_action_item_due_on_shape_check", civilDateShape(table.dueOn, true)),
+  ],
+);
+
+// One run of the record transfer: a batch of records brought in from the system a firm is leaving.
+// A run is the provenance every transferred record points back to, so "which import produced this
+// row, started by whom, and did it finish" has an answer for as long as the row exists.
+//
+// A run has no status column. `completed_at` and `abandoned_at` are the two ways it ends and at most
+// one is set, which says the same thing without a vocabulary this table would then have to keep:
+// `source_record_link` references it, and a table something references cannot have a CHECK widened.
+export const transferRun = sqliteTable(
+  "transfer_run",
+  {
+    id: text("id").primaryKey().$type<TransferRunId>(), // transferRun_ handle
+    // The system the records came from, as a lower-case slug (`leap`). Open text and not an enum:
+    // the second system a firm arrives from must not need a schema change to be named.
+    sourceSystem: text("source_system").notNull(),
+    label: text("label").notNull(), // what the operator called this run
+    startedBy: text("started_by")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    startedAt: text("started_at").notNull(),
+    completedAt: text("completed_at"),
+    abandonedAt: text("abandoned_at"),
+  },
+  (table) => [
+    index("transfer_run_source_system_index").on(table.sourceSystem, table.startedAt),
+    check(
+      "transfer_run_source_system_shape_check",
+      sql`length(${table.sourceSystem}) > 0 AND ${table.sourceSystem} = lower(trim(${table.sourceSystem}))`,
+    ),
+    check("transfer_run_label_nonempty_check", sql`length(trim(${table.label})) > 0`),
+    check(
+      "transfer_run_single_ending_check",
+      sql`${table.completedAt} IS NULL OR ${table.abandonedAt} IS NULL`,
+    ),
+  ],
+);
+
+// Where a record came from: one row ties a record in another system to the record here that it
+// became. It is the answer to "what was this in the old system" on every transferred row, and it is
+// what makes a transfer repeatable: a second run finds the link, updates the record it names, and
+// creates nothing twice.
+//
+// One table for every kind of record, and not a column on each of them, for three reasons. A source
+// record can become more than one record here (a matter and its trust ledger), and several source
+// records can become one (two cards for the same person), neither of which a single column holds.
+// Adding a column to every table is a migration on every table. And an integration that keeps an
+// outside system's identifier for a record needs exactly this shape, so it is named for the general
+// case and the leaving-system transfer is its first writer.
+//
+// `local_table` is the name of the per-firm table the record lives in and `local_id` its key there.
+// Neither carries a foreign key or a CHECK, because the row may name any table and the set grows
+// with every kind of record a transfer learns to carry; the names are validated where the row is
+// written. The key ends in `local_table` so one source record may be linked once per kind of record
+// it produced, and never twice to the same kind.
+export const sourceRecordLink = sqliteTable(
+  "source_record_link",
+  {
+    sourceSystem: text("source_system").notNull(),
+    sourceKind: text("source_kind").notNull(), // what the source system calls the record: `matter`, `card`
+    sourceId: text("source_id").notNull(), // the source system's own key, verbatim
+    localTable: text("local_table").notNull(),
+    localId: text("local_id").notNull(),
+    transferRunId: text("transfer_run_id")
+      .notNull()
+      .$type<TransferRunId>()
+      .references(() => transferRun.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.sourceSystem, table.sourceKind, table.sourceId, table.localTable],
+    }),
+    index("source_record_link_local_index").on(table.localTable, table.localId),
+    index("source_record_link_transfer_run_index").on(table.transferRunId),
+    check(
+      "source_record_link_source_system_shape_check",
+      sql`length(${table.sourceSystem}) > 0 AND ${table.sourceSystem} = lower(trim(${table.sourceSystem}))`,
+    ),
+    check(
+      "source_record_link_nonempty_check",
+      sql`length(${table.sourceKind}) > 0 AND length(${table.sourceId}) > 0 AND length(${table.localTable}) > 0 AND length(${table.localId}) > 0`,
+    ),
+  ],
+);
+
+// One file a transfer was given: a report, a table of an extract, an export. The file itself is the
+// staging store. Its bytes are kept unchanged in the firm's object storage under `object_key`, and a
+// reader turns them into numbered rows the same way every time, so "row 4,112 of this file" names
+// one source row for as long as the file is held. Nothing of the file's content is copied into this
+// database: an extract carries bank account numbers and tax identifiers in whatever column the
+// source put them, and a row of this table is only the facts about the file.
+//
+// `source_kind` says what the file holds (`matter-list`, `card-details`) and `format` how it is read
+// (`delimited-text`). Both are open slugs validated where the row is written, not column enums: a
+// later table will reference this one, and a referenced table cannot have a CHECK widened.
+//
+// `row_count` and `read_at` are set together, by the first complete read. `removed_at` records that
+// the bytes were released after the transfer was finished with; the row stays, because the run's
+// report still names the file.
+export const transferSourceFile = sqliteTable(
+  "transfer_source_file",
+  {
+    id: text("id").primaryKey().$type<TransferSourceFileId>(), // transferSourceFile_ handle
+    transferRunId: text("transfer_run_id")
+      .notNull()
+      .$type<TransferRunId>()
+      .references(() => transferRun.id),
+    sourceKind: text("source_kind").notNull(),
+    format: text("format").notNull(),
+    fileName: text("file_name").notNull(), // as the operator's computer named it; display only
+    objectKey: text("object_key").notNull(), // server-minted, never derived from file_name
+    byteLength: integer("byte_length").notNull(),
+    contentSha256: text("content_sha256").notNull(), // lower-case hex of the bytes as received
+    // The column whose value is the source system's key for a row, when the file has one. A file
+    // without one (a balances report keyed by two columns) is mapped by its own rule.
+    keyColumn: text("key_column"),
+    rowCount: integer("row_count"),
+    registeredAt: text("registered_at").notNull(),
+    readAt: text("read_at"),
+    removedAt: text("removed_at"),
+  },
+  (table) => [
+    uniqueIndex("transfer_source_file_object_key_unique").on(table.objectKey),
+    // The same bytes given twice to one run are one file. A second run may hold them again.
+    uniqueIndex("transfer_source_file_run_content_unique").on(
+      table.transferRunId,
+      table.contentSha256,
+    ),
+    check(
+      "transfer_source_file_slug_shape_check",
+      sql`length(${table.sourceKind}) > 0 AND ${table.sourceKind} = lower(trim(${table.sourceKind})) AND length(${table.format}) > 0 AND ${table.format} = lower(trim(${table.format}))`,
+    ),
+    check(
+      "transfer_source_file_nonempty_check",
+      sql`length(trim(${table.fileName})) > 0 AND length(${table.objectKey}) > 0 AND (${table.keyColumn} IS NULL OR length(${table.keyColumn}) > 0)`,
+    ),
+    check("transfer_source_file_byte_length_check", sql`${table.byteLength} >= 0`),
+    check(
+      "transfer_source_file_content_sha256_shape_check",
+      sql`length(${table.contentSha256}) = 64 AND ${table.contentSha256} NOT GLOB '*[^0-9a-f]*'`,
+    ),
+    check(
+      "transfer_source_file_read_together_check",
+      sql`(${table.rowCount} IS NULL) = (${table.readAt} IS NULL) AND (${table.rowCount} IS NULL OR ${table.rowCount} >= 0)`,
+    ),
   ],
 );
 

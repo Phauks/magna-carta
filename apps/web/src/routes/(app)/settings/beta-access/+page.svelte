@@ -104,7 +104,7 @@
       next === "beta"
         ? "The firm was not moved to the beta programme."
         : "The firm was not moved back to the released build.",
-      "Nothing answered, so the release channel is unchanged; trying again is safe.",
+      "Couldn't connect. The release channel is unchanged. You can safely try again.",
     );
     return false;
   }
@@ -160,7 +160,7 @@
     >
       {#snippet failure()}
         <SettingsPlateNote>
-          The firm's release channel could not be read, so it is not shown rather than guessed at.
+          The release channel couldn't be loaded.
         </SettingsPlateNote>
       {/snippet}
       {#snippet fixture()}
@@ -176,7 +176,7 @@
           {/snippet}
         </SettingsRow>
         <SettingsPlateNote>
-          This firm is on the alpha channel, which is set by the platform rather than from here.
+          This firm is on the alpha channel, which can't be changed here.
         </SettingsPlateNote>
       {:else if canEdit}
         <SettingsRow definition={CHANNEL_DEFINITION}>
@@ -212,12 +212,10 @@
   {#snippet fields()}
     <div class="flex flex-col gap-12 text-sm">
       <p>
-        Beta builds carry work that has passed our own review and has not yet been released. They
-        run against the firm's real matters, real client money and real documents, not a copy.
+        Beta builds have features that passed our review but aren't released yet. They use the firm's real matters, client money and documents.
       </p>
       <p>
-        The firm can step back to the released build at any time, from this page, without asking
-        anybody. What a beta build has already recorded stays recorded.
+        You can switch back to the released build here at any time. Anything recorded during the beta stays recorded.
       </p>
       <p class="text-text-muted">
         Joining is recorded in the firm's audit log against the member who joined.

@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10 · **Status:** Accepted (design); build in progress · **Area:** Calendar / Integrations
 **Builds on:** [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-port-system-design.md) (the deferred credentialed adapter), [`2026-08-05-case-calendar-design.md`](2026-08-05-case-calendar-design.md) (the event model)
-**Decisions:** `docs/decisions/pending/calendar-sync-is-per-member-rule-driven-and-magna-carta-is-the-record.md`, `docs/decisions/pending/a-permission-request-states-only-what-it-grants.md`
+**Decisions:** `docs/decisions/0509-calendar-sync-is-per-member-rule-driven-and-magna-carta-is-the-record.md`, `docs/decisions/0508-a-permission-request-states-only-what-it-grants.md`
 **Owner rulings:** 2026-11-10, recorded in [`../conventions/design-corrections.md`](../conventions/design-corrections.md)
 
 ## 1. Scope
@@ -197,8 +197,8 @@ what a copy can faithfully say. The member must hold `calendar:manage`; without 
 a question. Only the days and times are carried, plus the title and place where the firm's limit
 is full detail; a copy sent with minimal detail has a title the platform wrote, so an edit to that
 alone is put back. A series' first day is never moved from a copy, because Graph's documentation
-does not settle where a dragged series begins, and a changed single day of a series is still not
-read. After an edit is applied every account with a rule is asked for a pass, so colleagues'
+does not settle where a dragged series begins. A changed single day of a series is covered in
+section 7. After an edit is applied every account with a rule is asked for a pass, so colleagues'
 copies follow, and this member's own copy is written once more in full, which also sets right any
 part of the edit that was not carried. When the event and the copy both changed between two
 passes, the event wins: a pass sends before it looks.
@@ -274,8 +274,22 @@ refused series is not sent and raises a `not_sent` issue. A changed day is sent 
 of its own, and every day a row stands in for, changed or called off, is removed from the Graph
 series by deleting that occurrence
 ([list instances](https://learn.microsoft.com/en-us/graph/api/event-list-instances?view=graph-rest-1.0)),
-again after every write, since changing a series' rule restores them. A day a member changes inside
-a series in Outlook is not noticed yet.
+again after every write, since changing a series' rule restores them.
+
+As built, a day a member changes inside a series in Outlook is noticed. After the ordinary look at
+the copies, each series copy is asked for its changed days through Graph's `exceptionOccurrences`
+([event resource](https://learn.microsoft.com/en-us/graph/api/resources/event?view=graph-rest-1.0)),
+one request per series. Which day it was is read from `originalStart`, placed in the event's own
+zone, and a day the rule does not fall on is left alone. A day that reads differently from the
+series carried onto that day is applied as that day's own change through
+`changeMatterEventOccurrence` or `changeFirmEventOccurrence` with the scope "this", under the same
+permission and detail limits as any edit carried back, so the day gets a row of its own and the
+next pass sends that row and takes the day out of the Graph series. A change that cannot be
+carried is written back onto that day as it was sent. No question is raised for one day, because
+`connection_sync_issue` is keyed by copy and a series is one copy. A day the member deleted is not
+among the exceptions, is not noticed, and cancels nothing
+(`apps/api-worker/src/calendar-sync/provider-changes.ts`, `listSeriesChangedDays` and
+`updateSeriesDay` on the port).
 
 One changed or cancelled occurrence is an exception row (`recurrence_parent_id` plus
 `recurrence_occurrence_on`) and an exception instance at the provider. "This and all later events" is

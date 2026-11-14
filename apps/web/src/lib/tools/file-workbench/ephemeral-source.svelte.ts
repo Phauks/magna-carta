@@ -80,7 +80,7 @@ async function readArrival(source: File): Promise<WorkbenchFile> {
     outcomes[HASH_CAPABILITY] = {
       kind: "not-applicable",
       reason:
-        "This file is too large to hash in the browser without the page stopping. The server computes the digest over the bytes it receives, which is the figure that would go into a record anyway.",
+        "This file is too large to check in the browser. Magna Carta calculates the checksum when it's uploaded instead.",
     };
   } else {
     try {

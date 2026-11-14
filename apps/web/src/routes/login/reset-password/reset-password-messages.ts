@@ -20,7 +20,7 @@ export { MINIMUM_PASSWORD_LENGTH };
 
 /** A token that will not spend: unknown, expired, or already used. One sentence for all three. */
 export const RESET_TOKEN_REFUSED =
-  "That reset link will not work — it may have expired or already been used. Request a new one below.";
+  "That reset link doesn't work. It may have expired or been used. Request a new one below.";
 
 /** A password the server would not accept. */
 export const PASSWORD_REFUSED = `That password could not be used. Choose at least ${MINIMUM_PASSWORD_LENGTH} characters.`;

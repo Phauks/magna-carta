@@ -118,7 +118,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: ["matterLifecycle", "matterFileDestruction"],
     label: "Overview",
     stage: "alpha",
-    description: "The matter at a glance — its facts, status, and what has accrued against it.",
+    description: "The matter at a glance: its details, status and totals.",
     // Deliberately never a source rather than one that is merely unbuilt: the overview holds no
     // record of its own, it summarises what the other sections hold. A source here would answer
     // the same query twice and put a reader on a summary when they asked for the thing itself.
@@ -134,9 +134,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Activity",
     stage: "alpha",
     description:
-      "What has happened on this case, in order, from every part of the platform that records " +
-      "anything \u2014 mail saved to the matter, documents, hearings and deadlines, time and costs, " +
-      "client money, items in custody, and the notes the firm wrote about all of it.",
+      "Everything that has happened on this matter, in order: email, documents, hearings and deadlines, time and costs, client money, items in custody, and notes.",
     // Never a source, for the Overview's reason: Activity holds no record of its own. Every row is
     // one of the other sections' rows read in date order, so a search source here would answer the
     // same query twice and land a reader on the chronology when they asked for the thing itself.
@@ -151,10 +149,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: [],
     label: "Intake",
     stage: "alpha",
-    description:
-      "What this kind of matter must clear before it opens — the firm's own intake procedure, " +
-      "each step answered by whoever holds the fact: the conflicts record, the fee arrangement, a " +
-      "document produced onto the matter, the trust ledger, or a member recording that they did it.",
+    description: "The firm's intake steps this kind of matter must complete before it opens.",
     // The checklist is derived at the moment it is read and holds no text of its own beyond the
     // firm's step titles; a search source over it would find the procedure, not the matter.
     searchSource: null,
@@ -171,10 +166,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Conflicts",
     stage: "alpha",
     description:
-      "Whether this matter was checked for conflicts, and what the check found \u2014 the search " +
-      "that ran, the candidates it surfaced, and who answered each one. A check is run once at the " +
-      "start and re-run when the parties or the firm's records move; every one of them stays on " +
-      "the record.",
+      "The conflicts checks run for this matter: what was searched, what was found, and how each result was answered.",
     // The record here is the firm's append-only conflicts log, and it holds no prose about this
     // matter for a search to find: a check row records WHAT WAS SEARCHED, and the names on its
     // hits are the Directory's own, already searchable in their own right. A source here would
@@ -191,9 +183,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: ["documentFiled", "documentAssembly", "fileHistory"],
     label: "Files",
     stage: "alpha",
-    description:
-      "The matter's versioned file record — every document the firm holds for this matter, " +
-      "organized in folders, each version kept and each byte's integrity hash recorded.",
+    description: "Every document for this matter, in folders, with every version kept.",
     searchSource: "files",
     searchSourcesBeside: ["file-contents"],
     // A document, a folder and an upload are three kinds, so the control reads "New" and the menu
@@ -205,9 +195,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: ["timeEntry"],
     label: "Time",
     stage: "alpha",
-    description:
-      "Time captured on this matter — timers, manual entries, and the weekly grid all land " +
-      "here, billable or not.",
+    description: "Time recorded on this matter, billable or not.",
     searchSource: "time",
     createNoun: "Time",
   },
@@ -216,9 +204,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: [],
     label: "Fees",
     stage: "alpha",
-    description:
-      "Flat charges for professional services recorded on this matter — the fee agreement and " +
-      "the work-in-progress fee ledger, waiting to be claimed by a bill.",
+    description: "Flat fees on this matter: the fee agreement and the fees waiting to be billed.",
     searchSource: null,
     // Three different things are called a fee, and none of them is searchable text on this
     // section. The fee AGREEMENT (matter_billing_arrangement) carries amounts, enums and dates and
@@ -235,8 +221,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Costs",
     stage: "alpha",
     description:
-      "Costs advanced and expenses incurred for this matter — filing fees, service, experts — " +
-      "with their recoverable and billable treatment.",
+      "Costs and expenses on this matter, such as filing fees, service and experts, and whether each is billable.",
     searchSource: "costs",
     createNoun: "Cost",
   },
@@ -246,8 +231,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Billing",
     stage: "alpha",
     description:
-      "Invoices, payments, and the matter's billing arrangement — hourly, flat fee, or " +
-      "contingency — with the full accounting of what has been billed and collected.",
+      "Bills, payments and the billing arrangement (hourly, flat fee or contingency) for this matter.",
     searchSource: "billing",
     createNoun: "Bill",
   },
@@ -256,9 +240,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: ["trustMovement"],
     label: "Trust",
     stage: "alpha",
-    description:
-      "The matter's trust ledger — client funds held, disbursed, and reconciled under the " +
-      "governing jurisdiction's rules. Fees never touch trust until earned.",
+    description: "Client money held in trust for this matter: received, paid out and reconciled.",
     searchSource: null,
     searchWaitingOn: "A matter-wide trust source is not wired yet",
     createNoun: "Deposit",
@@ -268,7 +250,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: ["matterNote"],
     label: "Notes",
     stage: "alpha",
-    description: "Matter notes and memoranda — dated, attributed, and searchable.",
+    description: "Notes and memos on this matter.",
     searchSource: "notes",
     createNoun: "Note",
   },
@@ -278,8 +260,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Tasks",
     stage: "alpha",
     description:
-      "What the firm still owes on this matter — each piece of work with somebody's name on it, " +
-      "when it is due, and whether it is done.",
+      "Work still to do on this matter: who it's assigned to, when it's due, and whether it's done.",
     createNoun: "Task",
     searchSource: null,
     // A task has searchable text — the title and the body — and the section's own list already
@@ -308,9 +289,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Messaging",
     stage: "alpha",
     description:
-      "Calls and texts on this matter \u2014 every voice call and message thread with the people on " +
-      "the case, logged as it happens, and for a call the recording and its transcript where the " +
-      "jurisdiction allows one.",
+      "Calls and texts with people on this matter, including call recordings and transcripts where allowed.",
     searchSource: "communications",
     // A call is what the member wrote down about it; a text is its own words. Both are matched, and
     // so is the number, which is how people actually look for a conversation.
@@ -322,8 +301,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Custodian",
     stage: "alpha",
     description:
-      "Physical items in the firm's custody for this matter — original wills, deeds, media — " +
-      "tracked to a location, safe, and box.",
+      "Physical items the firm holds for this matter, such as original wills, deeds and media, and where each is kept.",
     searchSource: "custody",
     createNoun: "Packet",
   },
@@ -333,9 +311,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Discovery",
     stage: "alpha",
     description:
-      "The corpora this matter is reviewing \u2014 the firm's own collection, a production another " +
-      "party served, each with its own documents, its own record of what arrived, and its own list " +
-      "of who may open it.",
+      "Document review sets for this matter, such as the firm's own collection or a production from another party.",
     /*
      * NEVER A SEARCH SOURCE, and this is a permanent answer rather than an unbuilt one.
      *
@@ -366,8 +342,7 @@ export const matterSections: readonly MatterSection[] = [
     label: "Parties",
     stage: "alpha",
     description:
-      "Every person and organization connected to this matter — clients, opposing parties, " +
-      "counsel, courts — linked from the firm Directory with conflict-aware roles.",
+      "People and organizations on this matter, such as clients, opposing parties, counsel and courts.",
     searchSource: "parties",
     createNoun: "Party",
   },
@@ -376,9 +351,7 @@ export const matterSections: readonly MatterSection[] = [
     timelineSources: ["matterEvent", "matterDeadline"],
     label: "Calendar",
     stage: "alpha",
-    description:
-      "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
-      "person, read in its own time zone, and reports when it has passed.",
+    description: "Hearings, depositions and deadlines on this matter, each in its own time zone.",
     searchSource: "calendar",
     // An event and a deadline are two kinds, so the control reads "New" and the menu names them.
     createNoun: CREATE_SEVERAL_KINDS,

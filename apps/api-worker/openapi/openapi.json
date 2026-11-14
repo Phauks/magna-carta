@@ -1153,6 +1153,21 @@
               "$ref": "#/components/schemas/ConnectedServiceStatus"
             }
           },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureStatus"
+            }
+          },
+          "featureRequirements": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/FeatureRequirements"
+            }
+          },
           "observedAt": {
             "type": "string"
           }
@@ -1161,6 +1176,8 @@
           "api",
           "services",
           "connectedServices",
+          "features",
+          "featureRequirements",
           "observedAt"
         ]
       },
@@ -1246,6 +1263,133 @@
           "id",
           "state",
           "latencyMilliseconds"
+        ]
+      },
+      "FeatureStatus": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "meetings",
+              "meetingRecording",
+              "networkPacketLoss",
+              "callerLookup",
+              "outlookCalendarSync",
+              "outgoingEmail",
+              "notificationDigest",
+              "emailCapture",
+              "directUpload",
+              "malwareScanning",
+              "filePreview",
+              "fileConversion",
+              "textRecognition",
+              "documentEditing",
+              "documentSealing",
+              "archiveDownloads",
+              "fileRepair",
+              "passwordRecovery",
+              "discoveryProcessing",
+              "fileContentsSearch",
+              "naturalLanguageSearch",
+              "addressSuggestions",
+              "aiTextDetection",
+              "modelAvailabilityCheck",
+              "signUpBotCheck",
+              "communitySignIn",
+              "featureFlags",
+              "usageAnalytics",
+              "recentErrors"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "working",
+              "not-set-up",
+              "fault"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ]
+      },
+      "FeatureRequirements": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "meetings",
+              "meetingRecording",
+              "networkPacketLoss",
+              "callerLookup",
+              "outlookCalendarSync",
+              "outgoingEmail",
+              "notificationDigest",
+              "emailCapture",
+              "directUpload",
+              "malwareScanning",
+              "filePreview",
+              "fileConversion",
+              "textRecognition",
+              "documentEditing",
+              "documentSealing",
+              "archiveDownloads",
+              "fileRepair",
+              "passwordRecovery",
+              "discoveryProcessing",
+              "fileContentsSearch",
+              "naturalLanguageSearch",
+              "addressSuggestions",
+              "aiTextDetection",
+              "modelAvailabilityCheck",
+              "signUpBotCheck",
+              "communitySignIn",
+              "featureFlags",
+              "usageAnalytics",
+              "recentErrors"
+            ]
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "present": {
+                    "type": "boolean"
+                  },
+                  "source": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "secrets-store",
+                      "worker",
+                      null
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "present",
+                  "source"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "alternatives"
         ]
       },
       "DatabaseHealthResponse": {
@@ -1724,6 +1868,113 @@
         },
         "required": [
           "componentId"
+        ]
+      },
+      "RecentErrorsResponse": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "read",
+              "not-configured",
+              "refused",
+              "unreachable"
+            ]
+          },
+          "windowStart": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "windowEnd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecentErrorGroup"
+            }
+          }
+        },
+        "required": [
+          "state",
+          "windowStart",
+          "windowEnd",
+          "total",
+          "truncated",
+          "groups"
+        ]
+      },
+      "RecentErrorGroup": {
+        "type": "object",
+        "properties": {
+          "latestErrorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eventName": {
+            "type": "string"
+          },
+          "where": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "messageHead": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "count": {
+            "type": "integer"
+          },
+          "firstSeen": {
+            "type": "string"
+          },
+          "lastSeen": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "latestErrorId",
+          "service",
+          "eventName",
+          "where",
+          "errorName",
+          "messageHead",
+          "count",
+          "firstSeen",
+          "lastSeen"
         ]
       },
       "ReportIncidentResponse": {
@@ -23486,6 +23737,13 @@
                 "items": {
                   "$ref": "#/components/schemas/AddressSuggestion"
                 }
+              },
+              "attribution": {
+                "type": "string",
+                "enum": [
+                  "google-maps"
+                ],
+                "description": "Whose data the offers are, when its terms require the list to say so. `google-maps`: the list shows the words Google Maps in the same container as the offers."
               }
             },
             "required": [
@@ -23825,6 +24083,9 @@
               "balanced",
               "over_inclusive"
             ]
+          },
+          "trigramMatching": {
+            "type": "boolean"
           },
           "places": {
             "type": "object",
@@ -24324,6 +24585,9 @@
               "strictness": {
                 "type": "string"
               },
+              "trigramMatching": {
+                "type": "boolean"
+              },
               "places": {
                 "type": "object",
                 "properties": {
@@ -24379,6 +24643,7 @@
             "required": [
               "sources",
               "strictness",
+              "trigramMatching",
               "places"
             ]
           },
@@ -24449,10 +24714,45 @@
           "check": {
             "$ref": "#/components/schemas/ConflictsCheckDetail"
           },
-          "statement": {
+          "report": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "searched",
+                    "names",
+                    "relationships",
+                    "employees",
+                    "messaging",
+                    "tasks",
+                    "magnus",
+                    "files",
+                    "not_searched",
+                    "results"
+                  ]
+                },
+                "heading": {
+                  "type": "string"
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "attention": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "heading",
+                "lines",
+                "attention"
+              ]
             }
           },
           "hits": {
@@ -24464,7 +24764,7 @@
         },
         "required": [
           "check",
-          "statement",
+          "report",
           "hits"
         ]
       },
@@ -24584,12 +24884,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "trigramMatching": {
+            "type": "boolean"
           }
         },
         "required": [
           "nameKeys",
           "phoneticSchemes",
-          "nameRoles"
+          "nameRoles",
+          "trigramMatching"
         ]
       },
       "ConflictsTraversalRecord": {
@@ -31454,6 +31758,70 @@
           "timeZone"
         ]
       },
+      "FirmRoomsResponse": {
+        "type": "object",
+        "properties": {
+          "rooms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FirmRoom"
+            }
+          }
+        },
+        "required": [
+          "rooms"
+        ]
+      },
+      "FirmRoom": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "linkCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "medium": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "video",
+              "audio",
+              null
+            ]
+          },
+          "openMeetingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inTheRoom": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isCaller": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "linkCode",
+          "medium",
+          "openMeetingId",
+          "inTheRoom",
+          "isCaller"
+        ]
+      },
       "PersonalRoomAtLink": {
         "type": "object",
         "properties": {
@@ -31605,6 +31973,12 @@
               "null"
             ]
           },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": "string"
           },
@@ -31699,6 +32073,7 @@
           "eventKind",
           "eventId",
           "matterId",
+          "matterTitle",
           "title",
           "startsOn",
           "startsAtTime",
@@ -32563,6 +32938,15 @@
           "maxChoices": {
             "type": "integer"
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "one",
+              "multiple",
+              "ranking",
+              "score"
+            ]
+          },
           "openedAt": {
             "type": "string"
           },
@@ -32598,6 +32982,7 @@
           "question",
           "anonymous",
           "maxChoices",
+          "kind",
           "openedAt",
           "closedAt",
           "closedByUserId",
@@ -32620,13 +33005,20 @@
           },
           "count": {
             "type": "integer"
+          },
+          "averageRank": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
           "optionId",
           "position",
           "label",
-          "count"
+          "count",
+          "averageRank"
         ]
       },
       "OpenMeetingPollRequest": {
@@ -32650,6 +33042,15 @@
           "maxChoices": {
             "type": "integer",
             "default": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "one",
+              "multiple",
+              "ranking",
+              "score"
+            ]
           }
         },
         "required": [
@@ -36532,12 +36933,19 @@
             "items": {
               "$ref": "#/components/schemas/MagnusConversationAttachment"
             }
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusConversationPermissionName"
+            }
           }
         },
         "required": [
           "conversation",
           "turns",
-          "attachments"
+          "attachments",
+          "permissions"
         ]
       },
       "MagnusTurn": {
@@ -36696,6 +37104,12 @@
           "attachedAt",
           "textStatus",
           "textBytes"
+        ]
+      },
+      "MagnusConversationPermissionName": {
+        "type": "string",
+        "enum": [
+          "own-matter-conversations"
         ]
       },
       "MagnusRenameConversationRequest": {
@@ -36936,6 +37350,150 @@
           "memberTurnId",
           "magnusTurnId",
           "removedAt"
+        ]
+      },
+      "MagnusConversationPermissions": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusConversationPermissionName"
+            }
+          }
+        },
+        "required": [
+          "permissions"
+        ]
+      },
+      "MagnusConversationPermissionRequest": {
+        "type": "object",
+        "properties": {
+          "granted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "granted"
+        ]
+      },
+      "MagnusConversationArtifacts": {
+        "type": "object",
+        "properties": {
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusArtifact"
+            }
+          }
+        },
+        "required": [
+          "artifacts"
+        ]
+      },
+      "MagnusArtifact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusArtifactVersionSummary"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "createdAt",
+          "updatedAt",
+          "versions"
+        ]
+      },
+      "MagnusArtifactVersionSummary": {
+        "type": "object",
+        "properties": {
+          "versionNumber": {
+            "type": "number"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "writtenByTurnId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memberUserId": {
+            "type": "string"
+          },
+          "restoredFromVersion": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "versionNumber",
+          "note",
+          "writtenByTurnId",
+          "memberUserId",
+          "restoredFromVersion",
+          "createdAt",
+          "bytes"
+        ]
+      },
+      "MagnusArtifactVersionText": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string"
+          },
+          "versionNumber": {
+            "type": "number"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifactId",
+          "versionNumber",
+          "content"
+        ]
+      },
+      "MagnusRestoreArtifactVersionRequest": {
+        "type": "object",
+        "properties": {
+          "versionNumber": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "versionNumber"
         ]
       },
       "ReviewSetAccessList": {
@@ -46143,7 +46701,7 @@
     },
     "/api/v1/meta/versions": {
       "get": {
-        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. connectedServices says whether each outside service the deployment depends on (Cloudflare Realtime, which carries meetings) is configured and accepting it. The service list is briefly cached; observedAt says when the services were actually probed.",
+        "description": "The build identity of every part of the deployment: this API worker's own commit, commit time, and build time, plus the same identity for every dedicated sibling worker in the fleet, each named by the Cloudflare Worker it deploys as. A worker that is not bound, not reachable, or too old to answer is reported as exactly that, never as an invented version. connectedServices says whether each outside service the deployment depends on (Cloudflare Realtime, which carries meetings) is configured and accepting it. features gives each feature's state; featureRequirements (platform operators only, else null) says which settings are set. The service list is briefly cached; observedAt says when the services were actually probed.",
         "operationId": "meta.versions",
         "tags": [
           "meta"
@@ -46930,6 +47488,70 @@
           },
           "422": {
             "description": "Invalid body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/recent-errors": {
+      "get": {
+        "description": "The deployment's recent failures, read back from Workers Logs: every error.captured and operation.failed event across the account's Workers over the last 24 hours, folded into one row per Worker, place and error name with its count, first and last sighting and newest Error ID. state says why there are no rows when the read could not be made: not-configured (no account id or log-read token), refused (the token was not accepted) or unreachable.",
+        "operationId": "platform.recentErrors",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.recentErrors",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The recent failures, or why they could not be read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentErrorsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -88651,7 +89273,7 @@
     },
     "/api/v1/conflicts/checks/{checkId}": {
       "get": {
-        "description": "Returns a conflicts check with every run under it, and the record of the run asked for (the latest, unless `run` names another). A run still in flight reports its stage and counts so far and carries no record; a settled run carries its record: the recorded scope, every hit it surfaced with each hit's current disposition, and a plain-language statement of what the search did. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. The address accepts the check's own handle or any run's handle, so an address written before runs existed still lands on the check it named. A run that stopped reporting is settled as failed by this read, and says so.",
+        "description": "Returns a conflicts check with every run under it, and the record of the run asked for (the latest, unless `run` names another). A run still in flight reports its stage and counts so far and carries no record; a settled run carries its record: the recorded scope, every hit it surfaced with each hit's current disposition, and a plain-language report of what the search did, in sections. The report covers the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. The address accepts the check's own handle or any run's handle, so an address written before runs existed still lands on the check it named. A run that stopped reporting is settled as failed by this read, and says so.",
         "operationId": "conflicts.getCheck",
         "tags": [
           "conflicts"
@@ -104351,6 +104973,80 @@
         }
       }
     },
+    "/api/v1/meetings/rooms": {
+      "get": {
+        "description": "Every active member's personal room, by name: its link where the member has set one up, and how many people are in the session it has open. Names no matter: what a session is about stays behind the meeting reads.",
+        "operationId": "meetings.listFirmRooms",
+        "tags": [
+          "meetings"
+        ],
+        "x-mc-operationId": "meetings.listFirmRooms",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "meetings:join",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meetings"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's rooms",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmRoomsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission this route needs",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The room, link, meeting or matter is not one the member can reach",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/meetings/rooms/{linkCode}": {
       "get": {
         "description": "What a personal room's link shows: whose room it is, and whether a session is open. Writes nothing. An unknown link and the room of somebody who has left the firm are the same 404.",
@@ -118205,6 +118901,503 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MagnusShelf"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/permissions/{permission}": {
+      "put": {
+        "description": "Turns one of Magnus's read permissions on or off for one of the caller's conversations. Turning on a permission already on, or off one already off, changes nothing. Answers with every permission now on for the conversation.",
+        "operationId": "magnus.setConversationPermission",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.setConversationPermission",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "$ref": "#/components/schemas/MagnusConversationPermissionName"
+            },
+            "required": true,
+            "name": "permission",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusConversationPermissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The permissions now on for the conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusConversationPermissions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/artifacts": {
+      "get": {
+        "description": "The documents Magnus wrote in a conversation, oldest first, each with its versions but not their text.",
+        "operationId": "magnus.listArtifacts",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.listArtifacts",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation's documents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusConversationArtifacts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/artifacts/{artifactId}/versions/{versionNumber}": {
+      "get": {
+        "description": "The text of one version of a document Magnus wrote.",
+        "operationId": "magnus.readArtifactVersion",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.readArtifactVersion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusArtifact_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "artifactId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": true,
+            "name": "versionNumber",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The version's text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusArtifactVersionText"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/artifacts/{artifactId}/restore": {
+      "post": {
+        "description": "Puts an earlier version of a document back as its newest version. Nothing is overwritten: the new version names the one it came from, and every version stays.",
+        "operationId": "magnus.restoreArtifactVersion",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.restoreArtifactVersion",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "Restoring adds a version and removes none, so the versions before it are still there to restore in turn."
+        },
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusArtifact_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "artifactId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusRestoreArtifactVersionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The document with its new version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusArtifact"
                 }
               }
             }

@@ -109,8 +109,7 @@
     <Alert.Root variant="info">
       <Alert.Title>No Call Log On A Sample Matter</Alert.Title>
       <Alert.Description>
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so there is nothing recorded against it.
+        This is a sample matter for previewing screens. It has nothing recorded.
       </Alert.Description>
     </Alert.Root>
   {:else}
@@ -123,9 +122,7 @@
       emptyTitle="Nothing Recorded On This Matter"
     >
       {#snippet emptyBody()}
-        A record of a call or a text is what the firm said, to whom, and when — the part of a case's
-        history that otherwise lives only in somebody's memory of the phone call. Nothing has been
-        recorded against this matter yet; New Message at the top of the screen starts it.
+        No calls or texts on this matter yet.
       {/snippet}
     </CommunicationLog>
   {/if}

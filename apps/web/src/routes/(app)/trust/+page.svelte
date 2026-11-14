@@ -227,8 +227,7 @@
     if (firmOffices.offices === null) return "Reading the firm's offices.";
     if (firmOffices.active.length === 0) {
       return (
-        "The firm has no office to bind the account to. A trust account sits in the state of the " +
-        "office that holds it, so add one on Offices under Settings first."
+        "A trust account must belong to an office, and the firm has none. Add one under Settings > Offices first."
       );
     }
     return undefined;

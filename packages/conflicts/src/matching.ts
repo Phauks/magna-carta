@@ -42,6 +42,9 @@ export interface MatchDepth {
   // what a caller with no resolved scope in hand (a test, an entry-time probe) should get. `null`
   // means every role and is what the over-inclusive band always resolves to.
   readonly nameRoles?: readonly string[] | null;
+  // False skips the trigram channel at the balanced band, as a person chose for the check. Omitted
+  // means it runs. The over-inclusive band ignores it and always runs every channel.
+  readonly trigramMatching?: boolean;
 }
 
 // Strictness selects which channels run and which name rows they see. It NEVER filters results by
@@ -56,6 +59,7 @@ export function matchOptionsFor(strictness: Strictness, depth: MatchDepth = {}):
     return {
       schemes: ["double_metaphone_primary"],
       ...(nameRoles === null ? {} : { nameRoles }),
+      ...(depth.trigramMatching === false ? { trigram: false } : {}),
     };
   }
   return {};

@@ -135,7 +135,7 @@
     // Deliberately the loosest possible shape check. The server holds the real rule, and a
     // client-side address grammar that is stricter than the server's turns a working address into
     // an error nobody can argue with.
-    if (!inviteEmail.includes("@")) return "An email address is where the invitation goes.";
+    if (!inviteEmail.includes("@")) return "Enter an email address.";
     return undefined;
   });
 
@@ -174,7 +174,7 @@
     inviteFailure = stated(
       outcome.failure,
       "The invitation was not sent.",
-      "Nothing answered, so nobody was invited; pressing again tries once more.",
+      "Couldn't connect. No one was invited. Try again.",
     );
     return "refused";
   }
@@ -226,7 +226,7 @@
     rolesFailure = stated(
       outcome.failure,
       "The roles were not changed.",
-      "Nothing answered, so nothing changed; pressing again tries once more.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
     return "refused";
   }
@@ -409,8 +409,7 @@
         </p>
       {:else}
         <p class="text-sm text-text-muted">
-          A member holds any number of roles and can do what any of them allows. What each one
-          means is listed under Roles and Permissions.
+          A member can have several roles and can do anything any of them allows. See Roles and Permissions for what each role means.
         </p>
         {#each orderedRoles as { role, parent } (role.id)}
           {@const held = chosenRoleIds.includes(role.id)}

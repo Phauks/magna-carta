@@ -50,7 +50,7 @@
     sectionId: "accessibility",
     label: "Expand sidebar on hover",
     description:
-      "Keep the sidebar collapsed, and hovering it opens the rail — the page shifts over to make room, and closes again when you move away.",
+      "Keep the sidebar collapsed. Hovering opens it, moving the page over, and it closes when you move away.",
     kind: "switch",
     defaultValue: false,
     sensitivity: "open",

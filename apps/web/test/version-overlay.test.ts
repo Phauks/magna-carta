@@ -220,7 +220,7 @@ describe("the deployed unit a row names", () => {
    * the fleet on disk. All three are read here so a name can only be right by matching the thing
    * that deploys it — and so a worker added under apps/ cannot silently stay off the overlay.
    */
-  const rosterSource = repositoryFile("apps/api-worker/src/http/routes/platform/meta-versions.ts");
+  const rosterSource = repositoryFile("apps/api-worker/src/system-status/service-versions.ts");
   const rosterEntries = [
     ...rosterSource.matchAll(
       /\{ id: "(?<id>\w+)", service: "(?<service>[\w-]+)", binding: "(?<binding>\w+)" \}/g,
@@ -426,8 +426,20 @@ describe("the chip in its public scope", () => {
   });
 
   it("keeps the aggregate's own rows inside the scope that may read them", () => {
-    expect(openBlockDepthAt(chip, chip.indexOf('rowKey: "api"'))).toBeGreaterThan(0);
-    expect(chip).toMatch(/\{#if readsAggregate\}[\s\S]*rowKey: "api"/);
+    // The rows live in a snippet so the header panel and the page can both place them; what keeps
+    // them in scope is that every place the snippet is rendered sits inside the readsAggregate
+    // branch.
+    const snippetStart = chip.indexOf("{#snippet deploymentSectionBlock()}");
+    expect(snippetStart).toBeGreaterThan(-1);
+    expect(chip.indexOf('rowKey: "api"')).toBeGreaterThan(snippetStart);
+    const renders = [...chip.matchAll(/\{@render deploymentSectionBlock\(\)\}/g)];
+    expect(renders.length).toBeGreaterThan(0);
+    const scopeOpens = chip.indexOf("{#if readsAggregate}\n    {#if isPage}");
+    expect(scopeOpens).toBeGreaterThan(-1);
+    for (const render of renders) {
+      expect(render.index).toBeGreaterThan(scopeOpens);
+      expect(openBlockDepthAt(chip, render.index)).toBeGreaterThan(0);
+    }
   });
 
   it("explains a non-answering row instead of leaving a bare badge", () => {
@@ -528,7 +540,9 @@ describe("the chip's row identities and refresh", () => {
     );
     expect(refreshControl).not.toBeNull();
     const control = refreshControl?.[0] ?? "";
-    expect(control).toContain("disabled={loading || healthLoading || readinessLoading}");
+    expect(control).toContain(
+      "disabled={loading || healthLoading || readinessLoading || errorsLoading}",
+    );
     expect(control).toContain("onclick={refreshEverything}");
     // Inert is said by `disabled` alone. This once also demanded a hand-written aria-busy, which
     // the later ruling that every loading state runs through one region forbids outright

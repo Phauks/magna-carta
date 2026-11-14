@@ -91,11 +91,11 @@ breadcrumbs (oldest first):
 <!-- Nothing answered at all. The trace says so in as many words rather than leaving the reader to
      infer it from a missing status line. -->
 <Story
-  name="Nothing answered"
+  name="Couldn't connect"
   args={{
     rows: [
       { label: "Request", value: "GET /matters/mat_8QK2/costs", mono: true },
-      { label: "Answer", value: "Nothing answered" },
+      { label: "Answer", value: "Couldn't connect" },
       { label: "Time", value: "31 Aug 2026, 2:07 PM" },
       { label: "Error ID", value: "None issued", mono: true },
     ],

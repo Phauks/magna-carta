@@ -99,9 +99,7 @@ export function mayReclassify(record: ReclassifiableRecord): ReclassifyVerdict {
   if (record.invoiceNumber !== null) {
     return {
       allowed: false,
-      reason:
-        `Billed on ${record.invoiceNumber}. A record on a finalized bill is evidence — the ` +
-        "correction is a credit note beside it, never a move.",
+      reason: `Billed on ${record.invoiceNumber}. Items on a finalized bill can't be moved. To correct it, add a credit note.`,
     };
   }
   if (record.claimedByDraftInvoice) {
@@ -125,7 +123,7 @@ export function mayReclassify(record: ReclassifiableRecord): ReclassifyVerdict {
   }
   return {
     allowed: true,
-    reason: `Move this ${recordName} to another ledger — it is a draft nothing is relying on yet.`,
+    reason: `Move this ${recordName} to another ledger. It's a draft, so nothing depends on it yet.`,
   };
 }
 
@@ -173,15 +171,13 @@ export function carryFacts(
   } else if (from === "fee" && to === "time") {
     amountCarriesAs("The amount is held as the target amount");
     loses.push(
-      "Time needs HOURS and a RATE, which a flat charge never had — it opens incomplete, as a " +
-        "draft that cannot be billed until they are entered",
+      "Time needs hours and a rate, which a flat fee doesn't have. It opens as an incomplete draft that can't be billed until you add them.",
     );
   } else if (from === "cost" && to === "time") {
     amountCarriesAs("The amount is held as the target amount");
     loses.push("The payee and the expense code do not carry");
     loses.push(
-      "Time needs HOURS and a RATE — it opens incomplete, as a draft that cannot be billed until " +
-        "they are entered",
+      "Time needs hours and a rate. It opens as an incomplete draft that can't be billed until you add them.",
     );
   } else if (from === "fee" && to === "cost") {
     amountCarriesAs("The amount carries exactly");
@@ -198,14 +194,10 @@ export function carryFacts(
 export function keptNumberNote(entryNumber: string | null): string {
   return entryNumber === null
     ? "The entry number is kept, and the move is recorded on the record's history."
-    : `The entry number stays ${entryNumber}; the move is recorded on its history.`;
+    : `The entry number stays ${entryNumber}; the move is recorded in its history.`;
 }
 
 /** The hover a moved record's number carries, wherever that number appears. */
 export function movedNumberTitle(fromRecordName: string): string {
-  return (
-    `Kept from this record's time on the ${fromRecordName} ledger, so its shape records where it ` +
-    "was first written down rather than what it is now. A reference that changes is a reference " +
-    "that lies."
-  );
+  return `Kept from when this was on the ${fromRecordName} ledger, so the number shows where it was first recorded. Numbers never change once given.`;
 }

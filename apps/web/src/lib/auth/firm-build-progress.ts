@@ -114,7 +114,7 @@ const MEMBER_STEP_LABEL = "Adding you to the firm";
  * has run out of attempts.
  */
 export function stalledStepFailure(label: string): string {
-  return `${label} stopped and is not being retried. Your firm is safe; support can restart it.`;
+  return `${label} stopped and won't retry. Your firm is safe; support can restart it.`;
 }
 
 /** Whether the wait is over — the workspace exists and this account can actually use it. */

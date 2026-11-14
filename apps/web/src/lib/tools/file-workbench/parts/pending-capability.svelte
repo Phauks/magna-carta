@@ -20,7 +20,7 @@
   }: {
     /** The run control's real words, e.g. "Convert the Selection". */
     action: string;
-    /** What it waits on, as a noun phrase: "the conversion container". */
+    /** What it waits on, as a noun phrase: "file conversion". */
     awaiting: string;
     /** Anything already known about this file that belongs above the control. */
     findings?: Snippet;

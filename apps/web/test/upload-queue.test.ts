@@ -267,8 +267,8 @@ describe("startUploadBatch", () => {
     expect(byName.get("refused.pdf")?.failure).toBe("This matter is closed to uploads.");
     expect(byName.get("refused.pdf")?.reason).toContain("E-1");
     // The class of transport fault is the line, where nothing answered.
-    expect(byName.get("silent.pdf")?.failure).toBe("Nothing answered while recording the upload");
-    expect(byName.get("storage.pdf")?.failure).toBe("The firm's storage did not answer");
+    expect(byName.get("silent.pdf")?.failure).toBe("Couldn't connect while recording the upload");
+    expect(byName.get("storage.pdf")?.failure).toBe("Couldn't reach the firm's storage");
     expect(byName.get("storage.pdf")?.reason).toContain("nothing was saved");
     // The line rides the progress the table reads.
     expect(batch.progress.get(intakeEntryKey(entry("", "refused.pdf")))?.failure).toBe(
@@ -286,7 +286,7 @@ describe("startUploadBatch", () => {
     const reason = batch.items[0]?.reason ?? "";
     // The bytes never go through the app, so the line has to say where the fault actually is —
     // "nothing answered" alone sent readers looking at their own connection.
-    expect(reason).toContain("storage did not answer");
+    expect(reason).toContain("Couldn't reach the firm's storage");
     expect(reason).toContain("nothing was saved");
   });
 

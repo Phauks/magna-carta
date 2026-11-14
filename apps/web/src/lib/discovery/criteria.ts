@@ -242,8 +242,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     key: "search",
     label: "Name",
     describes:
-      "What the document is called: its name, or the path it sat at in the production. Not the " +
-      "words inside it — that is Keyword, below.",
+      "The document's name, or its path in the production. To search the words inside it, use Keyword below.",
     stage: "ready",
     shape: { kind: "text" },
     setFrom: "the search field above the list",
@@ -252,21 +251,19 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
   {
     key: "keyword",
     label: "Keyword",
-    describes: "Words inside the document's text, rather than its name.",
+    describes: "Words inside the document, not its name.",
     stage: "soon",
     shape: { kind: "text" },
-    waitsOn: "the search engine being deployed",
+    waitsOn: "search",
     willComposeInto: "the search index",
   },
   {
     key: "dates",
     label: "Date range",
-    describes:
-      "When the document is dated. Documents with no date are not in any range, so narrowing by " +
-      "date sets them aside rather than ordering them last.",
+    describes: "The document's date. Documents with no date are left out when you narrow by date.",
     stage: "soon",
     shape: { kind: "date-range" },
-    waitsOn: "the document list gaining a date filter",
+    waitsOn: "a date filter on the document list",
     willComposeInto: "the document list",
   },
   {
@@ -275,7 +272,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     describes: "How the document has been coded, including uncoded and conflicting.",
     stage: "soon",
     shape: { kind: "choice", options: () => [] },
-    waitsOn: "the coding surface",
+    waitsOn: "coding",
     willComposeInto: "the document list",
   },
   {
@@ -284,7 +281,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
     describes: "Documents that are nearly the same as one another.",
     stage: "soon",
     shape: { kind: "choice", options: () => [] },
-    waitsOn: "clustering over the fingerprints every document already carries",
+    waitsOn: "near-duplicate detection",
     willComposeInto: "the document list",
   },
 ];

@@ -68,6 +68,11 @@ export class ConversationShelf {
     return made;
   }
 
+  /** One folder's section if it has been made, without making it: safe to call while drawing. */
+  peek(folderId: string): PagedList<MagnusConversation> | undefined {
+    return this.#lists.get(folderId);
+  }
+
   /** A conversation as one of the shelf's own sections last read it, wherever it sits. */
   find(conversationId: string): MagnusConversation | undefined {
     const pinned = this.pinned.items?.find((row) => row.id === conversationId);

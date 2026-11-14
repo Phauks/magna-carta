@@ -29,43 +29,43 @@ export interface CostLedgerGap {
 export const COST_LEDGER_GAPS = {
   entryNumber: {
     field: "Entry Number",
-    waitsOn: "a matter-scoped entry number on the cost record",
+    waitsOn: "entry numbers on costs",
   },
   attachments: {
     field: "Attachments",
-    waitsOn: "a cost's attached files being served on the cost listing",
+    waitsOn: "attached files on costs",
   },
   attachmentPicker: {
     field: "Attach File",
-    waitsOn: "a picker that reaches the matter's own files",
+    waitsOn: "picking a matter's files",
   },
   history: {
     field: "History",
-    waitsOn: "an endpoint that serves a cost's recorded events",
+    waitsOn: "cost history",
   },
   memo: {
     field: "Internal Memo",
-    waitsOn: "an internal memo field on the cost entry record",
+    waitsOn: "internal memos on costs",
   },
   deleteDraft: {
     field: "Delete Draft",
-    waitsOn: "a route that removes a draft that never entered review",
+    waitsOn: "deleting drafts",
   },
   unsubmit: {
     field: "Unsubmit",
-    waitsOn: "a route that returns a submitted cost to draft at its own recorder's hand",
+    waitsOn: "returning a cost to draft",
   },
   reviewGate: {
     field: "Review",
-    waitsOn: "the firm's review setting being served",
+    waitsOn: "the firm's review setting",
   },
   expenseCodeCatalogue: {
     field: "Expense Code",
-    waitsOn: "a read of the expense-code catalogue this account is allowed to make",
+    waitsOn: "expense codes",
   },
   screenshot: {
     field: "Screenshot",
-    waitsOn: "screenshot capture in the problem report",
+    waitsOn: "screenshots in problem reports",
   },
 } as const satisfies Readonly<Record<string, CostLedgerGap>>;
 
@@ -80,7 +80,7 @@ export type CostLedgerGapName = keyof typeof COST_LEDGER_GAPS;
  */
 export function gapCellTitle(name: CostLedgerGapName): string {
   const gap = COST_LEDGER_GAPS[name];
-  return `${gap.field} is not served yet. Waiting on ${gap.waitsOn}.`;
+  return `Not built yet: ${gap.waitsOn}.`;
 }
 
 /** What a control waits on, as the noun phrase the Soon affordance takes. */

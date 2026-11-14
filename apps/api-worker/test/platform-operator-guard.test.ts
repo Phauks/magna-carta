@@ -75,3 +75,22 @@ describe("platformOperatorGuard via POST /api/v1/platform/status/events", () => 
     expect(body["errorId"]).toMatch(/^error_/);
   });
 });
+
+// The recent-errors read is the guard's first GET. It names Workers, routes and Error IDs across
+// every firm on the deployment, so a member who is not a platform operator must not reach it.
+describe("platformOperatorGuard via GET /api/v1/platform/recent-errors", () => {
+  it("answers a request with no session with a 401 problem", async () => {
+    const response = await SELF.fetch("https://example.com/api/v1/platform/recent-errors");
+    expect(response.status).toBe(401);
+  });
+
+  it("answers a signed-in user who is not a platform operator with a 403 problem", async () => {
+    const email = "not-an-operator-errors@example.com";
+    await seedCredentialedUser(email);
+    const cookie = await signInForSessionCookie(email);
+    const response = await SELF.fetch("https://example.com/api/v1/platform/recent-errors", {
+      headers: { cookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

@@ -125,7 +125,7 @@
     writeFailure = stated(
       outcome.failure,
       `${notificationCategoryLabel(category)} was not changed.`,
-      "Nothing answered, so nothing changed; choosing again tries once more.",
+      "Couldn't connect. Nothing changed. Try again.",
     );
     // The screen still shows the old value, because the read is the only thing that changed it.
   }
@@ -194,8 +194,7 @@
 
 <SettingsScrollRegion>
   <SettingsDescription>
-    What you hear about, and how. In-app rows appear in your own feed; email arrives as a summary
-    rather than a message per event.
+    What you're notified about, and how. In-app notifications go to your feed; email comes as a summary.
   </SettingsDescription>
 
   {#if writeFailure !== null}

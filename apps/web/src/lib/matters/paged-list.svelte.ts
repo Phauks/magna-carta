@@ -56,7 +56,7 @@ export class PagedList<T> {
   get failureMessage(): string | null {
     const failure = this.failure;
     if (failure === null) return null;
-    if (failure.problem === null) return `Nothing answered. ${this.#whenUnreadable}`;
+    if (failure.problem === null) return `Couldn't connect. ${this.#whenUnreadable}`;
     return failure.problem.detail ?? this.#whenUnreadable;
   }
 

@@ -40,10 +40,29 @@ describe("the record's one page", () => {
     expect(target.querySelectorAll("section")).toHaveLength(3);
     expect(target.textContent).toContain("Contact fields");
     expect(target.textContent).toContain("Address fields");
-    // The heading each section carries is the rail's own word for it.
+    // Each section is named by the rail's own word for it, not by the count beside it.
     expect(
-      [...target.querySelectorAll("section h3")].map((heading) => heading.textContent),
+      [...target.querySelectorAll("section")].map((section) =>
+        document.getElementById(section.getAttribute("aria-labelledby") ?? "")?.textContent?.trim(),
+      ),
     ).toEqual(["Names", "Contact", "Address"]);
+  });
+
+  it("folds a section to its header, and a jump from the rail opens it again", () => {
+    const target = render();
+    const header = target.querySelectorAll<HTMLButtonElement>("section h3 button")[1];
+    const contactBody = () => target.querySelectorAll<HTMLElement>("section > div")[1];
+    expect(header?.getAttribute("aria-expanded")).toBe("true");
+
+    header?.click();
+    flushSync();
+    expect(header?.getAttribute("aria-expanded")).toBe("false");
+    expect(contactBody()?.hidden).toBe(true);
+
+    target.querySelectorAll<HTMLButtonElement>("nav button")[1]?.click();
+    flushSync();
+    expect(header?.getAttribute("aria-expanded")).toBe("true");
+    expect(contactBody()?.hidden).toBe(false);
   });
 
   it("counts what a section holds on the rail, and draws no number for none", () => {

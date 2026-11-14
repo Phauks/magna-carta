@@ -377,3 +377,111 @@ describe("the platform's own engine", () => {
     expect(response.status).toBe(422);
   });
 });
+
+describe("Google, when its key is set", () => {
+  /** Answer Google's Places host from a script, and count what reached it. */
+  function answerGoogleWith(answer: (url: URL) => Response): URL[] {
+    const calls: URL[] = [];
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.hostname === "places.googleapis.com") {
+        calls.push(url);
+        return Promise.resolve(answer(url));
+      }
+      if (url.hostname.endsWith(".api.smarty.com")) {
+        smartyCalls.push(url);
+        return Promise.resolve(new Response("must not be called", { status: 500 }));
+      }
+      return originalFetch(input, init);
+    }) as typeof fetch;
+    return calls;
+  }
+
+  it("answers every country ahead of the others, and marks the offers as Google's", async () => {
+    const calls = answerGoogleWith((url) =>
+      url.pathname.endsWith(":autocomplete")
+        ? Response.json({
+            suggestions: [
+              {
+                placePrediction: {
+                  placeId: "ChIJ-reno_14",
+                  text: { text: "14 Rosewood Dr, Reno, NV, USA" },
+                },
+              },
+            ],
+          })
+        : Response.json({
+            addressComponents: [
+              { longText: "14", shortText: "14", types: ["street_number"] },
+              { longText: "Rosewood Drive", shortText: "Rosewood Dr", types: ["route"] },
+              { longText: "Reno", shortText: "Reno", types: ["locality"] },
+              { longText: "Nevada", shortText: "NV", types: ["administrative_area_level_1"] },
+              { longText: "89501", shortText: "89501", types: ["postal_code"] },
+              { longText: "United States", shortText: "US", types: ["country"] },
+            ],
+          }),
+    );
+    const service = addressService(() => ({ outcome: "unavailable" }));
+    const googleEnv = {
+      ...PROVISIONED,
+      GOOGLE_PLACES_API_KEY: "google-key",
+      ADDRESS_SERVICE: service.binding,
+    };
+    const response = await app.request(
+      ...post("suggestions", { country: "US", query: "14 Rose" }, ownerCookie),
+      googleEnv,
+    );
+    const offered = (await response.json()) as {
+      outcome: string;
+      attribution?: string;
+      suggestions: { suggestionId: string; label: string }[];
+    };
+    expect(offered.outcome).toBe("suggestions");
+    expect(offered.attribution).toBe("google-maps");
+    expect(offered.suggestions[0]?.label).toBe("14 Rosewood Dr, Reno, NV, USA");
+
+    const resolution = await app.request(
+      ...post("resolutions", { suggestionId: offered.suggestions[0]!.suggestionId }, ownerCookie),
+      googleEnv,
+    );
+    expect(await resolution.json()).toEqual({
+      outcome: "address",
+      parts: {
+        street: "14 Rosewood Dr",
+        city: "Reno",
+        region: "NV",
+        postal: "89501",
+        country: "US",
+      },
+    });
+    expect(calls.map((url) => url.pathname)).toEqual([
+      "/v1/places:autocomplete",
+      "/v1/places/ChIJ-reno_14",
+    ]);
+    // Neither the self-hosted engine nor Smarty was asked.
+    expect(service.asked).toHaveLength(0);
+    expect(smartyCalls).toHaveLength(0);
+  });
+
+  it("marks no attribution on another engine's offers", async () => {
+    answerSmartyWith(() =>
+      Response.json({
+        suggestions: [
+          {
+            street_line: "14 Rosewood Dr",
+            city: "Reno",
+            state: "NV",
+            zipcode: "89501",
+            entries: 0,
+          },
+        ],
+      }),
+    );
+    const response = await app.request(
+      ...post("suggestions", { country: "US", query: "14 Rose" }, ownerCookie),
+      PROVISIONED,
+    );
+    const offered = (await response.json()) as { attribution?: string };
+    expect(offered.attribution).toBeUndefined();
+  });
+});

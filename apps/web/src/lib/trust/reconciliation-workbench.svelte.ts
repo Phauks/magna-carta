@@ -46,7 +46,7 @@ export class ReconciliationWorkbench {
   suggestions = $state<TrustReconciliationSuggestions | null>(null);
   suggestionsFailure = $state<Failure | null>(null);
 
-  /** Every match recorded on this reconciliation, withdrawn ones included, oldest first. */
+  /** All matches on this reconciliation, withdrawn ones included, oldest first. */
   matches = $state<readonly TrustReconciliationMatch[] | null>(null);
   matchesFailure = $state<Failure | null>(null);
 

@@ -61,8 +61,8 @@
     }
     failure = stated(
       outcome.failure,
-      "Nothing was released: the request is still waiting on a decision.",
-      "Nothing answered, so nothing was released. The request is still waiting on a decision.",
+      "Nothing was released. The request is still waiting for a decision.",
+      "Couldn't connect. Nothing was released, and the request is still waiting for a decision.",
     );
     return "refused";
   }

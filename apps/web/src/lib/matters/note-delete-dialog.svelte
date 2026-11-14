@@ -45,7 +45,7 @@
     failure = stated(
       outcome.failure,
       "The note was not deleted.",
-      "Nothing answered. The note was not deleted and is unchanged.",
+      "Couldn't connect. The note wasn't deleted.",
     );
     return "refused";
   }

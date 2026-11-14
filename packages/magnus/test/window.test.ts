@@ -2,6 +2,7 @@ import type { MagnusConversationId, MagnusTurnId } from "@magna-carta/identifier
 import { describe, expect, it } from "vitest";
 import {
   ATTACHMENT_TEXT_MAX_BYTES,
+  EARLIER_CONVERSATIONS_MAX_BYTES,
   MEMBER_TURN_MAX_BYTES,
   contentByteLength,
   cutToByteLength,
@@ -213,5 +214,45 @@ describe("the per-turn caps", () => {
   it("measures UTF-8 bytes, not characters — the cap means the same thing in every script", () => {
     expect(contentByteLength("abc")).toBe(3);
     expect(contentByteLength("日本語")).toBe(9);
+  });
+});
+
+describe("the author's earlier conversations on the matter", () => {
+  it("sends nothing of them unless they are handed in", () => {
+    const window = buildConversationWindow(conversation(1));
+    expect(window.messages.at(-1)?.content).toBe("the newest question");
+  });
+
+  it("places each ahead of the question under its heading, leaving out removed turns", () => {
+    const earlier = [
+      turn(0, "member", "what did the deposition say"),
+      { ...turn(1, "magnus", "a withdrawn answer"), removedAt: "2026-08-06T01:00:00.000Z" },
+      turn(2, "magnus", "the witness recanted"),
+    ];
+    const window = buildConversationWindow(conversation(1), {
+      earlierConversations: [{ title: "Deposition notes", turns: earlier }],
+    });
+    const question = window.messages.at(-1)?.content ?? "";
+    expect(question).toContain(
+      "--- Your earlier conversation on this matter: Deposition notes ---",
+    );
+    expect(question).toContain("Member: what did the deposition say");
+    expect(question).toContain("Magnus: the witness recanted");
+    expect(question).not.toContain("a withdrawn answer");
+    expect(question.endsWith("the newest question")).toBe(true);
+  });
+
+  it("cuts the one that does not fit, marks the cut, and leaves the rest out", () => {
+    const long = "z".repeat(EARLIER_CONVERSATIONS_MAX_BYTES + 100);
+    const window = buildConversationWindow(conversation(1), {
+      earlierConversations: [
+        { title: "Long", turns: [turn(0, "member", long)] },
+        { title: "Left out", turns: [turn(0, "member", "never sent")] },
+      ],
+    });
+    const question = window.messages.at(-1)?.content ?? "";
+    expect(question).toContain("[The rest of this conversation did not fit and was not sent.]");
+    expect(question).not.toContain("Left out");
+    expect(question).not.toContain("never sent");
   });
 });

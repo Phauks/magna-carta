@@ -6,7 +6,8 @@
 # Two ways a pull request stalls silently:
 # - It conflicts with its base. GitHub then runs no pull_request workflows on it, so the `gate` check
 #   never reports, auto-merge never fires, and nothing wakes the owning thread.
-# - It is green and mergeable, but auto-merge is off or never fired.
+# - It is green and mergeable, but nobody has landed it (cloud sessions cannot turn auto-merge on, so the
+#   owning thread lands it through the merge API).
 #
 # It only comments and labels. A push or merge made with GITHUB_TOKEN would start no CI, so fixing the
 # pull request is left to its owner.
@@ -122,8 +123,9 @@ jobs:
                 await commentOnce(
                   pullRequest,
                   'no-auto-merge',
-                  'This pull request is green and mergeable but auto-merge is off, so it will not land. ' +
-                    'Turn on auto-merge (squash), or close it if it is no longer wanted.'
+                  'This pull request is green and mergeable but nothing will land it on its own. ' +
+                    'If it is ready, squash-merge it through the merge API (auto-merge cannot be turned on from a ' +
+                    'cloud session); if the owner asked to review it first, say so on the pull request; otherwise close it.'
                 );
               } else if (mergeable && idleMinutes > STUCK_MINUTES) {
                 await commentOnce(

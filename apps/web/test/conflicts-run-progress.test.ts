@@ -47,6 +47,7 @@ describe("where a run is", () => {
         askedScope: {
           sources: ["party"],
           strictness: "balanced",
+          trigramMatching: true,
           places: { messaging: [], tasks: [], magnus: true },
         },
       }),

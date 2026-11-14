@@ -52,7 +52,7 @@
       ? ""
       : folderSurvives
         ? `The original location: ${file.folderId === null ? "Home" : index.pathText(file.folderId)}`
-        : "Home — the folder it was in was deleted too",
+        : "Home (its folder was deleted too)",
   );
 </script>
 

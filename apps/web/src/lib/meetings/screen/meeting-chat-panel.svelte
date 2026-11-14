@@ -21,11 +21,22 @@
    * keeps that something was said, when, and from which stay — so a row that simply vanished would
    * disagree with the file, and a reader who saw the message before it went would be the only one
    * who knew it had ever existed.
+   *
+   * A QUESTION IS A KIND OF CHAT MESSAGE HERE. Where the room screen hands over the question queue,
+   * questions sit in the same timeline as everything else said, marked as questions, with their
+   * upvote and (for a host) Mark Answered on the row. "Ask as a question" under the message box sends
+   * the words to the queue instead of the chat, and the Questions filter shows only the queue, in
+   * the order a host works it. They stay two records, because a question is answered and upvoted
+   * and a message is not.
    */
+  import ArrowBigUp from "@lucide/svelte/icons/arrow-big-up";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
+  import MessageCircleQuestionMark from "@lucide/svelte/icons/message-circle-question-mark";
   import MessageSquare from "@lucide/svelte/icons/message-square";
   import SendHorizontal from "@lucide/svelte/icons/send-horizontal";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Checkbox from "@magna-carta/design-system/checkbox";
   import * as Conversation from "@magna-carta/design-system/conversation";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
@@ -35,6 +46,11 @@
   import { SAMPLE_SENTENCE, samplePerson, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import { wasTakenBack } from "$lib/meetings/client/chat.svelte.ts";
   import { MAX_MEETING_MESSAGE_LENGTH } from "$lib/meetings/meetings-api.ts";
+  import {
+    MAX_MEETING_QUESTION_LENGTH,
+    type MeetingQuestionView,
+  } from "$lib/meetings/client/questions.svelte.ts";
+  import { chatTimeline } from "./chat-timeline.ts";
   import type { MeetingMessage } from "@magna-carta/api-client";
   import type { Snippet } from "svelte";
 
@@ -49,6 +65,7 @@
 
   let {
     open = $bindable(false),
+    inline = false,
     draft = $bindable(""),
     messages,
     unread = 0,
@@ -61,7 +78,20 @@
     onTakeBack,
     readFailure,
     writeFailure,
+    questions,
+    hosting = false,
+    asking = false,
+    upvoting = new Set<string>(),
+    questionNameOf,
+    isMyQuestion,
+    onAsk,
+    onToggleUpvote,
+    onMarkAnswered,
+    onRedactQuestion,
+    questionFailure,
   }: {
+    /** Drawn in the room's side panel rather than as a popover from the band. */
+    inline?: boolean;
     /** Whether the panel is showing. Bindable, so the band and the count agree about it. */
     open?: boolean;
     /** What is typed and not yet said. Bindable, so it survives the panel being closed. */
@@ -87,19 +117,53 @@
     readFailure?: Snippet;
     /** A refused write, in the app's own words. */
     writeFailure?: Snippet;
+    /**
+     * The question queue, in the order a host works it. When given, questions are drawn in the
+     * timeline and the composer can ask one; without it this is chat alone.
+     */
+    questions?: readonly MeetingQuestionView[];
+    /** Whether this member is running the meeting, which offers Mark Answered on a question. */
+    hosting?: boolean;
+    /** True while a question is on its way. */
+    asking?: boolean;
+    /** The questions an upvote or its withdrawal is on its way for. */
+    upvoting?: ReadonlySet<string>;
+    questionNameOf?: (question: MeetingQuestionView) => string;
+    isMyQuestion?: (question: MeetingQuestionView) => boolean;
+    onAsk?: (body: string) => Promise<boolean>;
+    onToggleUpvote?: (questionId: string) => void;
+    onMarkAnswered?: (questionId: string, answered: boolean) => void;
+    onRedactQuestion?: (questionId: string) => void;
+    /** A refused question write, in the app's own words. */
+    questionFailure?: Snippet;
   } = $props();
+
+  const withQuestions = $derived(questions !== undefined && onAsk !== undefined);
+  /** Whether the words in the box go to the question queue rather than the chat. */
+  let asQuestion = $state(false);
+  /** Everything, or only the questions. */
+  let showing = $state<"all" | "questions">("all");
+
+  const timeline = $derived(chatTimeline(messages, questions ?? []));
 
   const stated = $derived(draft.trim());
   /** How much room is left in this message. Negative once there is none. */
-  const roomLeft = $derived(MAX_MEETING_MESSAGE_LENGTH - stated.length);
+  const asking_ = $derived(withQuestions && asQuestion);
+  const roomLeft = $derived(
+    (asking_ ? MAX_MEETING_QUESTION_LENGTH : MAX_MEETING_MESSAGE_LENGTH) - stated.length,
+  );
   const tooLong = $derived(roomLeft < 0);
-  const canSay = $derived(stated !== "" && !tooLong && !sending);
+  const canSay = $derived(stated !== "" && !tooLong && !(asking_ ? asking : sending));
 
   async function say(): Promise<void> {
     if (!canSay) return;
     // The field is cleared only once the record has it, so a refused message is still there to try
     // again with rather than something the reader has to type a second time.
-    if (await onSend(stated)) draft = "";
+    const sent = asking_ && onAsk !== undefined ? await onAsk(stated) : await onSend(stated);
+    if (sent) {
+      draft = "";
+      asQuestion = false;
+    }
   }
 
   /**
@@ -132,6 +196,123 @@
 
 {#snippet fixture()}
   {@render transcript(FIXTURE, false)}
+{/snippet}
+
+{#snippet questionTurn(question: MeetingQuestionView)}
+  {@const name = questionNameOf?.(question) ?? ""}
+  {@const asked = formatTimeOfDay(question.askedAt)}
+  {@const redacted = question.redactedAt !== null}
+  <Conversation.Turn speaker="member">
+    <div class="flex items-baseline gap-8">
+      <MessageCircleQuestionMark
+        class="size-16 shrink-0 self-center text-accent-default"
+        aria-label="Question"
+      />
+      <Conversation.TurnSpeaker class="min-w-0 flex-1 truncate">{name}</Conversation.TurnSpeaker>
+      <span class="text-xs text-text-muted">{asked}</span>
+    </div>
+    {#if redacted}
+      <Conversation.TurnNote>Taken back.</Conversation.TurnNote>
+    {:else}
+      <Conversation.TurnBody>{question.body}</Conversation.TurnBody>
+    {/if}
+    <div class="flex flex-wrap items-center gap-8">
+      <!-- Pressed means this member has upvoted; pressing it again takes that back. -->
+      <Button
+        variant={question.upvotedByMe ? "secondary" : "ghost"}
+        size="sm"
+        aria-pressed={question.upvotedByMe}
+        aria-label={question.upvotedByMe
+          ? `Take back your upvote of the question ${name} asked at ${asked}`
+          : `Upvote the question ${name} asked at ${asked}`}
+        disabled={redacted || upvoting.has(question.questionId)}
+        onclick={() => onToggleUpvote?.(question.questionId)}
+      >
+        <ArrowBigUp class="size-16" aria-hidden="true" />
+        <span class="tabular-nums">{question.upvotes}</span>
+      </Button>
+      {#if question.answeredAt !== null}
+        <Badge variant="success" caps>
+          <CircleCheck class="size-12" aria-hidden="true" />
+          Answered
+        </Badge>
+      {/if}
+      {#if !redacted && hosting}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={question.answeredAt === null
+            ? `Mark the question ${name} asked at ${asked} answered`
+            : `Mark the question ${name} asked at ${asked} unanswered`}
+          onclick={() => onMarkAnswered?.(question.questionId, question.answeredAt === null)}
+        >
+          {question.answeredAt === null ? "Mark Answered" : "Mark Unanswered"}
+        </Button>
+      {/if}
+      {#if !redacted && (hosting || isMyQuestion?.(question) === true)}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Take back the question {name} asked at {asked}"
+          onclick={() => onRedactQuestion?.(question.questionId)}
+        >
+          Take Back
+        </Button>
+      {/if}
+    </div>
+  </Conversation.Turn>
+{/snippet}
+
+{#snippet questionsOnly()}
+  <Conversation.Transcript class="px-0" label="Questions asked in this meeting">
+    {#each questions ?? [] as question (question.questionId)}
+      {@render questionTurn(question)}
+    {:else}
+      <Conversation.TurnNote>Nobody has asked a question yet.</Conversation.TurnNote>
+    {/each}
+  </Conversation.Transcript>
+{/snippet}
+
+{#snippet everything()}
+  <Conversation.Transcript class="px-0" label="What has been said in this meeting">
+    {#each timeline as entry (entry.key)}
+      {#if entry.kind === "question"}
+        {@render questionTurn(entry.question)}
+      {:else}
+        {@render messageTurn(entry.message, 0, true)}
+      {/if}
+    {:else}
+      <Conversation.TurnNote>Nothing has been said in this meeting yet.</Conversation.TurnNote>
+    {/each}
+  </Conversation.Transcript>
+{/snippet}
+
+{#snippet messageTurn(message: MeetingMessage, index: number, live: boolean)}
+  {@const name = live ? nameOf(message) : samplePerson(index).name}
+  {@const said = formatTimeOfDay(message.sentAt)}
+  <Conversation.Turn speaker="member">
+    <div class="flex items-baseline gap-8">
+      <Conversation.TurnSpeaker class="min-w-0 flex-1 truncate">
+        {name}
+      </Conversation.TurnSpeaker>
+      <span class="text-xs text-text-muted">{said}</span>
+      {#if live && !wasTakenBack(message) && canTakeBack(message)}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Take back what {name} said at {said}"
+          onclick={() => onTakeBack(message.id)}
+        >
+          Take Back
+        </Button>
+      {/if}
+    </div>
+    {#if wasTakenBack(message)}
+      <Conversation.TurnNote>Taken back.</Conversation.TurnNote>
+    {:else}
+      <Conversation.TurnBody>{message.body}</Conversation.TurnBody>
+    {/if}
+  </Conversation.Turn>
 {/snippet}
 
 {#snippet transcript(shown: readonly MeetingMessage[], live: boolean)}
@@ -174,23 +355,31 @@
   </Conversation.Transcript>
 {/snippet}
 
-<Popover.Root bind:open>
-  <Popover.Trigger class={buttonClasses({ variant: "secondary", size: "default" })}>
-    <MessageSquare class="size-16" aria-hidden="true" />
-    Chat
-    {#if unread > 0}
-      <!-- The count is how a member learns something was said while they were watching the room
-           rather than the panel. It goes when the panel opens, because then they have seen it. -->
-      <Badge variant="primary">{unread}</Badge>
-    {/if}
-  </Popover.Trigger>
-
-  <Popover.Content
-    class="flex flex-col gap-8"
-    style="inline-size: var(--mc-size-record-context); max-block-size: var(--bits-floating-available-height)"
-  >
+{#snippet panelBody()}
     <div class="flex flex-col gap-4">
-      <h2 class="text-sm font-medium">Chat</h2>
+      {#if !inline}<h2 class="text-sm font-medium">Chat</h2>{/if}
+      {#if withQuestions}
+        <!-- Everything said, or only the questions in the order a host works them. -->
+        <div class="flex gap-4" role="group" aria-label="Show">
+          <Button
+            variant={showing === "all" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={showing === "all"}
+            onclick={() => (showing = "all")}
+          >
+            All
+          </Button>
+          <Button
+            variant={showing === "questions" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={showing === "questions"}
+            onclick={() => (showing = "questions")}
+          >
+            <MessageCircleQuestionMark class="size-16" aria-hidden="true" />
+            Questions
+          </Button>
+        </div>
+      {/if}
       <!-- The one fact a reader needs to read the rest correctly: this is not the room, it is the
            record. Said once, where the decision to type is made. -->
       <p class="text-xs text-text-muted">
@@ -210,17 +399,24 @@
       {fixture}
       failure={readFailure}
     >
-      {@render transcript(messages, true)}
+      {#if !withQuestions}
+        {@render transcript(messages, true)}
+      {:else if showing === "questions"}
+        {@render questionsOnly()}
+      {:else}
+        {@render everything()}
+      {/if}
     </LoadingRegion>
 
     {@render writeFailure?.()}
+    {@render questionFailure?.()}
 
     <!-- The composer paints itself on the ordinary surface, and this one stands on the overlay the
          popover is drawn on: in a dark theme those are two different neutrals, so the foot of the
          panel would otherwise be a shade darker than the transcript above it. The gutters go for
          the same reason — the popover already has its own. -->
-    <Conversation.Composer class="bg-surface-overlay px-0">
-      <Label for="meeting-chat-message">Your message</Label>
+    <Conversation.Composer class="{inline ? '' : 'bg-surface-overlay'} px-0">
+      <Label for="meeting-chat-message">{asking_ ? "Your question" : "Your message"}</Label>
       <Textarea
         id="meeting-chat-message"
         bind:value={draft}
@@ -236,11 +432,46 @@
         </p>
       {/if}
       {#snippet actions()}
+        {#if withQuestions}
+          <span class="me-auto flex items-center gap-8">
+            <Checkbox id="meeting-chat-as-question" bind:checked={asQuestion} />
+            <Label for="meeting-chat-as-question">Ask as a question</Label>
+          </span>
+        {/if}
         <Button onclick={() => void say()} disabled={!canSay}>
           <SendHorizontal class="size-16" aria-hidden="true" />
-          {sending ? "Sending" : "Send"}
+          {#if asking_}
+            {asking ? "Asking" : "Ask"}
+          {:else}
+            {sending ? "Sending" : "Send"}
+          {/if}
         </Button>
       {/snippet}
     </Conversation.Composer>
+{/snippet}
+
+{#if inline}
+  <!-- Drawn in the room's side panel, beside the picture rather than over it. -->
+  <div class="flex min-h-0 flex-1 flex-col gap-8">
+    {@render panelBody()}
+  </div>
+{:else}
+<Popover.Root bind:open>
+  <Popover.Trigger class={buttonClasses({ variant: "secondary", size: "default" })}>
+    <MessageSquare class="size-16" aria-hidden="true" />
+    Chat
+    {#if unread > 0}
+      <!-- The count is how a member learns something was said while they were watching the room
+           rather than the panel. It goes when the panel opens, because then they have seen it. -->
+      <Badge variant="primary">{unread}</Badge>
+    {/if}
+  </Popover.Trigger>
+
+  <Popover.Content
+    class="flex flex-col gap-8"
+    style="inline-size: var(--mc-size-record-context); max-block-size: var(--bits-floating-available-height)"
+  >
+    {@render panelBody()}
   </Popover.Content>
 </Popover.Root>
+{/if}

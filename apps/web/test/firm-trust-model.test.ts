@@ -163,7 +163,7 @@ function account(overrides: Partial<TrustAccountListing> = {}): TrustAccountList
 describe("the firm's authorization posture, read back as a sentence", () => {
   it("says a second person is never needed", () => {
     expect(postureSentence(version({ policy: "off" }), "USD")).toBe(
-      "Money leaving a client ledger never takes a second person; whoever releases it need not hold the authority.",
+      "Money leaving a client ledger never takes a second person; the person who releases it doesn't need the authority.",
     );
   });
 
@@ -173,14 +173,14 @@ describe("the firm's authorization posture, read back as a sentence", () => {
       "USD",
     );
     expect(sentence).toContain("takes a second person above $5,000.00");
-    expect(sentence.endsWith("need not hold the authority.")).toBe(true);
+    expect(sentence.endsWith("doesn't need the authority.")).toBe(true);
   });
 
   it("says a second person is always needed, and carries the authority clause on its own", () => {
     expect(
       postureSentence(version({ policy: "always", requireAuthorizedApprover: true }), "USD"),
     ).toBe(
-      "Money leaving a client ledger always takes a second person; whoever releases it must hold the authority.",
+      "Money leaving a client ledger always takes a second person; the person who releases it must have the authority.",
     );
   });
 

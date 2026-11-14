@@ -1,7 +1,8 @@
 import { isVersionRequest, versionResponse } from "@magna-carta/build-identity/version-route";
 import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
+import { resolveStoredSecrets } from "@magna-carta/worker-secrets/stored-secrets";
 import { boardApplication } from "./board-application.ts";
-import type { Bindings } from "./bindings.ts";
+import { COMMUNITY_WORKER_SECRET_NAMES, type Bindings } from "./bindings.ts";
 import { withBoardHeaders } from "./respond.ts";
 
 setServiceIdentity("cmy");
@@ -20,12 +21,18 @@ export default {
       version.headers.set("Cache-Control", "no-store");
       return withBoardHeaders(version);
     }
-    const { pathname } = new URL(request.url);
+    const { pathname, hostname } = new URL(request.url);
     const own =
       pathname === "/session" || pathname.startsWith("/session/") || pathname.startsWith("/api/");
+    // The handoff secret may be bound from the account's Secrets Store; the board reads a string.
     const response = own
-      ? await application.fetch(request, environment, context)
+      ? await application.fetch(
+          request,
+          await resolveStoredSecrets(environment, COMMUNITY_WORKER_SECRET_NAMES),
+          context,
+        )
       : await environment.ASSETS.fetch(request);
-    return withBoardHeaders(response);
+    // The changelog's own address lists its pages; its API and session answers stay unlisted.
+    return withBoardHeaders(response, hostname.startsWith("changelog.") && !own);
   },
 } satisfies ExportedHandler<Bindings>;
