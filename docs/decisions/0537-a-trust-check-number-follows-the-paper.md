@@ -1,8 +1,9 @@
 ---
+number: 537
 slug: a-trust-check-number-follows-the-paper
 status: Accepted
-area: Trust
 date: 2026-11-14
+area: Trust
 summary: "A trust check's number is the next number on the paper in the printer, not a sequence-numbering scheme: the next number is the greater of the stock's starting number and one past the highest used, unique per account and never reused. What happened to a check is an append-only event list (printed, spoiled, voided), and the number reaches reconciliation through a join, because trust_movement is append-only."
 ---
 
