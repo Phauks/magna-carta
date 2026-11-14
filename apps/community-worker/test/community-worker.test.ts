@@ -60,13 +60,15 @@ describe("the board's headers", () => {
   });
 });
 
-describe("the changelog's own address", () => {
-  it("lets its pages be listed and keeps its API unlisted", async () => {
-    const page = await SELF.fetch("https://changelog.magnacarta.esq/");
+describe("the Changelog page", () => {
+  it("may be listed while the board's other pages stay unlisted", async () => {
+    const page = await SELF.fetch(`${ORIGIN}/changelog`);
     expect(page.headers.get("X-Robots-Tag")).toBeNull();
     expect(page.headers.get("Referrer-Policy")).toBe("no-referrer");
-    const api = await SELF.fetch("https://changelog.magnacarta.esq/api/summary");
-    expect(api.headers.get("X-Robots-Tag")).toContain("noindex");
+    for (const path of ["/", "/questions", "/changelog/more"]) {
+      const other = await SELF.fetch(`${ORIGIN}${path}`);
+      expect(other.headers.get("X-Robots-Tag")).toContain("noindex");
+    }
   });
 });
 

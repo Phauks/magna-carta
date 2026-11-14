@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MeetingId } from "@magna-carta/identifiers/types";
 import { seededRandomSource } from "@magna-carta/identifiers/random";
 import { createMeeting, endMeeting, joinMeeting, leaveMeeting } from "../src/meeting-service.ts";
-import { readMeeting } from "../src/meeting-statements.ts";
+import { readMeeting, readMeetingSummaryByJoinCode } from "../src/meeting-statements.ts";
 import {
   arriveAtPersonalRoom,
   ensurePersonalRoom,
@@ -120,6 +120,46 @@ describe("a member's room", () => {
   });
 });
 
+describe("a room's address by name", () => {
+  it("is the owner's first name, and the link reads by it alone", async () => {
+    const database = fresh();
+    const room = await makeRoom(database);
+    expect(room.address_name).toMatch(/^[a-z0-9-]+$/);
+    const byName = await readPersonalRoomAtLink(
+      database.database,
+      room.address_name ?? "",
+      optionsFor(GUEST),
+    );
+    const byCode = await readPersonalRoomAtLink(
+      database.database,
+      room.address_name ?? "",
+      optionsFor(GUEST),
+    );
+    expect(byName).toEqual(byCode);
+    expect(byName.addressName).toBe(room.address_name);
+  });
+});
+
+describe("a meeting's nine-digit address", () => {
+  it("is written with the session and finds it through the visibility gate", async () => {
+    const database = fresh();
+    await makeRoom(database);
+    const { meetingId } = await open(database);
+    const meeting = await readMeeting(database.database, meetingId, visibility);
+    expect(meeting?.join_code).toMatch(/^[1-9]\d{8}$/);
+    const found = await readMeetingSummaryByJoinCode(
+      database.database,
+      meeting?.join_code ?? "",
+      visibility,
+    );
+    expect(found?.id).toBe(meetingId);
+    expect(found?.joinCode).toBe(meeting?.join_code);
+    expect(
+      await readMeetingSummaryByJoinCode(database.database, "100000000", visibility),
+    ).toBeUndefined();
+  });
+});
+
 describe("opening a session", () => {
   it("writes a firm event titled for the owner, starting now in their zone, with the owner on it", async () => {
     const database = fresh();
@@ -213,7 +253,7 @@ describe("arriving by the link", () => {
     const room = await makeRoom(database);
     const arrival = await readPersonalRoomAtLink(
       database.database,
-      room.link_code,
+      room.address_name ?? "",
       optionsFor(GUEST),
     );
     expect(arrival.state).toBe("closed");
@@ -226,14 +266,18 @@ describe("arriving by the link", () => {
     const { meetingId } = await open(database);
     const { arrival, effect } = await arriveAtPersonalRoom(
       database.database,
-      room.link_code,
+      room.address_name ?? "",
       optionsFor(GUEST),
     );
     await commit(database.database, effect);
     expect(arrival.state === "open" && arrival.meetingId).toBe(meetingId);
 
     // Twice is still once on the event.
-    const again = await arriveAtPersonalRoom(database.database, room.link_code, optionsFor(GUEST));
+    const again = await arriveAtPersonalRoom(
+      database.database,
+      room.address_name ?? "",
+      optionsFor(GUEST),
+    );
     await commit(database.database, again.effect);
     const event = firmEventOf(database, meetingId);
     const participants = database.raw

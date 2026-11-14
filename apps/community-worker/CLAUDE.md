@@ -40,9 +40,8 @@ only routes to them.
   written.** The board is the one place
   people at many firms share rows; this worker reaching a firm's database would undo the named
   exception that lets it exist (`docs/decisions/pending/the-community-board-is-a-named-exception-to-firm-scoped-data.md`).
-- **`noindex` on every answer, from the first byte**, pages included. The one exception is a page
-  on `changelog.magnacarta.esq`, the board's public Changelog under its own address, which names no
-  person and is meant to be found; its `/api/` and `/session` answers stay unlisted. That is why every request runs
+- **`noindex` on every answer, from the first byte**, pages included. The one exception is the
+  board's Changelog page (`/changelog`), which names no person and is meant to be found. That is why every request runs
   the script, and why the header is added in `index.ts` rather than per route.
 - **The session secret is never `AUTH_SECRET`.** `COMMUNITY_HANDOFF_SECRET` is shared with
   `apps/api-worker`'s `GET /api/v1/me/community-handoff` alone, so a leak here cannot forge an app

@@ -1024,6 +1024,9 @@ importers:
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../../packages/directory
+      '@magna-carta/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@magna-carta/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags
@@ -1039,6 +1042,9 @@ importers:
       '@magna-carta/merge-field-catalog-contract':
         specifier: workspace:*
         version: link:../../packages/merge-field-catalog-contract
+      '@magna-carta/metadata':
+        specifier: workspace:*
+        version: link:../../packages/metadata
       '@magna-carta/mls':
         specifier: workspace:*
         version: link:../../packages/mls
@@ -1051,6 +1057,9 @@ importers:
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
+      '@magna-carta/pdf-compose':
+        specifier: workspace:*
+        version: link:../../packages/pdf-compose
       '@magna-carta/product-updates':
         specifier: workspace:*
         version: link:../../packages/product-updates
@@ -1982,6 +1991,10 @@ importers:
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(happy-dom@21.0.4)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/email:
+    dependencies:
+      '@magna-carta/pdf-compose':
+        specifier: workspace:*
+        version: link:../pdf-compose
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
