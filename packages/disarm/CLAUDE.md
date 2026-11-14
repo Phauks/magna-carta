@@ -19,8 +19,10 @@ engine and types its answers; every decision is the engine's.
 
 ## Gotchas
 
-- **Load it on demand.** The module is about 10 MB (3.4 MB compressed). A screen imports it when a
-  person asks for a disarmed copy, never at start.
-- **No deployed bundle imports it yet,** so `rust-wasm-build` does not build it. The first bundle
-  that imports it adds `vp run rust-wasm-build-disarm` to its build, or the deploy fails on a
-  missing `.wasm`.
+- **Load it on demand.** The module is about 10 MB (3.4 MB compressed). A screen imports it
+  dynamically when it is opened, never at start: the File Workbench's Malware Scan tab is the
+  first consumer.
+- **Every build that bundles the SPA must build it.** `apps/web-worker` and
+  `apps/community-worker` run `vp run -w rust-wasm-build-disarm`, and the `rust-wasm-build`
+  composite includes it. A new bundle that imports it needs the same line, or the deploy fails on
+  a missing `.wasm`.

@@ -25,8 +25,8 @@ scope.addEventListener("message", (event) => {
         kind: "failed",
         reason:
           error instanceof Error
-            ? `The PDF could not be made: ${error.message}`
-            : "The PDF could not be made.",
+            ? `Couldn't make the PDF: ${error.message}`
+            : "Couldn't make the PDF.",
       });
     }
   })();

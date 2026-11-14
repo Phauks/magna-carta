@@ -96,7 +96,7 @@
     const detail = await readDirectoryEntity(fetch, entityId);
     opening = null;
     if (detail.kind !== "ok") {
-      openFailure = stated(detail.failure, "That record could not be opened.");
+      openFailure = stated(detail.failure, "Couldn't open that record.");
       return;
     }
     openFailure = null;
@@ -141,8 +141,8 @@
         candidates = [];
         readFailure = stated(
           outcome.failure,
-          "The firm's record could not be searched for near matches.",
-          "The firm's record was not searched for near matches.",
+          "Couldn't search for near matches.",
+          "Near matches weren't searched.",
         );
         return;
       }
@@ -175,7 +175,7 @@
   {#if openFailure !== null}
     <FailureNotice
       failure={openFailure.failure}
-      title="That Record Could Not Be Opened"
+      title="Couldn't Open That Record"
       fallback={openFailure.fallback}
       whenSilent={openFailure.whenSilent}
     />
@@ -193,7 +193,7 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure.failure}
-          title="The Near Matches Could Not Be Read"
+          title="Couldn't Load Near Matches"
           fallback={readFailure.fallback}
           whenSilent={readFailure.whenSilent}
           onRetry={lookAgain}
@@ -212,7 +212,7 @@
 {#snippet candidateTable(rows: readonly DuplicateCandidate[])}
   <DataTable.Root>
     <DataTable.Caption class="sr-only">
-      Records the firm may already hold for the same entity
+      Records that may be the same person or organization
     </DataTable.Caption>
     <DataTable.Header>
       <DataTable.Row>
@@ -241,7 +241,7 @@
           <DataTable.Cell>
             <Badge
               variant="warning"
-              title="The three channels are how the name sounds, how it is spelled, and an exact match on a sealed identifier."
+              title="Matches are found by sound, spelling, and exact identifiers."
             >
               {candidate.signalCount} of 3 channels agreed
             </Badge>

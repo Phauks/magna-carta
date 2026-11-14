@@ -296,11 +296,10 @@ export default defineConfig({
       //
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
       // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
-      // often) needs pdf-core, segmentation-core, noise-suppression-core, mls-core, email-core and
-      // pdf-compose-core alone, and its build script asks for exactly those. The composite below is
-      // still what the app-worker deploy asks for, and it is a chain of nested `vp run`s so each
-      // crate keeps its own cache entry rather than one
-      // all-or-nothing entry.
+      // often) needs pdf-core, segmentation-core, noise-suppression-core, mls-core, email-core,
+      // pdf-compose-core and disarm-core alone, and its build script asks for exactly those. The
+      // composite below is still what the app-worker deploy asks for, and it is a chain of nested
+      // `vp run`s so each crate keeps its own cache entry rather than one all-or-nothing entry.
       "rust-wasm-build": {
         command: [
           "vp run rust-wasm-build-pdf",
@@ -311,6 +310,7 @@ export default defineConfig({
           "vp run rust-wasm-build-noise-suppression",
           "vp run rust-wasm-build-mls",
           "vp run rust-wasm-build-pdf-compose",
+          "vp run rust-wasm-build-disarm",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -325,8 +325,8 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
       },
-      // Content disarm. No deployed bundle imports it yet, so the composite above does not build it;
-      // the build that first imports @magna-carta/disarm adds it there.
+      // Content disarm: the SPA's File Workbench loads it in the Malware Scan tab, so both the
+      // composite above and the interface Worker's own build ask for it.
       "rust-wasm-build-disarm": {
         command:
           "docker build --network=host --output type=local,dest=packages/disarm/src/pkg -f crates/disarm-core/wasm.Dockerfile crates",

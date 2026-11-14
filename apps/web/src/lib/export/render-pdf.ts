@@ -102,7 +102,7 @@ export function renderPdfExport(exportDocument: TabularExportDocument): Promise<
     });
     worker.addEventListener("error", () => {
       worker.terminate();
-      reject(new PdfComposeError("The PDF could not be made on this device. Try again."));
+      reject(new PdfComposeError("Couldn't make the PDF on this device. Try again."));
     });
     worker.postMessage(composeRequest);
   });
