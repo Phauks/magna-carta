@@ -2,9 +2,10 @@
   /*
    * THE RUN SCREEN — one report, over one scope, rendered from its declaration.
    *
-   * Nothing here knows what a report is. The declaration says which controls to draw (a period on
-   * every report, a knowledge instant on a bitemporal one, a trust account where the report is
-   * about one), the read fires through the declaration's port when
+   * Nothing here knows what a report is. The declaration says which controls to draw (a span, a
+   * single date or no period at all, a knowledge instant on a bitemporal report, a trust account
+   * where the report is about one, an office where the rows can be narrowed to one), the read
+   * fires through the declaration's port when
    * the scope is complete, and the answer arrives as titled sections the screen draws as tables
    * and the export menu renders as a file. Adding a report never touches this file.
    *
@@ -21,19 +22,22 @@
    * they already chose. The read fires when the scope is complete, and the result region is
    * furniture: it renders at rest with the report's own sections over sample words, so the answer
    * fills a shape the reader already has.
+   *
+   * TOTALS FIRST, THEN TABLES. A presentation that carries a summary opens with its row of totals
+   * and states its stamp as one line under them; the trust-compliance pack, which has none, keeps
+   * its stamp panel.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Select from "@magna-carta/design-system/select";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
+  import Badge from "@magna-carta/design-system/badge";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import FieldLabel from "@magna-carta/design-system/field-label";
   import { LabelledField } from "@magna-carta/design-system/labelled-field";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import { formatDate, placeholderOf } from "@magna-carta/design-system/formatters";
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { parseDate } from "@internationalized/date";
   import Calendar from "@lucide/svelte/icons/calendar";
@@ -46,12 +50,11 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ExportMenu from "$lib/export/export-menu.svelte";
   import { readSession } from "$lib/matters/matters-api.ts";
+  import { listOffices, type OfficeSummary } from "$lib/offices/offices-api.ts";
+  import ReportSectionTable from "$lib/reports/report-section-table.svelte";
+  import ReportSummary from "$lib/reports/report-summary.svelte";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
-  import {
-    reportExportDocument,
-    type ReportPresentation,
-    type ReportSection,
-  } from "$lib/reports/report-presentation.ts";
+  import { reportExportDocument, type ReportPresentation } from "$lib/reports/report-presentation.ts";
   import { isBuiltReport, type ReportDeclaration } from "$lib/reports/report-registry.ts";
   import {
     DEFAULT_KNOWLEDGE_ZONE,
@@ -170,12 +173,50 @@
 
   // ---- the scope: what is asked for --------------------------------------------------------------
 
-  const defaultPeriod = $derived(reportPeriodPreset("month", today));
+  /** A report taken at one date defaults to today; a report over a span, to this month. */
+  const defaultPeriod = $derived(
+    built?.scope.period === "date"
+      ? { from: today, to: today, label: formatDate(today) }
+      : reportPeriodPreset("month", today),
+  );
   const scope = $derived(readReportScope(page.url.searchParams, defaultPeriod));
 
   function goToScope(next: ReportScope): void {
     replaceState(writeReportScope(page.url, next), page.state);
   }
+
+  // ---- the office: a filter, never a gate --------------------------------------------------------
+
+  let offices = $state<readonly OfficeSummary[] | null>(null);
+  let officesRead = false;
+  $effect(() => {
+    if (built?.scope.office !== true || officesRead) return;
+    officesRead = true;
+    void (async () => {
+      const outcome = await listOffices(fetch);
+      // An office list that cannot be read leaves the report firm-wide, which is what it reads
+      // without a choice anyway: the picker is a narrowing, not a door.
+      offices = outcome.kind === "ok" ? outcome.value.data : [];
+    })();
+  });
+
+  const ALL_OFFICES = "all";
+  const officeChoices = $derived([
+    { value: ALL_OFFICES, label: "All offices" },
+    ...(offices ?? [])
+      .map((office) => ({ value: office.id, label: office.name }))
+      .toSorted((left, right) => left.label.localeCompare(right.label)),
+  ]);
+
+  function chooseOffice(next: string): void {
+    goToScope({ ...scope, office: next === ALL_OFFICES ? null : next });
+  }
+
+  const officeName = $derived(
+    scope.office === null
+      ? "All offices"
+      : (offices?.find((office) => office.id === scope.office)?.name ?? "One office"),
+  );
 
   /*
    * A different account may keep a different clock. The day the reader chose is what survives
@@ -197,6 +238,11 @@
 
   function applyPeriod(period: ReportPeriod): void {
     goToScope({ ...scope, period });
+  }
+
+  /** The one date a report is taken at: the period becomes that single day. */
+  function applyAsOfDate(isoDate: string): void {
+    applyPeriod({ from: isoDate, to: isoDate, label: formatDate(isoDate) });
   }
 
   let customRangeRefusal = $state<string | null>(null);
@@ -254,6 +300,7 @@
       : [
           report.id,
           scope.subject ?? "",
+          scope.office ?? "all-offices",
           scope.period.from,
           scope.period.to,
           scope.knownAsOf ?? "live",
@@ -300,12 +347,25 @@
   const samplePresentation = $derived(built === null ? null : built.fixture(captions));
 
   const scopeLine = $derived.by(() => {
+    if (built !== null && built.scope.period !== "span") {
+      // A report at one date, or as things stand now: the office, the date, then the knowledge.
+      const when =
+        built.scope.period === "date" ? `as of ${formatDate(scope.period.to)}` : "as it stands now";
+      const known =
+        report.temporal === "live-only"
+          ? null
+          : scope.knownAsOf === null
+            ? "known now"
+            : `as known at the end of ${formatDate(knowledgeDateOf(scope.knownAsOf, subjectZone))}`;
+      return [officeName, when, known].filter((part) => part !== null).join(" · ");
+    }
     const subjectName =
       presentation?.subtitle ??
       accountChoices.find((choice) => choice.value === scope.subject)?.label ??
       null;
     const reading = scopeReading(scope, subjectZone);
-    return subjectName === null ? reading : `${subjectName} · ${reading}`;
+    const prefix = built?.scope.office === true ? officeName : subjectName;
+    return prefix === null ? reading : `${prefix} · ${reading}`;
   });
 </script>
 
@@ -359,6 +419,18 @@
       </LabelledField>
     {/if}
 
+    {#if built !== null && built.scope.period === "date"}
+      <div class="flex flex-col">
+        <DatePicker
+          label="As Of"
+          value={parseDate(scope.period.to)}
+          maxValue={parseDate(today)}
+          onValueChange={(next) => {
+            if (next !== undefined) applyAsOfDate(next.toString());
+          }}
+        />
+      </div>
+    {:else if built === null || built.scope.period === "span"}
     <LabelledField label="Period">
       {#snippet children({ props })}
         <Popover.Root>
@@ -405,6 +477,7 @@
         </Popover.Root>
       {/snippet}
     </LabelledField>
+    {/if}
 
     {#if report.temporal === "bitemporal"}
       <LabelledField label="As Known">
@@ -444,6 +517,29 @@
       {/if}
     {/if}
 
+    {#if built !== null && built.scope.office}
+      <LabelledField label="Office">
+        {#snippet children({ props })}
+          <Select.Root
+            type="single"
+            items={officeChoices}
+            value={scope.office ?? ALL_OFFICES}
+            onValueChange={chooseOffice}
+            allowDeselect={false}
+            disabled={offices === null}
+          >
+            <Select.Trigger {...props} class="w-3xs">
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Content>
+              {#each officeChoices as choice (choice.value)}
+                <Select.Item value={choice.value} label={choice.label} />
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        {/snippet}
+      </LabelledField>
+    {/if}
   </div>
 
   {#if !isBuiltReport(report)}
@@ -497,10 +593,6 @@
         {/if}
       {/snippet}
       {#snippet emptyState()}
-        <!-- structured-empty-allow: nothing has been ASKED yet, which is not an empty answer. The
-             report's sections and their columns come back with the response, so until the scope is
-             complete there is no header row to draw — an invented one would promise a shape the
-             chosen report may not take. -->
         <EmptyState title="Choose a Trust Account">
           {scopeGap ?? "Nothing has been asked for yet."} The report runs as soon as the scope is
           complete.
@@ -508,71 +600,35 @@
       {/snippet}
       {#snippet fixture()}
         {#if samplePresentation !== null}
-          {@render stamp(samplePresentation)}
-          {#each samplePresentation.sections as section (section.id)}
-            {@render sectionTable(section)}
-          {/each}
+          {@render answer(samplePresentation)}
         {/if}
       {/snippet}
 
       {#if presentation !== null}
-        {@render stamp(presentation)}
-        {#each presentation.sections as section (section.id)}
-          {@render sectionTable(section)}
-        {/each}
+        {@render answer(presentation)}
       {/if}
     </LoadingRegion>
   {/if}
 </div>
 
-<!-- The response's own sentence about its reproducibility, on the face of the report. -->
-{#snippet stamp(shown: ReportPresentation)}
-  <Alert.Root variant={shown.reproducible ? "info" : "warning"}>
-    <Alert.Title>{shown.reproducible ? "Reproducible" : "Live"}</Alert.Title>
-    <Alert.Description>{shown.stamp}</Alert.Description>
-  </Alert.Root>
-{/snippet}
-
-<!-- One section as a table: the recipe's own head over the presenter's rows, figures against the
-     right edge, and one placeholder row when the section has nothing in it. -->
-{#snippet sectionTable(section: ReportSection)}
-  {@const endAligned = new Set(section.endAlignedColumns ?? [])}
-  <section class="flex flex-col gap-8">
-    <FieldLabel as="h2" class="border-b border-border-strong pb-8">{section.title}</FieldLabel>
-    {#if section.note !== undefined}
-      <p class="text-xs text-text-muted">{section.note}</p>
-    {/if}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">{section.title}</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          {#each section.headers as header, columnIndex (columnIndex)}
-            <DataTable.Head data-align={endAligned.has(columnIndex) ? "end" : undefined}>
-              {header}
-            </DataTable.Head>
-          {/each}
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each section.rows as row, rowIndex (rowIndex)}
-          <DataTable.Row>
-            {#each row as cell, columnIndex (columnIndex)}
-              <DataTable.Cell
-                data-align={endAligned.has(columnIndex) ? "end" : undefined}
-                class={endAligned.has(columnIndex) ? "tabular-nums" : undefined}
-              >
-                {typeof cell === "string" ? cell : cell.text}
-              </DataTable.Cell>
-            {/each}
-          </DataTable.Row>
-        {:else}
-          <DataTable.Row data-placeholder="true">
-            <DataTable.Cell colspan={section.headers.length}>
-              <span class="text-text-muted">{section.whenEmpty}</span>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
-  </section>
+<!-- The answer: the totals where the report has them, the response's own sentence about its
+     reproducibility, then every section. -->
+{#snippet answer(shown: ReportPresentation)}
+  {#if shown.summary !== undefined}
+    <ReportSummary tiles={shown.summary} />
+    <p class="flex items-start gap-8 text-xs text-text-muted">
+      <Badge variant={shown.reproducible ? "info" : "neutral"} class="shrink-0">
+        {shown.reproducible ? "Reproducible" : "Live"}
+      </Badge>
+      <span>{shown.stamp}</span>
+    </p>
+  {:else}
+    <Alert.Root variant={shown.reproducible ? "info" : "warning"}>
+      <Alert.Title>{shown.reproducible ? "Reproducible" : "Live"}</Alert.Title>
+      <Alert.Description>{shown.stamp}</Alert.Description>
+    </Alert.Root>
+  {/if}
+  {#each shown.sections as section (section.id)}
+    <ReportSectionTable {section} />
+  {/each}
 {/snippet}
