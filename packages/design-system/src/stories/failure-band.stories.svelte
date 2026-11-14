@@ -144,3 +144,57 @@
     <FailureBand {...args} />
   {/snippet}
 </Story>
+
+<!-- A server fault, summary-led: the area, the action and the kind of failure on one line, the
+     facts behind Show details, and Copy details beside the remedy. The shape the app uses for every
+     failed call. -->
+<Story
+  name="Summary"
+  args={{
+    variant: "danger",
+    title: "The room could not be joined",
+    message: "Something went wrong on our side. Nothing was changed.",
+    errorId: null,
+    summary: ["Meetings", "Join meeting", "Server fault: TypeError"],
+    rows: [
+      { label: "Request", value: "POST /meetings/meeting_0K2/join", mono: true },
+      { label: "Answer", value: "500 Internal server error" },
+      {
+        label: "Cause",
+        value: "TypeError: Cannot read properties of undefined (reading 'sessionId')",
+        mono: true,
+      },
+      { label: "Error ID", value: "error_0mwfnax8napiSlVeIBqj4", mono: true },
+    ],
+    trace: "Magna Carta — error report\narea: Meetings\nerror id: error_0mwfnax8napiSlVeIBqj4",
+  }}
+  play={async ({ canvas, step }) => {
+    await step("The summary names the failure without opening anything", async () => {
+      await expect(canvas.getByRole("list", { name: "What failed" })).toHaveTextContent(
+        "Server fault: TypeError",
+      );
+      await expect(canvas.queryByText("error_0mwfnax8napiSlVeIBqj4")).toBeNull();
+    });
+    await step("Show details opens the facts, the Error ID among them", async () => {
+      const toggle = canvas.getByRole("button", { name: "Show details" });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await userEvent.click(toggle);
+      await expect(canvas.getByText("error_0mwfnax8napiSlVeIBqj4")).toBeVisible();
+      await expect(canvas.getByRole("button", { name: "Hide details" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+    await step("Copy details is there either way", async () => {
+      await expect(canvas.getByRole("button", { name: "Copy details" })).toBeVisible();
+    });
+  }}
+>
+  {#snippet template(args: FailureBandStoryArgs)}
+    <FailureBand {...args}>
+      {#snippet actions()}
+        <Button variant="secondary" size="sm">Retry</Button>
+      {/snippet}
+    </FailureBand>
+  {/snippet}
+</Story>

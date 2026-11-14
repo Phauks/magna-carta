@@ -179,14 +179,10 @@ export function partyText(hit: HitDetail): string {
 /** What the Party cell's hover says, where the cell could not name anybody. */
 export function partyCellTitle(hit: HitDetail): string | undefined {
   if (hit.party === null) {
-    return (
-      `This check surfaced ${hit.entityId}, which the Directory no longer resolves — most often ` +
-      "because the record was merged into another after the check ran. The conflicts log is " +
-      "append-only, so the hit still names the entity it matched."
-    );
+    return `This check found ${hit.entityId}, which is no longer in the Directory, usually because the record was merged after the check ran. The result still names what it matched.`;
   }
   if (hit.party.displayName === null) {
-    return `The Directory holds ${hit.entityId} and it carries no name.`;
+    return `The Directory record ${hit.entityId} has no name.`;
   }
   return undefined;
 }

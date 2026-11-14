@@ -167,6 +167,9 @@
       "path": "packages/fixtures/tsconfig.test.json"
     },
     {
+      "path": "packages/google-calendar/tsconfig.test.json"
+    },
+    {
       "path": "packages/government-links/tsconfig.test.json"
     },
     {

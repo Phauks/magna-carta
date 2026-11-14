@@ -171,12 +171,24 @@ describe("where a provider is told to send notices", () => {
   const identity = { firmId: "firm_1", connectionId: "connection_1", memberUserId: "user_1" };
   it("is this deployment's stated public address, and nothing when it has none", () => {
     expect(
-      watchAddressFor({ APP_BASE_URL: "https://magnacarta.example/" }, identity as never),
+      watchAddressFor(
+        { APP_BASE_URL: "https://magnacarta.example/" },
+        identity as never,
+        "microsoft",
+      ),
     ).toBe(ADDRESS);
-    expect(watchAddressFor({}, identity as never)).toBeUndefined();
+    expect(watchAddressFor({}, identity as never, "microsoft")).toBeUndefined();
     expect(
-      watchAddressFor({ APP_BASE_URL: "http://localhost:8787" }, identity as never),
+      watchAddressFor({ APP_BASE_URL: "http://localhost:8787" }, identity as never, "microsoft"),
     ).toBeUndefined();
+  });
+
+  it("is an address of the account's own provider, because each provider's notice is a different shape", () => {
+    expect(
+      watchAddressFor({ APP_BASE_URL: "https://magnacarta.example" }, identity as never, "google"),
+    ).toBe(
+      "https://magnacarta.example/api/v1/calendar-sync/provider-notices/google/firm_1/connection_1",
+    );
   });
 });
 

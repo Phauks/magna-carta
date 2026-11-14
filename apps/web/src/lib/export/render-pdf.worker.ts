@@ -6,18 +6,23 @@
  * A failure crosses back as the engine's own message, which never quotes the document's content (the
  * composer's error contract), so it can be shown to the reader as it stands.
  */
-import { composeDocument, type ComposeDocument } from "@magna-carta/pdf-compose";
+import { composeReadable, housePictures, type HouseDocument } from "@magna-carta/house-document";
+import { composeDocument } from "@magna-carta/pdf-compose";
 import type { PdfComposeReply } from "./render-pdf.ts";
 
 const scope = self as unknown as {
   postMessage(message: PdfComposeReply, transfer?: Transferable[]): void;
-  addEventListener(type: "message", listener: (event: MessageEvent<ComposeDocument>) => void): void;
+  addEventListener(type: "message", listener: (event: MessageEvent<HouseDocument>) => void): void;
 };
 
 scope.addEventListener("message", (event) => {
   void (async () => {
     try {
-      const composed = await composeDocument(event.data);
+      // Set again in Liberation Sans when a name is in a script the house typeface cannot draw.
+      const pictures = housePictures();
+      const composed = await composeReadable((typeface) =>
+        composeDocument({ ...event.data, ...(typeface ? { typeface } : {}) }, pictures),
+      );
       const pdf = composed.pdf.slice().buffer;
       scope.postMessage({ kind: "done", pdf }, [pdf]);
     } catch (error) {

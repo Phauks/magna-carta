@@ -7,7 +7,6 @@ import {
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { FirmId, IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import { fetchHttpClient, type HttpClient } from "@magna-carta/integrations/http";
-import { MICROSOFT_CALENDAR_ADAPTER_ID } from "@magna-carta/microsoft-graph/calendar-sync";
 import type { Bindings } from "../bindings.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
@@ -16,10 +15,10 @@ import {
   type CredentialStoreForFirm,
 } from "../plugins/credential-store.ts";
 import { providerEditApplier } from "./apply-provider-edit.ts";
+import { NO_REQUEST_ORIGIN, resolveApplicationOfAdapter } from "./calendar-providers.ts";
 import { keepWatch, newWatchSecret, watchAddressFor, type WatchState } from "./change-watch.ts";
 import { openMemberCalendarPort } from "./member-calendars.ts";
 import { memberCalendarCredentialStore } from "./member-credential-store.ts";
-import { resolveMicrosoftApplication } from "./microsoft-application.ts";
 import { runOutboundPass, type OutboundPassReport } from "./outbound-pass.ts";
 import { requestCalendarSync } from "./request-sync.ts";
 import { readShownCalendars } from "./shown-calendars.ts";
@@ -44,8 +43,8 @@ export type ConnectionPassOutcome =
   // The provider refused the sign-in. The connection is marked, so the member is told on their
   // Connected Accounts page, and nothing runs until they sign in again.
   | { readonly kind: "sign-in-again" }
-  // This deployment has no Microsoft application, or the account is not in a state to be written
-  // to. Nothing to do and nothing to retry.
+  // This deployment is not registered with the account's provider, or the account is not in a
+  // state to be written to. Nothing to do and nothing to retry.
   | { readonly kind: "dormant" }
   // The connection no longer exists: the member disconnected.
   | { readonly kind: "gone" };
@@ -64,10 +63,6 @@ interface ConnectionRow {
   readonly status: string;
 }
 
-// A refresh never sends the redirect address, so a pass with no request to read an origin from
-// still needs only the application's own identifiers. The placeholder is never sent anywhere.
-const NO_REQUEST_ORIGIN = "https://no-request.invalid";
-
 export async function runConnectionPass(
   env: Bindings,
   identity: ConnectionIdentity,
@@ -75,9 +70,6 @@ export async function runConnectionPass(
   // The watch the account remembers from its last pass.
   watch: WatchState | null = null,
 ): Promise<ConnectionPassOutcome> {
-  const application = resolveMicrosoftApplication(env, NO_REQUEST_ORIGIN);
-  if (application === undefined) return { kind: "dormant" };
-
   const now = overrides.now ?? (() => new Date());
   const http = overrides.http ?? fetchHttpClient();
   const database = firmDatabaseFor(env.FIRM_DATABASE, identity.firmId);
@@ -89,12 +81,9 @@ export async function runConnectionPass(
   // A member who disconnected and connected again holds a new connection with a new object of its
   // own; this one's account is gone.
   if (connection === null || connection.id !== identity.connectionId) return { kind: "gone" };
-  if (
-    connection.status !== "connected" ||
-    connection.adapter_id !== MICROSOFT_CALENDAR_ADAPTER_ID
-  ) {
-    return { kind: "dormant" };
-  }
+  if (connection.status !== "connected") return { kind: "dormant" };
+  const application = resolveApplicationOfAdapter(env, NO_REQUEST_ORIGIN, connection.adapter_id);
+  if (application === undefined) return { kind: "dormant" };
 
   const markSignInAgain = async (): Promise<ConnectionPassOutcome> => {
     await updateConnectionStatusStatement(
@@ -158,6 +147,7 @@ export async function runConnectionPass(
     applyProviderEdit: providerEditApplier({
       database,
       memberUserId: identity.memberUserId,
+      provider: application.provider,
       now,
     }),
     // An edit carried back changes an event other members may have copies of. Asking is all that
@@ -181,7 +171,7 @@ export async function runConnectionPass(
     watch: await keepWatch({
       port: opened.port,
       current: watch,
-      address: watchAddressFor(env, identity),
+      address: watchAddressFor(env, identity, application.provider),
       now,
       newSecret: overrides.newWatchSecret ?? newWatchSecret,
     }),

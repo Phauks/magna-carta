@@ -1,6 +1,6 @@
 /*
  * The copies a member changed in their own calendar, as the Calendar Sync page states them: one
- * row per copy, with what Magna Carta sent and what Outlook holds now side by side. Pure, so the
+ * row per copy, with what Magna Carta sent and what their own calendar holds now side by side. Pure, so the
  * wording of a difference is tested without a page.
  *
  * BOTH SIDES ARE READ IN THE EVENT'S OWN ZONE. A hearing recorded in the court's zone is compared
@@ -39,10 +39,13 @@ export function whenText(reading: CalendarSyncCopyReading): string {
   return `${formatDate(reading.startsOn)}, ${start} to ${formatDate(reading.endsOn)}, ${end ?? start}`;
 }
 
-/** What Outlook holds now, naming only what differs from what was sent. */
-export function foundText(issue: CalendarSyncIssue): string {
-  if (issue.kind === "not_sent") return "Not sent. Outlook would not take this event.";
-  if (issue.found === null) return "Deleted in Outlook";
+/**
+ * What the member's own calendar holds now, naming only what differs from what was sent.
+ * `product` is that calendar as the member calls it.
+ */
+export function foundText(issue: CalendarSyncIssue, product = "Outlook"): string {
+  if (issue.kind === "not_sent") return `Not sent. ${product} would not take this event.`;
+  if (issue.found === null) return `Deleted in ${product}`;
   const differences: string[] = [];
   if (issue.found.title !== issue.sent.title) differences.push(`Titled "${issue.found.title}"`);
   if (whenText(issue.found) !== whenText(issue.sent)) differences.push(whenText(issue.found));
@@ -54,11 +57,11 @@ export function foundText(issue: CalendarSyncIssue): string {
   return differences.join(" · ");
 }
 
-export function syncIssueColumns(): GridColumn<CalendarSyncIssue>[] {
+export function syncIssueColumns(product = "Outlook"): GridColumn<CalendarSyncIssue>[] {
   return [
     { id: "title", label: "Event", anchored: true, value: (issue) => issue.sent.title },
     { id: "sent", label: "In Magna Carta", value: (issue) => whenText(issue.sent) },
-    { id: "found", label: "In Outlook", value: foundText },
+    { id: "found", label: `In ${product}`, value: (issue) => foundText(issue, product) },
     actionsColumn<CalendarSyncIssue>(),
   ];
 }

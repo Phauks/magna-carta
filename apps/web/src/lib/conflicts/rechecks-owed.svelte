@@ -41,7 +41,7 @@
   <EventRail
     {events}
     label="Re-checks this matter is owed"
-    emptyMessage="Nothing has changed in the firm's records since the last check that would change its answer."
+    emptyMessage="Nothing in the firm's records has changed since the last check that would change its result."
   />
   <DefinitionList.Root>
     <DefinitionList.Row term="Scheduled Re-screening">

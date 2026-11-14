@@ -38,6 +38,10 @@ export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: nu
   // nothing to earn. Thirty a minute is a member working down a five-hundred-question queue at
   // reading pace twice over, and a small fraction of what a loop sends.
   "meeting-question-upvote": { limit: 30, windowSeconds: 60 },
+  // The app recording a crash in the browser. Keyed by the MEMBER: a screen that crashes on every
+  // render is one person's loop and must not spend the firm's budget. Twenty in five minutes is more
+  // distinct crashes than anyone meets and stops a render loop from becoming a write loop.
+  "client-error": { limit: 20, windowSeconds: 300 },
   // A calendar provider telling this deployment that members' calendars changed. Keyed by the
   // caller's address, and the caller is a handful of the provider's own servers carrying every
   // connected member's notices between them, so the default budget would refuse real notices on
@@ -58,6 +62,7 @@ export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: nu
  */
 export const MEMBER_SCOPED_BUCKETS: ReadonlySet<RateLimitBucket> = new Set([
   "meeting-question-upvote",
+  "client-error",
 ]);
 
 // Definition-time guard: the deny branch reads the oldest in-window timestamp assuming a full

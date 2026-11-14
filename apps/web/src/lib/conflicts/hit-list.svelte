@@ -84,7 +84,7 @@
     <MaturityBadge stage="soon" />
   </div>
 
-  <DataTable.Grid {grid} caption="What this check surfaced" cell={hitCell} {loading}>
+  <DataTable.Grid {grid} caption="What this check found" cell={hitCell} {loading}>
   </DataTable.Grid>
 
   <DataTable.GridFooter {grid} />

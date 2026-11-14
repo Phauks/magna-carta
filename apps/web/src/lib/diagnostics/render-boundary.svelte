@@ -24,6 +24,7 @@
   import FailureScreen from "./failure-screen.svelte";
   import ReportDialog from "./report-dialog.svelte";
   import { CRASH_MESSAGE, crashSignature, noteCrash, PAGE_CRASH_STEPS } from "./crash.ts";
+  import { recordCrash } from "./crash-record.ts";
   import { routeFailure } from "./route-failure.ts";
 
   let { children }: { children: Snippet } = $props();
@@ -58,6 +59,7 @@
 <svelte:boundary
   onerror={(error) => {
     errorId = noteCrash(error, page.url.pathname);
+    recordCrash(errorId, error, page.route.id ?? page.url.pathname);
     cause = crashSignature(error);
   }}
 >

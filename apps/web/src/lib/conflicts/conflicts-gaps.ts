@@ -26,7 +26,7 @@ export interface ConflictsGap {
 export const CONFLICTS_GAPS = {
   reportDocument: {
     field: "Assembled Report",
-    waitsOn: "the conflicts report being assembled as a filed document rather than a printed sheet",
+    waitsOn: "conflicts reports as saved documents",
   },
 } as const satisfies Readonly<Record<string, ConflictsGap>>;
 
@@ -41,7 +41,7 @@ export type ConflictsGapName = keyof typeof CONFLICTS_GAPS;
  */
 export function gapCellTitle(name: ConflictsGapName): string {
   const gap = CONFLICTS_GAPS[name];
-  return `${gap.field} is not served yet. Waiting on ${gap.waitsOn}.`;
+  return `Not built yet: ${gap.waitsOn}.`;
 }
 
 /** What a control waits on, as the noun phrase the Soon affordance takes. */
