@@ -605,6 +605,29 @@ describe("GET /api/v1/reports/matter-productivity", () => {
   });
 });
 
+describe("GET /api/v1/reports/task-workload", () => {
+  const url = "https://example.com/api/v1/reports/task-workload";
+
+  it("answers the Owner with each member's open tasks, live, adding up to the whole", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { openCount: number };
+      people: { openCount: number }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.people.reduce((sum, person) => sum + person.openCount, 0)).toBe(
+      report.totals.openCount,
+    );
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/operational-volumes", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/operational-volumes?${query}`;
 

@@ -8584,6 +8584,96 @@
           "costs"
         ]
       },
+      "TaskWorkloadReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "openCount": {
+                "type": "integer"
+              },
+              "overdueCount": {
+                "type": "integer"
+              },
+              "undatedCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "openCount",
+              "overdueCount",
+              "undatedCount"
+            ]
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "assigneeUserId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "assigneeName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "openCount": {
+                  "type": "integer"
+                },
+                "overdueCount": {
+                  "type": "integer"
+                },
+                "undatedCount": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "assigneeUserId",
+                "assigneeName",
+                "openCount",
+                "overdueCount",
+                "undatedCount"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "reproducible",
+          "statement",
+          "locationId",
+          "completeness",
+          "totals",
+          "people"
+        ]
+      },
       "InvoicesReport": {
         "type": "object",
         "properties": {
@@ -62882,6 +62972,101 @@
           },
           "422": {
             "description": "The period is not two calendar dates or ends before it starts, or the knowledge instant is not a UTC instant or is in the future",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/task-workload": {
+      "get": {
+        "description": "Open tasks per member, how many of them are past due and how many have no due date, with the open tasks nobody is assigned to on a row of their own. Counts only: no task's title or words. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Choosing an office counts only tasks on that office's matters.",
+        "operationId": "reports.taskWorkload",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.taskWorkload",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:productivity",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Each member's open tasks now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskWorkloadReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:productivity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -23,10 +23,10 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Fourteen reports run today: the trust compliance report, accounts receivable aging, work in
+Fifteen reports run today: the trust compliance report, accounts receivable aging, work in
 progress, aged work in progress, realization, invoices, payments applied, matter balances,
-timekeeper productivity, daily time, matter productivity, operational volumes, the matters list,
-and the client list.
+timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
+the matters list, and the client list.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
@@ -58,6 +58,11 @@ and the client list.
   choose, billable and non-billable, the matters with the most time first. Open a matter to see who
   recorded the time on it. It adds up to the same totals as Timekeeper Productivity. Hours only,
   never money.
+- **Tasks by Person** counts each person's open tasks right now, how many of them are overdue, and
+  how many have no due date. Open tasks nobody is assigned to have a row of their own. A task is
+  overdue once its due time has passed in its own time zone; one due today is not overdue until the
+  day is out. It shows counts only, never what the tasks say. Choose an office to count only tasks
+  on that office's matters.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count

@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity` and `reports.clientList` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList` and `reports.taskWorkload` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -23,6 +23,7 @@ import {
   reportsOperationalVolumes,
   reportsPaymentsApplied,
   reportsRealization,
+  reportsTaskWorkload,
   reportsTimekeeperProductivity,
   reportsWorkInProgress,
 } from "@magna-carta/api-client";
@@ -391,6 +392,23 @@ export interface MatterProductivity {
   }[];
 }
 
+export interface TaskWorkloadFigures {
+  openCount: number;
+  overdueCount: number;
+  undatedCount: number;
+}
+
+export interface TaskWorkload {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: TaskWorkloadFigures;
+  /** Members by name, then the open tasks nobody is assigned to (assigneeUserId null). */
+  people: (TaskWorkloadFigures & { assigneeUserId: string | null; assigneeName: string | null })[];
+}
+
 export type OperationalSection = "matters" | "billing" | "trust" | "costs";
 
 export interface OperationalVolumes {
@@ -695,6 +713,20 @@ export function readClientList(
 ): Promise<ApiOutcome<ClientList>> {
   return outcome(() =>
     reportsClientList({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** Live only: the counts take no date. */
+export function readTaskWorkload(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<TaskWorkload>> {
+  return outcome(() =>
+    reportsTaskWorkload({
       fetch: fetchImpl,
       throwOnError: true,
       query: { locationId: present(query.locationId) },

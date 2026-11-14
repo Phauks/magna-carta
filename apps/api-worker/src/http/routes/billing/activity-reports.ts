@@ -12,9 +12,12 @@ import {
   ProductivityOfficeRow,
   ProductivityTaskCodeRow,
   ProductivityTimekeeperRow,
+  TaskWorkloadFigures,
+  TaskWorkloadPersonRow,
 } from "@magna-carta/reporting/contract";
 import { assembleOperationalVolumes } from "@magna-carta/reporting/operational/operational-volumes";
 import { assembleTimekeeperProductivity } from "@magna-carta/reporting/productivity/timekeeper-productivity";
+import { assembleTaskWorkload } from "@magna-carta/reporting/productivity/task-workload";
 import { ReportingValidationError } from "@magna-carta/reporting/reporting-validation";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
@@ -173,6 +176,41 @@ const operationalRoute = defineOpenAPIRoute(
   },
 );
 
+// TASKS BY PERSON — open tasks per member, how many are past due and how many have no due date. On
+// `reports:productivity` beside the other reports about people. Counts only: a task's words are
+// work product on a matter and never ride this response. Live, because overdue is a comparison
+// against the moment the report is produced.
+const taskWorkloadQuery = z.object({ locationId: identifierField("location").optional() });
+
+const TaskWorkloadResponse = z
+  .object({
+    computedAt: z.string(),
+    reproducible: z.literal(false),
+    statement: z.string(),
+    locationId: z.string().nullable(),
+    completeness: ReportCompleteness,
+    totals: TaskWorkloadFigures,
+    people: z.array(TaskWorkloadPersonRow),
+  })
+  .openapi("TaskWorkloadReport");
+
+const taskWorkloadMeta: RouteMeta = { ...productivityMeta, operationId: "reports.taskWorkload" };
+
+const taskWorkloadRoute = defineOpenAPIRoute(taskWorkloadMeta, {
+  method: "get",
+  path: "/api/v1/reports/task-workload",
+  description:
+    "Open tasks per member, how many of them are past due and how many have no due date, with the open tasks nobody is assigned to on a row of their own. Counts only: no task's title or words. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Choosing an office counts only tasks on that office's matters.",
+  request: { query: taskWorkloadQuery },
+  responses: {
+    ...productivityRoute.responses,
+    200: {
+      description: "Each member's open tasks now",
+      content: { "application/json": { schema: TaskWorkloadResponse } },
+    },
+  },
+});
+
 type ReportsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerActivityReportsRoutes(app: ReportsApp, chokepoint: Chokepoint): void {
@@ -218,6 +256,26 @@ export function registerActivityReportsRoutes(app: ReportsApp, chokepoint: Choke
           { computedAt },
         );
         return c.json(report as unknown as z.infer<typeof OperationalVolumesResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...taskWorkloadRoute, middleware: chokepointMiddleware(chokepoint, taskWorkloadRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleTaskWorkload(
+          firm.firmDatabase,
+          { locationId: query.locationId ?? null },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof TaskWorkloadResponse>, 200);
       } catch (caught) {
         if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
         throw caught;

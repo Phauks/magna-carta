@@ -180,6 +180,21 @@ export const MatterProductivityRow = z.object({
   timekeepers: z.array(DailyTimeTimekeeperOnDay),
 });
 
+// TASKS BY PERSON. Counts of open tasks, never a task's words.
+export const TaskWorkloadFigures = z.object({
+  openCount: z.number().int(),
+  overdueCount: z.number().int(),
+  undatedCount: z.number().int(),
+});
+
+export const TaskWorkloadPersonRow = z.object({
+  assigneeUserId: z.string().nullable(),
+  assigneeName: z.string().nullable(),
+  openCount: z.number().int(),
+  overdueCount: z.number().int(),
+  undatedCount: z.number().int(),
+});
+
 // OPERATIONAL VOLUMES. Counts only, never money.
 export const OperationalSections = z.enum(["matters", "billing", "trust", "costs"]);
 

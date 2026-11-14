@@ -31,7 +31,8 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   figures moved onto each matter as three columns that are never added to one another
 - `src/productivity/timekeeper-productivity.ts` — minutes recorded, never money, never a target; `src/productivity/daily-time.ts`
   — the same minutes per day and timekeeper, its totals equal to Timekeeper Productivity's (live); `src/productivity/matter-productivity.ts` — the
-  same breakdown per matter with its timekeepers (live)
+  same breakdown per matter with its timekeepers (live); `src/productivity/task-workload.ts` — the
+  tasks package's open, overdue and undated counts per member, never a task's words (live)
 - `src/operational/operational-volumes.ts` — each domain's own counts side by side, the live
   sections named; `src/operational/matters-list.ts` — the matters package's register of opened
   matters, listed as served and counted by office (live); `src/operational/client-list.ts` — the clients of
@@ -90,7 +91,8 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
 
 ## Dependencies & contracts
 
-- Depends on `@magna-carta/directory` (the listing row the Client List prints), `@magna-carta/trust` (the account tree, the three-way proof, the bitemporal select
+- Depends on `@magna-carta/directory` (the listing row the Client List prints), `@magna-carta/tasks`
+  (the workload Tasks by Person counts), `@magna-carta/trust` (the account tree, the three-way proof, the bitemporal select
   builders), `@magna-carta/ledger` (the stored-balance fitness query and the calendar-date check),
   `@magna-carta/data-access` (the `SqlDatabase` shape only), and `@magna-carta/identifiers`.
 - **New SQL over trust or billing tables belongs in THAT package**, inside its schema-name-sync net
