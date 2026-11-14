@@ -295,7 +295,8 @@ export default defineConfig({
       //
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
       // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
-      // often) needs pdf-core, segmentation-core, noise-suppression-core and mls-core alone, and its build script asks for exactly those. The composite below is
+      // often) needs pdf-core, segmentation-core, noise-suppression-core, mls-core, email-core and
+      // pdf-compose-core alone, and its build script asks for exactly those. The composite below is
       // still what the app-worker deploy asks for, and it is a chain of nested `vp run`s so each
       // crate keeps its own cache entry rather than one
       // all-or-nothing entry.
@@ -308,6 +309,7 @@ export default defineConfig({
           "vp run rust-wasm-build-segmentation",
           "vp run rust-wasm-build-noise-suppression",
           "vp run rust-wasm-build-mls",
+          "vp run rust-wasm-build-pdf-compose",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -352,9 +354,9 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/mls/src/pkg -f crates/mls-core/wasm.Dockerfile crates",
       },
-      // The PDF composer. Deliberately NOT in the composite above: only a Worker that imports
-      // @magna-carta/pdf-compose should pay to compile it or be able to fail on it. The sign Worker
-      // does (it composes the Certificate of Completion) and names this task in its own build.
+      // The PDF composer. The sign Worker imports it (it composes the Certificate of Completion), and
+      // so does the SPA (the File Workbench saves an email as a PDF with it), so the composite above
+      // builds it and both the sign Worker's and the interface Worker's builds name it.
       "rust-wasm-build-pdf-compose": {
         command:
           "docker build --network=host --output type=local,dest=packages/pdf-compose/src/pkg -f crates/pdf-compose-core/wasm.Dockerfile crates",
