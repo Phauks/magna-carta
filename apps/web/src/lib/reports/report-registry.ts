@@ -39,24 +39,31 @@ import {
   presentRealization,
   presentWorkInProgress,
 } from "./financial-presenters.ts";
+import { presentInvoices, presentPaymentsApplied } from "./billing-presenters.ts";
 import {
   FINANCIAL_REPORTS_PERMISSION,
   OPERATIONAL_REPORTS_PERMISSION,
   PRODUCTIVITY_REPORTS_PERMISSION,
   readAccountsReceivableAging,
+  readInvoices,
   readOperationalVolumes,
+  readPaymentsApplied,
   readRealization,
   readTimekeeperProductivity,
   readWorkInProgress,
   type AccountsReceivableAging,
+  type Invoices,
   type OperationalVolumes,
+  type PaymentsApplied,
   type Realization,
   type TimekeeperProductivity,
   type WorkInProgress,
 } from "./report-reads.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleInvoices,
   sampleOperationalVolumes,
+  samplePaymentsApplied,
   sampleRealization,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
@@ -296,11 +303,55 @@ const operationalVolumes = built<OperationalVolumes>({
   samplePayload: sampleOperationalVolumes,
 });
 
+const invoices = built<Invoices>({
+  id: "invoices",
+  family: "financial",
+  name: "Invoices",
+  answers:
+    "Every bill issued in a period, per office and client: what was billed, credited, applied and still unpaid at the period's end.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readInvoices(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentInvoices(payload),
+  samplePayload: sampleInvoices,
+});
+
+const paymentsApplied = built<PaymentsApplied>({
+  id: "payments-applied",
+  family: "financial",
+  name: "Payments Applied",
+  answers:
+    "Everything set against a bill in a period: payments, transfers from trust, credits, write-offs and reversals, per office and client.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readPaymentsApplied(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentPaymentsApplied(payload),
+  samplePayload: samplePaymentsApplied,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
   workInProgress,
   realization,
+  invoices,
+  paymentsApplied,
   timekeeperProductivity,
   operationalVolumes,
 ] as const satisfies readonly ReportDeclaration[];
