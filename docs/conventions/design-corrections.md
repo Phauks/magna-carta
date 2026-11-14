@@ -1660,8 +1660,12 @@ The owner, on the person record window:
   last, then prefix and suffix).
 - **"changing names should be easier, data changes should be inline, like addresses."** Edit Name and
   Add Other Name open their fields inside the Names card with Cancel and Save, never a window over
-  the record. Correcting a typing mistake without keeping the old spelling as a former name is not
-  built: names are kept, never overwritten, and dropping that needs the owner's word.
+  the record.
+- **"changing the name should not keep as an old name. assume typo. can be kept in history i
+  guess? but seems weird, like keeping an old email address."** Edit Name is a correction: the
+  mistyped row is retired (soft-deleted, still in the audit log) and is not listed, searched or
+  conflict-checked as a former name. A name the person really held is kept by adding it with Add
+  Other Name.
 - Found while checking at phone width: the section rail and a side column squeezed the form to a
   sliver. Below the medium breakpoint the rail steps aside and a panel's side column stands under
   the form (`ActionDialog`), so nothing scrolls sideways.
