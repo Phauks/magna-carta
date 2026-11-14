@@ -9107,6 +9107,207 @@
           "clients"
         ]
       },
+      "MattersListReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "matterCount": {
+                "type": "integer"
+              },
+              "openCount": {
+                "type": "integer"
+              },
+              "heldCount": {
+                "type": "integer"
+              },
+              "closedCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "matterCount",
+              "openCount",
+              "heldCount",
+              "closedCount"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "counts": {
+                  "type": "object",
+                  "properties": {
+                    "matterCount": {
+                      "type": "integer"
+                    },
+                    "openCount": {
+                      "type": "integer"
+                    },
+                    "heldCount": {
+                      "type": "integer"
+                    },
+                    "closedCount": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "matterCount",
+                    "openCount",
+                    "heldCount",
+                    "closedCount"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "counts"
+              ]
+            }
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTitle": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "hold",
+                    "closed"
+                  ]
+                },
+                "matterTypeName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "responsibleMemberId": {
+                  "type": "string"
+                },
+                "responsibleName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "openedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "closedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "matterId",
+                "matterNumber",
+                "matterTitle",
+                "status",
+                "matterTypeName",
+                "clientEntityId",
+                "clientName",
+                "locationId",
+                "locationName",
+                "responsibleMemberId",
+                "responsibleName",
+                "openedAt",
+                "closedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "reproducible",
+          "statement",
+          "locationId",
+          "completeness",
+          "totals",
+          "offices",
+          "matters"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -61792,6 +61993,101 @@
           },
           "422": {
             "description": "More matters have a balance than one report can list, or a trust account in a currency other than US dollars holds money for a matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/matters-list": {
+      "get": {
+        "description": "Every matter the firm has opened (open, on hold or closed), with its number, client, type, office, responsible attorney and when it opened and closed, and how many are open, on hold and closed per office. Intakes and consultations are not listed. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.mattersList",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.mattersList",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:operational",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm's matters now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MattersListReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:operational",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The firm has more matters than one report can list",
             "content": {
               "application/problem+json": {
                 "schema": {

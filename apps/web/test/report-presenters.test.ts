@@ -14,6 +14,7 @@ import {
   SEVERAL_OFFICES,
 } from "../src/lib/reports/financial-presenters.ts";
 import {
+  presentMattersList,
   presentOperationalVolumes,
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
@@ -21,6 +22,7 @@ import { moneyText } from "../src/lib/reports/report-cells.ts";
 import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
   sampleTimekeeperProductivity,
@@ -120,5 +122,36 @@ describe("the other presenters", () => {
       ["Litigation", { text: "4", number: 4 }, { text: "2", number: 2 }],
     ]);
     expect(matters?.note).toBe(sampleOperationalVolumes().liveSectionsStatement);
+  });
+});
+
+describe("the matters list presenter", () => {
+  const report = sampleMattersList();
+  const presentation = presentMattersList(report);
+
+  it("opens with the payload's counts by status, the whole as the total", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [
+        report.totals.openCount,
+        report.totals.heldCount,
+        report.totals.closedCount,
+        report.totals.matterCount,
+      ].map(String),
+    );
+    expect(tiles[3]?.tone).toBe("total");
+  });
+
+  it("rules the by-office table off with the payload's totals", () => {
+    const offices = presentation.sections.find((section) => section.id === "by-office");
+    expect(offices?.totalRow?.[0]).toBe("Firm total");
+    expect(numberOf(offices?.totalRow?.[4])).toBe(report.totals.matterCount);
+  });
+
+  it("puts every matter on its own row, in the payload's order, with its status in words", () => {
+    const matters = presentation.sections.find((section) => section.id === "matters");
+    expect(matters?.rows).toHaveLength(report.matters.length);
+    expect(matters?.rows.map((row) => row[5])).toEqual(["Open", "On hold", "Closed"]);
+    expect(matters?.rows[0]?.[7]).toBe("-");
   });
 });
