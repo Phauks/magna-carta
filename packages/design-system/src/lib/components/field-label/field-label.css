@@ -1,24 +1,21 @@
 @layer components {
   /*
-   * FieldLabel — the letterspaced small-caps label that names the thing underneath it: a figure in
-   * a details panel, a group in a settings module, a column of facts in a record window.
+   * FieldLabel — the label that names a read-only fact underneath it: a figure in a details panel,
+   * a group in a settings module, a column of facts in a record window.
    *
-   * The register is NOT new. It is the one .mc-masthead-eyebrow (masthead.css) and .mc-eyebrow-link
-   * (eyebrow-link.css) already wear — subtle, xs, semibold, caps-tracked, uppercase — and this
-   * recipe exists so a surface can wear it without retyping it. Retyping it is how the two halves
-   * of one invoice window ended up in two different tones.
-   *
-   * THE TRACKING IS THE PART THAT WAS ALWAYS LOST. Uppercase text needs the air; every recipe in
-   * this package gives it var(--mc-tracking-caps), and every hand-written copy either omitted it or
-   * reached for an inline style to put it back. A recipe cannot be half-applied, which is the point.
+   * IT IS THE FORM LABEL'S VOICE, NOT A SECOND ONE (owner-approved data-entry refresh, 2026-11-13).
+   * It used to be letterspaced small capitals, the masthead eyebrow's register, while the same fact
+   * in an editable form was named by Label in plain text, so a fact looked different the moment it
+   * became editable, and a window of facts read as a wall of shouted captions. Now both are the
+   * small reading size in the medium weight, set in the muted ink so the value under it stays the
+   * strongest thing in the row. Label (label.css) carries the same three values; change them
+   * together.
    */
   .mc-field-label {
-    color: var(--mc-text-subtle);
+    color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-font-size-xs);
-    font-weight: var(--mc-weight-semibold);
-    letter-spacing: var(--mc-tracking-caps);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
     line-height: var(--mc-leading-tight);
-    text-transform: uppercase;
   }
 }

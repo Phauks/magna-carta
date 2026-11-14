@@ -2,9 +2,8 @@
   /*
    * Badge (Tier 1). A small status/label chip — a full-radius PILL, semibold, with a transparent
    * hairline border so `outline` can colour it without shifting layout. Two registers: the solid
-   * action chips (primary/secondary/destructive/outline) and the pale-tint status pills
-   * (neutral/success/warning/danger/info/accent) — a pale same-hue tint + deep same-hue text, the
-   * calm status register for a work surface.
+   * action chips (primary/secondary/destructive/outline) and the status marks
+   * (neutral/success/warning/danger/info/accent), which drop the pill for a dot and a word.
    */
   .mc-badge {
     display: inline-flex;
@@ -23,15 +22,12 @@
     white-space: nowrap;
   }
   /*
-   * The caps register, for a badge that is a LABEL of a standing rather than a count — a matter's
-   * Open/Closed seal, a "View" marker on a settings section. It is the same letterspaced small-caps
-   * voice the masthead eyebrow and the field label wear, and it is here because six call sites were
-   * spelling it out with `class="uppercase"` and an inline letter-spacing style: uppercase without
-   * the tracking is wrong, and the tracking is not expressible as a utility.
+   * The caps register is retired (one label voice, 2026-11-14): a badge that labels a standing reads
+   * in sentence case like every other label. The class stays so the call sites that ask for it keep
+   * compiling; it changes nothing.
    */
   .mc-badge-caps {
-    letter-spacing: var(--mc-tracking-caps);
-    text-transform: uppercase;
+    text-transform: none;
   }
   .mc-badge-primary {
     background-color: var(--mc-action-primary);
@@ -50,29 +46,55 @@
     color: var(--mc-text-default);
     border-color: var(--mc-border-default);
   }
-  /* Pale-tint status pills — a same-hue tint with deep same-hue text (calm, not a saturated block). */
+  /*
+   * Status tones read as a DOT and a word (visual refresh, 2026-11-14): a small disc in the status
+   * hue before plain text, no tinted pill. A column of pills was the loudest thing on a list screen;
+   * a dot keeps the colour cue at a glance and leaves the word in the reading colour, so a table of
+   * matters reads as text with marks rather than a row of buttons.
+   */
+  .mc-badge-neutral,
+  .mc-badge-success,
+  .mc-badge-warning,
+  .mc-badge-danger,
+  .mc-badge-info,
+  .mc-badge-accent {
+    gap: var(--mc-space-4);
+    padding-inline: var(--mc-space-0);
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-medium);
+  }
+  .mc-badge-neutral::before,
+  .mc-badge-success::before,
+  .mc-badge-warning::before,
+  .mc-badge-danger::before,
+  .mc-badge-info::before,
+  .mc-badge-accent::before {
+    content: "";
+    flex: none;
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+  }
   .mc-badge-neutral {
-    background-color: var(--mc-surface-sunken);
     color: var(--mc-text-muted);
   }
-  .mc-badge-success {
-    background-color: var(--mc-status-success-subtle);
-    color: var(--mc-status-success-subtle-foreground);
+  .mc-badge-neutral::before {
+    background-color: var(--mc-text-subtle);
   }
-  .mc-badge-warning {
-    background-color: var(--mc-status-warning-subtle);
-    color: var(--mc-status-warning-subtle-foreground);
+  .mc-badge-success::before {
+    background-color: var(--mc-status-success);
   }
-  .mc-badge-danger {
-    background-color: var(--mc-status-danger-subtle);
-    color: var(--mc-status-danger-subtle-foreground);
+  .mc-badge-warning::before {
+    background-color: var(--mc-status-warning);
   }
-  .mc-badge-info {
-    background-color: var(--mc-status-info-subtle);
-    color: var(--mc-status-info-subtle-foreground);
+  .mc-badge-danger::before {
+    background-color: var(--mc-status-danger);
   }
-  .mc-badge-accent {
-    background-color: var(--mc-accent-subtle);
-    color: var(--mc-accent-subtle-foreground);
+  .mc-badge-info::before {
+    background-color: var(--mc-status-info);
+  }
+  .mc-badge-accent::before {
+    background-color: var(--mc-accent-strong);
   }
 }

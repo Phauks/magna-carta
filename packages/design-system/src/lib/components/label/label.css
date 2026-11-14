@@ -1,8 +1,11 @@
 @layer components {
   /*
    * Label (Tier 1). A styled native <label> — the field caption. Medium weight at the small
-   * reading size; the gap spaces an inline control (e.g. a checkbox) from its caption when the
-   * label wraps one. The association itself is native (for/id), not styling.
+   * reading size, in the muted ink so the value in the field stays the strongest thing in the row;
+   * the gap spaces an inline control (e.g. a checkbox) from its caption when the label wraps one.
+   * The association itself is native (for/id), not styling. FieldLabel (field-label.css), the
+   * label over a read-only fact, carries the same size, weight and ink, so a fact reads the same
+   * whether or not it can be edited.
    */
   .mc-label {
     display: inline-flex;
@@ -12,7 +15,7 @@
     font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
     line-height: var(--mc-leading-tight);
-    color: var(--mc-text-default);
+    color: var(--mc-text-muted);
     user-select: none;
   }
 }

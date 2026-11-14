@@ -237,6 +237,9 @@ export default defineConfig({
       // route's not-configured path is exercised, while the sealed-response path is driven by a fake
       // SealPort injected in the route test.
       miniflare: {
+        // The deploy configuration sets Magnus's model switch to "gateway"; the pool answers from the
+        // deterministic stub, chosen by name (apps/api-worker/src/magnus/inference-port-binding.ts).
+        bindings: { MAGNUS_INFERENCE_ADAPTER: "stub" },
         workers: [
           {
             name: "magna-carta-scan",

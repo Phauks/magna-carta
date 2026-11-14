@@ -105,11 +105,10 @@
     padding-block: var(--mc-space-4);
     color: var(--mc-chrome-text-muted);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-font-size-xs);
-    font-weight: var(--mc-weight-semibold);
-    text-transform: uppercase;
-    /* The letterspaced-caps label voice — structural labels get air, data stays untracked. */
-    letter-spacing: var(--mc-tracking-caps);
+    font-size: var(--mc-font-size-sm);
+    /* The label voice on the chrome: small, medium, muted, in the heading's own case. Tracked
+       capitals were dropped with the rest of the app's in the 2026-11-14 visual refresh. */
+    font-weight: var(--mc-weight-medium);
     white-space: nowrap;
   }
   /*

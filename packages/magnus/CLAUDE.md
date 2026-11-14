@@ -126,7 +126,8 @@ registered there; this file states what they mean for the code, not where they w
   column — and it is deletion of the whole conversation, not a per-turn redaction. So a member's
   edit or removal of their own message (`turn.ts`) never touches a turn's text: an edit stamps
   `superseded_at` on the message and every turn after it, a removal stamps `removed_at` on the
-  message and its answer, and the window (`window.ts`) leaves both out of what the model reads. The
+  message alone (its answer stays readable), and the window (`window.ts`) leaves the removed message
+  and any answer to it out of what the model reads. The
   route withholds a removed turn's text from its author, who took it back, and still serves it to a
   supervisory read.
 
