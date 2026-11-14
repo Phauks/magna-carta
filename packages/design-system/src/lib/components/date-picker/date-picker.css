@@ -17,7 +17,7 @@
   .mc-date-field-label {
     display: block;
     margin-block-end: var(--mc-space-4);
-    color: var(--mc-text-default);
+    color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
@@ -79,6 +79,31 @@
   .mc-date-field[data-invalid]:focus-within {
     border-color: var(--mc-status-danger);
     outline-color: var(--mc-status-danger);
+  }
+
+  /* The typed date's own input: the box is the field, so the input is bare text filling it. */
+  .mc-date-field-input {
+    flex: auto;
+    min-inline-size: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    border-style: none;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    outline-style: none;
+  }
+  .mc-date-field-input::placeholder {
+    color: var(--mc-text-subtle);
+  }
+  .mc-date-field[data-disabled] {
+    background-color: var(--mc-surface-field-disabled);
+    border-style: dashed;
+    border-color: var(--mc-border-default);
+    color: var(--mc-text-subtle);
+  }
+  .mc-date-field[data-disabled] .mc-date-field-input,
+  .mc-date-field-trigger:disabled {
+    cursor: not-allowed;
   }
 
   .mc-date-field-segment {

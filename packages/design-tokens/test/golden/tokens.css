@@ -148,7 +148,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -445,7 +445,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -742,7 +742,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -1039,7 +1039,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -1336,7 +1336,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -1633,7 +1633,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -1930,7 +1930,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -2227,7 +2227,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -2524,7 +2524,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -2821,7 +2821,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -3118,7 +3118,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -3415,7 +3415,7 @@
   /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
   /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
   --mc-font-size-3xl: 2rem;
@@ -3593,6 +3593,10 @@
   --mc-duration-slow: 0ms;
 }
 
+:root[data-typeface="atkinson-hyperlegible"] {
+--mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
 :root[data-typeface="lexend"] {
 --mc-font-sans: "Lexend Variable", "Lexend", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
 }
@@ -3609,7 +3613,11 @@
 --mc-font-sans: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
 }
 
-[data-typeface-sample="atkinson"] {
+[data-typeface-sample="inter"] {
+--mc-font-sans: "Inter Variable", "Inter", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+}
+
+[data-typeface-sample="atkinson-hyperlegible"] {
 --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
 }
 

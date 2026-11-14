@@ -300,6 +300,26 @@ is usually the fastest way to understand the rule.
   reads as an error. A disabled field is a dashed edge on a pale fill and never shares a fill with
   a button. A secondary button is outlined, so it never looks like a disabled primary.
   _(app visual refresh, 2026-11-13)_
+- **Every label speaks in one voice.** A form label and the label over a read-only fact are the
+  same type: small, medium weight, muted, in sentence case, never small capitals with tracking.
+  A fold heading in a navigation column composes the same voice.
+  _(app visual refresh, 2026-11-14)_
+- **A date is typed the way it is said, and read back in words.** "Nov 13", "11/13", "today",
+  "fri" all work; at rest the field shows "Fri, Nov 13, 2026", so the reader checks the weekday. A
+  date the field cannot read keeps its text with the red edge, and the value does not move.
+  _(app visual refresh, 2026-11-14)_
+- **The reading face is Inter.** Atkinson Hyperlegible's slashed zero made every date and amount
+  read as code ("2Ø26"), and the face has no plain zero to switch to. Atkinson stays a choice under
+  Settings > Text. _(app visual refresh, 2026-11-14)_
+- **No tracked capitals for structure.** Table column headers, filter headings, the grid's scope
+  line and the sidebar's group headings take the label voice in their own case; the fill, the rule
+  and the position already say they are structure. A table row's title link is plain ink that
+  underlines under the pointer, not a column of underlines. The scroll-edge rule is neutral: gold is
+  kept for what is active or focused. _(app visual refresh, 2026-11-14)_
+- **Two to four choices are shown, not hidden in a list.** A closed choice that small is a
+  `SegmentedControl`, every option on screen and the chosen one raised; five or more is a Select.
+  A choice not built yet stays in the track, refused, with its reason on hover. It takes a row of
+  its own when its words would not fit a column. _(app visual refresh, 2026-11-14)_
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
   column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
@@ -1680,9 +1700,19 @@ The owner, asked to pick one of three directions for the app as a whole:
 - **"Don't auto-open ... menu on hover."** Every "..." menu opened under a resting pointer, because
   hover opening was on for every DropdownMenu. A trigger with no words now opens only when pressed.
   Promoted to _Controls and patterns_.
-- **Still to come in later passes:** one choice field in place of Select and Combobox (search, the
-  tick on the right), a typed date, a segmented control for two to four choices, one label voice,
-  and the shell and tables in direction A.
+- **Labels in two voices.** The label over a read-only fact was tiny tracked capitals while a form
+  label was plain words, so the same fact looked different on a record and in its edit window.
+  Both now read the same. Promoted to _Data entry_.
+- **Billing was a dropdown of two or three words.** The time, cost and fee windows now show the
+  choices side by side in a segmented control. Promoted to _Data entry_.
+- **"Atkinson's slashed zero makes dates and money look like code."** No plain zero exists in the
+  face, so the default became Inter (the direction A body face), and dates became typed. Promoted to
+  _Data entry_.
+- **Capitals, underlines and a gold edge on every list.** Column headers, sidebar groups and
+  filter headings were tracked capitals, every matter title was underlined, and the scroll-edge
+  rule drew a gold line down the table's side. Promoted to _Data entry_.
+- **Statuses are a dot and a word, not a tinted pill.** The status tones of `Badge` (neutral, success, warning, danger, info, accent) draw a small disc in the status hue before the word in the reading colour. The `caps` option is retired and changes nothing.
+- **Still to come in later passes:** the top bar, and the near-identical greys.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 
@@ -1694,7 +1724,7 @@ The owner, reviewing in-app About pages and then About windows:
   in-app About states facts about the copy in front of the reader and carries no product prose;
   describing the product is the public site's job.
 - **It is a window, opened from Websites > About Magna Carta**, standing in for the public site
-  until that has an address, as the Changelog screen does for its own site.
+  until that has an address.
 - **"Two columns with links on right and other stuff on left."** The owner chose the variant whose
   left column is the chrome-register ink panel carrying the brand mark and the facts (version,
   released, signed in as, firm, environment, browser) with Copy Version Details at its foot, and
@@ -3674,3 +3704,22 @@ The owner, choosing between a hairline rule, cards and a heading band for New Pe
 - **"The right sidebar needs to be improved as well."** The duplicate check states where it stands
   in one sentence (nobody similar, or how many may be this person) instead of a caps heading over
   an empty list with a 0 beside it.
+
+### 2026-11-14 — a record being created shows its draft number, and gives it back if cancelled
+
+The owner: "remove 'A number is drawn when this is saved.' in general, whenever something is being
+created, show the draft number, and if it is not saved, then rescind the number", and "look around
+for centralizing tentative number formats and frameworks".
+
+- **Every panel that creates a numbered record shows the number it will be saved under.** Not a
+  preview of what the next record would take, and never the sentence: the number is held for that
+  panel (`@magna-carta/sequence-numbering/reservation`), so the number read out is the one the
+  record gets, and two people creating at once see two numbers.
+- **A draft number is the number in italics, everywhere.** One standing, `draft`, on the record
+  reference, rendered by `RecordSubjectLine` with its meaning on the number. The call log's own
+  italic snippet (2026-11-09) is now this shared format with no kind word in front of it.
+- **Cancelling gives the number back, and the run keeps no gap.** The next record of that kind takes
+  the lowest number given back before the counter moves; an abandoned panel gives its number back
+  after fifteen minutes.
+- **Invoices are the exception, and stay numbered at finalize.** An invoice run must be in issue
+  order as well as gapless, which giving a number back would break.
