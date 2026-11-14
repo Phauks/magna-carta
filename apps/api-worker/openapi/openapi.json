@@ -19388,6 +19388,9 @@
           "broad": {
             "type": "boolean"
           },
+          "fewMattersLimit": {
+            "type": "integer"
+          },
           "groups": {
             "type": "array",
             "items": {
@@ -19398,6 +19401,7 @@
         "required": [
           "query",
           "broad",
+          "fewMattersLimit",
           "groups"
         ]
       },
@@ -19439,6 +19443,7 @@
             ],
             "enum": [
               "one-matter-only",
+              "too-many-matters",
               "permission",
               "query-too-short",
               "engine-unavailable",
@@ -47995,6 +48000,49 @@
           "responsibleMember"
         ],
         "additionalProperties": false
+      },
+      "RecordTransferPassStatedResponse": {
+        "type": "object",
+        "properties": {
+          "recordKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "matter"
+            ]
+          },
+          "sourceKind": {
+            "type": "string"
+          },
+          "keyColumn": {
+            "type": "string"
+          },
+          "delimiter": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              ",",
+              "\t",
+              ";",
+              "|",
+              null
+            ]
+          },
+          "rules": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "recordKind",
+          "sourceKind",
+          "keyColumn",
+          "delimiter",
+          "rules"
+        ]
       },
       "RecordTransferPassReportResponse": {
         "type": "object",
@@ -82002,7 +82050,7 @@
     },
     "/api/v1/search": {
       "get": {
-        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, and `permission` is one the member lacks the capability for. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.",
+        "description": "Searches every matter the member may see, answering one group per place in the order a matter's own sections read in. Each hit names its matter and links to its own section there. Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: `one-matter-only` is a place searched inside a matter and not across them, `permission` is one the member lacks the capability for, and `too-many-matters` is a place searched only where the search reaches few enough matters to ask each one, which a member changes by narrowing it to `fewMattersLimit` matters or fewer. `broad` is true when the words are in more of the firm's records than one search reads; the groups then hold the most recent records with those words and not every one. A long text is quoted at the stretch the words are in, and `titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the search to the matters the member is responsible for or currently assigned to, and `clientEntityId` to the matters one person or organization is a client on; neither reaches a matter the member may not see.",
         "operationId": "search.acrossMatters",
         "tags": [
           "search"
@@ -142639,6 +142687,100 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RecordTransferPassResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes/{passId}/rules": {
+      "get": {
+        "description": "What was stated when the pass was asked for: the record kind, the key column, the delimiter and the mapping rules. The rules name columns and the source's own codes for matter types and staff; they hold no row of the file.",
+        "operationId": "recordTransfer.getPassRules",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getPassRules",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferPass_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "passId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pass as it was asked for",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferPassStatedResponse"
                 }
               }
             }

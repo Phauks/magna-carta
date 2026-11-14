@@ -216,6 +216,18 @@ export const TransferPassResponse = z
   .object({ pass: TransferPass })
   .meta({ id: "RecordTransferPassResponse" });
 
+// What the operator stated when asking for a pass, answered back so a screen can show the mapping
+// a pass ran under and offer it again. The rules are the shape the pass's record kind takes.
+export const TransferPassStatedResponse = z
+  .object({
+    recordKind: z.enum(TRANSFER_PASS_RECORD_KINDS),
+    sourceKind: z.string(),
+    keyColumn: z.string(),
+    delimiter: z.enum([",", "\t", ";", "|"]).nullable(),
+    rules: z.record(z.string(), z.unknown()),
+  })
+  .meta({ id: "RecordTransferPassStatedResponse" });
+
 const place = { rowNumber: z.number().int().positive(), lineNumber: z.number().int().positive() };
 
 // The whole report of a finished pass. It holds positions, column names, fixed reasons, source keys
@@ -263,4 +275,5 @@ export type TransferSourceFileBody = z.infer<typeof TransferSourceFile>;
 export type TransferPassBody = z.infer<typeof TransferPass>;
 export type TransferPassFailureBody = z.infer<typeof TransferPassFailure>;
 export type TransferPassReportResponseBody = z.infer<typeof TransferPassReportResponse>;
+export type TransferPassStatedResponseBody = z.infer<typeof TransferPassStatedResponse>;
 export type TransferRunResponseBody = z.infer<typeof TransferRunResponse>;

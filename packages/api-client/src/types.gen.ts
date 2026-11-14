@@ -4509,6 +4509,7 @@ export type SearchTextMark = {
 export type SearchAcrossMattersAnswer = {
     query: string;
     broad: boolean;
+    fewMattersLimit: number;
     groups: Array<SearchAcrossMattersGroup>;
 };
 
@@ -4519,7 +4520,7 @@ export type SearchAcrossMattersGroup = {
     matchedFields: Array<string>;
     hits: Array<SearchAcrossMattersHit>;
     hasMore: boolean;
-    skipped: 'one-matter-only' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
+    skipped: 'one-matter-only' | 'too-many-matters' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
 };
 
 export type SearchAcrossMattersHit = {
@@ -11035,6 +11036,16 @@ export type RecordTransferMatterRules = {
             [key: string]: string;
         };
         otherwise?: string;
+    };
+};
+
+export type RecordTransferPassStatedResponse = {
+    recordKind: 'person' | 'organization' | 'matter';
+    sourceKind: string;
+    keyColumn: string;
+    delimiter: ',' | '\t' | ';' | '|' | null;
+    rules: {
+        [key: string]: unknown;
     };
 };
 
@@ -50461,6 +50472,46 @@ export type RecordTransferGetPassResponses = {
 };
 
 export type RecordTransferGetPassResponse = RecordTransferGetPassResponses[keyof RecordTransferGetPassResponses];
+
+export type RecordTransferGetPassRulesData = {
+    body?: never;
+    path: {
+        runId: string;
+        passId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/passes/{passId}/rules';
+};
+
+export type RecordTransferGetPassRulesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferGetPassRulesError = RecordTransferGetPassRulesErrors[keyof RecordTransferGetPassRulesErrors];
+
+export type RecordTransferGetPassRulesResponses = {
+    /**
+     * The pass as it was asked for
+     */
+    200: RecordTransferPassStatedResponse;
+};
+
+export type RecordTransferGetPassRulesResponse = RecordTransferGetPassRulesResponses[keyof RecordTransferGetPassRulesResponses];
 
 export type RecordTransferGetPassReportData = {
     body?: never;
