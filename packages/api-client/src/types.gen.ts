@@ -9200,6 +9200,7 @@ export type MagnusTurn = {
     snapshotId: string | null;
     contextTruncated: boolean;
     effort: string | null;
+    thinking: string | null;
     removedAt: string | null;
     supersededAt: string | null;
     replacesTurnId: string | null;
@@ -9249,6 +9250,7 @@ export type MagnusTurnProgress = {
     content?: string;
     failureLabel?: 'model-unavailable' | 'not-eligible' | 'ceiling-reached' | 'too-large' | 'cancelled';
     truncatedContext?: boolean;
+    thinking?: string;
 };
 
 export type MagnusFolderList = {

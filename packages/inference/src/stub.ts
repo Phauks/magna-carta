@@ -89,6 +89,11 @@ export function createStubInferencePort(): InferencePort {
         if (message.role === "member") lastMemberMessage = message.content;
       }
       const promptText = input.systemPrompt + lastMemberMessage;
+      // A listener for the thinking is told one deterministic summary, so a local run and a consumer
+      // test both see the thinking path work without a provider.
+      if (input.onThinking !== undefined) {
+        await input.onThinking(`${STUB_RESPONSE_MARKER} thinking about: ${lastMemberMessage}`);
+      }
       return ok(stubResult(promptText, `${STUB_RESPONSE_MARKER} ${lastMemberMessage}`));
     },
 

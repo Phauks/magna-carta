@@ -39909,6 +39909,12 @@
               "null"
             ]
           },
+          "thinking": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "removedAt": {
             "type": [
               "string",
@@ -39948,6 +39954,7 @@
           "snapshotId",
           "contextTruncated",
           "effort",
+          "thinking",
           "removedAt",
           "supersededAt",
           "replacesTurnId",
@@ -40124,6 +40131,9 @@
           },
           "truncatedContext": {
             "type": "boolean"
+          },
+          "thinking": {
+            "type": "string"
           }
         },
         "required": [
