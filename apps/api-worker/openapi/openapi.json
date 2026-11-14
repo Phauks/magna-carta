@@ -9107,6 +9107,207 @@
           "clients"
         ]
       },
+      "MattersListReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "matterCount": {
+                "type": "integer"
+              },
+              "openCount": {
+                "type": "integer"
+              },
+              "heldCount": {
+                "type": "integer"
+              },
+              "closedCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "matterCount",
+              "openCount",
+              "heldCount",
+              "closedCount"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "counts": {
+                  "type": "object",
+                  "properties": {
+                    "matterCount": {
+                      "type": "integer"
+                    },
+                    "openCount": {
+                      "type": "integer"
+                    },
+                    "heldCount": {
+                      "type": "integer"
+                    },
+                    "closedCount": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "matterCount",
+                    "openCount",
+                    "heldCount",
+                    "closedCount"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "counts"
+              ]
+            }
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTitle": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "hold",
+                    "closed"
+                  ]
+                },
+                "matterTypeName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "responsibleMemberId": {
+                  "type": "string"
+                },
+                "responsibleName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "openedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "closedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "matterId",
+                "matterNumber",
+                "matterTitle",
+                "status",
+                "matterTypeName",
+                "clientEntityId",
+                "clientName",
+                "locationId",
+                "locationName",
+                "responsibleMemberId",
+                "responsibleName",
+                "openedAt",
+                "closedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "reproducible",
+          "statement",
+          "locationId",
+          "completeness",
+          "totals",
+          "offices",
+          "matters"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -15517,6 +15718,746 @@
           "certificate",
           "certificateText",
           "certificatePdfBase64"
+        ]
+      },
+      "SigningRequestDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "fileVersionId": {
+            "type": "string"
+          },
+          "documentHashSha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "in-order",
+              "all-at-once"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "sent",
+              "completed",
+              "declined",
+              "voided",
+              "expired"
+            ]
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "remindEveryDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lastRemindedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sealedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "voidedReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "attribution": {
+                  "type": "string",
+                  "enum": [
+                    "email-link",
+                    "access-code",
+                    "firm-authenticated"
+                  ]
+                },
+                "userId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "waiting",
+                    "notified",
+                    "opened",
+                    "signed",
+                    "declined"
+                  ]
+                },
+                "notifiedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "openedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "signedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "declinedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "position",
+                "name",
+                "email",
+                "attribution",
+                "userId",
+                "status",
+                "notifiedAt",
+                "openedAt",
+                "signedAt",
+                "declinedAt"
+              ]
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "signerId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "signature",
+                    "initials",
+                    "date-signed",
+                    "full-name",
+                    "text",
+                    "checkbox"
+                  ]
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "rect": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "signerId",
+                "kind",
+                "page",
+                "rect",
+                "required"
+              ]
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "created",
+                    "sent",
+                    "delivered",
+                    "reminded",
+                    "viewed",
+                    "identity-verified",
+                    "consented",
+                    "signed",
+                    "declined",
+                    "reassigned",
+                    "voided",
+                    "completed",
+                    "sealed"
+                  ]
+                },
+                "at": {
+                  "type": "string"
+                },
+                "signerId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "actor": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "observedIp": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "detail": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "at",
+                "signerId",
+                "actor",
+                "observedIp",
+                "detail"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "matterId",
+          "fileId",
+          "fileVersionId",
+          "documentHashSha256",
+          "title",
+          "subject",
+          "message",
+          "order",
+          "status",
+          "expiresAt",
+          "remindEveryDays",
+          "lastRemindedAt",
+          "createdBy",
+          "sentAt",
+          "completedAt",
+          "sealedAt",
+          "voidedReason",
+          "signers",
+          "fields",
+          "events"
+        ]
+      },
+      "SigningRequestList": {
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SigningRequestSummary"
+            }
+          }
+        },
+        "required": [
+          "requests"
+        ]
+      },
+      "SigningRequestSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "fileVersionId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "sent",
+              "completed",
+              "declined",
+              "voided",
+              "expired"
+            ]
+          },
+          "sentAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "signerCount": {
+            "type": "integer"
+          },
+          "signedCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "fileId",
+          "fileVersionId",
+          "title",
+          "status",
+          "sentAt",
+          "completedAt",
+          "createdAt",
+          "signerCount",
+          "signedCount"
+        ]
+      },
+      "SaveSigningDraftRequest": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "in-order",
+              "all-at-once"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remindEveryDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 30
+          },
+          "signers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "email": {
+                  "type": "string",
+                  "maxLength": 320
+                },
+                "attribution": {
+                  "type": "string",
+                  "enum": [
+                    "email-link",
+                    "access-code",
+                    "firm-authenticated"
+                  ]
+                },
+                "userId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "email",
+                "attribution"
+              ]
+            },
+            "maxItems": 20
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "signerKey": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "signature",
+                    "initials",
+                    "date-signed",
+                    "full-name",
+                    "text",
+                    "checkbox"
+                  ]
+                },
+                "page": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000
+                },
+                "rect": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "signerKey",
+                "kind",
+                "page",
+                "rect",
+                "required"
+              ]
+            },
+            "maxItems": 400
+          }
+        },
+        "required": [
+          "subject",
+          "message",
+          "order",
+          "expiresAt",
+          "remindEveryDays",
+          "signers",
+          "fields"
+        ]
+      },
+      "CancelSigningRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "SignerRequestView": {
+        "type": "object",
+        "properties": {
+          "firmName": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "signerName": {
+            "type": "string"
+          },
+          "codeSentTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "needsCode": {
+            "type": "boolean"
+          },
+          "consented": {
+            "type": "boolean"
+          },
+          "adopted": {
+            "type": "boolean"
+          },
+          "consent": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "paragraphs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "version",
+              "title",
+              "paragraphs"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "signature",
+                    "initials",
+                    "date-signed",
+                    "full-name",
+                    "text",
+                    "checkbox"
+                  ]
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "rect": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "page",
+                "rect",
+                "required"
+              ]
+            }
+          }
+        },
+        "required": [
+          "firmName",
+          "senderName",
+          "title",
+          "message",
+          "expiresAt",
+          "signerName",
+          "codeSentTo",
+          "needsCode",
+          "consented",
+          "adopted",
+          "consent",
+          "fields"
+        ]
+      },
+      "SignerAccessCodeSent": {
+        "type": "object",
+        "properties": {
+          "sentTo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sentTo"
+        ]
+      },
+      "SignerAccessCodeCheck": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "SignerAdoption": {
+        "type": "object",
+        "properties": {
+          "how": {
+            "type": "string",
+            "enum": [
+              "typed",
+              "drawn",
+              "uploaded"
+            ]
+          },
+          "signaturePng": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 266671
+          },
+          "initialsPng": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 266671
+          }
+        },
+        "required": [
+          "how",
+          "signaturePng",
+          "initialsPng"
+        ]
+      },
+      "SignerOutcome": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "signed",
+              "declined"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "SignerFinish": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "answers"
+        ]
+      },
+      "SignerDecline": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "SessionLaunchResponse": {
@@ -61098,6 +62039,101 @@
         }
       }
     },
+    "/api/v1/reports/matters-list": {
+      "get": {
+        "description": "Every matter the firm has opened (open, on hold or closed), with its number, client, type, office, responsible attorney and when it opened and closed, and how many are open, on hold and closed per office. Intakes and consultations are not listed. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.mattersList",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.mattersList",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:operational",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm's matters now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MattersListReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:operational",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The firm has more matters than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/billing/invoices": {
       "post": {
         "description": "Opens a draft invoice for one client. A draft is a working document: nothing has been asserted to anybody, no number has been drawn, and no work is locked. It becomes a financial record only when it is finalized.",
@@ -75150,6 +76186,1525 @@
           },
           "503": {
             "description": "The platform seal is not configured (the sign service has no signing identity yet)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/signing-requests": {
+      "post": {
+        "description": "Starts a draft request to sign the file's current clean PDF version. The draft names that exact version; a later version of the file does not change what is signed.",
+        "operationId": "signing.createRequest",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.createRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:send",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file or request in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file's current version is not a clean PDF",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "The signing requests on a file, newest first.",
+        "operationId": "signing.listRequests",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.listRequests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningRequestList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file or request in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}": {
+      "get": {
+        "description": "A request with its signers, their fields and its activity, oldest first. Never a link's secret, an access code or a signature image.",
+        "operationId": "signing.readRequest",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.readRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file or request in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/draft": {
+      "put": {
+        "description": "Replaces a draft's settings, signers and fields. Refused with 409 once the request is sent.",
+        "operationId": "signing.saveDraft",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.saveDraft",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:send",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveSigningDraftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The saved draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file or request in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request has already been sent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An expiry out of range, or a field naming a signer not on the request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/sending": {
+      "post": {
+        "description": "Sends a draft: records the SHA-256 of the version's bytes, so the seal can refuse anything else, and asks the first signer, or every signer when the order is all at once. 422 names what stops it being sent.",
+        "operationId": "signing.sendRequest",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.sendRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:send",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request, sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file or request in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request was already sent, or moved while this was decided",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The draft cannot be sent yet; the detail says why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/reminders": {
+      "post": {
+        "description": "Reminds every signer who has been asked and has not signed.",
+        "operationId": "signing.remindSigners",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.remindSigners",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:send",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request, with the reminder in its activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file or request in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request is not out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request cannot be reminded; the detail says why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/voiding": {
+      "post": {
+        "description": "Cancels a draft or a request still out for signing. Nothing is deleted; the request keeps its signers, fields and activity, and its links stop working.",
+        "operationId": "signing.cancelRequest",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.cancelRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:send",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSigningRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request, cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file or request in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request is already complete, declined or cancelled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request cannot be cancelled; the detail says why",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/request": {
+      "get": {
+        "description": "The signer's own part of the request their link names: who sent it, the document's title and message, the agreement to sign electronically, their own fields, and where they stand. Writes nothing.",
+        "operationId": "signer.readRequest",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readRequest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signer's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this signer's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/document": {
+      "get": {
+        "description": "The exact PDF version that was sent for signature, for the signer to read.",
+        "operationId": "signer.readDocument",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The document",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this signer's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/opening": {
+      "post": {
+        "description": "Records that the signer opened the request, the first time only. A separate act from reading, so a mail scanner that follows the link records nothing.",
+        "operationId": "signer.open",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.open",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signer's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It is not this signer's turn yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/access-code": {
+      "post": {
+        "description": "Emails a fresh six-digit code to the signer's own address, for a signer who proves who they are with one. A new code replaces the last; it works for ten minutes and five tries.",
+        "operationId": "signer.sendAccessCode",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.sendAccessCode",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "202": {
+            "description": "The code was sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerAccessCodeSent"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No code is needed, or it is not this signer's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The code could not be sent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/access-code/check": {
+      "post": {
+        "description": "Checks a code the signer entered; the right one records that they proved who they are.",
+        "operationId": "signer.checkAccessCode",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.checkAccessCode",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerAccessCodeCheck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The signer's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No code was sent, it expired, or its tries are spent",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The code is wrong",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/consent": {
+      "post": {
+        "description": "Records that the signer agreed to sign electronically, under the disclosure version they were shown.",
+        "operationId": "signer.consent",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.consent",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signer's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/adoption": {
+      "post": {
+        "description": "Keeps the signature (and initials) the signer adopted, as PNG images in the firm's own storage.",
+        "operationId": "signer.adopt",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.adopt",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerAdoption"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The signer's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An image is not a PNG, or is too large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/finish": {
+      "post": {
+        "description": "Signs: every one of the signer's fields is checked, their answers recorded, and the request moves on to the next signer or to complete.",
+        "operationId": "signer.finish",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.finish",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerFinish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerOutcome"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A required field is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/declining": {
+      "post": {
+        "description": "Declines to sign, which ends the request for everyone; the reason is kept on its record.",
+        "operationId": "signer.decline",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.decline",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "link",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerDecline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Declined",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerOutcome"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a signing link this deployment made",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "It is not this signer's turn, or they already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -144162,6 +146717,12 @@
     },
     {
       "name": "shipping"
+    },
+    {
+      "name": "signer"
+    },
+    {
+      "name": "signing"
     },
     {
       "name": "supportDiagnostics"

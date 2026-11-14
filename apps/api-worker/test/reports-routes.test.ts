@@ -421,6 +421,28 @@ describe("GET /api/v1/reports/matter-balances", () => {
   });
 });
 
+describe("GET /api/v1/reports/matters-list", () => {
+  const url = "https://example.com/api/v1/reports/matters-list";
+
+  it("answers the Owner with a live list whose office counts add up to the whole", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { matterCount: number };
+      offices: { counts: { matterCount: number } }[];
+      matters: unknown[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.matters).toHaveLength(report.totals.matterCount);
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/realization", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/realization?${query}`;
 
