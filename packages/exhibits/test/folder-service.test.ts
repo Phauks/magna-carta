@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FolderId } from "@magna-carta/identifiers/types";
-import {
-  createExhibitSetFromFolder,
-  followExhibitSetFolder,
-  titleFromFileName,
-} from "../src/folder-service.ts";
+import { titleFromFileName } from "../src/file-title.ts";
+import { createExhibitSetFromFolder, followExhibitSetFolder } from "../src/folder-service.ts";
 import { issueExhibitSet } from "../src/issue-service.ts";
 import { reorderMembers } from "../src/member-service.ts";
 import { readExhibitSet } from "../src/queries.ts";

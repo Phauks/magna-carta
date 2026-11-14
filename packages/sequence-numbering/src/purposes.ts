@@ -54,6 +54,14 @@ interface PurposeCommon {
   readonly subjects: string;
   /** When the number is drawn, in one sentence a reader of the settings screen needs. */
   readonly drawnWhen: string;
+  /**
+   * What a panel creating one of these records shows before the save. `held`: the number itself,
+   * kept for that panel and given back if it is cancelled, so the run keeps no gap
+   * (./reservation.ts). `previewed`: what the next record would take, holding nothing — for a run
+   * that must also stay in creation order, which giving a number back would break, and for a run
+   * numbered in capture batches with no panel to hold for.
+   */
+  readonly draftNumber: "held" | "previewed";
 }
 
 /** A purpose the firm shapes with a scheme of segments. */
@@ -251,6 +259,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subject: "matter",
     subjects: "matters",
     drawnWhen: "Drawn once, the moment a matter opens, and frozen from then on.",
+    draftNumber: "held",
     segmentKinds: MATTER_KINDS,
     scopeSource: "segments",
     scopeDistinguishedBy: null,
@@ -266,6 +275,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subjects: "consultations",
     drawnWhen:
       "Drawn when an enquiry becomes a consultation, from its own run, and kept beside the matter number once the matter opens.",
+    draftNumber: "held",
     segmentKinds: MATTER_KINDS,
     scopeSource: "segments",
     scopeDistinguishedBy: null,
@@ -281,6 +291,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subjects: "enquiries",
     drawnWhen:
       "Drawn the moment an enquiry is written down, from its own run, and kept beside every number the file draws later.",
+    draftNumber: "held",
     segmentKinds: MATTER_KINDS,
     scopeSource: "segments",
     scopeDistinguishedBy: null,
@@ -296,6 +307,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subjects: "conflicts checks",
     drawnWhen:
       "Drawn the moment a conflicts check is opened; every run of the check belongs to the same number.",
+    draftNumber: "held",
     segmentKinds: DATE_ONLY_KINDS,
     scopeSource: "segments",
     scopeDistinguishedBy: null,
@@ -311,6 +323,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subjects: "custody packets",
     drawnWhen:
       "Drawn when a packet is logged into custody, unless a number carried in from a paper register is recorded instead.",
+    draftNumber: "held",
     segmentKinds: DATE_ONLY_KINDS,
     scopeSource: "segments",
     scopeDistinguishedBy: null,
@@ -327,6 +340,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     drawnWhen: "Drawn when a bill is finalized, never at draft.",
     // A bill can cover several matters, so it carries no one matter's client, office or area. The
     // office code renders the letterhead the bill was finalized under.
+    draftNumber: "previewed",
     segmentKinds: ["literal", "counter", "year", "month", "day", "date_opened", "location_code"],
     scopeSource: "owner",
     scopeDistinguishedBy: null,
@@ -345,6 +359,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     // counter read, and a block renders its numbers from one context — so a date part would stamp
     // every entry in the batch with the day the batch was taken rather than the day each was
     // worked. The matter's own number already carries whatever date the firm put in it.
+    draftNumber: "previewed",
     segmentKinds: ["literal", "counter", "matter_number"],
     scopeSource: "owner",
     scopeDistinguishedBy: "matter_number",
@@ -359,6 +374,7 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     subject: "call or text",
     subjects: "calls and texts",
     drawnWhen: "Drawn when a call or text is recorded.",
+    draftNumber: "held",
     segmentKinds: DATE_ONLY_KINDS,
     scopeSource: "segments",
     scopeDistinguishedBy: null,
