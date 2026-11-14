@@ -10,7 +10,20 @@
  * A failure crosses back as the engine's own message, which never carries document content or a
  * password (the engine's error contract), so it can be shown to the reader as it stands.
  */
-import { DecompressionBombError, redactDocument } from "@magna-carta/pdf";
+import {
+  DecompressionBombError,
+  detectDocument,
+  fillForm,
+  flattenForm,
+  inspectSecurity,
+  readForm,
+  redactDocument,
+  sanitizeDocument,
+  secureDocument,
+  stampBates,
+  watermarkDocument,
+} from "@magna-carta/pdf";
+import { countReadings } from "./secure.ts";
 import { arrangeDocument } from "./arrange-document.ts";
 import type { PdfOperationReply, PdfOperationRequest } from "./pdf-operations.ts";
 
@@ -61,6 +74,68 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
             0,
           ),
         };
+      }
+      case "bates": {
+        const result = await stampBates(bytes, { ...request.operation.options });
+        return {
+          kind: "done",
+          id: request.id,
+          documents: [result.pdf],
+          pagesChanged: result.pageCount,
+        };
+      }
+      case "watermark": {
+        const options = request.operation.options;
+        const result = await watermarkDocument(bytes, options);
+        return {
+          kind: "done",
+          id: request.id,
+          documents: [result.pdf],
+          pagesChanged: options.pages?.length ?? 0,
+        };
+      }
+      case "inspect": {
+        const security = await inspectSecurity(bytes);
+        if (security.encrypted) {
+          return {
+            kind: "done",
+            id: request.id,
+            documents: [],
+            pagesChanged: 0,
+            readings: countReadings(security, [], []),
+          };
+        }
+        const [report, fields] = await Promise.all([detectDocument(bytes), readForm(bytes)]);
+        return {
+          kind: "done",
+          id: request.id,
+          documents: [],
+          pagesChanged: 0,
+          // Counted here, inside the worker, so the recovered text never reaches the page.
+          readings: countReadings(
+            security,
+            report.findings,
+            fields.map((field) => field.value),
+          ),
+        };
+      }
+      case "secure": {
+        const scrubbed = request.operation.scrubFirst ? (await sanitizeDocument(bytes)).pdf : bytes;
+        const result = await secureDocument(scrubbed, { ...request.operation.options });
+        return { kind: "done", id: request.id, documents: [result.pdf], pagesChanged: 0 };
+      }
+      case "readForm": {
+        const fields = await readForm(bytes);
+        return { kind: "done", id: request.id, documents: [], pagesChanged: 0, fields };
+      }
+      case "fillForm": {
+        const { values, flatten } = request.operation;
+        // With nothing to write, flattening alone still has to run, so the copy is fixed as it stands.
+        const result =
+          Object.keys(values).length === 0 && flatten
+            ? await flattenForm(bytes)
+            : await fillForm(bytes, { ...values }, { flatten });
+        return { kind: "done", id: request.id, documents: [result.pdf], pagesChanged: 0 };
       }
       default:
         return { kind: "failed", id: request.id, reason: "unsupported", message: "" };
