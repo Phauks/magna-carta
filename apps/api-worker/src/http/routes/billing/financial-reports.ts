@@ -238,6 +238,14 @@ export function reportingRefusal(
       detail: error.message,
     });
   }
+  if (error.code === "reporting-currency-not-reported") {
+    return problemJson(c, {
+      type: "report-cannot-be-produced",
+      title: "This report holds money in a currency it does not state",
+      status: 422,
+      detail: error.message,
+    });
+  }
   return problemJson(c, {
     type: "report-period-invalid",
     title: "The dates this report was asked for are not ones that can be answered",

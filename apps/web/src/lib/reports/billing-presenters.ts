@@ -1,6 +1,6 @@
 /*
  * The bills and what was set against them, arranged for a screen and a file: the Invoices report and
- * the Payments Applied report.
+ * the Payments Applied report; and where each matter stands, the Matter Balances report.
  *
  * TOTALS FIRST, THEN TABLES, as every financial report (financial-presenters.ts). Invoices opens with
  * what was billed, credited, applied and still unpaid, then a table by office ruled off with the
@@ -19,13 +19,15 @@ import {
   type ReportSummaryTile,
 } from "./report-presentation.ts";
 import { captionOr, countCell, counted, moneyCell, moneyText } from "./report-cells.ts";
-import { matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
+import { clientOffice, matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
 import type {
   AppliedEntry,
   AppliedFigures,
   ApplicationKind,
   InvoiceFigures,
   Invoices,
+  MatterBalanceFigures,
+  MatterBalances,
   PaymentsApplied,
 } from "./report-reads.ts";
 
@@ -265,6 +267,91 @@ export function presentPaymentsApplied(report: PaymentsApplied): ReportPresentat
         endAlignedColumns: [5],
         // In the order each took effect, as served: a reversal sits after the entry it unwinds.
         whenEmpty: "Nothing was applied to a bill in this period.",
+      },
+    ],
+  };
+}
+
+// ---- matter balances -------------------------------------------------------------------------------
+
+const MATTER_BALANCE_HEADINGS = ["Unbilled", "Owed", "In trust"];
+
+function matterBalanceCells(figures: MatterBalanceFigures): ReportCell[] {
+  return [
+    moneyCell(figures.unbilledMinor),
+    moneyCell(figures.owedMinor),
+    moneyCell(figures.trustMinor),
+  ];
+}
+
+/**
+ * Matter Balances: three tiles (unbilled, owed, in trust), then the table by office ruled off with
+ * the report's total, then a sortable table by client whose rows open onto each client's matters.
+ * The three figures are never added together: there is no "net" column.
+ */
+export function presentMatterBalances(report: MatterBalances): ReportPresentation {
+  const summary: ReportSummaryTile[] = [
+    {
+      label: "Unbilled",
+      value: moneyText(report.totals.unbilledMinor),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Owed on bills",
+      value: moneyText(report.totals.owedMinor),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Held in trust",
+      value: moneyText(report.totals.trustMinor),
+      detail: counted(report.clients.length, "client", "clients"),
+      tone: "total",
+    },
+  ];
+
+  return {
+    title: "Matter Balances",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-office",
+        title: "By Office",
+        headers: ["Office", ...MATTER_BALANCE_HEADINGS],
+        rows: report.offices.map((office) => [
+          captionOr(office.locationName, NO_OFFICE),
+          ...matterBalanceCells(office.figures),
+        ]),
+        endAlignedColumns: [1, 2, 3],
+        totalRow: [totalLabel(report.locationId), ...matterBalanceCells(report.totals)],
+        whenEmpty: "No matter has a balance.",
+      },
+      {
+        id: "by-client",
+        title: "By Client",
+        headers: ["Client", "Office", ...MATTER_BALANCE_HEADINGS],
+        rows: report.clients.map((client) => [
+          captionOr(client.clientName, client.clientEntityId ?? NO_CLIENT),
+          clientOffice(client.matters),
+          ...matterBalanceCells(client.figures),
+        ]),
+        rowDetails: report.clients.map((client) =>
+          client.matters.map((matter) => [
+            matterCaption(matter),
+            captionOr(matter.locationName, NO_OFFICE),
+            ...matterBalanceCells(matter.figures),
+          ]),
+        ),
+        endAlignedColumns: [2, 3, 4],
+        sortable: true,
+        subordinateColumns: [1],
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No client has a balance.",
       },
     ],
   };
