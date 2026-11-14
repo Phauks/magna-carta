@@ -50,6 +50,7 @@ function consumerEnv(): Bindings {
     MAGNUS_CONVERSATION: env.MAGNUS_CONVERSATION,
     TELEMETRY: env.TELEMETRY,
     AI: env.AI,
+    MAGNUS_INFERENCE_ADAPTER: "stub",
   } as unknown as Bindings;
 }
 
@@ -110,6 +111,19 @@ beforeAll(async () => {
 });
 
 describe("the assistant queue consumer", () => {
+  it("settles a question as unanswered, never with the stub, when the deployment names no model port", async () => {
+    const job = await submitOneTurn("is the switch set");
+    const { MAGNUS_INFERENCE_ADAPTER: _switch, ...unswitched } = consumerEnv() as Bindings & {
+      MAGNUS_INFERENCE_ADAPTER?: string;
+    };
+    await handleMagnusTurnJob(unswitched as Bindings, job);
+
+    const turn = await readTurn(firmDatabase, job.magnusTurnId as MagnusTurnId);
+    expect(turn?.status).toBe("failed");
+    expect(turn?.failureLabel).toBe("model-unavailable");
+    expect(turn?.content).toBeNull();
+  });
+
   it("settles the pending turn with the stub's answer and records provenance and tokens", async () => {
     const job = await submitOneTurn("can I still amend");
     await handleMagnusTurnJob(consumerEnv(), job);

@@ -198,7 +198,7 @@ describe("changing one's own message", () => {
     expect(whilePending.status).toBe(409);
   });
 
-  it("removes a message and its answer: hidden from its author, kept for a supervisory read, gone from the model", async () => {
+  it("removes a message and keeps its answer: the message hidden from its author, kept for a supervisory read", async () => {
     const conversationId = await startConversation(attorneyCookie);
     const pair = await askAndSettle(
       conversationId,
@@ -219,10 +219,12 @@ describe("changing one's own message", () => {
     expect(await auditCount("magnus.turn_removed")).toBe(before + 1);
 
     const authorView = await readTurns(conversationId, attorneyCookie);
-    for (const turn of authorView) {
-      expect(turn.removedAt).not.toBeNull();
-      expect(turn.content).toBeNull();
-    }
+    const question = authorView.find((turn) => turn.id === pair.memberTurnId);
+    expect(question?.removedAt).not.toBeNull();
+    expect(question?.content).toBeNull();
+    const answer = authorView.find((turn) => turn.id === pair.magnusTurnId);
+    expect(answer?.removedAt).toBeNull();
+    expect(answer?.content).toBe("the answer");
     const supervisorView = await readTurns(conversationId, ownerCookie);
     expect(supervisorView.find((turn) => turn.id === pair.memberTurnId)?.content).toBe(
       "Alvarez's settlement figure",
