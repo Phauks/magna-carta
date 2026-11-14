@@ -14,9 +14,9 @@
 </svelte:head>
 
 <div class="flex h-dvh items-center justify-center bg-surface-sunken p-24">
-  <AuthPanel title="This Page Could Not Be Opened">
+  <AuthPanel title="Couldn't Open This Page">
     <p class="text-sm">
-      Reload the page to try again. If it still does not open, reply to the email the link came in.
+      Reload the page to try again. If it still won't open, reply to the email the link came in.
       {#if page.error?.errorId}Error ID {page.error.errorId}.{/if}
     </p>
   </AuthPanel>

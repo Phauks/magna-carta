@@ -106,7 +106,7 @@ export function secureProblems(
     settings.permissionsPassword === settings.openPassword
   ) {
     problems.permissionsPassword =
-      "Use a different password from the one to open it, or anyone who can open it can change it.";
+      "Use a different password from the open password, or anyone who can open it can change it.";
   }
   return problems;
 }

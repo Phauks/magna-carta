@@ -93,7 +93,7 @@
     const outcome = await remindSigners(fetch, request.id);
     busy = null;
     if (outcome.kind === "ok") onChanged(outcome.value);
-    else failure = stated(outcome.failure, "The reminder was not sent.");
+    else failure = stated(outcome.failure, "The reminder wasn't sent.");
   }
 
   async function cancel(): Promise<void> {
@@ -105,7 +105,7 @@
       confirmingCancel = false;
       onChanged(outcome.value);
     } else {
-      failure = stated(outcome.failure, "The request was not cancelled.");
+      failure = stated(outcome.failure, "The request wasn't cancelled.");
     }
   }
 </script>
@@ -136,7 +136,7 @@
     <Alert.Root variant="info">
       <Alert.Title>Waiting to Be Sealed</Alert.Title>
       <Alert.Description>
-        Everyone has signed. The signed copy and its certificate are filed once the seal is applied.
+        Everyone has signed. The signed copy and its certificate are saved once the seal is applied.
       </Alert.Description>
     </Alert.Root>
   {/if}
@@ -145,7 +145,7 @@
     <Alert.Root variant="warning">
       <Alert.Title>Cancel This Request?</Alert.Title>
       <Alert.Description>
-        Links already sent stop working. Signatures already given stay on the record, and nothing is deleted.
+        Links already sent stop working. Signatures already given are kept, and nothing is deleted.
       </Alert.Description>
       <div class="flex flex-col gap-8">
         <LabelledField label="Reason" hint="Kept on the request's record">
