@@ -128,7 +128,7 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     group: "calendarAndEmail",
     steps: [
       "Create one OAuth client in a Google Cloud project, with the redirect address https://magnacarta.esq/api/v1/integrations/google/callback.",
-      "On the magna-carta Worker, set GOOGLE_CLIENT_ID and the secret GOOGLE_CLIENT_SECRET.",
+      "On the magna-carta Worker, set GOOGLE_CALENDAR_CLIENT_ID and the secret GOOGLE_CALENDAR_CLIENT_SECRET.",
     ],
     deployQueueHeading:
       "Google Calendar connection activation: one Google Cloud project, then two secrets (2026-11-13)",

@@ -19,11 +19,11 @@ function trimTrailingSlashes(value: string): string {
 // The origin is the deployment's stated public origin where it has one, and the request's own
 // otherwise, for the reason given beside the Microsoft application (microsoft-application.ts).
 export function resolveGoogleApplication(
-  env: Pick<Bindings, "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "APP_BASE_URL">,
+  env: Pick<Bindings, "GOOGLE_CALENDAR_CLIENT_ID" | "GOOGLE_CALENDAR_CLIENT_SECRET" | "APP_BASE_URL">,
   requestUrl: string,
 ): GoogleApplication | undefined {
-  const clientId = env.GOOGLE_CLIENT_ID ?? "";
-  const clientSecret = env.GOOGLE_CLIENT_SECRET ?? "";
+  const clientId = env.GOOGLE_CALENDAR_CLIENT_ID ?? "";
+  const clientSecret = env.GOOGLE_CALENDAR_CLIENT_SECRET ?? "";
   if (clientId === "" || clientSecret === "") return undefined;
   const stated = env.APP_BASE_URL ?? "";
   const origin = stated === "" ? new URL(requestUrl).origin : trimTrailingSlashes(stated);

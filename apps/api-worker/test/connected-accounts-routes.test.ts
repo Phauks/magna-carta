@@ -42,15 +42,15 @@ const PROVISIONED = {
   ...env,
   MICROSOFT_CLIENT_ID: "client-1",
   MICROSOFT_CLIENT_SECRET: "secret-1",
-  GOOGLE_CLIENT_ID: "google-client-1",
-  GOOGLE_CLIENT_SECRET: "google-secret-1",
+  GOOGLE_CALENDAR_CLIENT_ID: "google-client-1",
+  GOOGLE_CALENDAR_CLIENT_SECRET: "google-secret-1",
 };
 const UNPROVISIONED = {
   ...env,
   MICROSOFT_CLIENT_ID: undefined,
   MICROSOFT_CLIENT_SECRET: undefined,
-  GOOGLE_CLIENT_ID: undefined,
-  GOOGLE_CLIENT_SECRET: undefined,
+  GOOGLE_CALENDAR_CLIENT_ID: undefined,
+  GOOGLE_CALENDAR_CLIENT_SECRET: undefined,
 };
 
 // Microsoft, as a script. `token` and `calendars` are swapped per test; every request is kept so a
@@ -250,7 +250,7 @@ describe("the shipped state: no Microsoft application registered", () => {
     const body = await list(memberCookie, {
       ...PROVISIONED,
       MICROSOFT_CLIENT_SECRET: undefined,
-      GOOGLE_CLIENT_ID: undefined,
+      GOOGLE_CALENDAR_CLIENT_ID: undefined,
     });
     expect(body.providers).toEqual([
       { provider: "microsoft", available: false },

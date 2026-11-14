@@ -472,10 +472,10 @@ administrator of the firm's Google Workspace:
 6. **Copy the client ID and the client secret** from the client's page. The secret may be shown
    once only; copy it at creation.
 7. **Create two secrets in the Cloudflare Secrets Store** (dashboard, **Secrets Store → Create
-   secret**, scope _Workers_), named exactly `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+   secret**, scope _Workers_), named exactly `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET`.
 8. **Bind them to the app Worker** in a small pull request: two `secrets_store_secrets` entries in
-   `apps/api-worker/wrangler.jsonc`, named `SECRETS_STORE_GOOGLE_CLIENT_ID` and
-   `SECRETS_STORE_GOOGLE_CLIENT_SECRET`. The binding comes after the secret exists, the order
+   `apps/api-worker/wrangler.jsonc`, named `SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_ID` and
+   `SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_SECRET`. The binding comes after the secret exists, the order
    [`docs/conventions/operations.md`](conventions/operations.md) gives under _Secrets Store_. The
    Worker already looks for both names (`apps/api-worker/src/stored-secret-names.ts`). To switch
    the feature on without waiting for that pull request, set the same two names as secrets on the

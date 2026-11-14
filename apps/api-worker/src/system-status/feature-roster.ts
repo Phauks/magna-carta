@@ -62,7 +62,7 @@ export const FEATURE_ROSTER = [
   { id: "callerLookup", alternatives: [["TELNYX_API_KEY"]] },
   // Calendar and email
   { id: "outlookCalendarSync", alternatives: [["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"]] },
-  { id: "googleCalendarSync", alternatives: [["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]] },
+  { id: "googleCalendarSync", alternatives: [["GOOGLE_CALENDAR_CLIENT_ID", "GOOGLE_CALENDAR_CLIENT_SECRET"]] },
   { id: "outgoingEmail", alternatives: [["SEND_EMAIL", "EMAIL_FROM"]] },
   { id: "notificationDigest", alternatives: [["SEND_EMAIL", "EMAIL_FROM", "APP_BASE_URL"]] },
   { id: "emailCapture", alternatives: [["EMAIL_SERVICE"]], worker: "email" },
