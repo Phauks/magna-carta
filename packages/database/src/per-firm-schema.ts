@@ -12165,6 +12165,13 @@ export const meetingMessage = sqliteTable(
       .$type<UserId>()
       .references(() => member.userId),
     createdAt: text("created_at").notNull(),
+    // A FILE SHARED IN THE CHAT: one of the matter's own files, chosen from the matter or uploaded
+    // from the meeting into its "Meeting files" folder. The message points at the file and holds no
+    // bytes, so the file keeps its scan, its versions and its access rules, and the chat stays a
+    // record of what was said and shown rather than a second filing path. Null on an ordinary line.
+    attachedFileId: text("attached_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
   },
   (table) => [
     // THE READ AND THE KEYSET IN ONE INDEX: one meeting's messages, oldest first, walked by

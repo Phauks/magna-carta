@@ -9,7 +9,8 @@ import {
 } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
+import type { FileId, MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
+import { identifierPattern } from "@magna-carta/identifiers/validate";
 import {
   postMeetingMessage,
   redactMeetingMessage,
@@ -88,10 +89,11 @@ const SendMessageRequest = z
     // Bounded here as well as in the domain package and on the row, so a body past the ceiling is
     // refused before it is read rather than after. The domain trims the edges before measuring, so
     // this bound is deliberately generous by the whitespace a browser's Enter key leaves behind.
-    body: z
-      .string()
-      .min(1)
-      .max(MAX_MEETING_MESSAGE_LENGTH + 64),
+    // May be empty only beside a file, when the line says the file's name; the domain refuses an
+    // empty line with nothing shared.
+    body: z.string().max(MAX_MEETING_MESSAGE_LENGTH + 64),
+    // One of the meeting's matter's files, shared with the line.
+    attachedFileId: z.string().regex(identifierPattern("file")).nullable().optional(),
   })
   .openapi("SendMeetingMessageRequest");
 
@@ -112,6 +114,9 @@ export const MeetingMessage = z
     body: z.string(),
     redactedAt: z.string().nullable(),
     redactedByUserId: z.string().nullable(),
+    // A file shared with the line, by its handle and its name now. Null on an ordinary line, once
+    // the line is taken back, and once the file is deleted.
+    attachedFile: z.object({ id: z.string(), name: z.string() }).nullable(),
   })
   .openapi("MeetingMessage");
 
@@ -352,6 +357,15 @@ function chatErrorResponse(
         status: 422,
         detail: caught.message,
       });
+    // A file the room cannot share. Absent rather than forbidden, so a guess at a handle learns
+    // nothing about whether it names a file elsewhere.
+    case "meeting-message-file-unavailable":
+      return problemJson(c, {
+        type: "not-found",
+        title: "That file cannot be shared here",
+        status: 404,
+        detail: caught.message,
+      });
     // Somebody else's words, and the caller is not hosting. A permission answer rather than an
     // absence, because the message is one they can see in the transcript — pretending it is not
     // there would be a worse answer than saying it is not theirs to remove.
@@ -510,13 +524,13 @@ export function registerMeetingChatRoutes(
       const firm = requireChokepointFirmContext(c);
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId } = c.req.valid("param");
-      const { body } = c.req.valid("json");
+      const { body, attachedFileId } = c.req.valid("json");
 
       const outcome = await commitChatEffect(c, firm.firmDatabase, idempotency, async () => {
         const sent = await postMeetingMessage(
           firm.firmDatabase,
           meetingId as MeetingId,
-          { body },
+          { body, attachedFileId: (attachedFileId ?? null) as FileId | null },
           serviceOptions(c),
         );
         return { message: sent.message, responseCode: 201, effect: sent.effect };
