@@ -1030,6 +1030,9 @@ importers:
       '@magna-carta/email':
         specifier: workspace:*
         version: link:../../packages/email
+      '@magna-carta/exhibits':
+        specifier: workspace:*
+        version: link:../../packages/exhibits
       '@magna-carta/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags

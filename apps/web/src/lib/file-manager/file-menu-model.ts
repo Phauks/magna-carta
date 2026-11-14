@@ -51,7 +51,8 @@ export type FileMenuCommand =
   | "selectAll"
   | "filterToThis"
   | "ignoreIssues"
-  | "unignoreIssues";
+  | "unignoreIssues"
+  | "makeExhibits";
 
 export interface FileMenuItem {
   readonly kind: "item";
@@ -266,6 +267,13 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
       disabledReason: waitingReason("convert"),
       soon: true,
     });
+  }
+
+  if (!many && folders.length === 1) {
+    // A folder of a filing's documents is where an exhibit set starts: its files become Exhibit A,
+    // B, C in name order, and the set follows the folder until it is filed.
+    entries.push(separator);
+    entries.push({ kind: "item", command: "makeExhibits", label: "Make Exhibits" });
   }
 
   if (folders.length > 0) {

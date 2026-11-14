@@ -26,6 +26,7 @@
     "@magna-carta/design-tokens": "workspace:*",
     "@magna-carta/directory": "workspace:*",
     "@magna-carta/email": "workspace:*",
+    "@magna-carta/exhibits": "workspace:*",
     "@magna-carta/feature-flags": "workspace:*",
     "@magna-carta/file-type": "workspace:*",
     "@magna-carta/government-links": "workspace:*",
