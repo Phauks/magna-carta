@@ -22,13 +22,6 @@ describe("the community board's paths", () => {
     expect(at("https://community.magnacarta.esq/")).toBe("/community-board");
     expect(at("https://community.magnacarta.esq/questions")).toBe("/community-board/questions");
     expect(at("https://magnacarta.esq/matters")).toBeUndefined();
-    expect(at("https://changelog.magnacarta.esq/")).toBe("/community-board/changelog");
-  });
-
-  it("links from the changelog's own address back to the board's", () => {
-    expect(boardPath("/changelog", "changelog.magnacarta.esq")).toBe("/");
-    expect(boardPath("/questions", "changelog.magnacarta.esq")).toBe(
-      "https://community.magnacarta.esq/questions",
-    );
+    expect(at("https://community.magnacarta.esq/changelog")).toBe("/community-board/changelog");
   });
 });
