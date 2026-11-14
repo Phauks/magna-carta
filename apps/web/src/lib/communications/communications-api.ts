@@ -196,23 +196,6 @@ export function listCommunications(
       );
 }
 
-/**
- * The number the next call or text recorded for that day would carry.
- *
- * A PREVIEW AND NOT A RESERVATION. Somebody still on the telephone needs something to write on the
- * slip and read back to the caller, and waiting for the save to answer is too late for the sentence
- * they are in the middle of — so the form asks what the number would be. Nothing is drawn by asking,
- * so a call recorded first takes it and this one moves on; the record's own number is always read
- * back from the record.
- */
-export function readNextCommunicationNumber(
-  fetchImpl: typeof fetch,
-  occurredAt: string,
-): Promise<ApiOutcome<{ referenceNumber: string }>> {
-  const suffix = occurredAt === "" ? "" : `?occurredAt=${encodeURIComponent(occurredAt)}`;
-  return requestJson(fetchImpl, `/api/v1/communications/next-number${suffix}`);
-}
-
 /** How many calls and texts are waiting to be filed. Refused without the review capability. */
 export function readUnroutedCount(fetchImpl: typeof fetch): Promise<ApiOutcome<{ count: number }>> {
   return requestJson(fetchImpl, "/api/v1/communications/unrouted-count");
@@ -220,6 +203,8 @@ export function readUnroutedCount(fetchImpl: typeof fetch): Promise<ApiOutcome<{
 
 export interface LogCommunicationInput {
   channel: CommunicationChannel;
+  /** The draft number the call holds, so it is saved under exactly that number. */
+  numberReservation?: string;
   direction: CommunicationDirection;
   /**
    * Optional, and an UNNUMBERED matter counts: a matter number is null until a matter opens, and an

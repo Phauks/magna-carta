@@ -22,6 +22,8 @@
    */
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
   import { openBeside } from "$lib/navigation/open-beside.ts";
+  import { goto } from "$app/navigation";
+  import { createExhibitSetFromFolder } from "$lib/exhibits/exhibits-api.ts";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
@@ -131,7 +133,7 @@
     renameSelectionEnd,
     splitName,
   } from "./file-names.ts";
-  import { countPhrase } from "./file-manager-vocabulary.ts";
+  import { countPhrase, selectionPhrase } from "./file-manager-vocabulary.ts";
   import {
     destinationFolderIdOf,
     dragDescription,
@@ -166,6 +168,17 @@
   import FileInspector from "./file-inspector.svelte";
   import FolderDeleteDialog from "./folder-delete-dialog.svelte";
   import RestoreFileDialog from "./restore-file-dialog.svelte";
+  import BundleDialog from "./bundle-dialog.svelte";
+  import {
+    bundleRequestBody,
+    bundleStem,
+    linksOf,
+    readBundleStatus,
+    requestBundle,
+    type BundleChoices,
+  } from "./bundle-request.ts";
+  import { saveToTarget } from "$lib/export/save-target.ts";
+  import { markShelfChanged } from "$lib/export/download-shelf-signal.svelte.ts";
   import UploadDialog from "./upload-dialog.svelte";
   import { entriesFromDataTransfer, type DroppedEntry } from "@magna-carta/design-system/dropzone";
   import {
@@ -980,6 +993,115 @@
     }
   }
 
+  // --- bundling -------------------------------------------------------------------------------------
+
+  /*
+   * Download as Bundle asks how the archive should be made, then hands the selection to the bundle
+   * route, which picks its own lane. What comes back is one of four answers: the archive itself
+   * (saved now), links to one already built (opened), a background build (watched here until it is
+   * ready, and listed in the download tray meanwhile), or a selection that came down to one file
+   * (downloaded as that file). The selection is fixed when the panel opens, so a click elsewhere in
+   * the list while it is open does not change what is bundled.
+   */
+  let bundleOpen = $state(false);
+  let bundleTargets = $state<readonly FileManagerRow[]>([]);
+  let bundleFailure = $state<string | null>(null);
+  let bundleProgress = $state<string | null>(null);
+  const BUNDLE_POLL_MILLISECONDS = 3000;
+  const BUNDLE_POLL_LIMIT = 200;
+
+  const bundleSummary = $derived.by((): string => {
+    const files = bundleTargets.filter((row) => row.kind === "file").length;
+    const folders = bundleTargets.length - files;
+    return bundleTargets.length === 0 ? "The whole matter" : selectionPhrase(files, folders);
+  });
+
+  function beginBundle(targets: readonly FileManagerRow[]): void {
+    bundleTargets = [...targets];
+    bundleFailure = null;
+    bundleOpen = true;
+  }
+
+  function bundleFiles(targets: readonly FileManagerRow[]): FileManagerRow[] {
+    return targets
+      .flatMap((row): FileManagerRow[] =>
+        row.kind === "file"
+          ? [row]
+          : index
+              .subtreeFiles(row.folder.id)
+              .map((file) => ({ kind: "file", key: fileKey(file.id), file }) as const),
+      )
+      .filter((row) => row.kind === "file" && row.file.currentVersionId !== null);
+  }
+
+  function openLinks(urls: readonly string[]): void {
+    for (const url of urls) openBeside(url, "file");
+  }
+
+  async function watchBundle(jobId: string): Promise<void> {
+    bundleProgress = "Building the bundle. It downloads when it is ready, and it is in the download tray.";
+    for (let attempt = 0; attempt < BUNDLE_POLL_LIMIT; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, BUNDLE_POLL_MILLISECONDS));
+      const outcome = await readBundleStatus(fetch, jobId);
+      if (outcome.kind !== "ok") continue;
+      if (outcome.value.status === "ready") {
+        bundleProgress = null;
+        markShelfChanged();
+        openLinks(linksOf(outcome.value));
+        return;
+      }
+      if (outcome.value.status === "failed") {
+        bundleProgress = null;
+        actionFailure = "The bundle could not be built. Nothing was downloaded.";
+        return;
+      }
+    }
+    bundleProgress = null;
+    actionFailure = "The bundle is taking longer than expected. It will be in the download tray when it is ready.";
+  }
+
+  async function confirmBundle(choices: BundleChoices): Promise<ActionOutcome> {
+    bundleFailure = null;
+    const targets = bundleTargets;
+    const selection = {
+      matterId,
+      fileIds: targets.flatMap((row) => (row.kind === "file" ? [row.file.id] : [])),
+      folderIds: targets.flatMap((row) => (row.kind === "folder" ? [row.folder.id] : [])),
+    };
+    const stem = bundleStem(matterTitle);
+    const outcome = await requestBundle(fetch, bundleRequestBody(selection, choices, stem), `${stem}.zip`);
+    if (outcome.kind !== "ok") {
+      bundleFailure =
+        outcome.kind === "transport"
+          ? "Couldn't connect. Nothing was downloaded."
+          : outcome.problem.status === 503
+            ? "The bundle service is not running yet. A plain zip with no password, no compression and no split still works."
+            : problemGuidance(outcome.problem).message;
+      return "refused";
+    }
+    const answer = outcome.value;
+    switch (answer.kind) {
+      case "archive":
+        await saveToTarget(answer.archive, answer.name, answer.archive.type || "application/zip");
+        markShelfChanged();
+        break;
+      case "links":
+        markShelfChanged();
+        openLinks(answer.urls);
+        break;
+      case "building":
+        markShelfChanged();
+        void watchBundle(answer.jobId);
+        break;
+      case "single-file": {
+        const only = bundleFiles(targets)[0];
+        if (only !== undefined && only.kind === "file") openBeside(fileDownloadUrl(only.file.id), "file");
+        break;
+      }
+    }
+    return "committed";
+  }
+
   // --- uploading -----------------------------------------------------------------------------------
 
   /*
@@ -1244,6 +1366,21 @@
     return marks.length > 0 && marks.every((mark) => mark === first) ? first : null;
   });
 
+  /*
+   * Makes an exhibit set from a folder and opens it on the matter's Exhibits page. The set follows
+   * the folder while it is a draft, so the folder stays where the member gathers the documents.
+   */
+  async function makeExhibitsFrom(folderId: string): Promise<void> {
+    const outcome = await createExhibitSetFromFolder(fetch, matterId, folderId);
+    if (outcome.kind !== "ok") {
+      actionFailure = "The exhibit set could not be made from that folder.";
+      return;
+    }
+    await goto(
+      `/matters/${encodeURIComponent(matterId)}/exhibits?entry=${encodeURIComponent(outcome.value.id)}`,
+    );
+  }
+
   async function runCommand(command: FileMenuCommand): Promise<void> {
     const targets = menuIsBackground ? [] : menuTargets;
     const only = targets[0];
@@ -1256,6 +1393,9 @@
       case "download":
         download(targets);
         return;
+      case "downloadBundle":
+        beginBundle(targets);
+        return;
       case "rescan":
         await requestRescanOn(targets);
         return;
@@ -1267,6 +1407,9 @@
         return;
       case "rename":
         if (only !== undefined) beginRename(only);
+        return;
+      case "makeExhibits":
+        if (only?.kind === "folder") await makeExhibitsFrom(only.folder.id);
         return;
       case "cut":
         manager.mark(
@@ -1966,6 +2109,15 @@
       </div>
     {/if}
 
+    {#if bundleProgress !== null}
+      <div class="px-16 pt-12">
+        <Alert.Root variant="info">
+          <Alert.Title>Building the Bundle</Alert.Title>
+          <Alert.Description>{bundleProgress}</Alert.Description>
+        </Alert.Root>
+      </div>
+    {/if}
+
     {#if actionNotice !== null}
       <div class="px-16 pt-12">
         <Alert.Root variant="info">
@@ -2388,6 +2540,16 @@
   onDismiss={reload}
 />
 
+<BundleDialog
+  bind:open={bundleOpen}
+  summary={bundleSummary}
+  failure={bundleFailure}
+  onConfirm={confirmBundle}
+  onDismiss={() => {
+    bundleTargets = [];
+  }}
+/>
+
 <RestoreFileDialog
   bind:open={restoreOpen}
   {index}
@@ -2609,6 +2771,8 @@
     </ContextMenu.Item>
     <ContextMenu.Separator />
     <ContextMenu.Item onSelect={() => void deleteRows([row])}>Delete</ContextMenu.Item>
+    <ContextMenu.Separator />
+    <ContextMenu.Item onSelect={() => void makeExhibitsFrom(row.folder.id)}>Make Exhibits</ContextMenu.Item>
   {:else}
     <!-- Home is a destination, not a folder: it opens, and it takes a paste; there is nothing on
          it to rename, colour, or delete. -->

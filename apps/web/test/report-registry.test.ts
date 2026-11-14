@@ -62,6 +62,8 @@ describe("the report registry", () => {
       ["accounts-receivable-aging", { trustAccount: false, office: true, period: "date" }],
       ["work-in-progress", { trustAccount: false, office: true, period: "none" }],
       ["realization", { trustAccount: false, office: true, period: "span" }],
+      ["invoices", { trustAccount: false, office: true, period: "span" }],
+      ["payments-applied", { trustAccount: false, office: true, period: "span" }],
       ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
     ]);
@@ -75,6 +77,8 @@ describe("the report registry", () => {
       "accounts-receivable-aging": "bitemporal",
       "work-in-progress": "live-only",
       realization: "bitemporal",
+      invoices: "bitemporal",
+      "payments-applied": "bitemporal",
       "timekeeper-productivity": "live-only",
       "operational-volumes": "bitemporal",
     });

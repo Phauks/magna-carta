@@ -19,28 +19,28 @@
  *   rather than replace. A consultation draws one on graduating from intake, keeps it after the
  *   matter opens, and a document filed under it still resolves —
  *   `packages/matters/src/numbering/consultation-scheme.ts` is where that is decided.
- * - `preview` is not drawn at all: it is what the NEXT record would take, shown while the reader is
- *   still filling the panel in, and it says so rather than implying a reservation. Somebody on the
- *   telephone needs something to write on a slip, and the save is too late for the sentence they are
- *   in the middle of.
+ * - `draft` is the number a record being created will be saved under, held for the panel creating
+ *   it and given back if the panel is cancelled (the owner's ruling of 2026-11-14). It renders in
+ *   italics, which is the product's one mark for a number a record does not carry yet. Somebody on
+ *   the telephone needs something to write on a slip, and the save is too late for the sentence
+ *   they are in the middle of.
  *
  * Closed on purpose: a fourth standing is a reviewed change to this file, not a call site's
  * improvisation. What each one renders is resolved in ./record-reference-model.ts.
  */
-export type ReferenceStanding = "drawn" | "tentative" | "preview";
+export type ReferenceStanding = "drawn" | "tentative" | "draft";
 
 /** A record, by the number a person quotes out loud. */
 export interface RecordReference {
   /**
    * The record kind as a reader says it — "Matter", "Bill", "Call", "Packet". A caller's own
    * word: the design system serves every kind and names none of them, the same rule the modal
-   * shells hold to.
+   * shells hold to. Empty shows a number alone.
    */
   readonly kind: string;
   /**
-   * The number itself, as the record carries it. Null where there is not one to show — which the
-   * standing then tells the reader how to take: a `preview` with no number says one is drawn on
-   * save, and any other standing with no number says only what kind of record this is.
+   * The number itself, as the record carries it. Null where there is not one to show, and the line
+   * then says only what kind of record this is.
    */
   readonly number: string | null;
   /** Defaults to `drawn`. */

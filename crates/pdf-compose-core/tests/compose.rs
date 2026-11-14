@@ -11,7 +11,7 @@ use image::codecs::jpeg::JpegEncoder;
 use image::{ImageEncoder, ImageFormat, Rgb, RgbImage, Rgba, RgbaImage};
 use pdf_compose_core::{
     compose, Alignment, Block, Column, ComposeError, ComposedDocument, Field, FontFamily,
-    ImageBlock, PageSetup, Paragraph, RunningLine, Span, Table, Timestamp, Typeface,
+    ImageBlock, PageSetup, Paragraph, RowStyle, RunningLine, Span, Table, Timestamp, Typeface,
 };
 use pdf_core::Document;
 
@@ -179,6 +179,7 @@ fn a_table_repeats_its_heading_on_every_page_and_loses_no_row() {
             ],
             rows,
             banded: false,
+            ..Table::default()
         })]),
         &FontFamily::bundled(),
     )
@@ -217,6 +218,7 @@ fn a_cell_longer_than_a_page_is_split_and_not_dropped() {
             ],
             rows: vec![vec!["A".to_string(), long]],
             banded: false,
+            ..Table::default()
         })]),
         &FontFamily::bundled(),
     )
@@ -770,4 +772,68 @@ fn fields_set_two_up_take_half_the_rows_and_read_down_each_column() {
         first_row.contains("Value 1") && first_row.contains("Value 31"),
         "{first_row}"
     );
+}
+
+#[test]
+fn a_report_page_of_figures_totals_and_signature_lines_composes_from_json() {
+    let json = |accent: &str| {
+        format!(
+            r#"{{ {accent} "blocks": [
+                {{ "type": "figures", "figures": [
+                    {{ "label": "Billed", "value": "160.00" }},
+                    {{ "label": "Overdue", "value": "45.00", "note": "Past 30 days", "alert": true }}
+                ] }},
+                {{ "type": "table",
+                   "columns": [{{ "heading": "Matter" }}, {{ "heading": "Billed", "alignment": "end" }}],
+                   "rows": [["Rivera", "100.00"], ["Deposition", "60.00"], ["Withdrawn", "0.00"], ["Total", "160.00"]],
+                   "rowStyles": [null, "child", "muted", "total"] }},
+                {{ "type": "display", "text": "EXHIBIT 4" }},
+                {{ "type": "signatureLines", "lines": ["Signature", "Date"] }}
+            ] }}"#
+        )
+    };
+    let model = pdf_compose_core::document_from_json(&json(""), &[]).unwrap();
+    let Block::Table(table) = &model.blocks[1] else {
+        panic!("{:?}", model.blocks[1]);
+    };
+    assert_eq!(
+        table.row_styles,
+        [
+            RowStyle::Plain,
+            RowStyle::Child,
+            RowStyle::Muted,
+            RowStyle::Total
+        ]
+    );
+    let gray = pdf_compose_core::compose_json(&json(""), &[], &FontFamily::bundled()).unwrap();
+    let coloured = pdf_compose_core::compose_json(
+        &json(r#""accent": [98, 72, 0],"#),
+        &[],
+        &FontFamily::bundled(),
+    )
+    .unwrap();
+    let text = page_texts(&gray.pdf).join("\n");
+    for needle in [
+        "Overdue",
+        "45.00",
+        "Past 30 days",
+        "Deposition",
+        "Total",
+        "EXHIBIT 4",
+        "Signature",
+        "Date",
+    ] {
+        assert!(text.contains(needle), "{needle}: {text}");
+    }
+    // The alert figure is red only in a document that is in colour at all.
+    assert_eq!(red_pixels(&gray.pdf), 0);
+    assert!(
+        red_pixels(&coloured.pdf) > 20,
+        "{}",
+        red_pixels(&coloured.pdf)
+    );
+    assert_eq!(page_texts(&gray.pdf), page_texts(&coloured.pdf));
+    // A row style the composer does not know is refused, as any unknown field is.
+    let wrong = json("").replace(r#""muted""#, r#""loud""#);
+    assert!(pdf_compose_core::document_from_json(&wrong, &[]).is_err());
 }

@@ -311,7 +311,7 @@ describe("the answer says what it did not look at", () => {
       answer.groups
         .filter((entry) => entry.skipped === "one-matter-only")
         .map((entry) => entry.source),
-    ).toEqual(["file-contents", "billing", "parties", "calendar", "custody"]);
+    ).toEqual(["file-contents", "calendar"]);
     for (const entry of answer.groups) {
       if (entry.skipped === "one-matter-only") expect(entry.hits).toEqual([]);
     }
@@ -416,6 +416,35 @@ describe("a member narrows the search to matters they chose", () => {
       .run();
   });
 
+  it("finds a party on the matter they are on, and not once the matter is narrowed away", async () => {
+    const now = new Date().toISOString();
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    await database
+      .prepare(
+        "INSERT INTO directory_person (id, display_name, deceased, status, needs_review, created_at, updated_at) VALUES (?1, 'Ottoline Farrant', 0, 'active', 0, ?2, ?2)",
+      )
+      .bind("directoryPerson_acrossMattersWitness", now)
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'witness', ?4, ?4)",
+      )
+      .bind(
+        newIdentifier("matterParty"),
+        colleagueMatterId,
+        "directoryPerson_acrossMattersWitness",
+        now,
+      )
+      .run();
+    const everywhere = group(await search("farrant"), "parties");
+    expect(everywhere.skipped).toBeNull();
+    expect(everywhere.hits.map((hit) => [hit.title, hit.matter.id])).toEqual([
+      ["Ottoline Farrant", colleagueMatterId],
+    ]);
+    // The owner's own matters do not include the colleague's, so the party is not in the answer.
+    expect(group(await search("farrant", "&mine=true"), "parties").hits).toEqual([]);
+  });
+
   it("answers from every matter until it is narrowed", async () => {
     expect(noteMatters(await search("culvert"))).toEqual(
       [firstMatterId, colleagueMatterId].toSorted(),
@@ -427,7 +456,7 @@ describe("a member narrows the search to matters they chose", () => {
     expect(noteMatters(answer)).toEqual([firstMatterId]);
     expect(answer.broad).toBe(false);
     // The places that are not searched across matters still say so.
-    expect(group(answer, "parties").skipped).toBe("one-matter-only");
+    expect(group(answer, "calendar").skipped).toBe("one-matter-only");
   });
 
   it("answers from one client's matters alone when asked for those", async () => {
