@@ -195,6 +195,8 @@ describe("GET /api/v1/me", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        // Bringing records in from the system the firm is leaving: Owner/Admin alone.
+        "firm:transferRecords",
         "incidents:viewDescription",
         // The four intake keys. intake:read and intake:record reach every seat that does firm work
         // (Admin, Attorney, Paralegal, Billing); intake:waive and intake:manageProcedures stop
