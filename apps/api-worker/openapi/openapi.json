@@ -36780,6 +36780,24 @@
               "string",
               "null"
             ]
+          },
+          "attachedFile": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
           }
         },
         "required": [
@@ -36791,7 +36809,8 @@
           "sentAt",
           "body",
           "redactedAt",
-          "redactedByUserId"
+          "redactedByUserId",
+          "attachedFile"
         ]
       },
       "SendMeetingMessageRequest": {
@@ -36799,8 +36818,14 @@
         "properties": {
           "body": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 4064
+          },
+          "attachedFileId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
           }
         },
         "required": [

@@ -8478,10 +8478,15 @@ export type MeetingMessage = {
     body: string;
     redactedAt: string | null;
     redactedByUserId: string | null;
+    attachedFile: {
+        id: string;
+        name: string;
+    } | null;
 };
 
 export type SendMeetingMessageRequest = {
     body: string;
+    attachedFileId?: string | null;
 };
 
 export type MeetingMessagePage = {
