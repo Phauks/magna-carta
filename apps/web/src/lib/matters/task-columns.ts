@@ -14,6 +14,7 @@ import {
   PRIORITY_LABELS,
   TASK_PRIORITIES,
   describeTimeLogged,
+  type AssigneeInput,
   type MatterTask,
   type TaskListStatus,
   type TaskListSummary,
@@ -272,6 +273,62 @@ export function taskGrouping(
       return {
         keyOf: (row) => context.matterTitle(rootOf(row).matterId),
       };
+  }
+}
+
+/** What a task added at the foot of a band starts with, so that it lands in that band. */
+export interface BandPresets {
+  listId?: string;
+  statusId?: string;
+  dueOn?: string | null;
+  assignees?: AssigneeInput[];
+  matterId?: string | null;
+}
+
+/** The names the band keys were made from, turned back into the records they name. */
+export interface BandLookup {
+  lists: readonly TaskListSummary[];
+  members: readonly { userId: string; displayName: string }[];
+  teams: readonly { id: string; name: string }[];
+  /** The matter a Matter band's title names: an id, null for the firm's own work, undefined unknown. */
+  matterIdOf: (title: string) => string | null | undefined;
+  today: CivilDate;
+}
+
+/**
+ * THE INVERSE OF `taskGrouping`: what a new task needs so that it is drawn in the band it was
+ * added in. A band whose key cannot be turned back into a record — a status name the default list
+ * does not have, a name two members share, a past due date — presets nothing for that question,
+ * and the task takes the window's defaults there rather than a guess.
+ */
+export function presetsForBand(groupBy: TaskGroupBy, key: string | null, lookup: BandLookup): BandPresets {
+  if (key === null || groupBy === "none") return {};
+  switch (groupBy) {
+    case "list":
+      return lookup.lists.some((list) => list.id === key) ? { listId: key } : {};
+    case "status": {
+      const list = lookup.lists.find((candidate) => candidate.isDefault) ?? lookup.lists[0];
+      const status = list?.statuses.find((candidate) => candidate.name === key);
+      return list === undefined || status === undefined ? {} : { listId: list.id, statusId: status.id };
+    }
+    case "due":
+      if (key === "today") return { dueOn: lookup.today };
+      if (key === "none") return { dueOn: null };
+      return {};
+    case "assignee": {
+      if (key === "Nobody Yet") return { assignees: [] };
+      const members = lookup.members.filter((member) => member.displayName === key);
+      const teams = lookup.teams.filter((team) => team.name === key);
+      if (members.length + teams.length !== 1) return {};
+      const member = members[0];
+      const team = teams[0];
+      if (member !== undefined) return { assignees: [{ userId: member.userId }] };
+      return team === undefined ? {} : { assignees: [{ teamId: team.id }] };
+    }
+    case "matter": {
+      const matterId = lookup.matterIdOf(key);
+      return matterId === undefined ? {} : { matterId };
+    }
   }
 }
 
