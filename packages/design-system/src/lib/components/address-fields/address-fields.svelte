@@ -58,6 +58,7 @@
     countries,
     administrativeAreas = [],
     postalCodeNote,
+    postalCodeAsTyped,
     lookup,
     disabled = false,
     /** The refusal to show on the first line, where the caller has one. */
@@ -86,6 +87,11 @@
      * beside its own commit.
      */
     postalCodeNote?: (country: string | undefined, value: string) => string | null;
+    /**
+     * Rewrites the postal code as it is typed into the way the country writes it (a United States
+     * ZIP+4 typed as nine digits gains its hyphen). Absent, the code is kept exactly as typed.
+     */
+    postalCodeAsTyped?: (country: string | undefined, value: string) => string;
     /**
      * How real addresses are looked up. Given, the street box offers addresses as it is typed into,
      * and choosing one fills the rest of the form (street-suggestion-field.svelte). Absent, the street
@@ -151,7 +157,11 @@
   );
 
   function set(key: AddressFieldKey, text: string): void {
-    value = { ...value, [key]: text };
+    const written =
+      key === "postal" && postalCodeAsTyped !== undefined
+        ? postalCodeAsTyped(value.country, text)
+        : text;
+    value = { ...value, [key]: written };
   }
 
   /** The line's own grid: each box takes its share, so a postal code is not as wide as a street. */

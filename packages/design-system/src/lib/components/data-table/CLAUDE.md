@@ -71,3 +71,9 @@ Three things about `DataTable.Grid` that a surface gets wrong by spelling them o
   inline too, and every surface composing an icon beside a name reaches for flex, which is
   block-level: the mark then took a line of its own ABOVE the content, and the row was two lines
   tall with its first column sitting low in it.
+- **A record written in place is a band's FOOT LINE (`bandFoot`), never a row a surface draws.**
+  The grid draws it under each band's last row (once after the last row, and under No Results, when
+  the rows are not banded): one cell across at rest, one cell per visible column with the pinned
+  offsets while the surface says that band is `editing`. It carries `data-grid-band-foot` and never
+  `data-grid-row`, so counts, selection and the grid's keys pass it by; the keys stop at it so its
+  buttons keep Enter and the arrows. The task list's add line is the first consumer.

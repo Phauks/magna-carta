@@ -1,6 +1,6 @@
 # @magna-carta/record-transfer — CLAUDE.md
 
-**Purpose.** The record transfer: bringing a firm's records in from the practice-management system it is leaving. Today it holds the run a transfer is recorded under, the files a run was given, the reader that turns a delimited-text file into numbered rows, the link from each source record to the record here that it became, and the first record kinds: the mapping rules and the loaders for Directory people and organizations, and for matters with their parties. The statement builders, the reader and the mapping rules are pure. The loaders are the only modules that commit, with the database and clock they are handed; nothing here holds a binding.
+**Purpose.** The record transfer: bringing a firm's records in from the practice-management system it is leaving. Today it holds the run a transfer is recorded under, the files a run was given, the reader that turns a delimited-text file into numbered rows, the link from each source record to the record here that it became, and the first record kinds: the mapping rules and the loaders for Directory people and organizations, and for matters with their parties. It also holds the record of each pass somebody asked for and the function that runs one to its end. The statement builders, the reader and the mapping rules are pure. The loaders and the requested pass are the only modules that commit, with the database, clock and ports they are handed; nothing here holds a binding.
 
 **White paper:** _LEAP migration_ — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md).
 **Spec:** [`docs/specs/2026-11-10-record-transfer-framework-design.md`](../../docs/specs/2026-11-10-record-transfer-framework-design.md). (ADR-0021; `docs/decisions/pending/a-transferred-record-is-linked-to-its-source-in-one-table.md`; `docs/decisions/pending/a-transfers-staging-store-is-the-source-file-itself.md`.)
@@ -18,6 +18,10 @@
 - `src/matter-mapping.ts` — the mapping rules for matters: `mapMatterRow` and `matterColumnsMissingFrom`. The client and parties stay as source keys in the draft
 - `src/matter-transfer.ts` — `transferMatter`: read the link, resolve the client and parties to live Directory records, and write the matter, its parties and its link in one commit
 - `src/transfer-pass.ts` — `runTransferPass`: one pass over one file for one kind of record, returning a `TransferPassReport`. `personPassPlan`, `organizationPassPlan` and `matterPassPlan` build the plan for each kind
+- `src/transfer-pass-statements.ts` — the `transfer_pass` row: ask for a pass, read one, list a run's, take one to run it, and end it finished (with the report's counts) or failed. `transferPassReportObjectKey` is where a pass's report is kept
+- `src/transfer-requests.ts` — a member's three acts as effects (start a run, register a file, ask for a pass), each with its audit row; the outbox topic a requested pass rides; `unknownMatterRuleReferences`; and `transferPassStateOf`, which derives requested, running, stalled, finished or failed from a row
+- `src/requested-pass.ts` — `runRequestedPass`: take the pass, read the file through a port, run it, store the report through a port, end the row. Its failures are a fixed vocabulary
+- `src/contract.ts` — the zod shapes the routes take and answer, including the three sets of mapping rules. `src/transfer-views.ts` turns a stored row into its answer
 
 ## Local conventions
 
@@ -39,6 +43,11 @@
 - **A reference is a source key and is not trimmed.** `valueOf` trims a field; a column that holds another record's key is read exactly, because it must equal the key that record was linked under.
 - **A report accounts for every row and holds no value from the file.** `rowsRead` equals created plus already linked plus rejected plus waiting. A report carries positions, column names, fixed reasons, source keys and identifiers only, so it can be stored and shown. A new outcome is a new count or list in the report, never a row that is silently skipped.
 - **A new kind of record gets a plan.** `TransferPassPlan` is the whole contract between a pass and a kind: its key column, its mapping function and its loader. Add a `...PassPlan` builder beside the others.
+- **A pass is taken once.** `startTransferPassStatement` writes a start only where there is none, and `runRequestedPass` stops when it changed no row. Do not add a restart: a pass whose job died stays started and unended, a read calls it stalled after twenty minutes, and the way on is a new pass, which repeats nothing because every row reads its link first.
+- **The report is stored before the row says finished.** A finished pass always has a report to show. A failed pass stores its reason at the same key.
+- **A pass's counts are held to the report's rule by the database.** `transfer_pass_counts_check` refuses counts that do not sum to the rows read, so `finishTransferPassStatement` takes the report itself and not seven numbers.
+- **Rules added to a mapping module are added to `contract.ts` in the same change.** The schemas are strict: a rule the contract does not know is refused at the request and again by the job.
+- **What the operator stated is stored as stated.** `rules_json` holds the key column, the delimiter and the rules. They name columns and the source's own codes for matter types and staff; they hold no row of the file.
 - **A new reader adds its format to `SOURCE_FILE_FORMATS`.** A file registered under a format nothing reads is refused before the database is asked.
 
 ## Invariants that apply here
@@ -50,8 +59,8 @@
 
 ## Dependencies & contracts
 
-- Depends on `@magna-carta/data-access` for the `SqlDatabase` / `SqlStatement` surface, on `@magna-carta/identifiers` for its identifier types, on `@magna-carta/directory` for the compose functions and input types a transferred person or organization is written with, on `@magna-carta/matters` for `composeTransferredMatter`, and on `@magna-carta/civil-time` to turn a file's day into a stored instant.
-- Nothing in the product calls it yet. The upload route, and the job that reads a file from object storage and hands its rows to `runTransferPass`, are its first callers.
+- Depends on `@magna-carta/data-access` for the `SqlDatabase` / `SqlStatement` surface, the audit statement and the effect batch, on `@magna-carta/identifiers` for its identifier types, on `@magna-carta/directory` for the compose functions and input types a transferred person or organization is written with, on `@magna-carta/matters` for `composeTransferredMatter`, and on `@magna-carta/civil-time` to turn a file's day into a stored instant.
+- Called by `apps/api-worker`: the routes in `src/http/routes/record-transfer/` and the queue consumer in `src/background/record-transfer/pass-consumer.ts`. No screen calls the routes yet.
 
 ## Gotchas
 
