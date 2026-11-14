@@ -88,7 +88,7 @@
     </DataTable.Root>
   </section>
 
-  <section class="grid max-w-[48rem] gap-16" aria-labelledby="signing-review-email">
+  <section class="grid max-w-3xl gap-16" aria-labelledby="signing-review-email">
     <h2 id="signing-review-email" class="text-sm font-semibold">The Email</h2>
     <LabelledField label="Subject">
       {#snippet children({ props })}

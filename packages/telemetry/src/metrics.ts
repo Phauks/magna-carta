@@ -517,7 +517,10 @@ export const signingRequestsReminded = defineMetric("signing.requests_reminded",
 
 // Reminder mails the hourly pass could not hand to the mail service. Non-zero means a signer is
 // waiting on a reminder the request's activity says was sent.
-export const signingRemindersUndelivered = defineMetric("signing.reminders_undelivered", [] as const);
+export const signingRemindersUndelivered = defineMetric(
+  "signing.reminders_undelivered",
+  [] as const,
+);
 
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,

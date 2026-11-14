@@ -1,4 +1,7 @@
 import { redirect } from "@sveltejs/kit";
+import { meGetOptions } from "@magna-carta/api-client";
+import { failureOf } from "$lib/api/api-client.ts";
+import { queryClient, SESSION_STABLE } from "$lib/api/screen-data.ts";
 import type { LayoutLoad } from "./$types";
 
 // The account surface's session guard.
@@ -23,15 +26,15 @@ import type { LayoutLoad } from "./$types";
 // A page that reads real session data has to know there is a session first, or its own failure
 // state ends up standing in for "you are not signed in", which is a different sentence.
 // Runs client-side (the app is `ssr = false`).
-export const load: LayoutLoad = async ({ fetch, url }) => {
-  let response: Response;
+// The session read is the same cached one the (app) guard makes, so moving between the two surfaces
+// does not ask the server again.
+export const load: LayoutLoad = async ({ url }) => {
   try {
-    response = await fetch("/api/v1/me", { headers: { accept: "application/json" } });
-  } catch {
-    return {};
-  }
-  if (response.status === 401) {
-    redirect(307, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);
+    await queryClient.ensureQueryData({ ...meGetOptions(), staleTime: SESSION_STABLE });
+  } catch (error) {
+    if (failureOf(error).problem?.status === 401) {
+      redirect(307, `/login?next=${encodeURIComponent(url.pathname + url.search)}`);
+    }
   }
   return {};
 };

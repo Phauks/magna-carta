@@ -1,9 +1,13 @@
 /*
  * The two loads that decide where an /account visitor ends up: the bare-path redirect to the first
- * section, and the surface's own session guard. Pure node — a SvelteKit redirect is a thrown object,
- * and the guard's only collaborator is a `fetch` the test supplies.
+ * section, and the surface's own session guard. Pure node: a SvelteKit redirect is a thrown object.
+ *
+ * The guard reads the session through the one query cache, like the (app) guard, so the canned reply
+ * is installed on the generated client and the cache is emptied between cases.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { client } from "@magna-carta/api-client/client";
+import { queryClient } from "../src/lib/api/screen-data.ts";
 import { load } from "../src/routes/account/+page.ts";
 import { load as guard } from "../src/routes/account/+layout.ts";
 
@@ -12,26 +16,38 @@ interface RedirectLike {
   location?: string;
 }
 
-// The guard reads one endpoint and nothing else, so the whole collaborator is a fetch that answers.
+// Any absolute origin: the app's empty base cannot be resolved in Node, and the fetch is a stub.
+const ORIGIN = "https://app.example";
+
 function answering(status: number): typeof fetch {
-  return (() => Promise.resolve(new Response(null, { status }))) as unknown as typeof fetch;
+  return (() =>
+    Promise.resolve(
+      new Response(status === 200 ? JSON.stringify({}) : null, {
+        status,
+        headers: { "content-type": "application/json" },
+      }),
+    )) as unknown as typeof fetch;
 }
 
 const dead: typeof fetch = (() =>
   Promise.reject(new Error("no worker"))) as unknown as typeof fetch;
+
+beforeEach(() => {
+  queryClient.clear();
+});
+
+afterEach(() => {
+  client.setConfig({ baseUrl: "", fetch: globalThis.fetch });
+});
 
 async function runGuard(
   fetchImpl: typeof fetch,
   pathname = "/account/sessions",
   search = "",
 ): Promise<RedirectLike | null> {
+  client.setConfig({ baseUrl: ORIGIN, fetch: fetchImpl });
   try {
-    // The load signature carries more than the guard reads; the cast keeps the fixture to the two
-    // fields it actually uses rather than assembling a whole SvelteKit load event.
-    await (guard as unknown as (event: unknown) => Promise<unknown>)({
-      fetch: fetchImpl,
-      url: { pathname, search },
-    });
+    await (guard as unknown as (event: unknown) => Promise<unknown>)({ url: { pathname, search } });
     return null;
   } catch (thrown) {
     return thrown as RedirectLike;
