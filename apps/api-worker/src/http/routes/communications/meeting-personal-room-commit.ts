@@ -197,5 +197,6 @@ export function arrivalBody(
     kind: arrival.kind,
     mayOpen: arrival.mayOpen,
     meetingId: arrival.state === "open" ? arrival.meetingId : null,
+    joinCode: arrival.state === "open" ? arrival.joinCode : null,
   };
 }

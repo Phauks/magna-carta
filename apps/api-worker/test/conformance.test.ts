@@ -111,6 +111,29 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "The chat of the one meeting the verified grant names, for a guest who has been admitted into the room, with every firm user identifier removed.",
   "guest.sendMessage":
     "A chat line said from the guest's own admitted stay, on the record like every other; the stay is the one the verified grant names.",
+  // AN OUTSIDE SIGNER'S NINE. A signer holds a signed link minted for one signer on one signing
+  // request — no session, no member row. Each route rides the chokepoint's signer lane
+  // (x-mc-signerLane): the signature is verified before anything is read, the signer's row and the
+  // request must still accept the link on every request, and the lane stashes no user id. What each
+  // route serves or changes is the one signer's own part of the one request the link names.
+  "signer.readRequest":
+    "The signer's own part of the one request the verified link names: the firm's name, the sender, the title and message, the consent text, their own fields. Writes nothing.",
+  "signer.readDocument":
+    "The exact PDF version sent for signature on the one request the verified link names.",
+  "signer.open":
+    "Records, once, that the signer the verified link names opened the request, on the request's own activity.",
+  "signer.sendAccessCode":
+    "Emails a fresh code to the address the firm gave for the signer the verified link names; bounded by the expensive bucket keyed by the signer.",
+  "signer.checkAccessCode":
+    "Checks a code against the keyed digest on the signer's own row; five tries per code.",
+  "signer.consent":
+    "Records the signer's agreement to sign electronically, with the disclosure version, on their own row and the request's activity.",
+  "signer.adopt":
+    "Keeps the signer's adopted signature and initials as PNGs in the firm's own bucket, stamped with the request's matter.",
+  "signer.finish":
+    "Signs the signer's own fields on the one request the verified link names, and moves the request on.",
+  "signer.decline":
+    "Declines for the signer the verified link names, which ends the request; the reason is kept on its record.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
@@ -561,7 +584,8 @@ function surfaceConsistencyViolations(document: ReturnType<typeof buildOpenAPIDo
     if (
       surface === "app" &&
       operation["x-mc-authenticated"] !== true &&
-      operation["x-mc-guestLane"] === undefined
+      operation["x-mc-guestLane"] === undefined &&
+      operation["x-mc-signerLane"] === undefined
     ) {
       violations.push(`${label}: an app-surface (cookie-session) route is never anonymous`);
     }

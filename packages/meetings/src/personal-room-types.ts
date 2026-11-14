@@ -105,6 +105,8 @@ export interface PersonalRoomAtLink extends MeetingPersonalRoomRow {
 /** The session a room has open, with what deciding whether it is still in use needs. */
 export interface PersonalRoomOpenSession {
   readonly id: MeetingId;
+  // The nine digits the session is addressed by: /meeting/482-917-305.
+  readonly join_code: string | null;
   readonly status: MeetingStatus;
   readonly event_kind: MeetingEventKind;
   readonly matter_event_id: MatterEventId | null;

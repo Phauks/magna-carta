@@ -1,4 +1,5 @@
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { FirmId, TransferPassId } from "@magna-carta/identifiers/types";
 import { runRequestedPass } from "@magna-carta/record-transfer/requested-pass";
 import type { TransferPassRequestedPayload } from "@magna-carta/record-transfer/transfer-requests";
@@ -50,7 +51,10 @@ export async function consumeTransferPassRequest(
       }),
       readSourceFile: (objectKey) => sourceFileText(bucket, objectKey),
       writeReport: async (objectKey, json) => {
-        await bucket.put(objectKey, json, { httpMetadata: { contentType: "application/json" } });
+        await bucket.put(objectKey, json, {
+          httpMetadata: { contentType: "application/json" },
+          customMetadata: firmScopedObjectDimensions("transfer-pass-report"),
+        });
       },
     },
     payload.transferPassId as TransferPassId,

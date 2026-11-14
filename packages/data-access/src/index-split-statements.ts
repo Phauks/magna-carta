@@ -277,6 +277,29 @@ export async function listCorporaWithLiveSplits(
   }));
 }
 
+// Which of these matters hold anything in their file contents index: the matters, among the ones
+// named, whose own corpus has a live split.
+//
+// For a question asked of several matters one at a time. Most of a client's matters may hold no
+// indexed file, and a matter with nothing indexed has nothing to ask, so this one read is what keeps
+// the questions to the matters that can answer.
+//
+// The corpus kind is fixed here and is not a caller's to choose. A review set on one of these matters
+// has a corpus of its own under its own identifier, and naming a matter never names it.
+export async function listMattersWithLiveSplits(
+  database: SqlDatabase,
+  matterIds: readonly MatterId[],
+): Promise<MatterId[]> {
+  if (matterIds.length === 0) return [];
+  const { results } = await database
+    .prepare(
+      `SELECT DISTINCT corpus_id FROM ${INDEX_SPLIT_TABLE} WHERE corpus_kind = 'matter' AND superseded_at IS NULL AND corpus_id IN (${matterIds.map(() => "?").join(", ")})`,
+    )
+    .bind(...matterIds)
+    .all<{ corpus_id: string }>();
+  return results.map((row) => row.corpus_id as MatterId);
+}
+
 // The splits one compaction pass will merge: the corpus's live splits, oldest first, cut off at whichever
 // bound is reached first.
 //

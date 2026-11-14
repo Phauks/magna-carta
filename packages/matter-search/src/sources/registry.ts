@@ -4,6 +4,7 @@ import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import type { MatterFileContentsSearcher } from "../file-contents.ts";
 import type {
+  AcrossMattersSkipReason,
   AnswerShape,
   MatterSearchHit,
   MatterSearchRawRow,
@@ -57,8 +58,8 @@ export interface SourceSearchRequest {
 // more condition, and that statement binds the matter and composes the visibility predicate exactly
 // as every other source's does. `arrange` is the one thing the index's answer still decides: the
 // ORDER the surviving rows are read in, and what the index knew about each that the table does not.
-export type PreparedSearch =
-  | { readonly kind: "skipped"; readonly reason: SourceSkipReason }
+export type PreparedSearch<Reason = SourceSkipReason> =
+  | { readonly kind: "skipped"; readonly reason: Reason }
   | {
       readonly kind: "candidates";
       readonly statements: readonly SqlStatement[];
@@ -130,6 +131,14 @@ export interface AcrossMattersSearchRequest {
   // list. It bounds the index's work and is never the reach: `visibility` above already carries
   // the narrowing, and is what every statement composes.
   readonly indexMatterIds?: readonly MatterId[];
+  // The matters this search reaches, where they are few enough to name: every matter the reader
+  // may see when those are few, or the ones a narrowed search chose. Absent when it reaches more.
+  // For a source that can only ask one matter at a time, and so needs to know which to ask. Like
+  // the list above it bounds work and is never the reach.
+  readonly reachedMatterIds?: readonly MatterId[];
+  // How a source reaches the index of the words inside files, which lives outside the firm's
+  // database. Supplied by the application; absent wherever nothing supplied one.
+  readonly fileContents?: MatterFileContentsSearcher | null;
 }
 
 // HOW A SOURCE ANSWERS ACROSS MATTERS, declared separately from how it answers inside one.
@@ -149,12 +158,23 @@ export interface AcrossMattersSearchRequest {
 //                   reads that table. The cost grows with the firm's rows of that one kind, so a
 //                   source declares this only for a table whose rows are short and whose scan was
 //                   measured (scripts/measure-across-matters.mts).
+//   "file-contents" the source's words are in an index outside the firm's database that is kept
+//                   one matter at a time, so it is asked once for each matter the search reaches.
+//                   The cost is the number of matters asked, and the source answers only where the
+//                   request names them (`reachedMatterIds`).
 export interface AcrossMattersDeclaration {
-  readonly reads: "record-index" | "names";
+  readonly reads: "record-index" | "names" | "file-contents";
   // What is matched across matters, where that is less than inside one. A source that also matches
   // a number by scanning its table inside a matter matches only its words here.
   readonly matchedFields: readonly string[];
   readonly buildStatements: (request: AcrossMattersSearchRequest) => readonly SqlStatement[];
+  // Declared only by a source that must ask something outside the firm's database first, as
+  // `prepare` is on the source itself. When it is present the runner calls it INSTEAD of
+  // `buildStatements`, and the statements it answers with are held to the visible-matter predicate
+  // like every other.
+  readonly prepare?: (
+    request: AcrossMattersSearchRequest,
+  ) => Promise<PreparedSearch<AcrossMattersSkipReason>>;
 }
 
 // The registry itself: a frozen list, reviewed when it changes. The read count per search scales

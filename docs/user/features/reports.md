@@ -23,8 +23,9 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Eight reports run today: the trust compliance report, accounts receivable aging, work in progress,
-realization, invoices, payments applied, timekeeper productivity, and operational volumes.
+Ten reports run today: the trust compliance report, accounts receivable aging, work in progress,
+realization, invoices, payments applied, matter balances, timekeeper productivity, operational
+volumes, and the matters list.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
@@ -32,6 +33,14 @@ realization, invoices, payments applied, timekeeper productivity, and operationa
 - **Payments Applied** lists everything set against a bill in the period: payments, transfers from
   trust, client credits, credit notes and write-offs. A reversal appears as its own negative line,
   saying what it reverses. It shows what was set against bills, not money arriving in the bank.
+- **Matter Balances** shows where each matter stands right now: its unbilled time and costs, what
+  its bills still owe, and what is held for it in trust. The three figures are shown side by side
+  and never added together. It always shows the present, so it has no date to choose; choose an
+  office to narrow it. Open a client to see their matters.
+- **Matters List** lists every matter the firm has opened, open, on hold or closed, with its client,
+  type, office, responsible attorney and the days it opened and closed, and counts them by office.
+  Enquiries and consultations are not listed. It always shows the present; choose an office to
+  narrow it, and sort the list by any column.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count

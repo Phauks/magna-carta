@@ -107,6 +107,13 @@
   import { extractionSentence, runExtraction } from "./archive-extraction.ts";
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
+  import { getFormat } from "@magna-carta/conversion/registry";
+  import {
+    browserConversionPorts,
+    convertedName,
+    runConversion,
+    type ConversionStage,
+  } from "$lib/tools/file-workbench/conversion-run.ts";
   import {
     MatterFileIndex,
     fileKey,
@@ -159,7 +166,7 @@
     type Issue,
   } from "./file-analysis.ts";
   import { capability, waitingReason } from "./file-manager-availability.ts";
-  import { backgroundMenu, rowMenu, type FileMenuCommand } from "./file-menu-model.ts";
+  import { backgroundMenu, conversionSourceOf, rowMenu, type FileMenuCommand } from "./file-menu-model.ts";
   import { FileManagerState, type FileManagerView } from "./file-manager-state.svelte.ts";
   import FileManagerToolbar from "./file-manager-toolbar.svelte";
   import FileManagerFooter from "./file-manager-footer.svelte";
@@ -1060,6 +1067,66 @@
     actionFailure = "The bundle is taking longer than expected. It will be in the download tray when it is ready.";
   }
 
+  /*
+   * Convert: the file's bytes go to the firm's conversion engine, and the copy is filed beside the
+   * original through the ordinary upload, so it gets the same safety check, the same name-clash
+   * answer (keep both) and the same place in the upload tray as a file somebody dropped there. The
+   * original is never replaced.
+   */
+  let conversionProgress = $state<{ title: string; text: string } | null>(null);
+  const CONVERSION_STAGE_WORDS: Record<ConversionStage, string> = {
+    uploading: "Sending",
+    queued: "Waiting for the conversion engine to take",
+    converting: "Converting",
+  };
+
+  async function convertMatterFile(file: MatterFile, formatId: string): Promise<void> {
+    const target = getFormat(formatId);
+    if (target === undefined || file.currentVersionId === null) return;
+    const from = conversionSourceOf(file);
+    if (from === undefined) return;
+    actionFailure = null;
+    conversionProgress = { title: "Converting", text: `Reading ${file.name}.` };
+    let bytes: Uint8Array;
+    try {
+      const response = await fetch(fileDownloadUrl(file.id));
+      if (!response.ok) throw new Error(String(response.status));
+      bytes = new Uint8Array(await response.arrayBuffer());
+    } catch {
+      conversionProgress = null;
+      actionFailure = `${file.name} could not be read, so nothing was converted.`;
+      return;
+    }
+    const outcome = await runConversion(browserConversionPorts(), bytes, from, target.id, (stage) => {
+      conversionProgress = { title: "Converting", text: `${CONVERSION_STAGE_WORDS[stage]} ${file.name}.` };
+    });
+    conversionProgress = null;
+    if (outcome.kind === "failed") {
+      actionFailure = `${file.name} was not converted. ${outcome.message}`;
+      return;
+    }
+    const copy = new File([outcome.blob], convertedName(file.name, target), {
+      type: outcome.mediaType || target.mediaType,
+    });
+    startUploadBatch({
+      matterId,
+      matterTitle,
+      destinationFolderId: file.folderId,
+      destinationLabel: index.pathText(file.folderId),
+      entries: [{ file: copy, relativePath: "" }],
+      createdAtBasis: "upload",
+      documentTypeIds: new Map(),
+      nameClashDefault: "keep-both",
+      nameClashChoices: new Map(),
+      folders: index.folders,
+      files: index.documents,
+    });
+    conversionProgress = {
+      title: "Converted",
+      text: `${copy.name} is being filed beside ${file.name}. It is in the upload tray.`,
+    };
+  }
+
   async function confirmBundle(choices: BundleChoices): Promise<ActionOutcome> {
     bundleFailure = null;
     const targets = bundleTargets;
@@ -1386,6 +1453,7 @@
     const only = targets[0];
     actionFailure = null;
     actionNotice = null;
+    if (conversionProgress?.title === "Converted") conversionProgress = null;
     switch (command) {
       case "open":
         if (only !== undefined) activate(only);
@@ -2109,6 +2177,15 @@
       </div>
     {/if}
 
+    {#if conversionProgress !== null}
+      <div class="px-16 pt-12">
+        <Alert.Root variant="info">
+          <Alert.Title>{conversionProgress.title}</Alert.Title>
+          <Alert.Description>{conversionProgress.text}</Alert.Description>
+        </Alert.Root>
+      </div>
+    {/if}
+
     {#if bundleProgress !== null}
       <div class="px-16 pt-12">
         <Alert.Root variant="info">
@@ -2321,6 +2398,10 @@
                     [row.folder.id]: { ...folderAppearance[row.folder.id], color },
                   };
                 }
+              }}
+              onPickConversion={(formatId) => {
+                const only = menuTargets[0];
+                if (menuTargets.length === 1 && only?.kind === "file") void convertMatterFile(only.file, formatId);
               }}
               onPickIcon={(icon) => {
                 for (const row of menuFolderRows) {

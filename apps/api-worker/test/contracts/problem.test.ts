@@ -201,6 +201,13 @@ describe("problem-type URI registry", () => {
         "discovery-transcript-scope-unstated",
         "discovery-selection-refused",
         "discovery-load-not-reconciled",
+        "signing-link-expired",
+        "signing-link-not-valid",
+        "signing-not-a-pdf",
+        "signing-request-closed",
+        "signing-request-moved",
+        "signing-request-refused",
+        "signing-step-refused",
       ].toSorted(),
     );
   });

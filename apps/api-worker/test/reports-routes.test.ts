@@ -389,6 +389,60 @@ describe("GET /api/v1/reports/work-in-progress", () => {
   });
 });
 
+describe("GET /api/v1/reports/matter-balances", () => {
+  const url = "https://example.com/api/v1/reports/matter-balances";
+
+  it("answers the Owner with live balances per matter, stamped with when it was computed", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      computedAt: string;
+      asOfDate: string;
+      totals: { unbilledMinor: number; owedMinor: number; trustMinor: number };
+    };
+    expect(report.reproducible).toBe(false);
+    // The report counts through the UTC day it was produced on.
+    expect(report.asOfDate).toBe(civilDateOf(Date.parse(report.computedAt)));
+    expect(Object.keys(report.totals).sort()).toEqual(["owedMinor", "trustMinor", "unbilledMinor"]);
+  });
+
+  it("does not accept a date, because the report is live", async () => {
+    const response = await SELF.fetch(`${url}?knownAsOf=2026-07-01T00:00:00.000Z`, {
+      headers: { cookie: ownerCookie },
+    });
+    const report = (await response.json()) as { reproducible: boolean };
+    expect(report.reproducible).toBe(false);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/matters-list", () => {
+  const url = "https://example.com/api/v1/reports/matters-list";
+
+  it("answers the Owner with a live list whose office counts add up to the whole", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { matterCount: number };
+      offices: { counts: { matterCount: number } }[];
+      matters: unknown[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.matters).toHaveLength(report.totals.matterCount);
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/realization", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/realization?${query}`;
 

@@ -540,10 +540,11 @@
 - id: documents.conversion.convert-ui
   name: Convert-to menu / converter UI
   scope: Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
-  status: partial
+  status: shipped
   surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout is still marked Soon.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch.
+  notes: The "Convert With Options" entry from the file manager rulings is not built; every target converts with the engine's defaults.
 
 - id: documents.pdf
   name: PDF services
@@ -690,7 +691,7 @@
   scope: User-facing PDF tools (redact, Bates, forms, secure, etc.) in a PDF Editor beside the reader and a PDF tab in the File Workbench.
   status: partial
   surface: screen
-  evidence: apps/web/src/lib/pdf-editor (the PDF Editor at /documents/[id]/pdf; Pages is built, reordering, turning and deleting pages saved as a new version, with extract and split filing new files; Redact is built, filing a redacted copy and a redaction log beside the original); Bates, Watermark, Secure, Forms, inserting pages from another file, and the workbench PDF tab are next.
+  evidence: apps/web/src/lib/pdf-editor (the PDF Editor at /documents/[id]/pdf; Pages is built, reordering, turning and deleting pages saved as a new version, with extract and split filing new files; Bates is built, filing a numbered copy beside the original; Watermark is built, words or an image on all or some pages, filed beside the original; Secure is built, counting what the file carries and saving an AES-256 protected copy with permissions, optionally scrubbed first; Forms is built, filling a form's answers and optionally flattening it, saved as a new version; Redact is built, filing a redacted copy and a redaction log beside the original); a per-matter running Bates counter, inserting pages from another file, and the workbench PDF tab are next.
 
 - id: documents.esignature
   name: E-signature
@@ -717,8 +718,10 @@
 - id: documents.esignature.signing-flow
   name: Signing flow & adoption UI
   scope: Client-side field placement, signing UI, signature adoption (type/draw/upload).
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-11-13-signing-flow-design.md
+  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. the hourly reminder and expiry pass in apps/api-worker/src/signing/signing-sweep.ts. Sealing on completion and in-app signing for firm members are next.
 
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion
@@ -732,8 +735,9 @@
 - id: documents.esignature.attribution
   name: Attribution assurance tiers
   scope: Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  surface: screen
+  evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the emailed link and the emailed six-digit code are checked on the signer lane (apps/api-worker/src/signing/signer-service.ts). Signing in to the firm is chosen but not yet signable. SMS codes, ID checks and portal sign-in are not offered.
 
 - id: documents.esignature.vendor-port
   name: Vendor adapter seam

@@ -124,10 +124,15 @@ export interface MatterSearchAnswer {
 // ---- across matters --------------------------------------------------------------------------
 
 // Why a source is absent from an answer across matters. Everything a source can say inside one
-// matter, and one reason more: the source answers inside a matter and has not declared that it can
-// answer across them. Reported, like every other absence, so a reader is told what a search across
-// matters did not look at instead of taking its silence for "nothing there".
-export type AcrossMattersSkipReason = SourceSkipReason | "one-matter-only";
+// matter, and two reasons more. Reported, like every other absence, so a reader is told what a
+// search across matters did not look at instead of taking its silence for "nothing there".
+export type AcrossMattersSkipReason =
+  | SourceSkipReason
+  // The source answers inside a matter and has not declared that it can answer across them.
+  | "one-matter-only"
+  // The source answers across matters only where the search reaches few enough of them to ask one
+  // at a time, and this search reaches more. A reader can change it: by choosing fewer matters.
+  | "too-many-matters";
 
 // One source's contribution to an answer across matters.
 export interface AcrossMattersGroup {
@@ -148,5 +153,9 @@ export interface AcrossMattersSearchAnswer {
   // words and not every one, and a group with no hits has not shown that its place holds none. A
   // reader has to be told, because the answer otherwise reads as complete.
   readonly broad: boolean;
+  // How many matters "few" is: a search reaching at most this many names them to its indexes, and
+  // a source that asks one matter at a time answers only then. Part of the answer so that whoever
+  // tells a reader to choose fewer matters says the number this search held to.
+  readonly fewMattersLimit: number;
   readonly groups: readonly AcrossMattersGroup[];
 }

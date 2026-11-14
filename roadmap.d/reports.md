@@ -42,7 +42,7 @@
   status: partial
   surface: screen
   slices: 3-6-financial-reporting, 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
-  evidence: Billing owns the reads (packages/billing/src/queries.ts readAccountsReceivableAgingAsOf, readWorkInProgressBreakdown, readRealizationBreakdown, readInvoiceRegister, readApplicationRegister; packages/billing/test/aging-as-of.test.ts, work-in-progress-breakdown.test.ts and report-registers.test.ts prove each against the live aggregate or the as-of aging); packages/reporting/src/financial/ adds them into offices, clients, matters and timekeepers; GET /api/v1/reports/accounts-receivable-aging, /work-in-progress, /realization, /invoices and /payments-applied serve them on reports:financial; /reports/<id> draws totals first, a by-office table ruled off with the report's total, then a sortable by-client table that opens onto matters (the owner's pick B, 2026-11-13).
+  evidence: Billing owns the reads (packages/billing/src/queries.ts readAccountsReceivableAgingAsOf, readWorkInProgressBreakdown, readRealizationBreakdown, readInvoiceRegister, readApplicationRegister, readMatterCaptions; packages/billing/test/aging-as-of.test.ts, work-in-progress-breakdown.test.ts and report-registers.test.ts prove each against the live aggregate or the as-of aging); packages/reporting/src/financial/ adds them into offices, clients, matters and timekeepers; GET /api/v1/reports/accounts-receivable-aging, /work-in-progress, /realization, /invoices, /payments-applied and /matter-balances serve them on reports:financial (Matter Balances puts the work-in-progress, aging and trust per-leaf figures on each matter, each column proved equal to its owner's total in packages/reporting/test/financial-matter-balances.test.ts); /reports/<id> draws totals first, a by-office table ruled off with the report's total, then a sortable by-client table that opens onto matters (the owner's pick B, 2026-11-13).
   notes: Profitability is deferred — no timekeeper cost rate exists in the schema; work in progress is live-only because its stores are mutable and carry no billed_at/voided_at.
 
 - id: reports.productivity
@@ -60,7 +60,7 @@
   status: shipped
   surface: screen
   slices: 3-6-financial-reporting
-  evidence: Each domain counts its own records (packages/billing, matters, trust and costs, each src/operational-counts.ts); packages/reporting/src/operational/operational-volumes.ts places them side by side, billing and trust bitemporal and matters and costs labelled live; GET /api/v1/reports/operational-volumes serves it on reports:operational and /reports/operational-volumes runs it. Counts only, never money.
+  evidence: Each domain counts its own records (packages/billing, matters, trust and costs, each src/operational-counts.ts); packages/reporting/src/operational/operational-volumes.ts places them side by side, billing and trust bitemporal and matters and costs labelled live; GET /api/v1/reports/operational-volumes serves it on reports:operational and /reports/operational-volumes runs it. Counts only, never money. The Matters List (packages/matters/src/matter-register.ts read, packages/reporting/src/operational/matters-list.ts, GET /api/v1/reports/matters-list, live) lists every opened matter and counts them by office.
 
 - id: reports.location-rollups
   name: Per-location roll-ups

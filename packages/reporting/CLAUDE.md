@@ -25,10 +25,13 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   version
 - `src/trust-compliance/types.ts` — the pack's seven sections
 - `src/financial/` — accounts receivable aging (as of a date), work in progress (live),
-  realization, invoices (`invoice-register.ts`) and payments applied (`payments-applied.ts`): billing's per-matter rows added into offices, clients and matters
+  realization, invoices (`invoice-register.ts`) and payments applied (`payments-applied.ts`): billing's per-matter rows added into offices, clients and matters;
+  and matter balances (`matter-balances.ts`, live): the work-in-progress, aging and trust per-leaf
+  figures moved onto each matter as three columns that are never added to one another
 - `src/productivity/timekeeper-productivity.ts` — minutes recorded, never money, never a target
 - `src/operational/operational-volumes.ts` — each domain's own counts side by side, the live
-  sections named
+  sections named; `src/operational/matters-list.ts` — the matters package's register of opened
+  matters, listed as served and counted by office (live)
 - `src/contract.ts` — the wire rows of the financial, productivity and operational reports; the
   routes in `apps/api-worker/src/http/routes/billing/` build each top-level response over them. It is
   the one source file allowed to import zod, and nothing else here imports it (`test/purity.test.ts`)
