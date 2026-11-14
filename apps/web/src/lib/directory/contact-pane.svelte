@@ -293,42 +293,56 @@
   async function applyEdits(edits: readonly ContactEdit[]): Promise<boolean> {
     writeFailure = null;
     busyId = "saving";
-    let failed = false;
-    for (const edit of edits) {
-      const key = crypto.randomUUID();
-      if (edit.kind === "remove") {
-        const outcome = await removeDirectoryContactPoint(fetch, channelOf(edit.row), edit.row.id, key);
-        if (outcome.kind !== "ok") {
-          writeFailure = stated(outcome.failure, "That could not be removed.", "Nothing more was changed.");
-          failed = true;
-          break;
-        }
-      } else if (edit.kind === "update") {
-        const outcome = await updateDirectoryContactPoint(fetch, channelOf(edit.row), edit.row.id, edit.body, key);
-        if (outcome.kind !== "ok") {
-          writeFailure = stated(outcome.failure, "That could not be changed.", "Nothing more was changed.");
-          failed = true;
-          break;
-        }
-      } else {
-        const requests = contactRequestsFrom([edit.draft]);
-        const preference = edit.preference;
-        const outcome =
-          requests.emails[0] !== undefined
-            ? await addDirectoryEmail(fetch, entityId, { ...requests.emails[0], preference }, key)
-            : requests.phones[0] !== undefined
-              ? await addDirectoryPhone(fetch, entityId, { ...requests.phones[0], preference }, key)
-              : null;
-        if (outcome !== null && outcome.kind !== "ok") {
-          writeFailure = stated(outcome.failure, "That could not be recorded.", "Nothing more was changed.");
-          failed = true;
-          break;
-        }
-      }
-    }
+    const landed = await sendFrom(edits, 0);
     busyId = null;
     reloadToken += 1;
-    return !failed;
+    return landed;
+  }
+
+  /** Sends the edits from `index` on, each only once the one before it has landed. */
+  async function sendFrom(edits: readonly ContactEdit[], index: number): Promise<boolean> {
+    const edit = edits[index];
+    if (edit === undefined) return true;
+    const failure = await send(edit);
+    if (failure !== null) {
+      writeFailure = failure;
+      return false;
+    }
+    return sendFrom(edits, index + 1);
+  }
+
+  /** One write of a Save; null once it landed, or what to say about why it did not. */
+  async function send(edit: ContactEdit): Promise<StatedFailure | null> {
+    const key = crypto.randomUUID();
+    if (edit.kind === "remove") {
+      const outcome = await removeDirectoryContactPoint(fetch, channelOf(edit.row), edit.row.id, key);
+      return outcome.kind === "ok"
+        ? null
+        : stated(outcome.failure, "That could not be removed.", "Nothing more was changed.");
+    }
+    if (edit.kind === "update") {
+      const outcome = await updateDirectoryContactPoint(
+        fetch,
+        channelOf(edit.row),
+        edit.row.id,
+        edit.body,
+        key,
+      );
+      return outcome.kind === "ok"
+        ? null
+        : stated(outcome.failure, "That could not be changed.", "Nothing more was changed.");
+    }
+    const requests = contactRequestsFrom([edit.draft]);
+    const preference = edit.preference;
+    const outcome =
+      requests.emails[0] !== undefined
+        ? await addDirectoryEmail(fetch, entityId, { ...requests.emails[0], preference }, key)
+        : requests.phones[0] !== undefined
+          ? await addDirectoryPhone(fetch, entityId, { ...requests.phones[0], preference }, key)
+          : null;
+    return outcome === null || outcome.kind === "ok"
+      ? null
+      : stated(outcome.failure, "That could not be recorded.", "Nothing more was changed.");
   }
 
   async function remove(row: ContactRow): Promise<void> {

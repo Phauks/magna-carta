@@ -26,12 +26,12 @@ describe("the relationship list", () => {
       const groups = groupedEdgeTypes(offeredEdgeTypesForRecord(kind));
       const order = EDGE_TYPE_GROUPS.map((section) => section.group);
       const seen = groups.map((section) => order.indexOf(section.group));
-      expect(seen).toEqual([...seen].sort((left, right) => left - right));
+      expect(seen).toEqual(seen.toSorted((left, right) => left - right));
       for (const section of groups) {
         const labels = section.entries
           .map((entry) => entry.label)
           .filter((label) => !label.startsWith("Other "));
-        expect(labels).toEqual([...labels].sort((left, right) => left.localeCompare(right)));
+        expect(labels).toEqual(labels.toSorted((left, right) => left.localeCompare(right)));
       }
     }
   });

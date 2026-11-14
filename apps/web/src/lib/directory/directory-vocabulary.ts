@@ -120,7 +120,7 @@ export function groupedEdgeTypes(
     heading,
     entries: entries
       .filter((entry) => entry.group === group)
-      .sort(
+      .toSorted(
         (left, right) =>
           lastOfGroup(left) - lastOfGroup(right) || left.label.localeCompare(right.label),
       ),

@@ -110,6 +110,7 @@ export function isEmptyNewLine(line: EditedContactLine): boolean {
     case "address":
       return false;
   }
+  return false;
 }
 
 /** The writes one Save makes, in the order they are sent: removals, then changes, then additions. */
