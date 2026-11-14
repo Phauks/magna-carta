@@ -122,7 +122,7 @@
       "The check was refused.",
       // Nothing answered is the stronger statement, and the one somebody about to press again
       // needs: no search ran, so nothing was written to the log.
-      "The check could not be sent. Nothing was recorded.",
+      "Couldn't send the check. Nothing was saved.",
     );
     return "refused";
   }
@@ -143,7 +143,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Check Did Not Run"
+        title="Check Didn't Run"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />

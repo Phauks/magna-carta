@@ -47,6 +47,12 @@ function size(width: number | null | undefined, height: number | null | undefine
     : `${String(width)}x${String(height)}`;
 }
 
+function kilobits(bitsPerSecond: number | null | undefined): string {
+  return bitsPerSecond === null || bitsPerSecond === undefined
+    ? "not reported"
+    : shown(bitsPerSecond / 1000, " kbit/s");
+}
+
 /** One incoming video stream over the window. */
 function inboundLines(first: InboundSample | null, last: InboundSample, seconds: number): string[] {
   const received = grew(first?.framesReceived, last.framesReceived);
@@ -102,6 +108,13 @@ export function diagnosticText(
   lines.push(
     `window ${shown(seconds, " s")} over ${String(samples.length)} samples`,
     `round trip ${shown(last.roundTripMilliseconds, " ms")}`,
+    `upload ${kilobits(last.uploadBitsPerSecond)}, download ${kilobits(last.downloadBitsPerSecond)}`,
+    // How the media reaches the server, never the address: this text is pasted to other people.
+    `server ${
+      last.server === null || last.server === undefined
+        ? "not reported"
+        : `${last.server.relayed ? "through a relay" : "direct"}, ${last.server.protocol ?? "transport not reported"}`
+    }`,
     "",
     "Sending (this camera)",
   );

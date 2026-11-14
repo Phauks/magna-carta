@@ -23,7 +23,9 @@ export type ReportingValidationCode =
   | "reporting-client-ledger-truncated"
   | "reporting-journal-truncated"
   | "reporting-cushion-journal-truncated"
-  | "reporting-holds-truncated";
+  | "reporting-holds-truncated"
+  // A breakdown with more rows than one report lists. The remedy is a narrower scope (an office).
+  | "reporting-breakdown-truncated";
 
 export class ReportingValidationError extends Error {
   constructor(

@@ -12,7 +12,7 @@
  */
 import type { Component } from "svelte";
 import type { CapabilityPanelProps } from "./capability.ts";
-import { FILE_TYPE_CAPABILITY } from "./workbench-file.ts";
+import { FILE_TYPE_CAPABILITY, MALWARE_SCAN_CAPABILITY } from "./workbench-file.ts";
 import { HASH_CAPABILITY } from "./capabilities/hash.ts";
 import { OVERVIEW_CAPABILITY } from "./overview.ts";
 import OverviewPanel from "./panels/overview-panel.svelte";
@@ -22,6 +22,7 @@ import ConvertPanel from "./panels/convert-panel.svelte";
 import UnlockPanel from "./panels/unlock-panel.svelte";
 import EmailPanel from "./panels/email-panel.svelte";
 import MetadataPanel from "./panels/metadata-panel.svelte";
+import MalwareScanPanel from "./panels/malware-scan-panel.svelte";
 
 const PANELS: Readonly<Record<string, Component<CapabilityPanelProps>>> = {
   [OVERVIEW_CAPABILITY]: OverviewPanel,
@@ -31,6 +32,7 @@ const PANELS: Readonly<Record<string, Component<CapabilityPanelProps>>> = {
   unlock: UnlockPanel,
   email: EmailPanel,
   metadata: MetadataPanel,
+  [MALWARE_SCAN_CAPABILITY]: MalwareScanPanel,
 };
 
 /** The panel for a capability, or null where it has none yet. */

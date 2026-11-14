@@ -39,6 +39,29 @@ The sign Worker composes the Certificate of Completion with it.
 - **Density is the document's choice, not a block's.** `compact` narrows the rows of every table and
   field list at once, and a `small` paragraph is the caption style in the flow. A caller that has to
   fit a known amount on a page uses those and the page margins, never a font size of its own.
+- **What repeats on every page is added after the flow.** The header and footer lines and the
+  `letterhead` band are marks pushed onto each finished page, drawn in the margins, so they never
+  move the content; the caller sizes the top margin for the band. The letterhead's picture takes the
+  position after the last image block in the list layout and render both read.
+- **A card is a pair of marker blocks, not a container.** `CardStart` draws the title in a bar in
+  the accent colour (`Mark::Bar`, rounded at the top) and `CardEnd` draws the frame (`Mark::Frame`,
+  the one stroked mark), so every block lays out inside a card with the code it already has and
+  pictures keep their positions in the image list. Text stands in by `CARD_INSET`; rows run on with
+  no gap, their headings unshaded, and a row's rule is drawn only when something follows it
+  (`OpenCard::rule_due`), so the last row never doubles the frame. A card that reaches the foot of
+  a page is framed there and opened again on the next. `Flow::trailing_gap` is what lets the frame
+  close under the last block: `gap` adds to it and `mark` clears it, so push a frame onto the page
+  directly.
+- **Two pictures share a line by the second asking.** `ImageBlock::beside` sets a picture in the
+  second half of the line the image block before it opened (`Flow::image_row`); anything laid out
+  between the two, or a page break, and it stands alone. Each is still one image block, so the
+  positions in the image list do not change.
+- **Under a letterhead the footer is measured from the content**, `Letterhead::FOOTER_HEIGHT`
+  below it, as the band above is `Letterhead::HEIGHT`. A caller sets the top and bottom margins to
+  those plus one distance from the paper's edge and the bar and the page number land that far in.
+- **A grid is asked for by the model, never by the text.** `Field::grid` sets a value's words in
+  columns of one width. Layout marks such a cell with a control character that `clean` strips from
+  anything a caller supplies.
 - **The output is deterministic.** No clock is read: the creation time is the caller's
   `ComposedDocument::created`. The same model and fonts give the same bytes, and a test holds that.
 
@@ -63,6 +86,13 @@ The sign Worker composes the Certificate of Completion with it.
   (`fonts/LICENSE.txt`), metric-compatible with Arial, covering Latin, Greek and Cyrillic. The
   `bundled-fonts` feature compiles it in (about 1.6 MB); a caller with its own fonts turns it off and
   passes `FontFamily::new`.
+- A second bundled family, Atkinson Hyperlegible Next (SIL Open Font License 1.1,
+  `fonts/AtkinsonHyperlegibleNext-LICENSE.txt`, about 0.3 MB), is the application's reading
+  typeface. It draws Latin only. A document names its family with `typeface`
+  (`FontFamily::bundled_as`); a caller that asks for Atkinson reads `missing_characters` and composes
+  again in Liberation Sans when a name is in Greek or Cyrillic.
+- `Table.banded` shades the heading row and every second row and drops the rule under each row, for
+  a long table read across wide rows. The default keeps the ruled table.
 
 ## Gotchas
 

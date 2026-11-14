@@ -74,10 +74,11 @@ Show Completed and Show Archived work the same way on the board as on the list.
 
 ## Repeating Tasks
 
-A task can repeat: a monthly trust reconciliation, a weekly file review. Open the task and turn on
-**Repeats** below its dates, then choose how often and when it ends, the same way you would for a
-repeating calendar entry. A task repeats from its due date, so give it one first. A sub-task repeats
-with its parent rather than on its own.
+A task can repeat: a monthly trust reconciliation, a weekly file review. Open the task and press
+**Repeat** below its dates. A window of its own opens: choose how often and when it ends, the same
+way you would for a repeating calendar entry, and press **Make It Repeat**. Nothing changes until you
+do. A task repeats from its due date, so give it one first. A sub-task repeats with its parent rather
+than on its own.
 
 **Next One** decides when the next copy appears:
 
@@ -87,8 +88,12 @@ with its parent rather than on its own.
   start date (or its due date, if it has no start date) whether or not this one is done, for work
   that is owed on the day however the last round went.
 
-Under the choice, the window says when the next one is due and when it will appear. On an existing
-task, press **Save Repeat** to keep a change.
+Under the choice, the window says when the next one is due and when it will appear.
+
+Once a task repeats, the task shows its repeat as a sentence, which cannot be changed where it
+stands. To change it, press **Change Repeat** beside it: the same window opens with the repeat filled
+in, and **Save Changes** keeps what you changed. **Stop Repeating**, in the same window, ends the
+repeat. A change reaches this task and the ones made after it; earlier ones stay as they were.
 
 Only the current copy is in the list, marked with a repeat icon. Later ones do not exist until it is
 their turn, so the list never fills with a year of copies.
@@ -105,7 +110,7 @@ people it is assigned to are told it is theirs.
 - **This And Later Ones** moves the repeat with it, so later copies follow the new date.
 
 A due date changed from the list itself moves this copy only. To take the due date off a repeating
-task, turn off **Repeats** first.
+task, press **Change Repeat** and then **Stop Repeating** first.
 
 ## Comments
 
@@ -176,6 +181,20 @@ morning. Add a **Time** only where a specific hour matters.
 Assigning a task to somebody else, or to a team, and adding watchers needs a role that includes
 assigning work. Without it you can still create tasks. You cannot assign a task on a matter to
 somebody who cannot open that matter.
+
+### Adding a Task From the List
+
+To add a task without opening the window, use the **Add a task** line at the bottom of each group in
+the list (or at the bottom of the list when it is not grouped). Press it, type what to do, and press
+Enter. The line stays open for the next one; press Escape or the close button when you are done.
+
+The new task lands in the group you added it from. Grouped by list, it goes on that list. Grouped
+by status, it starts at that status. Grouped by Assigned To, it is that person's. Grouped by matter,
+it goes on that matter. In the **Today** group it is due today. Anywhere else, it is yours unless you
+choose somebody else on the line.
+
+The line also asks who it is for, its start and due dates, and its priority, each in its own column.
+Anything else, such as a time, a checklist or watchers, is added afterwards in the task's window.
 
 ## Who Is Told
 

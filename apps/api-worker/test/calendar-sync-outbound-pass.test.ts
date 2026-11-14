@@ -220,6 +220,7 @@ async function pass(port: CalendarSyncPort, carrying?: { as: UserId }) {
           applyProviderEdit: providerEditApplier({
             database: firmDatabase,
             memberUserId: carrying.as,
+            provider: "microsoft",
             now: () => new Date(NOW),
           }),
           onEventsChanged: () => {

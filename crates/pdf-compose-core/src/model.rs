@@ -15,17 +15,34 @@ pub struct ComposedDocument {
     /// the same input always yields the same bytes.
     pub created: Option<Timestamp>,
     pub page: PageSetup,
+    /// Which of the library's own families the document is set in, where the caller leaves
+    /// the choice to the library ([`FontFamily::bundled_as`](crate::FontFamily::bundled_as)).
+    pub typeface: Typeface,
     /// The colour the title, the first two levels of heading and every rule are drawn in.
     /// `None` leaves the document in black and gray.
     pub accent: Option<Rgb>,
     /// Set the rows of every table and field list closer together, for a document that has to
     /// hold a known amount on one page.
     pub compact: bool,
+    /// A band drawn in the top margin of every page, and a rule above the footer to match.
+    pub letterhead: Option<Letterhead>,
     /// Drawn in the top margin of every page.
     pub header: Option<RunningLine>,
     /// Drawn in the bottom margin of every page.
     pub footer: Option<RunningLine>,
     pub blocks: Vec<Block>,
+}
+
+/// The families compiled into the library.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Typeface {
+    /// Liberation Sans: Latin, Greek and Cyrillic, metric-compatible with Arial.
+    #[default]
+    LiberationSans,
+    /// Atkinson Hyperlegible Next: drawn so that similar letters and digits are hard to
+    /// confuse. Latin only, so a caller that may print another script checks
+    /// `missing_characters` and composes again in Liberation Sans.
+    AtkinsonHyperlegible,
 }
 
 /// A colour, each part from 0 to 255.
@@ -102,6 +119,32 @@ impl Default for PageSetup {
     fn default() -> Self {
         Self::letter()
     }
+}
+
+/// What every page of a document is headed with: a bar in the accent colour, a picture at
+/// the left (a logo), and at the right a title over a line of detail, with a thin rule
+/// beneath. It is drawn in the top margin and ends 12 points above the content, so the page
+/// needs a top margin of at least [`Letterhead::HEIGHT`] plus whatever the printer cannot
+/// reach. With a letterhead the footer is set a little larger under a rule of its own, at
+/// [`Letterhead::FOOTER_HEIGHT`] below the content.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Letterhead {
+    /// The encoded picture, drawn 24 points tall. `None` leaves the left side empty.
+    pub image: Option<Vec<u8>>,
+    pub title: String,
+    /// What the detail is, set small and gray before it: "Reference".
+    pub label: String,
+    /// The line under the title, set bold: the document's own number.
+    pub detail: String,
+}
+
+impl Letterhead {
+    /// The room the band takes above the content, in points.
+    pub const HEIGHT: f32 = 60.0;
+    /// How far below the content the footer line's baseline sits when a letterhead is drawn:
+    /// a rule 11.5 points under the content, then the line. A bottom margin of this plus the
+    /// distance kept from the paper's edge puts the footer where the caller wants it.
+    pub const FOOTER_HEIGHT: f32 = 28.0;
 }
 
 /// One line repeated on every page, in three slots. `{page}` is replaced with the page's
@@ -184,6 +227,11 @@ pub struct ImageBlock {
     pub alignment: Alignment,
     /// A line of text set under the picture.
     pub caption: Option<String>,
+    /// A short line set small and bold above the picture, saying what it is.
+    pub label: Option<String>,
+    /// Set this picture on the line of the image block before it, in the second half of the
+    /// width, the two starting level. Without a picture directly before it, it stands alone.
+    pub beside: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -202,6 +250,9 @@ pub struct Table {
     /// One entry per row, one string per column. A short row is padded with empty cells and a
     /// long one is cut to the column count.
     pub rows: Vec<Vec<String>>,
+    /// Shade every other row in place of ruling between rows: easier to follow across a wide
+    /// table of many short rows.
+    pub banded: bool,
 }
 
 /// A labelled value, the unit of a record sheet.
@@ -209,6 +260,9 @@ pub struct Table {
 pub struct Field {
     pub label: String,
     pub value: String,
+    /// Set the value's words in columns of one width, a line to each line feed, so a value
+    /// read in groups (a hash, a serial number) lines up from row to row.
+    pub grid: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -225,10 +279,22 @@ pub enum Block {
     Table(Table),
     /// Labels down the left and their values beside them.
     Fields(Vec<Field>),
+    /// Labelled fields set in two columns side by side, read down the first and then down
+    /// the second, for a list of short values that would otherwise leave half the page empty.
+    FieldsTwoUp(Vec<Field>),
     /// A thin horizontal line across the page.
     Rule,
     /// Empty vertical space, in points.
     Space(f32),
     /// Everything after this starts on a new page.
     PageBreak,
+    /// Opens a card: a rounded frame around the blocks up to the next `CardEnd`, with an
+    /// optional title set inside it over a rule. A card that reaches the foot of a page is
+    /// closed there and opened again on the next; one still open at the end of the document
+    /// is closed. Cards do not nest: a second `CardStart` closes the first.
+    CardStart {
+        title: Option<String>,
+    },
+    /// Closes the open card. Without one it does nothing.
+    CardEnd,
 }

@@ -24,6 +24,12 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `report-presentation.ts` — the shape a report renders as, and its mapping onto the export document.
 - `reports-api.ts` — the wire shapes and the reads (the pack, the trust-account roster).
 - `trust-compliance-presenter.ts` — the pack's presenter; `trust-compliance-fixture.ts` its sample.
+- `report-reads.ts` — the financial, productivity and operational wire shapes and reads.
+- `financial-presenters.ts`, `activity-presenters.ts` — their presenters; `report-samples.ts` their
+  samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.
+- `report-summary.svelte` — the row of totals; `report-section-table.svelte` one section (a plain
+  table with its ruled total, or `report-section-grid.svelte` on `DataTable.Grid` when sortable),
+  and the cards it becomes under the medium breakpoint.
 
 ## Local conventions
 
@@ -43,12 +49,22 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
   control; do not read `knownAsOf` in such a report's reader.
 - **Sample words only in a fixture.** The fixture pack uses the design system's sample people and
   matters; never a firm's own figures.
+- **Totals first, then tables (the owner's pick B, 2026-11-13).** A presentation with a `summary`
+  opens with its tiles and states its stamp as one line; a by-office section carries the payload's
+  total as `totalRow`; a by-client section is `sortable` with each client's matters in
+  `rowDetails`. The grid's own totals row is never switched on for a report: it adds the column up,
+  and a report's totals are the payload's.
+- **The office is a filter, never a gate.** `scope.office` rides the address as `office`; null is the
+  whole firm, which every member who may run the report may run.
 
 ## Dependencies & contracts
 
 - Reads through `$lib/api/request.ts`; the shapes mirror `apps/api-worker/openapi/openapi.json`
   (`reports.trustCompliancePack`, `trust.listTrustAccounts`).
-- Exports through `$lib/export` (the presentation IS the export document's shape).
+- Exports through `$lib/export` (the presentation IS the export document's shape). The PDF is laid
+  out by `@magna-carta/house-document` in `$lib/export/render-pdf.ts`; a totals row, indented child
+  rows and the summary tiles print as plain rows (or not at all, for the tiles) until the composer
+  has a block for each.
 - Period arithmetic is the time sheet's (`$lib/time/time-sheet-scope.ts`) — one span vocabulary.
 
 ## Gotchas

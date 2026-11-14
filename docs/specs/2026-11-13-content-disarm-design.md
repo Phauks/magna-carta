@@ -2,7 +2,7 @@
 
 **Status:** Accepted (design and engine) · **Date:** 2026-11-13 · **Owner:** Trevor Goldsmith
 **White-paper home:** _Core domain_, untrusted file handling (stage 4, the disarmed rendition).
-**Decision:** `docs/decisions/pending/content-disarm-is-in-house-rust.md` (until the register assembles it).
+**Decision:** `docs/decisions/0526-content-disarm-is-in-house-rust.md` (until the register assembles it).
 **Roadmap nodes:** `documents.scanning.cdr`, `matters.file-manager.untrusted-pipeline.cdr`.
 
 ## What it is for

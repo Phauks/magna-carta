@@ -78,6 +78,7 @@
   import MeetingLobbyWait from "$lib/meetings/meeting-lobby-wait.svelte";
   import MeetingGuestsPanel from "$lib/meetings/meeting-guests-panel.svelte";
   import MoveToMatterDialog from "$lib/meetings/move-to-matter-dialog.svelte";
+  import MeetingRenameDialog from "$lib/meetings/screen/meeting-rename-dialog.svelte";
   import { readWaitingParticipants } from "$lib/meetings/client/lobby.ts";
   import UsersRound from "@lucide/svelte/icons/users-round";
   import FolderInput from "@lucide/svelte/icons/folder-input";
@@ -122,7 +123,7 @@
   import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
   import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
   import {
-    connectionEvents,
+    readCloudflareSite,
     connectionParticipants,
     connectionUplink,
   } from "$lib/meetings/screen/meeting-connection.ts";
@@ -1267,7 +1268,22 @@
 
   const uplink = $derived(connectionUplink(client));
   const connectionRoom = $derived(connectionParticipants(client));
-  const wireEvents = $derived(connectionEvents(client.diagnostics.recent));
+  /** The Cloudflare site the meeting runs through, read the first time the details are opened. */
+  let cloudflareSite = $state<string | null>(null);
+  let siteAsked = false;
+  async function readSiteOnce(): Promise<void> {
+    if (siteAsked) return;
+    siteAsked = true;
+    cloudflareSite = await readCloudflareSite();
+  }
+
+  /** Whether the place this person changes their name in the meeting is open. */
+  let renameOpen = $state(false);
+  /** This browser's own roster row, which the rename dialog reads its two names from. */
+  const ownRow = $derived(
+    client.participants.find((participant) => participant.participantId === client.participantId) ??
+      null,
+  );
 </script>
 
 <!--
@@ -1766,6 +1782,7 @@
                   presenceOf={(participant) => client.presenceOf(participant)}
                   qualityOf={(participant) => client.qualityOf(participant.participantId)}
                   spotlightedParticipantId={client.roomState.spotlight?.participantId ?? null}
+                  onChangeName={() => (renameOpen = true)}
                   hostMenu={myRole === null ? undefined : rowMenu}
                 />
               {/snippet}
@@ -1837,7 +1854,8 @@
           <MeetingConnectionPanel
             {uplink}
             participants={connectionRoom}
-            events={wireEvents}
+            site={cloudflareSite}
+            onOpen={() => void readSiteOnce()}
             onCopy={() => void copyDiagnostics()}
           />
         {/snippet}
@@ -2098,5 +2116,15 @@
     {meetingId}
     subject={{ facts: [summary.title] }}
     onMoved={() => void summaryRead.refetch()}
+  />
+{/if}
+
+{#if ownRow !== null}
+  <MeetingRenameDialog
+    bind:open={renameOpen}
+    currentName={ownRow.displayName}
+    originalName={ownRow.accountName ?? ownRow.displayName}
+    guest={false}
+    onRename={(name) => client.rename(name)}
   />
 {/if}

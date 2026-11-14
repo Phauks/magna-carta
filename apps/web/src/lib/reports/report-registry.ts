@@ -33,6 +33,34 @@ import {
   type TrustCompliancePack,
 } from "./reports-api.ts";
 import { sampleTrustCompliancePack } from "./trust-compliance-fixture.ts";
+import { presentOperationalVolumes, presentTimekeeperProductivity } from "./activity-presenters.ts";
+import {
+  presentAccountsReceivableAging,
+  presentRealization,
+  presentWorkInProgress,
+} from "./financial-presenters.ts";
+import {
+  FINANCIAL_REPORTS_PERMISSION,
+  OPERATIONAL_REPORTS_PERMISSION,
+  PRODUCTIVITY_REPORTS_PERMISSION,
+  readAccountsReceivableAging,
+  readOperationalVolumes,
+  readRealization,
+  readTimekeeperProductivity,
+  readWorkInProgress,
+  type AccountsReceivableAging,
+  type OperationalVolumes,
+  type Realization,
+  type TimekeeperProductivity,
+  type WorkInProgress,
+} from "./report-reads.ts";
+import {
+  sampleAccountsReceivableAging,
+  sampleOperationalVolumes,
+  sampleRealization,
+  sampleTimekeeperProductivity,
+  sampleWorkInProgress,
+} from "./report-samples.ts";
 import { presentTrustCompliancePack, type ReportCaptions } from "./trust-compliance-presenter.ts";
 
 export type ReportFamily = "trust-compliance" | "financial" | "productivity" | "operational";
@@ -60,6 +88,13 @@ export type ReportTemporal = "bitemporal" | "live-only";
 export interface ReportScopeControls {
   /** The report is about one trust account, picked from the firm's roster. */
   readonly trustAccount: boolean;
+  /** The rows can be narrowed to one office. A filter, never a gate: the default is every office. */
+  readonly office: boolean;
+  /**
+   * What the report is asked over on the effective axis: a span of days, one date (aging is owed
+   * AT a date, and the scope's period is that one day), or nothing (work in progress is now).
+   */
+  readonly period: "span" | "date" | "none";
 }
 
 /** The port that fetches a report over a scope. */
@@ -138,11 +173,11 @@ const trustCompliance = built<TrustCompliancePack>({
   family: "trust-compliance",
   name: "Trust Compliance Report",
   answers:
-    "For one trust account over one period: every movement of client money, each client and matter ledger, each reconciliation, and anything that didn't balance.",
+    "For one trust account over one period: every movement of client money, each client's and matter's ledger, what the firm attested to at each reconciliation, and what did not tie out.",
   permission: TRUST_COMPLIANCE_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
-  scope: { trustAccount: true },
+  scope: { trustAccount: true, office: false, period: "span" },
   read: (fetchImpl, scope) => {
     // A scope with no subject never reaches here: the run screen reads only when the scope is
     // complete. The check stands so a caller that skips the screen gets a typed refusal, not a 404
@@ -164,63 +199,110 @@ const trustCompliance = built<TrustCompliancePack>({
   samplePayload: () => sampleTrustCompliancePack(),
 });
 
+const accountsReceivableAging = built<AccountsReceivableAging>({
+  id: "accounts-receivable-aging",
+  family: "financial",
+  name: "Accounts Receivable Aging",
+  answers:
+    "What the firm is owed, by how long it has been owed, per client, matter and office, at a stated date.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "date" },
+  // The scope's period is the one day the aging is taken at.
+  read: (fetchImpl, scope) =>
+    readAccountsReceivableAging(fetchImpl, {
+      asOfDate: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentAccountsReceivableAging(payload),
+  samplePayload: sampleAccountsReceivableAging,
+});
+
+const workInProgress = built<WorkInProgress>({
+  id: "work-in-progress",
+  family: "financial",
+  name: "Work in Progress",
+  answers: "Unbilled time and costs, by matter, client, timekeeper and office, as they stand now.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readWorkInProgress(fetchImpl, { locationId: scope.office }),
+  present: presentWorkInProgress,
+  samplePayload: sampleWorkInProgress,
+});
+
+const realization = built<Realization>({
+  id: "realization",
+  family: "financial",
+  name: "Realization",
+  answers:
+    "For a period: the standard value of time recorded, what was billed, what was credited or written off, and what was applied.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readRealization(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentRealization(payload),
+  samplePayload: sampleRealization,
+});
+
+const timekeeperProductivity = built<TimekeeperProductivity>({
+  id: "timekeeper-productivity",
+  family: "productivity",
+  name: "Timekeeper Productivity",
+  answers:
+    "Hours recorded by each timekeeper in a period, billable against non-billable, by client, task code and office.",
+  permission: PRODUCTIVITY_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readTimekeeperProductivity(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      locationId: scope.office,
+    }),
+  present: presentTimekeeperProductivity,
+  samplePayload: sampleTimekeeperProductivity,
+});
+
+const operationalVolumes = built<OperationalVolumes>({
+  id: "operational-volumes",
+  family: "operational",
+  name: "Operational Volumes",
+  answers:
+    "How much the firm did in a period: matters opened and closed, bills drafted and finalized, trust movements, disbursement requests, reconciliations.",
+  permission: OPERATIONAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readOperationalVolumes(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentOperationalVolumes(payload),
+  samplePayload: sampleOperationalVolumes,
+});
+
 const REPORT_LIST = [
   trustCompliance,
-  {
-    id: "accounts-receivable-aging",
-    family: "financial",
-    name: "Accounts Receivable Aging",
-    answers:
-      "What the firm is owed, by how long it has been owed, per client, matter and office, at a stated date.",
-    permission: "reports:financial",
-    temporal: "bitemporal",
-    stage: "soon",
-    waitsOn: "aged receivables",
-  },
-  {
-    id: "work-in-progress",
-    family: "financial",
-    name: "Work in Progress",
-    answers:
-      "Unbilled time and costs, by matter, client, timekeeper and office, as they stand now.",
-    permission: "reports:financial",
-    temporal: "live-only",
-    stage: "soon",
-    waitsOn: "the work in progress report",
-  },
-  {
-    id: "realization",
-    family: "financial",
-    name: "Realization",
-    answers:
-      "For a period: the standard value of time recorded, what was billed, what was credited or written off, and what was applied.",
-    permission: "reports:financial",
-    temporal: "bitemporal",
-    stage: "soon",
-    waitsOn: "realization figures",
-  },
-  {
-    id: "timekeeper-productivity",
-    family: "productivity",
-    name: "Timekeeper Productivity",
-    answers:
-      "Hours recorded by each timekeeper in a period, billable against non-billable, by matter, client, task code and office.",
-    permission: "reports:productivity",
-    temporal: "live-only",
-    stage: "soon",
-    waitsOn: "productivity figures",
-  },
-  {
-    id: "operational-volumes",
-    family: "operational",
-    name: "Operational Volumes",
-    answers:
-      "How much the firm did in a period: matters opened and closed, bills drafted and finalized, trust movements, disbursement requests, reconciliations.",
-    permission: "reports:operational",
-    temporal: "bitemporal",
-    stage: "soon",
-    waitsOn: "firm activity counts",
-  },
+  accountsReceivableAging,
+  workInProgress,
+  realization,
+  timekeeperProductivity,
+  operationalVolumes,
 ] as const satisfies readonly ReportDeclaration[];
 
 /** Every report, in catalogue order. */

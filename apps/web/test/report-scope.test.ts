@@ -122,6 +122,7 @@ describe("the address", () => {
       period: reportPeriodPreset("lastQuarter", A_JULY_DAY),
       knownAsOf: knowledgeInstantForDate("2026-06-30"),
       subject: "trustAccount_one",
+      office: "location_reno",
     };
     const url = writeReportScope(new URL("https://example.com/reports/trust-compliance"), scope);
     expect(url.searchParams.get("from")).toBe("2026-04-01");
@@ -134,6 +135,7 @@ describe("the address", () => {
     expect(read.period.to).toBe("2026-06-30");
     expect(read.knownAsOf).toBe("2026-06-30T23:59:59.999Z");
     expect(read.subject).toBe("trustAccount_one");
+    expect(read.office).toBe("location_reno");
   });
 
   it("falls back to the default period for a span that reads backwards or is not a date", () => {
@@ -150,25 +152,27 @@ describe("the address", () => {
 
   it("clears a half that is absent when written back", () => {
     const url = new URL(
-      "https://example.com/reports/trust-compliance?subject=trustAccount_one&knownAsOf=2026-06-30T23%3A59%3A59.999Z",
+      "https://example.com/reports/trust-compliance?subject=trustAccount_one&office=location_reno&knownAsOf=2026-06-30T23%3A59%3A59.999Z",
     );
     const cleared = writeReportScope(url, {
       period: defaultPeriod,
       knownAsOf: null,
       subject: null,
+      office: null,
     });
     expect(cleared.searchParams.has("subject")).toBe(false);
     expect(cleared.searchParams.has("knownAsOf")).toBe(false);
+    expect(cleared.searchParams.has("office")).toBe(false);
   });
 
   it("reads the scope as one line: the period, then live or fixed in the zone given", () => {
-    expect(scopeReading({ period: defaultPeriod, knownAsOf: null, subject: null })).toBe(
-      "Jul 1 to 31 · everything known now",
-    );
+    expect(
+      scopeReading({ period: defaultPeriod, knownAsOf: null, subject: null, office: null }),
+    ).toBe("Jul 1 to 31 · everything known now");
     const inNevada = knowledgeInstantForDate("2026-08-01", "America/Los_Angeles");
     expect(
       scopeReading(
-        { period: defaultPeriod, knownAsOf: inNevada, subject: null },
+        { period: defaultPeriod, knownAsOf: inNevada, subject: null, office: null },
         "America/Los_Angeles",
       ),
     ).toBe("Jul 1 to 31 · as known at the end of 2026-08-01");
