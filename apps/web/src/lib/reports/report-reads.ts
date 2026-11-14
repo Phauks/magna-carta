@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime` and `reports.matterProductivity` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity` and `reports.clientList` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -14,6 +14,7 @@
 import {
   reportsAccountsReceivableAging,
   reportsAgedWorkInProgress,
+  reportsClientList,
   reportsDailyTime,
   reportsInvoices,
   reportsMatterBalances,
@@ -165,6 +166,33 @@ export interface MatterStatusCounts {
   openCount: number;
   heldCount: number;
   closedCount: number;
+}
+
+export interface ClientListRow {
+  clientEntityId: string;
+  /** Null where the directory no longer holds the record live. */
+  entityKind: "person" | "organization" | null;
+  displayName: string | null;
+  legalName: string | null;
+  emailAddress: string | null;
+  phoneNumber: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  counts: MatterStatusCounts;
+  locationNames: (string | null)[];
+}
+
+export interface ClientList {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  clientCount: number;
+  totals: MatterStatusCounts;
+  mattersWithoutClient: number;
+  clients: ClientListRow[];
 }
 
 export interface MatterListRow {
@@ -656,6 +684,20 @@ export function readMatterProductivity(
         periodEnd: query.periodEnd,
         locationId: present(query.locationId),
       },
+    }),
+  );
+}
+
+/** Live only: the list takes no date. */
+export function readClientList(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<ClientList>> {
+  return outcome(() =>
+    reportsClientList({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
     }),
   );
 }

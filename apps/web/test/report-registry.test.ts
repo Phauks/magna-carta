@@ -71,6 +71,7 @@ describe("the report registry", () => {
       ["matter-productivity", { trustAccount: false, office: true, period: "span" }],
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
       ["matters-list", { trustAccount: false, office: true, period: "none" }],
+      ["client-list", { trustAccount: false, office: true, period: "none" }],
     ]);
     expect(reportById("trust-compliance")?.permission).toBe("reports:trustCompliance");
   });
@@ -91,6 +92,7 @@ describe("the report registry", () => {
       "matter-productivity": "live-only",
       "operational-volumes": "bitemporal",
       "matters-list": "live-only",
+      "client-list": "live-only",
     });
   });
 

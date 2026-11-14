@@ -15,6 +15,7 @@ import {
   SEVERAL_OFFICES,
 } from "../src/lib/reports/financial-presenters.ts";
 import {
+  presentClientList,
   presentDailyTime,
   presentMatterProductivity,
   presentMattersList,
@@ -26,6 +27,7 @@ import { reportExportDocument, type ReportCell } from "../src/lib/reports/report
 import {
   sampleAccountsReceivableAging,
   sampleAgedWorkInProgress,
+  sampleClientList,
   sampleDailyTime,
   sampleMatterProductivity,
   sampleMattersList,
@@ -232,6 +234,39 @@ describe("the matter productivity presenter", () => {
     const matters = presentation.sections.find((section) => section.id === "by-matter");
     expect(matters?.rowDetails?.map((entries) => entries.length)).toEqual(
       report.matters.map((matter) => matter.timekeepers.length),
+    );
+  });
+});
+
+describe("the client list presenter", () => {
+  const report = sampleClientList();
+  const presentation = presentClientList(report);
+
+  it("opens with the payload's counts, the number of clients as the total", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [
+        report.totals.openCount,
+        report.totals.heldCount,
+        report.totals.closedCount,
+        report.clientCount,
+      ].map(String),
+    );
+    expect(tiles[3]?.tone).toBe("total");
+  });
+
+  it("puts every client on a row with the directory's details and their own counts", () => {
+    const clients = presentation.sections.find((section) => section.id === "clients");
+    expect(clients?.rows).toHaveLength(report.clients.length);
+    expect(clients?.rows[0]?.slice(1, 5)).toEqual([
+      "office@example.com",
+      "+1 775 555 0100",
+      "Reno, NV",
+      "Main Office",
+    ]);
+    expect(clients?.rows[1]?.slice(1, 5)).toEqual(["-", "-", "-", "Several offices"]);
+    expect(clients?.rows.map((row) => numberOf(row[8]))).toEqual(
+      report.clients.map((client) => client.counts.matterCount),
     );
   });
 });

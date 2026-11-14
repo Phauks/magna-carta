@@ -22,7 +22,8 @@
     "./operational/matters-list": "./src/operational/matters-list.ts",
     "./financial/aged-work-in-progress": "./src/financial/aged-work-in-progress.ts",
     "./productivity/daily-time": "./src/productivity/daily-time.ts",
-    "./productivity/matter-productivity": "./src/productivity/matter-productivity.ts"
+    "./productivity/matter-productivity": "./src/productivity/matter-productivity.ts",
+    "./operational/client-list": "./src/operational/client-list.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -32,6 +33,7 @@
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/costs": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/matters": "workspace:*",
