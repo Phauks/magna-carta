@@ -117,7 +117,9 @@ disbursement (direct, approved request, earned-fee transfer) feeds the queue wit
 A **field** is `{ kind, xMils, yMils, widthMils, sizePoints, align }`, measured from the check's
 top-left corner in thousandths of an inch (integers, so nothing drifts in floating point, and inches
 because check stock is specified in inches). Kinds: `date`, `payee`, `amount`, `amount_words`,
-`memo`, `payee_address`, `matter`, `check_number` (for blank stock with no preprinted number).
+`memo`, `matter`, `check_number` (for blank stock with no preprinted number). The memo prints the
+disbursement's purpose. A payee address is not a field: a disbursement records the payee's name
+only, so there is no address to print until it records one.
 
 The check is 8.5 by 3.5 inches. **The MICR band**, the bottom 0.625 inch, is refused for every
 field: ink there makes the bank's reader reject the check. The schema refuses it too.
@@ -164,3 +166,4 @@ person.
 2. **Printing the MICR line** on blank stock with magnetic toner.
 3. **Signatures** printed on the check. Trust checks are signed by hand.
 4. **Positive pay** export to the bank.
+5. **A payee address** for a window envelope (section 3).

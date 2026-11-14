@@ -7,7 +7,7 @@
 use crate::fonts::{Face, Measurer};
 use crate::model::{
     Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
-    Paragraph, RunningLine, Table,
+    Paragraph, Placed, RunningLine, Table,
 };
 use crate::ComposeError;
 
@@ -609,6 +609,69 @@ impl Flow<'_, '_> {
         self.trailing_gap = 0.0;
         if let Some(page) = self.pages.last_mut() {
             page.marks.push(mark);
+        }
+    }
+
+    /// Text at a fixed place on the current page. It writes its marks straight onto the page and
+    /// leaves the cursor, the trailing gap and any open card alone, so it moves nothing in the
+    /// flow. A value that is not a finite, on-page number is skipped rather than drawn somewhere
+    /// the caller did not ask for.
+    fn placed(&mut self, placed: &Placed) {
+        let page = self.page;
+        let numbers = [placed.x, placed.y, placed.width, placed.size];
+        if numbers.iter().any(|value| !value.is_finite())
+            || placed.x < 0.0
+            || placed.y < 0.0
+            || placed.x > page.width
+            || placed.y > page.height
+            || placed.width <= 0.0
+            || placed.size <= 0.0
+            || placed.size > 144.0
+        {
+            return;
+        }
+        let face = if placed.bold { Face::Bold } else { Face::Regular };
+        let text = clean(&placed.text).replace('\n', " ");
+        let mut marks = Vec::new();
+        if placed.outline {
+            marks.push(Mark::Frame {
+                x: placed.x,
+                y: placed.y,
+                width: placed.width,
+                height: placed.size * 1.25,
+                radius: 0.0,
+                thickness: 0.5,
+                ink: Ink::Gray(150),
+            });
+        }
+        let text_width = self.measurer.width(face, placed.size, &text);
+        let mut line = text;
+        let mut line_width = text_width;
+        if let Some(fill) = placed.fill.filter(|character| !character.is_control()) {
+            let unit = self.measurer.width(face, placed.size, &fill.to_string());
+            if unit > 0.0 && placed.width > line_width {
+                let count = ((placed.width - line_width) / unit).floor() as usize;
+                line.extend(std::iter::repeat_n(fill, count.min(400)));
+                line_width += unit * count.min(400) as f32;
+            }
+        }
+        let x = match placed.alignment {
+            Alignment::Start => placed.x,
+            Alignment::Center => placed.x + (placed.width - line_width) / 2.0,
+            Alignment::End => placed.x + placed.width - line_width,
+        };
+        if !line.trim().is_empty() {
+            marks.push(Mark::Text {
+                x,
+                baseline: placed.y + placed.size,
+                face,
+                size: placed.size,
+                ink: Ink::Gray(0),
+                text: line,
+            });
+        }
+        if let Some(current) = self.pages.last_mut() {
+            current.marks.extend(marks);
         }
     }
 
@@ -1421,6 +1484,7 @@ pub(crate) fn lay_out(
             Block::PageBreak => flow.new_page()?,
             Block::CardStart { title } => flow.open_card(title.as_deref())?,
             Block::CardEnd => flow.close_card(),
+            Block::Placed(placed) => flow.placed(placed),
         }
     }
     flow.close_card();
@@ -1545,6 +1609,61 @@ mod tests {
             value: format!("Value {number}"),
             grid: false,
         }
+    }
+
+    #[test]
+    fn placed_text_sits_where_it_is_asked_and_moves_nothing_in_the_flow() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let placed = |text: &str, x: f32, fill: Option<char>, alignment: Alignment| {
+            Block::Placed(Placed {
+                x,
+                y: 100.0,
+                width: 300.0,
+                size: 11.0,
+                bold: false,
+                alignment,
+                text: text.to_string(),
+                fill,
+                outline: true,
+            })
+        };
+        let document = ComposedDocument {
+            blocks: vec![
+                placed("Desert Title Company", 80.0, None, Alignment::Start),
+                placed("Three thousand and 00/100", 30.0, Some('*'), Alignment::Start),
+                placed("**3,000.00", 400.0, None, Alignment::End),
+                Block::Title("Flow".to_string()),
+            ],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&document, &[], &mut measurer).unwrap();
+        assert_eq!(pages.len(), 1);
+        let texts: Vec<(f32, f32, String)> = pages[0]
+            .marks
+            .iter()
+            .filter_map(|mark| match mark {
+                Mark::Text { x, baseline, text, .. } => Some((*x, *baseline, text.clone())),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts[0], (80.0, 111.0, "Desert Title Company".to_string()));
+        // The fill runs to the end of the box and no further.
+        let filled = &texts[1].2;
+        assert!(filled.starts_with("Three thousand and 00/100*"));
+        let width = measurer.width(Face::Regular, 11.0, filled);
+        assert!(width <= 300.0 && width > 290.0);
+        // Set against the right edge of its box.
+        let figures = measurer.width(Face::Regular, 11.0, "**3,000.00");
+        assert!((texts[2].0 + figures - 700.0).abs() < 0.01);
+        // The title still starts at the top margin: placed text took no room in the flow.
+        assert!(texts[3].1 < document.page.margin_top + 30.0);
+        let outlines = pages[0]
+            .marks
+            .iter()
+            .filter(|mark| matches!(mark, Mark::Frame { radius, .. } if *radius == 0.0))
+            .count();
+        assert_eq!(outlines, 3);
     }
 
     #[test]

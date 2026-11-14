@@ -265,6 +265,29 @@ pub struct Field {
     pub grid: bool,
 }
 
+/// One line of text set at a fixed place on the current page, outside the flow: a field on a
+/// form printed onto preprinted paper, such as a check. It moves nothing else on the page.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Placed {
+    /// From the page's left edge, in points.
+    pub x: f32,
+    /// The top of the line's box, from the page's top edge, in points. The baseline sits
+    /// `size` below it.
+    pub y: f32,
+    /// The box's width. `alignment` sets the text against it; text wider than the box is set in
+    /// full and runs past it, because cutting a payee's name short changes what the paper says.
+    pub width: f32,
+    pub size: f32,
+    pub bold: bool,
+    pub alignment: Alignment,
+    pub text: String,
+    /// A character repeated after the text to the end of the box, so nothing can be written in
+    /// after it: the asterisks after a check's amount in words.
+    pub fill: Option<char>,
+    /// Draw a thin outline of the box: a test page, held against the real paper.
+    pub outline: bool,
+}
+
 #[derive(Debug, Clone)]
 pub enum Block {
     /// The document's own title, set large at the top.
@@ -297,4 +320,6 @@ pub enum Block {
     },
     /// Closes the open card. Without one it does nothing.
     CardEnd,
+    /// Text at a fixed place on the current page; see [`Placed`].
+    Placed(Placed),
 }

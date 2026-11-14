@@ -1,5 +1,6 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerTrustCheckRoutes } from "./trust-checks.ts";
 import { registerTrustFirmFundsRoutes } from "./trust-firm-funds.ts";
 import { registerTrustReconciliationRoutes } from "./trust-reconciliation.ts";
 import { registerTrustUnclaimedFundsRoutes } from "./trust-unclaimed-funds.ts";
@@ -17,6 +18,8 @@ export function mountTrust(app: AppRouter, chokepoint: Chokepoint, _deps: Domain
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(domain, chokepoint);
   registerTrustReconciliationRoutes(domain, chokepoint);
+  // Check printing: the queue, the register, the stock and its scan. Printing moves no money.
+  registerTrustCheckRoutes(domain, chokepoint);
   // The firm's OWN money in a trust account — the bank-charge carve-out, on its own capability and
   // in its own module, because firm money and client money never share a door.
   registerTrustFirmFundsRoutes(domain, chokepoint);
