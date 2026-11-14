@@ -1625,6 +1625,35 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-11-14 — the record's picture: pressing it looks, editing is asked for
+
+The owner, on the person record window:
+
+- **"just because i clicked the icon, doesn't mean i am currently going to edit it."** Pressing the
+  picture opened a menu of Change, View and Remove, and pressing an empty circle went straight into
+  Add Photo. Picked from three mockups (option A): pressing the picture opens it large on the same
+  screen with Edit Photo and Download; an empty record shows initials and a separate camera button.
+- **"view full size of image should not open a new tab, but show it on the same screen."** The view
+  is a window over the record, never a new tab.
+- **"change and remove should be better combined."** Edit Photo opens one window on the current
+  picture holding every change: re-centre, a different file, Remove Photo.
+- **"allow other files types. show the valid types when selecting what to upload."** The formats are
+  listed on the drop area and in the system picker's filter; a refused file turns the area red with
+  no text (the 2026-11-13 field-error ruling).
+- **"no way to undo preffered on email."** The Preferred star is a toggle: pressed again it takes the
+  preference away.
+- **"there are too many buttons, and once you use preferred you cannot change that."** Picked E2 from
+  two mockups: the record's Contact card reads as a plain list with no per-line controls, and one
+  Edit opens every line into its fields, with Preferred and Do Not Use as switches and one Save.
+  The country stays on every number while editing (**"phone looks to have lost country code
+  field"** was about the mockup).
+- **"relationship dropdown is not sorted alphabetically, and we should have a better delineation
+  between being a family or some other type of assigned role."** The list is grouped under headings,
+  A to Z within each, Family first, with named family ties (Parent, Child, Spouse or partner and so
+  on) as their own relationship types.
+- **"clicked the bottom left item and i couldn't go back up."** Jumping to the last section lifted the
+  whole window out of its frame; a jump now scrolls only the content pane.
+
 ### 2026-11-13 — the app's visual refresh: fields, choices and buttons first
 
 The owner, asked to pick one of three directions for the app as a whole:

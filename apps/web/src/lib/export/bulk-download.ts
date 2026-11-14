@@ -21,6 +21,7 @@ import {
   type StoredExportDocument,
 } from "./download-shelf.ts";
 import { renderCsvExport } from "./render-csv.ts";
+import { renderPdfExport } from "./render-pdf.ts";
 import { renderRemoteExport } from "./render-remote.ts";
 import { renderTextExport } from "./render-text.ts";
 import { renderXlsxExport } from "./render-xlsx.ts";
@@ -45,7 +46,8 @@ export async function renderStoredExport(
     return await renderXlsxExport(exportDocument, "single-worksheet");
   if (extension === "csv") return renderCsvExport(exportDocument);
   if (extension === "txt") return renderTextExport(exportDocument);
-  return await renderRemoteExport(exportDocument, extension === "pdf" ? "pdf" : "docx");
+  if (extension === "pdf") return await renderPdfExport(exportDocument);
+  return await renderRemoteExport(exportDocument, "docx");
 }
 
 export interface BulkDownloadResult {

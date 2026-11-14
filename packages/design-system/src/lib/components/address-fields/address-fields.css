@@ -6,12 +6,46 @@
    * listbox, both unchanged; what is dressed here is only the row — an offer's line, with a group's
    * size beside it — and the sentences the list says instead of rows.
    */
+  /*
+   * An offer is two lines beside a pin: the street, with the typed part in bold, and the rest of the
+   * place beneath it in the muted colour at a smaller size. Both lines end in an ellipsis rather
+   * than wrapping, so every row is the same height and the list reads as a column.
+   */
   .mc-address-fields-offer {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
     gap: var(--mc-space-8);
     min-inline-size: var(--mc-space-0);
+    padding-block: var(--mc-space-2);
+  }
+  .mc-address-fields-offer-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+  .mc-address-fields-offer-lines {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-address-fields-offer-main,
+  .mc-address-fields-offer-secondary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mc-address-fields-offer-main {
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-regular);
+  }
+  .mc-address-fields-offer-match {
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-address-fields-offer-secondary {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
   }
   /* A group's size rides the row's end and never wraps under the line it qualifies. */
   .mc-address-fields-offer-aside {

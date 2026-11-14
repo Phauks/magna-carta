@@ -20,10 +20,17 @@
    * who, then the role where the record offers one, then the capacity where it takes one, then Add.
    * A person choosing who to link wants to see who is already linked while they do it.
    *
+   * A RECORD MAY LAY THE ROWS OUT ITSELF. A record with more to say about each party than a name and
+   * a role (a matter says whether its latest conflicts check searched them) hands over `rows` and
+   * draws them as a table, while this tab keeps what must not be copied: the add row, the rules
+   * about a repeat link, and the Remove confirmation, which the record's rows reach through
+   * `askToRemove`.
+   *
    * The tab is DOMAIN-BLIND. It is the same tab on a matter, a custodian packet or a calendar
    * event, so nothing here names one: a record hands over its parties, its role vocabulary and its
    * verbs, and this presents them.
    */
+  import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
   import Unlink from "@lucide/svelte/icons/unlink";
   import UserPlus from "@lucide/svelte/icons/user-plus";
@@ -70,6 +77,7 @@
     errorIdentifier,
     onRetry,
     formatInstant = instantText,
+    rows,
     ref = $bindable(null),
     class: className,
     ...restProps
@@ -144,6 +152,21 @@
      * being read and cannot be compared between two rows.
      */
     formatInstant?: (at: Instant) => string;
+    /**
+     * The rows, laid out by the record instead of as this tab's list. Handed the parties, the
+     * accessible name for each one's Remove control, and `askToRemove`, which opens this tab's own
+     * confirmation. The loading, failure and empty states, the add row and the confirmation stay
+     * the tab's.
+     */
+    rows?: Snippet<
+      [
+        {
+          parties: readonly RecordParty[];
+          removeLabel: (party: RecordParty) => string;
+          askToRemove: (party: RecordParty) => void;
+        },
+      ]
+    >;
   } = $props();
 
   /** The one sentence for the link that means nothing: the same entity, in the same role, again. */
@@ -356,6 +379,8 @@
     </div>
   {:else if parties.length === 0}
     <EmptyState title="Nobody Linked Yet" />
+  {:else if rows}
+    {@render rows({ parties, removeLabel, askToRemove: (party) => (pendingRemoval = party) })}
   {:else}
     <ul class="mc-record-parties-list">
       {#each parties as party (party.identifier)}

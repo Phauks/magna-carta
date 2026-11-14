@@ -155,6 +155,12 @@ export function registerDocumentSealRoutes(
       const signingTime = new Date().toISOString();
       const observedIp = c.req.header("CF-Connecting-IP");
       const userAgent = c.req.header("User-Agent");
+      // Where the network places the connecting address: absent in local runtimes, and never a
+      // client's own claim.
+      const edge = c.req.raw.cf;
+      const location = [edge?.city, edge?.region, edge?.country]
+        .filter((part): part is string => typeof part === "string" && part !== "")
+        .join(", ");
       const attributedSigners: SignerCompletion[] = signers.map((signer) => ({
         intent: signer.intent,
         consent: signer.consent,
@@ -162,11 +168,36 @@ export function registerDocumentSealRoutes(
           level: signer.attribution.level,
           ...(observedIp !== undefined ? { observedIp } : {}),
           ...(userAgent !== undefined ? { userAgent } : {}),
+          ...(location !== "" ? { location } : {}),
           ...(signer.attribution.proofReference !== undefined
             ? { proofReference: signer.attribution.proofReference }
             : {}),
+          ...(signer.attribution.codeDestination !== undefined
+            ? { codeDestination: signer.attribution.codeDestination }
+            : {}),
         },
       }));
+      // A signature picture that is not base64 is left off the certificate; it is decoration on
+      // a record whose proof is elsewhere, and never a reason to refuse the seal.
+      type Signer = (typeof signers)[number];
+      const pictures = (pick: (signer: Signer) => Signer["signatureImages"]) =>
+        signers.flatMap((signer) =>
+          (pick(signer) ?? []).flatMap((picture) => {
+            try {
+              return [
+                {
+                  signerId: signer.intent.signerId,
+                  image: decodeBase64(picture.imageBase64),
+                  ...(picture.pages !== undefined ? { pages: picture.pages } : {}),
+                },
+              ];
+            } catch {
+              return [];
+            }
+          }),
+        );
+      const signatureImages = pictures((signer) => signer.signatureImages);
+      const initialsImages = pictures((signer) => signer.initialsImages);
 
       // The certificate's reference is the identifier of the audit row this seal is logged under,
       // so the sheet a firm files and the firm's own audit trail name the same record.
@@ -180,6 +211,8 @@ export function registerDocumentSealRoutes(
           id: auditLogId,
           ...(documentTitle !== undefined ? { title: documentTitle } : {}),
         },
+        ...(signatureImages.length > 0 ? { signatureImages } : {}),
+        ...(initialsImages.length > 0 ? { initialsImages } : {}),
       };
 
       const sealPort = sealPortOverride ?? resolveSealPort(c.env.SIGN_SERVICE);

@@ -22,9 +22,11 @@
   import Focus from "@lucide/svelte/icons/focus";
   import Hand from "@lucide/svelte/icons/hand";
   import MicOff from "@lucide/svelte/icons/mic-off";
+  import Pencil from "@lucide/svelte/icons/pencil";
   import ScreenShare from "@lucide/svelte/icons/screen-share";
   import * as Avatar from "@magna-carta/design-system/avatar";
   import Badge from "@magna-carta/design-system/badge";
+  import { buttonClasses } from "@magna-carta/design-system/button";
   import NoResults from "@magna-carta/design-system/no-results";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import MeetingQualityMark from "./meeting-quality-mark.svelte";
@@ -48,6 +50,7 @@
     spotlightedParticipantId = null,
     hostMenu,
     showIdentifiers = true,
+    onChangeName,
   }: {
     /** Everybody the roster names, this browser included. */
     participants: readonly MeetingParticipant[];
@@ -90,6 +93,11 @@
      * guest sees who is in the room by the names they go by and nothing else.
      */
     showIdentifiers?: boolean;
+    /**
+     * Open the place this person changes what they are called in the meeting. Offered on their own
+     * row only, and absent where the screen does not offer it.
+     */
+    onChangeName?: () => void;
   } = $props();
 
   /** The per-row menu, where the reader may be handed one at all. */
@@ -127,11 +135,31 @@
         <Avatar.Root>
           <Avatar.Fallback>{participantInitials(name)}</Avatar.Fallback>
         </Avatar.Root>
-        <span class="min-w-0 flex-1 truncate text-sm" title={name}>
-          {name}{#if participant.participantId === ownParticipantId}<span
-              class="text-text-muted">&nbsp;(you)</span
-            >{/if}
+        <span class="flex min-w-0 flex-1 flex-col">
+          <span class="truncate text-sm" title={name}>
+            {name}{#if participant.participantId === ownParticipantId}<span
+                class="text-text-muted">&nbsp;(you)</span
+              >{/if}
+          </span>
+          {#if participant.accountName !== null}
+            <!-- A chosen name never hides who somebody is: the name they joined with rides beside
+                 it on every row. -->
+            <span class="truncate text-xs text-text-muted" title={participant.accountName}>
+              Joined as {participant.accountName}
+            </span>
+          {/if}
         </span>
+        {#if participant.participantId === ownParticipantId && onChangeName !== undefined}
+          <button
+            type="button"
+            class={buttonClasses({ variant: "ghost", size: "icon-sm" })}
+            aria-label="Change My Name"
+            title="Change My Name"
+            onclick={onChangeName}
+          >
+            <Pencil class="size-16" aria-hidden="true" />
+          </button>
+        {/if}
         {#if participant.hostRole !== null}
           <Badge variant="neutral" caps>{hostRoleLabel(participant.hostRole)}</Badge>
         {/if}

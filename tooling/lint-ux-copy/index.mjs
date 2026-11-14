@@ -2,10 +2,10 @@
 // answered" family, "is where" sentences, machinery words and the old Soon wording, in the shipped
 // source of apps/web and packages/design-system.
 //
-// The copy already in the product is a per-file baseline (baseline.json) that may only shrink: a
-// count that rises fails. A count that falls is reported, not failed, so another thread's copy fix
-// never turns main red; `--update` writes the lower number down. It proves its
-// own patterns on every run before it scans, so a pattern that stops matching cannot pass silently.
+// The copy already in the product is a baseline (baseline.json) that may only shrink. A rule's total
+// across the app may not rise, so copy moved between files passes. A count that falls is reported,
+// not failed, so another thread's copy fix never turns main red; `--update` writes it down. The scan
+// proves its own patterns on every run, so a pattern that stops matching cannot pass silently.
 //
 // Run: `pnpm run lint:ux-copy`, or `pnpm run lint:ux-copy --update` after fixing copy.
 
@@ -86,17 +86,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const why = Object.fromEntries(RULES.map((rule) => [rule.id, rule.why]));
   if (rose.length > 0) {
     console.error("lint-ux-copy: new copy breaks docs/conventions/ux-copy.md:");
-    for (const item of rose)
-      console.error(`  ${item.file}: ${item.rule} ${item.was} -> ${item.now}. ${why[item.rule]}`);
+    for (const item of rose) {
+      console.error(`  ${item.rule}: ${item.was} -> ${item.now} across the app. ${why[item.rule]}`);
+      for (const file of item.files) console.error(`    more than before in ${file}`);
+    }
   }
   if (fell.length > 0) {
-    console.error(
+    console.log(
       "lint-ux-copy: copy got better. Run `pnpm run lint:ux-copy --update` to lock it in:",
     );
-    for (const item of fell)
-      console.error(`  ${item.file}: ${item.rule} ${item.was} -> ${item.now}`);
+    for (const item of fell) console.log(`  ${item.file}: ${item.rule} ${item.was} -> ${item.now}`);
   }
-  if (rose.length > 0 || fell.length > 0) process.exit(1);
+  if (rose.length > 0) process.exit(1);
   const total = Object.values(current).reduce(
     (sum, rules) => sum + Object.values(rules).reduce((a, b) => a + b, 0),
     0,

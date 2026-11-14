@@ -1,9 +1,11 @@
+import { composeReadable } from "@magna-carta/house-document";
 import { createSealEngine, loadDocument } from "@magna-carta/pdf";
 import { composeDocument, ensureReady as ensureComposerReady } from "@magna-carta/pdf-compose";
 import {
   assembleCertificateOfCompletion,
   certificateSheet,
   certificateSheetImages,
+  type CertificateSheetOptions,
   renderCertificateOfCompletion,
   sealDocument,
   type SealRequest,
@@ -75,15 +77,32 @@ export async function performSeal(
   });
 
   await ensureComposerReady(engines.compose);
-  const sheet = await composeDocument(
-    certificateSheet(
-      certificate,
-      certificateSupportEmail === undefined
-        ? {}
-        : { issuerContact: { name: "Magna Carta", email: certificateSupportEmail } },
-    ),
-    certificateSheetImages(),
-  );
+  const issuer =
+    certificateSupportEmail === undefined
+      ? {}
+      : { issuerContact: { name: "Magna Carta", email: certificateSupportEmail } };
+  // The sheet is composed with the signers' signatures where it can be. A signature that is not
+  // a readable picture is left off (the record of how it was adopted stays), and a name in a
+  // script the certificate's own typeface cannot draw sets the sheet in Liberation Sans, which
+  // draws Greek and Cyrillic as well.
+  const composeSheet = async (options: CertificateSheetOptions) =>
+    composeDocument(
+      certificateSheet(certificate, options),
+      certificateSheetImages(options.signatureImages, options.initialsImages),
+    );
+  const composeSheetReadable = async (options: CertificateSheetOptions) =>
+    composeReadable((typeface) =>
+      composeSheet(typeface === undefined ? options : { ...options, typeface }),
+    );
+  let sheet: Awaited<ReturnType<typeof composeSheet>>;
+  const signatureImages = request.signatureImages ?? [];
+  const initialsImages = request.initialsImages ?? [];
+  try {
+    sheet = await composeSheetReadable({ ...issuer, signatureImages, initialsImages });
+  } catch (error) {
+    if (signatureImages.length + initialsImages.length === 0) throw error;
+    sheet = await composeSheetReadable(issuer);
+  }
   const sealedSheet = await sealDocument({
     pdf: sheet.pdf,
     engine,

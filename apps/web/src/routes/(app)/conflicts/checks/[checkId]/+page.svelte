@@ -59,9 +59,7 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import CheckResults from "$lib/conflicts/check-results.svelte";
-  import DispositionDialog from "$lib/conflicts/disposition-dialog.svelte";
-  import HitWindow from "$lib/conflicts/hit-window.svelte";
+  import ResultsReview from "$lib/conflicts/results-review.svelte";
   import MatterChoice from "$lib/conflicts/matter-choice.svelte";
   import { checkReportSheet } from "$lib/conflicts/conflicts-report.ts";
   import { downloadReport } from "$lib/conflicts/report-download.ts";
@@ -84,8 +82,6 @@
     RUN_CHECK_PERMISSION,
     RUN_POLL_INTERVAL_MILLISECONDS,
     type CheckRead,
-    type DispositionKind,
-    type HitDetail,
     type RunSummary,
   } from "$lib/conflicts/conflicts-api.ts";
   import {
@@ -96,8 +92,6 @@
     triggerVocabulary,
   } from "$lib/conflicts/conflicts-vocabulary.ts";
   import { entityKindText } from "$lib/conflicts/hit-columns.ts";
-  import { readDirectoryEntity } from "$lib/directory/directory-api.ts";
-  import { directoryEntityName } from "$lib/directory/entity-presentation.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -110,10 +104,6 @@
   let failure = $state<StatedFailure | null>(null);
   let loading = $state(true);
   let session = $state<SessionBootstrap | null>(null);
-  let openHit = $state<HitDetail | null>(null);
-  let windowOpen = $state(false);
-  let dialogOpen = $state(false);
-  let dialogKind = $state<DispositionKind>("cleared");
   let printOpen = $state(false);
   let downloading = $state(false);
   let rerunning = $state(false);
@@ -123,7 +113,6 @@
   let assignOpen = $state(false);
   let actFailure = $state<StatedFailure | null>(null);
   let entityNames = $state<ReadonlyMap<string, string>>(new Map());
-  let unnameable = $state<ReadonlySet<string>>(new Set());
   let tab = $state("report");
   let sections = $state<string[]>(["details", "status", "results"]);
   let openPlaces = $state<ReadonlySet<string>>(new Set(["directory"]));
@@ -137,17 +126,13 @@
     if (outcome.kind === "ok") {
       result = outcome.value;
       failure = null;
-      // The open hit is a copy of a row that has just been re-read; re-point it at the fresh one so
-      // an answer recorded a moment ago shows on the record the window is holding.
-      const held = openHit;
-      if (held !== null) openHit = outcome.value.hits.find((hit) => hit.id === held.id) ?? null;
       return;
     }
     result = null;
     failure = stated(
       outcome.failure,
-      "The check could not be read.",
-      "The check could not be reached.",
+      "Couldn't load the check.",
+      "Couldn't connect to load the check.",
     );
   }
 
@@ -193,21 +178,11 @@
   const memberNames = $derived(
     new Map((firmRoster.members ?? []).map((member) => [member.userId, member.displayName])),
   );
-  const reviewerName = $derived(
-    openHit?.disposition === null || openHit === null
-      ? null
-      : (memberNames.get(openHit.disposition.reviewerUserId) ?? null),
-  );
   const signedInName = $derived(session?.user.name ?? null);
   const check = $derived(result?.check ?? null);
   const run = $derived(result?.run ?? null);
   const record = $derived(result?.record ?? null);
   const inFlight = $derived(run !== null && runInFlight(run));
-  const openPartyName = $derived(openHit?.party?.displayName ?? null);
-  const openConsentingPartyName = $derived.by((): string | null => {
-    const consentingPartyId = openHit?.disposition?.waiver?.givenByEntityId ?? null;
-    return consentingPartyId === null ? null : (entityNames.get(consentingPartyId) ?? null);
-  });
 
   // The Running badge counts seconds; the clock ticks only while there is something to count.
   $effect(() => {
@@ -219,9 +194,9 @@
 
   /** A member's name, never their account handle. */
   function memberText(userId: string | null): string {
-    if (userId === null) return "Nobody — run automatically";
+    if (userId === null) return "No one (run automatically)";
     return personName(memberNames.get(userId) ?? null, {
-      whenUnrecorded: "A member the firm's roster does not name",
+      whenUnrecorded: "A staff member no longer on the firm's roster",
     });
   }
 
@@ -236,33 +211,6 @@
     if (entry.startedAt === null) return "";
     if (entry.finishedAt === null) return runInFlight(entry) ? `${seconds(entry.startedAt, now)} so far` : "";
     return seconds(entry.startedAt, Date.parse(entry.finishedAt));
-  }
-
-  /** One read, for a waiver's consenting party. What it learns is kept for the rest of the visit. */
-  async function nameEntity(entityId: string): Promise<void> {
-    if (entityNames.has(entityId) || unnameable.has(entityId)) return;
-    const outcome = await readDirectoryEntity(fetch, entityId);
-    if (outcome.kind !== "ok") {
-      unnameable = new Set([...unnameable, entityId]);
-      return;
-    }
-    entityNames = new Map([...entityNames, [entityId, directoryEntityName(outcome.value)]]);
-  }
-
-  function openOne(hit: HitDetail): void {
-    openHit = hit;
-    windowOpen = true;
-    // Only the CONSENTING party still needs a read: a waiver names the entity that consented, which
-    // is often not the entity that matched. The matched party came with the hit.
-    const consentingPartyId = hit.disposition?.waiver?.givenByEntityId ?? null;
-    if (consentingPartyId !== null) void nameEntity(consentingPartyId);
-  }
-
-  /** A review state picked from a result's card: the answer dialog opens on it. */
-  function review(hit: HitDetail, kind: DispositionKind): void {
-    openHit = hit;
-    dialogKind = kind;
-    dialogOpen = true;
   }
 
   /** Show a different run of this check. The address names it, so the read follows. */
@@ -281,7 +229,7 @@
     const outcome = await rerunConflictsCheck(fetch, check.id, crypto.randomUUID());
     rerunning = false;
     if (outcome.kind !== "ok") {
-      actFailure = stated(outcome.failure, "The check could not be run again.");
+      actFailure = stated(outcome.failure, "Couldn't run the check again.");
       return;
     }
     selectRun(outcome.value.runId);
@@ -294,7 +242,7 @@
     const outcome = await cancelConflictsRun(fetch, check.id, run.id, crypto.randomUUID());
     cancelling = false;
     if (outcome.kind !== "ok") {
-      actFailure = stated(outcome.failure, "The run could not be cancelled.");
+      actFailure = stated(outcome.failure, "Couldn't cancel the run.");
       return;
     }
     if (outcome.value.status === "completed") toast.success("The run had already finished.");
@@ -313,7 +261,7 @@
     );
     filing = false;
     if (outcome.kind !== "ok") {
-      actFailure = stated(outcome.failure, "The check could not be assigned to that matter.");
+      actFailure = stated(outcome.failure, "Couldn't assign the check to that matter.");
       return;
     }
     matterToFile = null;
@@ -532,7 +480,7 @@
   {#if failure !== null}
     <FailureNotice
       failure={failure.failure}
-      title="The Check Could Not Be Read"
+      title="Couldn't Load the Check"
       fallback={failure.fallback}
       whenSilent={failure.whenSilent}
       onRetry={() => void read()}
@@ -632,7 +580,7 @@
                   {#each SEARCH_LOCATIONS as entry (entry.location)}
                     <DefinitionList.Row term={entry.label}>
                       {#if entry.location === "directory"}
-                        {directorySettings === "" ? "As the firm's floor sets it" : directorySettings}
+                        {directorySettings === "" ? "As the firm's minimum sets it" : directorySettings}
                       {:else}
                         {placeSettingsText(entry.location, run?.askedScope?.places ?? null) ??
                           "Not searched"}
@@ -737,13 +685,18 @@
             </Accordion.Trigger>
             <Accordion.Content class="px-16 pb-16">
               {#if record !== null}
-                <CheckResults
+                <ResultsReview
                   {hits}
+                  checkInstant={record.check.createdAt}
+                  matterId={check.matterId}
                   {mayReview}
                   reviewRefusal={REVIEW_REFUSAL}
-                  memberName={(userId) => memberText(userId)}
-                  onOpen={openOne}
-                  onReview={review}
+                  {memberNames}
+                  memberText={(userId) => memberText(userId)}
+                  {signedInName}
+                  {permissions}
+                  bind:entityNames
+                  onRecorded={() => void read()}
                 />
               {:else if inFlight}
                 <p class="text-sm text-text-muted">The search is running.</p>
@@ -810,29 +763,6 @@
 </LoadingRegion>
 
 {#if failure === null && record !== null && check !== null}
-  <HitWindow
-    bind:open={windowOpen}
-    hit={openHit}
-    consentingPartyName={openConsentingPartyName}
-    {reviewerName}
-    checkInstant={record.check.createdAt}
-    onAnswer={() => {
-      dialogKind = "cleared";
-      dialogOpen = true;
-    }}
-  />
-
-  <DispositionDialog
-    bind:open={dialogOpen}
-    hit={openHit}
-    partyName={openPartyName}
-    matterId={check.matterId}
-    reviewerName={signedInName}
-    permissions={session?.permissions ?? null}
-    initialKind={dialogKind}
-    onRecorded={() => void read()}
-  />
-
   {#if sheet !== null}
     <PrintSheet bind:open={printOpen} {sheet} printLabel="Print Report" />
   {/if}

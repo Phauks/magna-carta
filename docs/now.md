@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 883 nodes of the feature ledger in
+is the complete register rather than a digest: all 884 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**883 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**884 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 147 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **736 that are units of work**, for the reason set out under [What a roll-up is
+count the **737 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 354 | 48% |
-| Part-built | partial, in-build | 145 | 20% |
-| Ahead | designed, planned, researching, not-started | 196 | 27% |
-| Parked | deferred, cut | 41 | 5% |
-| **All units of work** | | **736** | **100%** |
+| Done | shipped | 356 | 48% |
+| Part-built | partial, in-build | 154 | 21% |
+| Ahead | designed, planned, researching, not-started | 186 | 25% |
+| Parked | deferred, cut | 41 | 6% |
+| **All units of work** | | **737** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 354 | 48% |
-| `partial` | 142 | 19% |
+| `shipped` | 356 | 48% |
+| `partial` | 151 | 20% |
 | `in-build` | 3 | 0% |
-| `designed` | 47 | 6% |
-| `planned` | 15 | 2% |
+| `designed` | 46 | 6% |
+| `planned` | 11 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 129 | 18% |
+| `not-started` | 124 | 17% |
 | `deferred` | 37 | 5% |
 | `cut` | 4 | 1% |
-| **All statuses** | **736** | **100%** |
+| **All statuses** | **737** | **100%** |
 
 ### What a roll-up is not
 
-**147 of the 883 nodes are parents, and 114 of those parents are `partial`.** A parent's status is a
+**147 of the 884 nodes are parents, and 115 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 354 of 736 (48%). Shipped plus partial is 496 (67%).**
+**Shipped alone is 356 of 737 (48%). Shipped plus partial is 507 (69%).**
 
-The 142 units between those two numbers are work that is engineered and paid for and is not
+The 151 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**499 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**510 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 152 | 31% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 156 | 31% |
-| No user surface by nature (`internal`) | 191 | 38% |
+| A person can open it today (`screen`) | 158 | 31% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 157 | 31% |
+| No user surface by nature (`internal`) | 195 | 38% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **499** | **100%** |
+| **Everything with something built** | **510** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -99,15 +99,15 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Authentication, Access Control & Encryption | 15 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 28 | 54% |
 | Calendar and Rules-Based Docketing | 15 | 1 | 1 | 0 | 0 | 1 | 3 | 0 | 0 | 21 | 71% |
 | Communications Layer | 6 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 18 | 33% |
-| Community & Feedback Forum | 1 | 4 | 0 | 4 | 0 | 0 | 0 | 1 | 0 | 10 | 10% |
+| Community & Feedback Forum | 1 | 5 | 0 | 3 | 0 | 0 | 0 | 1 | 0 | 10 | 10% |
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
-| Core Domain — Directory, Matters & Locations | 37 | 24 | 0 | 0 | 2 | 0 | 3 | 1 | 0 | 67 | 55% |
+| Core Domain — Directory, Matters & Locations | 37 | 26 | 0 | 0 | 2 | 0 | 1 | 1 | 0 | 67 | 55% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 13 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 68% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 30% |
-| Documents | 71 | 15 | 0 | 3 | 0 | 0 | 14 | 3 | 1 | 107 | 66% |
-| Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
+| Documents | 73 | 16 | 0 | 3 | 0 | 0 | 11 | 3 | 1 | 107 | 68% |
+| Exhibits and Exhibit Lists | 0 | 4 | 0 | 0 | 3 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 22 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 63 | 35% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 18 | 3 | 0 | 1 | 0 | 3 | 15 | 2 | 1 | 43 | 42% |
@@ -118,7 +118,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 34 | 7 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 70 | 49% |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 34 | 8 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 71 | 48% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 5 | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
@@ -127,11 +127,11 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 16 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 23 | 70% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **354** | **142** | **3** | **47** | **15** | **5** | **129** | **37** | **4** | **736** | **48%** |
+| **All areas** | **356** | **151** | **3** | **46** | **11** | **5** | **124** | **37** | **4** | **737** | **48%** |
 
 ## Where we have been
 
-**217 of 236 commits read, 2026-07-14 to 2026-11-13 — 122 days.** The ledger keeps no history of its
+**226 of 245 commits read, 2026-07-14 to 2026-11-13 — 122 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -143,14 +143,14 @@ Every figure in this section counts **units of work**, the same quantity [Where 
 stands](#where-the-program-stands) counts, so a level here is comparable to a level there. Roll-up
 parents are excluded at every past commit the same way they are excluded now — the reconstruction
 reads the hierarchy off the ledger as it stood, not off today's. The whole-node totals are on the
-record too: 663 nodes on 2026-07-14, 883 on 2026-11-13.
+record too: 663 nodes on 2026-07-14, 884 on 2026-11-13.
 
-**+157 shipped since the ledger began** — 197 on 2026-07-14, 354 on 2026-11-13, across 122 days. The
-ledger itself grew by +195 units over the same period (541 to 736), so the share shipped went from
+**+159 shipped since the ledger began** — 197 on 2026-07-14, 356 on 2026-11-13, across 122 days. The
+ledger itself grew by +196 units over the same period (541 to 737), so the share shipped went from
 36% to 48% against a denominator that was moving too.
 
-That is **9.0 capabilities shipped a week** across the whole series, and **9.2 a week** over the 210
-snapshots since the last gap (2026-08-11 to 2026-11-13, +123 shipped in 94 days).
+That is **9.1 capabilities shipped a week** across the whole series, and **9.3 a week** over the 219
+snapshots since the last gap (2026-08-11 to 2026-11-13, +125 shipped in 94 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -377,10 +377,19 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-11-13 | `af96a77d` | 354 | 142 | 3 | 47 | 15 | 5 | 129 | 37 | 4 | 736 | 0 | 0 | 0 |
 | 2026-11-13 | `cc2f3d9f` | 354 | 142 | 3 | 47 | 15 | 5 | 129 | 37 | 4 | 736 | 0 | 0 | 0 |
 | 2026-11-13 | `46eebd03` | 354 | 142 | 3 | 47 | 15 | 5 | 129 | 37 | 4 | 736 | 0 | 0 | 0 |
+| 2026-11-13 | `a63f95cb` | 355 | 141 | 3 | 47 | 15 | 5 | 129 | 37 | 4 | 736 | 0 | +1 | 0 |
+| 2026-11-13 | `d6869647` | 355 | 141 | 3 | 47 | 15 | 5 | 129 | 37 | 4 | 736 | 0 | 0 | 0 |
+| 2026-11-13 | `de85228f` | 355 | 141 | 3 | 47 | 15 | 5 | 129 | 37 | 4 | 736 | 0 | 0 | 0 |
+| 2026-11-13 | `a052f459` | 355 | 142 | 3 | 46 | 15 | 5 | 129 | 37 | 4 | 736 | 0 | 0 | 0 |
+| 2026-11-13 | `f3463c5e` | 355 | 144 | 3 | 46 | 15 | 5 | 127 | 37 | 4 | 736 | 0 | 0 | 0 |
+| 2026-11-13 | `e427495a` | 355 | 146 | 3 | 46 | 15 | 5 | 126 | 37 | 4 | 737 | +1 | 0 | 0 |
+| 2026-11-13 | `281fdee5` | 355 | 147 | 3 | 46 | 15 | 5 | 125 | 37 | 4 | 737 | 0 | 0 | 0 |
+| 2026-11-13 | `8d375e70` | 356 | 147 | 3 | 46 | 15 | 5 | 124 | 37 | 4 | 737 | 0 | +1 | 0 |
+| 2026-11-13 | `c1fc6a59` | 356 | 151 | 3 | 46 | 11 | 5 | 124 | 37 | 4 | 737 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 236 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 245 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -411,7 +420,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Design System, UI Consistency & Design Quality | 15 | 19 | 11 | 13 | +2 |
 | Discovery (e-discovery) | 15 | 22 | 2 | 8 | +6 |
 | Document Automation | 7 | 10 | 0 | 3 | +3 |
-| Documents | 97 | 107 | 58 | 71 | +13 |
+| Documents | 97 | 107 | 58 | 73 | +15 |
 | Exhibits and Exhibit Lists | — | 8 | — | 0 | 0 |
 | Financial Core | 42 | 63 | 8 | 22 | +14 |
 | Client Intake / CRM | 6 | 8 | 0 | 2 | +2 |
@@ -423,7 +432,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Observability & Diagnostics | 20 | 20 | 11 | 14 | +3 |
 | Payments | 8 | 9 | 0 | 0 | 0 |
 | Performance & Concurrency | 11 | 11 | 6 | 6 | 0 |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 66 | 70 | 30 | 34 | +4 |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 66 | 71 | 30 | 34 | +4 |
 | Client Portal | 14 | 14 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 14 | 14 | 2 | 2 | 0 |
 | Release Channels | 8 | 8 | 7 | 7 | 0 |
@@ -434,7 +443,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Translation Services | — | 6 | — | 0 | 0 |
 
 **Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+17), Calendar
-and Rules-Based Docketing (+15), Meetings (+15). **7 of 32 areas have shipped nothing in that
+and Rules-Based Docketing (+15), Documents (+15). **7 of 32 areas have shipped nothing in that
 time**: Exhibits and Exhibit Lists, Payments, Performance & Concurrency, Client Portal, Product
 Updates & User-Facing Documentation, Release Channels, Translation Services. An area standing still
 here has not necessarily been idle — a node moves in this table only when it reaches `shipped`, so
@@ -442,14 +451,12 @@ work that went from nothing to `partial` shows up in the units columns and not i
 
 ## Waiting on you
 
-**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**30 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **A supplied asset-schedule template** (`matter-assets.schedule-template`) — **Not built.** Two questions. Whether shipped starter content rides the court-form adoption path designed in docs/specs/2026-08-14-nevada-court-form-library-design.md once its N1-N5 flags clear, or wants a distribution path that does not wait on them — an asset schedule is not a court form and carries none of that design's copyright or attorney-review weight. And what an estate asset schedule should actually say: heading, grouping, columns, whether unvalued assets are listed or counted, and what the document calls itself. Every firm provisioned after it ships inherits the answer, and neither the design nor ADR-0255's A-flags specify any of it.
 - **Semantic search** (`discovery.search.semantic`) — **Not built.** Whether the semantic half is built for review sets at all, and if so on what trigger. It is DEFERRED rather than undecided-by-neglect — the cost side is now priced (a queried Vectorize index bills the resident corpus once a month at twenty times the storage rate, so a 250,000-document review set is roughly 490 times the keyword half's marginal cost, plus a one-time embedding charge of $261 to $522 per review set), and the recall side has never been measured on legal prose with relevance judgements, which is the only thing that would justify it. The experiment that settles it is specified in full in docs/research/2026-08-14-semantic-half-convergence-and-cost.md and is blocked on acquiring a judged corpus, not on building anything. Until it is answered the per-review-set flag stays a column nothing reads: turning it on would embed a corpus on a guess, and the embedding model pin is unchangeable once one vector exists.
-- **Numbering schemes** (`exhibits.numbering`) — **Not built.** Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
 - **In-text exhibit references** (`exhibits.references`) — **Not built.** Whether the platform offers to detect the plain-text "Exhibit C" references already sitting in a firm's existing documents and propose bindings for them. It is genuinely useful on a firm's back catalogue and it is a scan over privileged prose, so the recommendation is yes, proposal-only, never applied without a person accepting it one at a time, and only inside a document a member already has open. A no means the feature works only for references authored through the picker, and a firm's existing prose stays unbound forever. Exhibits design flag E8.
-- **Issued-set freeze** (`exhibits.issue`) — **Not built.** Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
 - **Compiled exhibit package** (`exhibits.package`) — **Not built.** Whether a compiled package paginates itself by default, and in which corner. The Nevada rule read for this design requires exhibits over ten pages to be numbered in the lower right — which is exactly where a page produced in discovery already carries its Bates stamp — and no reliable detector for an existing stamp exists, so a false negative overprints a number that was already served and a false positive drops pagination a rule requires. Defaulting on makes the common filing correct and risks overprinting; defaulting off makes every package a member has to remember to configure. Exhibits design flag E5.
 - **Chart of accounts** (`financial.ledger.operating-gl.chart-of-accounts`) — **Not built.** Does a starter chart of accounts ship? A seeded chart makes a firm usable on day one and also makes the platform's opinion most firms' chart by inertia; the alternative is that a firm cannot bill until its accountant authors one. The recommendation is yes for the accounts and no for the mapping — a small chart of system accounts plus common law-firm expense accounts, marked as a starting point, with no role mapping the firm did not confirm, because the mapping is where the money goes. General ledger design, flag G1.
 - **Fiscal-period close** (`financial.ledger.operating-gl.period-close`) — **Not built.** Five flags, and the first decides whether this sub-slice exists — period close is not in the slice map's scope, and against that, statements nobody can rely on are not worth assembling. Then: who may close, and does closing take a second person the way a trust act does. What an operator may do to a closed period — reopen with a reason and an append-only event, post into it under a permission, or never. Whether the hard lock ever gets a route or stays a column nothing sets until a jurisdiction requires it. And whether the lock is checked inside the posting primitive itself, which is the one with reach: after it, a trust movement or an invoice finalization backdated into a closed period refuses, which is a behaviour change in shipped subsystems and is also the only version of a lock a caller cannot decline to honour. General ledger design, flags G3, G4, G5, G6 and G12.
@@ -477,12 +484,13 @@ work that went from nothing to `partial` shows up in the units columns and not i
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**40 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**43 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
 - **Auto-file rules** (`communications.email.filing.auto-file-rules`) — **Built; no screen yet.** Whether a correspondent rule may ask to FILE outright when it was authored from a typed address rather than learned from a filing. The design wants a rule to inherit an authorizing act a person actually performed, and a directly-authored rule has none — its audit terminates in a configuration screen. Built permissive because the design also names the abstract editor, and the exposure is narrow (an unattended firing still needs the firm ceiling raised, the member's own matter access re-checked at every fire, and an intact-original capture with a passing signature on a matching domain, so a correspondent rule can never fire on the forward or catch-all path at all). The question is whether promotion `file` should additionally require created_from_email_message_id.
 - **Feedback board** (`community.board`) — **Built; no screen yet.** Connect the magna-carta-community worker to Workers Builds and set COMMUNITY_HANDOFF_SECRET on it and on magna-carta; nothing on the community host is live until then.
+- **Known-issues view** (`community.known-issues`) — **Built; no screen yet.** Connect the magna-carta-community worker to Workers Builds; the screen is not reachable until the board is deployed.
 - **Conflicts Check** (`conflicts`) — **A group of capabilities.** Two of the deepening design's calls still decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F2 and F11. A third, whether the balanced band searches former, maiden and alias names, no longer blocks anything: ConflictsPolicy.balancedNameRoles in packages/conflicts/src/settings.ts ships the design's recommended answer as a firm setting recorded verbatim on every check row, so answering it either way is a settings edit rather than a release (flag F1).
 - **Pronouns on a person** (`directory.pronouns`) — **Built and reachable.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
 - **Address autocomplete** (`directory.addresses.lookup`) — **Built and reachable.** Create the magna-carta-addresses R2 bucket, connect apps/address-worker to Workers Builds, then add the ADDRESS_SERVICE binding to the app worker (runbook, operations.md section 20; deploy-queue.md). Smarty for other countries stays optional — SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN (section 19).
@@ -499,6 +507,8 @@ work that went from nothing to `partial` shows up in the units columns and not i
 - **Offline checkout / check-in** (`documents.editing.checkout`) — **Built; no screen yet.** Should documents:forceReleaseLock also reach Attorney? It is seeded to Admin alone, so in a firm whose administrator is away nobody can free a document another member has exclusively locked until the idle-checkout sweep releases it overnight. Widening is one additive migration; narrowing later is a conversation with every firm that had got used to the wider default.
 - **PDF document scrub** (`documents.pdf.scrub`) — **Built; no screen yet.** Whether the scrub should also strip a PDF's executable content, which today it leaves entirely intact — the document-level JavaScript name tree, the action that fires when the file is opened, the catalog actions that fire on save, print and close, the additional-actions on pages and on form fields, and the action attached to any annotation. A document produced to an opposing party can therefore still carry code, from the step whose whole purpose is that it does not. This is not a hypothetical path: prepareFormTemplateVersion in packages/document-assembly/src/pdf-form.ts runs the scrub on every PDF form template a firm registers, so whichever way this is answered changes something already running. Detection is not the missing half: inspect_pdf in containers/scan already recognises JavaScript, auto-actions, launch actions and embedded files, with a byte-scan fallback for a compressed catalog, and records the finding as active-content on the verdict. Two things are done with it — nothing, and nothing. It blocks no upload unless the firm's policy flags the file for another reason, and scanAndGateStatements in apps/api-worker/src/http/routes/documents/templates.ts activates a template version even on an unscanned verdict, discarding verdict.activeContent entirely. So the third option below is closer to wiring up an answer the platform already computes than to building one. Stripping is not free, and the cost falls on fillable forms a FIRM uploaded — a court form still uses field actions for validation and formatting, so a scrub that removes them hands back a form that looks right and computes nothing. Three ways to answer. Strip always, and accept that. Strip with an exception a firm marks at upload for forms it needs to keep working, which puts the choice on the person who knows what the form is for and has to be recorded so a recipient cannot forge it. Or surface the active content without removing it, and let whoever is producing the document decide per file — which means carrying a verdict flag that is already computed and today thrown away, and closing the unscanned hole so the flag cannot be silently absent. Note that an exception keyed on "templates the platform authored" would exempt nothing today: every fillable template in the tree is a firm upload, and whether the platform ever authors its own is itself unanswered on document-automation.filing-grade-generation. The page-split path in crates/pdf-core/src/generate.rs removes some of the same entries, and does so for safety — but a different safety, that no byte of an excluded page survives into the output: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page only when that action points at an excluded one, with a fail-closed gate behind both. An action pointing inside the kept range survives. A split is not a scrub, and neither path settles what the other should do.
 - **Compose a PDF from content** (`documents.pdf.compose`) — **Built; no screen by nature.** Which screens should be able to put pictures into a generated PDF, and whether the tabular export (today a Word file converted by the office container) should be drawn by this engine instead.
+- **Numbering schemes** (`exhibits.numbering`) — **Built; no screen yet.** Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
+- **Issued-set freeze** (`exhibits.issue`) — **Built; no screen yet.** Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
 - **Trial admission tracking** (`exhibits.admission-tracking`) — **Parked.** Whether recording admission at trial is in scope as a later capability at all. The design assumes it stays out: it has a different audience and its own evidentiary weight, and a half-kept record of what a court admitted is worse than none. A yes makes it a capability with its own model rather than three columns bolted to an exhibit set. Exhibits design flag E7.
 - **Operating accounting / general ledger** (`financial.ledger.operating-gl`) — **A group of capabilities.** Sixteen flags gate this slice and three of them decide whether it starts at all. Do these books ship ahead of payments' manual receipt, knowing the operating bank line stays sparse until cash can arrive — the chart is what billing already needs to stop refusing unmapped roles, so every sub-slice is useful without it, but the user documentation has to say what the books cannot yet show. Whether the account-role map moves out of the shipped billing package into a shared leaf, since without it either billing depends on the general ledger or the ledger depends on billing and both edges are wrong. And whether the temporal contract moves out of the shipped reporting package into the shared periods leaf, the alternative being a second validator of a bitemporal triple. The remaining flags are recorded on the sub-slices they decide. General ledger design, flags G15, G10 and G11.
 - **Trust accounting** (`financial.trust`) — **A group of capabilities.** Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
@@ -531,7 +541,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 ## Next up
 
 - `community.escalation-bridge` · **Private-report escalation bridge** — One-way, user-opted escalation of a private diagnostic report into a public feature request or known-issue check.
-- `community.known-issues` · **Known-issues view** — Public known-issues view mirroring the live status content.
 - `community.changelog-sync` · **Shipped-items changelog sync** — Requests marked shipped sync to the changelog; popular requests inform the roadmap.
 - `community.agent-status-posts` · **Agent status posts** — Maintenance/diagnostics agents post public status on known issues, propose-only, never exposing privileged detail.
 - `matter-assets.schedule-template` · **A supplied asset-schedule template** — A starter template assembling the estate schedule from the asset subjects with a repeating block, supplied by the platform rather than authored by each firm.
@@ -541,12 +550,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `documents.conversion.convert-ui` · **Convert-to menu / converter UI** — Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
 - `documents.legal-citations.lookups` · **Citation provider lookups** — Worker adapters that fill a case's name, court and year from CourtListener and govinfo, and Westlaw and Lexis through the legal-research port.
 - `documents.legal-citations.checker` · **Check a Document and Table of Authorities** — Find every citation in a document, flag form errors with the rule, offer fixes, and build a table of authorities.
-- `exhibits` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages.
-- `exhibits.register` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own.
-- `exhibits.sets` · **Exhibit sets and computed labels** — An ordered membership for one document, with the label a pure function of position and the set's scheme while the set is a draft, and a pre-commit report of which citations a reorder is about to move.
-- `exhibits.numbering` · **Numbering schemes** — Per-set noun, prefix, sequence (upper letter, lower letter, arabic, roman), starting ordinal, and the letter-overflow form, with starter schemes offered as copyable presets.
 - `exhibits.references` · **In-text exhibit references** — A reference in a matter document that cites the exhibit's identity and renders its label, inserted from a picker rather than typed, resolved when the document is produced.
-- `exhibits.issue` · **Issued-set freeze** — A member records that a set went out — filed, served, exchanged or lodged — and every label, title, version and position on it freezes; withdrawal and supersession are what remain possible afterwards.
 - `exhibits.list` · **Exhibit list** — The live table of a set on the matter, and the filed exhibit-list document assembled from a starter template over a new exhibits collection in the merge dictionary.
 - `exhibits.package` · **Compiled exhibit package** — One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file.
 - `financial.ledger.operating-gl` · **Operating accounting / general ledger** — Extends the ledger to full firm operating books.
@@ -746,7 +750,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Community & Feedback Forum
 
-[`roadmap.d/community.md`](../roadmap.d/community.md) — 10 units of work, 10% shipped. 1 done, 4 part-built, 4 ahead, 1 parked.
+[`roadmap.d/community.md`](../roadmap.d/community.md) — 10 units of work, 10% shipped. 1 done, 5 part-built, 3 ahead, 1 parked.
 
 - `community` · `partial` · **Community and feedback forum** — Public, platform-level, cross-firm surface for feature requests with voting, peer discussion, known issues, and roadmap/changelog views; never touches per-firm confidential data.
   - `community.board` · `partial` · **Feedback board** — Feature requests with popularity-ranked upvotes, comments, tags, status pipeline, and roadmap-as-filtered-view-by-status.
@@ -754,7 +758,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `community.confidentiality` · `partial` · **Confidentiality boundary** — Posting always opt-in and user-authored; nothing flows automatically from private matters or the private bug pipeline into the public forum.
   - `community.identity` · `partial` · **Display-name identity and SSO** — Better Auth SSO with display-name-only public identity; real name/firm never shown; aggregate vote counts only.
   - `community.escalation-bridge` · `designed` · **Private-report escalation bridge** — One-way, user-opted escalation of a private diagnostic report into a public feature request or known-issue check.
-  - `community.known-issues` · `designed` · **Known-issues view** — Public known-issues view mirroring the live status content.
+  - `community.known-issues` · `partial` · **Known-issues view** — Public known-issues view mirroring the live status content.
   - `community.changelog-sync` · `designed` · **Shipped-items changelog sync** — Requests marked shipped sync to the changelog; popular requests inform the roadmap.
   - `community.agent-status-posts` · `designed` · **Agent status posts** — Maintenance/diagnostics agents post public status on known issues, propose-only, never exposing privileged detail.
   - `community.discussion` · `deferred` · **Open discussion forum** — General peer-discussion forum beyond the feedback board.
@@ -777,7 +781,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 67 units of work, 55% shipped. 37 done, 24 part-built, 5 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 67 units of work, 55% shipped. 37 done, 26 part-built, 3 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08)._
@@ -800,7 +804,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `directory.merge.unmerge` · `deferred` · **Guarded unmerge** — Reversal of a recent, still-clean merge; locked once post-merge activity accrues. _Note: Deferral-with-seam, not a retrofit; no unmerge export exists in packages/directory._
   - `directory.archival` · `shipped` · **Soft-delete and archival** — Entities referenced by a matter or the conflicts log are archived, never hard-deleted.
   - `directory.temporal-audit` · `shipped` · **Temporal history and audit** — Key fields (names, addresses, affiliations, roles) time-bounded (valid-from/valid-to) to answer "what was true then"; every change audited (who/what/when).
-  - `directory.legacy-id` · `not-started` · **Legacy source-system ID** — A legacy source-system identifier on every entity for LEAP migration traceability. _Note: LEAP migration itself is deferred (ADR-0021); this lands with that slice._
+  - `directory.legacy-id` · `partial` · **Legacy source-system ID** — A legacy source-system identifier on every entity for LEAP migration traceability. _Note: Built as one link table for every kind of record, not a column per entity (docs/decisions/pending/a-transferred-record-is-linked-to-its-source-in-one-table.md). Partial because nothing writes a link yet; the loader in docs/specs/2026-11-10-record-transfer-framework-design.md is its first writer._
 - `matters` · `partial` · **Matters** — Matter as the top-level access unit and cost center, opened directly with the client as a Directory link. _Note: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, seven render a SectionStub and six read the firm's own record (Overview, Files, Time, Costs, Parties, Calendar). The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed._
   - `matters.parties` · `partial` · **Matter parties** — Parties attached via Directory role-links; multiple roles per entity on one matter. _Note: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a consultation's conflict check needs a person._
   - `matters.numbering` · `shipped` · **Configurable matter numbering** — Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open, the settings editor that writes it, and a number set by hand. _Note: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs. The engine moved out of matters into the platform-wide numbering register on 2026-09-18 (matters.numbering.register)._
@@ -823,7 +827,7 @@ to change a line here, edit the node in its area file and re-run the build.
       - `matters.file-manager.untrusted-pipeline.pre-acceptance` · `shipped` · **Pre-acceptance gates** — Authenticated upload, per-firm size and content-type allow-list, magic-byte validation, decompression-bomb and nested-archive guards, filename sanitization.
       - `matters.file-manager.untrusted-pipeline.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land not visible/servable/indexed until cleared; async scan via R2 event, Queue, scanner; verdict stored as file metadata; quarantine, never auto-delete.
       - `matters.file-manager.untrusted-pipeline.scan-engine` · `partial` · **Malware scan engine port** — Scanning as a swappable port with one or more engines behind it; no privileged bytes leave firm-controlled infrastructure. _Note: Baseline engines shipped; the concrete commercial engine choice is explicitly deferred behind the port (its own future ADR)._
-      - `matters.file-manager.untrusted-pipeline.cdr` · `not-started` · **CDR disarmed renditions** — Optional disarmed copy of document types while the original is preserved byte-for-byte for evidence. _Note: Named optional in the pipeline design; engine choice deferred._
+      - `matters.file-manager.untrusted-pipeline.cdr` · `partial` · **CDR disarmed renditions** — Optional disarmed copy of document types while the original is preserved byte-for-byte for evidence. _Note: Engine chosen: in-house Rust, neutralizing in place. When the rendition is made and where it is stored are still open._
       - `matters.file-manager.untrusted-pipeline.safe-delivery` · `shipped` · **Safe delivery (structural)** — Separate cookieless sandbox origin, CSP, iframe sandbox, safe-rendition preview defeating stored-XSS uploads. _Note: Player/preview UI queued behind the app shell._
       - `matters.file-manager.untrusted-pipeline.rescan` · `partial` · **Continuous re-scan** — Re-scan sweep on signature updates via cron fan-out; audit every verdict; alert staff on hits. _Note: Access-triggered rescan exists. The signature-update cron sweep does not: apps/api-worker/src/background/scheduled.ts runs the conflicts periodic rescan and no file one, so a signature update reaches a stored version only when somebody next opens it._
   - `matters.search` · `partial` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. _Note: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page._
@@ -962,7 +966,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 107 units of work, 66% shipped. 71 done, 15 part-built, 17 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 107 units of work, 68% shipped. 73 done, 16 part-built, 14 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -989,7 +993,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.scanning.verdict` · `shipped` · **Verdict as file metadata** — clean/flagged/unscanned verdict persisted per version; flagged versions never served; infected files quarantined, never deleted.
     - `documents.scanning.rescan` · `shipped` · **Re-scan on signature updates** — Access-triggered re-scan with a content-hash + engine-version scan cache, so an engine/signature update forces re-scan on next access.
     - `documents.scanning.tool-ui` · `shipped` · **Malware Scan tool page** — User-facing scan/diagnose tool in the Tools area.
-    - `documents.scanning.cdr` · `not-started` · **CDR disarmed rendition** — Optional content-disarmed copy of document types while the original is preserved byte-for-byte for evidence.
+    - `documents.scanning.cdr` · `partial` · **CDR disarmed rendition** — Optional content-disarmed copy of document types while the original is preserved byte-for-byte for evidence. _Note: In-house Rust by the owner's 2026-11-10 ruling. Next are the File Workbench's Disarm tab and a pipeline stage that files a rendition beside an upload; legacy binary Office files are refused until they are converted to their package form first._
     - `documents.scanning.waf-prefilter` · `not-started` · **WAF edge pre-filter** — Cloudflare WAF content scanning as a detect-only Layer-0 on proxy-transiting form uploads. _Note: Explicitly an engine option behind the port; Enterprise add-on, does not see direct-to-R2 traffic._
     - `documents.scanning.commercial-engine` · `not-started` · **Commercial engine behind the port** — A commercial AV engine (Sophos/Bitdefender/Kaspersky/OPSWAT class) run on our own compute behind the scan port. _Note: The white paper defers the concrete engine choice; the port and YARA baseline exist._
   - `documents.editing` · `partial` · **Editing (Collabora & WOPI)** — Collabora Online on Containers as the sole .docx editor, real .docx in R2 as source of truth, app-owned WOPI host.
@@ -1015,7 +1019,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.preview.inline-playable` · `shipped` · **inlinePlayable verdict** — Cheap container/codec sniff recorded per version at ingest; preview policy serves inline only on a playable verdict. _Note: Firm-wide Reports rollup of the verdict awaits the Reports subsystem._
     - `documents.preview.safe-rendition` · `partial` · **Derived safe renditions** — Active formats previewed only via a derived rasterized/transcoded rendition (artifact_role derived version), never the raw file. _Note: Rasterize/transcode engine wires in with the player UI._
     - `documents.preview.pdf-reader` · `shipped` · **Portable-document reader** — A read-only in-app reader that rasterizes a PDF's pages locally through the pure-Rust engine in a Web Worker, rather than serving the file to the browser. _Note: Independent of the cookieless streaming path: only pixels reach the page, so it needs no rendition engine and no deploy activation. Pages are drawn as they come into view, and the resolution is capped._
-    - `documents.preview.player` · `partial` · **Video player UI** — Inline video player on the browser's own video element with the design system's own controls (seek with buffered fill, frame and ten-second steps, speed, sound, picture in picture, full screen, a link to the moment), as a page and in the details panel's Preview tab; HLS support dormant for future transcoding.
+    - `documents.preview.player` · `shipped` · **Video player UI** — Inline video and sound player on the browser's own media element with the design system's own controls laid over the picture (seek with buffered fill and hover preview, frame and ten-second steps, a settings menu with speed, a link to the moment, a screenshot filed beside the recording, full screen), as a page and in the details panel's Preview tab; an unreadable recording offers Convert to MP4, filed beside the original.
     - `documents.preview.transcoding` · `deferred` · **Preview transcoding** — Self-hosted FFmpeg (Queues + Container) MP4 renditions for non-web formats; clip/annotation, transcript sync, adaptive bitrate.
   - `documents.conversion` · `partial` · **In-app file conversion** — In-house any-format to any-format converter; bytes stay in-tenant (R2 to our compute to R2); original never mutated.
     - `documents.conversion.registry` · `shipped` · **Format registry & pathfinding** — Declarative (source, target) to {engine, recipe} table with weighted single-engine edges and multi-hop chain computation; single source of format knowledge.
@@ -1024,8 +1028,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.conversion.raster` · `shipped` · **Raster image engine** — Pure-Rust image conversion engine in a dedicated container behind the convert worker (memory-safe replacement for native libvips).
     - `documents.conversion.image-to-pdf` · `shipped` · **Image to PDF** — Image-to-PDF conversion edge on the registry.
     - `documents.conversion.office` · `shipped` · **Office document conversion** — Documents/spreadsheets/presentations to/from PDF via the server office engine (LibreOffice-class, container-bound). _Note: The C++ LibreOffice runtime is owner-consented under golden rule 14, scoped to the dlopened suite. What is genuinely outstanding is deployment: the image is roughly a gigabyte, is a deploy-time build, cannot run under the local test pool — forwardConvert is exercised against a fake container and the real image is driven in a container CI job — and no environment has it activated, which is why every downstream node still calls the PDF arm deployed-only._
-    - `documents.conversion.av-transcode` · `partial` · **Audio/video transcodes** — Pure-Rust transcode engine (no FFmpeg) for the video edges into an MP4 every browser plays, shared with the preview's playable copy. _Note: Partial because no screen offers it yet - the player's "prepare a playable copy" button belongs to the video player work (documents.preview.player) - and a production stream also waits on the files host (FILES_ORIGIN is still a placeholder). A conversion runs inside one queue invocation, so a recording that takes longer than fifteen minutes to convert fails and can be asked for again once stale. The buffered conversion port still leaves transcode unrouted on purpose. WMV/WMA, MPEG-2 and MPEG-4 Part 2 stay download-only until each has a proven Rust decoder (owner's "Rust only" ruling, 2026-11-10)._
-    - `documents.conversion.email-to-pdf` · `not-started` · **Email MSG/EML to PDF** — Render parsed email as PDF for producing email as exhibits; closes the registry's eml/msg edges.
+    - `documents.conversion.av-transcode` · `partial` · **Audio/video transcodes** — Pure-Rust transcode engine (no FFmpeg) for the video edges into an MP4 every browser plays, shared with the preview's playable copy. _Note: Offered as Convert to MP4 on the Unreadable Media File notice, and the copy is filed beside the original as its own file. A conversion runs inside one queue invocation, so a recording that takes longer than fifteen minutes to convert fails and can be asked for again once stale. The buffered conversion port still leaves transcode unrouted on purpose. WMV/WMA, MPEG-2 and MPEG-4 Part 2 stay download-only until each has a proven Rust decoder (owner's "Rust only" ruling, 2026-11-10)._
+    - `documents.conversion.email-to-pdf` · `partial` · **Email MSG/EML to PDF** — Render parsed email as PDF for producing email as exhibits; closes the registry's eml/msg edges.
     - `documents.conversion.searchable-pdf` · `shipped` · **Scanned PDF to searchable PDF** — OCR text layer applied to scanned PDFs via the OCR pipeline. _Note: searchable-pdf is deliberately a distinct target format rather than pdf-to-pdf, because pathfinding treats a self-edge as no path and "make this searchable" is a real request. Like every container engine here the hop needs its image deployed before a firm can run it, which is the same posture documents.conversion.raster ships under._
     - `documents.conversion.background-jobs` · `partial` · **Background job orchestration** — Durable Object per job holding queued/running/per-item progress, container spin-up/sleep, completion notification for large or batch conversions. _Note: Single-file jobs only — per-item batch progress and completion notification are not built. Container spin-up and sleep now cover both engine containers rather than raster alone: raster sleeps after five minutes on a roughly one-second boot, and the office container after fifteen, because its suite spends twenty to thirty seconds initialising and scaling to zero too eagerly turns a cheap idle into a user-visible stall._
     - `documents.conversion.output-placement` · `partial` · **Output placement** — Per-job choice of save-into-matter (versioned R2 sibling, audit-logged) or download a copy. _Note: Partial rather than in-build: the placement module is on main and the matter-save wiring is gated on the execution substrate, so nothing is being written right now._
@@ -1076,7 +1080,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.metadata.ooxml` · `shipped` · **OOXML metadata** — Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
     - `documents.metadata.image` · `shipped` · **Image metadata** — Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
     - `documents.metadata.extended-formats` · `deferred` · **HEIC / PDF / container-engine metadata** — HEIC and PDF metadata handling via a container engine. _Note: PDF-side scrub exists separately in crates/pdf-core (documents.pdf.scrub)._
-    - `documents.metadata.ui` · `not-started` · **Metadata UI** — User-facing inspect/scrub surface — the File Workbench's Metadata tab.
+    - `documents.metadata.ui` · `shipped` · **Metadata UI** — User-facing inspect/scrub surface — the File Workbench's Metadata tab.
   - `documents.file-integrity` · `partial` · **File hash & integrity** — Multi-algorithm streaming hash, ingest-baseline comparison, and verification receipt for evidence-grade fixity. _Note: Backend shipped; tool UI deferred to the shell wave._
   - `documents.file-type` · `partial` · **File type verification** — Content-based file-type identification (Magika ONNX) with filename/extension mismatch analysis and a report. _Note: Backend shipped; UI todo per the status fragment._
   - `documents.email` · `partial` · **Email parsing (email-core)** — Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with a WASM edge and an Email Inspector tool. _Note: Parse-only by design — rendering and DKIM verification stand outside; container/native lane deferred until Discovery's bulk mbox needs._
@@ -1093,14 +1097,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Exhibits and Exhibit Lists
 
-[`roadmap.d/exhibits.md`](../roadmap.d/exhibits.md) — 8 units of work, 0% shipped. 0 done, 0 part-built, 7 ahead, 1 parked.
+[`roadmap.d/exhibits.md`](../roadmap.d/exhibits.md) — 8 units of work, 0% shipped. 0 done, 4 part-built, 3 ahead, 1 parked.
 
-- `exhibits` · `planned` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages. _Note: Court e-filing, docket integration and trial-presentation software stay outside this capability, and so does any jurisdiction numbering-rules catalog — two departments of one Nevada courthouse currently direct incompatible schemes, so numbering ships as copyable presets rather than as rules._
-  - `exhibits.register` · `planned` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own. _Note: An exhibit never spans matters — one document used in two matters is two exhibits over one file, because the two matters have different access boundaries and different filings. A production's Bates range rides the exhibit as recorded provenance and is never computed from the label._
-  - `exhibits.sets` · `planned` · **Exhibit sets and computed labels** — An ordered membership for one document, with the label a pure function of position and the set's scheme while the set is a draft, and a pre-commit report of which citations a reorder is about to move. _Note: A draft label is deliberately not a column — a fact that is a function of two other facts must not also be stored, because three renumber-sweep write paths are three chances to disagree with the function._
-  - `exhibits.numbering` · `planned` · **Numbering schemes** — Per-set noun, prefix, sequence (upper letter, lower letter, arabic, roman), starting ordinal, and the letter-overflow form, with starter schemes offered as copyable presets.
+- `exhibits` · `partial` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages. _Note: Court e-filing, docket integration and trial-presentation software stay outside this capability, and so does any jurisdiction numbering-rules catalog — two departments of one Nevada courthouse currently direct incompatible schemes, so numbering ships as copyable presets rather than as rules._
+  - `exhibits.register` · `partial` · **Exhibit register** — A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own. _Note: An exhibit never spans matters — one document used in two matters is two exhibits over one file, because the two matters have different access boundaries and different filings. A production's Bates range rides the exhibit as recorded provenance and is never computed from the label._
+  - `exhibits.sets` · `partial` · **Exhibit sets and computed labels** — An ordered membership for one document, with the label a pure function of position and the set's scheme while the set is a draft, and a pre-commit report of which citations a reorder is about to move. _Note: A draft label is deliberately not a column — a fact that is a function of two other facts must not also be stored, because three renumber-sweep write paths are three chances to disagree with the function._
+  - `exhibits.numbering` · `partial` · **Numbering schemes** — Per-set noun, prefix, sequence (upper letter, lower letter, arabic, roman), starting ordinal, and the letter-overflow form, with starter schemes offered as copyable presets.
   - `exhibits.references` · `planned` · **In-text exhibit references** — A reference in a matter document that cites the exhibit's identity and renders its label, inserted from a picker rather than typed, resolved when the document is produced.
-  - `exhibits.issue` · `planned` · **Issued-set freeze** — A member records that a set went out — filed, served, exchanged or lodged — and every label, title, version and position on it freezes; withdrawal and supersession are what remain possible afterwards. _Note: The platform has no court e-filing integration and does not pretend to observe a filing, so issuing is a recorded human assertion. A withdrawn exhibit keeps its label forever and no later exhibit reuses it._
+  - `exhibits.issue` · `partial` · **Issued-set freeze** — A member records that a set went out — filed, served, exchanged or lodged — and every label, title, version and position on it freezes; withdrawal and supersession are what remain possible afterwards. _Note: The platform has no court e-filing integration and does not pretend to observe a filing, so issuing is a recorded human assertion. A withdrawn exhibit keeps its label forever and no later exhibit reuses it._
   - `exhibits.list` · `planned` · **Exhibit list** — The live table of a set on the matter, and the filed exhibit-list document assembled from a starter template over a new exhibits collection in the merge dictionary. _Note: The starter template prints the Offered, Objection and Admitted columns blank, because that is what a court hands the clerk; recording what happened in them is a separate capability._
   - `exhibits.package` · `planned` · **Compiled exhibit package** — One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file. _Note: A separator page is never stored as a matter document — it exists only inside a package and is regenerated from the label every build, because a stored separator page is a stale label waiting to be filed._
   - `exhibits.admission-tracking` · `deferred` · **Trial admission tracking** — Recording what happened to an exhibit in the courtroom — offered, objected to, admitted — against the exhibit set.
@@ -1240,7 +1244,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.tools.whois` · `shipped` · **WHOIS lookup** — Public domain/IP registration lookup, RDAP-first with legacy port-43 fallback for ccTLDs; firm-internal security hygiene. _Note: Report enrichment in flight on branch whois-report-enrichment. Verified against public record for six targets 2026-08-15; a registry with neither RDAP nor a port-43 host (234 of 1,438 TLDs) now answers 501 rather than 500. The port-43 socket has no read deadline and that path stays unverified. docs/research/2026-08-15-tools-reality-check.md._
     - `integrations.tools.safe-browse` · `shipped` · **Safe website viewer** — Renders a suspect URL in an isolated remote browser and returns a static snapshot (screenshot, redirect chain, text, links). _Note: Renderer is Cloudflare Browser Rendering (env.BROWSER, quickAction), an account entitlement rather than anything in the repository, and still unexercisable locally (Miniflare's binding has no quickAction). The entitlement was confirmed live on 2026-09-18 by the first capture that succeeded; before that every capture failed on a wait for networkidle2 that a page holding a socket never reaches, reported as a capacity outage. Interactive live browsing is designed and not built — the shell's Live toggle renders as a Soon affordance and the seam is in ADR-0119._
     - `integrations.tools.safe-browse-live` · `partial` · **Safe website viewer — Live mode** — One held isolated browser per member, streamed to their screen and driven by their pointer and keyboard, so a link's steps can be clicked through with cookies intact; every document the browser requests for the whole session SSRF-guarded. _Note: Partial until the streamed Live is confirmed against the deployed service — frames arriving, a click and a keystroke landing, the guard refusing an inward navigation. Miniflare has no browser binding, so the CDP adapter has no automated test; the stream's decisions around it are tested with a fake browser._
-    - `integrations.tools.metadata` · `shipped` · **Metadata inspector & scrubber** — Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless. _Note: HEIC/PDF and a Container engine deferred; backend only, no screen yet. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md)._
+    - `integrations.tools.metadata` · `shipped` · **Metadata inspector & scrubber** — Inspect and strip metadata from OOXML and JPEG/PNG/TIFF images; stateless. _Note: HEIC/PDF and a Container engine deferred; the screen is the File Workbench Metadata tab, which runs the package in the browser. Verified end to end 2026-08-15 — inspect found a docx's author/company, scrub removed both and left the body text intact (docs/research/2026-08-15-tools-reality-check.md)._
     - `integrations.tools.file-integrity` · `shipped` · **File hash & integrity** — Five-algorithm streaming hash, ingest-baseline compare, integrity receipt; introduced the file context tag. _Note: Backend only — no screen yet. All five digests verified byte-identical to md5sum/sha1sum/sha256sum on 2026-08-15 (docs/research/2026-08-15-tools-reality-check.md)._
     - `integrations.tools.file-type` · `shipped` · **File type verifier** — Content-based file-type identification (Magika/ONNX in the scan container) behind a verify endpoint. _Note: Backend only, and the identification engine is the scan Container's /identify — the route answers 503 until magna-carta-scan is deployed carrying it, so nobody can get an answer yet. The report builder itself was reviewed and does not over-report "unverifiable". Queued in docs/deploy-queue.md._
     - `integrations.tools.ssrf-guard` · `shipped` · **Outbound SSRF guard** — Shared validation of every user-supplied outbound target before any fetch or render; platform invariant for outbound tools.
@@ -1419,7 +1423,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Platform — Delivery, Architecture, Tenancy & Data Conventions
 
-[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 70 units of work, 49% shipped. 34 done, 8 part-built, 21 ahead, 7 parked.
+[`roadmap.d/platform.md`](../roadmap.d/platform.md) — 71 units of work, 48% shipped. 34 done, 9 part-built, 21 ahead, 7 parked.
 
 - `platform` · `partial` · **Platform** — Delivery model, application architecture, architectural coherence, tenancy and isolation, Cloudflare primitive adoption, and the foundational data and runtime conventions. _Note: Backend foundations largely shipped; web UI shell in build; desktop not started._
   - `platform.workers-api` · `partial` · **Workers REST API** — Cloudflare Workers backend on Hono exposing a REST API documented by OpenAPI 3.1. _Note: First-party same-origin /api surface live; the public token-auth host is reserved, not built._
@@ -1507,6 +1511,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `platform.schema-migration.fleet-runner` · `shipped` · **Fleet rollout orchestrator** — Bounded-concurrency fan-out applying pending per-firm migrations, quarantine on failure, idempotent resume, version recorded in the firm registry.
     - `platform.schema-migration.control-plane-applier` · `shipped` · **Control-plane auto-applier** — Automatic application of control-plane migrations on deploy.
     - `platform.schema-migration.monotonic-ids` · `shipped` · **Monotonic migration ids** — Collision-proof migration numbering across parallel branches. _Note: Was in-build against an active-work note that no longer exists; the scheme and the pre-production baseline collapse the design called for are both on main._
+  - `platform.record-transfer` · `partial` · **Record transfer from a system a firm is leaving** — The framework that brings a firm's records in from another practice-management system (LEAP first) — readers, a staging store, mapping rules, the source-record link, a loader, a rehearsal report and the trust gate before cutover. _Note: First slice only. The legacy identifier it provides is tracked at directory.legacy-id._
 
 ### Client Portal
 
@@ -1611,7 +1616,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `settings.area-ui` · `partial` · **The Settings area** — Banded settings navigation (My / Firm / Platform), posture badges, draft staging with confirmation recap, change-history pull-out, command-palette listing.
     - `settings.area-ui.my-account` · `partial` · **My Account (identity & security)** — Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.
       - `settings.area-ui.my-account.name` · `shipped` · **A member's own name** — The member's name as five parts (prefix, given, middle, family, suffix) with the printed line rendered from them, editable on Account · Profile and mirrored into the firm's roster. _Note: Nothing splits an existing single-line name on the server. An account that predates the columns answers partsStated false with null parts, and the screen offers splitNameForReview as a form seed the person confirms; registration carries the parts it already collects so an account created from today never meets that path._
-    - `settings.area-ui.personal-preferences` · `shipped` · **Personal preferences (Theme, Accessibility, Text)** — Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast, Scroll Edge Markers and reading-typeface axes. _Note: Scroll Edge Markers turns off the gilt rule the sidebar and every register draw at a scroll edge, suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers and everything after them. The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one. Text Size on the same page is still a Soon seam, waiting on a text-scale overlay._
+    - `settings.area-ui.personal-preferences` · `shipped` · **Personal preferences (Theme, Accessibility, Text)** — Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast, Scroll Edge Markers, reading-typeface and text-size axes. _Note: Scroll Edge Markers turns off the gilt rule the sidebar and every register draw at a scroll edge, suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers and everything after them. The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one. Text Size on the same page is live: a whole percentage from 50 to 200 written as the root font size on <html>, so every rem type size follows while px spacing stays put._
     - `settings.area-ui.firm-band` · `partial` · **Firm settings band** — Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
     - `settings.area-ui.billing-time-policy` · `shipped` · **Billing (time capture)** — How the firm measures the time it bills - the increment a captured duration rounds to, and the direction it rounds in. _Note: The route reads and writes the FIRM tier only; a matter, client, timekeeper or location override stands above it and is left alone, which the page states rather than leaving somebody to discover. The server takes any whole number of minutes up to an hour and the select offers the seven firms actually bill at, so a firm holding something else has its value stated rather than a control that cannot express it._
     - `settings.area-ui.file-safety` · `shipped` · **File Safety & Scanning** — The firm's scan policy — scan depth, the suspicion threshold, what a flagged file may do, and whether opening one asks the member to confirm who they are. _Note: The suspicion threshold is a typed number. The engine publishes the score distribution of its own rule corpus (/api/v1/firm/scan-policy/score-histogram), which is what would make the threshold answerable rather than a number in a vacuum; that plotted control is its own piece of work and the plain field stands until it lands._

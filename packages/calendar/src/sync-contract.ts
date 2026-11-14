@@ -5,7 +5,7 @@ import { z } from "zod";
 // The route module in apps/api-worker declares routes over these and restates no field; the rule
 // and its reasoning are in docs/conventions/api.md (_Where a contract shape lives_).
 
-export const CALENDAR_PROVIDERS = ["microsoft"] as const;
+export const CALENDAR_PROVIDERS = ["microsoft", "google"] as const;
 export type CalendarProvider = (typeof CALENDAR_PROVIDERS)[number];
 
 export const ConnectedAccountProvider = z

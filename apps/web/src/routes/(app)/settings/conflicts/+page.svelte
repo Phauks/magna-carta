@@ -100,7 +100,7 @@
   const mayConfigure = $derived(
     permissions === null || permissions.includes(CONFIGURE_CONFLICTS_PERMISSION),
   );
-  const REFUSAL = permissionRefusal("Setting the firm's conflicts floor", CONFIGURE_CONFLICTS_PERMISSION);
+  const REFUSAL = permissionRefusal("Setting the firm's conflicts minimum", CONFIGURE_CONFLICTS_PERMISSION);
 
   function readPolicy(): void {
     committed = null;
@@ -108,7 +108,7 @@
     void (async () => {
       const outcome = await readFirmConflictsPolicy(fetch);
       if (outcome.kind !== "ok") {
-        readFailure = stated(outcome.failure, "The firm's conflicts floor could not be read.");
+        readFailure = stated(outcome.failure, "Couldn't load the firm's conflicts minimum.");
         return;
       }
       committed = outcome.value;
@@ -176,7 +176,7 @@
     const outcome = await writeFirmConflictsPolicy(fetch, sent, newWriteKey());
     saving = false;
     if (outcome.kind !== "ok") {
-      writeFailure = stated(outcome.failure, "The firm's conflicts floor was not changed.");
+      writeFailure = stated(outcome.failure, "The firm's conflicts minimum wasn't changed.");
       return;
     }
     // The RESPONSE, not the request: what came back is what the checks will run. Where the platform
@@ -199,7 +199,7 @@
     const addedSources = stored.floorSources.filter((source) => !sent.floorSources.includes(source));
     for (const source of addedSources) {
       notes.push(
-        `${SOURCE_VOCABULARY[source]?.label ?? source} was added back to the floor: every check searches it.`,
+        `${SOURCE_VOCABULARY[source]?.label ?? source} is back in the minimum: every check searches it.`,
       );
     }
 
@@ -208,7 +208,7 @@
     );
     for (const role of addedRoles) {
       notes.push(
-        `${nameRoleVocabulary(role).label} was added back to the names compared: every check compares it.`,
+        `${nameRoleVocabulary(role).label} is back in the names compared: every check compares it.`,
       );
     }
 
@@ -231,26 +231,20 @@
 
 <SettingsScrollRegion>
     <SettingsDescription>
-      What every conflicts check must search, whatever the person running it asks for.
+      What every conflicts check must search, whatever the person running it chooses.
     </SettingsDescription>
 
     <Alert.Root variant="info">
-      <Alert.Title>The Floor Is A Minimum, Not A Setting Each Check Repeats</Alert.Title>
+      <Alert.Title>Every Check Searches at Least This Much</Alert.Title>
       <Alert.Description>
-        A person running a check may search wider than this; a narrower request is raised back to the
-        floor before it runs, and the check records that it was. Changing the floor re-runs nothing
-        and rewrites no check already on the record — a matter whose last check no longer covers what
-        the firm now requires reports that shortfall on its own Conflicts section, worked out fresh
-        every time it is read. Narrowing the floor reduces what this firm will look at from here on.
-        How far a check follows relationships is not a setting: every check follows every recorded
-        relationship to closure.
+        Someone running a check can search wider than this. A narrower request is raised to this minimum, and the check records that. Changing it doesn't re-run or change past checks; a matter whose last check falls short shows that on its Conflicts tab.
       </Alert.Description>
     </Alert.Root>
 
     {#if session !== null && !mayConfigure}
       <Alert.Root variant="info">
-        <Alert.Title>Changing The Floor Is Not Available To This Account</Alert.Title>
-        <Alert.Description>{REFUSAL} The floor itself is readable by anyone who can read a check.</Alert.Description>
+        <Alert.Title>This Account Can't Change the Minimum</Alert.Title>
+        <Alert.Description>{REFUSAL} Anyone who can view a check can view this minimum.</Alert.Description>
       </Alert.Root>
     {/if}
 
@@ -280,7 +274,7 @@
     <LoadingRegion
       loading={committed === null}
       failed={readFailure !== null}
-      label="Reading the firm's conflicts floor"
+      label="Reading the firm's conflicts minimum"
       onRetry={readPolicy}
       class="flex flex-col gap-24"
     >
@@ -288,7 +282,7 @@
         {#if readFailure !== null}
           <FailureNotice
             failure={readFailure.failure}
-            subject="The firm's conflicts floor"
+            subject="The firm's conflicts minimum"
             fallback={readFailure.fallback}
             onRetry={readPolicy}
           />
@@ -333,9 +327,9 @@
                   checked={locked || draft.floorSources.includes(source)}
                   disabled={locked || unavailable || !mayConfigure || saving}
                   title={locked
-                    ? "Conflicts impute across the whole firm, so the party corpus is not optional."
+                    ? "Conflicts apply across the whole firm, so parties are always searched."
                     : unavailable
-                      ? "No corpus is registered for document text, so a check records it as a source it could not search."
+                      ? "Document text isn't searchable yet, so checks list it as not searched."
                       : undefined}
                   onCheckedChange={(on) => toggleSource(source, on === true)}
                 />
@@ -357,8 +351,7 @@
           <!-- Stated because it is the invariant that makes the choice safe: the wider band searches
                every name role and every phonetic scheme, so raising this can only add candidates. -->
           <p class="text-sm text-text-muted">
-            The wider band is a strict superset of the narrower one, so raising this can only add
-            candidates to a check, never remove one.
+            The wider band includes everything the narrower one finds, so raising it can only add results.
           </p>
           <RadioGroup.Root
             value={draft.floorStrictness}
@@ -388,8 +381,7 @@
           <!-- The wider band is not configurable here, and saying so is what keeps the superset
                claim above legible: whatever is chosen, it is a subset of "every role". -->
           <p class="text-sm text-text-muted">
-            These bind the narrower band only. The wider band always compares every name a party has,
-            which is what keeps it a superset of whatever is chosen here.
+            These apply to the narrower band only. The wider band always compares every name a party has.
           </p>
           <div class="flex flex-col gap-8">
             {#each NAME_ROLES as role (role)}
@@ -401,7 +393,7 @@
                   checked={locked || draft.balancedNameRoles.includes(role)}
                   disabled={locked || !mayConfigure || saving}
                   title={locked
-                    ? "A check that did not compare the name a party goes by today is not a conflicts check."
+                    ? "A check must always compare the party's current name."
                     : undefined}
                   onCheckedChange={(on) => toggleNameRole(role, on === true)}
                 />
@@ -425,13 +417,13 @@
             title={mayConfigure ? undefined : REFUSAL}
             onclick={() => void save()}
           >
-            {saving ? "Saving" : "Save The Floor"}
+            {saving ? "Saving" : "Save Minimum"}
           </Button>
           <Button variant="ghost" disabled={!dirty || saving} onclick={discard}>Discard</Button>
           {#if dirty}
             <span class="text-sm text-text-muted">Not saved yet. Nothing has changed for any check.</span>
           {:else if savedAt !== null}
-            <span class="text-sm text-text-muted">Saved. Every check from here on runs this floor.</span>
+            <span class="text-sm text-text-muted">Saved. Checks from now on use this minimum.</span>
           {/if}
         </div>
       {/if}

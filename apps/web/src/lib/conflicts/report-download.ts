@@ -4,7 +4,7 @@
  * The check's screen has exactly two controls over its report: Print Report, which hands the sheet
  * to the browser's print dialog, and Download Report, which hands the same sheet over as a PDF. The
  * two must never disagree, so the download is a projection of the very PrintSheetDocument the print
- * control shows, rendered through the platform's own document renderer (render-remote.ts) rather
+ * control shows, composed by the platform's PDF composer ($lib/export/render-pdf.ts) rather
  * than a second layout of the check.
  *
  * WHAT THE PROJECTION KEEPS. The renderer takes tables — a title, sections of headers and rows — so
@@ -23,8 +23,9 @@ import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet"
 import { formatInstant } from "@magna-carta/design-system/formatters";
 import { keepExportOnShelf, readDownloadPreferences } from "$lib/export/download-shelf.ts";
 import { markShelfChanged } from "$lib/export/download-shelf-signal.svelte.ts";
-import { RemoteRenderError, renderRemoteExport } from "$lib/export/render-remote.ts";
+import { renderPdfExport } from "$lib/export/render-pdf.ts";
 import {
+  ExportRenderError,
   exportFilename,
   saveExport,
   type TabularExportDocument,
@@ -97,7 +98,7 @@ export async function downloadReport(
   try {
     if (saveImmediately) {
       await saveExport(
-        await renderRemoteExport(exportDocument, "pdf", fetchImpl),
+        await renderPdfExport(exportDocument),
         exportFilename(exportDocument, "pdf"),
         PDF_CONTENT_TYPE,
       );
@@ -115,7 +116,7 @@ export async function downloadReport(
       // The shelf refused and nothing has been produced yet. A member who asked for the report
       // must not be left with neither, so hand them the file and say plainly it was not kept.
       await saveExport(
-        await renderRemoteExport(exportDocument, "pdf", fetchImpl),
+        await renderPdfExport(exportDocument),
         exportFilename(exportDocument, "pdf"),
         PDF_CONTENT_TYPE,
       );
@@ -128,11 +129,11 @@ export async function downloadReport(
     return saveImmediately ? { kind: "saved" } : { kind: "shelved" };
   } catch (failure) {
     const message =
-      failure instanceof RemoteRenderError
+      failure instanceof ExportRenderError
         ? failure.errorId === undefined
           ? failure.message
           : `${failure.message} (Error ID ${failure.errorId})`
-        : "The report could not be produced.";
+        : "Couldn't produce the report.";
     return { kind: "failed", message };
   }
 }

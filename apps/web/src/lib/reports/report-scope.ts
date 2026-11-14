@@ -220,6 +220,8 @@ export interface ReportScope {
   /** Null is live: everything known now. */
   readonly knownAsOf: string | null;
   readonly subject: string | null;
+  /** The office the rows are narrowed to; null is every office. A filter, never a gate. */
+  readonly office: string | null;
 }
 
 /**
@@ -243,6 +245,7 @@ export function readReportScope(
     period,
     knownAsOf: knownAsOf !== null && KNOWLEDGE_INSTANT.test(knownAsOf) ? knownAsOf : null,
     subject: searchParams.get("subject"),
+    office: searchParams.get("office"),
   };
 }
 
@@ -255,6 +258,8 @@ export function writeReportScope(url: URL, scope: ReportScope): URL {
   else next.searchParams.set("knownAsOf", scope.knownAsOf);
   if (scope.subject === null) next.searchParams.delete("subject");
   else next.searchParams.set("subject", scope.subject);
+  if (scope.office === null) next.searchParams.delete("office");
+  else next.searchParams.set("office", scope.office);
   return next;
 }
 
