@@ -28,6 +28,7 @@
   import AddressFields from "@magna-carta/design-system/address-fields";
   import { addressLookup } from "$lib/addresses/address-lookup-source.ts";
   import { googleMapsLinkFor } from "$lib/addresses/google-maps-link.ts";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import type { AddressParts } from "@magna-carta/design-system/address-fields";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -236,8 +237,7 @@
                 variant="ghost"
                 size="icon"
                 href={mapsLink}
-                target="_blank"
-                rel="noopener noreferrer"
+                {...opensBeside("external")}
                 title="Open in Google Maps"
                 aria-label="Open {row.value} in Google Maps"
               >
