@@ -54,7 +54,9 @@ const PRODUCTION_OUTPUT: Rollup.OutputOptions = {
 // the one vite-plus re-exports. The two plugin types are the same shape at runtime, but comparing
 // them structurally runs the type-checker past its depth limit ("excessive stack depth"), so the
 // array is asserted to the vite-plus type rather than compared.
-const PLUGINS = (runningInPackageDir ? [tailwindcss(), sveltekit()] : []) as unknown as PluginOption[];
+const PLUGINS = (runningInPackageDir
+  ? [tailwindcss(), sveltekit()]
+  : []) as unknown as PluginOption[];
 
 export default defineConfig({
   plugins: PLUGINS,
