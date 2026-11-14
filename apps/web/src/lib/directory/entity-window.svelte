@@ -49,7 +49,7 @@
   import Link from "@lucide/svelte/icons/link";
   import Mail from "@lucide/svelte/icons/mail";
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
-  import { RemoteRenderError, renderRemoteExport } from "$lib/export/render-remote.ts";
+  import { PdfComposeError, renderPdfExport } from "$lib/export/render-pdf.ts";
   import { renderTextExport } from "$lib/export/render-text.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
@@ -270,7 +270,7 @@
   }
 
   /**
-   * The record as a printout, in the reports' own formats: a PDF from the server's renderer, or
+   * The record as a printout, in the reports' own formats: a PDF from the platform's PDF composer, or
    * plain text built here. Every list is read in full at the moment of the press.
    */
   async function downloadPrintout(format: "pdf" | "text"): Promise<void> {
@@ -287,11 +287,11 @@
       return;
     }
     try {
-      const file = await renderRemoteExport(printout, "pdf");
+      const file = await renderPdfExport(printout);
       await saveExport(file, exportFilename(printout, "pdf"), "application/pdf");
     } catch (error) {
       toast.error(
-        error instanceof RemoteRenderError ? error.message : "The PDF could not be made. Try again.",
+        error instanceof PdfComposeError ? error.message : "The PDF could not be made. Try again.",
       );
     }
   }

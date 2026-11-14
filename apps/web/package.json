@@ -34,6 +34,7 @@
     "@magna-carta/money": "workspace:*",
     "@magna-carta/noise-suppression": "workspace:*",
     "@magna-carta/pdf": "workspace:*",
+    "@magna-carta/pdf-compose": "workspace:*",
     "@magna-carta/product-updates": "workspace:*",
     "@magna-carta/safe-browse": "workspace:*",
     "@magna-carta/segmentation": "workspace:*",

@@ -1744,7 +1744,7 @@ export const firmSearchStatusRebuildMutation = (options?: Partial<Options<FirmSe
 };
 
 /**
- * Read-shaped POST: renders the tabular export document in the request into a file and returns its bytes — a Word document composed by the platform, or that document carried across the office suite's conversion edge as a PDF. Pure computation over the caller's own payload; nothing is stored.
+ * Read-shaped POST: renders the tabular export document in the request into a Word document and returns its bytes. A tabular export's PDF is composed in the browser by the platform's PDF composer, not here. Pure computation over the caller's own payload; nothing is stored.
  */
 export const reportsExportRenderMutation = (options?: Partial<Options<ReportsExportRenderData>>): MutationOptions<unknown, ReportsExportRenderError, Options<ReportsExportRenderData>> => {
     const mutationOptions: MutationOptions<unknown, ReportsExportRenderError, Options<ReportsExportRenderData>> = {

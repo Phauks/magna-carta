@@ -1051,6 +1051,9 @@ importers:
       '@magna-carta/pdf':
         specifier: workspace:*
         version: link:../../packages/pdf
+      '@magna-carta/pdf-compose':
+        specifier: workspace:*
+        version: link:../../packages/pdf-compose
       '@magna-carta/product-updates':
         specifier: workspace:*
         version: link:../../packages/product-updates

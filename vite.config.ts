@@ -308,6 +308,7 @@ export default defineConfig({
           "vp run rust-wasm-build-segmentation",
           "vp run rust-wasm-build-noise-suppression",
           "vp run rust-wasm-build-mls",
+          "vp run rust-wasm-build-pdf-compose",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -346,9 +347,9 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/mls/src/pkg -f crates/mls-core/wasm.Dockerfile crates",
       },
-      // The PDF composer. Deliberately NOT in the composite above: only a Worker that imports
-      // @magna-carta/pdf-compose should pay to compile it or be able to fail on it. The sign Worker
-      // does (it composes the Certificate of Completion) and names this task in its own build.
+      // The PDF composer. In the composite above because the SPA bundles it: every tabular export's
+      // PDF is composed in the browser (apps/web/src/lib/export/render-pdf.ts). The sign Worker also
+      // composes with it (the Certificate of Completion) and names this task in its own build.
       "rust-wasm-build-pdf-compose": {
         command:
           "docker build --network=host --output type=local,dest=packages/pdf-compose/src/pkg -f crates/pdf-compose-core/wasm.Dockerfile crates",

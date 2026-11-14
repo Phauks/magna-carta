@@ -1259,7 +1259,7 @@ export type FirmSearchRebuildResponse = {
 };
 
 export type ExportRenderRequest = {
-    format: 'docx' | 'pdf';
+    format: 'docx';
     document: {
         title: string;
         stampLines: Array<string>;
@@ -14596,17 +14596,13 @@ export type ReportsExportRenderErrors = {
      */
     403: Problem;
     /**
-     * The document is past the render bounds, or the conversion has no path
+     * The document is past the render bounds, or asks for a format other than Word
      */
     422: Problem;
     /**
      * Rate limit exceeded
      */
     429: Problem;
-    /**
-     * The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.
-     */
-    503: Problem;
 };
 
 export type ReportsExportRenderError = ReportsExportRenderErrors[keyof ReportsExportRenderErrors];

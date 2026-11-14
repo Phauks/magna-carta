@@ -844,7 +844,7 @@ export const firmSearchStatusGet = <ThrowOnError extends boolean = false>(option
 export const firmSearchStatusRebuild = <ThrowOnError extends boolean = false>(options: Options<FirmSearchStatusRebuildData, ThrowOnError>): RequestResult<FirmSearchStatusRebuildResponses, FirmSearchStatusRebuildErrors, ThrowOnError> => (options.client ?? client).post<FirmSearchStatusRebuildResponses, FirmSearchStatusRebuildErrors, ThrowOnError>({ url: '/api/v1/firm/search-status/rebuild', ...options });
 
 /**
- * Read-shaped POST: renders the tabular export document in the request into a file and returns its bytes — a Word document composed by the platform, or that document carried across the office suite's conversion edge as a PDF. Pure computation over the caller's own payload; nothing is stored.
+ * Read-shaped POST: renders the tabular export document in the request into a Word document and returns its bytes. A tabular export's PDF is composed in the browser by the platform's PDF composer, not here. Pure computation over the caller's own payload; nothing is stored.
  */
 export const reportsExportRender = <ThrowOnError extends boolean = false>(options: Options<ReportsExportRenderData, ThrowOnError>): RequestResult<ReportsExportRenderResponses, ReportsExportRenderErrors, ThrowOnError> => (options.client ?? client).post<ReportsExportRenderResponses, ReportsExportRenderErrors, ThrowOnError>({
     url: '/api/v1/reports/exports',
