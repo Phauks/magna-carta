@@ -10,6 +10,9 @@ export interface ConsentDisclosure {
   readonly paragraphs: readonly string[];
 }
 
+// PENDING THE OWNER'S REVIEW: the 2026-11 wording below is a working draft that has not been approved
+// as final. When the approved wording arrives it goes in as a new version beside this one, and
+// CURRENT_CONSENT_VERSION moves to it; consents already recorded under 2026-11 keep reading these words.
 const DISCLOSURES: Readonly<Record<string, ConsentDisclosure>> = {
   "2026-11": {
     version: "2026-11",
