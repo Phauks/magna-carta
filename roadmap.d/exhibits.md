@@ -7,11 +7,11 @@
 - id: exhibits
   name: Exhibits and exhibit lists
   scope: Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages.
-  status: planned
+  status: partial
   slices: 2-7-exhibits
   adrs: ADR-0273, ADR-0274
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: Design and its sixteen-task implementation plan (docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md) are both merged; status.d/2-7-exhibits.md reports built as not begun. No exhibits package, no per-firm exhibit table, no route and no screen.
+  evidence: The register, sets with computed labels, numbering and the freeze at issue are built in packages/exhibits with their API routes; in-text references, the exhibit list document, packages and every screen are not.
   audience: public
   public-name: Exhibits
   public-summary: Keep a matter's exhibits in order, and let every sentence that cites one renumber itself when the order changes.
@@ -20,30 +20,33 @@
 - id: exhibits.register
   name: Exhibit register
   scope: A matter-scoped exhibit — a stable reference name, a title that may change daily, and a link to an ordinary matter file rather than bytes of its own.
-  status: planned
+  status: partial
+  surface: awaiting-screen
   slices: 2-7-exhibits
   adrs: ADR-0273
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: The design and plan fix the exhibit row, its four source kinds (matter file, assembled document, custody item scan, discovery document) and the floating/pinned/as-issued version rule; no table and no route exists. An exhibit reaches bytes only through the shipped upload chokepoint in packages/file-manager, the way packages/matter-assets already links documents without holding any.
+  evidence: packages/exhibits (exhibit-service.ts, reference-name.ts) over the matter_exhibit table, served at /api/v1/matters/{matterId}/exhibits (apps/api-worker/src/http/routes/matters/exhibits.ts); no screen yet.
   notes: An exhibit never spans matters — one document used in two matters is two exhibits over one file, because the two matters have different access boundaries and different filings. A production's Bates range rides the exhibit as recorded provenance and is never computed from the label.
 
 - id: exhibits.sets
   name: Exhibit sets and computed labels
   scope: An ordered membership for one document, with the label a pure function of position and the set's scheme while the set is a draft, and a pre-commit report of which citations a reorder is about to move.
-  status: planned
+  status: partial
+  surface: awaiting-screen
   slices: 2-7-exhibits
   adrs: ADR-0273
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: Design and plan carry the three-table split, the label function as a pure module with a closed sequence registry, and the reference index the reorder report reads; nothing is written.
+  evidence: packages/exhibits (label.ts, label-moves.ts, member-service.ts, queries.ts) over exhibit_set and exhibit_set_member, served at /api/v1/matters/{matterId}/exhibit-sets (apps/api-worker/src/http/routes/matters/exhibit-sets.ts); draft labels are never stored (packages/exhibits/test/purity.test.ts); no screen yet.
   notes: A draft label is deliberately not a column — a fact that is a function of two other facts must not also be stored, because three renumber-sweep write paths are three chances to disagree with the function.
 
 - id: exhibits.numbering
   name: Numbering schemes
   scope: Per-set noun, prefix, sequence (upper letter, lower letter, arabic, roman), starting ordinal, and the letter-overflow form, with starter schemes offered as copyable presets.
-  status: planned
+  status: partial
+  surface: awaiting-screen
   slices: 2-7-exhibits
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: The scheme columns and the label function's cross product are specified; no scheme storage and no presets exist.
+  evidence: packages/exhibits/src/scheme.ts and presets.ts: five sequences, both overflow forms, prefix and start-at as per-set values, and copyable presets at /api/v1/matters/{matterId}/exhibit-scheme-presets; no screen yet.
   awaiting-owner: Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
 
 - id: exhibits.references
@@ -58,11 +61,12 @@
 - id: exhibits.issue
   name: Issued-set freeze
   scope: A member records that a set went out — filed, served, exchanged or lodged — and every label, title, version and position on it freezes; withdrawal and supersession are what remain possible afterwards.
-  status: planned
+  status: partial
+  surface: awaiting-screen
   slices: 2-7-exhibits
   adrs: ADR-0274
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: The freeze is specified as database triggers in the append-only idiom the valuation and custody-movement tables already use, with the supersession chain held by two partial unique indexes on the calendar's continuance mechanism; no trigger, no state column and no route exists.
+  evidence: packages/exhibits issue, withdrawal, correction and supersession services, with freeze triggers in packages/database/drizzle/per-firm/20261113T233540_exhibits.sql, served by apps/api-worker/src/http/routes/matters/exhibit-set-issue.ts; no screen yet.
   awaiting-owner: Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
   notes: The platform has no court e-filing integration and does not pretend to observe a filing, so issuing is a recorded human assertion. A withdrawn exhibit keeps its label forever and no later exhibit reuses it.
 
