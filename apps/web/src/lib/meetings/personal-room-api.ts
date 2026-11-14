@@ -33,9 +33,9 @@ async function write<T>(call: () => Promise<{ data: T }>): Promise<MeetingWrite<
   }
 }
 
-/** The room's address inside the firm, as a colleague is sent it. */
-export function personalRoomAddress(linkCode: string, origin: string): string {
-  return `${origin}/meetings/rooms/${linkCode}`;
+/** The room's address inside the firm, by name (/room/trevor), as a colleague is sent it. */
+export function personalRoomAddress(addressName: string, origin: string): string {
+  return `${origin}/room/${addressName}`;
 }
 
 /** Make the caller's room, or answer with it when it exists. */
