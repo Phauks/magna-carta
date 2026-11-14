@@ -158,7 +158,12 @@ export async function createMeeting(
   database: SqlDatabase,
   input: CreateMeetingInput,
   options: MeetingServiceOptions,
-): Promise<{ meetingId: MeetingId; created: boolean; effect: EffectWrite }> {
+): Promise<{
+  meetingId: MeetingId;
+  joinCode: string | null;
+  created: boolean;
+  effect: EffectWrite;
+}> {
   // THE EVENT IS READ FIRST, AND THROUGH THE GATE. An event that does not exist and one on a matter
   // the member may not see are the same refusal: telling them apart would make this an existence
   // oracle for walled matters — ask about an id, learn from the wording whether it is real.
@@ -181,6 +186,7 @@ export async function createMeeting(
   if (existing !== undefined) {
     return {
       meetingId: existing.id,
+      joinCode: existing.joinCode,
       created: false,
       effect: { statements: [], outboxMessages: [] },
     };

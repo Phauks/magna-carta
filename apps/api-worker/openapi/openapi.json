@@ -34543,11 +34543,18 @@
           },
           "created": {
             "type": "boolean"
+          },
+          "joinCode": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
-          "created"
+          "created",
+          "joinCode"
         ]
       },
       "StartMeetingRequest": {

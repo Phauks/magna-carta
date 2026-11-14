@@ -8025,6 +8025,7 @@ export type MeetingByCodeResponse = {
 export type StartedMeeting = {
     id: string;
     created: boolean;
+    joinCode: string | null;
 };
 
 export type StartMeetingRequest = {
