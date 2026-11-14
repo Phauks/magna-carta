@@ -56,6 +56,7 @@ export const OPERATIONS: readonly string[] = [
   "reports.exportRender",
   "reports.invoices",
   "reports.matterBalances",
+  "reports.matterProductivity",
   "reports.mattersList",
   "reports.operationalVolumes",
   "reports.paymentsApplied",

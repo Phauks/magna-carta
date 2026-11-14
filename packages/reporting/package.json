@@ -21,7 +21,8 @@
     "./financial/matter-balances": "./src/financial/matter-balances.ts",
     "./operational/matters-list": "./src/operational/matters-list.ts",
     "./financial/aged-work-in-progress": "./src/financial/aged-work-in-progress.ts",
-    "./productivity/daily-time": "./src/productivity/daily-time.ts"
+    "./productivity/daily-time": "./src/productivity/daily-time.ts",
+    "./productivity/matter-productivity": "./src/productivity/matter-productivity.ts"
   },
   "scripts": {
     "test": "vp test run"

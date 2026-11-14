@@ -167,6 +167,19 @@ export const DailyTimeTimekeeperRow = z.object({
   figures: ProductivityFigures,
 });
 
+// MATTER PRODUCTIVITY. The same figures again, per matter with its timekeepers under it.
+export const MatterProductivityRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: ProductivityFigures,
+  timekeepers: z.array(DailyTimeTimekeeperOnDay),
+});
+
 // OPERATIONAL VOLUMES. Counts only, never money.
 export const OperationalSections = z.enum(["matters", "billing", "trust", "costs"]);
 

@@ -5,10 +5,12 @@ import {
   DailyTimeTimekeeperRow,
   MatterListOfficeRow,
   MatterListRow,
+  MatterProductivityRow,
   MatterStatusCounts,
   ProductivityFigures,
 } from "@magna-carta/reporting/contract";
 import { assembleDailyTime } from "@magna-carta/reporting/productivity/daily-time";
+import { assembleMatterProductivity } from "@magna-carta/reporting/productivity/matter-productivity";
 import { assembleMattersList } from "@magna-carta/reporting/operational/matters-list";
 import { ReportingValidationError } from "@magna-carta/reporting/reporting-validation";
 import type { Bindings } from "../../../bindings.ts";
@@ -91,7 +93,7 @@ const mattersListRoute = defineOpenAPIRoute(mattersListMeta, {
 // DAILY TIME — the time recorded on each day of a period, by timekeeper, billable against
 // non-billable. On `reports:productivity` beside Timekeeper Productivity: minutes only, never money.
 // Live only for the same reason: a time entry can be edited until it is billed.
-const dailyTimeQuery = z.object({
+const productivityPeriodQuery = z.object({
   periodStart: civilDate,
   periodEnd: civilDate,
   locationId: identifierField("location").optional(),
@@ -123,7 +125,7 @@ const dailyTimeRoute = defineOpenAPIRoute(dailyTimeMeta, {
   path: "/api/v1/reports/daily-time",
   description:
     "Time recorded on each day of a period, per timekeeper, billable against non-billable, with each timekeeper's total over the period and how many days they recorded time on. Minutes only, never money, and no target. Its totals equal Timekeeper Productivity's for the same period. Live only, because time entries can be edited until billed: it takes no knowledge instant, says when it was computed, and is not claimed to reproduce.",
-  request: { query: dailyTimeQuery },
+  request: { query: productivityPeriodQuery },
   responses: {
     200: {
       description: "The time recorded on each day of this period",
@@ -149,6 +151,42 @@ const dailyTimeRoute = defineOpenAPIRoute(dailyTimeMeta, {
     429: {
       description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+// MATTER PRODUCTIVITY — the same minutes per matter, with who recorded them under each. Same
+// permission, same live-only footing, same period and office.
+const MatterProductivityResponse = z
+  .object({
+    periodStart: z.string(),
+    periodEnd: z.string(),
+    computedAt: z.string(),
+    reproducible: z.literal(false),
+    statement: z.string(),
+    locationId: z.string().nullable(),
+    completeness: ReportCompleteness,
+    totals: ProductivityFigures,
+    matters: z.array(MatterProductivityRow),
+  })
+  .openapi("MatterProductivityReport");
+
+const matterProductivityMeta: RouteMeta = {
+  ...dailyTimeMeta,
+  operationId: "reports.matterProductivity",
+};
+
+const matterProductivityRoute = defineOpenAPIRoute(matterProductivityMeta, {
+  method: "get",
+  path: "/api/v1/reports/matter-productivity",
+  description:
+    "Time recorded on each matter in a period, billable against non-billable, with each timekeeper's time on it, the matters with the most time first. Minutes only, never money. Its totals equal Timekeeper Productivity's for the same period. Live only, because time entries can be edited until billed: it takes no knowledge instant, says when it was computed, and is not claimed to reproduce.",
+  request: { query: productivityPeriodQuery },
+  responses: {
+    ...dailyTimeRoute.responses,
+    200: {
+      description: "The time recorded on each matter in this period",
+      content: { "application/json": { schema: MatterProductivityResponse } },
     },
   },
 });
@@ -194,6 +232,33 @@ export function registerMatterReportsRoutes(app: ReportsApp, chokepoint: Chokepo
           { computedAt },
         );
         return c.json(report as unknown as z.infer<typeof DailyTimeResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    {
+      ...matterProductivityRoute,
+      middleware: chokepointMiddleware(chokepoint, matterProductivityRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleMatterProductivity(
+          firm.firmDatabase,
+          {
+            periodStart: query.periodStart,
+            periodEnd: query.periodEnd,
+            locationId: query.locationId ?? null,
+          },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof MatterProductivityResponse>, 200);
       } catch (caught) {
         if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
         throw caught;

@@ -2247,6 +2247,50 @@ export type DailyTimeReport = {
     }>;
 };
 
+export type MatterProductivityReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+        totalMinutes: number;
+        billableShareBasisPoints: number | null;
+    };
+    matters: Array<{
+        matterId: string;
+        matterTitle: string;
+        matterNumber: string | null;
+        clientEntityId: string | null;
+        clientName: string | null;
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+        timekeepers: Array<{
+            timekeeperUserId: string;
+            timekeeperName: string | null;
+            figures: {
+                entryCount: number;
+                billableMinutes: number;
+                nonBillableMinutes: number;
+                totalMinutes: number;
+                billableShareBasisPoints: number | null;
+            };
+        }>;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -17092,6 +17136,51 @@ export type ReportsDailyTimeResponses = {
 };
 
 export type ReportsDailyTimeResponse = ReportsDailyTimeResponses[keyof ReportsDailyTimeResponses];
+
+export type ReportsMatterProductivityData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/matter-productivity';
+};
+
+export type ReportsMatterProductivityErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsMatterProductivityError = ReportsMatterProductivityErrors[keyof ReportsMatterProductivityErrors];
+
+export type ReportsMatterProductivityResponses = {
+    /**
+     * The time recorded on each matter in this period
+     */
+    200: MatterProductivityReport;
+};
+
+export type ReportsMatterProductivityResponse = ReportsMatterProductivityResponses[keyof ReportsMatterProductivityResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

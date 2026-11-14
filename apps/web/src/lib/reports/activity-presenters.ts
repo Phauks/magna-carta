@@ -1,5 +1,5 @@
 /*
- * The productivity reports (Timekeeper Productivity, Daily Time), the operational volumes and the
+ * The productivity reports (Timekeeper Productivity, Daily Time, Matter Productivity), the operational volumes and the
  * matters list, arranged for a screen and a file.
  *
  * Totals first, then tables, as the financial reports are. Productivity is minutes and never money:
@@ -27,6 +27,7 @@ import { matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
 import type {
   DailyTime,
   MatterListRow,
+  MatterProductivity,
   MattersList,
   MatterStatusCounts,
   OperationalVolumes,
@@ -234,6 +235,69 @@ export function presentDailyTime(report: DailyTime, captions: ReportCaptions): R
           ...productivityCells(timekeeper.figures),
         ]),
         endAlignedColumns: [1, 2, 3, 4, 5],
+        sortable: true,
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No time was recorded in this period.",
+      },
+    ],
+  };
+}
+
+// ---- matter productivity ----------------------------------------------------------------------------
+
+export function presentMatterProductivity(
+  report: MatterProductivity,
+  captions: ReportCaptions,
+): ReportPresentation {
+  const totals = report.totals;
+  const summary: ReportSummaryTile[] = [
+    { label: "Billable", value: hoursText(totals.billableMinutes), detail: null, tone: "plain" },
+    {
+      label: "Non-billable",
+      value: hoursText(totals.nonBillableMinutes),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Billable share",
+      value:
+        totals.billableShareBasisPoints === null ? "-" : shareText(totals.billableShareBasisPoints),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Total recorded",
+      value: hoursText(totals.totalMinutes),
+      detail: `${counted(totals.entryCount, "entry", "entries")} · ${counted(report.matters.length, "matter", "matters")}`,
+      tone: "total",
+    },
+  ];
+
+  return {
+    title: "Matter Productivity",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-matter",
+        title: "By Matter",
+        headers: ["Matter", "Client", ...PRODUCTIVITY_HEADINGS],
+        rows: report.matters.map((matter) => [
+          matterCaption(matter),
+          captionOr(matter.clientName, matter.clientEntityId ?? NO_CLIENT),
+          ...productivityCells(matter.figures),
+        ]),
+        rowDetails: report.matters.map((matter) =>
+          matter.timekeepers.map((timekeeper) => [
+            captionOr(timekeeper.timekeeperName, captions.member(timekeeper.timekeeperUserId)),
+            "",
+            ...productivityCells(timekeeper.figures),
+          ]),
+        ),
+        endAlignedColumns: [2, 3, 4, 5],
         sortable: true,
         aside: completenessLine(report.completeness),
         whenEmpty: "No time was recorded in this period.",
