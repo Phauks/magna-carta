@@ -409,6 +409,34 @@ const spotlightFrame = z.object({
   participantId: participantHandle.nullable(),
 });
 
+/** The longest name somebody may give themselves in a meeting, in characters. */
+export const MAX_MEETING_DISPLAY_NAME_LENGTH = 80;
+
+/**
+ * WHAT THIS PERSON IS CALLED IN THIS MEETING, chosen by them, or null to go back to the name they
+ * came in with.
+ *
+ * A FRAME AND NOT A ROUTE: the name lives on the room's participant record and dies with the room.
+ * The meeting's own record (who attended) keeps the account's name, and every other browser is told
+ * the original beside the chosen one (`accountName` on the roster), so a rename changes a label and
+ * never who somebody is. A name is trimmed; one that is empty after trimming, longer than
+ * `MAX_MEETING_DISPLAY_NAME_LENGTH`, or carrying a control character does not parse. The room paces
+ * it on the hand's window and answers `rate-limited` inside it, because a rename is a single act
+ * nothing later restates.
+ */
+const renameFrame = z.object({
+  ...versioned,
+  type: z.literal("rename"),
+  displayName: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_MEETING_DISPLAY_NAME_LENGTH)
+    // oxlint-disable-next-line no-control-regex -- the point is to refuse control characters.
+    .refine((name) => !/[\u0000-\u001f\u007f]/u.test(name))
+    .nullable(),
+});
+
 /**
  * WHAT THIS BROWSER'S CONNECTION IS DOING, told to the room.
  *
@@ -555,6 +583,7 @@ export const MeetingClientFrame = z.union([
   lowerHandsFrame,
   spotlightFrame,
   captionsFrame,
+  renameFrame,
   diagnosticReportFrame,
   mlsKeyPackageRequest,
   mlsCommitRequest,
