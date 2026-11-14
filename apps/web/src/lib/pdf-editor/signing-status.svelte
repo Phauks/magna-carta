@@ -90,7 +90,7 @@
   async function remind(): Promise<void> {
     busy = "reminding";
     failure = null;
-    const outcome = await remindSigners(fetch, request.id);
+    const outcome = await remindSigners(request.id);
     busy = null;
     if (outcome.kind === "ok") onChanged(outcome.value);
     else failure = stated(outcome.failure, "The reminder wasn't sent.");
@@ -99,7 +99,7 @@
   async function cancel(): Promise<void> {
     busy = "cancelling";
     failure = null;
-    const outcome = await cancelSigningRequest(fetch, request.id, cancelReason);
+    const outcome = await cancelSigningRequest(request.id, cancelReason);
     busy = null;
     if (outcome.kind === "ok") {
       confirmingCancel = false;

@@ -75,7 +75,7 @@
         file,
         "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and send that for signature.",
       ),
-      listSigningRequests(fetch, file.id),
+      listSigningRequests(file.id),
     ]);
     if (gone) {
       if (opened.kind === "ready") opened.source.close();
@@ -96,7 +96,7 @@
       phase = { kind: "preparing" };
       return;
     }
-    const read = await readSigningRequest(fetch, newest.id);
+    const read = await readSigningRequest(newest.id);
     if (gone) return;
     if (read.kind !== "ok") {
       phase = { kind: "unread", failure: stated(read.failure, "Couldn't load the signing request.") };
@@ -128,7 +128,7 @@
   async function save(): Promise<string | null> {
     let id = requestId;
     if (id === null) {
-      const created = await createSigningRequest(fetch, file.id);
+      const created = await createSigningRequest(file.id);
       if (created.kind !== "ok") {
         failure = stated(created.failure, "Couldn't start the request.");
         return null;
@@ -136,7 +136,7 @@
       id = created.value.id;
       requestId = id;
     }
-    const written = await saveSigningDraft(fetch, id, draftRequest(draft));
+    const written = await saveSigningDraft(id, draftRequest(draft));
     if (written.kind !== "ok") {
       failure = stated(written.failure, "The draft wasn't saved.");
       return null;
@@ -163,7 +163,7 @@
       busy = null;
       return;
     }
-    const sent = await sendSigningRequest(fetch, id);
+    const sent = await sendSigningRequest(id);
     busy = null;
     if (sent.kind !== "ok") {
       failure = stated(sent.failure, "The request wasn't sent.");

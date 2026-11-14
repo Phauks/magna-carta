@@ -641,6 +641,7 @@ const PROVIDER_NOTICE_OPERATIONS = new Set([
 const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set([
   "meetings.inspect",
   "platform.recentErrors",
+  "platform.errorLookup",
 ]);
 
 /**

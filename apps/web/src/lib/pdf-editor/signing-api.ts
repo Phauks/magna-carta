@@ -1,14 +1,22 @@
 /*
  * Sending a document for signature, as the PDF Editor calls it: the member routes for a signing
- * request (apps/api-worker/src/http/routes/documents/signing-requests.ts). The shapes are the
- * contract's own; the transport envelope is $lib/api/request.ts.
+ * request (apps/api-worker/src/http/routes/documents/signing-requests.ts), through the generated
+ * client. Each call answers the three-outcome ApiOutcome the tab renders from.
  */
-import type {
-  SaveSigningDraftRequest,
-  SigningRequestDetail,
-  SigningRequestList,
+import {
+  signingCancelRequest,
+  signingCreateRequest,
+  signingListRequests,
+  signingReadRequest,
+  signingRemindSigners,
+  signingSaveDraft,
+  signingSendRequest,
+  type SaveSigningDraftRequest,
+  type SigningRequestDetail,
+  type SigningRequestList,
 } from "@magna-carta/api-client";
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { outcomeOf } from "$lib/api/api-client.ts";
+import type { ApiOutcome } from "$lib/api/request.ts";
 
 export type {
   SaveSigningDraftRequest,
@@ -16,77 +24,47 @@ export type {
   SigningRequestSummary,
 } from "@magna-carta/api-client";
 
-export function listSigningRequests(
-  fetchImpl: typeof fetch,
-  fileId: string,
-): Promise<ApiOutcome<SigningRequestList>> {
-  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/signing-requests`);
+async function settled<T>(call: () => Promise<{ data: T }>): Promise<ApiOutcome<T>> {
+  try {
+    const { data } = await call();
+    return { kind: "ok", value: data };
+  } catch (error) {
+    return outcomeOf(error);
+  }
 }
 
-export function readSigningRequest(
-  fetchImpl: typeof fetch,
-  requestId: string,
-): Promise<ApiOutcome<SigningRequestDetail>> {
-  return requestJson(fetchImpl, `/api/v1/signing-requests/${encodeURIComponent(requestId)}`);
+export function listSigningRequests(fileId: string): Promise<ApiOutcome<SigningRequestList>> {
+  return settled(() => signingListRequests({ path: { id: fileId }, throwOnError: true }));
 }
 
-export function createSigningRequest(
-  fetchImpl: typeof fetch,
-  fileId: string,
-): Promise<ApiOutcome<SigningRequestDetail>> {
-  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/signing-requests`, {
-    method: "POST",
-  });
+export function readSigningRequest(requestId: string): Promise<ApiOutcome<SigningRequestDetail>> {
+  return settled(() => signingReadRequest({ path: { requestId }, throwOnError: true }));
+}
+
+export function createSigningRequest(fileId: string): Promise<ApiOutcome<SigningRequestDetail>> {
+  return settled(() => signingCreateRequest({ path: { id: fileId }, throwOnError: true }));
 }
 
 export function saveSigningDraft(
-  fetchImpl: typeof fetch,
   requestId: string,
   draft: SaveSigningDraftRequest,
 ): Promise<ApiOutcome<SigningRequestDetail>> {
-  return requestJson(fetchImpl, `/api/v1/signing-requests/${encodeURIComponent(requestId)}/draft`, {
-    method: "PUT",
-    body: draft,
-  });
+  return settled(() => signingSaveDraft({ path: { requestId }, body: draft, throwOnError: true }));
 }
 
-export function sendSigningRequest(
-  fetchImpl: typeof fetch,
-  requestId: string,
-): Promise<ApiOutcome<SigningRequestDetail>> {
-  return requestJson(
-    fetchImpl,
-    `/api/v1/signing-requests/${encodeURIComponent(requestId)}/sending`,
-    {
-      method: "POST",
-    },
-  );
+export function sendSigningRequest(requestId: string): Promise<ApiOutcome<SigningRequestDetail>> {
+  return settled(() => signingSendRequest({ path: { requestId }, throwOnError: true }));
 }
 
-export function remindSigners(
-  fetchImpl: typeof fetch,
-  requestId: string,
-): Promise<ApiOutcome<SigningRequestDetail>> {
-  return requestJson(
-    fetchImpl,
-    `/api/v1/signing-requests/${encodeURIComponent(requestId)}/reminders`,
-    {
-      method: "POST",
-    },
-  );
+export function remindSigners(requestId: string): Promise<ApiOutcome<SigningRequestDetail>> {
+  return settled(() => signingRemindSigners({ path: { requestId }, throwOnError: true }));
 }
 
 export function cancelSigningRequest(
-  fetchImpl: typeof fetch,
   requestId: string,
   reason: string,
 ): Promise<ApiOutcome<SigningRequestDetail>> {
-  return requestJson(
-    fetchImpl,
-    `/api/v1/signing-requests/${encodeURIComponent(requestId)}/voiding`,
-    {
-      method: "POST",
-      body: { reason },
-    },
+  return settled(() =>
+    signingCancelRequest({ path: { requestId }, body: { reason }, throwOnError: true }),
   );
 }

@@ -23,8 +23,8 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Ten reports run today: the trust compliance report, accounts receivable aging, work in progress,
-realization, invoices, payments applied, matter balances, timekeeper productivity, operational
+Eleven reports run today: the trust compliance report, accounts receivable aging, work in progress,
+aged work in progress, realization, invoices, payments applied, matter balances, timekeeper productivity, operational
 volumes, and the matters list.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
@@ -33,6 +33,10 @@ volumes, and the matters list.
 - **Payments Applied** lists everything set against a bill in the period: payments, transfers from
   trust, client credits, credit notes and write-offs. A reversal appears as its own negative line,
   saying what it reverses. It shows what was set against bills, not money arriving in the bank.
+- **Aged Work in Progress** shows unbilled time and costs by how long ago the work was done: 0 to
+  30 days, 31 to 60, 61 to 90, and over 90. Time counts from the day it was worked and a cost from
+  the day it was incurred. Work over 90 days old is shown in red. It adds up to the same total as
+  Work in Progress.
 - **Matter Balances** shows where each matter stands right now: its unbilled time and costs, what
   its bills still owe, and what is held for it in trust. The three figures are shown side by side
   and never added together. It always shows the present, so it has no date to choose; choose an
