@@ -70,6 +70,7 @@ const MEETING_COLUMNS = [
   "lobby",
   "personal_room_id",
   "encrypted",
+  "join_code",
   "created_at",
   "updated_at",
 ]
@@ -218,6 +219,7 @@ function toSummary(row: MeetingSummaryColumns): MeetingSummary {
     eventId: row.event_id,
     matterId: row.matter_id,
     matterTitle: row.matter_title,
+    joinCode: row.join_code,
     title: row.title,
     startsOn: row.starts_on,
     startsAtTime: row.starts_at_time,
@@ -310,6 +312,27 @@ export async function readMeeting(
     .bind(meetingId, ...visibility.bindings)
     .all<MeetingRow>();
   return results[0];
+}
+
+/**
+ * The meeting a nine-digit address names, through the same gate as every other read: a code for a
+ * meeting on a matter the reader may not see answers nothing, as a code that names nothing does.
+ */
+export async function readMeetingSummaryByJoinCode(
+  database: SqlDatabase,
+  joinCode: string,
+  visibility: VisibleMatterPredicate,
+): Promise<MeetingSummary | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${MEETING_COLUMNS}, ${EVENT_COLUMNS}, ${LIVE_COUNT_COLUMN} ` +
+        `FROM ${MEETING_TABLE} ${EVENT_JOIN} ` +
+        `WHERE ${MEETING_TABLE}.join_code = ? AND ${visibleEventClause(visibility, MEETING_TABLE)}`,
+    )
+    .bind(joinCode, ...visibility.bindings)
+    .all<MeetingSummaryColumns>();
+  const row = results[0];
+  return row === undefined ? undefined : toSummary(row);
 }
 
 /** The meeting a surface paints: the room, its event's facts, and who is in it right now. */
@@ -624,6 +647,9 @@ export interface InsertMeetingInput {
   readonly personalRoomId?: MeetingPersonalRoomId | null;
   // Whether the room's pictures and sound are sealed end to end. Fixed here, never changed.
   readonly encrypted: boolean;
+  // The nine digits the meeting is addressed by (`newMeetingJoinCode`). The unique index refuses a
+  // second meeting with the same code, which rolls the Start back rather than sharing an address.
+  readonly joinCode: string;
   readonly now: string;
 }
 
@@ -644,8 +670,8 @@ export function insertMeetingStatement(
     .prepare(
       `INSERT INTO ${MEETING_TABLE} (id, event_kind, medium, lobby, matter_event_id, ` +
         `firm_event_id, status, created_by_user_id, started_at, ended_at, ended_by_user_id, ` +
-        `personal_room_id, encrypted, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'scheduled', ?7, NULL, NULL, NULL, ?9, ?10, ?8, ?8)`,
+        `personal_room_id, encrypted, join_code, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'scheduled', ?7, NULL, NULL, NULL, ?9, ?10, ?11, ?8, ?8)`,
     )
     .bind(
       input.id,
@@ -658,6 +684,7 @@ export function insertMeetingStatement(
       input.now,
       input.personalRoomId ?? null,
       input.encrypted ? 1 : 0,
+      input.joinCode,
     );
 }
 

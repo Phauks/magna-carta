@@ -10,8 +10,9 @@
    * NOTHING IS MADE BY LOOKING. A member who has never had a room sees what one is and a Set Up
    * control, because a read that wrote a record would hand every host a link they never asked for.
    *
-   * GETTING A NEW LINK ASKS FIRST, because the old address stops working at once and anybody who
-   * was sent it is turned away.
+   * THE ADDRESS IS THE OWNER'S NAME (/room/trevor), made with the room and never changed, so there
+   * is no Get a New Link here: the room's older code address still works, and the server can still
+   * replace it, but nothing a member copies today names it.
    *
    * THE SETTINGS LIVE BEHIND "...", beside the card's title. They are changed once and rarely, so
    * the card's face is kept for what a member does every day: copy the link and go in.
@@ -24,7 +25,6 @@
   import Video from "@lucide/svelte/icons/video";
   import { createQuery } from "@tanstack/svelte-query";
   import { meetingsReadPersonalRoomOptions } from "@magna-carta/api-client";
-  import ActionDialog from "@magna-carta/design-system/action-dialog";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import * as Card from "@magna-carta/design-system/card";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
@@ -38,11 +38,9 @@
     ensurePersonalRoom,
     openPersonalRoom,
     personalRoomAddress,
-    replacePersonalRoomLink,
     updatePersonalRoom,
   } from "./personal-room-api.ts";
   import type { MeetingWrite } from "./meetings-api.ts";
-  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import type { PersonalRoomResponse } from "@magna-carta/api-client";
   import type { Failure } from "$lib/api/problem.ts";
 
@@ -50,7 +48,7 @@
 
   const room = $derived(read.data?.room ?? null);
   const address = $derived(
-    room === null ? "" : personalRoomAddress(room.linkCode, globalThis.location?.origin ?? ""),
+    room === null ? "" : personalRoomAddress(room.addressName, globalThis.location?.origin ?? ""),
   );
 
   /** The last refused act, drawn in the card. */
@@ -112,11 +110,6 @@
     tab.open(outcome.value.meetingId);
   }
 
-  let replacing = $state(false);
-
-  async function replace(): Promise<ActionOutcome> {
-    return (await settle(await replacePersonalRoomLink())) ? "committed" : "refused";
-  }
 </script>
 
 {#snippet refusal(failure: Failure)}
@@ -157,8 +150,6 @@
             >
               Open as an audio call
             </DropdownMenu.CheckboxItem>
-            <DropdownMenu.Separator />
-            <DropdownMenu.Item onSelect={() => (replacing = true)}>Get a New Link</DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       {/if}
@@ -199,25 +190,3 @@
     </Card.Footer>
   {/if}
 </Card.Root>
-
-<ActionDialog
-  bind:open={replacing}
-  kind="destructive"
-  heading="Change Your Room Link"
-  commitLabel="Get a New Link"
-  commitBusyLabel="Replacing"
-  unsavedChanges={false}
-  onCommit={replace}
->
-  {#snippet notice()}
-    {#if writeFailure !== null}
-      {@render refusal(writeFailure)}
-    {/if}
-  {/snippet}
-  {#snippet fields()}
-    <p class="text-sm">
-      Your room gets a new address and the old one stops working at once. Anybody you sent the old
-      link to will need the new one.
-    </p>
-  {/snippet}
-</ActionDialog>

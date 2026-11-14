@@ -11,18 +11,13 @@
   "main": "./src/index.ts",
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat"],
-  // changelog.magnacarta.esq is the board's public Changelog page under its own address, the one
-  // page here that search engines may list (src/index.ts, apps/web/src/hooks.ts).
-  "routes": [
-    { "pattern": "community.magnacarta.esq", "custom_domain": true },
-    { "pattern": "changelog.magnacarta.esq", "custom_domain": true },
-  ],
+  "routes": [{ "pattern": "community.magnacarta.esq", "custom_domain": true }],
   "workers_dev": false,
   "preview_urls": false,
   // The interface is the app's own build: the board's screens are routes in apps/web, and the app's
   // reroute hook sends this host's paths to them. Every request reaches the script first, so every
   // answer, the pages included, carries the noindex header the board's design requires from the
-  // first byte (the changelog's own address alone is listable).
+  // first byte (the Changelog page, /changelog, alone is listable).
   "assets": {
     "directory": "../web/build",
     "binding": "ASSETS",

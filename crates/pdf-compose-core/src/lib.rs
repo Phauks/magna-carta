@@ -22,8 +22,8 @@ mod wire;
 
 pub use fonts::FontFamily;
 pub use model::{
-    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph, Rgb,
-    RunningLine, Span, Table, Timestamp,
+    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
+    Paragraph, Rgb, RunningLine, Span, Table, Timestamp, Typeface,
 };
 pub use wire::{compose_json, document_from_json};
 
@@ -108,6 +108,18 @@ pub fn compose(
                 images::ImageFailure::TooLarge => ComposeError::ImageTooLarge { index },
             })?);
         }
+    }
+    // The letterhead's picture takes the position after the last image block.
+    if let Some(data) = document
+        .letterhead
+        .as_ref()
+        .and_then(|letterhead| letterhead.image.as_deref())
+    {
+        let index = sizes.len();
+        sizes.push(images::probe(data).map_err(|failure| match failure {
+            images::ImageFailure::Unreadable => ComposeError::ImageUnreadable { index },
+            images::ImageFailure::TooLarge => ComposeError::ImageTooLarge { index },
+        })?);
     }
     let mut measurer = fonts::Measurer::new(fonts)?;
     let pages = layout::lay_out(document, &sizes, &mut measurer)?;

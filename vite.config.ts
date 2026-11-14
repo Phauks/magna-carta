@@ -173,6 +173,7 @@ export default defineConfig({
       "tooling/lint-back-navigation/vitest.config.ts",
       "tooling/gate/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
+      "tooling/lint-ux-copy/vitest.config.ts",
       "tooling/lint-hard-rules/vitest.config.ts",
       "tooling/lint-lints/vitest.config.ts",
       "tooling/license-policy/vitest.config.ts",
