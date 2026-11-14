@@ -139,6 +139,15 @@ describe("the assistant queue consumer", () => {
     expect(turn?.outputTokens ?? 0).toBeGreaterThan(0);
   });
 
+  it("keeps the summary of the model's thinking on the answer, written while it was pending", async () => {
+    const job = await submitOneTurn("can I still amend");
+    await handleMagnusTurnJob(consumerEnv(), job);
+
+    const turn = await readTurn(firmDatabase, job.magnusTurnId as MagnusTurnId);
+    expect(turn?.status).toBe("complete");
+    expect(turn?.thinking).toBe(`${STUB_RESPONSE_MARKER} thinking about: can I still amend`);
+  });
+
   it("answers with the model and effort the member chose, and records both on the answer", async () => {
     const job = await submitOneTurn("which deadline governs");
     await handleMagnusTurnJob(consumerEnv(), {
