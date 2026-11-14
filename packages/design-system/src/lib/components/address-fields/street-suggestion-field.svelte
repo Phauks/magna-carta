@@ -31,6 +31,7 @@
    * chosen and cleared again as the next answer arrives, which is what lets an identical offer be
    * chosen twice.
    */
+  import MapPin from "@lucide/svelte/icons/map-pin";
   import { tick } from "svelte";
   import * as Combobox from "../combobox/index.ts";
   import type { LabelledFieldControlProperties } from "../labelled-field/index.ts";
@@ -40,6 +41,8 @@
     addressLookupRequestFor,
     groupAside,
     groupHeading,
+    matchedSegments,
+    offerLines,
     ADDRESS_OFFER_ATTRIBUTION_TEXT,
     type AddressOfferAttribution,
     type AddressLookup,
@@ -313,9 +316,27 @@
   <!-- The label is the STREET LINE, not the offer: choosing a row writes its label into the box,
        and what the box must hold after a choice is the line the person typed — replaced only when a
        chosen address brings a street line of its own. -->
+  <!-- Two lines, the way a person scans for the right one: the street, with the part they typed
+       in bold, and beneath it the town, region and country that tell two streets of one name
+       apart. -->
+  {@const lines = offerLines(offer.label)}
   <Combobox.Item value={offer.identifier} label={text}>
-    <span class="mc-address-fields-offer">
-      <span>{offer.label}</span>
+    <span class="mc-address-fields-offer w-full">
+      <MapPin class="mc-address-fields-offer-icon" aria-hidden="true" />
+      <span class="mc-address-fields-offer-lines">
+        <span class="mc-address-fields-offer-main">
+          {#each matchedSegments(lines.main, query) as segment, index (index)}
+            {#if segment.matched}
+              <strong class="mc-address-fields-offer-match">{segment.text}</strong>
+            {:else}
+              {segment.text}
+            {/if}
+          {/each}{#if lines.secondary !== ""}<span class="sr-only">,</span>{/if}
+        </span>
+        {#if lines.secondary !== ""}
+          <span class="mc-address-fields-offer-secondary">{lines.secondary}</span>
+        {/if}
+      </span>
       {#if offer.kind === "group"}
         <span class="mc-address-fields-offer-aside">{groupAside(offer)}</span>
       {/if}

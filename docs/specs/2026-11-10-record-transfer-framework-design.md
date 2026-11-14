@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10 · **Status:** Accepted (framework, first and second slices); later slices proposed · **Area:** Platform / Core domain
 **Builds on:** the white paper's _LEAP migration_ topic and ADR-0021 (migration deferred, legacy identifiers required, trust reconciliation as the cutover gate)
-**Decisions:** `docs/decisions/pending/a-transferred-record-is-linked-to-its-source-in-one-table.md`, `docs/decisions/pending/a-firm-chooses-per-matter-whether-transferred-money-is-view-only.md`, `docs/decisions/pending/a-transfers-staging-store-is-the-source-file-itself.md`
+**Decisions:** `docs/decisions/0529-a-transferred-record-is-linked-to-its-source-in-one-table.md`, `docs/decisions/0527-a-firm-chooses-per-matter-whether-transferred-money-is-view-only.md`, `docs/decisions/0530-a-transfers-staging-store-is-the-source-file-itself.md`
 **Owner rulings:** 2026-11-10, in the project thread that produced this document, listed in section 2
 
 ## 1. Scope

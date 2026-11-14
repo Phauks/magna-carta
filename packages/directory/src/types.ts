@@ -87,6 +87,18 @@ export const EDGE_TYPES = [
   "guardian_of",
   // Who the firm talks to at an organization — frequently not an employee at all.
   "point_of_contact_for",
+  // Named family ties between two people. `relationship` stays for the rows recorded before these
+  // existed and for a personal tie that is not family; a tie the list does not name is
+  // `family_member_of`. Each reads from its origin ("is the parent of"), so a Child and a Parent
+  // edge are the same fact recorded from either end, and both are offered because the reader
+  // records from the record they have open.
+  "spouse_of",
+  "parent_of",
+  "child_of",
+  "sibling_of",
+  "grandparent_of",
+  "grandchild_of",
+  "family_member_of",
 ] as const;
 export type EdgeType = (typeof EDGE_TYPES)[number];
 

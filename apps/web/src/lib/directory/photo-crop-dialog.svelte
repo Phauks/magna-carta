@@ -13,11 +13,20 @@
    *
    * The dialog does not know where the square goes. The record window saves it at once; New Person
    * holds it until the person is created. Both hand `onSave` the picture and say whether it landed.
+   *
+   * EDITING A PICTURE THAT IS ALREADY THERE STARTS FROM IT. Given `current`, the saved square opens
+   * in the frame, so the dialog is the one place every change is made: re-centre it, choose a
+   * different file, or, given `onRemove`, take it away. Nothing is saved until something changed.
+   *
+   * What may be chosen is named on the drop surface and in the system picker's filter
+   * (PHOTO_FORMATS in photo-crop.ts). A file that is not one of them, is too large, or will not draw
+   * turns the surface red and says nothing else: a field in error is marked by its edge.
    */
   import ActionDialog, { type ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
-  import FileInput from "@magna-carta/design-system/file-input";
+  import Dropzone from "@magna-carta/design-system/dropzone";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
   import {
@@ -25,8 +34,12 @@
     clampZoom,
     cropScale,
     cropSource,
+    isOfferedPhotoFormat,
+    MAXIMUM_PHOTO_SOURCE_BYTES,
     MAXIMUM_ZOOM,
     MINIMUM_ZOOM,
+    PHOTO_ACCEPT,
+    PHOTO_FORMATS,
     SAVED_PHOTO_SIDE,
     ZOOM_STEP,
     type CropOffset,
@@ -36,7 +49,9 @@
     open = $bindable(false),
     heading,
     subject,
+    current = null,
     onSave,
+    onRemove,
   }: {
     open?: boolean;
     /** "Add Photo" or "Change Photo". */
@@ -45,6 +60,10 @@
     subject: string;
     /** Hands over the cropped JPEG as base64; resolves to null once it landed, or why it did not. */
     onSave: (imageBase64: string) => Promise<string | null>;
+    /** The saved picture's address, opened in the frame to start from. Null when there is none. */
+    current?: string | null;
+    /** Takes the saved picture away; resolves true once it is gone. Offered only with `current`. */
+    onRemove?: () => Promise<boolean>;
   } = $props();
 
   /** The frame's side in canvas pixels. */
@@ -58,6 +77,11 @@
   let zoom = $state(MINIMUM_ZOOM);
   let offset = $state<CropOffset>({ x: 0, y: 0 });
   let refusal = $state<string | null>(null);
+  /** The last file offered was refused: not a format offered, too large, or would not draw. */
+  let chosenFileRefused = $state(false);
+  /** Whether anything differs from the picture the dialog opened on. */
+  let changed = $state(false);
+  let removing = $state(false);
   let dragFrom: { x: number; y: number; offset: CropOffset } | null = null;
 
   function reset(): void {
@@ -65,14 +89,31 @@
     zoom = MINIMUM_ZOOM;
     offset = { x: 0, y: 0 };
     refusal = null;
+    chosenFileRefused = false;
+    changed = false;
+    removing = false;
     if (chooser !== null) chooser.value = "";
+    if (current !== null) void startFrom(current);
+  }
+
+  /** Opens the saved picture in the frame. It is the firm's own address, so the canvas stays readable. */
+  async function startFrom(address: string): Promise<void> {
+    const loaded = new Image();
+    loaded.src = address;
+    try {
+      await loaded.decode();
+      if (image === null && !changed) image = loaded;
+    } catch {
+      // The saved picture would not draw; the frame stays empty and a new one can still be chosen.
+    }
   }
 
   async function choose(file: File | null): Promise<void> {
     refusal = null;
+    chosenFileRefused = false;
     if (file === null) return;
-    if (file.type !== "image/png" && file.type !== "image/jpeg") {
-      refusal = "Choose a PNG or JPEG picture.";
+    if (!isOfferedPhotoFormat(file) || file.size > MAXIMUM_PHOTO_SOURCE_BYTES) {
+      chosenFileRefused = true;
       return;
     }
     const address = URL.createObjectURL(file);
@@ -83,12 +124,28 @@
       image = loaded;
       zoom = MINIMUM_ZOOM;
       offset = { x: 0, y: 0 };
+      changed = true;
     } catch {
-      refusal = "That file could not be read as a picture. Choose another.";
+      chosenFileRefused = true;
     } finally {
       URL.revokeObjectURL(address);
     }
   }
+
+  async function remove(): Promise<void> {
+    if (onRemove === undefined || removing) return;
+    removing = true;
+    const gone = await onRemove();
+    removing = false;
+    if (gone) {
+      changed = false;
+      open = false;
+    }
+  }
+
+  const formatNames = PHOTO_FORMATS.map((format) => format.label);
+  const formatList = `${formatNames.slice(0, -1).join(", ")} or ${formatNames.at(-1) ?? ""}`;
+  const sizeLimit = `${MAXIMUM_PHOTO_SOURCE_BYTES / (1024 * 1024)} MB`;
 
   function size(of: HTMLImageElement) {
     return { width: of.naturalWidth, height: of.naturalHeight };
@@ -108,11 +165,13 @@
     if (image === null) return;
     zoom = clampZoom(next);
     offset = clampOffset(size(image), FRAME, zoom, offset);
+    changed = true;
   }
 
   function moveBy(x: number, y: number): void {
     if (image === null) return;
     offset = clampOffset(size(image), FRAME, zoom, { x: offset.x + x, y: offset.y + y });
+    changed = true;
   }
 
   function onPointerDown(event: PointerEvent): void {
@@ -130,6 +189,7 @@
       x: dragFrom.offset.x + (event.clientX - dragFrom.x) * ratio,
       y: dragFrom.offset.y + (event.clientY - dragFrom.y) * ratio,
     });
+    changed = true;
   }
 
   function onPointerUp(): void {
@@ -207,8 +267,12 @@
   subtitle={{ facts: [subject] }}
   commitLabel="Save"
   commitBusyLabel="Saving"
-  commitRefusal={image === null ? "Choose a picture first." : undefined}
-  unsavedChanges={image !== null}
+  commitRefusal={image === null
+    ? "Choose a picture first."
+    : changed
+      ? undefined
+      : "Move, zoom or choose a picture first."}
+  unsavedChanges={changed}
   onOpen={reset}
   onCommit={save}
 >
@@ -251,13 +315,19 @@
       </div>
 
       <div class="flex min-w-0 grow flex-col gap-16">
-        <FileInput
+        <Dropzone
           bind:ref={chooser}
-          accept="image/png,image/jpeg"
-          disabled={busy}
-          aria-label={image === null ? "Choose a picture" : "Choose a different picture"}
-          onchange={(event) => void choose(event.currentTarget.files?.[0] ?? null)}
-        />
+          accept={PHOTO_ACCEPT}
+          disabled={busy || removing}
+          invalid={chosenFileRefused}
+          label={image === null ? "Choose a picture" : "Choose a different picture"}
+          prompt={image === null
+            ? "Drag a picture here, or choose one"
+            : "Drag a different picture here, or choose one"}
+          onFiles={(files) => void choose(files[0] ?? null)}
+        >
+          {formatList}. Up to {sizeLimit}.
+        </Dropzone>
         <div class="flex items-center gap-8">
           <Button
             variant="secondary"
@@ -280,7 +350,7 @@
         </div>
         <p class="text-sm text-text-muted">
           {#if image === null}
-            A PNG or JPEG. It is cut to a square, and only the square is kept.
+            It is cut to a square, and only the square is kept.
           {:else}
             Drag the picture, or use the arrow keys, to centre the face.
             {#if FRAME / scale < SAVED_PHOTO_SIDE / 2}
@@ -288,6 +358,19 @@
             {/if}
           {/if}
         </p>
+        {#if onRemove !== undefined && current !== null}
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={busy || removing}
+              onclick={() => void remove()}
+            >
+              <Trash2 class="size-16" aria-hidden="true" />
+              {removing ? "Removing" : "Remove Photo"}
+            </Button>
+          </div>
+        {/if}
       </div>
     </div>
   {/snippet}
