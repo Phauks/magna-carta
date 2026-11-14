@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * A colleague's room, reached by its link.
+   * A colleague's room, reached by its address: /room/trevor.
    *
    * CLOSED IS AN ORDINARY STATE, NOT A FAILURE. A link is standing, so most arrivals land while the
    * owner is not in; the page says so plainly and reads again on a short interval, so a member who
@@ -32,7 +32,8 @@
   /** How often a closed room is read again while somebody waits at it. */
   const CLOSED_ROOM_READ_INTERVAL_MILLISECONDS = 10_000;
 
-  const linkCode = $derived(page.params.linkCode ?? "");
+  // The room's address name. The routes still call it the link.
+  const linkCode = $derived(page.params.name ?? "");
 
   const read = createQuery(() => ({
     ...meetingsReadRoomLinkOptions({ path: { linkCode } }),

@@ -41,6 +41,14 @@ export function newPersonalRoomLinkCode(randomSource: RandomSource = cryptoRando
 }
 
 /** Whether a string could be a link code at all — refused before any read, so a probe costs nothing. */
+/**
+ * Whether a string could be a room's address name at all (lower-case letters, digits and hyphens, at
+ * most forty). Anything else is refused before a read.
+ */
+export function isPersonalRoomAddress(value: string): boolean {
+  return value.length > 0 && value.length <= 40 && /^[a-z0-9-]+$/.test(value);
+}
+
 export function isPersonalRoomLinkCode(value: string): boolean {
   return (
     value.length === PERSONAL_ROOM_LINK_CODE_LENGTH &&
@@ -57,6 +65,9 @@ export interface MeetingPersonalRoomRow {
   readonly medium: MeetingMedium;
   readonly lobby: MeetingLobbyMode;
   readonly link_replaced_at: string | null;
+  // The room's address by name (/room/trevor). Every room has one; null only in a row read before
+  // the column was filled.
+  readonly address_name: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -125,6 +136,7 @@ export interface FirmRoomRow {
   readonly user_id: UserId;
   readonly display_name: string;
   readonly link_code: string | null;
+  readonly address_name: string | null;
   readonly medium: MeetingMedium | null;
   readonly open_meeting_id: MeetingId | null;
   readonly live_count: number;
