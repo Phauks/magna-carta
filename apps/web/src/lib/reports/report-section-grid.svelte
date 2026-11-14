@@ -57,6 +57,18 @@
 
   const endAligned = $derived(new Set(section.endAlignedColumns ?? []));
   const attention = $derived(new Set(section.attentionColumns ?? []));
+  const subordinate = $derived(section.subordinateColumns ?? []);
+
+  /** What a row's subordinate columns say, drawn under its first cell: a client's office. */
+  function subordinateText(row: SectionRow): string {
+    return subordinate
+      .map((columnIndex) => {
+        const cell = cellAt(row, columnIndex);
+        return cell === undefined ? "" : typeof cell === "string" ? cell : cell.text;
+      })
+      .filter((text) => text !== "")
+      .join(" · ");
+  }
 
   function cellAt(row: SectionRow, columnIndex: number): ReportCell | undefined {
     return row.cells[columnIndex];
@@ -69,6 +81,8 @@
         label: header,
         type: endAligned.has(columnIndex) ? "number" : "text",
         anchored: columnIndex === 0,
+        // Drawn under the first cell instead; the reader can still show it from the heading menu.
+        hidden: subordinate.includes(columnIndex),
         value: (row) => {
           const cell = cellAt(row, columnIndex);
           if (cell === undefined) return null;
@@ -131,15 +145,26 @@
       {:else}
         <ChevronRight class="mc-table-grid-row-glyph shrink-0" aria-hidden="true" />
       {/if}
-      <span class="truncate">{text}</span>
+      {@render firstCell(row, text)}
     </button>
   {:else if columnIndex === 0 && row.parentKey !== null}
-    <span class="truncate ps-20 text-text-muted">{text}</span>
+    <span class="block ps-20 text-text-muted">{@render firstCell(row, text)}</span>
+  {:else if columnIndex === 0}
+    {@render firstCell(row, text)}
   {:else}
-    <span class={["tabular-nums", isAttention(row, columnIndex) ? "text-text-danger" : undefined]}>
+    <span class={["tabular-nums", isAttention(row, columnIndex) ? "text-status-danger" : undefined]}>
       {text}
     </span>
   {/if}
+{/snippet}
+
+{#snippet firstCell(row: SectionRow, text: string)}
+  <span class="flex min-w-0 flex-col whitespace-normal">
+    <span>{text}</span>
+    {#if subordinateText(row) !== ""}
+      <span class="text-xs text-text-muted">{subordinateText(row)}</span>
+    {/if}
+  </span>
 {/snippet}
 
 <DataTable.Grid {grid} caption={section.title} cell={sectionCell} />

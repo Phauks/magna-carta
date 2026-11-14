@@ -52,6 +52,12 @@ export interface ReportSection {
   readonly rowDetails?: readonly (readonly (readonly ReportCell[])[])[];
   /** Column indexes whose non-zero figures read in the attention tone: debt over ninety days. */
   readonly attentionColumns?: readonly number[];
+  /**
+   * Columns the on-screen table draws under the first column's text rather than as columns of
+   * their own (a client's office, under the client's name), so the figures keep their width in a
+   * narrow column. The file and the cards keep them as columns.
+   */
+  readonly subordinateColumns?: readonly number[];
   /** One short line at the end of the section's heading: the completeness declaration. */
   readonly aside?: string;
 }

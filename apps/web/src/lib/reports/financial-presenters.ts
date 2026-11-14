@@ -124,6 +124,7 @@ export function presentAccountsReceivableAging(aging: AccountsReceivableAging): 
     endAlignedColumns: AGING_FIGURE_COLUMNS.map((column) => column + 1),
     attentionColumns: [OVER_NINETY_COLUMN + 2],
     sortable: true,
+    subordinateColumns: [1],
     aside: completenessLine(aging.completeness),
     whenEmpty: "No client owed anything at this date.",
   };
@@ -222,6 +223,7 @@ export function presentWorkInProgress(
         ),
         endAlignedColumns: [2, 3, 4, 5, 6],
         sortable: true,
+        subordinateColumns: [1],
         aside: completenessLine(report.completeness),
         whenEmpty: "No client has unbilled work.",
       },
@@ -312,6 +314,7 @@ export function presentRealization(report: Realization): ReportPresentation {
         ),
         endAlignedColumns: [2, 3, 4, 5],
         sortable: true,
+        subordinateColumns: [1],
         aside: completenessLine(report.completeness),
         whenEmpty: "No client was billed in this period.",
       },

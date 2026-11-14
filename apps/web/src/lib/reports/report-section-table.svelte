@@ -8,8 +8,10 @@
    * the report's total and not a row of it. A row with details (a client's matters) opens them
    * beneath itself on a press of its name. Opening is arrangement: every figure is the presenter's.
    *
-   * NO SIDEWAYS SCROLL. From the medium breakpoint the section is a table; under it, each row is a
-   * card of label and figure pairs, so a phone reads every column without scrolling across.
+   * NO SIDEWAYS SCROLL. Where the section's own column is wide enough (a container query, because
+   * the report sits beside the reports column and the sidebar, so the window's width says little)
+   * the section is a table; narrower, each row is a card of label and figure pairs, so a phone or a
+   * narrow window reads every column without scrolling across.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -52,7 +54,7 @@
   function cellClass(cell: ReportCell | undefined, columnIndex: number): string | undefined {
     const classes = [
       endAligned.has(columnIndex) ? "tabular-nums" : "",
-      isAttention(cell, columnIndex) ? "text-text-danger" : "",
+      isAttention(cell, columnIndex) ? "text-status-danger" : "",
     ]
       .filter((value) => value !== "")
       .join(" ");
@@ -62,7 +64,7 @@
   const TOTAL_CELL = "border-t border-border-strong font-semibold";
 </script>
 
-<section class="flex flex-col gap-8">
+<section class="@container flex flex-col gap-8">
   <div class="flex flex-wrap items-baseline justify-between gap-8 border-b border-border-strong pb-8">
     <FieldLabel as="h2">{section.title}</FieldLabel>
     {#if section.aside !== undefined}
@@ -73,8 +75,8 @@
     <p class="text-xs text-text-muted">{section.note}</p>
   {/if}
 
-  <!-- The table, from the medium breakpoint up. -->
-  <div class="hidden md:block">
+  <!-- The table, where the section's column is wide enough for it. -->
+  <div class="hidden @3xl:block">
     {#if section.sortable === true}
       <ReportSectionGrid {section} />
     {:else}
@@ -160,8 +162,8 @@
     {/if}
   </div>
 
-  <!-- Under the medium breakpoint: each row a card of label and figure pairs. -->
-  <ul class="flex flex-col gap-8 md:hidden">
+  <!-- Narrower: each row a card of label and figure pairs. -->
+  <ul class="grid grid-cols-1 gap-8 @md:grid-cols-2 @3xl:hidden">
     {#each order as rowIndex (rowIndex)}
       {@const row = section.rows[rowIndex] ?? []}
       {@const details = detailsOf(rowIndex)}
