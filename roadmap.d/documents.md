@@ -540,9 +540,10 @@
 - id: documents.conversion.convert-ui
   name: Convert-to menu / converter UI
   scope: Data-driven Convert-to menu answered by the registry; the File Workbench's Convert tab.
-  status: designed
+  status: partial
+  surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: Design on main; the Convert panel is built in the workbench (capability-panels.ts) and offers the formats a selection can reach, awaiting the conversion container to execute. The separate file-converter tool row it was originally drawn for is retired — the capability tab is the surface.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout is still marked Soon.
 
 - id: documents.pdf
   name: PDF services

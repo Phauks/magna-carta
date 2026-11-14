@@ -53,6 +53,7 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 1. Drop all of them on the workbench.
 2. Select them: click the first, then shift-click the last for a run of files, or hold Ctrl (Cmd on a Mac) and click to pick out individual ones. The bar under the list says how many files there are and how many are selected.
 3. Open the **Convert** tab. It offers only the formats **every** selected file can become, so a conversion cannot fail halfway through. If a format you expected is missing, one of the files in the selection cannot reach it; narrow the selection and it comes back.
+4. Press the format. Each file is sent to the firm's conversion engine in turn, and the table lists how each one went. A converted copy can be saved, or put on the bench beside the original; with several, **Put All on the Bench** takes every copy at once. The originals are never changed.
 
 **Read a saved email and keep it as a PDF**
 
@@ -97,7 +98,7 @@ Each row has a **⋮** menu with **Discard** in it, along with **Copy Name** and
 
 - **The fingerprints are calculated on your own computer.** They are the right figure for checking a file against one somebody sent you. A fingerprint that goes into a court record is calculated by Magna Carta's servers over the file they received, which is a different guarantee, and the tab says which one you are looking at.
 - **Some files have no preview.** An archive, a program, and an encrypted document have nothing to show, and the workbench says so rather than holding an empty frame open. **Hide Preview** at the top right closes the picture on every tab and gives the readings the width; **Show Preview** brings it back, and the button beside it moves the file to the other side of the readings. Both choices are remembered.
-- **Nothing is kept.** Files on the workbench stay in your own browser: they are not attached to a matter and not recorded as having been looked at. Closing the page clears them. **Repair**, **Text Recognition** and **Unlock** send the file to the firm's own engines when you press their button; the engine answers and keeps nothing.
+- **Nothing is kept.** Files on the workbench stay in your own browser: they are not attached to a matter and not recorded as having been looked at. Closing the page clears them. **Convert**, **Repair**, **Text Recognition** and **Unlock** send the file to the firm's own engines when you press their button; the engine answers and keeps nothing.
 - **The name is not the answer.** Everything here reads the file itself. Where the file and its name disagree, the workbench reports the file.
 - **Recovering a lost password is not done here.** Unlocking a document you have the password for takes a moment. Searching for a password nobody has can run for days, so it does not run on a bench that clears itself; it goes to a screen of its own that can be left running.
 
