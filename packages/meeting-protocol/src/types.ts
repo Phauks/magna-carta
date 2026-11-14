@@ -223,6 +223,11 @@ export interface RosterParticipant {
   // guests carries none, which reads as a member.
   readonly kind?: MeetingParticipantKind;
   readonly displayName: string;
+  // THE NAME THIS PERSON CAME IN WITH, present only while they have chosen another one for this
+  // meeting (`rename`). A member's is the account's name and a guest's the name typed at the door.
+  // Carried so the roster can say who somebody is beside what they are called: a name anybody can
+  // type is a name anybody can borrow. Absent, or null, while `displayName` is the original.
+  readonly accountName?: string | null;
   // The routing-service session they publish through, or null until they have published anything.
   // A browser needs it to ask for their tracks, and there is nothing to ask for until it exists.
   readonly sfuSessionId: string | null;

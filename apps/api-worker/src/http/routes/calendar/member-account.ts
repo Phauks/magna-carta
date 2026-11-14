@@ -7,7 +7,6 @@ import {
 } from "@magna-carta/data-access/integration-connection-statements";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import type { HttpClient } from "@magna-carta/integrations/http";
-import { MICROSOFT_CALENDAR_ADAPTER_ID } from "@magna-carta/microsoft-graph/calendar-sync";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import {
@@ -15,7 +14,10 @@ import {
   type MemberCalendarsOutcome,
 } from "../../../calendar-sync/member-calendars.ts";
 import { memberCalendarCredentialStore } from "../../../calendar-sync/member-credential-store.ts";
-import { resolveMicrosoftApplication } from "../../../calendar-sync/microsoft-application.ts";
+import {
+  calendarProviderOfAdapter,
+  resolveApplicationOfAdapter,
+} from "../../../calendar-sync/calendar-providers.ts";
 import type { CredentialStoreForFirm } from "../../../plugins/credential-store.ts";
 import { protectedReadContext } from "../../../protected-read-context.ts";
 import {
@@ -51,7 +53,7 @@ export async function memberAccount(c: MemberAccountContext): Promise<MemberAcco
     CALENDAR_SYNC_CATEGORY,
     requireChokepointUserId(c),
   ).first<MemberAccountRow>();
-  return row !== null && row.adapter_id === MICROSOFT_CALENDAR_ADAPTER_ID ? row : null;
+  return row !== null && calendarProviderOfAdapter(row.adapter_id) !== undefined ? row : null;
 }
 
 // The account's calendars as the provider lists them at this moment.
@@ -60,7 +62,7 @@ export async function memberAccountCalendars(
   connection: MemberAccountRow,
   ports: MemberAccountPorts,
 ): Promise<MemberCalendarsOutcome> {
-  const application = resolveMicrosoftApplication(c.env, c.req.url);
+  const application = resolveApplicationOfAdapter(c.env, c.req.url, connection.adapter_id);
   if (application === undefined) return { kind: "unavailable" };
   const outcome = await listMemberCalendars({
     http: ports.http,
@@ -108,7 +110,7 @@ export async function memberSyncSettings(
         ? null
         : {
             id: connection.id,
-            provider: "microsoft" as const,
+            provider: calendarProviderOfAdapter(connection.adapter_id) ?? ("microsoft" as const),
             accountLabel: connection.account_label,
             status:
               calendars?.kind === "sign-in-again" ? ("needs_reauth" as const) : connection.status,

@@ -441,6 +441,58 @@ sync rules.
 longest secret lifetime the portal offers. Steps 1 to 4 follow the linked Microsoft page as read on
 2026-11-10.
 
+## Google Calendar connection activation: one Google Cloud project, then two secrets (2026-11-13)
+
+Connecting a member's own Google Calendar is built and ships **dormant**, exactly as Outlook does
+above. With no Google application registered, `GET /api/v1/me/connected-accounts` says Google is
+not available, the sign-in route answers `501`, and the Connected Accounts page says so. Nothing
+below is needed for any deploy, and Outlook does not depend on it.
+
+**What to do.** In the [Google Cloud console](https://console.cloud.google.com), signed in as an
+administrator of the firm's Google Workspace:
+
+1. **Create a project** inside the firm's organization (the project picker, then **New project**).
+   Name it `Magna Carta`.
+2. **Enable the Google Calendar API** for the project (**APIs & Services → Library**, search for
+   Google Calendar API, **Enable**).
+3. **Google Auth platform → Branding.** App name `Magna Carta`, and a support address.
+4. **Audience: Internal.** Internal limits sign-in to members of the firm's own Workspace
+   organization, and Google states that for an app used only inside the organization the calendar
+   permissions need no review by Google
+   ([configure OAuth consent](https://developers.google.com/workspace/guides/configure-oauth-consent)).
+   Choose External only if people outside the firm's Workspace must connect. An External app left
+   in Testing loses every member's sign-in seven days after they grant it
+   ([Google's note on testing apps](https://support.google.com/cloud/answer/15549945)), so External
+   means publishing the app and completing Google's verification for the two calendar permissions.
+5. **Google Auth platform → Clients → Create Client.** Application type **Web application**. Under
+   **Authorized redirect URIs** add `https://magnacarta.esq/api/v1/integrations/google/callback`.
+   It must match exactly: the Worker builds it from `APP_BASE_URL` plus that path
+   (`apps/api-worker/src/calendar-sync/google-application.ts`)
+   ([create credentials](https://developers.google.com/workspace/guides/create-credentials)).
+6. **Copy the client ID and the client secret** from the client's page. The secret may be shown
+   once only; copy it at creation.
+7. **Create two secrets in the Cloudflare Secrets Store** (dashboard, **Secrets Store → Create
+   secret**, scope _Workers_), named exactly `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET`.
+8. **Bind them to the app Worker** in a small pull request: two `secrets_store_secrets` entries in
+   `apps/api-worker/wrangler.jsonc`, named `SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_ID` and
+   `SECRETS_STORE_GOOGLE_CALENDAR_CLIENT_SECRET`. The binding comes after the secret exists, the order
+   [`docs/conventions/operations.md`](conventions/operations.md) gives under _Secrets Store_. The
+   Worker already looks for both names (`apps/api-worker/src/stored-secret-names.ts`). To switch
+   the feature on without waiting for that pull request, set the same two names as secrets on the
+   Worker itself (**Worker → Settings → Variables and Secrets**); the Worker reads either place.
+   Both being present is what switches the feature on; there is no other flag, and both are
+   deliberately absent from `wrangler.jsonc`'s `secrets.required`.
+
+Magna Carta asks members for two permissions and no others: `calendar.events` and
+`calendar.calendarlist.readonly`. Nothing under Gmail.
+
+**How to tell it is working.** Open `/settings/connected-accounts`: the Google Calendar section
+offers **Connect Google Calendar**. Connecting returns to the same page naming the account.
+
+**Not confirmed against the console in the session that wrote this:** where the console shows the
+client secret after creation, and the wording of steps 1 and 2. Steps 3 to 5 follow the two linked
+Google pages as read on 2026-11-13. Nothing has run against a real Google account.
+
 ## System Status recent errors — one read-only token (2026-11-13)
 
 The System Status page (Settings > Data & Platform > System Status) has a Recent Errors tab for

@@ -356,6 +356,14 @@ export type Bindings = {
   MICROSOFT_CLIENT_ID?: string;
   MICROSOFT_CLIENT_SECRET?: string;
   MICROSOFT_TENANT?: string;
+  // The Google application members sign in to their own Google account through, for calendar
+  // sync: an OAuth client of type "Web application" in a Google Cloud project. The client id is
+  // public configuration and the secret is a secret. Read from a Secrets Store binding named
+  // SECRETS_STORE_<NAME> when one exists, and from a secret on the Worker otherwise.
+  // Optional, and dormant without them, exactly as the Microsoft pair above
+  // (src/calendar-sync/google-application.ts).
+  GOOGLE_CALENDAR_CLIENT_ID?: string;
+  GOOGLE_CALENDAR_CLIENT_SECRET?: string;
   // The Smarty key pair behind address autocomplete (address-lookup/address-lookup-engine.ts).
   // Optional, and ABSENT IS THE SHIPPED STATE: with either missing, every request gets the deferred
   // port and the address form behaves exactly as it did before autocomplete existed. Production sets

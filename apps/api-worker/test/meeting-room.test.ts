@@ -807,6 +807,64 @@ describe("joining the room", () => {
   });
 });
 
+describe("the name somebody goes by in a meeting", () => {
+  it("tells everybody the chosen name beside the original, keeps it through a reconnect, and puts the original back", async () => {
+    const { meetingId, stub } = freshRoom();
+    const renaming = "meetingAttendance_renaming";
+    const watching = await connect(stub, meetingId, "meetingAttendance_watching", "A Guest");
+    const first = await connect(stub, meetingId, renaming, "Account Name");
+
+    first.send(JSON.stringify({ v: 1, type: "rename", displayName: "  Conference Room  " }));
+    const entryOf = () =>
+      rosterOf(watching)?.participants.find((one) => one.participantId === renaming) as
+        | { displayName: string; accountName?: string | null }
+        | undefined;
+    await waitFor(() => entryOf()?.displayName === "Conference Room");
+    // The name they came in with rides beside it, so a borrowed name never hides who somebody is.
+    expect(entryOf()?.accountName).toBe("Account Name");
+
+    // A RECONNECT writes the record afresh from the socket, and must not undo the person's choice.
+    const second = await connect(stub, meetingId, renaming, "Account Name");
+    const own = welcomeRosterOf(second).find((one) => one.participantId === renaming) as
+      | { displayName: string; accountName?: string | null }
+      | undefined;
+    expect(own?.displayName).toBe("Conference Room");
+    expect(own?.accountName).toBe("Account Name");
+
+    // Null puts the original back, and the roster stops calling it a rename. Sent after the hand's
+    // window, which a rename is paced on.
+    await runInDurableObject(stub, async (_room: MeetingRoom, state) => {
+      const key = `participant:${renaming}`;
+      const stored = await state.storage.get<Record<string, unknown>>(key);
+      await state.storage.put(key, { ...stored, signalAt: null });
+    });
+    second.send(JSON.stringify({ v: 1, type: "rename", displayName: null }));
+    await waitFor(() => entryOf()?.displayName === "Account Name");
+    expect(entryOf()?.accountName).toBeUndefined();
+  });
+
+  it("refuses a second rename inside the window, and a name that is only spaces", async () => {
+    const { meetingId, stub } = freshRoom();
+    const socket = await connect(stub, meetingId, "meetingAttendance_quick", "Account Name");
+    socket.send(JSON.stringify({ v: 1, type: "rename", displayName: "   " }));
+    await waitFor(() => lastFrame(socket, "refused") !== undefined);
+    expect(lastFrame(socket, "refused")).toMatchObject({ reason: "malformed-frame" });
+
+    socket.send(JSON.stringify({ v: 1, type: "rename", displayName: "One" }));
+    socket.send(JSON.stringify({ v: 1, type: "rename", displayName: "Two" }));
+    await waitFor(() =>
+      socket.frames.some(
+        (frame) => frame["type"] === "refused" && frame["reason"] === "rate-limited",
+      ),
+    );
+    await settle();
+    const own = rosterOf(socket)?.participants.find(
+      (one) => one.participantId === "meetingAttendance_quick",
+    );
+    expect(own?.displayName).toBe("One");
+  });
+});
+
 describe("the signaling exchange", () => {
   it("answers a publish with the routing service's answer and where each track landed", async () => {
     const { meetingId, stub } = freshRoom();
