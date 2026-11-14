@@ -57,7 +57,8 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
-  import { PreviewedNumber } from "@magna-carta/design-system/record-reference";
+  import { DraftNumber } from "@magna-carta/design-system/record-reference";
+  import { draftNumberKeeper } from "$lib/records/draft-number-keeper.ts";
   import type {
     RecordReference,
     RecordSubject,
@@ -101,7 +102,6 @@
     logCommunication,
     newWriteKey,
     readCommunication,
-    readNextCommunicationNumber,
     unfileCommunicationFromMatter,
     updateCommunication,
     type Communication,
@@ -201,6 +201,13 @@
   interface CallEntry {
     readonly key: string;
     draft: LogDraft;
+    /**
+     * The number this call will be saved under, held for it while it is being written down. Each
+     * call holds its own, so two callers on the line at once are each given a number to read back,
+     * and the number shown is the one the call is saved under. Empty kind: the window states the
+     * number alone (owner, 2026-11-09).
+     */
+    readonly number: DraftNumber;
   }
   let entries = $state<CallEntry[]>([]);
   let activeKey = $state<string | null>(null);
@@ -232,7 +239,7 @@
   function addCall(): void {
     entrySequence += 1;
     const key = `call-${entrySequence}`;
-    entries.push({ key, draft: freshDraft() });
+    entries.push({ key, draft: freshDraft(), number: new DraftNumber("") });
     showEntry(key);
   }
 
@@ -241,6 +248,8 @@
    * last one, because there is nothing left in it to do.
    */
   function retireActiveEntry(): void {
+    // The call is on the log under the number it held, so the number is not given back.
+    activeEntry?.number.taken();
     const remaining = entries.filter((entry) => entry.key !== activeKey);
     entries = remaining;
     const next = remaining.at(0);
@@ -287,18 +296,13 @@
     draft.anchor = "matter";
   }
 
-  /**
-   * The number a record being entered WOULD draw, or null while nothing has answered.
-   *
-   * Null rather than a guess: a made-up number on a message slip is worse than none, and the line
-   * under the heading simply says the number is drawn when it is saved until this arrives.
-   */
-  /*
-   * The number this record would draw, held by the shared seam rather than by this file.
-   * "Communication" rather than the chosen channel for the same reason the heading is: a line that
-   * renamed itself under the hand of the person filling it in is a panel arguing with its reader.
-   */
-  const previewed = new PreviewedNumber("Communication");
+  /** The call on screen, while the window is making records. */
+  const activeEntry = $derived(entries.find((entry) => entry.key === activeKey));
+
+  /** Give back every number still held, because the calls holding them were abandoned. */
+  function releaseHeldNumbers(): void {
+    for (const entry of entries) entry.number.release();
+  }
 
   const nameOf = $derived((userId: string | null): string | null => {
     if (userId === null) return null;
@@ -328,6 +332,7 @@
     if (!open) {
       // A closed window holds no calls: everything in it was either saved or knowingly abandoned.
       untrack(() => {
+        releaseHeldNumbers();
         entries = [];
         activeKey = null;
         filedFromPanel = [];
@@ -352,39 +357,34 @@
   });
 
   /*
-   * The number a record being entered would draw, kept in step with the DAY it says it happened.
+   * The number the call on screen holds, kept in step with the DAY it says it happened.
    *
    * Its own effect, and it reads the two date fields rather than the whole draft, so typing a
    * description does not ask the server anything — and so that somebody writing up Tuesday's call on
-   * Thursday is shown Tuesday's next number rather than today's. It writes only the previewed number,
-   * which nothing here reads back, so it cannot re-enter.
+   * Thursday is given Tuesday's number rather than today's. A changed day gives the old number back
+   * and holds one in the new day; an unchanged one keeps the number the call already holds.
    */
   $effect(() => {
-    if (!open || communicationId !== null) {
-      previewed.clear();
-      return;
-    }
-    const occurredAt = draftOccurredAt(draft);
-    void previewed.read(async () => {
-      // The seam takes a number or nothing; the app's outcome model stays in the app. A refused or
-      // unreachable read is not an error to raise here — the panel still records the call, and the
-      // line already says a number is drawn by the save.
-      const outcome = await readNextCommunicationNumber(fetch, occurredAt);
-      return outcome.kind === "ok" ? outcome.value.referenceNumber : null;
+    const entry = activeEntry;
+    if (!open || communicationId !== null || entry === undefined) return;
+    const occurredAt = draftOccurredAt(entry.draft);
+    untrack(() => {
+      void entry.number.hold(draftNumberKeeper("communication", () => ({ occurredAt })));
     });
   });
 
   /*
    * The line under the heading: this record, by the number somebody quotes.
    *
-   * WHILE IT IS BEING ENTERED the number is the one the NEXT record would draw, because the person
-   * typing is usually still on the telephone and the save is too late for the sentence they are in
-   * the middle of. Nothing is reserved by asking, and the shell says so in the words it says
-   * everywhere.
+   * WHILE IT IS BEING ENTERED the number is the draft the call holds, because the person typing is
+   * usually still on the telephone and the save is too late for the sentence they are in the middle
+   * of. The shared line marks it as a draft, in italics, in the words it uses everywhere.
    */
   const subtitle = $derived<RecordSubject>(
     creating
-      ? { reference: previewed.reference }
+      ? activeEntry === undefined
+        ? {}
+        : { reference: activeEntry.number.reference }
       : record === null
         ? {}
         : {
@@ -492,7 +492,11 @@
     saveFailure = null;
     const written = await logCommunication(
       fetch,
-      { ...logDraftRequest(draft), ...activityRequest(draft, viewerTimeZone()) },
+      {
+        ...logDraftRequest(draft),
+        ...activityRequest(draft, viewerTimeZone()),
+        numberReservation: activeEntry?.number.token,
+      },
       newWriteKey(),
     );
     saving = false;
@@ -628,6 +632,7 @@
     anchorProblem = null;
     if (creating) {
       // Abandoning an entry abandons every call listed in it: the close guard has already asked.
+      releaseHeldNumbers();
       entries = [];
       activeKey = null;
       open = false;
@@ -829,19 +834,6 @@
      hold it renders first, and the words that explain the emptiness live inside its own empty
      state, short (owner ruling, 2026-09-14). The rail renders its empty line rather than an empty
      frame today; the frame is a design-system change. -->
-<!-- The number the call on screen will draw, and nothing else, in italics because it is a preview
-     rather than the record's own (owner, 2026-11-09: change the sentence "to the number but
-     italicized"). Nothing is reserved by showing it; the save draws the record's own. -->
-{#snippet previewSubtitle()}
-  {#if previewed.reference.number === null}
-    <span>The number is drawn when it is saved</span>
-  {:else}
-    <em class="tabular-nums" title="The number this call will get when it is saved, if nothing else is saved first">
-      {previewed.reference.number}
-    </em>
-  {/if}
-{/snippet}
-
 <!-- While a record is being made the right side works from the NUMBER: who it belongs to and their
      open matters, then every earlier call and text with it. -->
 {#snippet identificationTab()}
@@ -941,7 +933,7 @@
   bind:open
   bind:editing
   {heading}
-  subtitle={creating ? previewSubtitle : subtitle}
+  {subtitle}
   record={recordPane}
   {actions}
   menu={creating && onStartIntake === undefined ? undefined : menu}

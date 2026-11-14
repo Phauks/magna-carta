@@ -14,6 +14,10 @@
 export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
   "numbering.preview":
     "Pure render of a candidate numbering scheme against a sample context — no write, no counter touch.",
+  "numbering.holdDraftNumber":
+    "Holds a counter value for an open create panel. It acts on no record: the record that takes the number is audited when it is saved, and a hold that is never saved is given back. Auditing every panel opening and its renewals would flood audit_log.",
+  "numbering.releaseDraftNumber":
+    "Gives a held draft number back when its create panel is cancelled. It acts on no record and the number returns to the pool for the next record; nothing about the firm's records changes.",
   "directory.duplicateCandidates":
     "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a consultation entity (match facts ride the body) — no write, no decrypt.",
   "shipping.rateShipment":

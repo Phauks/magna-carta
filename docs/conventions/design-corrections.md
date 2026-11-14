@@ -3633,3 +3633,22 @@ The owner, choosing between a hairline rule, cards and a heading band for New Pe
 - **"The right sidebar needs to be improved as well."** The duplicate check states where it stands
   in one sentence (nobody similar, or how many may be this person) instead of a caps heading over
   an empty list with a 0 beside it.
+
+### 2026-11-14 — a record being created shows its draft number, and gives it back if cancelled
+
+The owner: "remove 'A number is drawn when this is saved.' in general, whenever something is being
+created, show the draft number, and if it is not saved, then rescind the number", and "look around
+for centralizing tentative number formats and frameworks".
+
+- **Every panel that creates a numbered record shows the number it will be saved under.** Not a
+  preview of what the next record would take, and never the sentence: the number is held for that
+  panel (`@magna-carta/sequence-numbering/reservation`), so the number read out is the one the
+  record gets, and two people creating at once see two numbers.
+- **A draft number is the number in italics, everywhere.** One standing, `draft`, on the record
+  reference, rendered by `RecordSubjectLine` with its meaning on the number. The call log's own
+  italic snippet (2026-11-09) is now this shared format with no kind word in front of it.
+- **Cancelling gives the number back, and the run keeps no gap.** The next record of that kind takes
+  the lowest number given back before the counter moves; an abandoned panel gives its number back
+  after fifteen minutes.
+- **Invoices are the exception, and stay numbered at finalize.** An invoice run must be in issue
+  order as well as gapless, which giving a number back would break.

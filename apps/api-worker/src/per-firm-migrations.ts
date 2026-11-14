@@ -84,6 +84,7 @@ import magnusPanePermissionsAndArtifactsSql from "@magna-carta/database/drizzle/
 import transferRunAndSourceRecordLinkSql from "@magna-carta/database/drizzle/per-firm/20261113T234231_transfer-run-and-source-record-link.sql";
 import transferSourceFileSql from "@magna-carta/database/drizzle/per-firm/20261113T234231_transfer-source-file.sql";
 import meetingAddressesSql from "@magna-carta/database/drizzle/per-firm/20261114T000307_meeting-addresses.sql";
+import numberReservationSql from "@magna-carta/database/drizzle/per-firm/20261114T003422_number-reservation.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -170,6 +171,7 @@ export function perFirmMigrations(): Migration[] {
     "20261113T234231_transfer-run-and-source-record-link": transferRunAndSourceRecordLinkSql,
     "20261113T234231_transfer-source-file": transferSourceFileSql,
     "20261114T000307_meeting-addresses": meetingAddressesSql,
+    "20261114T003422_number-reservation": numberReservationSql,
   });
 }
 
