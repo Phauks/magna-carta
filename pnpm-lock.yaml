@@ -1048,6 +1048,9 @@ importers:
       '@magna-carta/government-links':
         specifier: workspace:*
         version: link:../../packages/government-links
+      '@magna-carta/house-document':
+        specifier: workspace:*
+        version: link:../../packages/house-document
       '@magna-carta/meeting-protocol':
         specifier: workspace:*
         version: link:../../packages/meeting-protocol
