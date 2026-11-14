@@ -15,18 +15,25 @@ Four counts sit across the top:
 
 Under the counts, a tab answers each question:
 
-- **Features** lists every feature by area (Meetings and Calls, Calendar and Email, Files and Documents, Search and Lookups, AI, Platform) with one of three states. **Working** needs nothing. **Not set up** means nobody has turned the feature on for this deployment yet, which is a choice rather than a fault. **Not working** means it is turned on and its service is not answering, which is worth reporting.
-- **Deployment** shows the build each side is on and, when the page and the server differ, the changes that sit between them.
-- **Workers** lists every service under the name it is deployed as, and the outside services the platform connects to, as described below.
+- **Features and Workers** starts with the two workers every feature runs on, `magna-carta` and `magna-carta-web`, with the build each one is on and the change it came from. When the page and the server differ, it shows the changes between them. Below that is a table of every feature by area (Meetings and Calls, Calendar and Email, Files and Documents, Search and Lookups, AI, Platform), with one of three states. **Working** needs nothing. **Not set up** means nobody has turned the feature on for this deployment yet, which is a choice rather than a fault. **Not working** means it is turned on and something it depends on is not answering, which is worth reporting. Each feature lists what it runs on, one line each: the worker that does its work, with that worker's build and how long it took to answer, and each outside service it calls. A feature with neither runs inside `magna-carta` itself. Workers that no feature names, such as the status page's own worker, are listed under **Other Workers**, so the tab still covers the whole fleet. On a narrow screen the table becomes one card per feature.
 - **This Firm** is the check on your firm's own records, described in [Checking your firm's database](#checking-your-firms-database).
 - **Recent Errors** lists the platform's failures over the last day, one row per kind of failure, with how many times it happened, when it was first and last seen, and the newest Error ID. At the top, **Look up an Error ID** takes any `error_` or `client_` reference a member quotes and shows what it was: the request or screen, the answer, the cause, the time, and the firm and member it happened to (as identifiers). Records are kept for 30 days. This tab appears only for platform operators, because the rows cover every firm on the deployment.
 - **Feature Flags** lists the flags your firm's release channel switches on or off, and marks any that differ from their default.
 
+### Outside services
+
+An outside service is an API somebody else runs, such as Cloudflare Realtime for meetings, Google Calendar, or Telnyx for caller ID. Its line says one of these:
+
+- **Connected**: the service accepted this deployment's key just now. This appears only where checking is free.
+- **Refused the key** or **Not answering**: the check ran and failed, so the feature will not work until the key or the service is fixed.
+- **Key set**: the key is in place, but the service was not asked, because each call to it is billed or there is no free way to check. The line says which.
+- **Not set up**: the key is missing. Password recovery's line for GPU compute (for slow passwords) reads this way until a GPU provider is connected.
+
 ### For platform operators
 
-A platform operator sees more on the **Features** tab. A feature that is not set up names the settings it still needs and opens to a short list of steps that turn it on, with a link to the full steps in the deployment guide. A feature that is not working offers a link to the service in the hosting console. The page only ever says whether a setting is present. It never shows a setting's value to anyone.
+A platform operator sees more on the **Features and Workers** tab. A feature that is not set up names the settings it still needs and opens to a short list of steps that turn it on, with a link to the full steps in the deployment guide. A feature that is not working offers a link to the service in the hosting console. The page only ever says whether a setting is present. It never shows a setting's value to anyone.
 
-The **Recent Errors** tab shows failed requests and app crashes without any setup. Failures in the platform's background work (scheduled passes and queues) come from the hosting provider's logs, which need one read-only token. Until it is set, the tab says background failures are not shown, and **Background errors** appears as a not-set-up row on the Features tab with the steps to add it.
+The **Recent Errors** tab shows failed requests and app crashes without any setup. Failures in the platform's background work (scheduled passes and queues) come from the hosting provider's logs, which need one read-only token. Until it is set, the tab says background failures are not shown, and **Background errors** appears as a not-set-up row on the Features and Workers tab with the steps to add it.
 
 ## What it does
 
@@ -38,7 +45,7 @@ Beside the identifier, the chip carries a badge naming the kind of build you are
 
 Clicking the chip opens the version overlay. It is deliberately short: the build that is serving the app, any feature that is not working, and your firm's records. The **System Status** button at the bottom opens the full page.
 
-On the page, the **Workers** tab lists every Magna Carta worker under the name it is deployed as (`magna-carta`, `magna-carta-web`, `magna-carta-scan`, `magna-carta-convert`, and so on), with the version each one reports about itself. `magna-carta-web` is the worker that serves the screen you are looking at, so its line is your page's version. The list is the whole fleet: a worker that is not deployed in your environment, or that cannot be reached right now, still appears and says so plainly. The overlay never invents a version, and it never omits a worker.
+On the page, the **Features and Workers** tab lists every Magna Carta worker under the name it is deployed as (`magna-carta`, `magna-carta-web`, `magna-carta-scan`, `magna-carta-convert`, and so on), with the version each one reports about itself. `magna-carta-web` is the worker that serves the screen you are looking at, so its line is your page's version. The list is the whole fleet: a worker that is not deployed in your environment, or that cannot be reached right now, still appears and says so plainly. The overlay never invents a version, and it never omits a worker.
 
 Each reporting entry shows its build identifier, when that build's change was made, when it was built, and how long it took to answer. A worker that is answering but taking a long time about it is marked **Slow** — it is still working, and it is the one thing here worth watching before it stops.
 
@@ -48,7 +55,7 @@ The symbol at the end of the row of controls at the top opens the source the bui
 
 The overlay has three sections, **Deployment**, **Features** and **Database**, each behind a caret beside its heading. **Features** names only the features that are not working, as **Not available yet** or **Not working**, and says **Every feature is working.** when there are none. Both open by default and the overlay remembers whichever way you leave them, on this browser. A shut heading still carries anything wrong beneath it, so folding a section can hide rows but never hides a fault — and if one of the overlay's own readings failed, it says so whether the section is folded or not.
 
-Under **Deployment**, the two workers that serve the application's address lead the list. The rest of the fleet is on the page's **Workers** tab.
+Under **Deployment**, the two workers that serve the application's address lead the list. The rest of the fleet is on the page's **Features and Workers** tab, beside the features each worker powers.
 
 Under **Database** (the **This Firm** tab on the page), the overlay checks the connection between your session and your firm's own records, and says what is standing between the two when something is — see [Checking your firm's database](#checking-your-firms-database) below.
 
