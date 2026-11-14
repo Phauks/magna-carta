@@ -2,7 +2,7 @@
   /*
    * Sidebar.Content — the scrolling middle region that holds the nav groups; takes the remaining
    * height and scrolls. Its scrollbar is HIDDEN (sidebar.css — the dark rail stays a clean plane),
-   * so the scroll affordance is the gilt edge hint: ScrollEdgeHint draws a thin gold rule at the
+   * so the scroll affordance is the edge hint: ScrollEdgeHint draws a thin rule at the
    * area's top edge once the list is scrolled below its top, and at its bottom edge while more
    * content lies below. The block axis only — a rail this narrow never scrolls sideways.
    *
