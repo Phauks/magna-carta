@@ -11,7 +11,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { aiProcessingEligibilityDefinition } from "@magna-carta/inference/settings";
-import { STUB_RESPONSE_MARKER } from "@magna-carta/inference/stub";
+import { createStubInferencePort, STUB_RESPONSE_MARKER } from "@magna-carta/inference/stub";
 import {
   commitVersionStatement,
   fileVersionKey,
@@ -24,7 +24,7 @@ import { listArtifacts, readArtifactVersionContent } from "@magna-carta/magnus/a
 import { setConversationPermission } from "@magna-carta/magnus/permissions";
 import { magnusEnabledDefinition } from "@magna-carta/magnus/settings";
 import { listAttachments, readTurn } from "@magna-carta/magnus/statements";
-import { completeTurn, submitTurn } from "@magna-carta/magnus/turn";
+import { completeTurn, settleTurnFailure, submitTurn } from "@magna-carta/magnus/turn";
 import { WINDOW_MAX_TURNS } from "@magna-carta/magnus/window";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { Bindings } from "../src/bindings.ts";
@@ -137,6 +137,40 @@ describe("the assistant queue consumer", () => {
     expect(turn?.modelId).toBe("anthropic/claude-opus-5-5");
     expect(turn?.inputTokens ?? 0).toBeGreaterThan(0);
     expect(turn?.outputTokens ?? 0).toBeGreaterThan(0);
+  });
+
+  it("keeps only the token meter for an answer whose question was changed while it was written", async () => {
+    const job = await submitOneTurn("a question taken back mid-answer");
+    const stub = createStubInferencePort();
+    await handleMagnusTurnJob(consumerEnv(), job, {
+      inference: {
+        ...stub,
+        async generateConversation(input) {
+          // The member removes the question while the model is still answering.
+          await commitEffectBatch(
+            firmDatabase,
+            settleTurnFailure(
+              firmDatabase,
+              { clock: { now: () => new Date().toISOString() }, actorUserId: null },
+              {
+                conversationId: job.conversationId as MagnusConversationId,
+                magnusTurnId: job.magnusTurnId as MagnusTurnId,
+                status: "refused",
+                failureLabel: "cancelled",
+                modelId: null,
+              },
+            ),
+            { now: () => new Date().toISOString() },
+          );
+          return stub.generateConversation(input);
+        },
+      },
+    });
+
+    const turn = await readTurn(firmDatabase, job.magnusTurnId as MagnusTurnId);
+    expect(turn?.status).toBe("refused");
+    expect(turn?.failureLabel).toBe("cancelled");
+    expect(turn?.content).toBeNull();
   });
 
   it("keeps the summary of the model's thinking on the answer, written while it was pending", async () => {

@@ -106,19 +106,19 @@ export type PdfOperationReply =
 export function describeOperationFailure(reason: PdfOperationFailure, message: string): string {
   switch (reason) {
     case "decompression-bomb":
-      return "The document expands far past what a page is expected to hold, so the engine stopped rather than changing it.";
+      return "The document is too large to change safely.";
     case "locked":
-      return "The document is locked with a password. Unlock it in the File Workbench first, then try again.";
+      return "This document has a password. Unlock it in the File Workbench first, then try again.";
     case "refused":
       return message === ""
-        ? "The engine could not produce a safe copy of this document."
-        : `The engine could not produce a safe copy: ${message}.`;
+        ? "Couldn't make a safe copy of this document."
+        : `Couldn't make a safe copy: ${message}.`;
     case "crashed":
       return "The background worker stopped before it finished. Nothing was saved.";
     case "unsupported":
-      return "This operation is not available in this version of the app. Reload the page.";
+      return "This action isn't available in this version of the app. Reload the page.";
     default:
-      return "The document could not be changed.";
+      return "Couldn't change the document.";
   }
 }
 

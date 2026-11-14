@@ -12,6 +12,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { catalogEntryFor } from "@magna-carta/inference/catalog";
+import type { InferencePort } from "@magna-carta/inference/port";
 import {
   extractDocuments,
   layOutCurrentDocuments,
@@ -143,6 +144,9 @@ export interface MagnusConsumerPorts {
   // The reader of attached files' text. Injectable because the production reader reaches the firm's
   // bucket and the extraction engines, neither of which a unit of the consumer's own logic needs.
   readonly attachments?: AttachmentTextReader;
+  // The model port. Injectable so a test can act while an answer is being written; production
+  // resolves it from the deployment (inference-port-binding.ts).
+  readonly inference?: InferencePort;
 }
 
 // The author's own other conversations on the same matter, when the author turned that permission on
@@ -274,7 +278,7 @@ export async function handleMagnusTurnJob(
     return;
   }
 
-  const port = resolveMagnusInferencePort(env);
+  const port = ports.inference ?? resolveMagnusInferencePort(env);
   if (port === null) {
     // The deployment names no model port. The question is settled as unanswered, never answered by
     // the stub, and the misconfiguration is reported once through the standard pipeline.
@@ -324,6 +328,31 @@ export async function handleMagnusTurnJob(
   // One timestamp for the whole batch, so the metering bucket day and the dedup row are provably
   // consistent — no latent UTC-midnight split between reading the day and writing the rows.
   const nowIso = new Date().toISOString();
+
+  // The member edited or removed the question while this answer was being written, which settled
+  // the turn as cancelled (packages/magnus/src/turn.ts). The tokens were spent and are metered; the
+  // answer, its documents and its completion audit are not kept, because they answer a question that
+  // no longer stands.
+  const settledMeanwhile = await readTurn(firmDatabase, job.magnusTurnId as MagnusTurnId);
+  if (settledMeanwhile === undefined || settledMeanwhile.status !== "pending") {
+    await commitEffectBatch(
+      firmDatabase,
+      {
+        statements: [
+          ...tokenUsageCommitStatements(
+            firmDatabase,
+            tokenUsageKeyForDay(nowIso, slot, modelId),
+            result.value.usage.inputTokens,
+            result.value.usage.outputTokens,
+          ),
+          ...inferenceDedupStatements(firmDatabase, magnusTurnDedupKey(job.outboxId), nowIso),
+        ],
+        outboxMessages: [],
+      },
+      { now: () => nowIso },
+    );
+    return;
+  }
   const context: MagnusWriteContext = { clock: { now: () => nowIso }, actorUserId: null };
 
   // The documents in the answer are kept as versions of the conversation's documents; the answer

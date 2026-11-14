@@ -66,10 +66,18 @@
   {/snippet}
 
   {#snippet fields()}
-    <p class="text-sm">
-      Your message leaves this conversation and a note shows where it was. Magnus&rsquo;s answer to it
-      stays where you can read it, but Magnus no longer reads either one when it answers you.
-    </p>
+    {#if session.pendingTurn !== null}
+      <p class="text-sm">
+        Your message leaves this conversation and a note shows where it was. Magnus is still
+        answering, and removing the message stops that answer. Magnus no longer reads the message
+        when it answers you.
+      </p>
+    {:else}
+      <p class="text-sm">
+        Your message leaves this conversation and a note shows where it was. Magnus&rsquo;s answer to
+        it stays where you can read it, but Magnus no longer reads either one when it answers you.
+      </p>
+    {/if}
     <p class="text-sm">
       Neither is erased. They stay on the firm&rsquo;s record, where a colleague allowed to read
       every conversation can still see them, until the whole conversation is deleted.
