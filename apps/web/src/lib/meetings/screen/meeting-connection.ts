@@ -11,9 +11,7 @@
  * whose whole purpose is to be quoted to somebody who can act on it, and dropping the word the room
  * actually used would leave a reader with "something went wrong" and nothing to say next.
  */
-import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
-import type { ConnectionQuality } from "../client/connection-quality.ts";
-import type { DiagnosticEvent, DiagnosticEventKind } from "../client/diagnostics.svelte.ts";
+import type { ConnectionQuality, MediaServer } from "../client/connection-quality.ts";
 import type { MeetingClient } from "../client/meeting-client.svelte.ts";
 import { participantName } from "./meeting-tiles.ts";
 
@@ -26,6 +24,11 @@ export interface UplinkModel {
   readonly bitsPerSecond: number | null;
   readonly lossFraction: number | null;
   readonly roundTripMilliseconds: number | null;
+  /** Everything the connection sends and receives, all streams together, in bits per second. */
+  readonly uploadBitsPerSecond: number | null;
+  readonly downloadBitsPerSecond: number | null;
+  /** The media server the connection is carried by. */
+  readonly server: MediaServer | null;
 }
 
 /** One other person in the room, as the Connection surface draws them. */
@@ -44,7 +47,37 @@ const NOTHING_MEASURED: UplinkModel = {
   bitsPerSecond: null,
   lossFraction: null,
   roundTripMilliseconds: null,
+  uploadBitsPerSecond: null,
+  downloadBitsPerSecond: null,
+  server: null,
 };
+
+/** What a camera size is called on screen. The room's own names for them are one letter. */
+export const CAMERA_LAYER_WORDS: Record<string, string> = {
+  f: "Full size",
+  h: "Half size",
+  q: "Quarter size",
+};
+
+/**
+ * The Cloudflare site serving this page, by its code (named for the nearest airport, such as SJC),
+ * read from the platform's own trace address. Null where the page is not served through Cloudflare
+ * (a developer's machine) or the read fails. The media server is reached through the same network,
+ * so this is the site the meeting runs through as well.
+ */
+export async function readCloudflareSite(
+  fetcher: typeof fetch = globalThis.fetch,
+): Promise<string | null> {
+  try {
+    const response = await fetcher("/cdn-cgi/trace", { credentials: "omit" });
+    if (!response.ok) return null;
+    const line = (await response.text()).split("\n").find((entry) => entry.startsWith("colo="));
+    const site = line?.slice("colo=".length).trim() ?? "";
+    return /^[A-Z]{3}$/.test(site) ? site : null;
+  } catch {
+    return null;
+  }
+}
 
 /** What this browser is sending, for the sheet's own definition list. */
 export function connectionUplink(client: MeetingClient): UplinkModel {
@@ -59,6 +92,9 @@ export function connectionUplink(client: MeetingClient): UplinkModel {
     bitsPerSecond: uplink?.bitsPerSecond ?? null,
     lossFraction: uplink?.lossFraction ?? null,
     roundTripMilliseconds: sample.roundTripMilliseconds,
+    uploadBitsPerSecond: sample.uploadBitsPerSecond ?? null,
+    downloadBitsPerSecond: sample.downloadBitsPerSecond ?? null,
+    server: sample.server ?? null,
   };
 }
 
@@ -68,83 +104,5 @@ export function connectionParticipants(client: MeetingClient): ConnectionPartici
     participantId: participant.participantId,
     name: participantName(participant),
     quality: client.qualityOf(participant.participantId),
-  }));
-}
-
-/**
- * What each kind of event is called, in the reader's words rather than the wire's.
- *
- * A record rather than a switch, so the compiler holds it complete: a kind added to the ring with
- * no sentence here is a type error rather than a blank line in the list somebody reads while a
- * meeting is going wrong.
- */
-const STATEMENT: Record<DiagnosticEventKind, (detail: string | null) => string> = {
-  join: () => "Opened the connection to the room",
-  welcome: () => "The room said hello",
-  publish: () => "Offered what this page is sending",
-  subscribe: (detail) =>
-    detail === null ? "Asked the room for what is on screen" : `Asked the room for ${detail}`,
-  subscribed: (detail) =>
-    detail === null ? "The room answered" : `The room answered with ${detail}`,
-  layer: (detail) =>
-    detail === null
-      ? "Asked for a different picture size"
-      : `Asked for a different picture size for ${detail}`,
-  refused: (detail) =>
-    detail === null ? "The room refused something" : `The room refused something: ${detail}`,
-  superseded: () => "This meeting was taken over by another tab or window",
-  "socket-lost": (detail) =>
-    detail === null
-      ? "The connection to the room went away"
-      : `The connection to the room went away: ${detail}`,
-  ended: () => "The meeting ended",
-  "protocol-mismatch": (detail) =>
-    detail === null
-      ? "This page and the room disagree about how to talk"
-      : `The room is speaking ${detail}, which this page does not`,
-  picture: (detail) =>
-    detail === null ? "A tile started a new picture" : `A tile started a new picture (${detail})`,
-  "camera-track": (detail) =>
-    detail === null
-      ? "Your camera's picture was replaced"
-      : `Your camera's picture was replaced (${detail})`,
-  view: (detail) => (detail === null ? "The view changed" : `The view changed: ${detail}`),
-};
-
-/**
- * Which end of the wire an event came from.
- *
- * The rail asks what CAUSED an event, and for a connection the honest answer is one of two things
- * and never a person: this page did it, or the room did. A name would be wrong in both directions.
- */
-function sourceOf(event: DiagnosticEvent): string {
-  switch (event.kind) {
-    case "welcome":
-    case "subscribed":
-    case "refused":
-    case "superseded":
-    case "ended":
-    case "protocol-mismatch":
-      return "The room";
-    default:
-      return "This page";
-  }
-}
-
-/**
- * What has happened on the wire, oldest first, for the rail to draw.
- *
- * The Error ID rides as the event's detail because that is what it is: the handle recorded
- * alongside what happened, and the one thing worth quoting to whoever reads the other end of it.
- */
-export function connectionEvents(events: readonly DiagnosticEvent[]): EventRailEvent[] {
-  return events.map((event, position) => ({
-    // The instant alone is not unique — a refusal and the socket closing under it land in the same
-    // millisecond — so the position carries the identity the rail keys its rows on.
-    id: `${position}-${event.at}-${event.kind}`,
-    action: STATEMENT[event.kind](event.detail),
-    at: event.at,
-    source: sourceOf(event),
-    ...(event.errorId === null ? {} : { detail: `Error ID ${event.errorId}` }),
   }));
 }

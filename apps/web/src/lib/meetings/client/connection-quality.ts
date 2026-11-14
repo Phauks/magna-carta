@@ -125,6 +125,33 @@ export interface ConnectionSample {
   /** This browser's own camera, as it is being sent. Null before anything is published. */
   readonly uplink: UplinkSample | null;
   readonly inbound: readonly InboundSample[];
+  /*
+   * EVERYTHING ON THE CONNECTION, both ways: every outbound stream (the camera's three sizes, the
+   * microphone, a share) and every inbound one. The camera row above is one size of one stream;
+   * these are what the connection as a whole is carrying. Optional so a sample written before they
+   * existed still reads.
+   */
+  readonly bytesSentTotal?: number;
+  readonly bytesReceivedTotal?: number;
+  /** Upload and download over the interval, in bits per second. Null on the first sample. */
+  readonly uploadBitsPerSecond?: number | null;
+  readonly downloadBitsPerSecond?: number | null;
+  /** The media server this connection is carried by, as the candidate pair in use names it. */
+  readonly server?: MediaServer | null;
+}
+
+/**
+ * The far end of the connection: Cloudflare's media server, or a relay in front of it. Its address
+ * is the SERVER's, never this computer's, and it stays on the screen: the copied diagnostics carry
+ * only the transport and whether it is relayed.
+ */
+export interface MediaServer {
+  readonly address: string | null;
+  readonly port: number | null;
+  /** `udp` or `tcp`, as the browser names it. */
+  readonly protocol: string | null;
+  /** Whether the media goes through a relay (TURN) rather than straight to the server. */
+  readonly relayed: boolean;
 }
 
 /** What a sample needs to know that the report itself cannot say. */
@@ -256,11 +283,69 @@ export function summarizeStats(
   const entries = readEntries(report);
   const elapsedSeconds = previous === null ? null : Math.max(0, (now - previous.at) / 1000);
 
+  const bytesSentTotal = totalOf(entries, "outbound-rtp", "bytesSent");
+  const bytesReceivedTotal = totalOf(entries, "inbound-rtp", "bytesReceived");
   return {
     at: now,
     roundTripMilliseconds: readRoundTrip(entries),
     uplink: readUplink(entries, previous, elapsedSeconds, context),
     inbound: readInbound(entries, previous, context),
+    bytesSentTotal,
+    bytesReceivedTotal,
+    uploadBitsPerSecond: rateOver(bytesSentTotal, previous?.bytesSentTotal, elapsedSeconds),
+    downloadBitsPerSecond: rateOver(
+      bytesReceivedTotal,
+      previous?.bytesReceivedTotal,
+      elapsedSeconds,
+    ),
+    server: readServer(entries),
+  };
+}
+
+/** One counter summed over every entry of a type. */
+function totalOf(entries: readonly StatsEntry[], type: string, key: string): number {
+  return entries
+    .filter((entry) => readText(entry, "type") === type)
+    .reduce((sum, entry) => sum + (readNumber(entry, key) ?? 0), 0);
+}
+
+/** Bytes over an interval as bits per second; null without a previous reading or when it went down. */
+function rateOver(
+  bytes: number,
+  previousBytes: number | undefined,
+  elapsedSeconds: number | null,
+): number | null {
+  if (previousBytes === undefined || elapsedSeconds === null || elapsedSeconds <= 0) return null;
+  const grew = bytes - previousBytes;
+  return grew < 0 ? null : (grew * 8) / elapsedSeconds;
+}
+
+/** The candidate pair actually carrying the media, chosen the way `readRoundTrip` chooses it. */
+function pairInUse(entries: readonly StatsEntry[]): StatsEntry | undefined {
+  const pairs = entries.filter((entry) => readText(entry, "type") === "candidate-pair");
+  return (
+    pairs.find((entry) => entry.selected === true) ??
+    pairs.find((entry) => entry.nominated === true && readText(entry, "state") === "succeeded") ??
+    pairs.find((entry) => readNumber(entry, "currentRoundTripTime") !== null)
+  );
+}
+
+/** The server end of the pair in use, or null where the browser has not named one yet. */
+function readServer(entries: readonly StatsEntry[]): MediaServer | null {
+  const pair = pairInUse(entries);
+  if (pair === undefined) return null;
+  const remoteId = readText(pair, "remoteCandidateId");
+  const localId = readText(pair, "localCandidateId");
+  const remote = entries.find((entry) => readText(entry, "id") === remoteId);
+  const local = entries.find((entry) => readText(entry, "id") === localId);
+  if (remote === undefined) return null;
+  return {
+    address: readText(remote, "address") ?? readText(remote, "ip"),
+    port: readNumber(remote, "port"),
+    protocol: readText(remote, "protocol"),
+    relayed:
+      readText(remote, "candidateType") === "relay" ||
+      (local !== undefined && readText(local, "candidateType") === "relay"),
   };
 }
 
@@ -293,11 +378,7 @@ function readText(entry: StatsEntry, key: string): string | null {
  * path nothing is using.
  */
 function readRoundTrip(entries: readonly StatsEntry[]): number | null {
-  const pairs = entries.filter((entry) => readText(entry, "type") === "candidate-pair");
-  const inUse =
-    pairs.find((entry) => entry.selected === true) ??
-    pairs.find((entry) => entry.nominated === true && readText(entry, "state") === "succeeded") ??
-    pairs.find((entry) => readNumber(entry, "currentRoundTripTime") !== null);
+  const inUse = pairInUse(entries);
   if (inUse === undefined) return null;
   const seconds = readNumber(inUse, "currentRoundTripTime");
   return seconds === null ? null : seconds * 1000;

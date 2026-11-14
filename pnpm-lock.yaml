@@ -1042,6 +1042,9 @@ importers:
       '@magna-carta/merge-field-catalog-contract':
         specifier: workspace:*
         version: link:../../packages/merge-field-catalog-contract
+      '@magna-carta/metadata':
+        specifier: workspace:*
+        version: link:../../packages/metadata
       '@magna-carta/mls':
         specifier: workspace:*
         version: link:../../packages/mls

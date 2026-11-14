@@ -20,11 +20,11 @@ export const metadataCapability: CapabilityModule = {
   label: "Metadata",
   icon: FileSearch,
   permission: assertPermission("tools:metadataScrubber"),
-  stage: "soon",
+  stage: "alpha",
   timing: "on-arrival",
   scope: "single",
   description: "Inspect and strip hidden metadata from a file.",
-  awaiting: "metadata reading",
+  awaiting: null,
   applies(file) {
     const label = detectedLabelOf(file);
     if (label === null) return APPLIES;
