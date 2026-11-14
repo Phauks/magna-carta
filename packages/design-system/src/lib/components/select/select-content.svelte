@@ -19,6 +19,11 @@
    * not `--mc-` tokens, so they belong on the element, never in the recipe (the components.css
    * purity gate). The caller nests Item/Group rows, which Bits places inside the scrollable
    * Viewport.
+   *
+   * A list long enough to narrow by typing (select-search.svelte.ts) shows what has been typed in a
+   * search row at its top, and says so when nothing is left. The row is a read-out, not a text box:
+   * focus stays on the trigger, which is where the typing goes, and the row is hidden from assistive
+   * technology because the options themselves coming and going is what a reader hears.
    */
   import { Select as SelectPrimitive } from "bits-ui";
   import { mergeClasses } from "../../internal/merge-classes.ts";
@@ -33,6 +38,8 @@
   import type { WithoutChild } from "../../internal/types.ts";
   import SelectScrollUpButton from "./select-scroll-up-button.svelte";
   import SelectScrollDownButton from "./select-scroll-down-button.svelte";
+  import Search from "@lucide/svelte/icons/search";
+  import { getSelectSearch } from "./select-search.svelte.ts";
 
   let {
     ref = $bindable(null),
@@ -47,6 +54,8 @@
     /** Inline style, composed AFTER the panel's own width rules so a caller's declaration wins. */
     style?: string | null;
   } = $props();
+
+  const search = getSelectSearch();
 </script>
 
 <SelectPrimitive.Portal>
@@ -63,12 +72,25 @@
     )}
     {...restProps}
   >
+    {#if search?.searchable}
+      <div class="mc-select-search" aria-hidden="true">
+        <Search class="mc-select-search-icon" />
+        {#if search.query === ""}
+          <span class="mc-select-search-prompt">Type to search</span>
+        {:else}
+          <span class="mc-select-search-query">{search.query}</span>
+        {/if}
+      </div>
+    {/if}
     <SelectScrollUpButton />
     <SelectPrimitive.Viewport
       class="mc-select-viewport mc-scrollbar"
       style="max-height: var(--bits-floating-available-height)"
     >
       {@render children?.()}
+      {#if search?.matchesNothing}
+        <p class="mc-select-search-empty" aria-hidden="true">No matches</p>
+      {/if}
     </SelectPrimitive.Viewport>
     <SelectScrollDownButton />
   </SelectPrimitive.Content>
