@@ -93,6 +93,9 @@
       "path": "../../packages/encryption/tsconfig.build.json"
     },
     {
+      "path": "../../packages/exhibits/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/export-document/tsconfig.build.json"
     },
     {
