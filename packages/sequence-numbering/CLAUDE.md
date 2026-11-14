@@ -40,6 +40,12 @@ planner is handed a database for, no clock, no binding.
 - `src/counter-statements.ts` — `SequenceNumberingTables` + `ensureCounterRowStatement` /
   `guardedIncrementStatement` / `allocateCounterValueStatement` / `isNumberAllocationConflict` /
   `readCounterValue`
+- `src/reservation.ts` / `src/reservation-statements.ts` — **draft numbers**: `holdNumber` /
+  `releaseNumber` over the shared `number_reservation` table, for a panel creating a record. A hold
+  moves the counter; a cancel or a fifteen-minute lapse gives the value back; `planSchemeDraw` takes
+  the caller's own hold (`reservationToken`), then the lowest given-back value in the scope, before
+  the counter, and the opening statements then delete the hold instead of advancing. The register's
+  `draftNumber` says which runs hold (`held`) and which never do (`previewed`: invoice, time entry)
 - `src/bounded-retry.ts` — `drawWithBoundedRetry`: the loop that advances a lost draw's counter OUT
   OF BAND and re-reads, plus `BoundedDrawOptions` / `DrawNonConvergence` (the caller's retryable
   collisions and the error it gives up with)
@@ -101,6 +107,11 @@ planner is handed a database for, no clock, no binding.
   increment rolled back with everything else, so the retry would otherwise re-read the same value
   forever; guarding the out-of-band advance means a concurrent winner that already moved the counter
   makes it a no-op, and two losers never double-advance it.
+- **A held or given-back value is never handed out twice, and never lost.** The value leaves the
+  counter only into a hold or a record; a hold ends in a record or back in the pool, and the pool
+  is drained lowest-first by the next single draw in its scope. A run that holds draft numbers is
+  therefore gapless but not strictly in creation order, which is why the invoice run is `previewed`:
+  an auditor reads it as both. A block draw (`count > 1`) never takes from the pool.
 
 ## Dependencies & contracts
 

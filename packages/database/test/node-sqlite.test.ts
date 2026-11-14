@@ -289,6 +289,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:file",
         "emails:manageLinks",
         "emails:read",
+        "exhibits:issue",
+        "exhibits:manage",
         "files:organize",
         "files:upload",
         // Writing one's own name reaches every seat, Read-only included: it is the platform's
