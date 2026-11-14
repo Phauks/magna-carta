@@ -1,10 +1,10 @@
 ---
 worktree: cloud session (claude/project-thread-jtxfhj)
-area: conflicts check page follow-ups
+area: a matter's Conflicts and Parties tabs
 status: building
-touches: apps/web/src/routes/(app)/conflicts, apps/web/src/lib/conflicts, packages/conflicts/src/report-text.ts, docs/user/features/conflicts-reports.md, docs/conventions/conflicts-rulings.md
+touches: apps/web/src/routes/(app)/matters/[id]/conflicts, apps/web/src/routes/(app)/matters/[id]/parties, apps/web/src/routes/(app)/conflicts/checks, apps/web/src/lib/conflicts, apps/web/src/lib/matters, packages/design-system/src/lib/components/record-parties, docs/user/features/conflicts-reports.md, docs/user/features/matter-parties.md, docs/conventions/conflicts-rulings.md
 ---
 
-Follow-ups to the conflicts check redesign from Trevor's 2026-11-13 review: the run list becomes the
-History tab, Assign to Matter moves into the header beside Print, and the Directory search summary is
-laid out as sections in plainer words (mockup first).
+A matter's Conflicts tab redone as the check screen's folding sections (results reviewable in place)
+and its Parties tab as a table with each party's conflicts standing and counsel's firm (Trevor,
+2026-11-14).
