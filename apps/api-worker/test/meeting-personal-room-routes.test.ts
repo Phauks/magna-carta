@@ -133,12 +133,18 @@ describe("a member's personal room", () => {
       timeZone: "America/New_York",
     });
     expect(opened.status).toBe(200);
-    const { meetingId, created } = await opened.json<{ meetingId: string; created: boolean }>();
+    const { meetingId, created, joinCode } = await opened.json<{
+      meetingId: string;
+      created: boolean;
+      joinCode: string | null;
+    }>();
     expect(created).toBe(true);
+    // The nine digits come back with the session, so Open goes straight to /meeting/482-917-305.
+    expect(joinCode).toMatch(/^[1-9]\d{8}$/);
 
     const arrived = await call("POST", `${linkPath}/arrive`, billingCookie);
     expect(arrived.status).toBe(200);
-    expect(await arrived.json()).toMatchObject({ state: "open", meetingId });
+    expect(await arrived.json()).toMatchObject({ state: "open", meetingId, joinCode });
 
     const participant = await firmDatabase
       .prepare(
