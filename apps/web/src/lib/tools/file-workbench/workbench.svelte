@@ -182,6 +182,7 @@
             file={activeFile}
             files={capabilityFiles}
             onOpenCapability={openCapability}
+            onAddFiles={(added) => void source.add(added)}
           />
         {/if}
       </div>
