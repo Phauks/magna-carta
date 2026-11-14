@@ -8,8 +8,12 @@ import {
   InvoiceClientRow,
   InvoiceFigures,
   InvoiceOfficeRow,
+  MatterBalanceClientRow,
+  MatterBalanceFigures,
+  MatterBalanceOfficeRow,
 } from "@magna-carta/reporting/contract";
 import { assembleInvoiceRegister } from "@magna-carta/reporting/financial/invoice-register";
+import { assembleMatterBalances } from "@magna-carta/reporting/financial/matter-balances";
 import { assemblePaymentsApplied } from "@magna-carta/reporting/financial/payments-applied";
 import { ReportingValidationError } from "@magna-carta/reporting/reporting-validation";
 import type { Bindings } from "../../../bindings.ts";
@@ -27,10 +31,12 @@ import {
   ReportReproducibility,
 } from "./reports.ts";
 
-// THE BILLS AND WHAT WAS SET AGAINST THEM — the Invoices report and the Payments Applied report.
+// THE BILLS AND WHAT WAS SET AGAINST THEM — the Invoices report and the Payments Applied report —
+// and where each matter stands: the Matter Balances report.
 //
-// Both are GETs on `reports:financial`, over a period on the effective axis and an optional knowledge
-// instant. The office is a filter on the rows and never a gate on who may run the report.
+// All are GETs on `reports:financial`. The first two take a period on the effective axis and an
+// optional knowledge instant; Matter Balances is live and takes neither. The office is a filter on the
+// rows and never a gate on who may run the report.
 
 const periodQuery = z.object({
   periodStart: civilDate,
@@ -39,6 +45,10 @@ const periodQuery = z.object({
   knownAsOf: knowledgeInstant.optional(),
   locationId: identifierField("location").optional(),
 });
+
+// Deliberately no date and no knowledge instant: unbilled work is live, so accepting one would answer
+// a question about the past with a figure about the present.
+const matterBalancesQuery = z.object({ locationId: identifierField("location").optional() });
 
 const InvoicesResponse = z
   .object({
@@ -70,6 +80,21 @@ const PaymentsAppliedResponse = z
     entries: z.array(AppliedEntry),
   })
   .openapi("PaymentsAppliedReport");
+
+const MatterBalancesResponse = z
+  .object({
+    computedAt: z.string(),
+    asOfDate: z.string(),
+    reproducible: z.literal(false),
+    statement: z.string(),
+    locationId: z.string().nullable(),
+    currency: z.literal("USD"),
+    completeness: ReportCompleteness,
+    totals: MatterBalanceFigures,
+    offices: z.array(MatterBalanceOfficeRow),
+    clients: z.array(MatterBalanceClientRow),
+  })
+  .openapi("MatterBalancesReport");
 
 const invoicesMeta: RouteMeta = {
   operationId: "reports.invoices",
@@ -145,6 +170,29 @@ const paymentsAppliedRoute = defineOpenAPIRoute(
   },
 );
 
+const matterBalancesRoute = defineOpenAPIRoute(
+  { ...invoicesMeta, operationId: "reports.matterBalances" },
+  {
+    method: "get",
+    path: "/api/v1/reports/matter-balances",
+    description:
+      "Where each matter stands now, by office and client: its unbilled time and costs, what its bills still owe, and what the firm holds for it in trust, three figures never added together. A live report: it takes no date, says when it was computed, and is not claimed to reproduce. Bills, payments and trust money count through the day it is produced. Choosing an office narrows the rows; it does not limit who may run the report.",
+    request: { query: matterBalancesQuery },
+    responses: {
+      200: {
+        description: "Each matter's balances now",
+        content: { "application/json": { schema: MatterBalancesResponse } },
+      },
+      ...refusals,
+      422: {
+        description:
+          "More matters have a balance than one report can list, or a trust account in a currency other than US dollars holds money for a matter",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
+
 type ReportsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerReceivablesReportsRoutes(app: ReportsApp, chokepoint: Chokepoint): void {
@@ -194,6 +242,26 @@ export function registerReceivablesReportsRoutes(app: ReportsApp, chokepoint: Ch
           { computedAt },
         );
         return c.json(report as unknown as z.infer<typeof PaymentsAppliedResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...matterBalancesRoute, middleware: chokepointMiddleware(chokepoint, matterBalancesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleMatterBalances(
+          firm.firmDatabase,
+          { locationId: query.locationId ?? null },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof MatterBalancesResponse>, 200);
       } catch (caught) {
         if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
         throw caught;

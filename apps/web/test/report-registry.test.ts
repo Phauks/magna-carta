@@ -64,6 +64,7 @@ describe("the report registry", () => {
       ["realization", { trustAccount: false, office: true, period: "span" }],
       ["invoices", { trustAccount: false, office: true, period: "span" }],
       ["payments-applied", { trustAccount: false, office: true, period: "span" }],
+      ["matter-balances", { trustAccount: false, office: true, period: "none" }],
       ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
     ]);
@@ -79,6 +80,7 @@ describe("the report registry", () => {
       realization: "bitemporal",
       invoices: "bitemporal",
       "payments-applied": "bitemporal",
+      "matter-balances": "live-only",
       "timekeeper-productivity": "live-only",
       "operational-volumes": "bitemporal",
     });

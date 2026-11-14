@@ -272,3 +272,32 @@ export const AppliedEntry = z.object({
   locationId: z.string().nullable(),
   locationName: z.string().nullable(),
 });
+
+// MATTER BALANCES. Three facts per matter, never added to one another.
+export const MatterBalanceFigures = z.object({
+  unbilledMinor: z.number().int(),
+  owedMinor: z.number().int(),
+  trustMinor: z.number().int(),
+});
+
+export const MatterBalanceOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: MatterBalanceFigures,
+});
+
+export const MatterBalanceMatterRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: MatterBalanceFigures,
+});
+
+export const MatterBalanceClientRow = z.object({
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  figures: MatterBalanceFigures,
+  matters: z.array(MatterBalanceMatterRow),
+});
