@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "edcb3c47-af56-4c26-99a8-5bca88a54a98",
+  "id": "cfb7bf7f-ea5c-46d5-9a59-153d656f8a49",
   "prevId": "728a1362-beb2-414f-ad3a-23539e8b6bef",
   "tables": {
     "account_balance": {
@@ -9421,673 +9421,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "exhibit_reference": {
-      "name": "exhibit_reference",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_version_id": {
-          "name": "file_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_exhibit_id": {
-          "name": "matter_exhibit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "occurrence_count": {
-          "name": "occurrence_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "exhibit_reference_matter_exhibit_index": {
-          "name": "exhibit_reference_matter_exhibit_index",
-          "columns": [
-            "matter_id",
-            "matter_exhibit_id"
-          ],
-          "isUnique": false
-        },
-        "exhibit_reference_version_exhibit_unique_index": {
-          "name": "exhibit_reference_version_exhibit_unique_index",
-          "columns": [
-            "file_version_id",
-            "matter_exhibit_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "exhibit_reference_matter_id_matter_id_fk": {
-          "name": "exhibit_reference_matter_id_matter_id_fk",
-          "tableFrom": "exhibit_reference",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_reference_file_id_file_id_fk": {
-          "name": "exhibit_reference_file_id_file_id_fk",
-          "tableFrom": "exhibit_reference",
-          "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_reference_file_version_id_file_version_id_fk": {
-          "name": "exhibit_reference_file_version_id_file_version_id_fk",
-          "tableFrom": "exhibit_reference",
-          "tableTo": "file_version",
-          "columnsFrom": [
-            "file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_reference_matter_exhibit_id_matter_exhibit_id_fk": {
-          "name": "exhibit_reference_matter_exhibit_id_matter_exhibit_id_fk",
-          "tableFrom": "exhibit_reference",
-          "tableTo": "matter_exhibit",
-          "columnsFrom": [
-            "matter_exhibit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "exhibit_reference_occurrence_check": {
-          "name": "exhibit_reference_occurrence_check",
-          "value": "\"exhibit_reference\".\"occurrence_count\" >= 1"
-        }
-      }
-    },
-    "exhibit_set": {
-      "name": "exhibit_set",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "noun": {
-          "name": "noun",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "prefix": {
-          "name": "prefix",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "sequence": {
-          "name": "sequence",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "start_number": {
-          "name": "start_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "overflow_form": {
-          "name": "overflow_form",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "state": {
-          "name": "state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'draft'"
-        },
-        "continues_from_set_id": {
-          "name": "continues_from_set_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "supersedes_set_id": {
-          "name": "supersedes_set_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "source_folder_id": {
-          "name": "source_folder_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "disposition": {
-          "name": "disposition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "issued_on": {
-          "name": "issued_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "issued_at": {
-          "name": "issued_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "issued_by": {
-          "name": "issued_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "filed_copy_file_id": {
-          "name": "filed_copy_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "exhibit_set_matter_state_index": {
-          "name": "exhibit_set_matter_state_index",
-          "columns": [
-            "matter_id",
-            "state"
-          ],
-          "isUnique": false
-        },
-        "exhibit_set_supersedes_unique_index": {
-          "name": "exhibit_set_supersedes_unique_index",
-          "columns": [
-            "supersedes_set_id"
-          ],
-          "isUnique": true,
-          "where": "\"exhibit_set\".\"supersedes_set_id\" IS NOT NULL"
-        },
-        "exhibit_set_continues_from_index": {
-          "name": "exhibit_set_continues_from_index",
-          "columns": [
-            "continues_from_set_id"
-          ],
-          "isUnique": false
-        },
-        "exhibit_set_source_folder_index": {
-          "name": "exhibit_set_source_folder_index",
-          "columns": [
-            "source_folder_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "exhibit_set_matter_id_matter_id_fk": {
-          "name": "exhibit_set_matter_id_matter_id_fk",
-          "tableFrom": "exhibit_set",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_set_continues_from_set_id_exhibit_set_id_fk": {
-          "name": "exhibit_set_continues_from_set_id_exhibit_set_id_fk",
-          "tableFrom": "exhibit_set",
-          "tableTo": "exhibit_set",
-          "columnsFrom": [
-            "continues_from_set_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_set_supersedes_set_id_exhibit_set_id_fk": {
-          "name": "exhibit_set_supersedes_set_id_exhibit_set_id_fk",
-          "tableFrom": "exhibit_set",
-          "tableTo": "exhibit_set",
-          "columnsFrom": [
-            "supersedes_set_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_set_source_folder_id_folder_id_fk": {
-          "name": "exhibit_set_source_folder_id_folder_id_fk",
-          "tableFrom": "exhibit_set",
-          "tableTo": "folder",
-          "columnsFrom": [
-            "source_folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_set_filed_copy_file_id_file_id_fk": {
-          "name": "exhibit_set_filed_copy_file_id_file_id_fk",
-          "tableFrom": "exhibit_set",
-          "tableTo": "file",
-          "columnsFrom": [
-            "filed_copy_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "exhibit_set_sequence_check": {
-          "name": "exhibit_set_sequence_check",
-          "value": "\"exhibit_set\".\"sequence\" IN ('upperLetter', 'lowerLetter', 'arabic', 'upperRoman', 'lowerRoman')"
-        },
-        "exhibit_set_overflow_form_check": {
-          "name": "exhibit_set_overflow_form_check",
-          "value": "\"exhibit_set\".\"overflow_form\" IN ('doubled', 'bijective')"
-        },
-        "exhibit_set_state_check": {
-          "name": "exhibit_set_state_check",
-          "value": "\"exhibit_set\".\"state\" IN ('draft', 'issued')"
-        },
-        "exhibit_set_disposition_check": {
-          "name": "exhibit_set_disposition_check",
-          "value": "\"exhibit_set\".\"disposition\" IS NULL OR \"exhibit_set\".\"disposition\" IN ('filed', 'served', 'exchanged', 'lodged')"
-        },
-        "exhibit_set_shape_check": {
-          "name": "exhibit_set_shape_check",
-          "value": "length(\"exhibit_set\".\"name\") > 0 AND \"exhibit_set\".\"start_number\" >= 1"
-        },
-        "exhibit_set_issue_shape_check": {
-          "name": "exhibit_set_issue_shape_check",
-          "value": "(\"exhibit_set\".\"state\" = 'issued') = (\"exhibit_set\".\"disposition\" IS NOT NULL AND \"exhibit_set\".\"issued_on\" IS NOT NULL AND \"exhibit_set\".\"issued_at\" IS NOT NULL) AND (\"exhibit_set\".\"state\" = 'issued' OR \"exhibit_set\".\"issued_by\" IS NULL)"
-        },
-        "exhibit_set_issued_on_shape_check": {
-          "name": "exhibit_set_issued_on_shape_check",
-          "value": "\"exhibit_set\".\"issued_on\" IS NULL OR \"exhibit_set\".\"issued_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        },
-        "exhibit_set_not_its_own_predecessor_check": {
-          "name": "exhibit_set_not_its_own_predecessor_check",
-          "value": "(\"exhibit_set\".\"supersedes_set_id\" IS NULL OR \"exhibit_set\".\"supersedes_set_id\" <> \"exhibit_set\".\"id\") AND (\"exhibit_set\".\"continues_from_set_id\" IS NULL OR \"exhibit_set\".\"continues_from_set_id\" <> \"exhibit_set\".\"id\")"
-        }
-      }
-    },
-    "exhibit_set_member": {
-      "name": "exhibit_set_member",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "exhibit_set_id": {
-          "name": "exhibit_set_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_exhibit_id": {
-          "name": "matter_exhibit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "title_as_issued": {
-          "name": "title_as_issued",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "file_version_id_as_issued": {
-          "name": "file_version_id_as_issued",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'active'"
-        },
-        "withdrawn_at": {
-          "name": "withdrawn_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "withdrawn_by": {
-          "name": "withdrawn_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "withdrawal_basis": {
-          "name": "withdrawal_basis",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "corrected_title": {
-          "name": "corrected_title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "corrected_file_version_id": {
-          "name": "corrected_file_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "corrected_at": {
-          "name": "corrected_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "corrected_by": {
-          "name": "corrected_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "correction_basis": {
-          "name": "correction_basis",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "exhibit_set_member_position_unique_index": {
-          "name": "exhibit_set_member_position_unique_index",
-          "columns": [
-            "exhibit_set_id",
-            "position"
-          ],
-          "isUnique": true
-        },
-        "exhibit_set_member_label_unique_index": {
-          "name": "exhibit_set_member_label_unique_index",
-          "columns": [
-            "exhibit_set_id",
-            "label"
-          ],
-          "isUnique": true,
-          "where": "\"exhibit_set_member\".\"label\" IS NOT NULL"
-        },
-        "exhibit_set_member_exhibit_unique_index": {
-          "name": "exhibit_set_member_exhibit_unique_index",
-          "columns": [
-            "exhibit_set_id",
-            "matter_exhibit_id"
-          ],
-          "isUnique": true
-        },
-        "exhibit_set_member_exhibit_index": {
-          "name": "exhibit_set_member_exhibit_index",
-          "columns": [
-            "matter_exhibit_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "exhibit_set_member_exhibit_set_id_exhibit_set_id_fk": {
-          "name": "exhibit_set_member_exhibit_set_id_exhibit_set_id_fk",
-          "tableFrom": "exhibit_set_member",
-          "tableTo": "exhibit_set",
-          "columnsFrom": [
-            "exhibit_set_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_set_member_matter_exhibit_id_matter_exhibit_id_fk": {
-          "name": "exhibit_set_member_matter_exhibit_id_matter_exhibit_id_fk",
-          "tableFrom": "exhibit_set_member",
-          "tableTo": "matter_exhibit",
-          "columnsFrom": [
-            "matter_exhibit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_set_member_file_version_id_as_issued_file_version_id_fk": {
-          "name": "exhibit_set_member_file_version_id_as_issued_file_version_id_fk",
-          "tableFrom": "exhibit_set_member",
-          "tableTo": "file_version",
-          "columnsFrom": [
-            "file_version_id_as_issued"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "exhibit_set_member_corrected_file_version_id_file_version_id_fk": {
-          "name": "exhibit_set_member_corrected_file_version_id_file_version_id_fk",
-          "tableFrom": "exhibit_set_member",
-          "tableTo": "file_version",
-          "columnsFrom": [
-            "corrected_file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "exhibit_set_member_status_check": {
-          "name": "exhibit_set_member_status_check",
-          "value": "\"exhibit_set_member\".\"status\" IN ('active', 'withdrawn')"
-        },
-        "exhibit_set_member_position_check": {
-          "name": "exhibit_set_member_position_check",
-          "value": "\"exhibit_set_member\".\"position\" <> 0"
-        },
-        "exhibit_set_member_withdrawal_shape_check": {
-          "name": "exhibit_set_member_withdrawal_shape_check",
-          "value": "(\"exhibit_set_member\".\"status\" = 'withdrawn') = (\"exhibit_set_member\".\"withdrawn_at\" IS NOT NULL)"
-        },
-        "exhibit_set_member_issue_shape_check": {
-          "name": "exhibit_set_member_issue_shape_check",
-          "value": "(\"exhibit_set_member\".\"label\" IS NULL) = (\"exhibit_set_member\".\"title_as_issued\" IS NULL) AND (\"exhibit_set_member\".\"status\" = 'active' OR \"exhibit_set_member\".\"label\" IS NOT NULL)"
-        },
-        "exhibit_set_member_correction_shape_check": {
-          "name": "exhibit_set_member_correction_shape_check",
-          "value": "(\"exhibit_set_member\".\"corrected_at\" IS NULL) = (\"exhibit_set_member\".\"corrected_by\" IS NULL) AND (\"exhibit_set_member\".\"corrected_at\" IS NOT NULL OR (\"exhibit_set_member\".\"corrected_title\" IS NULL AND \"exhibit_set_member\".\"corrected_file_version_id\" IS NULL))"
-        }
-      }
-    },
     "external_calendar_event": {
       "name": "external_calendar_event",
       "columns": {
@@ -18641,198 +17974,6 @@
         }
       }
     },
-    "matter_exhibit": {
-      "name": "matter_exhibit",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reference_name": {
-          "name": "reference_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "source_kind": {
-          "name": "source_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "pinned_file_version_id": {
-          "name": "pinned_file_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "page_count": {
-          "name": "page_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bates_begin": {
-          "name": "bates_begin",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bates_end": {
-          "name": "bates_end",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "matter_exhibit_reference_name_unique_index": {
-          "name": "matter_exhibit_reference_name_unique_index",
-          "columns": [
-            "matter_id",
-            "reference_name"
-          ],
-          "isUnique": true
-        },
-        "matter_exhibit_matter_index": {
-          "name": "matter_exhibit_matter_index",
-          "columns": [
-            "matter_id",
-            "archived_at"
-          ],
-          "isUnique": false
-        },
-        "matter_exhibit_file_index": {
-          "name": "matter_exhibit_file_index",
-          "columns": [
-            "file_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "matter_exhibit_matter_id_matter_id_fk": {
-          "name": "matter_exhibit_matter_id_matter_id_fk",
-          "tableFrom": "matter_exhibit",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_exhibit_file_id_file_id_fk": {
-          "name": "matter_exhibit_file_id_file_id_fk",
-          "tableFrom": "matter_exhibit",
-          "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "matter_exhibit_pinned_file_version_id_file_version_id_fk": {
-          "name": "matter_exhibit_pinned_file_version_id_file_version_id_fk",
-          "tableFrom": "matter_exhibit",
-          "tableTo": "file_version",
-          "columnsFrom": [
-            "pinned_file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "matter_exhibit_source_kind_check": {
-          "name": "matter_exhibit_source_kind_check",
-          "value": "\"matter_exhibit\".\"source_kind\" IN ('matterFile', 'assembledDocument', 'custodyItemScan', 'discoveryDocument')"
-        },
-        "matter_exhibit_shape_check": {
-          "name": "matter_exhibit_shape_check",
-          "value": "length(\"matter_exhibit\".\"title\") > 0 AND length(\"matter_exhibit\".\"reference_name\") > 0 AND (\"matter_exhibit\".\"page_count\" IS NULL OR \"matter_exhibit\".\"page_count\" >= 0)"
-        },
-        "matter_exhibit_bates_shape_check": {
-          "name": "matter_exhibit_bates_shape_check",
-          "value": "(\"matter_exhibit\".\"bates_begin\" IS NULL) = (\"matter_exhibit\".\"bates_end\" IS NULL)"
-        }
-      }
-    },
     "matter_file_retention": {
       "name": "matter_file_retention",
       "columns": {
@@ -21384,6 +20525,13 @@
           "autoincrement": false,
           "default": false
         },
+        "join_code": {
+          "name": "join_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -21400,6 +20548,14 @@
         }
       },
       "indexes": {
+        "meeting_join_code_unique_index": {
+          "name": "meeting_join_code_unique_index",
+          "columns": [
+            "join_code"
+          ],
+          "isUnique": true,
+          "where": "\"meeting\".\"join_code\" IS NOT NULL"
+        },
         "meeting_personal_room_open_session_unique_index": {
           "name": "meeting_personal_room_open_session_unique_index",
           "columns": [
@@ -21531,6 +20687,10 @@
         "meeting_ended_shape_check": {
           "name": "meeting_ended_shape_check",
           "value": "(\"meeting\".\"ended_at\" IS NULL AND \"meeting\".\"ended_by_user_id\" IS NULL)\n        OR (\"meeting\".\"ended_at\" IS NOT NULL AND \"meeting\".\"ended_by_user_id\" IS NOT NULL)"
+        },
+        "meeting_join_code_shape_check": {
+          "name": "meeting_join_code_shape_check",
+          "value": "\"meeting\".\"join_code\" IS NULL OR (length(\"meeting\".\"join_code\") = 9 AND \"meeting\".\"join_code\" NOT GLOB '*[^0-9]*')"
         },
         "meeting_locked_shape_check": {
           "name": "meeting_locked_shape_check",
@@ -22411,6 +21571,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "address_name": {
+          "name": "address_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -22433,6 +21600,14 @@
             "owner_user_id"
           ],
           "isUnique": true
+        },
+        "meeting_personal_room_address_name_unique_index": {
+          "name": "meeting_personal_room_address_name_unique_index",
+          "columns": [
+            "address_name"
+          ],
+          "isUnique": true,
+          "where": "\"meeting_personal_room\".\"address_name\" IS NOT NULL"
         },
         "meeting_personal_room_link_code_unique_index": {
           "name": "meeting_personal_room_link_code_unique_index",
@@ -22467,6 +21642,10 @@
         "meeting_personal_room_lobby_check": {
           "name": "meeting_personal_room_lobby_check",
           "value": "\"meeting_personal_room\".\"lobby\" IN ('off', 'on')"
+        },
+        "meeting_personal_room_address_name_shape_check": {
+          "name": "meeting_personal_room_address_name_shape_check",
+          "value": "\"meeting_personal_room\".\"address_name\" IS NULL OR (length(\"meeting_personal_room\".\"address_name\") BETWEEN 1 AND 40 AND \"meeting_personal_room\".\"address_name\" NOT GLOB '*[^a-z0-9-]*')"
         },
         "meeting_personal_room_link_code_shape_check": {
           "name": "meeting_personal_room_link_code_shape_check",

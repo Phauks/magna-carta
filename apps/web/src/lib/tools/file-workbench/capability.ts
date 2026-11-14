@@ -71,6 +71,11 @@ export interface CapabilityPanelProps {
    * takes the reader there, rather than naming a tab and leaving them to find it.
    */
   readonly onOpenCapability?: (capability: CapabilityModule) => void;
+  /**
+   * Put new files on the bench beside this one: an email's attachment, a disarmed copy. Absent in
+   * a host that cannot take files, and a panel then offers a download instead.
+   */
+  readonly onAddFiles?: (files: readonly File[]) => void;
 }
 
 export interface CapabilityModule {

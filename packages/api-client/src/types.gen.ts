@@ -7480,6 +7480,7 @@ export type PersonalRoomResponse = {
 export type PersonalRoom = {
     id: string;
     linkCode: string;
+    addressName: string;
     medium: 'video' | 'audio';
     lobby: 'off' | 'on';
     openMeetingId: string | null;
@@ -7508,6 +7509,7 @@ export type FirmRoom = {
     userId: string;
     name: string;
     linkCode: string | null;
+    addressName: string | null;
     medium: 'video' | 'audio' | null;
     openMeetingId: string | null;
     inTheRoom: number;
@@ -7518,6 +7520,7 @@ export type PersonalRoomAtLink = {
     state: 'closed' | 'open';
     ownerDisplayName: string;
     isOwner: boolean;
+    addressName: string;
     meetingId: string | null;
 };
 
@@ -7527,6 +7530,10 @@ export type MoveMeetingToMatterResponse = {
 
 export type MoveMeetingToMatterRequest = {
     matterId: string;
+};
+
+export type MeetingByCodeResponse = {
+    meetingId: string;
 };
 
 export type StartedMeeting = {
@@ -7553,6 +7560,7 @@ export type MeetingSummary = {
     eventId: string;
     matterId: string | null;
     matterTitle: string | null;
+    joinCode: string | null;
     title: string;
     startsOn: string;
     startsAtTime: string | null;
@@ -36189,6 +36197,45 @@ export type MeetingsMoveToMatterResponses = {
 };
 
 export type MeetingsMoveToMatterResponse = MeetingsMoveToMatterResponses[keyof MeetingsMoveToMatterResponses];
+
+export type MeetingsGetByCodeData = {
+    body?: never;
+    path: {
+        joinCode: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/by-code/{joinCode}';
+};
+
+export type MeetingsGetByCodeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No meeting this member can reach at that address
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MeetingsGetByCodeError = MeetingsGetByCodeErrors[keyof MeetingsGetByCodeErrors];
+
+export type MeetingsGetByCodeResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingByCodeResponse;
+};
+
+export type MeetingsGetByCodeResponse = MeetingsGetByCodeResponses[keyof MeetingsGetByCodeResponses];
 
 export type MeetingsListData = {
     body?: never;

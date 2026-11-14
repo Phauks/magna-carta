@@ -66,7 +66,7 @@
   slices: 2-7-exhibits
   adrs: ADR-0274
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: packages/exhibits issue, withdrawal, correction and supersession services, with freeze triggers in packages/database/drizzle/per-firm/20261114T002009_exhibits.sql, served by apps/api-worker/src/http/routes/matters/exhibit-set-issue.ts; no screen yet.
+  evidence: packages/exhibits issue, withdrawal, correction and supersession services, with freeze triggers in packages/database/drizzle/per-firm/20261114T003247_exhibits.sql, served by apps/api-worker/src/http/routes/matters/exhibit-set-issue.ts; no screen yet.
   awaiting-owner: Two questions about how strict an issued set is, and both decide a build. Whether issuing is truly irreversible, with a superseding set as the only remedy — the recommendation — or whether an issued-in-error reversal exists, which is a second way for a frozen label to become unfrozen and therefore a second way the whole invariant can fail. And whether a member may correct an issued member's recorded title or underlying file at all: recommended yes, narrowly, audited and never renumbering, because the alternative leaves a firm unable to fix its own record of what it filed. Exhibits design flags E2 and E6.
   notes: The platform has no court e-filing integration and does not pretend to observe a filing, so issuing is a recorded human assertion. A withdrawn exhibit keeps its label forever and no later exhibit reuses it.
 
