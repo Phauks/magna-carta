@@ -71,7 +71,10 @@ describe("SealPort wire codec", () => {
       document: new Uint8Array([1, 2, 3]),
       signers: [signer],
       signingTime: "2026-07-18T12:00:01Z",
-      signatureImages: [{ signerId: "usr_1", image: new Uint8Array([0x89, 0x50, 0, 255, 128]) }],
+      signatureImages: [
+        { signerId: "usr_1", image: new Uint8Array([0x89, 0x50, 0, 255, 128]), pages: [1, 3] },
+        { signerId: "usr_1", image: new Uint8Array([0x89, 0x50, 9]) },
+      ],
       initialsImages: [{ signerId: "usr_1", image: new Uint8Array([0x89, 0x50, 7, 0, 200]) }],
     };
     const decoded = decodeSealRequest(encodeSealRequest(request));

@@ -68991,15 +68991,57 @@
                             "level"
                           ]
                         },
-                        "signatureImageBase64": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 350000
+                        "signatureImages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "imageBase64": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 350000
+                              },
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 50000
+                                },
+                                "maxItems": 200
+                              }
+                            },
+                            "required": [
+                              "imageBase64"
+                            ]
+                          },
+                          "maxItems": 8
                         },
-                        "initialsImageBase64": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 350000
+                        "initialsImages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "imageBase64": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 350000
+                              },
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 50000
+                                },
+                                "maxItems": 200
+                              }
+                            },
+                            "required": [
+                              "imageBase64"
+                            ]
+                          },
+                          "maxItems": 8
                         }
                       },
                       "required": [

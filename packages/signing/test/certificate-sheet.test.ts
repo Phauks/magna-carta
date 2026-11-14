@@ -336,6 +336,19 @@ describe("certificateSheet", () => {
       { type: "image", label: "Initials", image: 2, width: 36, beside: true },
     ]);
     expect(certificateSheetImages(signatureImages, initialsImages)).toHaveLength(3);
+    // A signer who used two signatures has both, each numbered and with the pages it is on.
+    const two = certificateSheet(certificate(), {
+      signatureImages: [
+        { signerId: "sgn_1", image: png(600, 200), pages: [3, 1, 2] },
+        { signerId: "sgn_1", image: png(600, 200), pages: [7] },
+      ],
+      initialsImages,
+    }).blocks.filter((block) => block.type === "image");
+    expect(two).toEqual([
+      { type: "image", label: "Signature 1 of 2 (Pages 1-3)", image: 1, width: 108 },
+      { type: "image", label: "Signature 2 of 2 (Page 7)", image: 2, width: 108, beside: true },
+      { type: "image", label: "Initials", image: 3, width: 36 },
+    ]);
     // Initials with no signature take the signature's place on the line.
     expect(
       certificateSheet(certificate(), { initialsImages }).blocks.filter(
@@ -353,6 +366,36 @@ describe("certificateSheet", () => {
       ),
     ).toBe(false);
     expect(record([]).some((block) => block.type === "image")).toBe(false);
+  });
+
+  it("gives a signer with many signature pictures a page to themselves", () => {
+    const base = certificate();
+    const [first] = base.signers;
+    if (first === undefined) throw new Error("the fixture has a signer");
+    const signers = ["a", "b", "c"].map((id) => ({
+      ...first,
+      intent: { ...first.intent, signerId: id, name: `Signer ${id}` },
+    }));
+    const image = new Uint8Array(24);
+    const headings = (pictures: number) =>
+      certificateSheet(
+        { ...base, signers },
+        {
+          signatureImages: Array.from({ length: pictures }, () => ({ signerId: "a", image })),
+        },
+      ).blocks.flatMap((block) => (block.type === "heading" ? [block.text] : []));
+    // Two lines of pictures still leave room for a second signer under the first.
+    expect(headings(4)).toEqual(["Signer Details (1 of 2)", "Signer Details (2 of 2)"]);
+    // Four lines do not: the first signer stands alone and the other two share the next page.
+    expect(headings(8)).toEqual(["Signer Details (1 of 2)", "Signer Details (2 of 2)"]);
+    const blocks = certificateSheet(
+      { ...base, signers },
+      { signatureImages: Array.from({ length: 8 }, () => ({ signerId: "a", image })) },
+    ).blocks;
+    const breakAfterFirst = blocks.findIndex(
+      (block) => block.type === "cardStart" && block.title === "Signer b",
+    );
+    expect(blocks[breakAfterFirst - 1]).toMatchObject({ type: "heading" });
   });
 
   it("carries the lockup as a picture the composer can read", () => {

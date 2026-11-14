@@ -20801,8 +20801,14 @@ export type EsignSealData = {
                 proofReference?: string;
                 codeDestination?: string;
             };
-            signatureImageBase64?: string;
-            initialsImageBase64?: string;
+            signatureImages?: Array<{
+                imageBase64: string;
+                pages?: Array<number>;
+            }>;
+            initialsImages?: Array<{
+                imageBase64: string;
+                pages?: Array<number>;
+            }>;
         }>;
         documentTitle?: string;
         seal?: {

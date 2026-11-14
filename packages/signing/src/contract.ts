@@ -22,6 +22,13 @@ const EVENT_KINDS = SIGNING_EVENT_KINDS as readonly [SigningEventKind, ...Signin
 // kinds ./esign.ts declares.
 const AttributionLevel = z.enum(ATTRIBUTION_LEVELS);
 
+// One picture of a signature or of initials: a PNG or JPEG of about 256 KiB at most, and the
+// pages of the document it was placed on, counted from 1, where the signing flow knows them.
+const SignaturePicture = z.object({
+  imageBase64: z.string().min(1).max(350_000),
+  pages: z.array(z.number().int().min(1).max(50_000)).max(200).optional(),
+});
+
 const SignerCompletionInput = z.object({
   intent: z.object({
     signerId: z.string().min(1),
@@ -47,10 +54,11 @@ const SignerCompletionInput = z.object({
     // code itself.
     codeDestination: z.string().min(1).max(320).optional(),
   }),
-  // The signer's signature as they adopted it, a PNG or JPEG, printed on their record in the
-  // certificate. About 256 KiB of picture at most; a typed signature needs none.
-  signatureImageBase64: z.string().min(1).max(350_000).optional(),
-  initialsImageBase64: z.string().min(1).max(350_000).optional(),
+  // The signer's signatures and initials as they adopted them, printed on their record in the
+  // certificate. One entry for each different picture the signer used; a typed signature needs
+  // none.
+  signatureImages: z.array(SignaturePicture).max(8).optional(),
+  initialsImages: z.array(SignaturePicture).max(8).optional(),
 });
 
 export const DocumentSealRequest = z.object({

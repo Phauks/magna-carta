@@ -58,8 +58,11 @@ function sealBody(): string {
         consent: { disclosureVersion: "v1", consentedAt: "2026-08-03T11:59:00Z" },
         // observedIp is deliberately omitted from the request schema — the server sets it.
         attribution: { level: "firm-authenticated", codeDestination: "(702) 555-0120" },
-        signatureImageBase64: "iVBORw0K",
-        initialsImageBase64: "iVBORw0K",
+        signatureImages: [
+          { imageBase64: "iVBORw0K", pages: [1, 2] },
+          { imageBase64: "iVBORw0K", pages: [3] },
+        ],
+        initialsImages: [{ imageBase64: "iVBORw0K" }],
       },
     ],
     documentTitle: "Engagement letter.pdf",
@@ -133,11 +136,14 @@ describe("POST /api/v1/documents/seal", () => {
     // Where a code was sent rides with the signer; the signature's picture travels beside the
     // record as bytes, named by the signer it belongs to, and is no part of the record itself.
     expect(port.lastRequest?.signers[0]?.attribution.codeDestination).toBe("(702) 555-0120");
+    // A signer who used two signatures sends both, each with the pages it was placed on.
+    const picture = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
     expect(port.lastRequest?.signatureImages).toEqual([
-      { signerId: "usr_seal", image: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]) },
+      { signerId: "usr_seal", image: picture, pages: [1, 2] },
+      { signerId: "usr_seal", image: picture, pages: [3] },
     ]);
-    expect(port.lastRequest?.initialsImages).toEqual(port.lastRequest?.signatureImages);
-    expect(JSON.stringify(port.lastRequest?.signers)).not.toContain("ImageBase64");
+    expect(port.lastRequest?.initialsImages).toEqual([{ signerId: "usr_seal", image: picture }]);
+    expect(JSON.stringify(port.lastRequest?.signers)).not.toContain("imageBase64");
 
     // The certificate comes back as a PDF too, and names the document and a reference.
     expect(atob(body.certificatePdfBase64)).toContain("%PDF-");

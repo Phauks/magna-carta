@@ -51,10 +51,15 @@ export interface SealRequest {
   readonly initialsImages?: readonly SignatureImage[];
 }
 
-/** One signer's signature, or their initials, as a picture. */
+/**
+ * One signature, or one set of initials, as a picture. A signer who adopted more than one (a
+ * drawn signature on one page and a typed one on another) has an entry for each.
+ */
 export interface SignatureImage {
   readonly signerId: string;
   readonly image: Uint8Array;
+  /** The pages of the document this one was placed on, counted from 1, where the caller knows. */
+  readonly pages?: readonly number[];
 }
 
 /** The sealed result. */
@@ -91,8 +96,8 @@ interface WireSealRequest {
   seal?: SealMetadata;
   envelope?: SigningEnvelope;
   events?: readonly SigningEvent[];
-  signatureImages?: readonly { signerId: string; image: string }[];
-  initialsImages?: readonly { signerId: string; image: string }[];
+  signatureImages?: readonly WirePicture[];
+  initialsImages?: readonly WirePicture[];
 }
 
 interface WireSealResponse {
@@ -103,12 +108,18 @@ interface WireSealResponse {
   certificatePdf: string;
 }
 
-function encodePicture(picture: SignatureImage): { signerId: string; image: string } {
-  return { signerId: picture.signerId, image: toBase64(picture.image) };
+interface WirePicture {
+  signerId: string;
+  image: string;
+  pages?: readonly number[];
 }
 
-function decodePicture(picture: { signerId: string; image: string }): SignatureImage {
-  return { signerId: picture.signerId, image: fromBase64(picture.image) };
+function encodePicture(picture: SignatureImage): WirePicture {
+  return { ...picture, image: toBase64(picture.image) };
+}
+
+function decodePicture(picture: WirePicture): SignatureImage {
+  return { ...picture, image: fromBase64(picture.image) };
 }
 
 export function encodeSealRequest(request: SealRequest): string {

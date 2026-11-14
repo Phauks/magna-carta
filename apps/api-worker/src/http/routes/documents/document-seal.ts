@@ -179,18 +179,25 @@ export function registerDocumentSealRoutes(
       }));
       // A signature picture that is not base64 is left off the certificate; it is decoration on
       // a record whose proof is elsewhere, and never a reason to refuse the seal.
-      const pictures = (pick: (signer: (typeof signers)[number]) => string | undefined) =>
-        signers.flatMap((signer) => {
-          const encoded = pick(signer);
-          if (encoded === undefined) return [];
-          try {
-            return [{ signerId: signer.intent.signerId, image: decodeBase64(encoded) }];
-          } catch {
-            return [];
-          }
-        });
-      const signatureImages = pictures((signer) => signer.signatureImageBase64);
-      const initialsImages = pictures((signer) => signer.initialsImageBase64);
+      type Signer = (typeof signers)[number];
+      const pictures = (pick: (signer: Signer) => Signer["signatureImages"]) =>
+        signers.flatMap((signer) =>
+          (pick(signer) ?? []).flatMap((picture) => {
+            try {
+              return [
+                {
+                  signerId: signer.intent.signerId,
+                  image: decodeBase64(picture.imageBase64),
+                  ...(picture.pages !== undefined ? { pages: picture.pages } : {}),
+                },
+              ];
+            } catch {
+              return [];
+            }
+          }),
+        );
+      const signatureImages = pictures((signer) => signer.signatureImages);
+      const initialsImages = pictures((signer) => signer.initialsImages);
 
       // The certificate's reference is the identifier of the audit row this seal is logged under,
       // so the sheet a firm files and the firm's own audit trail name the same record.

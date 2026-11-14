@@ -201,6 +201,67 @@ const PAGE_MARGIN_BOTTOM = PAGE_EDGE + 28;
 const CARD_TITLE_HEIGHT = 27;
 
 /**
+ * How many lines of signature pictures one page of signer details has room for, two pictures to a
+ * line, beside two full records.
+ */
+const PICTURE_LINES_PER_PAGE = 3;
+
+/**
+ * The signers set out a page at a time: two to a page, and one alone where the two would carry
+ * more signature pictures than a page has room for under their records.
+ */
+function signerPages(
+  signers: readonly SignerCompletion[],
+  pictureCount: (signer: SignerCompletion) => number,
+): SignerCompletion[][] {
+  const pages: SignerCompletion[][] = [];
+  let lines = 0;
+  for (const signer of signers) {
+    const own = Math.ceil(pictureCount(signer) / 2);
+    const page = pages.at(-1);
+    if (
+      page === undefined ||
+      page.length >= SIGNERS_PER_PAGE ||
+      lines + own > PICTURE_LINES_PER_PAGE
+    ) {
+      pages.push([signer]);
+      lines = own;
+    } else {
+      page.push(signer);
+      lines += own;
+    }
+  }
+  return pages;
+}
+
+/** Page numbers as a reader says them: runs joined with a dash, as "Pages 1-3, 7". */
+function pageList(pages: readonly number[]): string {
+  const sorted = [...new Set(pages)].toSorted((a, b) => a - b);
+  const runs: string[] = [];
+  for (let start = 0; start < sorted.length;) {
+    let end = start;
+    while (sorted[end + 1] === (sorted[end] ?? 0) + 1) end += 1;
+    runs.push(end > start ? `${sorted[start]}-${sorted[end]}` : `${sorted[start]}`);
+    start = end + 1;
+  }
+  return `${sorted.length === 1 ? "Page" : "Pages"} ${runs.join(", ")}`;
+}
+
+/**
+ * What a signature picture is: "Signature" alone, its place among the signer's when they used
+ * more than one, and the pages it was placed on when the signing flow gave them.
+ */
+function pictureLabel(
+  what: string,
+  place: number,
+  count: number,
+  pages: readonly number[] | undefined,
+): string {
+  const name = count > 1 ? `${what} ${place + 1} of ${count}` : what;
+  return pages === undefined || pages.length === 0 ? name : `${name} (${pageList(pages)})`;
+}
+
+/**
  * How many signers' full records one page holds. A record is never run across two pages: a reader
  * checking one person's consent and signature should not have to turn the sheet. Two is what a
  * letter page takes with room for a browser string that wraps.
@@ -423,33 +484,36 @@ export function certificateSheet(
     { type: "cardEnd" },
   ];
 
-  // Where each signer's signature sits in the pictures passed beside the sheet: after the lockup.
-  const signatures = new Map(
-    (options.signatureImages ?? []).map((signature, index) => [
-      signature.signerId,
-      { image: index + 1, width: signatureWidth(signature.image) },
-    ]),
-  );
-  // Initials follow every signature in that list. They are a few letters, so half the width.
-  const initialsOffset = 1 + (options.signatureImages ?? []).length;
-  const initials = new Map(
-    (options.initialsImages ?? []).map((picture, index) => [
-      picture.signerId,
-      {
-        image: initialsOffset + index,
-        width: signatureWidth(picture.image, SIGNATURE_WIDTH / 2),
-      },
-    ]),
-  );
-  const detailPages = Math.ceil(signers.length / SIGNERS_PER_PAGE);
-  for (const [index, signer] of signers.entries()) {
-    if (index % SIGNERS_PER_PAGE === 0) {
+  // Where each signature sits in the pictures passed beside the sheet: after the lockup, in the
+  // order given. Initials follow every signature; they are a few letters, so half the width.
+  const signatureImages = options.signatureImages ?? [];
+  const pictures = [
+    ...signatureImages.map((picture, index) => ({
+      picture,
+      what: "Signature",
+      image: 1 + index,
+      width: signatureWidth(picture.image),
+    })),
+    ...(options.initialsImages ?? []).map((picture, index) => ({
+      picture,
+      what: "Initials",
+      image: 1 + signatureImages.length + index,
+      width: signatureWidth(picture.image, SIGNATURE_WIDTH / 2),
+    })),
+  ];
+  const picturesOf = (signer: SignerCompletion) =>
+    pictures.filter((entry) => entry.picture.signerId === signer.intent.signerId);
+  const detailPagesOf = signerPages(signers, (signer) => picturesOf(signer).length);
+  for (const [index, signer] of detailPagesOf.flatMap((page, number) =>
+    page.map((signer, place) => [place === 0 ? number : -1, signer] as const),
+  )) {
+    if (index >= 0) {
       blocks.push(
         { type: "pageBreak" },
         {
           type: "heading",
           level: 1,
-          text: pageHeading("Signer Details", index / SIGNERS_PER_PAGE, detailPages),
+          text: pageHeading("Signer Details", index, detailPagesOf.length),
         },
       );
     }
@@ -491,18 +555,17 @@ export function certificateSheet(
       { type: "fields", fields, twoUp: true },
     );
     if (observed.length > 0) blocks.push({ type: "fields", fields: observed });
-    const signature = signatures.get(signer.intent.signerId);
-    const initialed = initials.get(signer.intent.signerId);
-    if (signature !== undefined) {
-      blocks.push({ type: "image", label: "Signature", ...signature });
-    }
-    if (initialed !== undefined) {
-      // Beside the signature where there is one, and in its place where there is not.
+    // Two pictures to a line: every signature the signer used, then every set of initials, each
+    // under a label that says which it is and the pages it was placed on.
+    const own = picturesOf(signer);
+    for (const [place, entry] of own.entries()) {
+      const alike = own.filter((other) => other.what === entry.what);
       blocks.push({
         type: "image",
-        label: "Initials",
-        ...initialed,
-        ...(signature !== undefined ? { beside: true as const } : {}),
+        label: pictureLabel(entry.what, alike.indexOf(entry), alike.length, entry.picture.pages),
+        image: entry.image,
+        width: entry.width,
+        ...(place % 2 === 1 ? { beside: true as const } : {}),
       });
     }
     blocks.push({ type: "cardEnd" });
