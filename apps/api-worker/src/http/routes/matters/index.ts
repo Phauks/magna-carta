@@ -1,5 +1,9 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerExhibitSetFolderRoutes } from "./exhibit-set-folder.ts";
+import { registerExhibitSetIssueRoutes } from "./exhibit-set-issue.ts";
+import { registerExhibitSetRoutes } from "./exhibit-sets.ts";
+import { registerExhibitRoutes } from "./exhibits.ts";
 import { registerIntakeRoutes } from "./intake.ts";
 import { registerLocationsRoutes } from "./locations.ts";
 import { registerMatterAssetRoutes } from "./matter-assets.ts";
@@ -9,7 +13,7 @@ import { registerMatterSearchRoutes } from "./matter-search.ts";
 import { registerMattersRoutes } from "./matters.ts";
 import { registerSearchAcrossMattersRoutes } from "./search-across-matters.ts";
 
-// The matter shell and everything that hangs on its identity: records, search, plans, intake, the asset register, and the firm's offices.
+// The matter shell and everything that hangs on its identity: records, search, plans, intake, the asset register, exhibits, and the firm's offices.
 //
 // One sub-app per domain, built by the one constructor and mounted at the root by the manifest
 // (src/http/routes/manifest.ts). Every route below registers exactly as it did on the root app — through
@@ -37,5 +41,12 @@ export function mountMatters(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   // pair, and the boundary between them (property in the client's ownership, against objects in the
   // firm's possession) is the first thing a reader of either one needs.
   registerMatterAssetRoutes(domain, chokepoint);
+  // Exhibits: a matter's documents put in order for a filing, with labels that follow the order
+  // while the set is a draft and freeze when a member records that it went out.
+  registerExhibitRoutes(domain, chokepoint);
+  // The literal from-folder path registers ahead of the set family's {setId} pattern.
+  registerExhibitSetFolderRoutes(domain, chokepoint);
+  registerExhibitSetRoutes(domain, chokepoint);
+  registerExhibitSetIssueRoutes(domain, chokepoint);
   app.route("/", domain);
 }

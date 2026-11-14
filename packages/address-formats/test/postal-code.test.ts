@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { POSTAL_CODE_FORMATS } from "../src/data-postal.generated.ts";
 import {
   countriesWithPostalCodeFormat,
+  postalCodeAsTypedFor,
   postalCodeFormatFor,
   postalCodeNoteFor,
   validatePostalCode,
@@ -114,5 +115,26 @@ describe("postalCodeNoteFor", () => {
     const note = postalCodeNoteFor("US", "9501");
     expect(note).toContain("95014");
     expect(note).not.toContain("\\d");
+  });
+});
+
+describe("postalCodeAsTypedFor", () => {
+  it("writes a United States ZIP+4 typed as digits with its hyphen, as the sixth digit arrives", () => {
+    expect(postalCodeAsTypedFor("US", "12345")).toBe("12345");
+    expect(postalCodeAsTypedFor("US", "123456")).toBe("12345-6");
+    expect(postalCodeAsTypedFor("us", "123456789")).toBe("12345-6789");
+  });
+
+  it("leaves a code that already has its break, and a ZIP+4 that passes validation", () => {
+    expect(postalCodeAsTypedFor("US", "12345-6789")).toBe("12345-6789");
+    expect(postalCodeAsTypedFor("US", "12345 6789")).toBe("12345 6789");
+    expect(validatePostalCode("US", postalCodeAsTypedFor("US", "123456789"))).toEqual({
+      kind: "ok",
+    });
+  });
+
+  it("changes nothing for another country, or none", () => {
+    expect(postalCodeAsTypedFor("DE", "123456")).toBe("123456");
+    expect(postalCodeAsTypedFor(undefined, "123456")).toBe("123456");
   });
 });

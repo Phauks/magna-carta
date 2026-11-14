@@ -188,13 +188,25 @@ empty mark means nothing has been measured yet, which is how every meeting looks
 seconds. Your own preview carries the mark too, and that one is about what you are SENDING: when
 everybody tells you that you are breaking up, this is where you find out whether they are right.
 
-**Connection** in the control bar opens the numbers behind the marks: the size of the picture you
-are sending, how much is going out, how much of it is going missing, how long the round trip to the
-service takes, and the same answer for each other person in the room. Under them is a short list of
-what has happened on your connection — when you joined, what was asked for, anything the room
-refused, and the error reference to quote if you report it. It also notes what your screen did with
-the pictures: a tile starting a new picture, your own camera's picture being replaced, and the view
-changing (speaker view or gallery, a new speaker, a share starting, the mirror turned on or off).
+**Connection** in the control bar opens the numbers behind the marks:
+
+- **Quality**, with a line saying what it means. Good is under 2% of packets lost and a round trip
+  under 200 ms. Fair (the picture may soften) is 2 to 8% lost or 200 to 400 ms. Poor (expect
+  freezes and broken sound) is more than that.
+- **Server**: the Cloudflare site your meeting runs through, by its code (named for the nearest
+  airport, such as SJC), whether your media goes straight to it or through a relay, and its
+  address.
+- **Picture**: the size of the picture you are sending, in pixels.
+- **Camera Size**: your camera is sent at full, half and quarter size, and each person receives
+  the size their screen shows you at. This row names the size whose picture is shown above, with
+  its own rate.
+- **Upload** and **Download**: everything your connection is sending and receiving, all streams
+  together.
+- **Packets Lost** and **Round Trip**: how much of what you send goes missing, and how long a
+  message takes to reach the server and come back.
+
+When other people are in the room, the same mark for each of them is listed beside your own
+numbers.
 
 **If the picture flashes,** press **Copy Diagnostics** straight after it happens and send what it
 copies to whoever is helping you. The times in it line up with the flash, which says whether the

@@ -31,6 +31,12 @@
     background-color: var(--mc-accent-subtle);
     color: var(--mc-accent-subtle-foreground);
   }
+  /* Refused — the last file offered was not one the surface takes. The edge says so; no text does. */
+  .mc-dropzone[data-invalid="true"] {
+    border-style: solid;
+    border-color: var(--mc-status-danger);
+    background-color: var(--mc-status-danger-subtle);
+  }
   /* Disabled — muted, and drops are ignored in the component. */
   .mc-dropzone[data-disabled="true"] {
     background-color: var(--mc-action-disabled);
@@ -40,6 +46,11 @@
   .mc-dropzone-icon {
     inline-size: var(--mc-space-32);
     block-size: var(--mc-space-32);
+  }
+  .mc-dropzone-detail {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
   }
   .mc-dropzone-prompt {
     margin-block: var(--mc-space-0);
