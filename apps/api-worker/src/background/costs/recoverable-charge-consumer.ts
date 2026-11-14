@@ -23,8 +23,10 @@ import {
   type NaturalLanguageFeedDeletionPayload,
 } from "@magna-carta/search/natural-language-topics";
 import { RECORD_INDEX_REBUILD_REQUESTED_TOPIC } from "@magna-carta/search/record-index-topics";
+import { TRANSFER_PASS_REQUESTED_TOPIC } from "@magna-carta/record-transfer/transfer-requests";
 import { consumeRecheckRequest } from "../conflicts/recheck-request-consumer.ts";
 import { consumeRecheckRun } from "../conflicts/recheck-run-consumer.ts";
+import { consumeTransferPassRequest } from "../record-transfer/pass-consumer.ts";
 import { CAPTURE_ROUTE_TOPIC } from "../../emails/capture-address-service.ts";
 import { FILE_VERSION_COMMITTED_TOPIC } from "@magna-carta/file-manager/topics";
 import {
@@ -139,6 +141,9 @@ const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   // A member asked, on the Search and Indexing page, for the places of the record index that have
   // fallen behind their records to be rebuilt. See ../../search/record-index-rebuild.ts.
   [RECORD_INDEX_REBUILD_REQUESTED_TOPIC]: handleRecordIndexRebuildRequested,
+  // A member asked for a pass over a record transfer's source file. The pass reads the file from
+  // the firm's bucket and loads its rows. See ../record-transfer/pass-consumer.ts.
+  [TRANSFER_PASS_REQUESTED_TOPIC]: consumeTransferPassRequest,
 };
 
 // The message carries nothing to read: the rebuild counts what is behind when it runs. A failure

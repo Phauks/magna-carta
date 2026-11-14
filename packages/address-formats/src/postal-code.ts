@@ -87,3 +87,18 @@ export function postalCodeNoteFor(country: string | undefined, value: string): s
   if (shown.length === 0) return "This does not look like a postal code for the chosen country.";
   return `This does not look like a postal code for the chosen country — expected something like ${shown.join(" or ")}.`;
 }
+
+/**
+ * A postal code as it is being typed, written the way the country's postal service writes it.
+ *
+ * Today this is the United States alone: nine digits typed without a break are ZIP+4, and the
+ * postal service writes them `12345-6789`, so the hyphen goes in as the sixth digit arrives. Without
+ * it, a ZIP+4 typed as digits reads as malformed against the country's published pattern and turns
+ * the box red for a code that is exactly right. Everything else is returned as typed: a code that
+ * already carries a hyphen or a space, a five-digit ZIP Code, and every other country.
+ */
+export function postalCodeAsTypedFor(country: string | undefined, value: string): string {
+  if ((country ?? "").toUpperCase() !== "US") return value;
+  const digits = /^(\d{5})(\d{1,4})$/u.exec(value);
+  return digits === null ? value : `${digits[1]}-${digits[2]}`;
+}

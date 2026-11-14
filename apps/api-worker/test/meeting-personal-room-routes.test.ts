@@ -52,7 +52,13 @@ async function call(
 }
 
 interface RoomBody {
-  room: { id: string; linkCode: string; lobby: string; openMeetingId: string | null } | null;
+  room: {
+    id: string;
+    linkCode: string;
+    addressName: string;
+    lobby: string;
+    openMeetingId: string | null;
+  } | null;
 }
 
 beforeAll(async () => {
@@ -109,7 +115,8 @@ describe("a member's personal room", () => {
     const room = (
       await (await call("GET", "/api/v1/meetings/personal-room", ownerCookie)).json<RoomBody>()
     ).room;
-    const linkPath = `/api/v1/meetings/rooms/${room?.linkCode ?? ""}`;
+    expect(room?.addressName).toMatch(/^[a-z0-9-]+$/);
+    const linkPath = `/api/v1/meetings/rooms/${room?.addressName ?? ""}`;
 
     const closed = await call("GET", linkPath, billingCookie);
     expect(closed.status).toBe(200);

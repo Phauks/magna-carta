@@ -46,7 +46,12 @@
     type DirectoryEdgeType,
     type DirectoryEntityKind,
   } from "./directory-api.ts";
-  import { EDGE_TYPES, edgeTypeLabel, type EdgeTypeEntry } from "./directory-vocabulary.ts";
+  import {
+    EDGE_TYPES,
+    edgeTypeLabel,
+    groupedEdgeTypes,
+    type EdgeTypeEntry,
+  } from "./directory-vocabulary.ts";
   import { directoryPickerSearch } from "./directory-picker-source.ts";
   import {
     edgeDraftRefusal,
@@ -280,8 +285,14 @@
     if (needle === "") return offered;
     return offered.filter((entry) => entry.label.toLowerCase().includes(needle));
   });
+  /** The matching types under their headings, family first and apart from assigned roles. */
+  const typeGroups = $derived(groupedEdgeTypes(matchingTypes));
+  // The combobox's own item list follows the order the groups draw in, so arrow keys walk the
+  // choices in the order the reader sees them.
   const typeItems = $derived(
-    matchingTypes.map((entry) => ({ value: entry.edgeType, label: entry.label })),
+    typeGroups.flatMap((section) =>
+      section.entries.map((entry) => ({ value: entry.edgeType, label: entry.label })),
+    ),
   );
 
   const refusal = $derived(edgeDraftRefusal(kind, { picked, entry: chosenEntry }));
@@ -442,8 +453,13 @@
                   oninput={(event) => (typeQuery = event.currentTarget.value)}
                 />
                 <Combobox.Content>
-                  {#each matchingTypes as entry (entry.edgeType)}
-                    <Combobox.Item value={entry.edgeType} label={entry.label} />
+                  {#each typeGroups as section (section.group)}
+                    <Combobox.Group>
+                      <Combobox.GroupHeading>{section.heading}</Combobox.GroupHeading>
+                      {#each section.entries as entry (entry.edgeType)}
+                        <Combobox.Item value={entry.edgeType} label={entry.label} />
+                      {/each}
+                    </Combobox.Group>
                   {/each}
                 </Combobox.Content>
               </Combobox.Root>

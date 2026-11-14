@@ -101,6 +101,14 @@ meeting and would rather not go looking for the event it belongs to. It has thre
 Each row names the event and says whether it belongs to a firm event or to a matter; where it is a
 matter, the row names the matter and links back to it.
 
+## A meeting's address
+
+Every meeting has its own address ending in nine digits, such as magnacarta.esq/meeting/482-917-305.
+That is what the address bar shows once you are in the room, and what **Copy Link** in the room
+copies. The nine digits are easy to read out on a call; anybody at the firm who may join the meeting
+can type the address with or without the dashes. Links in the older form, ending in the meeting's
+long reference, still work and show the nine-digit address once the room opens.
+
 ## Your own room
 
 If you can host meetings, the Meetings page shows a **My Room** card. Your room is a link that stays
@@ -108,7 +116,9 @@ the same, so a colleague can keep it and use it whenever you are in, without any
 meeting on the calendar first.
 
 - **Set Up My Room** makes your room the first time. Nothing is made until you press it.
-- **Copy Link** copies your room's address to send to a colleague.
+- **Copy Link** copies your room's address to send to a colleague. The address is your first name,
+  such as magnacarta.esq/room/trevor. Where somebody at the firm already has that name, it is your
+  first and last names, and then a number.
 - **Open My Room** starts a meeting in your room and takes you into it. The meeting is put on your
   calendar as an event in your name, starting now. If your room is already open, the button reads
   **Go to My Room** and takes you back in.
@@ -118,8 +128,6 @@ The room's settings are in the **...** menu beside the card's title:
 - **Hold arrivals in a lobby** is on to begin with, so you let each person in yourself. Turn it off
   to let colleagues straight in.
 - **Open as an audio call** starts your room's meetings without video.
-- **Get a New Link** gives your room a new address. The old one stops working at once, so anybody
-  you sent it to will need the new one.
 
 A colleague who follows your link before you have opened the room is told you are not in yet. The
 page checks again every few seconds, and **Join** appears as soon as you open it. Joining puts the
@@ -127,6 +135,8 @@ meeting on their calendar too.
 
 When everybody has left, the meeting ends by itself the next time you open your room, and its
 calendar entry is closed at the time the last person left.
+
+Your room's address does not change, even if your name does.
 
 ### Everybody's rooms
 
@@ -178,13 +188,25 @@ empty mark means nothing has been measured yet, which is how every meeting looks
 seconds. Your own preview carries the mark too, and that one is about what you are SENDING: when
 everybody tells you that you are breaking up, this is where you find out whether they are right.
 
-**Connection** in the control bar opens the numbers behind the marks: the size of the picture you
-are sending, how much is going out, how much of it is going missing, how long the round trip to the
-service takes, and the same answer for each other person in the room. Under them is a short list of
-what has happened on your connection — when you joined, what was asked for, anything the room
-refused, and the error reference to quote if you report it. It also notes what your screen did with
-the pictures: a tile starting a new picture, your own camera's picture being replaced, and the view
-changing (speaker view or gallery, a new speaker, a share starting, the mirror turned on or off).
+**Connection** in the control bar opens the numbers behind the marks:
+
+- **Quality**, with a line saying what it means. Good is under 2% of packets lost and a round trip
+  under 200 ms. Fair (the picture may soften) is 2 to 8% lost or 200 to 400 ms. Poor (expect
+  freezes and broken sound) is more than that.
+- **Server**: the Cloudflare site your meeting runs through, by its code (named for the nearest
+  airport, such as SJC), whether your media goes straight to it or through a relay, and its
+  address.
+- **Picture**: the size of the picture you are sending, in pixels.
+- **Camera Size**: your camera is sent at full, half and quarter size, and each person receives
+  the size their screen shows you at. This row names the size whose picture is shown above, with
+  its own rate.
+- **Upload** and **Download**: everything your connection is sending and receiving, all streams
+  together.
+- **Packets Lost** and **Round Trip**: how much of what you send goes missing, and how long a
+  message takes to reach the server and come back.
+
+When other people are in the room, the same mark for each of them is listed beside your own
+numbers.
 
 **If the picture flashes,** press **Copy Diagnostics** straight after it happens and send what it
 copies to whoever is helping you. The times in it line up with the flash, which says whether the
