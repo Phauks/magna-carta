@@ -889,6 +889,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // report-manual treatment on the same reasoning. It is not merely a draft of the movement: a
   // request that was refused or withdrawn has no movement to inherit, and who the firm was ASKED to
   // pay is a record of its own on an append-only row.
+  // A printed check names its payee as the movement it pays named them, copied at numbering so the
+  // check register reads alone after the fact: the same free-text residue on the same retention
+  // basis, on a row that is append-only by trigger.
+  {
+    table: "trust_check",
+    subjectKey: "payee",
+    action: "report-manual",
+    note: "the payee printed on a trust check, copied from the disbursement it paid, held as free text with no structured subject",
+  },
   {
     table: "trust_disbursement_request",
     subjectKey: "payee",
@@ -1774,6 +1783,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // in the whole group is the contact an attempt used, registered above.
   "trust_unclaimed_funds_review",
   "trust_unclaimed_funds_review_closure",
+  // Check printing's other two rows. An event is a kind, a reason the firm wrote about a piece of
+  // paper (jammed, lost in the mail) and the member who recorded it; a stock is where each field
+  // prints on the firm's own check paper and the object key of a scan of a BLANK check. Neither names
+  // a client, a matter or a payee.
+  "trust_check_event",
+  "trust_check_stock",
   // Billing. The two tables with a subject reference (invoice, invoice_line) are registered in
   // PII_TABLES above; these five carry none of their own.
   // A claim says which work-in-progress row an invoice took. It is two handles, an amount, and two

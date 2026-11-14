@@ -47331,6 +47331,572 @@
           "balanced"
         ]
       },
+      "TrustChecksResponse": {
+        "type": "object",
+        "properties": {
+          "nextCheckNumber": {
+            "type": "integer"
+          },
+          "stock": {
+            "$ref": "#/components/schemas/TrustCheckStock"
+          },
+          "toPrint": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustCheckToPrint"
+            }
+          },
+          "register": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustCheckRegisterRow"
+            }
+          }
+        },
+        "required": [
+          "nextCheckNumber",
+          "stock",
+          "toPrint",
+          "register"
+        ]
+      },
+      "TrustCheckStock": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "trustCheckStockId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pageLayout": {
+            "type": "string",
+            "enum": [
+              "check_top",
+              "check_middle",
+              "check_bottom",
+              "three_per_page"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustCheckField"
+            }
+          },
+          "shiftXMils": {
+            "type": "integer"
+          },
+          "shiftYMils": {
+            "type": "integer"
+          },
+          "startingCheckNumber": {
+            "type": "integer"
+          },
+          "hasScan": {
+            "type": "boolean"
+          },
+          "savedBy": {
+            "type": "string"
+          },
+          "savedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustCheckStockId",
+          "version",
+          "name",
+          "pageLayout",
+          "fields",
+          "shiftXMils",
+          "shiftYMils",
+          "startingCheckNumber",
+          "hasScan",
+          "savedBy",
+          "savedAt"
+        ]
+      },
+      "TrustCheckField": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "date",
+              "payee",
+              "amount",
+              "amount_words",
+              "memo",
+              "matter",
+              "check_number"
+            ]
+          },
+          "xMils": {
+            "type": "integer"
+          },
+          "yMils": {
+            "type": "integer"
+          },
+          "widthMils": {
+            "type": "integer"
+          },
+          "sizePoints": {
+            "type": "number"
+          },
+          "align": {
+            "type": "string",
+            "enum": [
+              "start",
+              "end"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "xMils",
+          "yMils",
+          "widthMils",
+          "sizePoints",
+          "align"
+        ]
+      },
+      "TrustCheckToPrint": {
+        "type": "object",
+        "properties": {
+          "trustMovementId": {
+            "type": "string"
+          },
+          "payee": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "memo": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "authorizedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "earlierCheckNumbers": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "trustMovementId",
+          "payee",
+          "amountMinor",
+          "currency",
+          "memo",
+          "effectiveDate",
+          "authorizedBy",
+          "matterNumber",
+          "matterTitle",
+          "earlierCheckNumbers"
+        ]
+      },
+      "TrustCheckRegisterRow": {
+        "type": "object",
+        "properties": {
+          "trustCheckId": {
+            "type": "string"
+          },
+          "checkNumber": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "numbered",
+              "printed",
+              "spoiled",
+              "voided"
+            ]
+          },
+          "trustMovementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payee": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effectiveDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "numberedBy": {
+            "type": "string"
+          },
+          "numberedAt": {
+            "type": "string"
+          },
+          "settledReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastEventAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "trustCheckId",
+          "checkNumber",
+          "status",
+          "trustMovementId",
+          "payee",
+          "amountMinor",
+          "currency",
+          "effectiveDate",
+          "matterNumber",
+          "matterTitle",
+          "memo",
+          "numberedBy",
+          "numberedAt",
+          "settledReason",
+          "lastEventAt"
+        ]
+      },
+      "PrintTrustChecksResponse": {
+        "type": "object",
+        "properties": {
+          "stock": {
+            "$ref": "#/components/schemas/TrustCheckStock"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrintedTrustCheck"
+            }
+          }
+        },
+        "required": [
+          "stock",
+          "checks"
+        ]
+      },
+      "PrintedTrustCheck": {
+        "type": "object",
+        "properties": {
+          "trustCheckId": {
+            "type": "string"
+          },
+          "checkNumber": {
+            "type": "integer"
+          },
+          "trustMovementId": {
+            "type": "string"
+          },
+          "payee": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "memo": {
+            "type": "string"
+          },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "trustCheckId",
+          "checkNumber",
+          "trustMovementId",
+          "payee",
+          "amountMinor",
+          "currency",
+          "effectiveDate",
+          "memo",
+          "matterNumber",
+          "matterTitle"
+        ]
+      },
+      "PrintTrustChecksRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "trustMovementIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^trustMovement_[A-Za-z0-9_-]{21}$"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "trustMovementIds"
+        ]
+      },
+      "TrustCheckAcknowledgement": {
+        "type": "object",
+        "properties": {
+          "recorded": {
+            "type": "integer"
+          },
+          "checkNumber": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "recorded",
+          "checkNumber"
+        ]
+      },
+      "RecordTrustCheckResultsRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "trustCheckId": {
+                  "type": "string",
+                  "pattern": "^trustCheck_[A-Za-z0-9_-]{21}$"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "printed",
+                    "spoiled"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "trustCheckId",
+                "outcome"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "results"
+        ]
+      },
+      "VoidTrustCheckRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "reason"
+        ]
+      },
+      "SaveTrustCheckStockResponse": {
+        "type": "object",
+        "properties": {
+          "stock": {
+            "$ref": "#/components/schemas/TrustCheckStock"
+          },
+          "nextCheckNumber": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stock",
+          "nextCheckNumber"
+        ]
+      },
+      "SaveTrustCheckStockRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "pageLayout": {
+            "type": "string",
+            "enum": [
+              "check_top",
+              "check_middle",
+              "check_bottom",
+              "three_per_page"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustCheckField"
+            },
+            "minItems": 1,
+            "maxItems": 12
+          },
+          "shiftXMils": {
+            "type": "integer"
+          },
+          "shiftYMils": {
+            "type": "integer"
+          },
+          "startingCheckNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "scan": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "keep"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "remove"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "imageBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "imageBase64"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "name",
+          "pageLayout",
+          "fields",
+          "shiftXMils",
+          "shiftYMils",
+          "startingCheckNumber",
+          "scan"
+        ]
+      },
       "TrustOpenFirmFundsAck": {
         "type": "object",
         "properties": {
@@ -143164,6 +143730,825 @@
           },
           "422": {
             "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/checks": {
+      "get": {
+        "description": "The account's checks: payments waiting to be printed, the register of every check number used with its status, the current check stock, and the next number. The register is the same read the reconciliation report's check register uses.",
+        "operationId": "trust.checks",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.checks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The checks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustChecksResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account or check is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/checks/print": {
+      "post": {
+        "description": "Numbers the chosen payments from the account's next check number, in the order given, and returns what each check says. The browser composes the PDF. Printing moves no money: the payment was approved when it was recorded.",
+        "operationId": "trust.printChecks",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.printChecks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrintTrustChecksRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The numbered checks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintTrustChecksResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account or check is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The check was already answered, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/checks/results": {
+      "post": {
+        "description": "Says which checks of a print came out right and which were spoiled. A spoiled check keeps its number in the register and its payment goes back to the print queue.",
+        "operationId": "trust.recordCheckResults",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.recordCheckResults",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordTrustCheckResultsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustCheckAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account or check is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The check was already answered, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/checks/void-next-number": {
+      "post": {
+        "description": "Voids the next unused check number with no payment, for a sheet torn or lost before printing, so the register matches the paper again.",
+        "operationId": "trust.voidNextCheckNumber",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.voidNextCheckNumber",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidTrustCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Voided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustCheckAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account or check is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The check was already answered, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/checks/{checkId}/void": {
+      "post": {
+        "description": "Voids a check with a reason. The number stays in the register and the payment returns to the print queue for a replacement. Voiding never reverses the payment; cancelling a payment is a trust movement under the authorization policy.",
+        "operationId": "trust.voidCheck",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.voidCheck",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "checkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidTrustCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Voided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustCheckAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account or check is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The check was already answered, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/check-stock": {
+      "post": {
+        "description": "Saves a new version of the account's check stock: the page layout, where each field prints, a whole-page shift, the first number of the box in the printer, and optionally a scan of a blank check to place the fields over. No field may reach the MICR band.",
+        "operationId": "trust.saveCheckStock",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.saveCheckStock",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTrustCheckStockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveTrustCheckStockResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account or check is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The check was already answered, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/check-stock/scan": {
+      "get": {
+        "description": "The scan of a blank check behind the account's current stock. Rides the session like every other read and is never publicly addressable.",
+        "operationId": "trust.checkStockScan",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.checkStockScan",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account or check is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {

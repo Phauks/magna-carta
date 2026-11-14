@@ -1,4 +1,5 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import { liveTrustCheckNumberExpression } from "./check-statements.ts";
 import type {
   LedgerAccountId,
   LedgerEntryId,
@@ -1024,7 +1025,7 @@ export function selectTrustReconciliationMatchesStatement(
          l.id AS line_id, l.statement_id AS line_statement_id, l.posted_on AS line_posted_on, l.direction AS line_direction, l.amount_minor AS line_amount_minor, l.description AS line_description, l.reference AS line_reference, l.counterparty_name AS line_counterparty_name, l.source_row_number AS line_source_row_number,
          e.effective_date AS effective_date, e.description AS description,
          (SELECT COALESCE(SUM(CASE WHEN bl.direction = 'debit' THEN bl.amount_minor ELSE -bl.amount_minor END), 0) FROM ${LEDGER_LINE_TABLE} bl WHERE bl.entry_id = e.id AND bl.account_id = ?2) AS bank_delta_minor,
-         m.id AS movement_id, m.kind AS movement_kind, m.reference AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id
+         m.id AS movement_id, m.kind AS movement_kind, COALESCE(NULLIF(TRIM(m.reference), ''), ${liveTrustCheckNumberExpression("m")}) AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id
        FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x
        LEFT JOIN ${TRUST_RECONCILIATION_MATCH_TABLE} w ON w.unmatches_match_id = x.id
        JOIN ${TRUST_BANK_STATEMENT_LINE_TABLE} l ON l.id = x.statement_line_id
@@ -1107,6 +1108,10 @@ export function selectTrustClientLedgerTotalAsOfStatement(
 // LEFT-joined for display; an item with neither would be an entry that reached the trust bank
 // without any trust record beside it, which the fitness suite treats as corruption rather than as a
 // row to hide.
+// An item's reference is the movement's own (a check number typed by hand, a wire confirmation), or
+// when it has none, the number of the live check printed for it: trust_movement is append-only, so a
+// check printed after the payment was recorded cannot write its number back, and the matcher's
+// reference signal reads it from here instead.
 export function selectOutstandingTrustBankItemsStatement(
   database: SqlDatabase,
   bankLedgerAccountId: LedgerAccountId,
@@ -1118,7 +1123,7 @@ export function selectOutstandingTrustBankItemsStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT e.id AS entry_id, e.effective_date AS effective_date, e.description AS description, SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END) AS bank_delta_minor, m.id AS movement_id, m.kind AS movement_kind, m.reference AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id FROM ${LEDGER_ENTRY_TABLE} e JOIN ${LEDGER_LINE_TABLE} l ON l.entry_id = e.id LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id WHERE l.account_id = ?1 AND e.effective_date <= ?2 AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.entry_id = e.id AND ${bindingTrustReconciliationMatchPredicate("x")}) GROUP BY e.id, e.effective_date, e.description, m.id, m.kind, m.reference, m.counterparty_name, t.id ORDER BY e.effective_date, e.id LIMIT ?3`,
+      `SELECT e.id AS entry_id, e.effective_date AS effective_date, e.description AS description, SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END) AS bank_delta_minor, m.id AS movement_id, m.kind AS movement_kind, COALESCE(NULLIF(TRIM(m.reference), ''), ${liveTrustCheckNumberExpression("m")}) AS reference, m.counterparty_name AS counterparty_name, t.id AS transfer_id FROM ${LEDGER_ENTRY_TABLE} e JOIN ${LEDGER_LINE_TABLE} l ON l.entry_id = e.id LEFT JOIN ${TRUST_MOVEMENT_TABLE} m ON m.entry_id = e.id LEFT JOIN ${TRUST_TRANSFER_TABLE} t ON t.trust_entry_id = e.id WHERE l.account_id = ?1 AND e.effective_date <= ?2 AND NOT EXISTS (SELECT 1 FROM ${TRUST_RECONCILIATION_MATCH_TABLE} x WHERE x.entry_id = e.id AND ${bindingTrustReconciliationMatchPredicate("x")}) GROUP BY e.id, e.effective_date, e.description, m.id, m.kind, m.reference, m.counterparty_name, t.id ORDER BY e.effective_date, e.id LIMIT ?3`,
     )
     .bind(bankLedgerAccountId, asOfDate, limit);
 }

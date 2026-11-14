@@ -126,6 +126,24 @@ export type ComposeBlock =
    */
   | { readonly type: "cardStart"; readonly title?: string }
   | { readonly type: "cardEnd" }
+  /**
+   * One line of text at a fixed place on the current page, outside the flow: a field printed onto
+   * preprinted paper such as a check. `x` and `y` (the top of the line's box) are points from the
+   * page's top-left corner; the baseline sits `size` below `y`. `fill` repeats a character after the
+   * text to the end of the box; `outline` draws the box, for a test page.
+   */
+  | {
+      readonly type: "placed";
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly size: number;
+      readonly bold?: boolean;
+      readonly alignment?: ComposeAlignment;
+      readonly text: string;
+      readonly fill?: string;
+      readonly outline?: boolean;
+    }
   | { readonly type: "rule" }
   | { readonly type: "space"; readonly height: number }
   | { readonly type: "pageBreak" };

@@ -26,7 +26,11 @@
     "./reconciliation": "./src/reconciliation.ts",
     "./three-way-proof": "./src/three-way-proof.ts",
     "./matching": "./src/matching.ts",
-    "./fitness": "./src/fitness.ts"
+    "./fitness": "./src/fitness.ts",
+    "./check-layout": "./src/check-layout.ts",
+    "./check-statements": "./src/check-statements.ts",
+    "./checks": "./src/checks.ts",
+    "./check-contract": "./src/check-contract.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -37,7 +41,8 @@
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/matters": "workspace:*",
-    "@magna-carta/money": "workspace:*"
+    "@magna-carta/money": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/access-control": "workspace:*",

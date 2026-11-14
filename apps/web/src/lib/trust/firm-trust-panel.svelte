@@ -225,6 +225,19 @@
         <FirmTrustSectionReconciliations {account} {trust} {members} {money} />
       </DetailsPanel.Section>
 
+      <!-- CHECKS — the account's own screen for printing the checks its payments wait on. -->
+      <DetailsPanel.Section label="Checks">
+        <div class="flex flex-wrap gap-8">
+          <Button
+            variant="secondary"
+            size="sm"
+            href={`/trust/checks?account=${encodeURIComponent(account.id)}`}
+          >
+            Open Checks
+          </Button>
+        </div>
+      </DetailsPanel.Section>
+
       <!-- STATEMENTS — most recent period first, as the institution reported it, with the acts
            that record one and the act that reconciles it. -->
       <DetailsPanel.Section label="Statements">

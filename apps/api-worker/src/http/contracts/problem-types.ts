@@ -386,6 +386,17 @@ export const PROBLEM_TYPES = {
   // one, never an edit. DISTINCT from `conflict` in that nothing is retryable: the caller opens a
   // new reconciliation, or reads the one that was frozen.
   "trust-reconciliation-closed": "trust-reconciliation-closed",
+  // Something the check-printing rules refuse (HTTP 422): a stock layout with a field off the check
+  // or in the MICR band, a print batch naming a payment that is not waiting to print, or a void with
+  // no reason. DISTINCT from `validation`: the request is well-formed, the record it describes is not
+  // one the rules permit.
+  "trust-check-refused": "trust-check-refused",
+  // A check that has already been answered printed, spoiled or voided (HTTP 409). A check's events
+  // only move forward, so a second answer is refused rather than silently ignored.
+  "trust-check-already-answered": "trust-check-already-answered",
+  // Two print batches read the same next check number and the retry lost too (HTTP 409). Retryable:
+  // the caller prints again and gets the following numbers.
+  "trust-check-number-taken": "trust-check-number-taken",
   // Something the reconciliation has already accounted for (HTTP 409): a statement line or a ledger
   // entry that is already matched in this reconciliation, a match that was already withdrawn, or a
   // bank statement that has already been superseded by a correction. One line clears one entry, so

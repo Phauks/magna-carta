@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::model::{
     Alignment, Block, Column, ComposedDocument, Field, Figure, ImageBlock, Letterhead, PageSetup,
-    Paragraph, Rgb, RowStyle, RunningLine, Span, Table, Timestamp, Typeface,
+    Paragraph, Placed, Rgb, RowStyle, RunningLine, Span, Table, Timestamp, Typeface,
 };
 use crate::{compose, ComposeError, ComposeOutput, FontFamily};
 
@@ -242,6 +242,21 @@ enum WireBlock {
         title: Option<String>,
     },
     CardEnd,
+    /// Text at a fixed place on the current page, outside the flow.
+    Placed {
+        x: f32,
+        y: f32,
+        width: f32,
+        size: f32,
+        #[serde(default)]
+        bold: bool,
+        #[serde(default)]
+        alignment: WireAlignment,
+        text: String,
+        fill: Option<char>,
+        #[serde(default)]
+        outline: bool,
+    },
 }
 
 fn first_level() -> u8 {
@@ -392,6 +407,27 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             ),
             WireBlock::Display { text, space_above } => Block::Display { text, space_above },
             WireBlock::SignatureLines { lines } => Block::SignatureLines(lines),
+            WireBlock::Placed {
+                x,
+                y,
+                width,
+                size,
+                bold,
+                alignment: wire_alignment,
+                text,
+                fill,
+                outline,
+            } => Block::Placed(Placed {
+                x,
+                y,
+                width,
+                size,
+                bold,
+                alignment: alignment(wire_alignment),
+                text,
+                fill,
+                outline,
+            }),
         });
     }
     let letterhead = match wire.letterhead {
