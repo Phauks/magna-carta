@@ -126,20 +126,27 @@ function isProse(part) {
 }
 
 /**
- * Compare this run's counts with the baseline. A file's count may not rise, and a count that fell
- * must be written down so the fix cannot be quietly undone.
+ * Compare this run's counts with the baseline. The total for each rule may not rise; copy that moves
+ * from one file to another (a screen split in two, a component extracted) keeps the total and passes.
+ * `rose` names each rule whose total went up, with the files whose own count went up as the likely
+ * cause. `fell` names each file whose count went down, so the baseline can be tightened.
  */
 export function compareWithBaseline(current, baseline) {
   const rose = [];
   const fell = [];
-  const files = new Set([...Object.keys(current), ...Object.keys(baseline)]);
-  for (const file of [...files].sort()) {
-    const now = current[file] ?? {};
-    const was = baseline[file] ?? {};
-    for (const rule of RULES) {
-      const a = now[rule.id] ?? 0;
-      const b = was[rule.id] ?? 0;
-      if (a > b) rose.push({ file, rule: rule.id, was: b, now: a });
+  const files = [...new Set([...Object.keys(current), ...Object.keys(baseline)])].sort();
+  for (const rule of RULES) {
+    const total = (counts) =>
+      Object.values(counts).reduce((sum, rules) => sum + (rules[rule.id] ?? 0), 0);
+    const now = total(current);
+    const was = total(baseline);
+    const grew = files.filter(
+      (file) => (current[file]?.[rule.id] ?? 0) > (baseline[file]?.[rule.id] ?? 0),
+    );
+    if (now > was) rose.push({ rule: rule.id, was, now, files: grew });
+    for (const file of files) {
+      const a = current[file]?.[rule.id] ?? 0;
+      const b = baseline[file]?.[rule.id] ?? 0;
       if (a < b) fell.push({ file, rule: rule.id, was: b, now: a });
     }
   }
