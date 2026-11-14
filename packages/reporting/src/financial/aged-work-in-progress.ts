@@ -95,10 +95,39 @@ export function agedWorkInProgressStatement(computedAt: string): string {
   );
 }
 
+export function agedExpensesStatement(computedAt: string): string {
+  return (
+    `This report shows unbilled costs by how long ago they were incurred, as they stood when it ` +
+    `was produced, at ${computedAt}. Cost entries can still be edited until they are billed, so ` +
+    `it is a live report: running it again later will reflect any change made in the meantime, ` +
+    `and it is not claimed to reproduce.`
+  );
+}
+
 export async function assembleAgedWorkInProgress(
   database: SqlDatabase,
   input: { readonly locationId: string | null },
   options: { readonly computedAt: string },
+): Promise<AgedWorkInProgressReport> {
+  return assembleAged(database, input, options, "all");
+}
+
+// AGED EXPENSES — the same report over the cost entries alone: billing's same rows, the time rows
+// set aside. test/financial-aged-work-in-progress.test.ts proves its total equals the costs in the
+// Work in Progress report.
+export async function assembleAgedExpenses(
+  database: SqlDatabase,
+  input: { readonly locationId: string | null },
+  options: { readonly computedAt: string },
+): Promise<AgedWorkInProgressReport> {
+  return assembleAged(database, input, options, "cost");
+}
+
+async function assembleAged(
+  database: SqlDatabase,
+  input: { readonly locationId: string | null },
+  options: { readonly computedAt: string },
+  kinds: "all" | "cost",
 ): Promise<AgedWorkInProgressReport> {
   const asOfDate = civilDateOf(options.computedAt);
   const aged = await readWorkInProgressByAge(database, asOfDate);
@@ -109,7 +138,9 @@ export async function assembleAgedWorkInProgress(
     );
   }
   const rows = aged.rows.filter(
-    (row) => input.locationId === null || row.locationId === input.locationId,
+    (row) =>
+      (kinds === "all" || row.kind === kinds) &&
+      (input.locationId === null || row.locationId === input.locationId),
   );
 
   const totals = new Buckets();
@@ -155,7 +186,10 @@ export async function assembleAgedWorkInProgress(
     computedAt: options.computedAt,
     asOfDate,
     reproducible: false,
-    statement: agedWorkInProgressStatement(options.computedAt),
+    statement:
+      kinds === "cost"
+        ? agedExpensesStatement(options.computedAt)
+        : agedWorkInProgressStatement(options.computedAt),
     locationId: input.locationId,
     currency: "USD",
     completeness: completeScope(),

@@ -23,8 +23,8 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Fifteen reports run today: the trust compliance report, accounts receivable aging, work in
-progress, aged work in progress, realization, invoices, payments applied, matter balances,
+Sixteen reports run today: the trust compliance report, accounts receivable aging, work in
+progress, aged work in progress, aged expenses, realization, invoices, payments applied, matter balances,
 timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
 the matters list, and the client list.
 
@@ -38,6 +38,9 @@ the matters list, and the client list.
   30 days, 31 to 60, 61 to 90, and over 90. Time counts from the day it was worked and a cost from
   the day it was incurred. Work over 90 days old is shown in red. It adds up to the same total as
   Work in Progress.
+- **Aged Expenses** is the same report for costs alone: unbilled costs by how long ago they were
+  incurred, so money the firm has paid out and not yet billed stands out. Its total is the costs
+  figure in Work in Progress.
 - **Matter Balances** shows where each matter stands right now: its unbilled time and costs, what
   its bills still owe, and what is held for it in trust. The three figures are shown side by side
   and never added together. It always shows the present, so it has no date to choose; choose an

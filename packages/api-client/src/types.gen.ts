@@ -16998,6 +16998,49 @@ export type ReportsAgedWorkInProgressResponses = {
 
 export type ReportsAgedWorkInProgressResponse = ReportsAgedWorkInProgressResponses[keyof ReportsAgedWorkInProgressResponses];
 
+export type ReportsAgedExpensesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/aged-expenses';
+};
+
+export type ReportsAgedExpensesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters have unbilled work than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsAgedExpensesError = ReportsAgedExpensesErrors[keyof ReportsAgedExpensesErrors];
+
+export type ReportsAgedExpensesResponses = {
+    /**
+     * Unbilled costs by age now
+     */
+    200: AgedWorkInProgressReport;
+};
+
+export type ReportsAgedExpensesResponse = ReportsAgedExpensesResponses[keyof ReportsAgedExpensesResponses];
+
 export type ReportsTimekeeperProductivityData = {
     body?: never;
     path?: never;

@@ -44,6 +44,7 @@ import {
 } from "./activity-presenters.ts";
 import {
   presentAccountsReceivableAging,
+  presentAgedExpenses,
   presentAgedWorkInProgress,
   presentRealization,
   presentWorkInProgress,
@@ -58,6 +59,7 @@ import {
   OPERATIONAL_REPORTS_PERMISSION,
   PRODUCTIVITY_REPORTS_PERMISSION,
   readAccountsReceivableAging,
+  readAgedExpenses,
   readAgedWorkInProgress,
   readInvoices,
   readMatterBalances,
@@ -88,6 +90,7 @@ import {
 } from "./report-reads.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleAgedExpenses,
   sampleAgedWorkInProgress,
   sampleInvoices,
   sampleMatterBalances,
@@ -287,6 +290,21 @@ const agedWorkInProgress = built<AgedWorkInProgress>({
   read: (fetchImpl, scope) => readAgedWorkInProgress(fetchImpl, { locationId: scope.office }),
   present: (payload) => presentAgedWorkInProgress(payload),
   samplePayload: sampleAgedWorkInProgress,
+});
+
+const agedExpenses = built<AgedWorkInProgress>({
+  id: "aged-expenses",
+  family: "financial",
+  name: "Aged Expenses",
+  answers:
+    "Unbilled costs by how long ago they were incurred, by matter, client and office, as they stand now.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readAgedExpenses(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentAgedExpenses(payload),
+  samplePayload: sampleAgedExpenses,
 });
 
 const realization = built<Realization>({
@@ -498,6 +516,7 @@ const REPORT_LIST = [
   accountsReceivableAging,
   workInProgress,
   agedWorkInProgress,
+  agedExpenses,
   realization,
   invoices,
   paymentsApplied,

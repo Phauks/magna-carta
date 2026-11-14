@@ -1,6 +1,9 @@
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { describe, expect, it } from "vitest";
-import { assembleAgedWorkInProgress } from "../src/financial/aged-work-in-progress.ts";
+import {
+  assembleAgedExpenses,
+  assembleAgedWorkInProgress,
+} from "../src/financial/aged-work-in-progress.ts";
 import { assembleWorkInProgress } from "../src/financial/work-in-progress.ts";
 import { reportingFixture, seedMatter, type ReportingFixture } from "./support.ts";
 
@@ -75,5 +78,28 @@ describe("the aged work in progress report", () => {
     expect(alderClient?.matters[0]?.matterId).toBe(alder);
     expect(report.offices).toHaveLength(1);
     expect(report.offices[0]?.figures).toEqual(report.totals);
+  });
+
+  it("ages the costs alone as Aged Expenses, totalling the costs in Work in Progress", async () => {
+    const fixture = await reportingFixture();
+    const at = "2026-02-01T09:00:00.000Z";
+    const alder = await seedMatter(fixture, "Alder", "entity_alder", at);
+    await seedTime(fixture, alder, "2026-08-01", 100_00);
+    await seedCost(fixture, alder, "2026-08-02", 15_00); // 3 days
+    await seedCost(fixture, alder, "2026-05-20", 30_00); // 77 days
+
+    const options = { computedAt: COMPUTED_AT };
+    const report = await assembleAgedExpenses(fixture.database, { locationId: null }, options);
+    const workInProgress = await assembleWorkInProgress(
+      fixture.database,
+      { locationId: null },
+      options,
+    );
+
+    expect(report.totals).toEqual({
+      unbilledMinor: [15_00, 0, 30_00, 0],
+      totalMinor: workInProgress.totals.costMinor,
+    });
+    expect(report.statement).toMatch(/unbilled costs/);
   });
 });
