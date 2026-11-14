@@ -58,8 +58,12 @@ function meeting(overrides: Partial<MeetingSummary> = {}): MeetingSummary {
 function answerWith(pages: Record<string, MeetingSummary[]>): void {
   const stub = ((request: Request) => {
     const url = new URL(request.url);
-    // The Firm Rooms card's own read sits beside the three lists; it is not one of them.
-    if (url.pathname === "/api/v1/meetings/rooms") {
+    // The Firm Rooms and Shared Rooms cards' own reads sit beside the three lists; neither is one
+    // of them.
+    if (
+      url.pathname === "/api/v1/meetings/rooms" ||
+      url.pathname === "/api/v1/meetings/shared-rooms"
+    ) {
       return Promise.resolve(
         new Response(JSON.stringify({ rooms: [] }), {
           status: 200,
@@ -149,7 +153,8 @@ describe("the Meetings screen", () => {
     expect(rendered.textContent).toContain("Partners meeting");
     expect(rendered.textContent).toContain("Case review");
     // The room is one press away from the row, without going through the event first.
-    expect(rendered.querySelector('a[href="/meetings/meeting_1"]')).not.toBeNull();
+    // At its nine-digit address.
+    expect(rendered.querySelector('a[href="/meeting/482-917-305"]')).not.toBeNull();
   });
 
   it("says meetings are not turned on rather than listing three empty sections", async () => {
