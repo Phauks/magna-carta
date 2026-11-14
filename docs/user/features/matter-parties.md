@@ -7,13 +7,30 @@ and a conflicts check can see who is on what.
 
 ## What you see
 
-Open a matter and choose **Parties**. Each row shows the person or organization, the role they hold
-on this matter, and the capacity they act in where one was recorded ("Administrator", "Trustee").
-The name opens their Directory record in a window over the list, with their roles on this matter
+Open a matter and choose **Parties**. The parties are a table: the person or organization, the role
+they hold on this matter, the capacity they act in where one was recorded ("Administrator",
+"Trustee"), and **Conflicts**, which says whether the matter's latest conflicts check searched them.
+A party added after that check reads **Added after the latest check**, highlighted, because nobody
+has checked them for this matter yet; run a new check from the Conflicts tab to close the gap. The
+line under the heading counts them for you.
+
+The name opens their Directory record in a window over the table, with their roles on this matter
 shown beside it; closing it leaves you on the matter where you were.
 
 One person can hold more than one role on the same matter. An executor who is also a beneficiary is
 two rows, and each is removed on its own.
+
+## Counsel and their firm
+
+Most matters have counsel on them, and a conflict with counsel's firm matters as much as one with
+counsel. On a row for **Opposing counsel** or **Co-counsel**, the table names the firm the Directory
+says they work at ("With Natarajan & Lee LLP"). If the firm is not on the matter yet, **Add Their
+Firm** puts it there as **Opposing counsel's firm** or **Co-counsel's firm**, so the next conflicts
+check searches it as a party in its own right.
+
+The firm comes from the counsel's Directory record: a current employment, partnership, membership,
+officer, director or affiliation link to an organization. If none is recorded, the row says "No
+firm recorded in the Directory"; add the link on their Directory record and come back.
 
 ## Adding a party
 
@@ -35,7 +52,7 @@ it will not add the same person in the same role a second time.
 
 ## Removing a party
 
-Press the unlink control at the end of the row and confirm. This removes the role from this matter
+Press **Remove** at the end of the row and confirm. This removes the role from this matter
 and nothing else: the person stays in the Directory with everything recorded about them, their other
 roles on this matter are untouched, and a conflicts report that named them stays reproducible.
 

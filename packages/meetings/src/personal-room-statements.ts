@@ -19,6 +19,7 @@ import {
 } from "./meeting-statements.ts";
 import type {
   FirmRoomRow,
+  SharedRoomRow,
   MeetingPersonalRoomRow,
   PersonalRoomAtLink,
   PersonalRoomOpenSession,
@@ -39,6 +40,9 @@ const ROOM_COLUMNS = [
   "lobby",
   "link_replaced_at",
   "address_name",
+  "kind",
+  "title",
+  "retired_at",
   "created_at",
   "updated_at",
 ]
@@ -52,7 +56,8 @@ export async function readPersonalRoomForOwner(
   const { results } = await database
     .prepare(
       `SELECT ${ROOM_COLUMNS} FROM ${MEETING_PERSONAL_ROOM_TABLE} ` +
-        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id = ?`,
+        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id = ? ` +
+        `AND ${MEETING_PERSONAL_ROOM_TABLE}.kind = 'personal'`,
     )
     .bind(ownerUserId)
     .all<MeetingPersonalRoomRow>();
@@ -69,8 +74,10 @@ export async function readPersonalRoomByAddressName(
         `(member.status = 'active') AS owner_active ` +
         `FROM ${MEETING_PERSONAL_ROOM_TABLE} ` +
         `JOIN member ON member.user_id = ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id ` +
-        // A room is reached by its address name (/room/trevor) and nothing else.
-        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.address_name = ?1`,
+        // A room is reached by its address name (/room/trevor) and nothing else. A retired shared
+        // room has none, so it is never reached.
+        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.address_name = ?1 ` +
+        `AND ${MEETING_PERSONAL_ROOM_TABLE}.retired_at IS NULL`,
     )
     .bind(addressName)
     .all<PersonalRoomAtLink>();
@@ -130,9 +137,94 @@ export function insertPersonalRoomStatement(
       `INSERT INTO ${MEETING_PERSONAL_ROOM_TABLE} (id, owner_user_id, link_code, medium, lobby, ` +
         `link_replaced_at, address_name, created_at, updated_at) ` +
         `VALUES (?1, ?2, ?3, 'video', 'on', NULL, ?5, ?4, ?4) ` +
-        `ON CONFLICT (owner_user_id) DO NOTHING`,
+        `ON CONFLICT (owner_user_id) WHERE kind = 'personal' DO NOTHING`,
     )
     .bind(input.id, input.ownerUserId, input.linkCode, input.now, input.addressName);
+}
+
+/** One room by its handle, whichever kind it is. */
+export async function readRoomById(
+  database: SqlDatabase,
+  roomId: MeetingPersonalRoomId,
+): Promise<MeetingPersonalRoomRow | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${ROOM_COLUMNS} FROM ${MEETING_PERSONAL_ROOM_TABLE} ` +
+        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.id = ?1`,
+    )
+    .bind(roomId)
+    .all<MeetingPersonalRoomRow>();
+  return results[0];
+}
+
+// A ROOM THE FIRM SHARES. The unique address index refuses a name another room took in between,
+// which rolls the batch back; the route answers it as a changed room.
+//
+// fitness:unguarded-write — a new row under a fresh handle; the indexes are its guard.
+export function insertSharedRoomStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingPersonalRoomId;
+    readonly setUpByUserId: UserId;
+    readonly linkCode: string;
+    readonly addressName: string;
+    readonly title: string;
+    readonly medium: MeetingMedium;
+    readonly lobby: MeetingLobbyMode;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${MEETING_PERSONAL_ROOM_TABLE} (id, owner_user_id, link_code, medium, lobby, ` +
+        `link_replaced_at, address_name, kind, title, retired_at, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, 'shared', ?7, NULL, ?8, ?8)`,
+    )
+    .bind(
+      input.id,
+      input.setUpByUserId,
+      input.linkCode,
+      input.medium,
+      input.lobby,
+      input.addressName,
+      input.title,
+      input.now,
+    );
+}
+
+// A ROOM'S NAME, AND THE ADDRESS THAT FOLLOWS IT. Guarded on the address it read, so two renames
+// racing leave one name rather than one silently overwriting the other with an address it did not
+// check was free.
+export function renameRoomStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: MeetingPersonalRoomId;
+    readonly previousAddressName: string | null;
+    readonly title: string | null;
+    readonly addressName: string;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_PERSONAL_ROOM_TABLE} SET title = ?1, address_name = ?2, updated_at = ?3 ` +
+        `WHERE id = ?4 AND address_name IS ?5 AND retired_at IS NULL`,
+    )
+    .bind(input.title, input.addressName, input.now, input.id, input.previousAddressName);
+}
+
+// A SHARED ROOM TAKEN OFF THE LIST. Its address is given up, so the link names nothing and the name
+// is free for another room; its sessions stay on the record. Guarded on its still being in use.
+export function retireSharedRoomStatement(
+  database: SqlDatabase,
+  input: { readonly id: MeetingPersonalRoomId; readonly now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MEETING_PERSONAL_ROOM_TABLE} SET retired_at = ?1, address_name = NULL, updated_at = ?1 ` +
+        `WHERE id = ?2 AND kind = 'shared' AND retired_at IS NULL`,
+    )
+    .bind(input.now, input.id);
 }
 
 // A NEW LINK. Guarded by the caller on the code it read, so two replacements racing leave one code
@@ -420,12 +512,14 @@ export async function listFirmRooms(database: SqlDatabase): Promise<FirmRoomRow[
       `SELECT member.user_id AS user_id, member.display_name AS display_name, ` +
         `${MEETING_PERSONAL_ROOM_TABLE}.link_code AS link_code, ` +
         `${MEETING_PERSONAL_ROOM_TABLE}.address_name AS address_name, ` +
+        `${MEETING_PERSONAL_ROOM_TABLE}.title AS title, ` +
         `${MEETING_PERSONAL_ROOM_TABLE}.medium AS medium, ` +
         `open_session.id AS open_meeting_id, ` +
         `CASE WHEN open_session.id IS NULL THEN 0 ELSE ${inTheRoomCount("open_session.id")} END AS live_count ` +
         `FROM member ` +
         `LEFT JOIN ${MEETING_PERSONAL_ROOM_TABLE} ` +
         `ON ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id = member.user_id ` +
+        `AND ${MEETING_PERSONAL_ROOM_TABLE}.kind = 'personal' ` +
         `LEFT JOIN ${MEETING_TABLE} AS open_session ` +
         `ON open_session.personal_room_id = ${MEETING_PERSONAL_ROOM_TABLE}.id ` +
         `AND open_session.status <> 'ended' ` +
@@ -433,5 +527,31 @@ export async function listFirmRooms(database: SqlDatabase): Promise<FirmRoomRow[
         `ORDER BY member.display_name COLLATE NOCASE, member.user_id`,
     )
     .all<FirmRoomRow>();
+  return results;
+}
+
+/**
+ * THE FIRM'S SHARED ROOMS, for the Meetings page: each room still in use, who set it up, and the
+ * session it has open with how many people are in it. Ordered by name, like a list of places.
+ */
+export async function listSharedRooms(database: SqlDatabase): Promise<SharedRoomRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${MEETING_PERSONAL_ROOM_TABLE}.id AS id, ${MEETING_PERSONAL_ROOM_TABLE}.title AS title, ` +
+        `${MEETING_PERSONAL_ROOM_TABLE}.address_name AS address_name, ` +
+        `${MEETING_PERSONAL_ROOM_TABLE}.medium AS medium, ${MEETING_PERSONAL_ROOM_TABLE}.lobby AS lobby, ` +
+        `member.display_name AS set_up_by, ` +
+        `open_session.id AS open_meeting_id, ` +
+        `CASE WHEN open_session.id IS NULL THEN 0 ELSE ${inTheRoomCount("open_session.id")} END AS live_count ` +
+        `FROM ${MEETING_PERSONAL_ROOM_TABLE} ` +
+        `JOIN member ON member.user_id = ${MEETING_PERSONAL_ROOM_TABLE}.owner_user_id ` +
+        `LEFT JOIN ${MEETING_TABLE} AS open_session ` +
+        `ON open_session.personal_room_id = ${MEETING_PERSONAL_ROOM_TABLE}.id ` +
+        `AND open_session.status <> 'ended' ` +
+        `WHERE ${MEETING_PERSONAL_ROOM_TABLE}.kind = 'shared' ` +
+        `AND ${MEETING_PERSONAL_ROOM_TABLE}.retired_at IS NULL ` +
+        `ORDER BY ${MEETING_PERSONAL_ROOM_TABLE}.title COLLATE NOCASE, ${MEETING_PERSONAL_ROOM_TABLE}.id`,
+    )
+    .all<SharedRoomRow>();
   return results;
 }

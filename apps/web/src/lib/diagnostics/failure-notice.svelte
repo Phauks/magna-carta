@@ -12,8 +12,12 @@
   import FailureBand from "@magna-carta/design-system/failure-band";
   import FailureRemedy from "./failure-remedy.svelte";
   import { guidanceFor } from "./guidance.ts";
+  import { page } from "$app/state";
   import type { Snippet } from "svelte";
   import type { Failure } from "$lib/api/problem.ts";
+  import { currentTrace } from "./current-trace.ts";
+  import { failureRows } from "./failure-view.ts";
+  import { failureSummaryWithId } from "./failure-summary.ts";
 
   let {
     failure,
@@ -54,6 +58,8 @@
   const guidance = $derived(guidanceFor(failure, subject));
   const ownWords = $derived(failure.problem === null ? (whenSilent ?? fallback) : fallback);
   const message = $derived(failure.problem?.detail ?? ownWords ?? guidance.message);
+  // A GETTER, as on the screen-scale surface: the trace carries the moment it was copied.
+  const trace = $derived(() => currentTrace(failure, page.url.pathname));
 
   // Whether anything would actually render in the action row. A footer holding an empty span is a
   // gap the reader has to wonder about, so the snippet is withheld rather than rendered empty.
@@ -77,6 +83,9 @@
   {message}
   note={guidance.note}
   errorId={failure.problem?.errorId ?? null}
+  summary={failureSummaryWithId(failure)}
+  rows={failureRows(failure)}
+  {trace}
   actions={hasControl ? controls : undefined}
   {children}
 />

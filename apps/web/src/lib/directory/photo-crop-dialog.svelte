@@ -231,7 +231,7 @@
     const blob = await new Promise<Blob | null>((resolve) => {
       output.toBlob(resolve, "image/jpeg", 0.9);
     });
-    if (blob === null) throw new Error("The browser could not encode the picture.");
+    if (blob === null) throw new Error("The browser couldn't process the picture.");
     const bytes = new Uint8Array(await blob.arrayBuffer());
     let binary = "";
     for (let start = 0; start < bytes.length; start += 0x8000) {
@@ -247,7 +247,7 @@
     try {
       encoded = await croppedBase64(image);
     } catch (error) {
-      refusal = error instanceof Error ? error.message : "The picture could not be prepared.";
+      refusal = error instanceof Error ? error.message : "Couldn't prepare the picture.";
       return "refused";
     }
     const answer = await onSave(encoded);
@@ -296,7 +296,7 @@
           tabindex={image === null ? -1 : 0}
           aria-label={image === null
             ? "No picture chosen yet"
-            : "The picture as it will be saved. Drag it, or use the arrow keys, to centre the face."}
+            : "The picture as it will be saved. Drag it, or use the arrow keys, to center the face."}
           class="block touch-none focus-visible:outline-2 focus-visible:outline-focus-ring {image ===
           null
             ? ''

@@ -40,17 +40,28 @@ Your choice stays as you type a new question. Changing it starts again at **All 
 
 ## What is searched
 
-| Place         | What is searched                                            |
-| ------------- | ----------------------------------------------------------- |
-| **Matters**   | Title, matter number and client name                        |
-| **People**    | Every name the directory holds, current and former          |
-| **Files**     | File names and folder names                                 |
-| **Time**      | What the timekeeper wrote about the work                    |
-| **Costs**     | What the cost was for                                       |
-| **Notes**     | What each note says                                         |
-| **Messaging** | What was said on a call or in a text, and the caller's name |
+| Place         | What is searched                                               |
+| ------------- | -------------------------------------------------------------- |
+| **Matters**   | Title, matter number and client name                           |
+| **People**    | Every name the directory holds, current and former             |
+| **Files**     | File names and folder names                                    |
+| **Time**      | What the timekeeper wrote about the work                       |
+| **Costs**     | What the cost was for                                          |
+| **Billing**   | What each line of an invoice says, and the invoice's number    |
+| **Parties**   | The names of the parties on a matter, and the capacity of each |
+| **Notes**     | What each note says                                            |
+| **Custodian** | Packet names and custody numbers                               |
+| **Messaging** | What was said on a call or in a text, and the caller's name    |
 
 Every result from a matter names the matter it is on, and opens in its own section of that matter.
+
+**People** finds a person or an organization once, as the directory holds them. **Parties** finds
+them once for each matter they are a party on, most recently added first, so a name answers the
+question of which matters somebody is on. A party is found by the name the directory shows for them
+today.
+
+**Billing** finds an invoice by a line on it or by its number, and shows the invoice's number and
+where it stands. An invoice that has not been given a number yet reads **Draft**.
 
 **Matters** lists the firm's working docket, which is the matters that have a number. An intake or
 a consultation that has not been given one yet is found from the Intake and Matters screens.
@@ -79,8 +90,8 @@ reads only as far as it shows, and says when there is more.
 Under **Not Searched** the page lists the places it did not look, and why:
 
 - **In A Matter** means the place is searched with that matter's own search and not across matters.
-  Today that is the words inside files, Parties, Calendar, Custodian and Billing. Open the matter
-  and use the search at its top right.
+  Today that is the words inside files and Calendar. Open the matter and use the search at its
+  top right.
 - **No Access** means your role does not include reading that place.
 - **Firm-Wide** means the place belongs to the whole firm and is searched only when **Search In**
   reads **Everything I Can See**. Today that is People.

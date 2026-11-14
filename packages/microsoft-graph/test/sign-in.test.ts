@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
 import {
+  checkApplicationCredentials,
   MICROSOFT_CALENDAR_SCOPES,
   authorizationUrl,
-  codeChallengeFor,
-  codeVerifierFrom,
   readSignedInAccount,
   redeemAuthorizationCode,
   refreshAccessToken,
@@ -41,25 +40,6 @@ describe("the calendar grant", () => {
     ]);
     expect(MICROSOFT_CALENDAR_SCOPES.some((scope) => scope.toLowerCase().includes("mail"))).toBe(
       false,
-    );
-  });
-});
-
-describe("the proof key", () => {
-  it("encodes 32 random bytes as a 43-character verifier in the unreserved alphabet", () => {
-    const verifier = codeVerifierFrom(new Uint8Array(32).fill(251));
-    expect(verifier).toHaveLength(43);
-    expect(verifier).toMatch(/^[A-Za-z0-9_-]+$/);
-  });
-
-  it("refuses fewer random bytes than the shortest verifier needs", () => {
-    expect(() => codeVerifierFrom(new Uint8Array(16))).toThrow(RangeError);
-  });
-
-  it("derives the challenge the proof-key standard's own example gives", async () => {
-    // RFC 7636, appendix B.
-    expect(await codeChallengeFor("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")).toBe(
-      "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
     );
   });
 });
@@ -242,5 +222,26 @@ describe("reading the signed-in account", () => {
       ok: false,
       problem: { category: "auth" },
     });
+  });
+});
+
+describe("checkApplicationCredentials", () => {
+  it("reads a refused made-up refresh token as the application being accepted", async () => {
+    const { http, sent } = answering(400, { error: "invalid_grant" });
+    expect(await checkApplicationCredentials(http, application)).toBe("accepted");
+    expect(sent[0]?.url).toContain("login.microsoftonline.com");
+    expect(new URLSearchParams(sent[0]?.body).get("grant_type")).toBe("refresh_token");
+  });
+
+  it("reads a wrong secret as refused and a fault as unreachable", async () => {
+    expect(
+      await checkApplicationCredentials(
+        answering(401, { error: "invalid_client" }).http,
+        application,
+      ),
+    ).toBe("refused");
+    expect(await checkApplicationCredentials(answering(500, {}).http, application)).toBe(
+      "unreachable",
+    );
   });
 });

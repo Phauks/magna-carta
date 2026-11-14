@@ -50,6 +50,7 @@
     "@magna-carta/file-integrity": "workspace:*",
     "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/file-type": "workspace:*",
+    "@magna-carta/google-calendar": "workspace:*",
     "@magna-carta/government-links": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/inference": "workspace:*",

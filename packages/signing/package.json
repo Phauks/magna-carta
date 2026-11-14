@@ -20,6 +20,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/house-document": "workspace:*",
     "asn1js": "catalog:",
     "pkijs": "catalog:",
     "zod": "catalog:"

@@ -98,7 +98,7 @@ function countText(value: number | null): string {
 function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
   const fields: PrintSheetField[] = [
     { label: "Name Matching", value: strictnessVocabulary(check.strictness).label },
-    { label: "Raised To The Firm's Floor", value: yesOrNo(check.floorRaised) },
+    { label: "Raised to the Firm's Minimum", value: yesOrNo(check.floorRaised) },
   ];
   if (check.matching !== null) {
     fields.push(
@@ -113,7 +113,7 @@ function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
         // covered by the first and not by the second.
         value:
           check.matching.nameRoles === null
-            ? "Every role the corpus holds"
+            ? "All roles in the firm's records"
             : check.matching.nameRoles.join(", "),
       },
       { label: "Trigram Matching", value: check.matching.trigramMatching ? "On" : "Off" },
@@ -125,7 +125,7 @@ function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
     // A walk to closure has no budget to print; what it has is how far the longest chain ran, and
     // the platform's ceiling, which is the only bound there was.
     fields.push(
-      { label: "Relationships", value: "Every recorded relationship, followed to closure" },
+      { label: "Relationships", value: "All recorded relationships, followed to the end" },
       {
         label: "Longest Chain Followed",
         value: countText(check.traversal.longestPathLength),

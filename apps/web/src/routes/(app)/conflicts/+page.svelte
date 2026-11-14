@@ -120,7 +120,7 @@
 
   {#if session !== null && !mayRun}
     <Alert.Root variant="info">
-      <Alert.Title>Running A Check Is Not Available To This Account</Alert.Title>
+      <Alert.Title>This Account Can't Run Checks</Alert.Title>
       <Alert.Description>
         {permissionRefusal("Running a check", RUN_CHECK_PERMISSION)} Reading the log is a separate
         permission, and this account has it.
@@ -133,15 +133,12 @@
       bind:grid
       bind:reread={rereadLog}
       search={appliedSearch}
-      caption="Every conflicts check this firm has run"
-      emptyTitle="This Firm Has Not Run A Conflicts Check Yet"
+      caption="All conflicts checks this firm has run"
+      emptyTitle="No Checks Run Yet"
       onOpenCheck={(checkId) => void goto(`/conflicts/checks/${checkId}`)}
     >
       {#snippet emptyBody()}
-        That is a fact about the record and says nothing about any matter. A check searches the
-        parties it is given against everything the firm has recorded, and writes what it searched
-        into this log — including the classes it could not search. New Check, at the top of the
-        screen, runs the first one.
+        A check searches the parties you give it against the firm's records and logs what it searched, including what it couldn't search. Use New Check to run the first one.
       {/snippet}
       {#snippet emptyActions()}
         <Button

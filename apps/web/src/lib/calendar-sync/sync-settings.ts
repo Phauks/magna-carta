@@ -177,7 +177,7 @@ export function syncingSummary(rules: readonly CalendarSyncRule[]): string {
 }
 
 /**
- * One row of "From Outlook to Magna Carta": one of the account's calendars, and whether the member
+ * One row of the plate for the other direction: one of the account's calendars, and whether the member
  * chose to be shown what is in it.
  */
 export interface ShownCalendarChoice {
@@ -216,9 +216,11 @@ export function shownCalendarChoices(
   return [...listed, ...unlisted];
 }
 
-export function shownCalendarColumns(): GridColumn<ShownCalendarChoice>[] {
+export function shownCalendarColumns(product = "Outlook"): GridColumn<ShownCalendarChoice>[] {
+  // "Google Calendar Calendar" is nobody's phrase.
+  const label = product.endsWith("Calendar") ? product : `${product} Calendar`;
   return [
-    { id: "name", label: "Outlook Calendar", anchored: true, value: (choice) => choice.name },
+    { id: "name", label, anchored: true, value: (choice) => choice.name },
     {
       id: SHOWN_COLUMN_ID,
       label: "Show in Magna Carta",
@@ -246,9 +248,13 @@ export function shownIdsWithChange(
 }
 
 /** How many calendars are shown, for the plate's one-line summary. */
-export function shownSummary(shown: readonly CalendarSyncShownCalendar[]): string {
-  if (shown.length === 0) return "None of your Outlook calendars is shown in Magna Carta.";
+export function shownSummary(
+  shown: readonly CalendarSyncShownCalendar[],
+  product = "Outlook",
+): string {
+  const kind = product.endsWith("Calendar") ? "Google" : product;
+  if (shown.length === 0) return `None of your ${kind} calendars is shown in Magna Carta.`;
   return shown.length === 1
-    ? "1 Outlook calendar is shown in Magna Carta, to you only."
-    : `${shown.length} Outlook calendars are shown in Magna Carta, to you only.`;
+    ? `1 ${kind} calendar is shown in Magna Carta, to you only.`
+    : `${shown.length} ${kind} calendars are shown in Magna Carta, to you only.`;
 }

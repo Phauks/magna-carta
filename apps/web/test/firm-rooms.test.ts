@@ -8,6 +8,7 @@ function room(overrides: Partial<FirmRoom> = {}): FirmRoom {
     name: "Ada Park",
     linkCode: "abcde12345",
     addressName: "ada",
+    title: null,
     medium: "video",
     openMeetingId: null,
     inTheRoom: 0,

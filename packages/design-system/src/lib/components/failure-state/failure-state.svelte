@@ -31,6 +31,7 @@
     trace,
     showTrace = false,
     steps,
+    summary,
     actions,
     ref = $bindable(null),
     class: className,
@@ -51,6 +52,8 @@
     steps?: readonly string[];
     /** The controls — Retry, Report a problem, or whatever remedy the failure actually names. */
     actions?: Snippet;
+    /** Area, action and kind of failure, as short labels. Given, the facts wait behind Show details. */
+    summary?: readonly string[];
   } = $props();
 </script>
 
@@ -63,7 +66,7 @@
     <p class="mc-failure-state-note">{note}</p>
   {/if}
 
-  <FailureDetails {rows} {trace} {showTrace} />
+  <FailureDetails {rows} {trace} {showTrace} {summary} />
 
   {#if steps !== undefined && steps.length > 0}
     <ol class="mc-failure-state-steps">

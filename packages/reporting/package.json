@@ -5,25 +5,38 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./contract": "./src/contract.ts",
     "./temporal": "./src/temporal.ts",
     "./completeness": "./src/completeness.ts",
     "./reporting-validation": "./src/reporting-validation.ts",
     "./trust-compliance/pack": "./src/trust-compliance/pack.ts",
-    "./trust-compliance/types": "./src/trust-compliance/types.ts"
+    "./trust-compliance/types": "./src/trust-compliance/types.ts",
+    "./financial/accounts-receivable-aging": "./src/financial/accounts-receivable-aging.ts",
+    "./financial/work-in-progress": "./src/financial/work-in-progress.ts",
+    "./financial/realization": "./src/financial/realization.ts",
+    "./productivity/timekeeper-productivity": "./src/productivity/timekeeper-productivity.ts",
+    "./operational/operational-volumes": "./src/operational/operational-volumes.ts",
+    "./financial/invoice-register": "./src/financial/invoice-register.ts",
+    "./financial/payments-applied": "./src/financial/payments-applied.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/billing": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/costs": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
-    "@magna-carta/trust": "workspace:*"
+    "@magna-carta/matters": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "@magna-carta/timekeeping": "workspace:*",
+    "@magna-carta/trust": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/money": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-orm": "catalog:",

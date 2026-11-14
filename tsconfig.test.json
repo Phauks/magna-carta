@@ -167,10 +167,16 @@
       "path": "packages/fixtures/tsconfig.test.json"
     },
     {
+      "path": "packages/google-calendar/tsconfig.test.json"
+    },
+    {
       "path": "packages/government-links/tsconfig.test.json"
     },
     {
       "path": "packages/gpu-benchmark/tsconfig.test.json"
+    },
+    {
+      "path": "packages/house-document/tsconfig.test.json"
     },
     {
       "path": "packages/identifiers/tsconfig.test.json"

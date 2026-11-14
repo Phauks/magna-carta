@@ -23,6 +23,8 @@ export type Problem = {
     stepUpRequired?: boolean;
     attemptsRemaining?: number;
     retryAfterSeconds?: number;
+    operation?: string;
+    cause?: string;
 };
 
 export type ProblemFieldError = {
@@ -388,18 +390,18 @@ export type ServiceVersion = {
 };
 
 export type ConnectedServiceStatus = {
-    id: 'realtime';
+    id: 'realtime' | 'googleCalendar' | 'microsoftCalendar';
     state: 'connected' | 'not-configured' | 'refused' | 'unreachable';
     latencyMilliseconds: number | null;
 };
 
 export type FeatureStatus = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     state: 'working' | 'not-set-up' | 'fault';
 };
 
 export type FeatureRequirements = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     alternatives: Array<Array<{
         name: string;
         present: boolean;
@@ -522,7 +524,8 @@ export type ClearComponentOverride = {
 };
 
 export type RecentErrorsResponse = {
-    state: 'read' | 'not-configured' | 'refused' | 'unreachable';
+    state: 'read' | 'unreachable';
+    backgroundState: 'read' | 'not-configured' | 'refused' | 'unreachable';
     windowStart: string | null;
     windowEnd: string | null;
     total: number | null;
@@ -531,16 +534,42 @@ export type RecentErrorsResponse = {
 };
 
 export type RecentErrorGroup = {
+    source: 'server' | 'browser' | 'background';
     latestErrorId: string | null;
     service: string | null;
-    eventName: string;
     where: string | null;
+    status: number | null;
+    title: string | null;
     errorName: string | null;
     messageHead: string | null;
     count: number;
     firstSeen: string;
     lastSeen: string;
 };
+
+export type ErrorLookupResponse = {
+    record: ErrorRecord;
+    mintedAt: string | null;
+    mintedBy: string | null;
+};
+
+export type ErrorRecord = {
+    errorId: string;
+    recordedAt: string;
+    source: 'server' | 'browser';
+    service: string | null;
+    operation: string | null;
+    status: number | null;
+    problemType: string | null;
+    title: string | null;
+    errorName: string | null;
+    messageHead: string | null;
+    location: string | null;
+    build: string | null;
+    firmId: string | null;
+    userId: string | null;
+    correlationId: string | null;
+} | null;
 
 export type ReportIncidentResponse = {
     id: string;
@@ -561,6 +590,20 @@ export type ReportIncidentRequest = {
         clientAt: string;
         deployment?: string;
     };
+};
+
+export type RecordClientErrorResponse = {
+    errorId: string;
+    recorded: boolean;
+};
+
+export type RecordClientErrorRequest = {
+    errorId: string;
+    route: string;
+    errorName: string;
+    message?: string;
+    location?: string;
+    build: string;
 };
 
 export type FirmUsageResponse = {
@@ -829,6 +872,25 @@ export type NumberingPreviewRequest = {
     context?: {
         openedDate?: string;
         matterNumber?: string;
+        locationCode?: string;
+        matterTypeCode?: string;
+        clientCode?: string;
+        staffInitials?: string;
+        clientName?: string;
+    };
+};
+
+export type NumberReservationResponse = {
+    token: string | null;
+    number: string | null;
+    expiresAt: string | null;
+};
+
+export type NumberReservationRequest = {
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'communication';
+    token?: string;
+    occurredAt?: string;
+    context?: {
         locationCode?: string;
         matterTypeCode?: string;
         clientCode?: string;
@@ -1260,7 +1322,7 @@ export type FirmSearchRebuildResponse = {
 };
 
 export type ExportRenderRequest = {
-    format: 'docx' | 'pdf';
+    format: 'docx';
     document: {
         title: string;
         stampLines: Array<string>;
@@ -1612,6 +1674,386 @@ export type TrustComplianceExceptions = {
             computedBalanceMinor: number;
         }>;
     };
+};
+
+export type AccountsReceivableAgingReport = {
+    asOfDate: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+        invoiceCount: Array<number> | null;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        unpaidMinor: Array<number>;
+        totalMinor: number;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            unpaidMinor: Array<number>;
+            totalMinor: number;
+        }>;
+    }>;
+};
+
+export type WorkInProgressReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    currency: 'USD';
+    completeness: ReportCompleteness;
+    totals: {
+        timeMinutes: number;
+        timeMinor: number;
+        costMinor: number;
+        onDraftMinor: number;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                timeMinutes: number;
+                timeMinor: number;
+                costMinor: number;
+                onDraftMinor: number;
+                totalMinor: number;
+            };
+        }>;
+    }>;
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        figures: {
+            timeMinutes: number;
+            timeMinor: number;
+            costMinor: number;
+            onDraftMinor: number;
+            totalMinor: number;
+        };
+    }>;
+};
+
+export type RealizationReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    standardValueIsLive: true;
+    standardValueStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        standardValueMinor: number;
+        billedMinor: number;
+        creditedMinor: number;
+        appliedMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            standardValueMinor: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            standardValueMinor: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                standardValueMinor: number;
+                billedMinor: number;
+                creditedMinor: number;
+                appliedMinor: number;
+            };
+        }>;
+    }>;
+};
+
+export type TimekeeperProductivityReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+        totalMinutes: number;
+        billableShareBasisPoints: number | null;
+    };
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        matterCount: number;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+    nonBillableCategories: Array<{
+        categoryId: string | null;
+        categoryName: string | null;
+        minutes: number;
+    }>;
+    taskCodes: Array<{
+        code: string | null;
+        label: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+};
+
+export type OperationalVolumesReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    liveSections: Array<'matters' | 'billing' | 'trust' | 'costs'>;
+    liveSectionsStatement: string;
+    completeness: ReportCompleteness;
+    matters: Array<{
+        measure: 'opened' | 'closed';
+        matterTypeId: string | null;
+        matterTypeName: string | null;
+        count: number;
+    }>;
+    billing: {
+        billsDrafted: number;
+        billsFinalized: number;
+        draftsVoided: number;
+        creditNotesIssued: number;
+        writeOffs: number;
+    };
+    trust: Array<{
+        measure: 'movement' | 'disbursement-requested' | 'disbursement-decided' | 'reconciliation-opened' | 'reconciliation-closed';
+        detail: string | null;
+        count: number;
+    }>;
+    costs: Array<{
+        disbursementClass: 'hard' | 'soft';
+        count: number;
+    }>;
+};
+
+export type InvoicesReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        invoiceCount: number;
+        billedMinor: number;
+        creditedMinor: number;
+        appliedMinor: number;
+        unpaidMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            invoiceCount: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+            unpaidMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        figures: {
+            invoiceCount: number;
+            billedMinor: number;
+            creditedMinor: number;
+            appliedMinor: number;
+            unpaidMinor: number;
+        };
+        invoices: Array<{
+            invoiceId: string;
+            invoiceNumber: string | null;
+            issueDate: string;
+            dueDate: string | null;
+            figures: {
+                invoiceCount: number;
+                billedMinor: number;
+                creditedMinor: number;
+                appliedMinor: number;
+                unpaidMinor: number;
+            };
+            matters: Array<{
+                matterId: string;
+                matterTitle: string;
+                matterNumber: string | null;
+                locationId: string | null;
+                locationName: string | null;
+                figures: {
+                    invoiceCount: number;
+                    billedMinor: number;
+                    creditedMinor: number;
+                    appliedMinor: number;
+                    unpaidMinor: number;
+                };
+            }>;
+        }>;
+    }>;
+};
+
+export type PaymentsAppliedReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        paymentMinor: number;
+        trustTransferMinor: number;
+        clientCreditMinor: number;
+        creditNoteMinor: number;
+        writeOffMinor: number;
+        reversalMinor: number;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            paymentMinor: number;
+            trustTransferMinor: number;
+            clientCreditMinor: number;
+            creditNoteMinor: number;
+            writeOffMinor: number;
+            reversalMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string;
+        clientName: string | null;
+        figures: {
+            entryCount: number;
+            paymentMinor: number;
+            trustTransferMinor: number;
+            clientCreditMinor: number;
+            creditNoteMinor: number;
+            writeOffMinor: number;
+            reversalMinor: number;
+            totalMinor: number;
+        };
+    }>;
+    entries: Array<{
+        applicationId: string;
+        kind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | 'reversal';
+        reversesKind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | null;
+        effectiveDate: string;
+        amountMinor: number;
+        reason: string | null;
+        invoiceId: string;
+        invoiceNumber: string | null;
+        clientEntityId: string;
+        clientName: string | null;
+        matterId: string;
+        matterTitle: string;
+        matterNumber: string | null;
+        locationId: string | null;
+        locationName: string | null;
+    }>;
 };
 
 export type BillingInvoiceAck = {
@@ -3465,6 +3907,10 @@ export type CreateMatterResponse = {
 export type CreateMatterRequest = {
     title: string;
     status: 'intake' | 'consultation' | 'open';
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
     description?: string | null;
     matterTypeId?: string | null;
     locationId?: string | null;
@@ -5158,6 +5604,7 @@ export type ChangeDirectoryNameRequest = {
     suffix?: string | null;
     legalName?: string;
     displayName?: string | null;
+    correction?: boolean;
 };
 
 export type DirectoryNamePage = {
@@ -5756,6 +6203,10 @@ export type CreateConflictsCheckRequest = {
     matterId?: string;
     subjectEntityIds: Array<string>;
     scope: ConflictsScopeRequest;
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
 };
 
 export type ConflictsScopeRequest = {
@@ -5768,10 +6219,6 @@ export type ConflictsScopeRequest = {
         magnus: boolean;
         files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
     };
-};
-
-export type NextConflictsCheckNumberResponse = {
-    checkNumber: string;
 };
 
 export type ConflictsCheckPage = {
@@ -6586,13 +7033,20 @@ export type ContinuanceChainNode = {
     statusReason: string | null;
 };
 
+export type ConnectedAccountSignInStart = {
+    /**
+     * The provider's own sign-in page. The browser is sent to it as a whole page.
+     */
+    authorizationUrl: string;
+};
+
 export type ConnectedAccountList = {
     providers: Array<ConnectedAccountProvider>;
     accounts: Array<ConnectedAccount>;
 };
 
 export type ConnectedAccountProvider = {
-    provider: 'microsoft';
+    provider: 'microsoft' | 'google';
     /**
      * Whether this deployment can connect an account at the provider. False means nobody has registered the deployment with the provider, and a screen offers no connection.
      */
@@ -6601,20 +7055,13 @@ export type ConnectedAccountProvider = {
 
 export type ConnectedAccount = {
     id: string;
-    provider: 'microsoft';
+    provider: 'microsoft' | 'google';
     /**
      * The account as the provider names it: the member's own sign-in address there.
      */
     accountLabel: string | null;
     status: 'connected' | 'degraded' | 'needs_reauth' | 'disabled';
     connectedAt: string;
-};
-
-export type ConnectedAccountSignInStart = {
-    /**
-     * The provider's own sign-in page. The browser is sent to it as a whole page.
-     */
-    authorizationUrl: string;
 };
 
 export type ConnectedAccountDisconnectAck = {
@@ -6628,7 +7075,7 @@ export type CalendarSyncSettings = {
      */
     account: {
         id: string;
-        provider: 'microsoft';
+        provider: 'microsoft' | 'google';
         /**
          * The account as the provider names it: the member's own sign-in address there.
          */
@@ -7425,6 +7872,7 @@ export type LoggedCommunication = {
 
 export type LogCommunicationRequest = {
     channel: 'voice' | 'sms' | 'mms';
+    numberReservation?: string;
     direction: 'inbound' | 'outbound';
     matterId?: string | null;
     counterpartyNumber: string;
@@ -7483,12 +7931,15 @@ export type PersonalRoom = {
     id: string;
     linkCode: string;
     addressName: string;
+    name: string;
+    title: string | null;
     medium: 'video' | 'audio';
     lobby: 'off' | 'on';
     openMeetingId: string | null;
 } | null;
 
 export type UpdatePersonalRoomRequest = {
+    title?: string | null;
     medium?: 'video' | 'audio';
     lobby?: 'off' | 'on';
 };
@@ -7512,6 +7963,7 @@ export type FirmRoom = {
     name: string;
     linkCode: string | null;
     addressName: string | null;
+    title: string | null;
     medium: 'video' | 'audio' | null;
     openMeetingId: string | null;
     inTheRoom: number;
@@ -7523,6 +7975,9 @@ export type PersonalRoomAtLink = {
     ownerDisplayName: string;
     isOwner: boolean;
     addressName: string;
+    roomName: string;
+    kind: 'personal' | 'shared';
+    mayOpen: boolean;
     meetingId: string | null;
 };
 
@@ -7532,6 +7987,33 @@ export type MoveMeetingToMatterResponse = {
 
 export type MoveMeetingToMatterRequest = {
     matterId: string;
+};
+
+export type SharedRoomsResponse = {
+    rooms: Array<SharedRoom>;
+};
+
+export type SharedRoom = {
+    id: string;
+    name: string;
+    addressName: string;
+    medium: 'video' | 'audio';
+    lobby: 'off' | 'on';
+    setUpBy: string;
+    openMeetingId: string | null;
+    inTheRoom: number;
+};
+
+export type CreateSharedRoomRequest = {
+    title: string;
+    medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
+};
+
+export type UpdateSharedRoomRequest = {
+    title?: string;
+    medium?: 'video' | 'audio';
+    lobby?: 'off' | 'on';
 };
 
 export type MeetingByCodeResponse = {
@@ -8140,6 +8622,10 @@ export type CreateCustodyPacketRequest = {
     depositedAt?: string;
     notes?: string | null;
     manualCustodyNumber?: string;
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
 };
 
 export type CustodyOwnerInput = {
@@ -11961,6 +12447,45 @@ export type PlatformRecentErrorsResponses = {
 
 export type PlatformRecentErrorsResponse = PlatformRecentErrorsResponses[keyof PlatformRecentErrorsResponses];
 
+export type PlatformErrorLookupData = {
+    body?: never;
+    path: {
+        errorId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/errors/{errorId}';
+};
+
+export type PlatformErrorLookupErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Not the shape of an Error ID
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformErrorLookupError = PlatformErrorLookupErrors[keyof PlatformErrorLookupErrors];
+
+export type PlatformErrorLookupResponses = {
+    /**
+     * The record, or what the ID says about itself
+     */
+    200: ErrorLookupResponse;
+};
+
+export type PlatformErrorLookupResponse = PlatformErrorLookupResponses[keyof PlatformErrorLookupResponses];
+
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
     path?: never;
@@ -12001,6 +12526,47 @@ export type IncidentsReportResponses = {
 };
 
 export type IncidentsReportResponse = IncidentsReportResponses[keyof IncidentsReportResponses];
+
+export type ClientErrorsRecordData = {
+    body: RecordClientErrorRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/client-errors';
+};
+
+export type ClientErrorsRecordErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:reportIncident
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable, or the session member is deactivated — absent, never an existence oracle
+     */
+    404: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ClientErrorsRecordError = ClientErrorsRecordErrors[keyof ClientErrorsRecordErrors];
+
+export type ClientErrorsRecordResponses = {
+    /**
+     * The crash is recorded (or already was)
+     */
+    201: RecordClientErrorResponse;
+};
+
+export type ClientErrorsRecordResponse = ClientErrorsRecordResponses[keyof ClientErrorsRecordResponses];
 
 export type FirmUsageGetData = {
     body?: never;
@@ -12800,6 +13366,82 @@ export type NumberingPreviewResponses = {
 };
 
 export type NumberingPreviewResponse2 = NumberingPreviewResponses[keyof NumberingPreviewResponses];
+
+export type NumberingHoldDraftNumberData = {
+    body: NumberReservationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/number-reservations';
+};
+
+export type NumberingHoldDraftNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingHoldDraftNumberError = NumberingHoldDraftNumberErrors[keyof NumberingHoldDraftNumberErrors];
+
+export type NumberingHoldDraftNumberResponses = {
+    /**
+     * The number held, or nulls where nothing can be held yet
+     */
+    200: NumberReservationResponse;
+};
+
+export type NumberingHoldDraftNumberResponse = NumberingHoldDraftNumberResponses[keyof NumberingHoldDraftNumberResponses];
+
+export type NumberingReleaseDraftNumberData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/number-reservations/{token}';
+};
+
+export type NumberingReleaseDraftNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingReleaseDraftNumberError = NumberingReleaseDraftNumberErrors[keyof NumberingReleaseDraftNumberErrors];
+
+export type NumberingReleaseDraftNumberResponses = {
+    /**
+     * The number is no longer held by this member
+     */
+    204: void;
+};
+
+export type NumberingReleaseDraftNumberResponse = NumberingReleaseDraftNumberResponses[keyof NumberingReleaseDraftNumberResponses];
 
 export type ScanPolicyGetData = {
     body?: never;
@@ -14860,17 +15502,13 @@ export type ReportsExportRenderErrors = {
      */
     403: Problem;
     /**
-     * The document is past the render bounds, or the conversion has no path
+     * The document is past the render bounds, or asks for a format other than Word
      */
     422: Problem;
     /**
      * Rate limit exceeded
      */
     429: Problem;
-    /**
-     * The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.
-     */
-    503: Problem;
 };
 
 export type ReportsExportRenderError = ReportsExportRenderErrors[keyof ReportsExportRenderErrors];
@@ -15515,6 +16153,323 @@ export type ReportsTrustCompliancePackResponses = {
 };
 
 export type ReportsTrustCompliancePackResponse = ReportsTrustCompliancePackResponses[keyof ReportsTrustCompliancePackResponses];
+
+export type ReportsAccountsReceivableAgingData = {
+    body?: never;
+    path?: never;
+    query: {
+        asOfDate: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/accounts-receivable-aging';
+};
+
+export type ReportsAccountsReceivableAgingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The date is not a calendar date, the knowledge instant is not a UTC instant or is in the future, or more matters have something unpaid than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsAccountsReceivableAgingError = ReportsAccountsReceivableAgingErrors[keyof ReportsAccountsReceivableAgingErrors];
+
+export type ReportsAccountsReceivableAgingResponses = {
+    /**
+     * The aging at that date
+     */
+    200: AccountsReceivableAgingReport;
+};
+
+export type ReportsAccountsReceivableAgingResponse = ReportsAccountsReceivableAgingResponses[keyof ReportsAccountsReceivableAgingResponses];
+
+export type ReportsWorkInProgressData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/work-in-progress';
+};
+
+export type ReportsWorkInProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters and timekeepers have unbilled work than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsWorkInProgressError = ReportsWorkInProgressErrors[keyof ReportsWorkInProgressErrors];
+
+export type ReportsWorkInProgressResponses = {
+    /**
+     * The work in progress now
+     */
+    200: WorkInProgressReport;
+};
+
+export type ReportsWorkInProgressResponse = ReportsWorkInProgressResponses[keyof ReportsWorkInProgressResponses];
+
+export type ReportsRealizationData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/realization';
+};
+
+export type ReportsRealizationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more matters had activity than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsRealizationError = ReportsRealizationErrors[keyof ReportsRealizationErrors];
+
+export type ReportsRealizationResponses = {
+    /**
+     * The realization for this period
+     */
+    200: RealizationReport;
+};
+
+export type ReportsRealizationResponse = ReportsRealizationResponses[keyof ReportsRealizationResponses];
+
+export type ReportsTimekeeperProductivityData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/timekeeper-productivity';
+};
+
+export type ReportsTimekeeperProductivityErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsTimekeeperProductivityError = ReportsTimekeeperProductivityErrors[keyof ReportsTimekeeperProductivityErrors];
+
+export type ReportsTimekeeperProductivityResponses = {
+    /**
+     * The time recorded in this period
+     */
+    200: TimekeeperProductivityReport;
+};
+
+export type ReportsTimekeeperProductivityResponse = ReportsTimekeeperProductivityResponses[keyof ReportsTimekeeperProductivityResponses];
+
+export type ReportsOperationalVolumesData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/operational-volumes';
+};
+
+export type ReportsOperationalVolumesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or the knowledge instant is not a UTC instant or is in the future
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsOperationalVolumesError = ReportsOperationalVolumesErrors[keyof ReportsOperationalVolumesErrors];
+
+export type ReportsOperationalVolumesResponses = {
+    /**
+     * The volumes for this period
+     */
+    200: OperationalVolumesReport;
+};
+
+export type ReportsOperationalVolumesResponse = ReportsOperationalVolumesResponses[keyof ReportsOperationalVolumesResponses];
+
+export type ReportsInvoicesData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/invoices';
+};
+
+export type ReportsInvoicesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more bills were issued than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsInvoicesError = ReportsInvoicesErrors[keyof ReportsInvoicesErrors];
+
+export type ReportsInvoicesResponses = {
+    /**
+     * The bills issued in this period
+     */
+    200: InvoicesReport;
+};
+
+export type ReportsInvoicesResponse = ReportsInvoicesResponses[keyof ReportsInvoicesResponses];
+
+export type ReportsPaymentsAppliedData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/payments-applied';
+};
+
+export type ReportsPaymentsAppliedErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was applied than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsPaymentsAppliedError = ReportsPaymentsAppliedErrors[keyof ReportsPaymentsAppliedErrors];
+
+export type ReportsPaymentsAppliedResponses = {
+    /**
+     * What was applied to bills in this period
+     */
+    200: PaymentsAppliedReport;
+};
+
+export type ReportsPaymentsAppliedResponse = ReportsPaymentsAppliedResponses[keyof ReportsPaymentsAppliedResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
@@ -29483,39 +30438,6 @@ export type ConflictsRunCheckResponses = {
 
 export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
 
-export type ConflictsNextCheckNumberData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/conflicts/checks/next-number';
-};
-
-export type ConflictsNextCheckNumberErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type ConflictsNextCheckNumberError = ConflictsNextCheckNumberErrors[keyof ConflictsNextCheckNumberErrors];
-
-export type ConflictsNextCheckNumberResponses = {
-    /**
-     * The next check number
-     */
-    200: NextConflictsCheckNumberResponse;
-};
-
-export type ConflictsNextCheckNumberResponse = ConflictsNextCheckNumberResponses[keyof ConflictsNextCheckNumberResponses];
-
 export type ConflictsFirmPolicyData = {
     body?: never;
     path?: never;
@@ -31899,39 +32821,6 @@ export type CalendarContinuanceChainResponses = {
 
 export type CalendarContinuanceChainResponse = CalendarContinuanceChainResponses[keyof CalendarContinuanceChainResponses];
 
-export type ConnectedAccountsListData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/me/connected-accounts';
-};
-
-export type ConnectedAccountsListErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The firm is unreachable, the member is deactivated, or the member has no such account
-     */
-    404: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type ConnectedAccountsListError = ConnectedAccountsListErrors[keyof ConnectedAccountsListErrors];
-
-export type ConnectedAccountsListResponses = {
-    /**
-     * The member's connected accounts
-     */
-    200: ConnectedAccountList;
-};
-
-export type ConnectedAccountsListResponse = ConnectedAccountsListResponses[keyof ConnectedAccountsListResponses];
-
 export type ConnectedAccountsStartMicrosoftSignInData = {
     body?: never;
     path?: never;
@@ -31949,7 +32838,7 @@ export type ConnectedAccountsStartMicrosoftSignInErrors = {
      */
     403: Problem;
     /**
-     * The firm is unreachable, the member is deactivated, or the member has no such account
+     * The firm is unreachable or the member is deactivated
      */
     404: Problem;
     /**
@@ -31994,7 +32883,7 @@ export type ConnectedAccountsFinishMicrosoftSignInErrors = {
      */
     403: Problem;
     /**
-     * The firm is unreachable, the member is deactivated, or the member has no such account
+     * The firm is unreachable or the member is deactivated
      */
     404: Problem;
     /**
@@ -32004,6 +32893,112 @@ export type ConnectedAccountsFinishMicrosoftSignInErrors = {
 };
 
 export type ConnectedAccountsFinishMicrosoftSignInError = ConnectedAccountsFinishMicrosoftSignInErrors[keyof ConnectedAccountsFinishMicrosoftSignInErrors];
+
+export type ConnectedAccountsStartGoogleSignInData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts/google/sign-in';
+};
+
+export type ConnectedAccountsStartGoogleSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * This deployment is not registered with the provider, so no account can connect
+     */
+    501: Problem;
+};
+
+export type ConnectedAccountsStartGoogleSignInError = ConnectedAccountsStartGoogleSignInErrors[keyof ConnectedAccountsStartGoogleSignInErrors];
+
+export type ConnectedAccountsStartGoogleSignInResponses = {
+    /**
+     * Where to send the browser
+     */
+    200: ConnectedAccountSignInStart;
+};
+
+export type ConnectedAccountsStartGoogleSignInResponse = ConnectedAccountsStartGoogleSignInResponses[keyof ConnectedAccountsStartGoogleSignInResponses];
+
+export type ConnectedAccountsFinishGoogleSignInData = {
+    body?: never;
+    path?: never;
+    query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+    };
+    url: '/api/v1/integrations/google/callback';
+};
+
+export type ConnectedAccountsFinishGoogleSignInErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks calendar:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsFinishGoogleSignInError = ConnectedAccountsFinishGoogleSignInErrors[keyof ConnectedAccountsFinishGoogleSignInErrors];
+
+export type ConnectedAccountsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/connected-accounts';
+};
+
+export type ConnectedAccountsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the member has no such account
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConnectedAccountsListError = ConnectedAccountsListErrors[keyof ConnectedAccountsListErrors];
+
+export type ConnectedAccountsListResponses = {
+    /**
+     * The member's connected accounts
+     */
+    200: ConnectedAccountList;
+};
+
+export type ConnectedAccountsListResponse = ConnectedAccountsListResponses[keyof ConnectedAccountsListResponses];
 
 export type ConnectedAccountsDisconnectData = {
     body?: never;
@@ -32461,6 +33456,36 @@ export type CalendarSyncReceiveMicrosoftNoticeResponses = {
 };
 
 export type CalendarSyncReceiveMicrosoftNoticeResponse = CalendarSyncReceiveMicrosoftNoticeResponses[keyof CalendarSyncReceiveMicrosoftNoticeResponses];
+
+export type CalendarSyncReceiveGoogleNoticeData = {
+    body?: never;
+    path: {
+        firmId: string;
+        connectionId: string;
+    };
+    query?: never;
+    url: '/api/v1/calendar-sync/provider-notices/google/{firmId}/{connectionId}';
+};
+
+export type CalendarSyncReceiveGoogleNoticeErrors = {
+    /**
+     * The address is not one this route could have issued
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarSyncReceiveGoogleNoticeError = CalendarSyncReceiveGoogleNoticeErrors[keyof CalendarSyncReceiveGoogleNoticeErrors];
+
+export type CalendarSyncReceiveGoogleNoticeResponses = {
+    /**
+     * The notice was received
+     */
+    202: unknown;
+};
 
 export type CalendarListSeriesData = {
     body?: never;
@@ -36431,6 +37456,257 @@ export type MeetingsMoveToMatterResponses = {
 };
 
 export type MeetingsMoveToMatterResponse = MeetingsMoveToMatterResponses[keyof MeetingsMoveToMatterResponses];
+
+export type MeetingsListSharedRoomsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms';
+};
+
+export type MeetingsListSharedRoomsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsListSharedRoomsError = MeetingsListSharedRoomsErrors[keyof MeetingsListSharedRoomsErrors];
+
+export type MeetingsListSharedRoomsResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsListSharedRoomsResponse = MeetingsListSharedRoomsResponses[keyof MeetingsListSharedRoomsResponses];
+
+export type MeetingsCreateSharedRoomData = {
+    body: CreateSharedRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms';
+};
+
+export type MeetingsCreateSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsCreateSharedRoomError = MeetingsCreateSharedRoomErrors[keyof MeetingsCreateSharedRoomErrors];
+
+export type MeetingsCreateSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsCreateSharedRoomResponse = MeetingsCreateSharedRoomResponses[keyof MeetingsCreateSharedRoomResponses];
+
+export type MeetingsRetireSharedRoomData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        roomId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms/{roomId}';
+};
+
+export type MeetingsRetireSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsRetireSharedRoomError = MeetingsRetireSharedRoomErrors[keyof MeetingsRetireSharedRoomErrors];
+
+export type MeetingsRetireSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsRetireSharedRoomResponse = MeetingsRetireSharedRoomResponses[keyof MeetingsRetireSharedRoomResponses];
+
+export type MeetingsUpdateSharedRoomData = {
+    body: UpdateSharedRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        roomId: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/shared-rooms/{roomId}';
+};
+
+export type MeetingsUpdateSharedRoomErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsUpdateSharedRoomError = MeetingsUpdateSharedRoomErrors[keyof MeetingsUpdateSharedRoomErrors];
+
+export type MeetingsUpdateSharedRoomResponses = {
+    /**
+     * The firm's shared rooms
+     */
+    200: SharedRoomsResponse;
+};
+
+export type MeetingsUpdateSharedRoomResponse = MeetingsUpdateSharedRoomResponses[keyof MeetingsUpdateSharedRoomResponses];
+
+export type MeetingsOpenRoomAtAddressData = {
+    body: OpenPersonalRoomRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        linkCode: string;
+    };
+    query?: never;
+    url: '/api/v1/meetings/rooms/{linkCode}/open';
+};
+
+export type MeetingsOpenRoomAtAddressErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission this route needs
+     */
+    403: Problem;
+    /**
+     * The room is not one the member can reach
+     */
+    404: Problem;
+    /**
+     * Somebody else changed the room first, or the request is in progress
+     */
+    409: Problem;
+    /**
+     * The body is invalid, the room's name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeetingsOpenRoomAtAddressError = MeetingsOpenRoomAtAddressErrors[keyof MeetingsOpenRoomAtAddressErrors];
+
+export type MeetingsOpenRoomAtAddressResponses = {
+    /**
+     * The session to join
+     */
+    200: OpenPersonalRoomResponse;
+};
+
+export type MeetingsOpenRoomAtAddressResponse = MeetingsOpenRoomAtAddressResponses[keyof MeetingsOpenRoomAtAddressResponses];
 
 export type MeetingsGetByCodeData = {
     body?: never;

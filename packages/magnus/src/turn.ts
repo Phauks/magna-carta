@@ -248,21 +248,22 @@ export function turnChangeRefusal(turn: TurnRow, anyPending: boolean): TurnChang
   return null;
 }
 
-// Removes a member turn and the answer that follows it. Both stay on the record behind a marker,
-// because a transcript is work product and is erased only with its whole conversation; neither is
-// read by the model again.
+// Removes a member turn. Its answer stays in the conversation where the member can still read it
+// (owner ruling, 2026-11-14: the bin on a message promises that message, not the answer too). Both
+// stay on the record, because a transcript is work product and is erased only with its whole
+// conversation, and neither is read by the model again: the window leaves out an answer whose
+// question was taken back (window.ts), since an answer to nothing would mislead it.
 export function removeTurn(
   database: SqlDatabase,
   context: MagnusWriteContext,
   input: {
     readonly conversationId: MagnusConversationId;
     readonly memberTurnId: MagnusTurnId;
-    // The Magnus turn answering it, when there is one.
+    // The Magnus turn answering it, when there is one. It is named in the audit row and not stamped.
     readonly magnusTurnId: MagnusTurnId | null;
   },
 ): EffectWrite {
-  const turnIds =
-    input.magnusTurnId === null ? [input.memberTurnId] : [input.memberTurnId, input.magnusTurnId];
+  const turnIds = [input.memberTurnId];
   return {
     statements: [
       guarded(

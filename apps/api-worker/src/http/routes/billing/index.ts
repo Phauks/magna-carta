@@ -3,6 +3,9 @@ import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.
 import { registerBillingRoutes } from "./billing.ts";
 import { registerCostsRoutes } from "./costs.ts";
 import { registerReportExportRoutes } from "./report-exports.ts";
+import { registerActivityReportsRoutes } from "./activity-reports.ts";
+import { registerFinancialReportsRoutes } from "./financial-reports.ts";
+import { registerReceivablesReportsRoutes } from "./receivables-reports.ts";
 import { registerReportsRoutes } from "./reports.ts";
 
 // The invoice spine, costs, and the read-only reporting projections with their exports.
@@ -19,6 +22,9 @@ export function mountBilling(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   // Reporting — projections over records the firm already holds. Read-only by construction: the
   // reporting package composes nothing, and every route registered here is a GET.
   registerReportsRoutes(domain, chokepoint);
+  registerFinancialReportsRoutes(domain, chokepoint);
+  registerActivityReportsRoutes(domain, chokepoint);
+  registerReceivablesReportsRoutes(domain, chokepoint);
   // Billing — the invoice spine: draft, claim work-in-progress, review the lines, finalize (the one
   // batch that draws the number, locks the work, and posts the receivable), and the reads over it.
   registerBillingRoutes(domain, chokepoint);

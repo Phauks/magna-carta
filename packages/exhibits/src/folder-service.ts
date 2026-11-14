@@ -25,6 +25,7 @@ import {
   EXHIBIT_SET_MEMBER_TABLE,
   reorderStatements,
 } from "./member-statements.ts";
+import { titleFromFileName } from "./file-title.ts";
 import { ORDER_GUARD } from "./member-service.ts";
 import { DEFAULT_EXHIBIT_SCHEME } from "./presets.ts";
 import { mintReferenceName, referenceNameBaseFor } from "./reference-name.ts";
@@ -33,7 +34,6 @@ import { insertExhibitSetStatement } from "./set-statements.ts";
 import {
   MAX_EXHIBITS_PER_MATTER,
   MAX_MEMBERS_PER_SET,
-  MAX_TITLE_LENGTH,
   type ExhibitServiceOptions,
 } from "./types.ts";
 import { ExhibitValidationError, assertScheme, assertSetName } from "./validation.ts";
@@ -121,13 +121,6 @@ async function readReferenceNames(database: SqlDatabase, matterId: MatterId): Pr
     .bind(matterId)
     .all<{ reference_name: string }>();
   return new Set(results.map((row) => row.reference_name));
-}
-
-/** A file's name without its extension, which is what a member would have typed as the title. */
-export function titleFromFileName(name: string): string {
-  const dot = name.lastIndexOf(".");
-  const stem = (dot > 0 ? name.slice(0, dot) : name).trim();
-  return (stem.length === 0 ? name.trim() : stem).slice(0, MAX_TITLE_LENGTH);
 }
 
 /**

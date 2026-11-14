@@ -21,6 +21,14 @@
    * siblings among themselves so a sub-task never drifts from the task it belongs to, and a band is
    * chosen by the top of the tree for the same reason.
    *
+   * A TASK CAN BE WRITTEN WHERE IT WILL BE READ. Every band ends in an add line ("Add a task to
+   * Litigation"), and once the rows are not banded, one line ends the list. Pressed, the line opens
+   * in the table's own columns: a title, then whose it is, its dates and its priority, and Enter
+   * adds it. The task starts IN that band (presetsForBand: that list, that status, that person,
+   * that matter, due today), the reader's own unless the band says whose, and the line stays open
+   * with the cursor in it so a run of tasks is a run of lines. Anything the line does not ask is
+   * what the New Task window would take, and that window is still there for the rest.
+   *
    * THE SAME TASKS AS A BOARD, one list at a time (task-board.svelte). The switch changes how the
    * tasks are drawn and which list is read, and nothing about what a task is or what can be done to
    * it: a card opens the same window, and a move is the same status write the pill makes.
@@ -42,6 +50,9 @@
   import Columns from "@lucide/svelte/icons/columns-3";
   import SquareCheck from "@lucide/svelte/icons/square-check";
   import Square from "@lucide/svelte/icons/square";
+  import X from "@lucide/svelte/icons/x";
+  import Input from "@magna-carta/design-system/input";
+  import TaskPeopleMenu from "$lib/matters/task-people-menu.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import TaskRecordWindow from "$lib/matters/task-record-window.svelte";
@@ -60,6 +71,7 @@
     GROUP_BY_OPTIONS,
     hideableColumns,
     orderTaskRows,
+    presetsForBand,
     taskColumns,
     taskGrouping,
     taskRows,
@@ -70,6 +82,7 @@
   import {
     PRIORITY_LABELS,
     TASK_PRIORITIES,
+    createTask,
     editTaskFields,
     isOverdue,
     listTaskLists,
@@ -79,6 +92,8 @@
     setTaskCompletion,
     unarchiveTask,
     newWriteKey,
+    viewerTimeZone,
+    type AssigneeInput,
     type MatterTask,
     type MeMode,
     type TaskListFilters,
@@ -224,6 +239,18 @@
 
   let offeredPlans = $state<readonly MatterPlan[] | null>(null);
   let reviewingPlan = $state<MatterPlan | null>(null);
+
+  // THE ADD LINE: which band's line is open, and what is typed into it until Enter adds it.
+  let addingIn = $state<{ key: string | null } | null>(null);
+  let quickTitle = $state("");
+  /** Null until the reader chooses, which reads as the reader's own task. */
+  let quickAssignees = $state<AssigneeInput[] | null>(null);
+  let quickStartsOn = $state<string | null>(null);
+  /** Undefined until the reader chooses, which reads as the band's own due date, if it has one. */
+  let quickDueOn = $state<string | null | undefined>(undefined);
+  let quickPriority = $state<TaskPriority>("normal");
+  let quickSaving = $state(false);
+  let quickTitleElement = $state<HTMLInputElement | null>(null);
 
   /** The record named in the address, opened once its row has been read. */
   let entryOpened = $state<string | null>(null);
@@ -471,7 +498,234 @@
     openTask === null ? [] : allTasks.filter((task) => task.parentTaskId === openTask?.id),
   );
   const hideable = $derived(hideableColumns(columns));
+
+  /** What a task added in the open band starts with, so it lands in that band. */
+  const quickPresets = $derived(
+    addingIn === null
+      ? {}
+      : presetsForBand(groupBy, addingIn.key, {
+          lists,
+          members: assignableMembers,
+          teams,
+          matterIdOf: (title) => {
+            if (title === context.matterTitle(null)) return null;
+            for (const [id, known] of matterTitles) if (known === title) return id;
+            return undefined;
+          },
+          today,
+        }),
+  );
+  const quickMatterId = $derived(matterId ?? quickPresets.matterId ?? null);
+  const quickChosen = $derived<AssigneeInput[]>(
+    quickAssignees ??
+      quickPresets.assignees ??
+      (session === null ? [] : [{ userId: session.user.id }]),
+  );
+  const quickChosenText = $derived(
+    quickChosen.length === 0
+      ? "Nobody Yet"
+      : quickChosen
+          .map((entry) =>
+            "userId" in entry
+              ? entry.userId === session?.user.id
+                ? "Me"
+                : nameOf(entry.userId)
+              : context.teamName(entry.teamId),
+          )
+          .join(", "),
+  );
+  /** The status the new task starts at: the band's, or the first step of the list it lands on. */
+  const quickStatusName = $derived.by((): string | null => {
+    const list =
+      lists.find((candidate) => candidate.id === quickPresets.listId) ??
+      lists.find((candidate) => candidate.isDefault) ??
+      lists[0];
+    const status =
+      list?.statuses.find((candidate) => candidate.id === quickPresets.statusId) ?? list?.statuses[0];
+    return status?.name ?? null;
+  });
+  const canQuickAdd = $derived(canWrite && !isSample && display === "list");
+
+  function clearQuick(): void {
+    quickTitle = "";
+    quickAssignees = null;
+    quickStartsOn = null;
+    quickDueOn = undefined;
+    quickPriority = "normal";
+  }
+
+  /** Opens one band's add line, closing any other, with the cursor in its title. */
+  function openAddLine(key: string | null): void {
+    clearQuick();
+    addingIn = { key };
+  }
+
+  function closeAddLine(): void {
+    clearQuick();
+    addingIn = null;
+  }
+
+  // A different grouping is a different set of bands: the open line belonged to one of the old ones.
+  $effect(() => {
+    void groupBy;
+    addingIn = null;
+  });
+
+  /*
+   * Adds the typed task. The line empties and keeps the cursor for the next one; the new task is
+   * selected where it lands.
+   */
+  async function addQuickTask(): Promise<void> {
+    const title = quickTitle.trim();
+    if (title === "" || quickSaving) return;
+    const dueOn = quickDueOn === undefined ? (quickPresets.dueOn ?? null) : quickDueOn;
+    quickSaving = true;
+    writeFailure = null;
+    const written = await createTask(
+      fetch,
+      {
+        matterId: quickMatterId,
+        title,
+        priority: quickPriority,
+        startsOn: quickStartsOn,
+        dueOn,
+        dueAtTime: null,
+        timeZone: dueOn === null ? null : viewerTimeZone(),
+        ...(quickPresets.listId === undefined ? {} : { listId: quickPresets.listId }),
+        ...(quickPresets.statusId === undefined ? {} : { statusId: quickPresets.statusId }),
+        assignees: quickChosen,
+      },
+      newWriteKey(),
+    );
+    quickSaving = false;
+    if (written.kind !== "ok") {
+      writeFailure = stated(written.failure, "The task was not added.");
+      return;
+    }
+    quickTitle = "";
+    quickTitleElement?.focus();
+    const current = filters;
+    taskList.reset(subject);
+    await taskList.load((cursor) => read(cursor, current));
+    subtasks = new Map();
+    await readTreesUnder(taskList.items ?? []);
+    grid.rowClick(written.value.id);
+    quickTitleElement?.focus();
+  }
+
+  const bandFoot = $derived<DataTable.GridBandFoot<TaskRow> | undefined>(
+    canQuickAdd
+      ? {
+          editing: (key) => addingIn !== null && addingIn.key === key,
+          cell: addLineCell,
+          rest: addLineRest,
+        }
+      : undefined,
+  );
 </script>
+
+<!-- A band's add line at rest. -->
+{#snippet addLineRest({ bandKey, label }: { bandKey: string | null; label: string | null })}
+  <Button
+    variant="ghost"
+    size="sm"
+    class="font-normal text-text-muted"
+    onclick={() => openAddLine(bandKey)}
+  >
+    {label === null ? "Add a task" : `Add a task to ${label}`}
+  </Button>
+{/snippet}
+
+<!-- A band's add line, open: each column's own field, in the column the answer will be read in. -->
+{#snippet addLineCell({ column }: { column: DataTable.GridColumn<TaskRow>; bandKey: string | null })}
+  {#if column.id === "status"}
+    {#if quickStatusName !== null}
+      <Badge variant="neutral">{quickStatusName}</Badge>
+    {/if}
+  {:else if column.id === "title"}
+    <span class="flex min-w-0 items-center gap-8">
+      <Input
+        bind:ref={quickTitleElement}
+        bind:value={quickTitle}
+        size="sm"
+        class="min-w-0"
+        placeholder="Task title"
+        aria-label="New task title. Enter adds it, Escape closes the line"
+        disabled={quickSaving}
+        onkeydown={(event: KeyboardEvent) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            void addQuickTask();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            closeAddLine();
+          }
+        }}
+        {@attach (element: HTMLInputElement) => {
+          element.focus();
+        }}
+      />
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Close the add line"
+        title="Close the add line"
+        onclick={closeAddLine}
+      >
+        <X aria-hidden="true" />
+      </Button>
+    </span>
+  {:else if column.id === "matter"}
+    <span class="truncate text-text-muted">{context.matterTitle(quickMatterId)}</span>
+  {:else if column.id === "assignees"}
+    <TaskPeopleMenu
+      label="Assigned To"
+      summary={quickChosenText}
+      chosen={quickChosen}
+      members={assignableMembers}
+      {teams}
+      disabled={!canAssign || quickSaving}
+      disabledReason={canAssign ? undefined : permissionRefusal("Assigning a task", "tasks:assign")}
+      onchange={(next) => (quickAssignees = next)}
+    />
+  {:else if column.id === "startsOn"}
+    <TaskDateField
+      value={quickStartsOn}
+      label="Start"
+      emptyText="Start"
+      disabled={quickSaving}
+      onchange={(next) => (quickStartsOn = next)}
+    />
+  {:else if column.id === "dueOn"}
+    <TaskDateField
+      value={quickDueOn === undefined ? (quickPresets.dueOn ?? null) : quickDueOn}
+      label="Due"
+      emptyText="Due"
+      disabled={quickSaving}
+      onchange={(next) => (quickDueOn = next)}
+    />
+  {:else if column.id === "priority"}
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        class={`${buttonClasses({ variant: "ghost", size: "sm" })} px-4 font-normal`}
+        disabled={quickSaving}
+        aria-label={`New task priority ${PRIORITY_LABELS[quickPriority]}. Change it`}
+      >
+        {PRIORITY_LABELS[quickPriority]}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="start">
+        <DropdownMenu.RadioGroup
+          value={quickPriority}
+          onValueChange={(value) => (quickPriority = value as TaskPriority)}
+        >
+          {#each TASK_PRIORITIES as priority (priority)}
+            <DropdownMenu.RadioItem value={priority}>{PRIORITY_LABELS[priority]}</DropdownMenu.RadioItem>
+          {/each}
+        </DropdownMenu.RadioGroup>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  {/if}
+{/snippet}
 
 {#snippet controls()}
   <ScreenSearch
@@ -853,6 +1107,7 @@
       class="min-h-0 flex-1"
       caption="Tasks"
       cell={taskCell}
+      {bandFoot}
       rowDetail={layout === "two" ? rowDetail : undefined}
       scale={ROW_SCALE[rowSize]}
       loading={taskList.items === null}

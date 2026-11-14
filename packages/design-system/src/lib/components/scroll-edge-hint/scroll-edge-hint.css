@@ -1,7 +1,9 @@
 @layer components {
   /*
-   * ScrollEdgeHint — the gilt scroll-edge rule. A hairline in the identity gold at the edge of a
-   * scroll area, drawn while there is more content that way. Gold never fades in: it DRAWS, from
+   * ScrollEdgeHint — the scroll-edge rule. A neutral rule at the edge of a scroll area, drawn while
+   * there is more content that way. It was the identity gold until 2026-11-14, when the visual
+   * refresh kept gold for what is active or focused: a gold line at a table's edge read as a stray
+   * border rather than "more this way". It never fades in: it DRAWS, from
    * the start of the axis it runs along (the mc-draw keyframes), and it leaves instantly when the
    * component unmounts it. The rule is inset from the corners so two rules meeting at a corner
    * read as two marks rather than a frame.
@@ -11,8 +13,13 @@
    */
   .mc-scroll-edge-hint {
     position: absolute;
-    background-color: var(--mc-accent-default);
+    background-color: var(--mc-border-strong);
     pointer-events: none;
+  }
+  /* On the dark chrome (the sidebar) the page's neutral would be a light line on dark ink; the
+     chrome's own muted ink is the same weight of mark there. */
+  .mc-sidebar .mc-scroll-edge-hint {
+    background-color: var(--mc-chrome-text-muted);
   }
   /* The block pair runs across the area, so its thickness is a block size and it draws sideways. */
   .mc-scroll-edge-hint[data-edge="block-start"],

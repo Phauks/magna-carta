@@ -7,7 +7,7 @@
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
-  import { expect } from "storybook/test";
+  import { expect, userEvent } from "storybook/test";
   import Button from "../lib/components/button/index.ts";
   import FailureState from "../lib/components/failure-state/failure-state.svelte";
 
@@ -141,6 +141,37 @@ network: online`;
     <FailureState {...args}>
       {#snippet actions()}
         <Button variant="secondary" size="sm" disabled>Retry in 47s</Button>
+      {/snippet}
+    </FailureState>
+  {/snippet}
+</Story>
+
+<!-- Summary-led: the area, the action and the kind of failure lead, and the facts wait behind Show
+     details. The shape the app's failed panels and crash screens take. -->
+<Story
+  name="Summary"
+  args={{
+    summary: ["Meetings", "App fault: TypeError"],
+    showTrace: true,
+  }}
+  play={async ({ canvas, step }) => {
+    await step("The summary leads and the facts are closed", async () => {
+      await expect(canvas.getByRole("list", { name: "What failed" })).toHaveTextContent(
+        "App fault: TypeError",
+      );
+      await expect(canvas.queryByText("err_7FQ2K9XW")).toBeNull();
+    });
+    await step("Show details opens them", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Show details" }));
+      await expect(canvas.getByText("err_7FQ2K9XW")).toBeVisible();
+    });
+  }}
+>
+  {#snippet template(args: FailureStateStoryArgs)}
+    <FailureState {...args}>
+      {#snippet actions()}
+        <Button variant="primary">Reload</Button>
+        <Button variant="secondary">Report a problem</Button>
       {/snippet}
     </FailureState>
   {/snippet}

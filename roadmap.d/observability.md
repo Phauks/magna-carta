@@ -27,6 +27,13 @@
   surface: internal
   evidence: packages/telemetry/src/ids.ts (correlation*/error* handles) wired through apps/api-worker/src/http/telemetry-middleware.ts.
 
+- id: observability.error-record
+  name: Every Error ID resolves to a record
+  scope: The control plane keeps every answered failure and every browser crash against the Error ID the person saw, for thirty days, and System Status looks one up; every failure surface leads with a line naming the area, the action and the kind of failure.
+  status: shipped
+  surface: screen
+  evidence: apps/api-worker/src/http/error-record.ts writes the error_record row for each answered problem; apps/api-worker/src/http/routes/platform/client-errors.ts keeps a browser crash against its client_ ID; apps/api-worker/src/http/routes/platform/platform-error-lookup.ts answers the lookup; apps/web/src/lib/diagnostics/failure-summary.ts builds the summary line every band, screen and toast leads with.
+
 - id: observability.operational-telemetry
   name: Always-on operational telemetry
   scope: Redacted structured server logs and counters (Workers logger + Analytics Engine), firm-scoped, keyed by correlation/Error ID.

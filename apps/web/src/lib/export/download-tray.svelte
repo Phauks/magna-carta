@@ -30,6 +30,7 @@
   } from "./download-shelf.ts";
   import { markShelfChanged, shelfRevision } from "./download-shelf-signal.svelte.ts";
   import { renderCsvExport } from "./render-csv.ts";
+  import { renderPdfExport } from "./render-pdf.ts";
   import { renderRemoteExport } from "./render-remote.ts";
   import { renderTextExport } from "./render-text.ts";
   import { renderXlsxExport } from "./render-xlsx.ts";
@@ -138,7 +139,9 @@
             ? renderCsvExport(exportDocument)
             : format === "txt"
               ? renderTextExport(exportDocument)
-              : format === "docx" || format === "pdf"
+              : format === "pdf"
+                ? await renderPdfExport(exportDocument)
+                : format === "docx"
                 ? await renderRemoteExport(exportDocument, format)
                 : await renderXlsxExport(exportDocument, "worksheet-per-section");
         saveExport(

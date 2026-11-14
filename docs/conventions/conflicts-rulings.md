@@ -299,3 +299,25 @@ beneath them. Rows here supersede R1 where they say so.
   incomplete part tinted. No reader-facing line carries a dash, and the unavailable reasons in
   `packages/conflicts/src/sources.ts` became plain sentences. The printed report prints one section
   per part.
+- **2026-11-14, Trevor: "revise conflicts screen within a matter considering our recent changes to
+  conflicts checks screen. should try and reutilize components".** Mockup
+  https://claude.ai/artifact/VgPYmdjvgpbfeWszhHHGb3, option A built. A matter's Conflicts section
+  is four folding sections, like a check's Report tab: Results (the latest check's results, as the
+  check screen's own cards and filters, reviewable in place), Standing (results not reviewed, by
+  strength, as tiles; what has been answered; the policy shortfall and anything that could not be
+  searched, tinted), Checks (the firm's log narrowed to the matter), and Re-checks (what is owed,
+  the scheduled re-screening and Re-check Now). The cards, the result window and the answer dialog
+  are one piece, `apps/web/src/lib/conflicts/results-review.svelte`, which the check screen now
+  uses too. The old single-column panel (`posture-panel.svelte`) is gone.
+- **2026-11-14, Trevor: "parties screen needs to be improved in matters as well", then "we also will
+  need to account for counsel, which every case will likely have, or additionally, the firm the
+  counsel is with".** The matter's Parties section is a full-width table: Name, Role, Capacity, and
+  Conflicts, which says whether the latest check searched the party. A party linked after that check
+  reads "Added after the latest check" in the warning tone. The rows are drawn by the matter through
+  the parties tab's new `rows` snippet, so the add row and the Remove confirmation stay the tab's.
+  A counsel's row (Opposing counsel, Co-counsel) names the firm the Directory says they practice
+  with (a current employment, partnership, membership, officer, director or affiliation
+  relationship) and offers **Add Their Firm**, which links that firm in the new role Opposing
+  counsel's firm or Co-counsel's firm, so the next check searches it as a party. Before this, a
+  counsel's firm was reached only through the relationship walk, and only if the relationship was
+  recorded.

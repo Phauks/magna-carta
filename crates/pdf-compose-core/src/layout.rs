@@ -6,8 +6,8 @@
 
 use crate::fonts::{Face, Measurer};
 use crate::model::{
-    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
-    Paragraph, RunningLine, Table,
+    Alignment, Block, Column, ComposedDocument, Field, Figure, ImageBlock, Letterhead, PageSetup,
+    Paragraph, RowStyle, RunningLine, Table,
 };
 use crate::ComposeError;
 
@@ -19,6 +19,9 @@ pub(crate) enum Ink {
     /// The document's accent colour. A document with none draws this mark in `fallback` gray,
     /// so one layout serves both.
     Accent { fallback: u8 },
+    /// The colour of something a reader should not pass over. It belongs to a document in
+    /// colour: one with no accent draws this mark in `fallback` gray and stays gray throughout.
+    Alert { fallback: u8 },
 }
 
 /// One thing drawn on a page.
@@ -361,7 +364,40 @@ enum RowLines {
 const HEADING_SHADE: Ink = Ink::Gray(236);
 const BAND_SHADE: Ink = Ink::Gray(246);
 
+/// A row that is part of another, or no longer in force, is set in this gray.
+const MUTED_INK: Ink = Ink::Gray(115);
+/// How far the first cell of a row that is part of the row above steps in.
+const CHILD_STEP: f32 = 10.0;
+/// The rule above a row of totals: darker than the rules between rows.
+const TOTAL_RULE: Ink = Ink::Gray(120);
+
+/// A summary figure: large enough to be read first, small enough for six on a line.
+const FIGURE: TextStyle = TextStyle {
+    size: 16.0,
+    line_height: 21.0,
+    ink: Ink::Gray(0),
+};
+const FIGURE_ALERT: Ink = Ink::Alert { fallback: 0 };
+const FIGURE_LABEL_INK: Ink = Ink::Gray(95);
+const FIGURES_PER_LINE: usize = 6;
+/// Fewer figures than this still take columns of this share, so two do not sprawl.
+const FIGURES_FEWEST_COLUMNS: usize = 3;
+const FIGURE_GUTTER: f32 = 10.0;
+
+/// The label of a cover sheet.
+const DISPLAY: TextStyle = TextStyle {
+    size: 40.0,
+    line_height: 48.0,
+    ink: Ink::Gray(0),
+};
+
+/// The room left above a line for the signature written on it.
+const SIGNATURE_ROOM: f32 = 30.0;
+const SIGNATURE_LINE_WIDTH: f32 = 220.0;
+const SIGNATURE_LINE: Ink = Ink::Gray(60);
+
 /// One column of a row-based block (a table, or a list of fields).
+#[derive(Clone, Copy)]
 struct ColumnPlan {
     x: f32,
     width: f32,
@@ -929,6 +965,7 @@ impl Flow<'_, '_> {
         heading: Option<&[String]>,
         rows: &[Vec<String>],
         lines: RowLines,
+        styles: &[RowStyle],
     ) -> Result<(), ComposeError> {
         // Inside a card every row is ruled off from the next, a list of fields included, and
         // the heading row is paler than the card's title bar above it.
@@ -962,7 +999,32 @@ impl Flow<'_, '_> {
         let mut heading_due = heading_row.is_some();
         for (number, cells) in rows.iter().enumerate() {
             let shade = (lines == RowLines::Banded && number % 2 == 1).then_some(BAND_SHADE);
-            let row = self.break_row(columns, cells, false);
+            let style = styles.get(number).copied().unwrap_or_default();
+            // A part of the row above starts its first cell a step in from that row's.
+            let stepped: Vec<ColumnPlan>;
+            let columns = if style == RowStyle::Child {
+                stepped = columns
+                    .iter()
+                    .enumerate()
+                    .map(|(index, column)| {
+                        let step = if index == 0 {
+                            CHILD_STEP.min(column.width / 2.0)
+                        } else {
+                            0.0
+                        };
+                        ColumnPlan {
+                            x: column.x + step,
+                            width: column.width - step,
+                            ..*column
+                        }
+                    })
+                    .collect();
+                stepped.as_slice()
+            } else {
+                columns
+            };
+            let ink = matches!(style, RowStyle::Child | RowStyle::Muted).then_some(MUTED_INK);
+            let row = self.break_row(columns, cells, style == RowStyle::Total);
             let total = line_count(&row);
             let mut first = 0;
             while first < total {
@@ -992,10 +1054,16 @@ impl Flow<'_, '_> {
                 // At least one line always goes down, so a page too short for any line still
                 // makes progress instead of looping.
                 let count = fitting.clamp(1, left);
-                if first == 0 {
+                if first == 0 && style == RowStyle::Total {
+                    // The totals stand under one darker rule, in place of the row's own.
+                    if let Some(card) = self.card.as_mut() {
+                        card.rule_due = false;
+                    }
+                    self.row_rule(TOTAL_RULE, 0.75);
+                } else if first == 0 {
                     self.card_rule();
                 }
-                self.draw_row_slice(columns, &row, first, count, (shade, None));
+                self.draw_row_slice(columns, &row, first, count, (shade, ink));
                 first += count;
                 if first < total {
                     self.new_page()?;
@@ -1061,7 +1129,7 @@ impl Flow<'_, '_> {
         } else {
             RowLines::Ruled
         };
-        self.rows(&columns, heading, &table.rows, lines)
+        self.rows(&columns, heading, &table.rows, lines, &table.row_styles)
     }
 
     /// Column widths that fill the content width. With a weight on every column the widths
@@ -1147,7 +1215,7 @@ impl Flow<'_, '_> {
         }
         let columns = self.field_columns(fields, self.left(), self.page.content_width());
         let rows: Vec<Vec<String>> = fields.iter().map(field_cells).collect();
-        self.rows(&columns, None, &rows, RowLines::None)
+        self.rows(&columns, None, &rows, RowLines::None, &[])
     }
 
     /// Fields in two columns, read down the first and then down the second. Each half has a
@@ -1174,7 +1242,165 @@ impl Flow<'_, '_> {
             .collect();
         let [a, b] = left;
         let [c, d] = right;
-        self.rows(&[a, b, c, d], None, &rows, RowLines::None)
+        self.rows(&[a, b, c, d], None, &rows, RowLines::None, &[])
+    }
+
+    /// Summary figures in columns of one width: what each counts, the figure, a line about it.
+    fn figures(&mut self, figures: &[Figure]) -> Result<(), ComposeError> {
+        if figures.is_empty() {
+            return Ok(());
+        }
+        let inset = self.inset();
+        let content_width = self.page.content_width() - 2.0 * inset;
+        let per_line = figures
+            .len()
+            .clamp(FIGURES_FEWEST_COLUMNS, FIGURES_PER_LINE);
+        let column = content_width / per_line as f32;
+        let width = (column - FIGURE_GUTTER).max(1.0);
+        let label_style = TextStyle {
+            ink: FIGURE_LABEL_INK,
+            ..CAPTION
+        };
+        self.loose_block();
+        for line in figures.chunks(per_line) {
+            let broken: Vec<[Vec<Line>; 3]> = line
+                .iter()
+                .map(|figure| {
+                    let note = figure.note.as_deref().unwrap_or("");
+                    [
+                        break_lines(
+                            self.measurer,
+                            &plain(Face::Regular, &figure.label),
+                            CAPTION.size,
+                            width,
+                        ),
+                        break_lines(
+                            self.measurer,
+                            &plain(Face::Bold, &figure.value),
+                            FIGURE.size,
+                            width,
+                        ),
+                        if note.trim().is_empty() {
+                            Vec::new()
+                        } else {
+                            break_lines(
+                                self.measurer,
+                                &plain(Face::Regular, note),
+                                CAPTION.size,
+                                width,
+                            )
+                        },
+                    ]
+                })
+                .collect();
+            // Every figure on a line sits on one baseline, under the tallest label.
+            let tallest = |part: usize| broken.iter().map(|b| b[part].len()).max().unwrap_or(0);
+            let label_height = tallest(0) as f32 * CAPTION.line_height;
+            let value_height = tallest(1) as f32 * FIGURE.line_height;
+            let note_height = tallest(2) as f32 * CAPTION.line_height;
+            self.ensure(label_height + value_height + note_height)?;
+            let top = self.cursor;
+            let left = self.left() + inset;
+            for (index, (figure, parts)) in line.iter().zip(&broken).enumerate() {
+                let x = left + index as f32 * column;
+                let value_style = TextStyle {
+                    ink: if figure.alert {
+                        FIGURE_ALERT
+                    } else {
+                        FIGURE.ink
+                    },
+                    ..FIGURE
+                };
+                let mut y = top;
+                for text in &parts[0] {
+                    self.draw_line(text, x, width, Alignment::Start, label_style, y);
+                    y += CAPTION.line_height;
+                }
+                let mut y = top + label_height;
+                for text in &parts[1] {
+                    self.draw_line(text, x, width, Alignment::Start, value_style, y);
+                    y += FIGURE.line_height;
+                }
+                let mut y = top + label_height + value_height;
+                for text in &parts[2] {
+                    self.draw_line(text, x, width, Alignment::Start, label_style, y);
+                    y += CAPTION.line_height;
+                }
+            }
+            self.cursor = top + label_height + value_height + note_height;
+            self.gap(BLOCK_GAP);
+        }
+        Ok(())
+    }
+
+    /// One or two words set very large and centred.
+    fn display(&mut self, text: &str, space_above: f32) -> Result<(), ComposeError> {
+        let lines = break_lines(
+            self.measurer,
+            &plain(Face::Bold, text),
+            DISPLAY.size,
+            self.page.content_width() - 2.0 * self.inset(),
+        );
+        self.loose_block();
+        let height = lines.len() as f32 * DISPLAY.line_height;
+        let space = if space_above.is_finite() && space_above > 0.0 {
+            space_above.min((self.page.content_height() - height).max(0.0))
+        } else {
+            0.0
+        };
+        self.ensure(space + height)?;
+        // Added to the cursor directly: `gap` would drop it at the top of a page.
+        self.cursor += space;
+        self.flow_lines(&lines, Alignment::Center, DISPLAY)?;
+        self.gap(BLOCK_GAP);
+        Ok(())
+    }
+
+    /// Lines to sign on, two to a row, each with what it is for beneath it. A line and its
+    /// caption never part across a page.
+    fn signature_lines(&mut self, captions: &[String]) -> Result<(), ComposeError> {
+        if captions.is_empty() {
+            return Ok(());
+        }
+        let inset = self.inset();
+        let half = (self.page.content_width() - 2.0 * inset) / 2.0;
+        let width = SIGNATURE_LINE_WIDTH.min(half - FIGURE_GUTTER).max(1.0);
+        self.loose_block();
+        for pair in captions.chunks(2) {
+            let broken: Vec<Vec<Line>> = pair
+                .iter()
+                .map(|caption| {
+                    break_lines(
+                        self.measurer,
+                        &plain(Face::Regular, caption),
+                        CAPTION.size,
+                        width,
+                    )
+                })
+                .collect();
+            let caption_height =
+                broken.iter().map(Vec::len).max().unwrap_or(0) as f32 * CAPTION.line_height;
+            self.ensure(SIGNATURE_ROOM + 3.0 + caption_height)?;
+            let y = self.cursor + SIGNATURE_ROOM;
+            for (index, lines) in broken.iter().enumerate() {
+                let x = self.left() + inset + index as f32 * half;
+                self.mark(Mark::Rule {
+                    x0: x,
+                    x1: x + width,
+                    y,
+                    thickness: 0.75,
+                    ink: SIGNATURE_LINE,
+                });
+                let mut line_top = y + 3.0;
+                for line in lines {
+                    self.draw_line(line, x, width, Alignment::Start, CAPTION, line_top);
+                    line_top += CAPTION.line_height;
+                }
+            }
+            self.cursor = y + 3.0 + caption_height;
+            self.gap(BLOCK_GAP);
+        }
+        Ok(())
     }
 }
 
@@ -1421,6 +1647,9 @@ pub(crate) fn lay_out(
             Block::PageBreak => flow.new_page()?,
             Block::CardStart { title } => flow.open_card(title.as_deref())?,
             Block::CardEnd => flow.close_card(),
+            Block::Figures(figures) => flow.figures(figures)?,
+            Block::Display { text, space_above } => flow.display(text, *space_above)?,
+            Block::SignatureLines(captions) => flow.signature_lines(captions)?,
         }
     }
     flow.close_card();
@@ -1714,5 +1943,202 @@ mod tests {
         assert!(text_top("After") > first_y + 40.0);
         assert_eq!(third_x, page.margin_left);
         assert!(third_y > text_top("After"));
+    }
+
+    /// Every text mark of a page as (text, x, baseline, face, ink).
+    fn texts(page: &LaidPage) -> Vec<(String, f32, f32, Face, Ink)> {
+        page.marks
+            .iter()
+            .filter_map(|mark| match mark {
+                Mark::Text {
+                    text,
+                    x,
+                    baseline,
+                    face,
+                    ink,
+                    ..
+                } => Some((text.clone(), *x, *baseline, *face, *ink)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn text_named(page: &LaidPage, wanted: &str) -> (String, f32, f32, Face, Ink) {
+        texts(page)
+            .into_iter()
+            .find(|(text, ..)| text == wanted)
+            .unwrap_or_else(|| panic!("no text {wanted}"))
+    }
+
+    #[test]
+    fn a_table_sets_totals_parts_and_withdrawn_rows_apart() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let row = |name: &str, amount: &str| vec![name.to_string(), amount.to_string()];
+        let document = ComposedDocument {
+            blocks: vec![Block::Table(Table {
+                columns: vec![
+                    Column {
+                        heading: "Matter".to_string(),
+                        weight: Some(3.0),
+                        ..Column::default()
+                    },
+                    Column {
+                        heading: "Billed".to_string(),
+                        weight: Some(1.0),
+                        alignment: Alignment::End,
+                    },
+                ],
+                rows: vec![
+                    row("Rivera", "100.00"),
+                    row("Deposition", "60.00"),
+                    row("Withdrawn", "0.00"),
+                    row("Total", "160.00"),
+                ],
+                banded: false,
+                // Shorter than the rows on purpose: a row past the end is set plainly.
+                row_styles: vec![RowStyle::Plain, RowStyle::Child, RowStyle::Muted],
+            })],
+            ..ComposedDocument::default()
+        };
+        let plain_total = lay_out(&document, &[], &mut measurer).unwrap();
+        let (_, plain_x, _, plain_face, plain_ink) = text_named(&plain_total[0], "Rivera");
+        let (_, child_x, _, child_face, child_ink) = text_named(&plain_total[0], "Deposition");
+        let (_, muted_x, _, _, muted_ink) = text_named(&plain_total[0], "Withdrawn");
+        assert_eq!(child_x, plain_x + CHILD_STEP);
+        assert_eq!(muted_x, plain_x);
+        assert_eq!((plain_face, child_face), (Face::Regular, Face::Regular));
+        assert_eq!(plain_ink, Ink::Gray(0));
+        assert_eq!((child_ink, muted_ink), (MUTED_INK, MUTED_INK));
+        assert_eq!(text_named(&plain_total[0], "Total").3, Face::Regular);
+
+        let mut with_total = document.clone();
+        if let Block::Table(table) = &mut with_total.blocks[0] {
+            table.row_styles.push(RowStyle::Total);
+        }
+        let pages = lay_out(&with_total, &[], &mut measurer).unwrap();
+        let (_, _, total_baseline, total_face, total_ink) = text_named(&pages[0], "Total");
+        assert_eq!((total_face, total_ink), (Face::Bold, Ink::Gray(0)));
+        assert_eq!(text_named(&pages[0], "160.00").3, Face::Bold);
+        // One darker rule stands directly above the totals.
+        let above: Vec<f32> = pages[0]
+            .marks
+            .iter()
+            .filter_map(|mark| match mark {
+                Mark::Rule { y, ink, .. } if *ink == TOTAL_RULE => Some(*y),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(above.len(), 1);
+        assert!(above[0] < total_baseline && total_baseline - above[0] < CELL.line_height + 6.0);
+        // No style changes where a row sits.
+        assert_eq!(
+            text_named(&pages[0], "Total").2,
+            text_named(&plain_total[0], "Total").2
+        );
+    }
+
+    #[test]
+    fn figures_share_a_line_in_columns_of_one_width_and_wrap_after_six() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let figure = |number: usize| Figure {
+            label: format!("Label{number}"),
+            value: format!("Value{number}"),
+            note: (number == 2).then(|| "Note2".to_string()),
+            alert: number == 3,
+        };
+        let document = ComposedDocument {
+            blocks: vec![
+                Block::Figures((1..=7).map(figure).collect()),
+                Block::Paragraph(Paragraph::plain("After")),
+            ],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&document, &[], &mut measurer).unwrap();
+        let page = document.page;
+        let column = page.content_width() / 6.0;
+        for number in 1..=6 {
+            let (_, x, baseline, face, ink) = text_named(&pages[0], &format!("Value{number}"));
+            assert!((x - (page.margin_left + (number - 1) as f32 * column)).abs() < 0.01);
+            assert_eq!(baseline, text_named(&pages[0], "Value1").2);
+            assert_eq!(face, Face::Bold);
+            assert_eq!(ink == FIGURE_ALERT, number == 3, "{number}");
+        }
+        let (_, seventh_x, seventh_baseline, ..) = text_named(&pages[0], "Value7");
+        assert_eq!(seventh_x, page.margin_left);
+        // The second line starts under the note of the first, and the flow carries on below.
+        assert!(seventh_baseline > text_named(&pages[0], "Note2").2);
+        assert!(text_named(&pages[0], "Label1").2 < text_named(&pages[0], "Value1").2);
+        assert!(text_named(&pages[0], "After").2 > seventh_baseline);
+
+        // Two figures do not sprawl across the page: they take a third each.
+        let two = ComposedDocument {
+            blocks: vec![Block::Figures((1..=2).map(figure).collect())],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&two, &[], &mut measurer).unwrap();
+        let second_x = text_named(&pages[0], "Value2").1;
+        assert!((second_x - (page.margin_left + page.content_width() / 3.0)).abs() < 0.01);
+    }
+
+    #[test]
+    fn a_display_label_is_centred_and_signature_lines_stand_two_to_a_row() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let document = ComposedDocument {
+            blocks: vec![
+                Block::Display {
+                    text: "EXHIBIT".to_string(),
+                    space_above: 200.0,
+                },
+                Block::SignatureLines(vec![
+                    "Signature".to_string(),
+                    "Date".to_string(),
+                    "Witness".to_string(),
+                ]),
+            ],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&document, &[], &mut measurer).unwrap();
+        let page = document.page;
+        let (size, x) = pages[0]
+            .marks
+            .iter()
+            .find_map(|mark| match mark {
+                Mark::Text { text, size, x, .. } if text == "EXHIBIT" => Some((*size, *x)),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(size, DISPLAY.size);
+        // The space above the label is kept at the top of a page, where a space block is not.
+        let label_baseline = text_named(&pages[0], "EXHIBIT").2;
+        assert!(label_baseline > page.margin_top + 200.0);
+        assert!(label_baseline < page.margin_top + 200.0 + DISPLAY.line_height);
+        let width = measurer.width(Face::Bold, DISPLAY.size, "EXHIBIT");
+        assert!((x - (page.margin_left + (page.content_width() - width) / 2.0)).abs() < 0.5);
+
+        let lines: Vec<(f32, f32, f32)> = pages[0]
+            .marks
+            .iter()
+            .filter_map(|mark| match mark {
+                Mark::Rule { x0, x1, y, ink, .. } if *ink == SIGNATURE_LINE => Some((*x0, *x1, *y)),
+                _ => None,
+            })
+            .collect();
+        let [(first_x, first_end, first_y), (second_x, _, second_y), (third_x, _, third_y)] =
+            lines[..]
+        else {
+            panic!("{lines:?}");
+        };
+        assert_eq!(first_x, page.margin_left);
+        assert_eq!(first_end - first_x, SIGNATURE_LINE_WIDTH);
+        assert_eq!(second_x, page.margin_left + page.content_width() / 2.0);
+        assert_eq!(first_y, second_y);
+        assert_eq!(third_x, first_x);
+        assert!(third_y > first_y + SIGNATURE_ROOM);
+        // What a line is for sits under it, and the next row leaves room to sign above its line.
+        let caption = text_named(&pages[0], "Signature").2;
+        assert!(caption > first_y && caption < first_y + CAPTION.line_height + 3.0);
     }
 }

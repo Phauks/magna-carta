@@ -3,7 +3,7 @@ import type { ProtectedReadContext } from "@magna-carta/data-access/protected-fi
 import type { UserId } from "@magna-carta/identifiers/types";
 import type { Credential, CredentialStore } from "@magna-carta/integrations/credentials";
 import type { CredentialStoreForFirm } from "../plugins/credential-store.ts";
-import { calendarCredentialRefForMember } from "./connect-microsoft-account.ts";
+import { calendarCredentialRefForMember } from "./connect-calendar-account.ts";
 
 // A member's OWN calendar sign-in, and nothing else in the credential store.
 //

@@ -55,6 +55,9 @@ export function rosterEntryFor(
     userId: kind === "guest" || viewer === "guest" ? null : participant.userId,
     kind,
     displayName: participant.displayName,
+    // Present only while the person goes by a name of their own choosing (room-naming.ts), so every
+    // reader can see the name they came in with beside it.
+    ...((participant.accountName ?? null) === null ? {} : { accountName: participant.accountName }),
     sfuSessionId: participant.sfuSessionId,
     speaking: participant.speaking,
     muted: participant.muted,

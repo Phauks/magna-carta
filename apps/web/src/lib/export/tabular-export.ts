@@ -3,11 +3,11 @@
  * that wants "download this" builds one of these from what it already shows and picks a renderer;
  * a new format is a new renderer over this same shape, never a per-page rewrite of the figures.
  *
- * Three formats render client-side (plain text, CSV, and an Excel workbook — see render-text.ts /
- * render-csv.ts / render-xlsx.ts). The document formats (.docx/.pdf) render server-side through
- * render-remote.ts — the office suite is the platform's one renderer of a word-processing package,
- * and its conversion edge is the one way a PDF gets made, so neither format may grow a client-side
- * generator here.
+ * Four formats render client-side: plain text, CSV, an Excel workbook and a PDF (render-text.ts,
+ * render-csv.ts, render-xlsx.ts, render-pdf.ts). The PDF is composed by the platform's PDF composer,
+ * the one way a tabular export becomes a PDF. Word renders server-side through render-remote.ts,
+ * because document assembly's guarded writer is the platform's one writer of a word-processing
+ * package; Word may not grow a client-side generator here, and a PDF may not grow a second path.
  */
 import { formatInstantDate, formatTimeOfDay } from "@magna-carta/design-system/formatters";
 import { saveToTarget } from "./save-target.ts";
@@ -29,12 +29,51 @@ export interface TabularExportSection {
    * and spreadsheet software aligns real numbers itself); the server-rendered document formats do.
    */
   readonly endAlignedColumns?: readonly number[];
+  /**
+   * What sets each row apart, by position: `total` is the payload's total under the rows, `child`
+   * a part of the row above it (a client's matter). Only the PDF consumes it. A child row's first
+   * cell still carries `CHILD_ROW_INDENT`, so the text, CSV, spreadsheet and Word files, which
+   * draw no row styles, show the nesting the same way they always have.
+   */
+  readonly rowKinds?: readonly ("total" | "child" | null)[];
+}
+
+/** The leading spaces a child row's first cell carries in the files that draw no row styles. */
+export const CHILD_ROW_INDENT = "    ";
+
+/** A figure the document opens with: the report's own total, formatted. Only the PDF prints it. */
+export interface TabularExportFigure {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string;
+  /** A figure a reader should not pass over, such as debt over ninety days. */
+  readonly alert?: true;
 }
 
 export interface TabularExportDocument {
   readonly title: string;
   readonly generatedAt: Date;
   readonly sections: readonly TabularExportSection[];
+  /**
+   * The row of totals, where the report opens with one. Neither this nor `rowKinds` is kept on
+   * the download shelf, whose stored shape the server validates; a re-download prints the plain
+   * rows, which still read correctly.
+   */
+  readonly summary?: readonly TabularExportFigure[];
+}
+
+/**
+ * An export that could not be rendered, carrying words fit to show the member as they stand, and the
+ * Error ID where a server answered with one. Both renderers that can fail this way throw it: the
+ * server's Word printer (render-remote.ts) and the browser's PDF composer (render-pdf.ts).
+ */
+export class ExportRenderError extends Error {
+  readonly errorId: string | undefined;
+  constructor(message: string, errorId?: string) {
+    super(message);
+    this.name = "ExportRenderError";
+    this.errorId = errorId;
+  }
 }
 
 /** The cell's printed face — what the text and CSV renderers write. */

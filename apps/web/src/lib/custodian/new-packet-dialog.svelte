@@ -26,7 +26,12 @@
    * it says which case it is rather than offering a number field to everybody.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
-  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
+  import { untrack } from "svelte";
+  import {
+    DraftNumber,
+    type RecordSubject,
+  } from "@magna-carta/design-system/record-reference";
+  import { draftNumberKeeper } from "$lib/records/draft-number-keeper.ts";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
@@ -84,20 +89,33 @@
   /*
    * The custody number this packet will be filed under, stated before it exists.
    *
-   * TWO CASES, and the form already knows which it is in. A packet the firm is taking in now draws
-   * from the register's own counter on save; a packet CARRIED IN from a paper deeds register keeps
-   * the number already written on its physical label, because renumbering property the firm is
-   * holding means relabelling objects in a safe. So a typed carried-in number is `drawn` — it is the
-   * packet's real number, and the save is only recording it — and everything else is a preview with
-   * nothing in it yet, which the shell states as a number arriving on save rather than as silence.
-   * Nothing serves the next custody number; when it does, this is the one line that changes
-   * ($lib/records/previewed-number.svelte.ts).
+   * TWO CASES, and the form already knows which it is in. A packet the firm is taking in now is
+   * filed under a draft number, held for this form while it is open and given back if it closes
+   * without saving; a packet CARRIED IN from a paper deeds register keeps the number already written
+   * on its physical label, because renumbering property the firm is holding means relabelling
+   * objects in a safe. So a typed carried-in number is `drawn` — it is the packet's real number, and
+   * the save is only recording it — and the draft is given back while the form is in that case.
    */
+  const number = new DraftNumber("Packet");
+  const keeper = draftNumberKeeper("custody_packet");
+  let logged = false;
+  $effect(() => {
+    const holding = open && !carriedIn;
+    untrack(() => {
+      if (holding) {
+        void number.hold(keeper);
+        return;
+      }
+      if (logged) number.taken();
+      else number.release();
+      logged = false;
+    });
+  });
   const subtitle = $derived<RecordSubject>({
     reference:
       carriedIn && draft.manualCustodyNumber !== ""
         ? { kind: "Packet", number: draft.manualCustodyNumber }
-        : { kind: "Packet", number: null, standing: "preview" },
+        : number.reference,
   });
   let failure = $state<StatedFailure | null>(null);
 
@@ -179,8 +197,13 @@
     failure = null;
     // A retried submit must not draw a second custody number for one envelope, so every attempt
     // carries its own key and the server answers the repeat with the first result.
-    const outcome = await createCustodyPacket(fetch, packetDraftRequest(draft), crypto.randomUUID());
+    const outcome = await createCustodyPacket(
+      fetch,
+      { ...packetDraftRequest(draft), numberReservation: carriedIn ? undefined : number.token },
+      crypto.randomUUID(),
+    );
     if (outcome.kind === "ok") {
+      logged = true;
       onCreated(outcome.value);
       return "committed";
     }

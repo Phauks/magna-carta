@@ -36,7 +36,8 @@ ADR-0072, ADR-0079.) **Invariants:**
   it is the `invoice` purpose on the register in `@magna-carta/sequence-numbering`
 - `src/line-amounts.ts` — `invoiceLineAmountMinor` (through `roundInvoiceLine`) and `aggregateMinor`
 - `src/queries.ts` — the unbilled work-in-progress read (the hot one), the invoice list and detail,
-  the per-matter receivable, and the aging read
+  the per-matter receivable, the aging read, and the two registers the Invoices and Payments Applied
+  reports are taken over (`readInvoiceRegister`, `readApplicationRegister`)
 - `src/arrangements.ts` — the fee agreement: `setBillingArrangement` (a fee change is a NEW
   version), the in-force/history reads, and `requireArrangementOfKind`
 - `src/flat-fee.ts` — `addFlatFeeToDraft`: one `flat_fee` line, contributing time claimed at ZERO

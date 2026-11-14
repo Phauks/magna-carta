@@ -25,6 +25,7 @@
  */
 import type { Failure } from "$lib/api/problem.ts";
 import type { Breadcrumb } from "./breadcrumbs.ts";
+import { actionForRequest, areaForPath, causeLabel, failurePath } from "./failure-summary.ts";
 import {
   entry,
   NONE_ISSUED,
@@ -97,7 +98,14 @@ export function buildFailureTrace(
 ): string {
   const problem = failure?.problem ?? null;
 
+  const path = failure === null ? environment.route : failurePath(failure);
+  const area = areaForPath(path);
+  const action =
+    failure === null || failure.request.startsWith("PAGE ") ? null : actionForRequest(path);
   const opening: ReportEntry[] = [
+    ...(area === null ? [] : [entry("area", area)]),
+    ...(action === null ? [] : [entry("action", action)]),
+    ...(failure === null ? [] : [entry("kind", causeLabel(failure))]),
     entry("build", environment.buildIdentity),
     entry("route", environment.route),
     entry("request", failure?.request ?? "(no failing call — reported by hand)"),
@@ -116,6 +124,8 @@ export function buildFailureTrace(
     opening.push(entry("problem type", problem.type, NOT_STATED));
     opening.push(entry("title", problem.title, NOT_STATED));
     opening.push(entry("detail", problem.detail, NOT_STATED));
+    if (problem.operation !== undefined) opening.push(entry("operation", problem.operation));
+    if (problem.cause !== undefined) opening.push(entry("cause", problem.cause));
     opening.push(entry("error id", problem.errorId, NONE_ISSUED));
     opening.push(entry("correlation id", problem.correlationId, NONE_ISSUED));
 

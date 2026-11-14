@@ -5,7 +5,8 @@ import {
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../bindings.ts";
-import { resolveMicrosoftApplication } from "./microsoft-application.ts";
+import { NO_REQUEST_ORIGIN, resolveCalendarApplication } from "./calendar-providers.ts";
+import { CALENDAR_PROVIDERS } from "@magna-carta/calendar/sync-contract";
 
 // Something that a member's calendar could depend on has changed in this firm: ask every account
 // with a rule, or with a copy still out, to look again.
@@ -17,13 +18,16 @@ import { resolveMicrosoftApplication } from "./microsoft-application.ts";
 // into whatever pass that account already has waiting, and a pass that finds no difference sends
 // the provider nothing.
 //
-// A deployment with no Microsoft application has no account to ask and returns before reading.
+// A deployment registered with no provider has no account to ask and returns before reading.
 export async function requestCalendarSync(
   env: Bindings,
   firmId: FirmId,
   database: SqlDatabase,
 ): Promise<void> {
-  if (resolveMicrosoftApplication(env, "https://no-request.invalid") === undefined) return;
+  const registered = CALENDAR_PROVIDERS.some(
+    (provider) => resolveCalendarApplication(env, NO_REQUEST_ORIGIN, provider) !== undefined,
+  );
+  if (!registered) return;
   const { results } = await selectSyncingConnectionsStatement(database).all<SyncingConnectionRow>();
   await Promise.all(
     results.map((connection) =>

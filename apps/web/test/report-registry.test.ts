@@ -55,12 +55,33 @@ describe("the report registry", () => {
     }
   });
 
-  it("names the trust-compliance pack as the one built report, about one trust account", () => {
+  it("builds every report the design named, each with the scope controls its read can honor", () => {
     const built = REPORTS.filter(isBuiltReport);
-    expect(built.map((report) => report.id)).toEqual(["trust-compliance"]);
-    expect(built[0]?.scope.trustAccount).toBe(true);
-    expect(built[0]?.temporal).toBe("bitemporal");
-    expect(built[0]?.permission).toBe("reports:trustCompliance");
+    expect(built.map((report) => [report.id, report.scope])).toEqual([
+      ["trust-compliance", { trustAccount: true, office: false, period: "span" }],
+      ["accounts-receivable-aging", { trustAccount: false, office: true, period: "date" }],
+      ["work-in-progress", { trustAccount: false, office: true, period: "none" }],
+      ["realization", { trustAccount: false, office: true, period: "span" }],
+      ["invoices", { trustAccount: false, office: true, period: "span" }],
+      ["payments-applied", { trustAccount: false, office: true, period: "span" }],
+      ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
+      ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
+    ]);
+    expect(reportById("trust-compliance")?.permission).toBe("reports:trustCompliance");
+  });
+
+  it("offers a knowledge instant only where the read honors one", () => {
+    const temporal = Object.fromEntries(REPORTS.map((report) => [report.id, report.temporal]));
+    expect(temporal).toEqual({
+      "trust-compliance": "bitemporal",
+      "accounts-receivable-aging": "bitemporal",
+      "work-in-progress": "live-only",
+      realization: "bitemporal",
+      invoices: "bitemporal",
+      "payments-applied": "bitemporal",
+      "timekeeper-productivity": "live-only",
+      "operational-volumes": "bitemporal",
+    });
   });
 
   it("answers null for a report nobody declared", () => {
