@@ -188,9 +188,7 @@ export function bindingFindings(report: BindingReport): readonly RegistrationFin
   if (report.unconvertedMergeFields.length > 0) {
     findings.push({
       tone: "warning",
-      text:
-        `These Word merge fields were left as they are and will print the text Word last saved in them: ` +
-        `${names(report.unconvertedMergeFields)}. Register again with conversion turned on to fill them.`,
+      text: `These Word merge fields were left as they are and will print their last saved text: ${names(report.unconvertedMergeFields)}. Add the template again with conversion turned on to fill them.`,
     });
   }
   if (report.legacyFormFields.length > 0) {
@@ -202,7 +200,7 @@ export function bindingFindings(report: BindingReport): readonly RegistrationFin
   if (report.unboundContentControls.length > 0) {
     findings.push({
       tone: "warning",
-      text: `${report.unboundContentControls.length} content control${report.unboundContentControls.length === 1 ? "" : "s"} in the document will print its placeholder or leftover text rather than a merged value.`,
+      text: `${report.unboundContentControls.length} content control${report.unboundContentControls.length === 1 ? "" : "s"} in the document will print placeholder text instead of a merged value.`,
     });
   }
   if (report.unboundFormFields.length > 0) {

@@ -134,8 +134,8 @@
       />
       <p class="text-xs text-text-muted">
         {draft.transferToUserId === null
-          ? "Whoever it went to becomes the person on this call, so they can add their own notes to it."
-          : `${nameOf(draft.transferToUserId)} becomes the person on this call, so they can add their own notes to it.`}
+          ? "The person it went to becomes the person on this call, so they can add notes to it."
+          : `${nameOf(draft.transferToUserId)} becomes the person on this call, so they can add notes to it.`}
       </p>
     </div>
   {:else if draft.outcome === "messageTaken"}
@@ -185,9 +185,9 @@
         </div>
       </div>
       <p class="text-xs text-text-muted">
-        Saving sends {nameOf(draft.messageForUserId)} a notification and puts "{messageTaskTitle(
+        Saving notifies {nameOf(draft.messageForUserId)} and adds "{messageTaskTitle(
           draft,
-        )}" on their task list, linked to this call. Ticking the task done closes the message.
+        )}" to their tasks, linked to this call. Completing the task closes the message.
       </p>
     </div>
   {:else if draft.outcome === "spam"}
@@ -200,8 +200,7 @@
         onchange={(chosen) => (draft.spamKind = chosen)}
       />
       <p class="text-xs text-text-muted">
-        Saving files this {text ? "text" : "call"} as not a matter, so it skips the queue. The next call
-        from this number shows how many times the firm has marked it as spam.
+        Saving marks this {text ? "text" : "call"} as not a matter, so it skips the queue. The next call from this number shows how often the firm has marked it as spam.
       </p>
     </div>
   {/if}

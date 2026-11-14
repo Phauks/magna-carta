@@ -21,6 +21,18 @@ export const MAX_MEETING_POLL_OPTION_LENGTH = 200;
 export const MIN_MEETING_POLL_OPTIONS = 2;
 export const MAX_MEETING_POLL_OPTIONS = 10;
 
+/**
+ * WHAT KIND OF QUESTION A POLL ASKS. `one` picks a single option and `multiple` up to `max_choices`;
+ * `ranking` puts every option in order, so its tally carries each option's average place; `score` is
+ * a rating whose options are the points of the scale, "1" upward, so its average is read off the
+ * ordinary tally.
+ */
+export const MEETING_POLL_KINDS = Object.freeze(["one", "multiple", "ranking", "score"] as const);
+export type MeetingPollKind = (typeof MEETING_POLL_KINDS)[number];
+
+/** The scale a score poll offers by default, and the widest it may be (one option per point). */
+export const DEFAULT_MEETING_POLL_SCORE_SCALE = 5;
+
 /** The most polls one page of a meeting's polls carries. */
 export const MAX_MEETING_POLL_PAGE_SIZE = 50;
 
@@ -38,6 +50,7 @@ export interface MeetingPollRow {
   /** 0 or 1 as stored. Whether the answers are kept without the participant. */
   readonly anonymous: number;
   readonly max_choices: number;
+  readonly kind: MeetingPollKind;
   readonly opened_at: string;
   readonly closed_at: string | null;
   readonly closed_by_user_id: UserId | null;
@@ -52,6 +65,8 @@ export interface MeetingPollOptionTally {
   readonly position: number;
   readonly label: string;
   readonly count: number;
+  /** On a ranking, the average place participants gave this option (1 is first); otherwise null. */
+  readonly averageRank: number | null;
 }
 
 /**
@@ -82,6 +97,7 @@ export interface MeetingPollEntry {
   readonly question: string;
   readonly anonymous: boolean;
   readonly maxChoices: number;
+  readonly kind: MeetingPollKind;
   readonly openedAt: string;
   readonly closedAt: string | null;
   readonly closedByUserId: UserId | null;

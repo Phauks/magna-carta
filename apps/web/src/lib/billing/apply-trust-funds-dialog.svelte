@@ -46,8 +46,7 @@
 
   /** What the trust side is waiting on, as the noun phrase the Soon sentence completes. */
   const TRUST_DEPENDENCY =
-    "a read of the firm's trust accounts: both the matter's trust ledger and the transfer itself " +
-    "name a trust account, and no route hands one out yet";
+    "choosing a trust account";
 
   /*
    * The bill being acted on, by its own number. The facts beside it are facts about THAT BILL — what
@@ -56,7 +55,7 @@
    * share a line behind three different separators across these panels.
    */
   const subtitle = $derived<RecordSubject>({
-    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+    reference: { kind: "Bill", number: row?.summary.invoiceNumber ?? null },
   });
 
   const ceiling = $derived(row === null ? 0 : (matterUnpaidMinor(row, matterId) ?? 0));
@@ -98,8 +97,7 @@
           <!-- What bounds the ceiling is a fact of the ceiling, so it is the row's second line and
                never a paragraph loose beneath the list. -->
           <span class="text-xs text-text-subtle">
-            This matter's own unpaid share of this bill. Once the trust ledger can be read it is
-            also bounded by what the matter's leaf holds, net of holds.
+            This matter's unpaid share of this bill.
           </span>
         </dd>
       </div>
@@ -116,9 +114,7 @@
       <p class="flex items-start gap-8 text-sm text-status-warning-subtle-foreground">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
-          No delivery of this bill has been recorded. Several jurisdictions expect the client to
-          have been given the bill before fees are taken: it is recorded here, shown here, and the
-          firm proceeds knowingly. It does not gate.
+          No delivery of this bill has been recorded. Some jurisdictions expect the client to receive the bill before fees are taken from trust. This doesn't block you.
         </span>
       </p>
     {/if}

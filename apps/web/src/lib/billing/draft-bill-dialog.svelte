@@ -237,8 +237,7 @@
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
-          An invoice belongs to one client and may bill several of that client's matters. The
-          matter's client is resolved from its own party record: it is shown, never chosen.
+          A bill belongs to one client and can cover several of their matters. The client comes from this matter's parties.
         </span>
       </p>
 
@@ -263,14 +262,12 @@
         </div>
       </div>
       <p class="text-xs text-text-muted">
-        The period is what the bill says it covers. The issue and due dates are drawn at
-        finalization, from {civilToday()} and {civilDatePlusDays(civilToday(), 30)} by default.
+        The period the bill covers. The issue and due dates are set when it's finalized, from {civilToday()} and {civilDatePlusDays(civilToday(), 30)} by default.
       </p>
 
       {#if draftAlreadyOpen}
         <p class="text-xs text-status-warning-subtle-foreground">
-          A draft for this client is already open. A second draft cannot claim the same entries: a
-          claim held by one draft is refused to another, by name.
+          A draft for this client is already open. Entries on one draft can't be claimed by another.
         </p>
       {/if}
 

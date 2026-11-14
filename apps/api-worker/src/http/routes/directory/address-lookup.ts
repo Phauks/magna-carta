@@ -21,7 +21,14 @@
  * how it came out — enough for an operator to watch the volume that drives the provider's bill and to
  * see failures begin, and nothing that could carry an address.
  */
-import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import type { OpenAPIHono } from "@hono/zod-openapi";
+import {
+  ResolutionRequest,
+  ResolutionResponse,
+  SuggestionsRequest,
+  SuggestionsResponse,
+  type AddressSuggestionBody,
+} from "@magna-carta/address-lookup/contract";
 import type { AddressSuggestion as PortSuggestion } from "@magna-carta/address-lookup/port";
 import type { Context } from "hono";
 import { readMemberPrimaryOfficeRegion } from "@magna-carta/locations/statements";
@@ -42,114 +49,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.t
 
 // ── Contract ────────────────────────────────────────────────────────────────
 
-const AddressLookupParts = z
-  .object({
-    street: z.string().optional(),
-    streetTwo: z.string().optional(),
-    dependentLocality: z.string().optional(),
-    city: z.string().optional(),
-    region: z.string().optional(),
-    postal: z.string().optional(),
-    sortingCode: z.string().optional(),
-    country: z.string().optional().openapi({ description: "ISO 3166-1 alpha-2." }),
-  })
-  .openapi("AddressLookupParts", {
-    description:
-      "An address as the parts a record stores, named for their position in an address rather than " +
-      "for what any one country calls them.",
-  });
-
-const AddressSuggestion = z
-  .object({
-    suggestionId: z.string().openapi({
-      description:
-        "Opaque. Meaningful only to the resolution operation, short-lived, and able to carry an " +
-        "address — so it is sent back in a request body, never a URL.",
-    }),
-    label: z.string().openapi({ description: "The whole offer on one line, for a list." }),
-    parts: AddressLookupParts,
-    kind: z.enum(["address", "group"]).openapi({
-      description:
-        "A group is a building whose units share one street line. It is not an address a record " +
-        "can hold: resolving it answers the addresses inside it.",
-    }),
-    count: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .openapi({ description: "For a group, how many addresses it holds." }),
-  })
-  .openapi("AddressSuggestion");
-
-const SuggestionsRequest = z
-  .object({
-    country: z
-      .string()
-      .regex(/^[A-Za-z]{2}$/)
-      .openapi({ description: "ISO 3166-1 alpha-2: the country the address is in." }),
-    query: z.string().max(200).openapi({ description: "What has been typed so far." }),
-    limit: z.number().int().min(1).max(10).optional(),
-    near: z
-      .string()
-      .regex(/^[A-Za-z0-9]{1,3}$/)
-      .optional()
-      .openapi({
-        description:
-          "The region the address is probably in — the subdivision part of an ISO 3166-2 code, " +
-          "without the country (`NC`, not `US-NC`). Ranks nearby addresses first and never hides " +
-          "the rest. Absent, the caller's primary office stands in for it.",
-      }),
-  })
-  .openapi("AddressSuggestionsRequest");
-
-const AddressLocation = z
-  .object({
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
-  })
-  .openapi("AddressLocation", {
-    description:
-      "Where the address is, as the open address data records it. For a map or a distance; not a " +
-      "postal fact.",
-  });
-
-const SuggestionsResponse = z
-  .discriminatedUnion("outcome", [
-    z.object({ outcome: z.literal("suggestions"), suggestions: z.array(AddressSuggestion) }),
-    z.object({ outcome: z.literal("no-coverage") }),
-    z.object({ outcome: z.literal("unavailable") }),
-  ])
-  .openapi("AddressSuggestionsResponse", {
-    description:
-      "`suggestions` may be empty, which means the country is covered and nothing matched. " +
-      "`no-coverage` means the service holds no addresses for that country, which is not the same " +
-      "thing and must not be shown as though it were. `unavailable` means no address service is " +
-      "provisioned: a person types the address themselves, exactly as before.",
-  });
-
-const ResolutionRequest = z
-  .object({ suggestionId: z.string().min(1).max(2048) })
-  .openapi("AddressResolutionRequest");
-
-const ResolutionResponse = z
-  .discriminatedUnion("outcome", [
-    z.object({
-      outcome: z.literal("address"),
-      parts: AddressLookupParts,
-      location: AddressLocation.optional(),
-    }),
-    z.object({ outcome: z.literal("group"), suggestions: z.array(AddressSuggestion) }),
-    z.object({ outcome: z.literal("expired") }),
-    z.object({ outcome: z.literal("no-coverage") }),
-    z.object({ outcome: z.literal("unavailable") }),
-  ])
-  .openapi("AddressResolutionResponse", {
-    description:
-      "`address` is the parts a record stores. `group` is the addresses inside a group, offered in " +
-      "turn. `expired` is an offer the service no longer knows — nothing went wrong, and the caller " +
-      "asks again.",
-  });
+// The bodies live in @magna-carta/address-lookup/contract; only the routes are declared here.
 
 const problemResponse = (description: string) => ({
   description,
@@ -220,10 +120,8 @@ export const addressResolutionRoute = defineOpenAPIRoute(lookupMeta("resolve"), 
 
 // ── Handlers ────────────────────────────────────────────────────────────────
 
-type ContractSuggestion = z.infer<typeof AddressSuggestion>;
-
 /** The port's readonly shapes, copied into the contract's plain ones. */
-function toContract(suggestion: PortSuggestion): ContractSuggestion {
+function toContract(suggestion: PortSuggestion): AddressSuggestionBody {
   return {
     suggestionId: suggestion.suggestionId,
     label: suggestion.label,
@@ -303,7 +201,12 @@ export function registerAddressLookupRoutes(
       if (answer.ok) {
         count("suggestions");
         return c.json(
-          { outcome: "suggestions" as const, suggestions: answer.suggestions.map(toContract) },
+          {
+            outcome: "suggestions" as const,
+            suggestions: answer.suggestions.map(toContract),
+            // Google's terms require its content shown without a Google map to carry its name.
+            ...(engine === "google" && { attribution: "google-maps" as const }),
+          },
           200,
         );
       }

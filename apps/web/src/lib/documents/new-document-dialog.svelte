@@ -210,7 +210,7 @@
           <Alert.Description>
             It is in the list behind this dialog.
             {#if producedFormat === "pdf"}
-              It is a PDF, which is the form the platform seal accepts.
+              It's a PDF, which the seal requires.
             {/if}
           </Alert.Description>
         </Alert.Root>
@@ -297,9 +297,7 @@
                 <Alert.Root variant="info">
                   <Alert.Title>This firm has no templates yet.</Alert.Title>
                   <Alert.Description>
-                    A template is registered once and then assembled against any matter. Until one
-                    is registered there is nothing to build from, so this list is genuinely empty
-                    rather than showing examples.
+                    No templates yet. Add one before building documents from it.
                   </Alert.Description>
                 </Alert.Root>
               {/snippet}
@@ -330,8 +328,7 @@
                     </Select.Trigger>
                   </Select.Root>
                   <p class="text-sm text-text-muted">
-                    A PDF is converted from the merged document before it is filed, so it takes a
-                    little longer. Choose it when the document is going out to be signed.
+                    A PDF takes a little longer to create. Choose it if the document will be signed.
                   </p>
                 </div>
               {/snippet}
@@ -373,8 +370,7 @@
                   </Select.Content>
                 </Select.Root>
                 <p class="text-sm text-text-muted">
-                  A PDF is converted from the merged document before it is filed, so it takes a
-                  little longer. Choose it when the document is going out to be signed.
+                  A PDF takes a little longer to create. Choose it if the document will be signed.
                 </p>
               </div>
             </LoadingRegion>

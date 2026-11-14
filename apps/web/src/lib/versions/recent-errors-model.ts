@@ -5,7 +5,9 @@
  * says what each outcome means to a reader. Pure apart from the one fetch helper, so the words are
  * testable without a browser.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { platformRecentErrors } from "@magna-carta/api-client";
+import { outcomeOf } from "$lib/api/api-client.ts";
+import type { ApiOutcome } from "$lib/api/request.ts";
 
 export type RecentErrorsState = "read" | "not-configured" | "refused" | "unreachable";
 
@@ -33,8 +35,15 @@ export interface RecentErrorsValue {
 /** The tab's label. */
 export const RECENT_ERRORS_SECTION_LABEL = "Recent Errors";
 
-export function readRecentErrors(fetchImpl: typeof fetch): Promise<ApiOutcome<RecentErrorsValue>> {
-  return requestJson<RecentErrorsValue>(fetchImpl, "/api/v1/platform/recent-errors");
+export async function readRecentErrors(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<RecentErrorsValue>> {
+  try {
+    const { data } = await platformRecentErrors({ fetch: fetchImpl, throwOnError: true });
+    return { kind: "ok", value: data };
+  } catch (error) {
+    return outcomeOf(error);
+  }
 }
 
 /** Why there are no rows, when the read could not be made. Null when it was. */

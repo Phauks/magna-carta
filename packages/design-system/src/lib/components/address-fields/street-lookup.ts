@@ -31,9 +31,28 @@ export interface AddressOffer {
   readonly count?: number;
 }
 
+/** A provider whose terms require its name beside its offers. */
+export type AddressOfferAttribution = "google-maps";
+
+/**
+ * The words each attribution shows, exactly as the provider requires them: Google asks for "Google
+ * Maps" on one line, never translated, never shortened.
+ */
+export const ADDRESS_OFFER_ATTRIBUTION_TEXT: Readonly<Record<AddressOfferAttribution, string>> = {
+  "google-maps": "Google Maps",
+};
+
 /** What a search came to. A search that could not run is a REJECTION, never one of these. */
 export type AddressLookupAnswer =
-  | { readonly kind: "offers"; readonly offers: readonly AddressOffer[] }
+  | {
+      readonly kind: "offers";
+      readonly offers: readonly AddressOffer[];
+      /**
+       * Whose data the offers are, when the provider's terms require the list to say so. The list
+       * shows the provider's name below the offers, in the same container, untranslated.
+       */
+      readonly attribution?: AddressOfferAttribution;
+    }
   | { readonly kind: "no-coverage" }
   | { readonly kind: "unavailable" };
 

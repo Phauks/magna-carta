@@ -311,7 +311,7 @@
       targets,
       (id) => approveCost(fetch, id, writeKey()),
       targets.length === 1 ? "The cost" : "One of the costs",
-      `Approved ${targets.length} ${targets.length === 1 ? "cost" : "costs"}. ${targets.length === 1 ? "It is" : "They are"} billable on the next invoice.`,
+      `Approved ${targets.length} ${targets.length === 1 ? "cost" : "costs"}. ${targets.length === 1 ? "It is" : "They are"} billable on the next bill.`,
     );
   }
 
@@ -502,8 +502,7 @@
 
   {#if expenseCodes.refused}
     <p class="text-xs text-text-muted" title={gapCellTitle("expenseCodeCatalogue")}>
-      Expense codes read as their ABA code alone: the catalogue that carries their names is gated on
-      a permission this account does not hold.
+      Expense codes show only their ABA code, because you don't have permission to see their names.
     </p>
   {/if}
 {/snippet}

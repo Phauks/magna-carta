@@ -219,13 +219,13 @@
       label: "unbilled",
       value: money(position.unbilledMinor),
       caption:
-        "Billable fees no finalized invoice has taken up. A draft bill claims them on the matter they charge.",
+        "Billable fees not yet on a finalized bill. Add them to a draft bill on their matter.",
     },
     {
       identifier: "billed",
       label: "billed",
       value: money(position.billedMinor),
-      caption: "Fees a finalized invoice has taken up.",
+      caption: "Fees on a finalized bill.",
     },
   ]);
 
@@ -340,8 +340,7 @@
          is still true, and only the way to record a new one goes quiet. -->
     <Alert.Root variant="warning">
       <Alert.Description>
-        {firmMatters.failure} Recording a new fee from here waits on them; a matter's own Fees section
-        is unaffected.
+        {firmMatters.failure} You can't record a new fee here until they load. A matter's own Fees section still works.
       </Alert.Description>
     </Alert.Root>
   {/if}
@@ -381,8 +380,7 @@
       <!-- The figures cover what is loaded, and the record is not fully loaded. Saying so is the
            difference between a running subtotal and a number somebody reconciles from. -->
       <p class="text-xs text-text-muted">
-        Showing the {fees.length} most recent fees. The figures cover only what is loaded, so they
-        are not the whole total until every page is read.
+        Showing the {fees.length} most recent fees. Totals cover only these until you load more.
       </p>
     {/if}
   {/if}

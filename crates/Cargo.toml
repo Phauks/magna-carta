@@ -14,6 +14,7 @@ members = [
   "search-eval",
   "discovery-core",
   "seven-zip-core",
+  "disarm-core",
   "segmentation-core",
   "noise-suppression-core",
   "mls-core",

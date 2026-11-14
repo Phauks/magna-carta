@@ -38,7 +38,7 @@ const NOTICES: Readonly<Record<SignInOutcome, OutcomeNotice>> = {
     tone: "warning",
     title: "Outlook was not connected",
     description:
-      "Microsoft did not grant access to the calendar. If you did not cancel it yourself, your organization's administrator may need to allow it.",
+      "Microsoft didn't grant access to the calendar. If you didn't cancel, your organization's administrator may need to allow it.",
   },
   expired: {
     tone: "warning",

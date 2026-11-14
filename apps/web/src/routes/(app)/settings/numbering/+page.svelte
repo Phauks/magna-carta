@@ -95,7 +95,7 @@
     "Intake Numbers",
     "Conflicts Check Numbers",
     "Custody Packet Numbers",
-    "Invoice Numbers",
+    "Bill Numbers",
     "Time Entry Numbers",
     "Call and Text Numbers",
   ].map((title, index) => ({ key: `fixture-${index}`, title, example: "2026-0001" }));

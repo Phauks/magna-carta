@@ -324,7 +324,9 @@ describe("the verbs a bill offers", () => {
 
   it("refuses finalize on anything but a draft, and void on anything but a draft", () => {
     const onFinal = billActions(makeRow({}), context);
-    expect(billAction(onFinal, "finalize")?.disabledReason).toContain("Only a draft finalizes");
+    expect(billAction(onFinal, "finalize")?.disabledReason).toContain(
+      "Only a draft can be finalized",
+    );
     expect(billAction(onFinal, "voidDraft")?.disabledReason).toContain("credit note");
   });
 
@@ -420,7 +422,7 @@ describe("the verbs a bill offers", () => {
     expect(menuItem(menu, "open")).not.toBeNull();
     // A draft has drawn no number, so copying one is refused with the reason rather than removed.
     const copy = menuItem(menu, "copyNumber");
-    expect(copy?.disabledReason).toContain("drawn at finalization");
+    expect(copy?.disabledReason).toContain("until it's finalized");
   });
 });
 

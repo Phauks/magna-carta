@@ -12,7 +12,7 @@
    * gets back the disabled control, the Soon badge, and the dependency in the one place the rest
    * of the product puts an explanation:
    *
-   *   <SoonAffordance reason="the archive-extraction engine">
+   *   <SoonAffordance reason="archive extraction">
    *     {#snippet control(soon)}
    *       <Button {...soon}>Restore This File Into the Matter</Button>
    *     {/snippet}
@@ -44,7 +44,7 @@
     class: className,
   }: {
     /**
-     * What the capability waits on, as a noun phrase: "the conversion engine", "client-portal
+     * What the capability waits on, as a noun phrase: "file conversion", "client-portal
      * document sharing". It is completed into a sentence here, so every surface words it the same.
      */
     reason: string;

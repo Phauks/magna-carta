@@ -718,7 +718,7 @@
       >
         <CheckEmailScreen
           address="trevor@goldsmith.example"
-          instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done, with the password you chose, and you are signed in on the spot."
+          instruction="Open the link we sent, or enter the confirmation code from that email. Your account is then created with the password you chose, and you're signed in."
           sentAt={SENT_AT}
           remedy="If it doesn't arrive, check your spam folder, then register again. Only the newest code works."
           onEnterCode={noop}

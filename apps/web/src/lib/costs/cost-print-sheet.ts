@@ -94,7 +94,7 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
             // The reference itself, not a link: paper cannot be clicked, and the number is what
             // somebody holding the sheet needs in order to find the bill. A cost billed before the
             // reference was written on the record says so rather than printing an empty field.
-            label: "Invoice",
+            label: "Bill",
             value:
               cost.status !== "billed"
                 ? "—"

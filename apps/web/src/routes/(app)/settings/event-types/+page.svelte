@@ -241,7 +241,7 @@
 
 <SettingsScrollRegion>
   <SettingsDescription>
-    The words an event is classified under: the vocabulary the platform ships, and the firm's own.
+    The event types the firm uses, both built-in and the firm's own.
   </SettingsDescription>
 
   <SettingsPlate heading="The Vocabulary">
@@ -283,9 +283,7 @@
       <DataTable.GridFooter {grid} />
     {/if}
     <SettingsPlateNote>
-      A retired type keeps its meaning on every event already classified under it and is not
-      offered for new ones. Retiring is one way: a word wanted back is added again as the firm's
-      own.
+      A retired type stays on events that already use it but isn't offered for new ones. It can't be un-retired; add it again as a new type instead.
     </SettingsPlateNote>
   </SettingsPlate>
 </SettingsScrollRegion>
@@ -316,8 +314,7 @@
     <div class="flex flex-col gap-16">
       {#if wordsLocked && editing !== null}
         <p class="text-sm text-text-muted">
-          {editing.name} ships with the platform: its name and code are the shared vocabulary and
-          stay as they are. Its category is the firm's to set.
+          {editing.name} is built in, so its name and code can't change. You can set its category.
         </p>
       {:else}
         <div class="flex flex-col gap-4">
@@ -328,7 +325,7 @@
           <Label for="event-type-code">Code</Label>
           <Input id="event-type-code" autocapitalize="characters" bind:value={draft.code} />
           <p class="text-xs text-text-muted">
-            A short stable key the firm-wide calendar paints from, in capitals; optional.
+            A short code in capitals, used for calendar colors. Optional.
           </p>
         </div>
       {/if}
@@ -361,9 +358,7 @@
   {/snippet}
   {#snippet fields()}
     <p class="text-sm text-text-muted">
-      {retiring?.name ?? "This type"} stops being offered for new events. Everything already
-      classified under it keeps its meaning. Retiring is one way: a word wanted back later is added
-      again as the firm's own.
+      {retiring?.name ?? "This type"} won't be offered for new events. Existing events keep it. It can't be un-retired; add it again as a new type instead.
     </p>
   {/snippet}
 </ActionDialog>

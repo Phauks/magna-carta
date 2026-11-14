@@ -196,7 +196,7 @@
   {/if}
 
   {#if comments.length === 0 && loadFailure === null}
-    <p class="text-sm text-text-muted">No comments yet. Ask a question or leave word for whoever picks this up.</p>
+    <p class="text-sm text-text-muted">No comments yet. Ask a question or leave a note.</p>
   {:else}
     <ol class="flex flex-col gap-12">
       {#each comments as comment (comment.id)}
@@ -273,7 +273,7 @@
             {/each}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
-        <p class="min-w-0 flex-1 text-xs text-text-muted">Type @ to name a colleague. {toldLine}</p>
+        <p class="min-w-0 flex-1 text-xs text-text-muted">Type @ to mention someone. {toldLine}</p>
         <Button size="sm" disabled={posting || draft.trim() === ""} onclick={() => void post()}>Post</Button>
       </div>
     </div>

@@ -42,7 +42,7 @@
   const fieldPrefix = $props.id();
 
   const subtitle = $derived<RecordSubject>({
-    reference: { kind: "Invoice", number: invoiceNumber },
+    reference: { kind: "Bill", number: invoiceNumber },
   });
 
   let description = $state("");
@@ -124,9 +124,7 @@
       <p class="flex items-start gap-8 text-sm text-text-muted">
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
-          Bill review edits what the client is told: the underlying entry stays the timekeeper’s own
-          record. A negative line is a first-class shape on a draft: a discount is a named reduction
-          on the bill, never a silent edit of a fee line.
+          Bill review changes only what the client sees. The original entry stays as the timekeeper recorded it. A negative line adds a named discount to the bill.
         </span>
       </p>
     </div>

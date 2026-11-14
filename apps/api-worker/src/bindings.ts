@@ -365,6 +365,11 @@ export type Bindings = {
   // echoed to a caller: Smarty takes them in the query string, so the adapter never quotes a URL.
   SMARTY_AUTH_ID?: string;
   SMARTY_AUTH_TOKEN?: string;
+  // The Google Places API key behind address autocomplete (address-lookup/address-lookup-engine.ts).
+  // Optional. Kept in the Secrets Store and bound as SECRETS_STORE_GOOGLE_PLACES_API_KEY
+  // (stored-secrets.ts resolves it into this string), with a per-Worker secret as the fallback; while it is set, Google answers every country ahead of the platform's index and Smarty, and every
+  // lookup is billed by Google. Sent only in a request header, never a URL; never logged.
+  GOOGLE_PLACES_API_KEY?: string;
   // The Telnyx API key behind the call record's "Look up caller ID" (caller-lookup/
   // caller-lookup-engine.ts). Optional, and ABSENT IS THE SHIPPED STATE: without it the record shows
   // the free Directory match and area-code region and offers no paid lookup at all. Production sets

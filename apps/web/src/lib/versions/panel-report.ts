@@ -30,6 +30,7 @@
 import {
   FEATURES_SECTION_LABEL,
   featureName,
+  describeSecretSources,
   featureStateLabel,
   missingRequirements,
   sortFeatures,
@@ -213,8 +214,9 @@ function deploymentSection(state: PanelReportState): ReportSection | null {
 
 /**
  * Every feature and its state, broken ones first. A platform operator's paste also says which
- * settings each one that is not set up still needs, because that is the next step; a member's paste
- * carries no setting names, matching what their screen showed.
+ * settings each one that is not set up still needs, because that is the next step, and where the
+ * secrets of each one that is set up come from; a member's paste carries no setting names, matching
+ * what their screen showed.
  */
 function featuresSection(state: PanelReportState): ReportSection | null {
   const features = state.deployment.value?.features ?? [];
@@ -223,15 +225,16 @@ function featuresSection(state: PanelReportState): ReportSection | null {
   return section(
     FEATURES_SECTION_LABEL,
     sortFeatures(features).map((feature) => {
+      const own = requirements?.find((candidate) => candidate.id === feature.id);
       const missing =
-        requirements === null || feature.state !== "not-set-up"
-          ? []
-          : missingRequirements(requirements.find((candidate) => candidate.id === feature.id));
+        requirements === null || feature.state !== "not-set-up" ? [] : missingRequirements(own);
+      const sources =
+        requirements === null || feature.state === "not-set-up" ? null : describeSecretSources(own);
       const label = featureStateLabel(feature.state);
-      return entry(
-        featureName(feature.id),
-        missing.length === 0 ? label : `${label} — needs ${missing.join(", ")}`,
-      );
+      if (missing.length > 0) {
+        return entry(featureName(feature.id), `${label} — needs ${missing.join(", ")}`);
+      }
+      return entry(featureName(feature.id), sources === null ? label : `${label} — ${sources}`);
     }),
   );
 }

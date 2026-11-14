@@ -60,9 +60,7 @@
     <Alert.Root variant="info">
       <Alert.Title>This Is a Sample Matter</Alert.Title>
       <Alert.Description>
-        It exists so the matter screens stay reviewable at a stable address; there is no firm record
-        behind it, so it holds no files and nothing can be added to it. Open one of the firm's own
-        matters to use this surface.
+        This is a sample matter for previewing screens. It has no files. Open one of the firm's matters to use it.
       </Alert.Description>
     </Alert.Root>
   </section>

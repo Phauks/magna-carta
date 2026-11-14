@@ -58,6 +58,13 @@ export interface CreatePersonRecordInput {
   readonly organizations?: readonly PersonOrganizationInput[];
 }
 
+/** What recording a whole person contributes to a batch, before anything commits. */
+export interface ComposedPersonRecord {
+  readonly personId: DirectoryPersonId;
+  readonly statements: SqlStatement[];
+  readonly outboxMessages: EffectWrite["outboxMessages"][number][];
+}
+
 /**
  * Records the person and everything the draft says about them in one batch, and returns the id.
  *
@@ -69,6 +76,26 @@ export async function createPersonRecord(
   context: DirectoryIdentifierContext,
   input: CreatePersonRecordInput,
 ): Promise<DirectoryPersonId> {
+  const { personId, statements, outboxMessages } = await composePersonRecord(context, input);
+  return runDirectoryEffect(context.database, context.idempotency, context.clock, () => ({
+    statements,
+    outboxMessages,
+    responseCode: 201,
+    responseBody: { id: personId },
+    value: personId,
+    fromBody: (body) => (body as { id: DirectoryPersonId }).id,
+  }));
+}
+
+/**
+ * Composes a whole person without committing. `createPersonRecord` commits exactly this. A caller
+ * that must write something else in the same commit, such as the record of where a transferred
+ * person came from, composes this and adds its own statements beside it.
+ */
+export async function composePersonRecord(
+  context: DirectoryIdentifierContext,
+  input: CreatePersonRecordInput,
+): Promise<ComposedPersonRecord> {
   const database: BatchDatabase = context.database;
   const options: DirectoryWriteOptions = {
     clock: context.clock,
@@ -158,12 +185,5 @@ export async function createPersonRecord(
     outboxMessages.push(...edge.outboxMessages);
   }
 
-  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
-    statements,
-    outboxMessages,
-    responseCode: 201,
-    responseBody: { id: personId },
-    value: personId,
-    fromBody: (body) => (body as { id: DirectoryPersonId }).id,
-  }));
+  return { personId, statements, outboxMessages };
 }

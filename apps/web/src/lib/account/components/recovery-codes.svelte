@@ -50,8 +50,7 @@
 
 <div class="flex flex-col gap-16">
   <p class="text-sm">
-    Keep these somewhere safe. Each one signs you in once if you cannot reach your authenticator
-    app, and they are not shown again.
+    Keep these somewhere safe. Each code signs you in once if you can't reach your authenticator app. They won't be shown again.
   </p>
 
   <ul class="grid grid-cols-2 gap-x-24 gap-y-8 rounded-md bg-surface-sunken p-16 font-mono text-sm">

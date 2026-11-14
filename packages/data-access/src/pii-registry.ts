@@ -184,6 +184,20 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent conversation; the free text inside a turn is the residue class the conversation-level delete is the instrument for",
   },
+  // A document Magnus wrote, and its versions: free text like a turn, and erased the same way, with
+  // the whole conversation.
+  {
+    table: "magnus_artifact",
+    subjectKey: "conversation_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation; its name is free text Magnus wrote about the member's work",
+  },
+  {
+    table: "magnus_artifact_version",
+    subjectKey: "artifact_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation's documents; the text is the residue class the conversation-level delete is the instrument for",
+  },
   { table: "magnus_member_acknowledgement", subjectKey: "user_id", action: "hard-delete" },
   // A connection a member made to their OWN account at a provider (their calendar). principal_ref is
   // the member's user id on such a row and account_label is their sign-in address there, so the row
@@ -214,6 +228,16 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "connection_id",
     action: "hard-delete",
     note: "deleted with its parent integration_connection; identifiers and a digest, holding no event content",
+  },
+  // Where a transferred record came from. When the record it names is a Directory person or
+  // organization, the row holds that subject's key in the system the firm left, which is an
+  // identifier of a person held about them; it goes when they do. Rows naming any other table carry
+  // no subject and are untouched, because the erasure pass matches on the subject's own id.
+  {
+    table: "source_record_link",
+    subjectKey: "local_id",
+    action: "hard-delete",
+    note: "the subject's identifier in the system the firm left; holds no content of the record",
   },
   // A copy a member changed or deleted in their own calendar. It names a person only through its
   // connection. Both sides of the difference are held as text: the event as it was sent to that
@@ -255,6 +279,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "conversation_id",
     action: "hard-delete",
     note: "deleted with its parent conversation; a reference to a file, holding nothing of it",
+  },
+  // A permission turned on for a conversation names who turned it on, and goes with the
+  // conversation it belongs to.
+  {
+    table: "magnus_conversation_permission",
+    subjectKey: "conversation_id",
+    action: "hard-delete",
+    note: "deleted with its parent conversation; granted_by is the conversation's own author",
   },
   // A member's own folders and where they keep each conversation. Both arrange that member's list and
   // nothing else: no other member reads them and the firm relies on neither, so they go with the
@@ -1542,6 +1574,15 @@ export const NO_PII_TABLES: readonly string[] = [
   // storage pages as well as from every answer follows with `optimizeRecordIndexStatement`
   // (@magna-carta/search/record-index-statements), which rewrites the index without them.
   "record_text_entry",
+  // One run of a record transfer: the system the records came from, the operator's name for the run,
+  // and when it started and ended. started_by is administrative provenance on an operational act —
+  // who ran the import — the same line integration_connection and scoped_setting sit on.
+  "transfer_run",
+  // The facts about one file a record transfer was given: what it holds, its size and digest, and
+  // where its bytes are kept. The bytes are an extract of the firm's whole client base and live in
+  // object storage under a key built from identifiers alone; nothing of their content is in this
+  // row. file_name is what the operator's computer called the export, display text about a file.
+  "transfer_source_file",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is

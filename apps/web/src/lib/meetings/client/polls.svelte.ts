@@ -56,6 +56,35 @@ export const MAX_MEETING_POLL_QUESTION_LENGTH = 500;
 /** The longest option, in characters. The record refuses a longer one. */
 export const MAX_MEETING_POLL_OPTION_LENGTH = 200;
 
+/**
+ * WHAT KIND OF QUESTION A POLL ASKS, under the host's "Poll Type". One picks a single option and
+ * Multiple several; Ranking puts every option in order; Score is a rating whose options are the
+ * points of the scale, "1" upward, so its result is an average.
+ */
+export const MEETING_POLL_KINDS = ["one", "multiple", "ranking", "score"] as const;
+export type MeetingPollKind = (typeof MEETING_POLL_KINDS)[number];
+
+/** What each kind is called where a host chooses it. */
+export const MEETING_POLL_KIND_LABELS: Record<MeetingPollKind, string> = {
+  one: "One",
+  multiple: "Multiple",
+  ranking: "Ranking",
+  score: "Score",
+};
+
+/** The scales a score poll offers, and the one it starts on. */
+export const MEETING_POLL_SCORE_SCALES = [3, 5, 10] as const;
+export const DEFAULT_MEETING_POLL_SCORE_SCALE = 5;
+
+/** A score poll's options: the points of its scale, "1" upward. */
+export function scoreScaleOptions(scale: number): string[] {
+  return Array.from({ length: scale }, (_, index) => String(index + 1));
+}
+
+function isPollKind(value: unknown): value is MeetingPollKind {
+  return typeof value === "string" && (MEETING_POLL_KINDS as readonly string[]).includes(value);
+}
+
 /** One option of a poll, with how many have chosen it so far. */
 export interface MeetingPollOptionView {
   readonly optionId: string;
@@ -63,6 +92,8 @@ export interface MeetingPollOptionView {
   readonly position: number;
   readonly label: string;
   readonly count: number;
+  /** On a ranking, the average place given this option (1 is first); null on every other kind. */
+  readonly averageRank: number | null;
 }
 
 /** A poll as the panel draws it. */
@@ -75,6 +106,7 @@ export interface MeetingPollView {
   readonly anonymous: boolean;
   /** How many options one participant may choose. One is a single choice. */
   readonly maxChoices: number;
+  readonly kind: MeetingPollKind;
   readonly openedAt: string;
   /** When a host closed it. Null while it is open. */
   readonly closedAt: string | null;
@@ -92,6 +124,7 @@ export interface MeetingPollDraft {
   readonly options: readonly string[];
   readonly anonymous: boolean;
   readonly maxChoices: number;
+  readonly kind: MeetingPollKind;
 }
 
 /** One page of the polls, newest first, and where the next page starts. */
@@ -120,6 +153,13 @@ export interface MeetingPollAnswerPageView {
 export interface MeetingPollTally {
   readonly counts: ReadonlyMap<string, number>;
   readonly respondents: number;
+  /** On a ranking, each option's average place, where the frame carries one. */
+  readonly averageRanks?: ReadonlyMap<string, number>;
+}
+
+/** An average off the wire, or null where it is not one. */
+function readAverage(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 /** The edges this module reaches the outside world through. */
@@ -167,12 +207,16 @@ export function readPollTally(value: unknown): MeetingPollTally | null {
   const listed = Array.isArray(value.counts) ? value.counts : value.options;
   if (!Array.isArray(listed)) return null;
   const counts = new Map<string, number>();
+  const averageRanks = new Map<string, number>();
   for (const entry of listed) {
     if (!isRecord(entry)) continue;
     const optionId = readString(entry, "optionId");
-    if (optionId !== null) counts.set(optionId, readCount(entry.count));
+    if (optionId === null) continue;
+    counts.set(optionId, readCount(entry.count));
+    const average = readAverage(entry.averageRank);
+    if (average !== null) averageRanks.set(optionId, average);
   }
-  return { counts, respondents: readCount(value.respondents) };
+  return { counts, respondents: readCount(value.respondents), averageRanks };
 }
 
 /**
@@ -200,16 +244,24 @@ export function readPoll(value: unknown): MeetingPollView | null {
       position: readCount(entry.position),
       label,
       count: readCount(entry.count),
+      averageRank: readAverage(entry.averageRank),
     });
   }
   if (options.length === 0) return null;
   const maxChoices = readCount(value.maxChoices);
+  // A copy from before polls had kinds says only how many may be chosen.
+  const kind: MeetingPollKind = isPollKind(value.kind)
+    ? value.kind
+    : maxChoices > 1
+      ? "multiple"
+      : "one";
   return {
     pollId,
     askedByUserId: readString(value, "askedByUserId"),
     question,
     anonymous: value.anonymous === true,
     maxChoices: maxChoices === 0 ? 1 : maxChoices,
+    kind,
     openedAt,
     closedAt: readString(value, "closedAt"),
     options: options.toSorted((first, second) => first.position - second.position),
@@ -226,13 +278,21 @@ function newestFirst(first: MeetingPollView, second: MeetingPollView): number {
   return first.pollId > second.pollId ? -1 : 1;
 }
 
-/** Keep the larger of two tallies of one poll, option by option. A tally never shrinks. */
+/**
+ * Keep the larger of two tallies of one poll, option by option. A tally never shrinks. A ranking's
+ * averages can move either way, so they follow whichever tally has heard from more people.
+ */
 function withTally(poll: MeetingPollView, tally: MeetingPollTally): MeetingPollView {
+  const newer = tally.respondents >= poll.respondents;
   return {
     ...poll,
     options: poll.options.map((option) => ({
       ...option,
       count: Math.max(option.count, tally.counts.get(option.optionId) ?? 0),
+      averageRank:
+        newer && tally.averageRanks?.has(option.optionId) === true
+          ? (tally.averageRanks.get(option.optionId) ?? null)
+          : option.averageRank,
     })),
     respondents: Math.max(poll.respondents, tally.respondents),
   };
@@ -243,6 +303,11 @@ function tallyOf(poll: MeetingPollView): MeetingPollTally {
   return {
     counts: new Map(poll.options.map((option) => [option.optionId, option.count] as const)),
     respondents: poll.respondents,
+    averageRanks: new Map(
+      poll.options.flatMap((option) =>
+        option.averageRank === null ? [] : [[option.optionId, option.averageRank] as const],
+      ),
+    ),
   };
 }
 
@@ -294,6 +359,8 @@ export function membersWhoCanAnswer(participants: readonly MeetingPollRespondent
  */
 export function isAcceptableAnswer(poll: MeetingPollView, chosen: readonly string[]): boolean {
   if (chosen.length === 0 || chosen.length > poll.maxChoices) return false;
+  // A ranking's answer is every option, each once, in the order the person put them.
+  if (poll.kind === "ranking" && new Set(chosen).size !== poll.options.length) return false;
   const offered = new Set(poll.options.map((option) => option.optionId));
   return chosen.every((optionId) => offered.has(optionId));
 }
@@ -312,7 +379,42 @@ export function isOpenablePoll(draft: MeetingPollDraft): boolean {
   if (options.some((option) => option === "" || option.length > MAX_MEETING_POLL_OPTION_LENGTH)) {
     return false;
   }
-  return draft.maxChoices >= 1 && draft.maxChoices <= options.length;
+  if (new Set(options).size !== options.length) return false;
+  switch (draft.kind) {
+    case "one":
+      return draft.maxChoices === 1;
+    case "multiple":
+      return draft.maxChoices >= 1 && draft.maxChoices <= options.length;
+    case "ranking":
+      return draft.maxChoices === options.length;
+    case "score":
+      return (
+        draft.maxChoices === 1 && options.every((option, index) => option === String(index + 1))
+      );
+  }
+}
+
+/**
+ * A score poll's average, read off its tally: each option is a point of the scale, so the average
+ * is the points weighed by how many gave them. Null before anybody has answered.
+ */
+export function scoreAverage(poll: MeetingPollView): number | null {
+  let points = 0;
+  let given = 0;
+  for (const option of poll.options) {
+    points += (option.position + 1) * option.count;
+    given += option.count;
+  }
+  return given === 0 ? null : points / given;
+}
+
+/** A ranking's options, best placed first; an option nobody has placed yet goes last. */
+export function rankedOptions(poll: MeetingPollView): readonly MeetingPollOptionView[] {
+  return poll.options.toSorted(
+    (first, second) =>
+      (first.averageRank ?? Number.POSITIVE_INFINITY) -
+        (second.averageRank ?? Number.POSITIVE_INFINITY) || first.position - second.position,
+  );
 }
 
 /** How many of the options this poll's respondents chose, as a share of the respondents. */
@@ -468,6 +570,7 @@ export class MeetingPolls implements MeetingPollRelay {
       options: draft.options.map((option) => option.trim()),
       anonymous: draft.anonymous,
       maxChoices: draft.maxChoices,
+      kind: draft.kind,
     });
     this.opening = false;
     if (outcome.kind !== "ok") {

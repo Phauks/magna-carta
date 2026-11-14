@@ -138,7 +138,7 @@ const trustCompliance = built<TrustCompliancePack>({
   family: "trust-compliance",
   name: "Trust Compliance Report",
   answers:
-    "For one trust account over one period: every movement of client money, each client's and matter's ledger, what the firm attested to at each reconciliation, and what did not tie out.",
+    "For one trust account over one period: every movement of client money, each client and matter ledger, each reconciliation, and anything that didn't balance.",
   permission: TRUST_COMPLIANCE_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
@@ -175,7 +175,7 @@ const REPORT_LIST = [
     permission: "reports:financial",
     temporal: "bitemporal",
     stage: "soon",
-    waitsOn: "the as-of receivables read in the billing package",
+    waitsOn: "aged receivables",
   },
   {
     id: "work-in-progress",
@@ -186,7 +186,7 @@ const REPORT_LIST = [
     permission: "reports:financial",
     temporal: "live-only",
     stage: "soon",
-    waitsOn: "the work-in-progress report over the time and cost records",
+    waitsOn: "the work in progress report",
   },
   {
     id: "realization",
@@ -197,7 +197,7 @@ const REPORT_LIST = [
     permission: "reports:financial",
     temporal: "bitemporal",
     stage: "soon",
-    waitsOn: "the realization read over invoice line snapshots and applications",
+    waitsOn: "realization figures",
   },
   {
     id: "timekeeper-productivity",
@@ -208,7 +208,7 @@ const REPORT_LIST = [
     permission: "reports:productivity",
     temporal: "live-only",
     stage: "soon",
-    waitsOn: "the productivity read over the time records",
+    waitsOn: "productivity figures",
   },
   {
     id: "operational-volumes",
@@ -219,7 +219,7 @@ const REPORT_LIST = [
     permission: "reports:operational",
     temporal: "bitemporal",
     stage: "soon",
-    waitsOn: "the operational counts over the matter, invoice, trust and cost records",
+    waitsOn: "firm activity counts",
   },
 ] as const satisfies readonly ReportDeclaration[];
 

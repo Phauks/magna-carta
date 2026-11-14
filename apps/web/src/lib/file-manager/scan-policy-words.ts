@@ -68,8 +68,7 @@ export function scanSettingsLines(settings: ScanSettingsReading): readonly ScanS
  */
 export const SCAN_SETTINGS_PROVENANCE_LABEL = "Recorded Per Check";
 export const SCAN_SETTINGS_PROVENANCE =
-  "The engine only, on each line above. The depth, threshold and treatment are the firm's as it " +
-  "stands today; what was in force when an earlier check ran is not recorded.";
+  "These settings are the firm's current ones. Settings in force for earlier checks aren't recorded.";
 
 /** The sample values the reading takes while the real ones are read. Named by nothing real. */
 export const SCAN_SETTINGS_FIXTURE: ScanSettingsReading = {

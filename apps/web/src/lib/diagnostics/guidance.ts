@@ -65,9 +65,7 @@ export function isServiceSkew(problem: Problem): boolean {
 }
 
 export const SERVICE_SKEW_TITLE = "The service is mid-update";
-const SERVICE_SKEW_MESSAGE =
-  "This part of Magna Carta is briefly out of step after a release. Reload the page in a moment " +
-  "and it will line up again.";
+const SERVICE_SKEW_MESSAGE = "Magna Carta was just updated. Reload the page in a moment.";
 
 /** Nothing answered at all: not a refusal, and not a verdict on anything the member did. */
 const NO_ANSWER_TITLE = "Couldn't connect";

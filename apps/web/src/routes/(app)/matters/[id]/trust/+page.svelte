@@ -103,8 +103,7 @@
     scale="screen"
     subject="Trust"
     fallback={failure.whenSilent}
-    reassurance="The record itself is unaffected: nothing was changed by this failure, and every
-      movement of this client's money is still on the firm's record."
+    reassurance="Nothing was changed. All of this client's trust activity is still on record."
     onRetry={() => (reloadToken += 1)}
     onReport={() => (reportOpen = true)}
   />
@@ -118,9 +117,7 @@
     <Alert.Root variant="info">
       <Alert.Title>This is a sample matter.</Alert.Title>
       <Alert.Description>
-        It exists so the matter screens stay reviewable at a stable address; there is no firm record
-        behind it, so it holds no client money and nothing can be moved against it. Open one of the
-        firm's own matters to use this surface.
+        This is a sample matter for previewing screens. It has no client money. Open one of the firm's matters to use it.
       </Alert.Description>
     </Alert.Root>
   </section>

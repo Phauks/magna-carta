@@ -185,11 +185,7 @@ export function closingDifferenceSentence(
   if (implied === null) return null;
   const closing = readAmountMinor(closingBalanceText);
   if (closing.kind !== "amount" || closing.minor === implied) return null;
-  return (
-    `The lines add up to ${money(implied)} and the closing balance entered is ` +
-    `${money(closing.minor)}. Both are recorded as they stand: the difference is what a ` +
-    "reconciliation of this period finds."
-  );
+  return `The lines add up to ${money(implied)} but the closing balance entered is ${money(closing.minor)}. Both are saved as entered, and the difference shows up when this period is reconciled.`;
 }
 
 // ---- recording a statement by hand -------------------------------------------------------------

@@ -210,8 +210,7 @@
         <Alert.Root variant="warning">
           <Alert.Title>This Matter Has No Opened Date</Alert.Title>
           <Alert.Description>
-            Steps that count from the day the matter opens have no date to count from, so none is
-            proposed for them. Give each one a date here, or record the matter's opened date first.
+            Steps counted from the day the matter opens have no date yet. Give each one a date here, or set the matter's opened date first.
           </Alert.Description>
         </Alert.Root>
       {/if}

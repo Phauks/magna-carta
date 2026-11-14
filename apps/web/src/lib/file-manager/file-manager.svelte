@@ -1949,13 +1949,7 @@
         <Alert.Title>The Files Could Not Be Read</Alert.Title>
         <Alert.Description>
           <span class="block">{loadFailure}</span>
-          <span class="block">
-            The record itself is unaffected: nothing was changed, and nothing was lost.
-          </span>
-          <span class="mt-4 block">First, try each of these in order:</span>
-          <span class="block">1. Reload this view.</span>
-          <span class="block">2. Check that you are still connected.</span>
-          <span class="block">3. Open the matter again from the matters list.</span>
+          <span class="block">Nothing was changed or lost. Try again, or reopen the matter.</span>
         </Alert.Description>
       </Alert.Root>
       <div class="mt-16 flex gap-8">
@@ -2500,7 +2494,7 @@
       {#if archiveBrowse.deleted}
         <Badge
           variant="neutral"
-          title="This zip sits in Deleted Files. Browsing reads it; nothing is restored."
+          title="This zip is in Deleted Files. You can browse it without restoring it."
         >
           Deleted
         </Badge>
@@ -2509,7 +2503,7 @@
         {@const notScanned = statusEntry("not-scanned")}
         <Badge
           variant={notScanned.tone}
-          title="This archive has not come back clean from the safety check yet. Its directory reads all the same; treat what it names accordingly."
+          title="This archive hasn't passed the safety check yet. You can still see what it contains, but be careful with it."
         >
           {notScanned.label}
         </Badge>

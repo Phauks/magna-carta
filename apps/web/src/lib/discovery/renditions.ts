@@ -49,17 +49,14 @@ export function renditionFor(document: ReviewDocumentDetail): Rendition {
       kind: "unreadable",
       label: "Could not be read",
       explains:
-        "This document is in the corpus and counted, and it appears on the exception report with " +
-        "the reason below. It is not lost and it was not skipped.",
+        "This document is in the review set and counted, and it appears on the exception report with the reason below.",
     };
   }
   if (document.processingState !== "processed") {
     return {
       kind: "not-read-yet",
       label: "Not read yet",
-      explains:
-        "The engine has not finished with this document. Every document ends read or not read, " +
-        "never neither, so this state is temporary.",
+      explains: "This document is still being processed.",
     };
   }
   if (!document.hasExtractedText) {
@@ -93,20 +90,20 @@ export const SOON_RENDITIONS: readonly SoonRendition[] = [
     label: "The original",
     shows: "The document as it was produced, in the file manager's own safe viewer.",
     stage: "soon",
-    waitsOn: "the viewer being wired to the file manager's delivery path",
+    waitsOn: "the document viewer",
   },
   {
     id: "pages",
     label: "Pages",
-    shows: "The document as page images, which is what a redaction is drawn on.",
+    shows: "The document as page images, used for redaction.",
     stage: "soon",
-    waitsOn: "redaction in review",
+    waitsOn: "redaction",
   },
   {
     id: "recognized-overlay",
     label: "Recognized text",
     shows: "Text recognized off pages that are pixels, laid over the page it came from.",
     stage: "soon",
-    waitsOn: "the page renderer",
+    waitsOn: "page images",
   },
 ];

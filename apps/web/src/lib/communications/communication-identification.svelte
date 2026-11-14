@@ -220,8 +220,7 @@
         </div>
       {:else}
         <p class="text-sm text-text-muted">
-          Nobody chosen yet. It still saves without a contact, and waits in the queue until somebody
-          decides where it belongs.
+          No contact chosen yet. It can still be saved, and it waits in the queue until someone decides where it belongs.
         </p>
         <DirectoryEntityPicker
           inputId="{identity}-contact"

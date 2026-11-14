@@ -43,6 +43,6 @@ describe("what the control says about itself", () => {
   });
 
   it("names the whole record when nothing is narrowing it", () => {
-    expect(docketNarrowingSummary({ search: "", columnFilterCount: 0 })).toBe("Every matter");
+    expect(docketNarrowingSummary({ search: "", columnFilterCount: 0 })).toBe("All matters");
   });
 });

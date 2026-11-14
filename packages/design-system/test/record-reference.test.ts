@@ -56,8 +56,8 @@ describe("how firmly a record holds its number", () => {
   });
 
   it("defaults to drawn", () => {
-    const withoutStanding = renderReference({ kind: "Invoice", number: "2026-0147" });
-    const withDrawn = renderReference({ kind: "Invoice", number: "2026-0147", standing: "drawn" });
+    const withoutStanding = renderReference({ kind: "Bill", number: "2026-0147" });
+    const withDrawn = renderReference({ kind: "Bill", number: "2026-0147", standing: "drawn" });
     expect(withoutStanding).toEqual(withDrawn);
   });
 });
@@ -75,9 +75,9 @@ describe("when there is no number to show", () => {
     // draw one would be a claim about a record that already has its own, so the honest answer is
     // what kind of record is being acted on and nothing more.
     for (const standing of ["drawn", "tentative"] as const) {
-      expect(renderReference({ kind: "Invoice", number: null, standing })).toEqual({
+      expect(renderReference({ kind: "Bill", number: null, standing })).toEqual({
         shape: "unnumbered",
-        kind: "Invoice",
+        kind: "Bill",
       });
     }
   });
@@ -98,7 +98,7 @@ describe("the subject line", () => {
 
   it("has something to say with either half", () => {
     expect(subjectIsEmpty({ reference: { kind: "Matter", number: null } })).toBe(false);
-    expect(subjectIsEmpty({ facts: ["Every matter"] })).toBe(false);
+    expect(subjectIsEmpty({ facts: ["All matters"] })).toBe(false);
   });
 
   it("joins with one mark", () => {

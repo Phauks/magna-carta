@@ -58,7 +58,7 @@ export function accountStandingTone(status: TrustAccountListing["status"]): Badg
 export function accountStandingMeaning(status: TrustAccountListing["status"]): string {
   return status === "open"
     ? "Held at the institution and able to take movements."
-    : "Closed at the institution. Nothing moves through it again; what it recorded stays on the firm's record.";
+    : "Closed at the bank. Nothing more can go through it; its history stays on record.";
 }
 
 /** What a jurisdiction cell reads where the holding office recorded none. */
@@ -75,7 +75,7 @@ export function ioltaLabel(iolta: boolean): string {
 
 /** What the IOLTA column is asking, on the hover. */
 export const IOLTA_MEANING =
-  "A pooled interest-bearing account: the interest on the clients' pooled funds goes to the state's legal-services program rather than to the firm or to any one client.";
+  "A pooled interest-bearing account: interest on pooled client funds goes to the state's legal aid program, not to the firm or any one client.";
 
 // ---- the approval queue -----------------------------------------------------------------------
 

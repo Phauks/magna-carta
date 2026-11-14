@@ -217,7 +217,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   }
 
   const BILLING_CHOICES = [
-    { value: "billable", label: "Billable, next invoice" },
+    { value: "billable", label: "Billable, next bill" },
     { value: "absorbed", label: "Absorbed by the firm" },
   ] as const;
 
@@ -267,7 +267,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   });
 
   const editRefusal = $derived.by((): string | undefined => {
-    if (entry === null) return "A new cost is written in its fields; there is nothing to read yet.";
+    if (entry === null) return "A new cost has no history yet.";
     if (entry.status !== "draft") return statusEntry(costStatusKey(entry.status)).meaning;
     const verdict = canWorkDraft(entry);
     return verdict.allowed ? undefined : verdict.reason;
@@ -629,7 +629,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   <RecordAttachments
     attachments={[]}
     canEdit={false}
-    attachDisabledReason="Not built yet. Waiting on {gapReason('attachmentPicker')}."
+    attachDisabledReason="Not built yet: {gapReason('attachmentPicker')}."
   />
 {/snippet}
 
@@ -637,8 +637,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   <EventRail
     events={[]}
     label="This cost's history"
-    emptyMessage="Not built yet. Waiting on {gapReason('history')}. Who recorded this cost and when
-      are under the fields on Details; what happened to it afterwards is what this rail will carry."
+    emptyMessage="Not built yet: {gapReason('history')}. Who recorded it and when is on Details."
   />
 {/snippet}
 
@@ -673,8 +672,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
           {:else if entry.status === "void"}
             Withdrawn. A void cost stays on the record and counts toward nothing.
           {:else}
-            Not on a bill yet. Billable costs flow onto a draft invoice in the Billing section, one
-            line per cost.
+            Not on a bill yet. Billable costs are added to a draft bill in the Billing section, one line each.
           {/if}
         </span>
       </div>

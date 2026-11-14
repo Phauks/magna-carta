@@ -95,7 +95,7 @@
     <DetailsPanel.Body>
       <Button onclick={() => onOpenInvoice(row)}>
         <Receipt class="size-16" aria-hidden="true" />
-        Open Invoice
+        Open Bill
       </Button>
 
       {#if chipAddsAFact || credited > 0}
@@ -166,8 +166,7 @@
         {/each}
       </DetailsPanel.Facts>
       <p class="text-xs text-text-muted">
-        An invoice belongs to one client and may bill several of that client&rsquo;s matters, so this
-        register shows every bill of {clientName} and states this matter&rsquo;s own share of each.
+        A bill belongs to one client and can cover several of their matters. This list shows every bill for {clientName} and this matter&rsquo;s share of each.
       </p>
     </DetailsPanel.Body>
   {/if}

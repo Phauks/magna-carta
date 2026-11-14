@@ -5,6 +5,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./contract": "./src/contract.ts",
+    "./google": "./src/google.ts",
     "./port": "./src/port.ts",
     "./routed": "./src/routed.ts",
     "./self-hosted": "./src/self-hosted.ts",
@@ -12,6 +14,9 @@
   },
   "scripts": {
     "test": "vp test run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/address-formats": "workspace:*",
