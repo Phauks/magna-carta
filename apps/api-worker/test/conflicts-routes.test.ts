@@ -281,18 +281,45 @@ describe("conflicts check routes", () => {
     );
   });
 
-  it("previews the number the next check would draw, before anything is saved", async () => {
-    const preview = await get("/api/v1/conflicts/checks/next-number");
-    expect(preview.status, await preview.clone().text()).toBe(200);
-    const { checkNumber } = (await preview.json()) as { checkNumber: string };
-    expect(checkNumber).toMatch(/^CC\d{4}-\d{5,}$/);
+  it("holds a draft number for the panel, gives it back on cancel, and opens the check under it", async () => {
+    const hold = async (token?: string) => {
+      const response = await post(
+        "/api/v1/number-reservations",
+        { purpose: "conflicts_check", ...(token === undefined ? {} : { token }) },
+        ownerCookie,
+        false,
+      );
+      expect(response.status, await response.clone().text()).toBe(200);
+      return (await response.json()) as { token: string; number: string; expiresAt: string };
+    };
+    const first = await hold();
+    expect(first.number).toMatch(/^CC\d{4}-\d{5,}$/);
+    // Asking again with the token keeps the same number.
+    expect((await hold(first.token)).number).toBe(first.number);
 
-    const { opened } = await openAndSettle({
+    // Cancelled: the number goes back, and the next panel is given it.
+    const released = await SELF.fetch(
+      `https://example.com/api/v1/number-reservations/${first.token}`,
+      {
+        method: "DELETE",
+        headers: authHeaders(ownerCookie, false),
+      },
+    );
+    expect(released.status).toBe(204);
+    const second = await hold();
+    expect(second.number).toBe(first.number);
+
+    // A panel that saves takes exactly the number it holds, even with a later one held beside it.
+    const third = await hold();
+    const response = await post("/api/v1/conflicts/checks", {
       trigger: "preliminary",
-      subjectEntityIds: [await createPerson("Next", "Number")],
+      subjectEntityIds: [await createPerson("Held", "Number")],
       scope: PARTY_SCOPE,
+      numberReservation: second.token,
     });
-    expect(opened.checkNumber).toBe(checkNumber);
+    expect(response.status, await response.clone().text()).toBe(202);
+    expect(((await response.json()) as OpenedCheck).checkNumber).toBe(second.number);
+    expect(third.number).not.toBe(second.number);
   });
 
   it("runs a check again under the same number, and the check's history gains an entry", async () => {
@@ -927,7 +954,6 @@ describe("conflicts contract", () => {
     expect(operationIds.has("conflicts.rerunCheck")).toBe(true);
     expect(operationIds.has("conflicts.cancelRun")).toBe(true);
     expect(operationIds.has("conflicts.fileCheckOnMatter")).toBe(true);
-    expect(operationIds.has("conflicts.nextCheckNumber")).toBe(true);
     expect(operationIds.has("conflicts.getCheck")).toBe(true);
     expect(operationIds.has("conflicts.matterPosture")).toBe(true);
     expect(operationIds.has("conflicts.recordDisposition")).toBe(true);

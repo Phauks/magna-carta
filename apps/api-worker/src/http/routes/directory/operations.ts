@@ -11,7 +11,6 @@ export const OPERATIONS: readonly string[] = [
   "conflicts.hitDispositions",
   "conflicts.listChecks",
   "conflicts.matterPosture",
-  "conflicts.nextCheckNumber",
   "conflicts.recheckMatter",
   "conflicts.recordDisposition",
   "conflicts.rerunCheck",

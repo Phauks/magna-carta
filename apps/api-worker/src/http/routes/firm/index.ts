@@ -13,6 +13,7 @@ import { registerFirmReportPolicyRoutes } from "./firm-report-policy.ts";
 import { registerFirmTimePolicyRoutes } from "./firm-time-policy.ts";
 import { registerFirmUsageRoute } from "./firm-usage.ts";
 import { registerMatterTypesRoutes } from "./matter-types.ts";
+import { registerNumberReservationRoutes } from "./number-reservations.ts";
 import { registerNumberingRoutes } from "./numbering.ts";
 import { registerReleaseChannelRoute } from "./release-channel.ts";
 import { registerScanPolicyRoutes } from "./scan-policy.ts";
@@ -35,6 +36,8 @@ export function mountFirm(app: AppRouter, chokepoint: Chokepoint, _deps: DomainD
   registerMatterTypesRoutes(domain, chokepoint);
   registerDocumentTypesRoutes(domain, chokepoint);
   registerNumberingRoutes(domain, chokepoint);
+  // The draft number a create panel holds while it is open, and gives back when it is cancelled.
+  registerNumberReservationRoutes(domain, chokepoint);
   // Read and update the firm's malware scan-policy settings (tier, score floor, flagged treatment).
   registerScanPolicyRoutes(domain, chokepoint);
   registerEditingPolicyRoutes(domain, chokepoint);
