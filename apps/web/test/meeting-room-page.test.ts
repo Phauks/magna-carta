@@ -457,7 +457,7 @@ describe("ending a meeting somebody else is running", () => {
 
     // Holding the key is not holding the room. The remedy is somebody handing it over — or, in a
     // room nobody is running, taking it.
-    expect(panel?.textContent).toContain("You Are Not Hosting This Meeting");
+    expect(panel?.textContent).toContain("You Aren't Hosting This Meeting");
     const offered = [...document.body.querySelectorAll("button")].map((control) =>
       control.textContent?.trim(),
     );

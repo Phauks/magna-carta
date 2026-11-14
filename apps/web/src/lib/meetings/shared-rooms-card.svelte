@@ -74,7 +74,7 @@
       await navigator.clipboard.writeText(personalRoomAddress(room.addressName, origin));
       toast.success(`${room.name} link copied.`);
     } catch {
-      toast.error("Your browser would not copy it. Open the room and copy its address instead.");
+      toast.error("Your browser couldn't copy it. Open the room and copy its address instead.");
     }
   }
 
@@ -124,8 +124,7 @@
       {/if}
     </div>
     <Card.Description>
-      Rooms the firm keeps for a place, such as a conference room. Anyone who can host meetings opens
-      them, and each meeting goes on that person's calendar.
+      Rooms the firm has for a place, such as a conference room. Anyone who can host meetings can open them, and each meeting goes on that person's calendar.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-16">
@@ -134,7 +133,7 @@
         failure={failureOf(read.error)}
         subject="The firm's shared rooms"
         title="Rooms Not Read"
-        fallback="The shared rooms could not be read."
+        fallback="Couldn't load the shared rooms."
         whenSilent="Couldn't connect. Reload the page to try again."
       />
     {:else if read.isPending}
@@ -227,7 +226,7 @@
         failure={writeFailure}
         subject="The room"
         title="Nothing Changed"
-        fallback="That did not happen."
+        fallback="That didn't happen."
         whenSilent="Couldn't connect. Nothing changed. Try again."
       />
     {/if}
@@ -265,8 +264,7 @@
 >
   {#snippet fields()}
     <p class="text-sm">
-      {retiringRoom?.name ?? "The room"} comes off the list and its link stops working. A meeting in
-      it now carries on, and its past meetings stay on the record.
+      {retiringRoom?.name ?? "The room"} is removed from the list and its link stops working. A meeting in it now carries on, and its past meetings stay on the record.
     </p>
   {/snippet}
 </ActionDialog>

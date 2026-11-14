@@ -283,7 +283,7 @@
     {#if readFailure !== null && resources === null}
       <FailureNotice
         failure={readFailure}
-        title="The Resources Could Not Be Read"
+        title="Couldn't Load the Resources"
         fallback="The firm's rooms and resources were not read."
         onRetry={() => void load()}
       />

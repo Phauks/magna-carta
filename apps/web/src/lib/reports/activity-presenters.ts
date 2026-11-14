@@ -1,12 +1,13 @@
 /*
- * The productivity and operational reports, and the matters list, arranged for a screen and a file.
+ * The productivity reports (Timekeeper Productivity, Daily Time), the operational volumes and the
+ * matters list, arranged for a screen and a file.
  *
  * Totals first, then tables, as the financial reports are. Productivity is minutes and never money:
  * what the time was worth is the realization report's, on a different permission. Operational
  * volumes are counts and never money. Every figure is the payload's; the tiles are its totals and
  * fields, and nothing here adds two counts.
  */
-import { formatInstantDate, formatNumber } from "@magna-carta/design-system/formatters";
+import { formatDate, formatInstantDate, formatNumber } from "@magna-carta/design-system/formatters";
 import {
   completenessLine,
   type ReportCell,
@@ -24,6 +25,7 @@ import {
 } from "./report-cells.ts";
 import { matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
 import type {
+  DailyTime,
   MatterListRow,
   MattersList,
   MatterStatusCounts,
@@ -154,6 +156,87 @@ export function presentTimekeeperProductivity(
         ]),
         endAlignedColumns: [1],
         whenEmpty: "No non-billable time was recorded in this period.",
+      },
+    ],
+  };
+}
+
+// ---- daily time -----------------------------------------------------------------------------------
+
+export function presentDailyTime(report: DailyTime, captions: ReportCaptions): ReportPresentation {
+  const totals = report.totals;
+  const summary: ReportSummaryTile[] = [
+    {
+      label: "Billable",
+      value: hoursText(totals.billableMinutes),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Non-billable",
+      value: hoursText(totals.nonBillableMinutes),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Billable share",
+      value:
+        totals.billableShareBasisPoints === null ? "-" : shareText(totals.billableShareBasisPoints),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Total recorded",
+      value: hoursText(totals.totalMinutes),
+      detail: `${counted(report.days.length, "day", "days")} · ${counted(report.timekeepers.length, "timekeeper", "timekeepers")}`,
+      tone: "total",
+    },
+  ];
+  const timekeeperCaption = (entry: { timekeeperUserId: string; timekeeperName: string | null }) =>
+    captionOr(entry.timekeeperName, captions.member(entry.timekeeperUserId));
+
+  return {
+    title: "Daily Time",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-day",
+        title: "By Day",
+        headers: ["Day", ...PRODUCTIVITY_HEADINGS],
+        rows: report.days.map((day) => [
+          formatDate(day.workDate),
+          ...productivityCells(day.figures),
+        ]),
+        rowDetails: report.days.map((day) =>
+          day.timekeepers.map((timekeeper) => [
+            timekeeperCaption(timekeeper),
+            ...productivityCells(timekeeper.figures),
+          ]),
+        ),
+        endAlignedColumns: [1, 2, 3, 4],
+        totalRow: [
+          report.locationId === null ? "Firm total" : "Office total",
+          ...productivityCells(totals),
+        ],
+        whenEmpty: "No time was recorded in this period.",
+      },
+      {
+        id: "by-timekeeper",
+        title: "By Timekeeper",
+        headers: ["Timekeeper", "Days", ...PRODUCTIVITY_HEADINGS],
+        rows: report.timekeepers.map((timekeeper) => [
+          timekeeperCaption(timekeeper),
+          countCell(timekeeper.dayCount),
+          ...productivityCells(timekeeper.figures),
+        ]),
+        endAlignedColumns: [1, 2, 3, 4, 5],
+        sortable: true,
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No time was recorded in this period.",
       },
     ],
   };
@@ -316,8 +399,18 @@ function instantDay(instant: string | null): string {
  */
 export function presentMattersList(report: MattersList): ReportPresentation {
   const summary: ReportSummaryTile[] = [
-    { label: "Open", value: formatNumber(report.totals.openCount), detail: null, tone: "plain" },
-    { label: "On hold", value: formatNumber(report.totals.heldCount), detail: null, tone: "plain" },
+    {
+      label: "Open",
+      value: formatNumber(report.totals.openCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "On hold",
+      value: formatNumber(report.totals.heldCount),
+      detail: null,
+      tone: "plain",
+    },
     {
       label: "Closed",
       value: formatNumber(report.totals.closedCount),

@@ -146,8 +146,7 @@
     <div class="flex flex-col gap-4">
       <h2 class="text-sm font-medium">Connection Details</h2>
       <p class="text-xs text-text-muted">
-        What this page is sending and receiving at the moment. None of it is recorded, and none
-        of it reaches the meeting's own record.
+        What this page is sending and receiving right now. None of it is recorded or saved to the meeting's record.
       </p>
     </div>
 
@@ -189,8 +188,7 @@
               {layerText}{#if rateText !== null}, <span class="tabular-nums">{rateText}</span>{/if}
             </span>
             <span class="text-xs text-text-muted">
-              Your camera is sent at full, half and quarter size, and each person receives the size
-              their screen shows you at.
+              Your camera is sent at full, half and quarter size, and each person gets the size their screen shows you at.
             </span>
           </span>
         {/if}

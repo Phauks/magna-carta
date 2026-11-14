@@ -51,7 +51,7 @@
     } catch {
       // The clipboard refuses without a secure context or a user gesture the browser accepts. The
       // address bar still carries the same link, so the fallback is to say where it is.
-      toast.error("Could not copy the link. Copy it from the address bar instead.");
+      toast.error("Couldn't copy the link. Copy it from the address bar instead.");
     }
   }
 

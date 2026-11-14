@@ -147,6 +147,26 @@ export const ProductivityTaskCodeRow = z.object({
   figures: ProductivityFigures,
 });
 
+// DAILY TIME. The same figures as Timekeeper Productivity, day by day.
+export const DailyTimeTimekeeperOnDay = z.object({
+  timekeeperUserId: z.string(),
+  timekeeperName: z.string().nullable(),
+  figures: ProductivityFigures,
+});
+
+export const DailyTimeDayRow = z.object({
+  workDate: z.string(),
+  figures: ProductivityFigures,
+  timekeepers: z.array(DailyTimeTimekeeperOnDay),
+});
+
+export const DailyTimeTimekeeperRow = z.object({
+  timekeeperUserId: z.string(),
+  timekeeperName: z.string().nullable(),
+  dayCount: z.number().int(),
+  figures: ProductivityFigures,
+});
+
 // OPERATIONAL VOLUMES. Counts only, never money.
 export const OperationalSections = z.enum(["matters", "billing", "trust", "costs"]);
 

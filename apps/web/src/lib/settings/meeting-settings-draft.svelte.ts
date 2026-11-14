@@ -47,7 +47,7 @@ export const RECORDING_ENABLED_DEFINITION: SettingDefinition = {
   plateLabel: RECORDING_PLATE,
   label: "Record Meetings",
   description:
-    "Lets a meeting on a matter be recorded. Everyone in the meeting is told when a recording starts, and so is everyone who joins while it runs; the audio is added to the matter's documents.",
+    "Lets a meeting on a matter be recorded. Everyone in the meeting is told when a recording starts, and so is anyone who joins later. The audio is added to the matter's documents.",
   kind: "switch",
   defaultValue: false,
   sensitivity: "open",
@@ -61,7 +61,7 @@ export function recordedTrackCeilingDefinition(maximum: number): SettingDefiniti
     sectionId: MEETINGS_SECTION_ID,
     plateLabel: RECORDING_PLATE,
     label: "People Recorded at Once",
-    description: `The most people one recording hears at once, from ${String(RECORDED_TRACK_CEILING_MINIMUM)} to ${String(maximum)}. ${String(maximum)} is as many as the recorder can hold in memory, so it cannot go higher. A larger meeting cannot start a recording, and anyone who joins past the limit is not recorded.`,
+    description: `The most people one recording can hear at once, from ${String(RECORDED_TRACK_CEILING_MINIMUM)} to ${String(maximum)}. ${String(maximum)} is the most the recorder can handle. A larger meeting can't start a recording, and anyone who joins past the limit isn't recorded.`,
     kind: "number",
     minimum: RECORDED_TRACK_CEILING_MINIMUM,
     maximum,
@@ -95,7 +95,7 @@ export const CAPTIONS_ENABLED_DEFINITION: SettingDefinition = {
   plateLabel: CAPTIONS_PLATE,
   label: "Live Captions",
   description:
-    "Shows what is being said as text while a meeting is live. A meeting need not be recorded to show them, and captions themselves are not kept.",
+    "Shows what's being said as text during a live meeting. The meeting doesn't need to be recorded, and captions aren't saved.",
   kind: "switch",
   defaultValue: false,
   sensitivity: "open",

@@ -145,15 +145,15 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure}
-          title="The Resources Could Not Be Read"
-          fallback="The firm's rooms and resources were not read, so no schedule can be shown."
+          title="Couldn't Load the Resources"
+          fallback="Couldn't load the firm's rooms and resources, so no schedule can be shown."
           onRetry={() => void load()}
         />
       {/if}
     {/snippet}
     {#snippet emptyState()}
       <EmptyState title="No rooms or resources yet">
-        Resources are bookable things the firm owns, such as conference rooms, pool cars or video equipment. Add one under Settings and its schedule appears here.
+        Resources are bookable things the firm owns, such as conference rooms, pool cars or video equipment. Add one under Settings to see its schedule here.
         {#snippet actions()}
           <Button variant="primary" href="/settings/resources">Rooms and Resources</Button>
         {/snippet}

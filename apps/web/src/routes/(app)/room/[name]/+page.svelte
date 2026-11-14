@@ -96,15 +96,15 @@
 
   {#if unknown}
     <EmptyState title="No Room at This Link">
-      The link may have been replaced. Ask whoever sent it for the current one.
+      The link may have been replaced. Ask the person who sent it for the current one.
     </EmptyState>
   {:else if read.isError}
     <FailureNotice
       failure={failureOf(read.error)}
       subject="This room"
-      title="The Room Could Not Be Read"
-      fallback="The room could not be read."
-      whenSilent="Nothing answered, so the room could not be read."
+      title="Couldn't Load the Room"
+      fallback="Couldn't load the room."
+      whenSilent="Couldn't connect. Couldn't load the room. Try again."
     />
   {:else if room === null}
     <p class="text-sm text-text-muted">Reading the room</p>
@@ -112,7 +112,7 @@
     <EmptyState title={room.isOwner ? "This Is Your Room" : room.roomName}>
       {room.state === "open"
         ? "The room is open."
-        : "Open it and colleagues with the link can join. The meeting goes on your calendar."}
+        : "Open it and staff with the link can join. The meeting goes on your calendar."}
       {#snippet actions()}
         <Button onclick={open} disabled={busy}>
           <Video aria-hidden="true" />
@@ -143,8 +143,8 @@
       failure={writeFailure}
       subject="This room"
       title="You Did Not Join"
-      fallback="That did not happen."
-      whenSilent="Nothing answered, so you did not join."
+      fallback="That didn't happen."
+      whenSilent="Couldn't connect. You didn't join. Try again."
     />
   {/if}
 </div>
