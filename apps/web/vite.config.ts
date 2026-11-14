@@ -1,6 +1,6 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, type Rollup } from "vite-plus";
+import { defineConfig, type PluginOption, type Rollup } from "vite-plus";
 import {
   resolveCommitIdentity,
   resolveRepositoryUrl,
@@ -50,8 +50,16 @@ const PRODUCTION_OUTPUT: Rollup.OutputOptions = {
   minify: { mangle: false, compress: true, codegen: { removeWhitespace: true } },
 };
 
+// The Tailwind and SvelteKit plugins are typed against the Vite release they were built for, not
+// the one vite-plus re-exports. The two plugin types are the same shape at runtime, but comparing
+// them structurally runs the type-checker past its depth limit ("excessive stack depth"), so the
+// array is asserted to the vite-plus type rather than compared.
+const PLUGINS = (runningInPackageDir
+  ? [tailwindcss(), sveltekit()]
+  : []) as unknown as PluginOption[];
+
 export default defineConfig({
-  plugins: runningInPackageDir ? [tailwindcss(), sveltekit()] : [],
+  plugins: PLUGINS,
   define: {
     __MC_BUILD_COMMIT__: JSON.stringify(commitIdentity.commit ?? "unknown"),
     __MC_BUILD_COMMIT_TIME__: JSON.stringify(commitIdentity.commitTime),
@@ -59,7 +67,13 @@ export default defineConfig({
     __MC_SOURCE_REPOSITORY__: JSON.stringify(repositoryUrl),
   },
   // dev convenience: proxy /api to a running `wrangler dev`
-  server: { proxy: { "/api": "http://localhost:8787" } },
+  server: {
+    proxy: { "/api": "http://localhost:8787" },
+    // The WebAssembly engines (packages/pdf, email, pdf-compose and the rest) are fetched by URL
+    // from their own package directories, which SvelteKit's default serving list leaves out; without
+    // this the development server answers 403 and every in-browser engine fails to load.
+    fs: { allow: ["../../packages"] },
+  },
   build: {
     // Source maps ship with the production bundle (PRODUCTION_OUTPUT above says what they carry).
     sourcemap: true,

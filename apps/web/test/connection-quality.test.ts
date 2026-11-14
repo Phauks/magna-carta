@@ -406,3 +406,69 @@ describe("the facts a mark is made from", () => {
     expect(qualityOf(inboundFacts(second, "attendance_9"))).toBe("unknown");
   });
 });
+
+describe("the connection as a whole", () => {
+  it("counts upload and download over every stream, and names the server end of the pair", () => {
+    const pair: StatsEntry = {
+      ...selectedPair(0.05),
+      localCandidateId: "local-1",
+      remoteCandidateId: "remote-1",
+    };
+    const local: StatsEntry = { id: "local-1", type: "local-candidate", candidateType: "host" };
+    const remote: StatsEntry = {
+      id: "remote-1",
+      type: "remote-candidate",
+      candidateType: "host",
+      address: "media-server.example",
+      port: 443,
+      protocol: "udp",
+    };
+    const first = summarizeStats(
+      [
+        pair,
+        local,
+        remote,
+        outboundCamera({ bytesSent: 0 }),
+        inboundStream("in-a", "video", { bytesReceived: 0 }),
+        inboundStream("in-b", "audio", { bytesReceived: 0 }),
+      ],
+      null,
+      0,
+    );
+    expect(first.uploadBitsPerSecond).toBeNull();
+    expect(first.server).toEqual({
+      address: "media-server.example",
+      port: 443,
+      protocol: "udp",
+      relayed: false,
+    });
+
+    const second = summarizeStats(
+      [
+        pair,
+        local,
+        remote,
+        outboundCamera({ bytesSent: 125_000 }),
+        inboundStream("in-a", "video", { bytesReceived: 200_000 }),
+        inboundStream("in-b", "audio", { bytesReceived: 50_000 }),
+      ],
+      first,
+      1000,
+    );
+    expect(second.uploadBitsPerSecond).toBe(1_000_000);
+    expect(second.downloadBitsPerSecond).toBe(2_000_000);
+  });
+
+  it("says when the media goes through a relay", () => {
+    const sample = summarizeStats(
+      [
+        { ...selectedPair(0.05), localCandidateId: "local-1", remoteCandidateId: "remote-1" },
+        { id: "local-1", type: "local-candidate", candidateType: "relay" },
+        { id: "remote-1", type: "remote-candidate", candidateType: "host", protocol: "tcp" },
+      ],
+      null,
+      0,
+    );
+    expect(sample.server?.relayed).toBe(true);
+  });
+});

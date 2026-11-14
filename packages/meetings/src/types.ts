@@ -163,6 +163,8 @@ export interface MeetingRow {
   readonly personal_room_id: MeetingPersonalRoomId | null;
   // Whether the pictures and sound are sealed end to end, as SQLite's integer. Fixed at opening.
   readonly encrypted: 0 | 1;
+  // The nine digits the meeting is addressed and joined by. Every row has one.
+  readonly join_code: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -272,6 +274,8 @@ export interface MeetingSummary {
   readonly personalRoomSession: boolean;
   // The title of the matter the meeting is filed on, or null on a firm event.
   readonly matterTitle: string | null;
+  // The nine digits the meeting is addressed and joined by (/meeting/482917305).
+  readonly joinCode: string | null;
   // WHETHER THE PICTURES AND SOUND ARE SEALED END TO END, so a screen can say so before Join and the
   // room's browsers know to build their key group. Fixed when the room was opened.
   readonly encrypted: boolean;

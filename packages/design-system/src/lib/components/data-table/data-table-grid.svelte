@@ -29,7 +29,7 @@
   import Skeleton from "../skeleton/index.ts";
   import ScrollEdgeHint from "../scroll-edge-hint/index.ts";
   import * as ContextMenu from "../context-menu/index.ts";
-  import type { GridCellContext, GridColumn } from "./grid-columns.ts";
+  import type { GridBandFoot, GridCellContext, GridColumn } from "./grid-columns.ts";
   import { gridCellText, gridColumnAlign } from "./grid-columns.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
   import { gridFilterSummary } from "./grid-filters.ts";
@@ -49,6 +49,16 @@
      * column the second line keeps an empty pinned cell so that column's hairline runs unbroken.
      */
     rowDetail?: Snippet<[TRow]>;
+    /**
+     * A line at the foot of every band — or once, after the last row, where the rows are not
+     * banded — where a surface lets a record be written in place: the task list's "Add a task to
+     * Litigation". At rest it is one cell across the table (`rest`); while `editing` answers true
+     * for its band it is one cell per visible column (`cell`), so each answer is typed in the
+     * column it will be read in. It is NOT a record: it carries no `data-grid-row`, takes no part in
+     * selection, and the grid's own keys leave everything inside it alone. `bandKey` is null where
+     * there are no bands.
+     */
+    bandFoot?: GridBandFoot<TRow>;
     /**
      * Renders what a band heading carries after its label and count, when the state groups rows
      * into bands — a muted date range, an action that applies to the band. Given the band's key.
@@ -101,6 +111,7 @@
     caption,
     cell,
     rowDetail,
+    bandFoot,
     bandDetail,
     loading = false,
     placeholderCount = 8,
@@ -135,6 +146,15 @@
     };
   });
   let headerCells = $state<Record<string, HTMLTableCellElement | null>>({});
+
+  /** Each band by the index of its last row, for the foot line drawn under it. */
+  const bandEnds = $derived.by(() => {
+    const ends = new Map<number, { key: string; label: string }>();
+    for (const [start, band] of grid.bandStarts) {
+      ends.set(start + band.rows.length - 1, { key: band.key, label: band.label });
+    }
+    return ends;
+  });
 
   /*
    * THE FRAME'S OWN WIDTH, PUBLISHED TO CSS.
@@ -442,6 +462,8 @@
     const target = event.target as HTMLElement;
     // Text fields keep their native keys (select-all, caret movement).
     if (target.closest("input, textarea, select, [contenteditable]")) return;
+    // A band's foot line is a form, not a record: its buttons keep Enter and the arrows.
+    if (target.closest("[data-grid-band-foot]")) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
       event.preventDefault();
       grid.selectAll();
@@ -472,6 +494,36 @@
     }
   }
 </script>
+
+<!-- A band's foot line: the add line at rest, or the band's own form while it is being written. -->
+{#snippet footLine(bandKey: string | null, label: string | null)}
+  {#if bandFoot}
+    {#if bandFoot.editing(bandKey)}
+      <tr class="mc-table-row mc-table-grid-band-foot" data-grid-band-foot={bandKey ?? ""} data-editing="true">
+        {#each grid.visibleColumns as column (column.id)}
+          {@const pinned = pinnedAttributes(column.id)}
+          <td
+            class="mc-table-cell mc-table-grid-cell"
+            data-align={gridColumnAlign(column) === "end" ? "end" : undefined}
+            data-pinned={pinned["data-pinned"]}
+            data-pinned-edge={pinned["data-pinned-edge"]}
+            data-pinned-end={pinned["data-pinned-end"]}
+            data-pinned-end-edge={pinned["data-pinned-end-edge"]}
+            style={pinned.style}
+          >
+            {@render bandFoot.cell({ column, bandKey })}
+          </td>
+        {/each}
+      </tr>
+    {:else}
+      <tr class="mc-table-row mc-table-grid-band-foot" data-grid-band-foot={bandKey ?? ""}>
+        <td class="mc-table-cell mc-table-grid-cell" colspan={grid.visibleColumns.length}>
+          {@render bandFoot.rest({ bandKey, label })}
+        </td>
+      </tr>
+    {/if}
+  {/if}
+{/snippet}
 
 <!--
   The frame is a positioned shell around the scroll region, and it exists so the gilt edge rule at
@@ -692,8 +744,12 @@
               </div>
             </td>
           </tr>
+          {#if bandFoot}
+            {@render footLine(null, null)}
+          {/if}
         {:else}
           {#each grid.rowsInView as row, rowIndex (rowKeyOf(row))}
+            {@const endsBand = bandEnds.get(rowIndex)}
             {@const key = rowKeyOf(row)}
             {@const mark = grid.markFor(row)}
             {@const stripe = rowIndex % 2 === 1 ? ("even" as const) : undefined}
@@ -799,7 +855,13 @@
                 {/if}
               </tr>
             {/if}
+            {#if bandFoot && endsBand !== undefined}
+              {@render footLine(endsBand.key, endsBand.label)}
+            {/if}
           {/each}
+          {#if bandFoot && grid.bands === null}
+            {@render footLine(null, null)}
+          {/if}
         {/if}
         <!--
           THE SLACK, GIVEN A HOME. The totals strip is sticky to the bottom of the scroll frame,

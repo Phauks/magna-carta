@@ -7,8 +7,11 @@ import {
   clampOffset,
   clampZoom,
   cropSource,
+  isOfferedPhotoFormat,
   MAXIMUM_ZOOM,
   MINIMUM_ZOOM,
+  PHOTO_ACCEPT,
+  PHOTO_FORMATS,
 } from "../src/lib/directory/photo-crop.ts";
 
 const LANDSCAPE = { width: 800, height: 400 };
@@ -38,5 +41,27 @@ describe("cropping a picture to a square", () => {
   it("keeps the zoom inside the range the controls offer", () => {
     expect(clampZoom(0.2)).toBe(MINIMUM_ZOOM);
     expect(clampZoom(99)).toBe(MAXIMUM_ZOOM);
+  });
+});
+
+describe("the formats a photo may be chosen from", () => {
+  it("names every offered format by media type and by extension in the picker filter", () => {
+    for (const format of PHOTO_FORMATS) {
+      expect(PHOTO_ACCEPT.split(",")).toContain(format.mediaType);
+      for (const extension of format.extensions)
+        expect(PHOTO_ACCEPT.split(",")).toContain(extension);
+    }
+  });
+
+  it("takes an offered media type and refuses one that is not", () => {
+    expect(isOfferedPhotoFormat({ name: "face.webp", type: "image/webp" })).toBe(true);
+    expect(isOfferedPhotoFormat({ name: "logo.svg", type: "image/svg+xml" })).toBe(true);
+    expect(isOfferedPhotoFormat({ name: "retainer.pdf", type: "application/pdf" })).toBe(false);
+    expect(isOfferedPhotoFormat({ name: "iphone.heic", type: "image/heic" })).toBe(false);
+  });
+
+  it("falls back to the extension when the browser gives no media type", () => {
+    expect(isOfferedPhotoFormat({ name: "FACE.AVIF", type: "" })).toBe(true);
+    expect(isOfferedPhotoFormat({ name: "notes.docx", type: "" })).toBe(false);
   });
 });

@@ -1583,6 +1583,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // object storage under a key built from identifiers alone; nothing of their content is in this
   // row. file_name is what the operator's computer called the export, display text about a file.
   "transfer_source_file",
+  // One pass over a source file: the operator's mapping rules (column names and the firm's own
+  // identifiers, with the source's names for matter types and its codes for staff as lookup keys),
+  // the counts, and the key of the report object. No client's details: a report names rows by number.
+  // requested_by is administrative provenance, as transfer_run.started_by is.
+  "transfer_pass",
   // Email filing structure — the personal data of a captured message lives on email_message and
   // email_participant (both registered above); these three carry none of their own.
   // A thread row is the conversation grouping key plus a normalized-subject fallback; a subject line is
@@ -1788,6 +1793,16 @@ export const NO_PII_TABLES: readonly string[] = [
   // control row about which FILE evidences which asset. The linked document's own retention is
   // expressed by its `file` entry, exactly as for file_version, email_attachment, and custody_scan.
   "matter_asset_document",
+  // Exhibits. None of the four carries a structured personal-data column: what each row points at is
+  // a `file` or a `file_version`, whose retention is expressed by THAT row's entry, and provenance is
+  // firm-member user ids. An exhibit's title and description, a set's name, and a withdrawal or
+  // correction basis are free text that can name a person ("Declaration of Marcus Ortega") — the
+  // residue class matter.description and custody_item.description established, handled by the
+  // residue report rather than by a key here.
+  "matter_exhibit",
+  "exhibit_set",
+  "exhibit_set_member",
+  "exhibit_reference",
   // A note's link to one of the matter's files: two handles, an instant, and firm-member provenance
   // (linked_by). Whose document it is resolves through the file and the matter, never through a
   // column here — the same shape matter_asset_document sits in directly above.

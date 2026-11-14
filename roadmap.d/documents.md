@@ -220,10 +220,10 @@
   name: CDR disarmed rendition
   scope: Optional content-disarmed copy of document types while the original is preserved byte-for-byte for evidence.
   status: partial
-  surface: internal
+  surface: screen
   spec: docs/specs/2026-11-13-content-disarm-design.md
-  evidence: crates/disarm-core (PDF, Office packages, RTF and pictures, each re-verified after writing) + @magna-carta/disarm, its WebAssembly edge. Nothing calls it yet.
-  notes: In-house Rust by the owner's 2026-11-10 ruling. Next are the File Workbench's Disarm tab and a pipeline stage that files a rendition beside an upload; legacy binary Office files are refused until they are converted to their package form first.
+  evidence: crates/disarm-core (PDF, Office packages, RTF and pictures, each re-verified after writing) + @magna-carta/disarm, its WebAssembly edge, run in the browser by the File Workbench Malware Scan tab (apps/web/src/lib/tools/file-workbench/panels/malware-scan-panel.svelte).
+  notes: In-house Rust by the owner's 2026-11-10 ruling. Disarm sits inside the Malware Scan tab rather than a tab of its own (mockup option B). Next is a pipeline stage that files a rendition beside a matter upload; legacy binary Office files are refused until they are converted to their package form first.
 
 - id: documents.scanning.waf-prefilter
   name: WAF edge pre-filter
@@ -508,8 +508,9 @@
 - id: documents.conversion.email-to-pdf
   name: Email MSG/EML to PDF
   scope: Render parsed email as PDF for producing email as exhibits; closes the registry's eml/msg edges.
-  status: not-started
-  evidence: email-core-parse-engine fragment names the email-to-PDF render engine as next; parse engine is deliberately parse-only.
+  status: partial
+  surface: screen
+  evidence: packages/email/src/message-document.ts lays a parsed message out as a pdf-compose document; the File Workbench Email tab saves it. Conversion-registry eml/msg edges and the matter documents convert menu are still to come.
 
 - id: documents.conversion.searchable-pdf
   name: Scanned PDF to searchable PDF
@@ -906,7 +907,7 @@
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   spec: docs/specs/2026-06-22-metadata-tool-design.md
-  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts; HEIC/PDF/container engine deferred; UI todo.
+  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts + the File Workbench Metadata tab; XLSX/PPTX reading, HEIC/PDF and the container engine still to come.
   audience: public
   public-name: Metadata scrubbing
   public-summary: See what is hidden inside a file — tracked changes, comments, author details, the place a photograph was taken — and strip it out before you send it.
@@ -915,14 +916,14 @@
   name: OOXML metadata
   scope: Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: packages/metadata/src/ooxml + engine.ts/port.ts.
 
 - id: documents.metadata.image
   name: Image metadata
   scope: Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: packages/metadata/src/image + tests.
 
 - id: documents.metadata.extended-formats
@@ -935,8 +936,9 @@
 - id: documents.metadata.ui
   name: Metadata UI
   scope: User-facing inspect/scrub surface — the File Workbench's Metadata tab.
-  status: not-started
-  evidence: The tab exists and renders the standard pending treatment naming what it waits on; no panel draws findings yet. Not a separate tool page: the metadata-scrubber catalog row is retired into this tab.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/lib/tools/file-workbench/panels/metadata-panel.svelte runs @magna-carta/metadata in the browser (DOCX, JPEG, PNG), one table per scrub switch, a clean copy saved or put on the bench, and the copy re-read to confirm. Not a separate tool page: the metadata-scrubber catalog row is retired into this tab.
 
 - id: documents.file-integrity
   name: File hash & integrity
@@ -995,8 +997,8 @@
   name: Email Inspector
   scope: Worker route exposing the parse engine, surfaced as the File Workbench's Email tab.
   status: shipped
-  surface: awaiting-screen
-  evidence: apps/api-worker/src/http/routes/email/email-inspector.ts. The tab exists and renders the pending treatment; the route has no panel reading it yet. The email-inspector catalog row is retired into this tab.
+  surface: screen
+  evidence: apps/web/src/lib/tools/file-workbench/panels/email-panel.svelte reads the message in the browser through @magna-carta/email (headers, route, authentication, body, attachments that open on the bench). apps/api-worker/src/http/routes/email/email-inspector.ts serves the same parse for server callers.
 
 - id: documents.engine-host
   name: Engine-host harness

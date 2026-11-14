@@ -61,6 +61,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         note: "The one table, in every state",
       },
       {
+        label: "Address suggestions",
+        href: "/developer-console/address-suggestions",
+        note: "The street box's offers with Google's name, and saved addresses with Open in Google Maps",
+      },
+      {
         label: "Upload states",
         href: "/developer-console/upload-states",
         note: "The Upload dialog and the upload tray, mid-transfer and after a failure",

@@ -5,11 +5,11 @@ order: 7
 research: n/a
 spec: done by="Opus 5"
 plan: done by="Opus 5"
-built: todo
+built: in-progress by="Claude"
 ui: todo
 load-profile: todo
 tested: todo
-next: Build slice 2·7·1 — the exhibit set, ordering, the computed label, and the freeze at issue.
+next: Screens (where a member starts building exhibits is with the owner), then the exhibit list document, in-text references and the stamped package.
 active-work:
 link-spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
 link-plan: docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md

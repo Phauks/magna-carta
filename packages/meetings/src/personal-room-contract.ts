@@ -10,8 +10,10 @@ import { MEETING_MEDIA } from "./types.ts";
 export const PersonalRoom = z
   .object({
     id: z.string(),
-    // The room's address inside the firm: `/meetings/rooms/{linkCode}`.
+    // The room's older code, kept on the record; no address reads it any more.
     linkCode: z.string(),
+    // The room's address by name: `/room/{addressName}`.
+    addressName: z.string(),
     // What a session opens with.
     medium: z.enum(MEETING_MEDIA),
     lobby: z.enum(MEETING_LOBBY_MODES),
@@ -51,6 +53,8 @@ export const PersonalRoomAtLinkResponse = z
     state: z.enum(["closed", "open"]),
     ownerDisplayName: z.string(),
     isOwner: z.boolean(),
+    // The room's address by name.
+    addressName: z.string(),
     meetingId: z.string().nullable(),
   })
   .meta({ id: "PersonalRoomAtLink" });
@@ -69,6 +73,8 @@ export const FirmRoom = z
     name: z.string(),
     // Null while the member has not set a room up; the list still shows them.
     linkCode: z.string().nullable(),
+    // The room's address by name, null with the link code.
+    addressName: z.string().nullable(),
     medium: z.enum(MEETING_MEDIA).nullable(),
     // The session open in the room, and how many people are in it now.
     openMeetingId: z.string().nullable(),

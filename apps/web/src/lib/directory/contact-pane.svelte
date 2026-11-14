@@ -9,10 +9,11 @@
    * `channel` names. Two panes with a read each would ask the record the same question twice
    * whenever somebody moved between the two rail items.
    *
-   * The pane is thin on purpose: the lists, the entry rows and every shape check are the sections,
-   * the same components the New Person screen drafts with, so a way to reach someone reads and is
-   * entered the same way whether the record exists yet or not. What is left here is what only this
-   * pane knows: which record, who may change it, and how each change is persisted one at a time.
+   * The pane is thin on purpose. The Address half is the section the New Person screen drafts with;
+   * the Contact half is ./contact-card-editor.svelte, which reads as a plain list and is changed all
+   * at once behind one Edit button, its Save turned into single writes by ./contact-edit-plan.ts.
+   * What is left here is what only this pane knows: which record, who may change it, and how each
+   * write is persisted.
    *
    * Two facts a screen must not merge: `permitted` (may the firm use this) and `preferred` (the one
    * way the person asked to be reached). A person can be reachable at a number they would rather
@@ -46,7 +47,8 @@
     type DirectoryContactPoints,
   } from "./directory-api.ts";
   import AddressSection from "./sections/address-section.svelte";
-  import ContactSection from "./sections/contact-section.svelte";
+  import ContactCardEditor from "./contact-card-editor.svelte";
+  import type { ContactEdit } from "./contact-edit-plan.ts";
 
   let {
     entityId,
@@ -94,7 +96,7 @@
       }
       shownFor = null;
       points = { emails: [], phones: [], addresses: [] };
-      readFailure = stated(outcome.failure, "This record's contact details could not be read.");
+      readFailure = stated(outcome.failure, "Couldn't load this record's contact details.");
     })();
     return () => {
       cancelled = true;
@@ -224,8 +226,8 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "That could not be recorded.",
-      "Nothing was recorded; the record's contact details are as they were.",
+      "Couldn't save that.",
+      "Nothing was saved. The contact details are unchanged.",
     );
   }
 
@@ -248,7 +250,7 @@
       reloadToken += 1;
       return;
     }
-    writeFailure = stated(outcome.failure, "That could not be changed.", whenSilent);
+    writeFailure = stated(outcome.failure, "Couldn't change that.", whenSilent);
   }
 
   /**
@@ -278,9 +280,69 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "That could not be corrected.",
-      "Nothing was changed; the value is as it was.",
+      "Couldn't correct that.",
+      "Nothing was changed.",
     );
+  }
+
+  /**
+   * One Save of the Contact card: its writes, one at a time, in the plan's order. The first that
+   * fails stops the rest and is reported, and the card re-reads either way, so what is on screen is
+   * what the record holds; the reader's edit stays open on a failure so nothing typed is lost.
+   */
+  async function applyEdits(edits: readonly ContactEdit[]): Promise<boolean> {
+    writeFailure = null;
+    busyId = "saving";
+    const landed = await sendFrom(edits, 0);
+    busyId = null;
+    reloadToken += 1;
+    return landed;
+  }
+
+  /** Sends the edits from `index` on, each only once the one before it has landed. */
+  async function sendFrom(edits: readonly ContactEdit[], index: number): Promise<boolean> {
+    const edit = edits[index];
+    if (edit === undefined) return true;
+    const failure = await send(edit);
+    if (failure !== null) {
+      writeFailure = failure;
+      return false;
+    }
+    return sendFrom(edits, index + 1);
+  }
+
+  /** One write of a Save; null once it landed, or what to say about why it did not. */
+  async function send(edit: ContactEdit): Promise<StatedFailure | null> {
+    const key = crypto.randomUUID();
+    if (edit.kind === "remove") {
+      const outcome = await removeDirectoryContactPoint(fetch, channelOf(edit.row), edit.row.id, key);
+      return outcome.kind === "ok"
+        ? null
+        : stated(outcome.failure, "Couldn't remove that.", "Nothing more was changed.");
+    }
+    if (edit.kind === "update") {
+      const outcome = await updateDirectoryContactPoint(
+        fetch,
+        channelOf(edit.row),
+        edit.row.id,
+        edit.body,
+        key,
+      );
+      return outcome.kind === "ok"
+        ? null
+        : stated(outcome.failure, "Couldn't change that.", "Nothing more was changed.");
+    }
+    const requests = contactRequestsFrom([edit.draft]);
+    const preference = edit.preference;
+    const outcome =
+      requests.emails[0] !== undefined
+        ? await addDirectoryEmail(fetch, entityId, { ...requests.emails[0], preference }, key)
+        : requests.phones[0] !== undefined
+          ? await addDirectoryPhone(fetch, entityId, { ...requests.phones[0], preference }, key)
+          : null;
+    return outcome === null || outcome.kind === "ok"
+      ? null
+      : stated(outcome.failure, "Couldn't save that.", "Nothing more was changed.");
   }
 
   async function remove(row: ContactRow): Promise<void> {
@@ -297,7 +359,7 @@
       reloadToken += 1;
       return;
     }
-    writeFailure = stated(outcome.failure, "That could not be removed.", "Nothing was removed.");
+    writeFailure = stated(outcome.failure, "Couldn't remove that.", "Nothing was removed.");
   }
 </script>
 
@@ -305,7 +367,7 @@
   {#if writeFailure !== null}
     <FailureNotice
       failure={writeFailure.failure}
-      title="The Contact Details Were Not Changed"
+      title="Contact Details Not Changed"
       fallback={writeFailure.fallback}
       whenSilent={writeFailure.whenSilent}
     />
@@ -323,7 +385,7 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure.failure}
-          title="This Record's Contact Details Could Not Be Read"
+          title="Couldn't Load Contact Details"
           fallback={readFailure.fallback}
           whenSilent={readFailure.whenSilent}
           onRetry={retry}
@@ -350,22 +412,17 @@
       onAdd={(draft) => void add(draft)}
       onEdit={(row) => addressDraftFor(row)}
       onChange={(row, draft) => void correct(row, draft)}
-      onPreferred={(row) => void change(row, { preferred: true }, "The preference is as it was.")}
+      onPreferred={(row, preferred) => void change(row, { preferred }, "The preference is as it was.")}
       onPermitted={(row, permitted) => void change(row, { permitted }, "The permission is as it was.")}
       onRemove={(row) => void remove(row)}
     />
   {:else}
-    <ContactSection
+    <ContactCardEditor
       rows={listed}
-      canEdit={mayEdit}
+      canEdit={mayEdit && points !== null}
       {editDisabledReason}
-      {busyId}
-      onAdd={(draft) => void add(draft)}
-      onEdit={(row) => reachableDraftFor(row)}
-      onChange={(row, draft) => void correct(row, draft)}
-      onPreferred={(row) => void change(row, { preferred: true }, "The preference is as it was.")}
-      onPermitted={(row, permitted) => void change(row, { permitted }, "The permission is as it was.")}
-      onRemove={(row) => void remove(row)}
+      draftFor={reachableDraftFor}
+      onSave={applyEdits}
     />
   {/if}
 {/snippet}

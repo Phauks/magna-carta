@@ -146,7 +146,7 @@
       }
       shownFor = null;
       names = [];
-      readFailure = stated(outcome.failure, "The names on this record could not be read.");
+      readFailure = stated(outcome.failure, "Couldn't load the names on this record.");
     })();
     return () => {
       cancelled = true;
@@ -201,8 +201,7 @@
 
   const warning = $derived(
     kind === "person" && given.trim() !== "" && family.trim() === ""
-      ? "This name has no last name. The first name is what the firm will file, search and check " +
-          "conflicts under."
+      ? "This name has no last name. The first name is used for searches and conflicts checks."
       : null,
   );
 
@@ -276,8 +275,8 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "The name could not be recorded.",
-      "The name was not recorded.",
+      "Couldn't save the name.",
+      "The name wasn't saved.",
     );
     return "refused";
   }
@@ -301,7 +300,7 @@
     }
     writeFailure = stated(
       outcome.failure,
-      "The name could not be changed.",
+      "Couldn't change the name.",
       "The name on the record is unchanged.",
     );
     return "refused";
@@ -410,7 +409,7 @@
       {#if readFailure !== null}
         <FailureNotice
           failure={readFailure.failure}
-          title="The Names Could Not Be Read"
+          title="Couldn't Load Names"
           fallback={readFailure.fallback}
           whenSilent={readFailure.whenSilent}
           onRetry={retry}
@@ -471,8 +470,7 @@
     <!-- What the change does to the name already on file. It is about the act, so it sits with the
          fields the act happens in rather than in the line that names the record. -->
     <p class="text-xs text-text-muted">
-      The name on file is not erased: it is kept as a former name, stamped with today's date, and
-      still finds this record in a search or a conflicts check.
+      The current name is kept as a former name, dated today, and still finds this record in searches and conflicts checks.
     </p>
 
     {@render nameFields(busy)}
@@ -482,7 +480,7 @@
     {#if writeFailure !== null}
       <FailureNotice
         failure={writeFailure.failure}
-        title="The Name Was Not Recorded"
+        title="Name Not Saved"
         fallback={writeFailure.fallback}
         whenSilent={writeFailure.whenSilent}
       />
@@ -529,7 +527,7 @@
     {#if writeFailure !== null}
       <FailureNotice
         failure={writeFailure.failure}
-        title="The Name Was Not Recorded"
+        title="Name Not Saved"
         fallback={writeFailure.fallback}
         whenSilent={writeFailure.whenSilent}
       />

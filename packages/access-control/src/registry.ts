@@ -68,6 +68,12 @@ export const PERMISSIONS = [
   // tunes the scanner has not thereby been asked to make it. Binds resource: "firm" — the switch is
   // one answer for the whole firm and names no matter.
   "firm:manageSearchSettings", // read and update the firm's search settings: whether the contents of its files are indexed
+  // Bringing a firm's records in from the system it is leaving: starting a run, giving it the
+  // source files and asking for a pass over one. A pass creates people, organizations and matters in
+  // bulk, with their original numbers and dates, and a source file holds every client the firm has.
+  // That is the firm's act, done a handful of times in its life, so it seeds to Owner/Admin alone
+  // and is no part of directory:edit or matters:create, which let a seat type in one record.
+  "firm:transferRecords", // start a record transfer run, upload its source files, and run and read its passes
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.
@@ -353,6 +359,16 @@ export const PERMISSIONS = [
   // secret), so matterAssets:read alone never reveals one and no second grant has to be kept in step.
   "matterAssets:read", // read the register — assets, class attributes, valuations, interests, linked documents, the type catalog
   "matterAssets:manage", // record and edit assets, append valuations, add and end interests, link and unlink documents, manage the type catalog
+  // Exhibits — a matter's documents put in order for a filing, with labels that follow the order.
+  // Two keys, because building a set and recording that it went out are different decisions.
+  // exhibits:manage is the drafting work: create exhibits, build and reorder sets, choose the
+  // numbering. exhibits:issue is the four operations that touch the record of what was served —
+  // issuing a set, withdrawing an issued exhibit, correcting an issued exhibit's recorded title or
+  // file, and superseding a set — and once a set is issued its labels are frozen for good, so a firm
+  // must be able to keep that act to the people it trusts to say a filing happened. Both bind
+  // resource: "matter" — an exhibit is one matter's fact and a set is one matter's filing.
+  "exhibits:manage", // create and edit exhibits, build, reorder and number draft exhibit sets, and read them
+  "exhibits:issue", // record that a set was filed or served, withdraw or correct an issued exhibit, and supersede an issued set
   // Magnus — the conversational assistant. Two keys, because using the assistant and reading what
   // everyone else asked it are different capabilities: the transcript is a firm record and a
   // supervision surface, so "may hold a conversation" must be grantable without "may read every

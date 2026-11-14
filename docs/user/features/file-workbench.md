@@ -16,9 +16,9 @@ Some of this is read the moment a file lands, without being asked, because it is
 
 - **Type** — what the file actually is, read from its own first bytes rather than from its name, and whether the name agrees. A file called `invoice.pdf` whose contents are a Windows program is named on this tab, in those words.
 - **Hash** — the file's fingerprints, and a box to paste in a fingerprint somebody sent you so you can see at a glance whether they match.
-- **Malware Scan** — what the scanner made of it.
+- **Malware Scan** — what the scanner made of it, and what in the file can act on its own: scripts, macros, actions that run when it opens, embedded objects, links it fetches without asking. A disarmed copy with all of that taken out is one click away.
 - **Metadata** — the properties a document carries that nobody typed on purpose: the author, the firm, the revision count, a scanner's model number.
-- **Email** — for a saved message, its headers, the route it took, and what it carried.
+- **Email** — for a saved message, its headers, the route it took, and what it carried, and a copy of it as a PDF.
 
 The rest wait until you ask, because each one either writes a new file, costs money, or sends something outside the firm:
 
@@ -53,6 +53,21 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 1. Drop all of them on the workbench.
 2. Select them: click the first, then shift-click the last for a run of files, or hold Ctrl (Cmd on a Mac) and click to pick out individual ones. The bar under the list says how many files there are and how many are selected.
 3. Open the **Convert** tab. It offers only the formats **every** selected file can become, so a conversion cannot fail halfway through. If a format you expected is missing, one of the files in the selection cannot reach it; narrow the selection and it comes back.
+
+**Read a saved email and keep it as a PDF**
+
+1. Drop the `.eml` or `.msg` file on the workbench and open the **Email** tab.
+2. **Message** shows who sent it, to whom, when, and whether the sending domain signed it. **Route, Oldest First** lists the mail servers it passed through, starting with the one it left from.
+3. Each attachment has **Open in Workbench**, which puts it on the list as a file of its own so every other tab can read it, and a save button that keeps a copy on your computer.
+4. **Save as PDF** writes the message as a PDF with the sender, recipients, date, subject, the text and a list of attachments. Tick **Include every header** first to add a final page with every header line, which is the version to keep when where a message came from may be questioned.
+
+**Open an attachment you do not trust**
+
+1. Drop the file on the workbench and open the **Malware Scan** tab.
+2. **Things in This File That Can Act** lists everything in it that runs, opens or fetches on its own, with a count of each. **Nothing Found** means there is none.
+3. Choose **Save a Disarmed Copy**, or **Put the Copy on the Bench** to look at it on the other tabs first. The copy keeps the text, formatting, pictures and web links and loses everything in the list. A Word file with macros (`.docm`) comes back as a plain `.docx`.
+
+Disarming works on PDF files, Word, Excel and PowerPoint documents, RTF documents and pictures. A password-protected file has to be unlocked first, and older Office files (`.doc`, `.xls`, `.ppt`) are not disarmed. The original is never changed, so it stays the evidence of what arrived.
 
 **Sort and narrow the list**
 

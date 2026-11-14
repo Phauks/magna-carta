@@ -146,7 +146,7 @@
           crypto.randomUUID(),
         );
         if (photo.kind !== "ok") {
-          toast.error("The person was saved, but the photo was not. Add it from their record.");
+          toast.error("The person was saved, but the photo wasn't. Add it from their record.");
         }
       }
       onCreated(outcome.value.id, personDraftDisplayName(draft));
@@ -154,7 +154,7 @@
     }
     failure = stated(
       outcome.failure,
-      "The person could not be recorded.",
+      "Couldn't save the person.",
       "Nothing was recorded, so nothing was half-recorded.",
     );
     return "refused";
@@ -177,7 +177,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Person Was Not Recorded"
+        title="Person Not Saved"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />
@@ -207,13 +207,8 @@
               <Avatar.Fallback>{personInitials(personDraftDisplayName(draft))}</Avatar.Fallback>
             </Avatar.Root>
             <Button variant="secondary" size="sm" disabled={busy} onclick={() => (cropping = true)}>
-              {photoBase64 === null ? "Add Photo" : "Change Photo"}
+              {photoBase64 === null ? "Add Photo" : "Edit Photo"}
             </Button>
-            {#if photoBase64 !== null}
-              <Button variant="ghost" size="sm" disabled={busy} onclick={() => (photoBase64 = null)}>
-                Remove Photo
-              </Button>
-            {/if}
           </div>
           <NamesSection
             bind:name={draft.name}
@@ -285,8 +280,13 @@
 
 <PhotoCropDialog
   bind:open={cropping}
-  heading={photoBase64 === null ? "Add Photo" : "Change Photo"}
+  heading={photoBase64 === null ? "Add Photo" : "Edit Photo"}
   subject={personDraftDisplayName(draft) || "New Person"}
+  current={photoBase64 === null ? null : `data:image/jpeg;base64,${photoBase64}`}
+  onRemove={async () => {
+    photoBase64 = null;
+    return true;
+  }}
   onSave={async (imageBase64) => {
     photoBase64 = imageBase64;
     return null;

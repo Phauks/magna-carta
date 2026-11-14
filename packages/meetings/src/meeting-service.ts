@@ -14,6 +14,7 @@ import type {
   MeetingRecordingId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { newMeetingJoinCode } from "./meeting-addresses.ts";
 import { isGuestStayHandle } from "./guest-removal.ts";
 import { closeGuestStayAfterSocketLoss } from "./guest-service.ts";
 import {
@@ -237,6 +238,7 @@ export function openMeetingOnEvent(
           createdByUserId: options.actorUserId,
           personalRoomId: input.personalRoomId ?? null,
           encrypted: input.encrypted ?? false,
+          joinCode: newMeetingJoinCode(options.randomSource),
           now,
         }),
         // THE STARTER IS THE HOST, written in the same batch as the room.
