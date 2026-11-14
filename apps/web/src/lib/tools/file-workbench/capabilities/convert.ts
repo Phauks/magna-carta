@@ -16,11 +16,12 @@ export const convertCapability: CapabilityModule = {
   label: "Convert",
   icon: FileCog,
   permission: assertPermission("tools:fileConverter"),
-  stage: "soon",
+  stage: "alpha",
   timing: "on-request",
   scope: "selection",
   description: "Convert a file from one format to another.",
-  awaiting: "file conversion",
+  // Served: each file goes to the firm's conversion engine when a format is pressed.
+  awaiting: null,
   applies(file) {
     const targets = conversionTargetsFor(detectedLabelOf(file));
     return targets.length > 0
