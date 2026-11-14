@@ -266,6 +266,31 @@ function agedWorkCells(figures: AgedWorkFigures): ReportCell[] {
  * reads in the attention tone, as debt over ninety days does on the aging.
  */
 export function presentAgedWorkInProgress(report: AgedWorkInProgress): ReportPresentation {
+  return presentAged(report, AGED_WORDS.work);
+}
+
+/** Aged Expenses: the same layout over unbilled costs alone. */
+export function presentAgedExpenses(report: AgedWorkInProgress): ReportPresentation {
+  return presentAged(report, AGED_WORDS.expenses);
+}
+
+const AGED_WORDS = {
+  work: {
+    title: "Aged Work in Progress",
+    nothing: "Nothing is unbilled.",
+    noClient: "No client has unbilled work.",
+  },
+  expenses: {
+    title: "Aged Expenses",
+    nothing: "No cost is unbilled.",
+    noClient: "No client has unbilled costs.",
+  },
+} as const;
+
+function presentAged(
+  report: AgedWorkInProgress,
+  words: (typeof AGED_WORDS)[keyof typeof AGED_WORDS],
+): ReportPresentation {
   const summary: ReportSummaryTile[] = AGE_LABELS.map((label, index) => {
     const amount = report.totals.unbilledMinor[index] ?? 0;
     return {
@@ -282,7 +307,7 @@ export function presentAgedWorkInProgress(report: AgedWorkInProgress): ReportPre
     tone: "total",
   });
   return {
-    title: "Aged Work in Progress",
+    title: words.title,
     subtitle: null,
     stamp: report.statement,
     reproducible: false,
@@ -300,7 +325,7 @@ export function presentAgedWorkInProgress(report: AgedWorkInProgress): ReportPre
         endAlignedColumns: [1, 2, 3, 4, 5],
         attentionColumns: [OVER_NINETY_AGE + 1],
         totalRow: [totalLabel(report.locationId), ...agedWorkCells(report.totals)],
-        whenEmpty: "Nothing is unbilled.",
+        whenEmpty: words.nothing,
       },
       {
         id: "by-client",
@@ -323,7 +348,7 @@ export function presentAgedWorkInProgress(report: AgedWorkInProgress): ReportPre
         sortable: true,
         subordinateColumns: [1],
         aside: completenessLine(report.completeness),
-        whenEmpty: "No client has unbilled work.",
+        whenEmpty: words.noClient,
       },
     ],
   };

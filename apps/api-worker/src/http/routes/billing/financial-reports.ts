@@ -15,7 +15,10 @@ import {
   WorkInProgressOfficeRow,
   WorkInProgressTimekeeperRow,
 } from "@magna-carta/reporting/contract";
-import { assembleAgedWorkInProgress } from "@magna-carta/reporting/financial/aged-work-in-progress";
+import {
+  assembleAgedExpenses,
+  assembleAgedWorkInProgress,
+} from "@magna-carta/reporting/financial/aged-work-in-progress";
 import { assembleAccountsReceivableAging } from "@magna-carta/reporting/financial/accounts-receivable-aging";
 import { assembleRealization } from "@magna-carta/reporting/financial/realization";
 import { assembleWorkInProgress } from "@magna-carta/reporting/financial/work-in-progress";
@@ -226,6 +229,26 @@ const agedWorkInProgressRoute = defineOpenAPIRoute(
   },
 );
 
+// AGED EXPENSES — the same report over the cost entries alone, so a firm can see disbursements it
+// has paid out and not yet billed, by age. Same permission, same shape, same live footing.
+const agedExpensesRoute = defineOpenAPIRoute(
+  { ...agingMeta, operationId: "reports.agedExpenses" },
+  {
+    method: "get",
+    path: "/api/v1/reports/aged-expenses",
+    description:
+      "Unbilled costs by how long ago they were incurred (0 to 30, 31 to 60, 61 to 90 and over 90 days), per office, client and matter: the cost entries of the aged work-in-progress report alone, so its total equals the costs in the work-in-progress report. Live only: it takes no date, counts age from the day it is produced, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+    request: { query: workInProgressQuery },
+    responses: {
+      ...agedWorkInProgressRoute.responses,
+      200: {
+        description: "Unbilled costs by age now",
+        content: { "application/json": { schema: AgedWorkInProgressResponse } },
+      },
+    },
+  },
+);
+
 const RealizationResponse = z
   .object({
     periodStart: z.string(),
@@ -396,6 +419,26 @@ export function registerFinancialReportsRoutes(app: ReportsApp, chokepoint: Chok
       const computedAt = new Date().toISOString();
       try {
         const report = await assembleAgedWorkInProgress(
+          firm.firmDatabase,
+          { locationId: query.locationId ?? null },
+          { computedAt },
+        );
+        return c.json(report as unknown as z.infer<typeof AgedWorkInProgressResponse>, 200);
+      } catch (caught) {
+        if (caught instanceof ReportingValidationError) return reportingRefusal(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...agedExpensesRoute, middleware: chokepointMiddleware(chokepoint, agedExpensesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const computedAt = new Date().toISOString();
+      try {
+        const report = await assembleAgedExpenses(
           firm.firmDatabase,
           { locationId: query.locationId ?? null },
           { computedAt },

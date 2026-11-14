@@ -852,3 +852,8 @@ export function sampleTaskWorkload(): TaskWorkload {
     ],
   };
 }
+
+/** Aged Expenses wears Aged Work in Progress's shape; its sample is the costs-only reading of it. */
+export function sampleAgedExpenses(): AgedWorkInProgress {
+  return sampleAgedWorkInProgress();
+}

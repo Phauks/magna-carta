@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList` and `reports.taskWorkload` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload` and `reports.agedExpenses` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -13,6 +13,7 @@
  */
 import {
   reportsAccountsReceivableAging,
+  reportsAgedExpenses,
   reportsAgedWorkInProgress,
   reportsClientList,
   reportsDailyTime,
@@ -620,6 +621,20 @@ export function readAgedWorkInProgress(
 ): Promise<ApiOutcome<AgedWorkInProgress>> {
   return outcome(() =>
     reportsAgedWorkInProgress({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** The same shape as Aged Work in Progress, over unbilled costs alone. Live only. */
+export function readAgedExpenses(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<AgedWorkInProgress>> {
+  return outcome(() =>
+    reportsAgedExpenses({
       fetch: fetchImpl,
       throwOnError: true,
       query: { locationId: present(query.locationId) },

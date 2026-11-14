@@ -41,3 +41,5 @@ blocked-by:
 **Client List (2026-11-14).** Live, on `reports:operational`: every client of an opened matter, the client set from the matters package's register and each name and default contact from the directory's own listing row, with matters counted by status. Its counts are proved to add up to the Matters List's.
 
 **Tasks by Person (2026-11-14).** Live, on `reports:productivity`: each member's open tasks, how many are overdue (the calendar's comparison, in each task's own zone) and how many have no due date, counts only. The tasks package owns the read; the people are proved to add up to every open task.
+
+**Aged Expenses (2026-11-14).** Live, on `reports:financial`: the aged work-in-progress report over cost entries alone, from billing's same rows; its total is proved equal to the costs in Work in Progress.

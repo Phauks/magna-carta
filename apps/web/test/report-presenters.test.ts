@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientOffice,
   presentAccountsReceivableAging,
+  presentAgedExpenses,
   presentAgedWorkInProgress,
   presentRealization,
   presentWorkInProgress,
@@ -292,5 +293,17 @@ describe("the tasks by person presenter", () => {
       report.people.map((person) => person.openCount),
     );
     expect(people?.rows.at(-1)?.[0]).toBe("Nobody assigned");
+  });
+});
+
+describe("the aged expenses presenter", () => {
+  it("draws the aged layout under its own name and empty-state words", () => {
+    const report = sampleAgedWorkInProgress();
+    const presentation = presentAgedExpenses(report);
+    expect(presentation.title).toBe("Aged Expenses");
+    expect(presentation.summary?.at(-1)?.value).toBe(moneyText(report.totals.totalMinor));
+    expect(presentation.sections.find((section) => section.id === "by-client")?.whenEmpty).toBe(
+      "No client has unbilled costs.",
+    );
   });
 });
