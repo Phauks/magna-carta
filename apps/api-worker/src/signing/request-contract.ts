@@ -20,7 +20,11 @@ const OFFERED = OFFERED_ATTRIBUTION as readonly [
   ...(typeof OFFERED_ATTRIBUTION)[number][],
 ];
 
-const Rect = z.tuple([z.number(), z.number(), z.number(), z.number()]);
+// A field's place on its page in PDF points: left, bottom, right, top. Declared as a tuple for the
+// code and given plain array items for the contract, which every client generator reads.
+export const Rect = z
+  .tuple([z.number(), z.number(), z.number(), z.number()])
+  .openapi({ type: "array", items: { type: "number" }, minItems: 4, maxItems: 4 });
 
 export const SigningRequestSummary = z
   .object({

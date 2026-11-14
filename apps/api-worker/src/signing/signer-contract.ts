@@ -6,6 +6,7 @@ import {
   type SigningFieldKind,
 } from "@magna-carta/signing/request";
 import { consentDisclosure } from "./consent-disclosure.ts";
+import { Rect } from "./request-contract.ts";
 import { needsCode, type SignerView } from "./signer-service.ts";
 import { MAXIMUM_TEXT_ANSWER } from "./signer-service.ts";
 
@@ -45,7 +46,7 @@ export const SignerRequestView = z
         id: z.string(),
         kind: z.enum(FIELD_KINDS),
         page: z.number().int(),
-        rect: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+        rect: Rect,
         required: z.boolean(),
       }),
     ),

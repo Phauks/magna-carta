@@ -509,6 +509,16 @@ export const searchRecordIndexPlacesRebuilt = defineMetric(
   [] as const,
 );
 
+// Signing requests the hourly pass closed because their last moment passed with signers still owed.
+export const signingRequestsExpired = defineMetric("signing.requests_expired", [] as const);
+
+// Reminders the hourly pass recorded on open signing requests, counted per request reminded.
+export const signingRequestsReminded = defineMetric("signing.requests_reminded", [] as const);
+
+// Reminder mails the hourly pass could not hand to the mail service. Non-zero means a signer is
+// waiting on a reminder the request's activity says was sent.
+export const signingRemindersUndelivered = defineMetric("signing.reminders_undelivered", [] as const);
+
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
   unloggableField,
@@ -583,6 +593,9 @@ const CATALOG: readonly MetricDefinition[] = [
   exportsCopyMalformedPayload,
   tasksRecurringWrites,
   searchRecordIndexPlacesRebuilt,
+  signingRequestsExpired,
+  signingRequestsReminded,
+  signingRemindersUndelivered,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));
