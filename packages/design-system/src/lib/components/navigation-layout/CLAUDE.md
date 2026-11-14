@@ -13,10 +13,11 @@ by hand at two widths with two scroll treatments.
   HOLDS.** `navigation` and `children` are snippets; grouped links, a control over rows, a plain
   list are all the consumer's to draw. There is no `items` prop, and `test/navigation-layout.test.ts`
   refuses one.
-- **Both widths are tokens, no arithmetic.** The column is sized content-box: `size.popover` holds
+- **Every width is tokens, no arithmetic.** The column is sized content-box: `size.popover` holds
   the rows and the gutter each side is what `standard` (space-24, the settings measure) and
-  `narrow` (space-16, which lands on the global sidebar's width) differ in. A third width is a
-  third gutter, not a `calc()`.
+  `narrow` (space-16, which lands on the global sidebar's width) differ in. `wide` swaps the measure
+  for `size.record-aside` with the narrow gutter, for rows of a name over a line (the Magnus rail,
+  owner 2026-11-14). A further width is another token pair, never a `calc()`.
 - **It cancels the canvas inset and takes the full height under the top bar**, so the canvas
   never scrolls on such a route; the two columns do, with `scrollbar-gutter: stable` so a
   scrollbar arriving never shifts what sits beside it. A screen that renders it beneath a masthead
@@ -93,9 +94,10 @@ one and the rows are not.
   label, not a control in a row of its own — it keeps its own voice rather than dressing as a
   button, its hit target is the whole width, and the chevron points down while open and toward the
   inline start while folded. `Sidebar.GroupTrigger` says the same thing in the chrome register.
-- **It composes `mc-field-label` rather than restating the caps voice**, the way the sidebar's
-  trigger composes `mc-sidebar-group-label`. A recipe that retyped the register would be the second
-  copy of it that FieldLabel exists to prevent.
+- **It composes `mc-field-label` rather than restating the label voice** (small, medium, muted,
+  sentence case since 2026-11-14), the way the sidebar's trigger composes `mc-sidebar-group-label`.
+  A recipe that retyped the register would be the second copy of it that FieldLabel exists to
+  prevent.
 - **Two levels, and the indent stagger is the recipe's**: `band` (a glyph, firmer ink, the column's
   rule under it) over `group` (a step in, quieter) over the rows (a step further). The settings
   column had that stagger in utilities and an inline `padding-inline-start`; it is one recipe now,

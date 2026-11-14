@@ -4,7 +4,9 @@ _You can record calls and texts that happened, open one to read or correct it, r
 firm or on one matter, file one onto a matter, set one aside as something that belongs to no matter,
 and start an intake from a call — either from the call's record or straight from the form as you
 write it down. Several calls can be written down at once. Every call and text carries a reference
-number you can read back to whoever is on the line, and the number is on screen before you save. A
+number you can read back to whoever is on the line, and the number is on screen, in italics, before
+you save: it is held for that call, and given back if you cancel (see
+[Numbering](../admin/numbering.md#draft-numbers-while-a-record-is-being-created)). A
 number you type is matched to your directory, its area code is placed, and its caller ID can be
 looked up. The firm has no phone number connected yet, so nothing is sent or received from Magna
 Carta — every row is written down by whoever made or took the call. Calls are not recorded._

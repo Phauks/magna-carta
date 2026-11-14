@@ -215,6 +215,8 @@ export interface CreateMatterRequest {
    * draws its matter number. "closed" is somewhere a matter arrives, never somewhere it starts.
    */
   status: "intake" | "consultation" | "open";
+  /** The draft number the panel holds, so the file is saved under exactly that number. */
+  numberReservation?: string;
   description?: string | null;
   matterTypeId?: string | null;
   locationId?: string | null;

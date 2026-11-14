@@ -846,7 +846,8 @@
           "by": "Claude"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Claude"
         },
         "load-profile": {
           "state": "todo"
@@ -857,7 +858,7 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "Screens (where a member starts building exhibits is with the owner), then the exhibit list document, in-text references and the stamped package.",
+      "next": "The owner reviews the Exhibits screens; then the exhibit list document and cover sheets on the shared house-document framework, the stamped package, and in-text references.",
       "links": {
         "spec": "docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md",
         "plan": "docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md",

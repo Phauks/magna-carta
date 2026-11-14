@@ -24,13 +24,38 @@ export interface HouseColumn {
   readonly alignment?: "start" | "center" | "end";
 }
 
+/**
+ * What sets a table's row apart: `total` sums the rows above it (bold, under a darker rule),
+ * `child` is a part of the row above it (gray, stepped in), `muted` is kept for the record but no
+ * longer in force (gray), as a withdrawn exhibit is.
+ */
+export type HouseRowKind = "total" | "child" | "muted";
+
+/** A table's row: its cells, or its cells and what sets it apart. */
+export type HouseRow =
+  | readonly string[]
+  | { readonly cells: readonly string[]; readonly kind: HouseRowKind };
+
+/** One figure of a summary: what it counts, the figure, and a line about it. */
+export interface HouseFigure {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string;
+  /** Printed in red: a figure a reader should not pass over, such as an overdue balance. */
+  readonly alert?: true;
+}
+
 /** The blocks a house document is made of, a subset of the composer's own. */
 export type HouseBlock =
   | { readonly type: "pageBreak" }
   | { readonly type: "cardStart"; readonly title?: string }
   | { readonly type: "cardEnd" }
   | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
-  | { readonly type: "paragraph"; readonly text: string }
+  | {
+      readonly type: "paragraph";
+      readonly text: string;
+      readonly alignment?: "center";
+    }
   | {
       readonly type: "paragraph";
       readonly spans: readonly { readonly text: string; readonly bold?: boolean }[];
@@ -46,7 +71,15 @@ export type HouseBlock =
       readonly type: "table";
       readonly columns: readonly HouseColumn[];
       readonly rows: readonly (readonly string[])[];
+      /** How each row is set, by position. Written by `styledTable`. */
+      readonly rowStyles?: readonly (HouseRowKind | null)[];
     }
+  /** Summary figures across the page. Written by `figures`. */
+  | { readonly type: "figures"; readonly figures: readonly HouseFigure[] }
+  /** A cover sheet's label. Written by `coverSheet`. */
+  | { readonly type: "display"; readonly text: string; readonly spaceAbove: number }
+  /** Lines to sign on. Written by `signatureLines`. */
+  | { readonly type: "signatureLines"; readonly lines: readonly string[] }
   /** A picture named by its position in the list passed to the composer beside the document. */
   | {
       readonly type: "image";
@@ -247,6 +280,67 @@ export function card(title: string | undefined, ...blocks: readonly HouseBlock[]
     title === undefined ? { type: "cardStart" } : { type: "cardStart", title },
     ...blocks,
     { type: "cardEnd" },
+  ];
+}
+
+/**
+ * A table whose rows may be totals, parts of the row above, or withdrawn. Plain rows are given as
+ * their cells alone, and a table of only plain rows is the plain table.
+ */
+export function styledTable(
+  columns: readonly HouseColumn[],
+  rows: readonly HouseRow[],
+): HouseBlock {
+  const cells = rows.map((row) => ("cells" in row ? row.cells : row));
+  const kinds = rows.map((row) => ("cells" in row ? row.kind : null));
+  return {
+    type: "table",
+    columns,
+    rows: cells,
+    ...(kinds.some((kind) => kind !== null) ? { rowStyles: kinds } : {}),
+  };
+}
+
+/**
+ * The figures a report opens with, across the page: four to six read best. More than six run
+ * onto a second line.
+ */
+export function figures(list: readonly HouseFigure[]): HouseBlock {
+  return { type: "figures", figures: list };
+}
+
+/** Lines to sign on, two to a row, each with what it is for beneath it: `Signature`, `Date`. */
+export function signatureLines(...captions: readonly string[]): HouseBlock {
+  return { type: "signatureLines", lines: captions };
+}
+
+/** The composer's cover label and body text: the height of a line of each. */
+const DISPLAY_LINE_HEIGHT = 48;
+const BODY_LINE_HEIGHT = 15;
+
+/** Where a cover sheet is printed. */
+export interface CoverSheetOptions {
+  readonly paper?: HousePaper;
+  /** `false` when the document has no letterhead, which leaves a page more room. */
+  readonly letterhead?: false;
+}
+
+/**
+ * A sheet that stands in front of something: a label set very large (`EXHIBIT 4`) with centred
+ * lines under it, a little above the middle of the page, where the eye puts the middle. It takes
+ * a sheet to itself: put a `pageBreak` after it, and before it unless it opens the document.
+ */
+export function coverSheet(
+  label: string,
+  lines: readonly string[] = [],
+  options: CoverSheetOptions = {},
+): HouseBlock[] {
+  const content = contentSize(options.paper ?? "letter", options.letterhead !== false);
+  const height = DISPLAY_LINE_HEIGHT + lines.length * BODY_LINE_HEIGHT;
+  const spaceAbove = Math.max(0, Math.round((content.height - height) * 0.42));
+  return [
+    { type: "display", text: label, spaceAbove },
+    ...lines.map((text) => ({ type: "paragraph", text, alignment: "center" }) as const),
   ];
 }
 

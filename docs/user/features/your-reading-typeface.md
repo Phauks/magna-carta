@@ -6,15 +6,16 @@ You choose the typeface the interface's text is set in. The choice is **yours al
 how Magna Carta reads for you, on this browser, and never what anyone else at your firm sees. It is
 an accessibility choice, so your firm cannot lock you out of it.
 
-Five faces are offered:
+Six faces are offered:
 
-| Choice                    | Who it suits                                                                                                                               |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Atkinson Hyperlegible** | Everyone, by default. Drawn for low vision: the letters people confuse in names, figures and account numbers (I, l and 1; O and 0) differ. |
-| **Lexend**                | People who read for long stretches. Wider, more evenly spaced letters made to be easier on reading stamina.                                |
-| **OpenDyslexic**          | Dyslexic readers. Weighted letter bottoms keep letters from appearing to flip or swim.                                                     |
-| **Literata**              | People who read more easily in a serif. Drawn for long reading on screens.                                                                 |
-| **System**                | People who prefer their computer's own interface font. Nothing extra is downloaded.                                                        |
+| Choice                    | Who it suits                                                                                                                        |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Inter**                 | Everyone, by default. A clear, even face with a plain zero, so dates and amounts read as numbers.                                   |
+| **Atkinson Hyperlegible** | People with low vision. The letters people confuse in names, figures and account numbers (I, l and 1; O and 0) are drawn to differ. |
+| **Lexend**                | People who read for long stretches. Wider, more evenly spaced letters made to be easier on reading stamina.                         |
+| **OpenDyslexic**          | Dyslexic readers. Weighted letter bottoms keep letters from appearing to flip or swim.                                              |
+| **Literata**              | People who read more easily in a serif. Drawn for long reading on screens.                                                          |
+| **System**                | People who prefer their computer's own interface font. Nothing extra is downloaded.                                                 |
 
 ## Choosing a typeface
 

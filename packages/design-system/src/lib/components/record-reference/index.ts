@@ -9,11 +9,10 @@
  */
 export { default as RecordSubjectLine } from "./record-subject.svelte";
 export type { RecordReference, RecordSubject, ReferenceStanding } from "./types.ts";
-export { PreviewedNumber } from "./previewed-number.svelte.ts";
-export type { NextNumberReader } from "./previewed-number.svelte.ts";
+export { DraftNumber, DRAFT_NUMBER_RENEWAL_MILLISECONDS } from "./draft-number.svelte.ts";
+export type { DraftNumberKeeper, HeldDraftNumber } from "./draft-number.svelte.ts";
 export {
-  AWAITING_NUMBER_SENTENCE,
-  PREVIEW_NOTE,
+  DRAFT_NUMBER_DESCRIPTION,
   renderReference,
   subjectIsEmpty,
   SUBJECT_SEPARATOR,

@@ -880,6 +880,25 @@ export type NumberingPreviewRequest = {
     };
 };
 
+export type NumberReservationResponse = {
+    token: string | null;
+    number: string | null;
+    expiresAt: string | null;
+};
+
+export type NumberReservationRequest = {
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'communication';
+    token?: string;
+    occurredAt?: string;
+    context?: {
+        locationCode?: string;
+        matterTypeCode?: string;
+        clientCode?: string;
+        staffInitials?: string;
+        clientName?: string;
+    };
+};
+
 export type ScanPolicyResponse = {
     policy: {
         tier: 'core' | 'extended' | 'full';
@@ -3888,6 +3907,10 @@ export type CreateMatterResponse = {
 export type CreateMatterRequest = {
     title: string;
     status: 'intake' | 'consultation' | 'open';
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
     description?: string | null;
     matterTypeId?: string | null;
     locationId?: string | null;
@@ -6179,6 +6202,10 @@ export type CreateConflictsCheckRequest = {
     matterId?: string;
     subjectEntityIds: Array<string>;
     scope: ConflictsScopeRequest;
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
 };
 
 export type ConflictsScopeRequest = {
@@ -6191,10 +6218,6 @@ export type ConflictsScopeRequest = {
         magnus: boolean;
         files?: Array<'consultations' | 'open' | 'closed' | 'archived'>;
     };
-};
-
-export type NextConflictsCheckNumberResponse = {
-    checkNumber: string;
 };
 
 export type ConflictsCheckPage = {
@@ -7848,6 +7871,7 @@ export type LoggedCommunication = {
 
 export type LogCommunicationRequest = {
     channel: 'voice' | 'sms' | 'mms';
+    numberReservation?: string;
     direction: 'inbound' | 'outbound';
     matterId?: string | null;
     counterpartyNumber: string;
@@ -8563,6 +8587,10 @@ export type CreateCustodyPacketRequest = {
     depositedAt?: string;
     notes?: string | null;
     manualCustodyNumber?: string;
+    /**
+     * The draft number the create panel holds (POST /api/v1/number-reservations). Where the hold is still this record's scope, the record is saved under exactly that number.
+     */
+    numberReservation?: string;
 };
 
 export type CustodyOwnerInput = {
@@ -13293,6 +13321,82 @@ export type NumberingPreviewResponses = {
 };
 
 export type NumberingPreviewResponse2 = NumberingPreviewResponses[keyof NumberingPreviewResponses];
+
+export type NumberingHoldDraftNumberData = {
+    body: NumberReservationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/number-reservations';
+};
+
+export type NumberingHoldDraftNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingHoldDraftNumberError = NumberingHoldDraftNumberErrors[keyof NumberingHoldDraftNumberErrors];
+
+export type NumberingHoldDraftNumberResponses = {
+    /**
+     * The number held, or nulls where nothing can be held yet
+     */
+    200: NumberReservationResponse;
+};
+
+export type NumberingHoldDraftNumberResponse = NumberingHoldDraftNumberResponses[keyof NumberingHoldDraftNumberResponses];
+
+export type NumberingReleaseDraftNumberData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/number-reservations/{token}';
+};
+
+export type NumberingReleaseDraftNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:viewNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingReleaseDraftNumberError = NumberingReleaseDraftNumberErrors[keyof NumberingReleaseDraftNumberErrors];
+
+export type NumberingReleaseDraftNumberResponses = {
+    /**
+     * The number is no longer held by this member
+     */
+    204: void;
+};
+
+export type NumberingReleaseDraftNumberResponse = NumberingReleaseDraftNumberResponses[keyof NumberingReleaseDraftNumberResponses];
 
 export type ScanPolicyGetData = {
     body?: never;
@@ -30288,39 +30392,6 @@ export type ConflictsRunCheckResponses = {
 };
 
 export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
-
-export type ConflictsNextCheckNumberData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/conflicts/checks/next-number';
-};
-
-export type ConflictsNextCheckNumberErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the required permission
-     */
-    403: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type ConflictsNextCheckNumberError = ConflictsNextCheckNumberErrors[keyof ConflictsNextCheckNumberErrors];
-
-export type ConflictsNextCheckNumberResponses = {
-    /**
-     * The next check number
-     */
-    200: NextConflictsCheckNumberResponse;
-};
-
-export type ConflictsNextCheckNumberResponse = ConflictsNextCheckNumberResponses[keyof ConflictsNextCheckNumberResponses];
 
 export type ConflictsFirmPolicyData = {
     body?: never;

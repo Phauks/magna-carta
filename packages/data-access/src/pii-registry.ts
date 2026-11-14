@@ -1469,6 +1469,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // The drawn-number allocation ledger behind that counter: a scope key, the integer drawn, the matter
   // it went to, and when. Numbering bookkeeping about a matter, carrying no column about a person.
   "matter_number_allocation",
+  // A draft number held for a create panel: purpose, scope key, the integer held, an opaque token,
+  // the holder's user id and two instants. The same numbering bookkeeping as the counter beside it,
+  // with no column about a person beyond the member id every audited row carries.
+  "number_reservation",
   // The conflicts check sequence's counter and allocation ledger: the same bookkeeping about a
   // numbered check, carrying no column about a person (the check itself is classified above).
   "conflicts_check_number_counter",

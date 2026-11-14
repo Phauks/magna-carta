@@ -2,8 +2,8 @@
   /*
    * Removing one of your own messages.
    *
-   * A removal takes the message and Magnus's answer to it out of the conversation and out of what
-   * Magnus reads, and leaves a marker where they were. It does NOT erase them: a transcript is the
+   * A removal takes the message out of the conversation and leaves a marker where it was. Magnus's
+   * answer stays readable, and neither is read by Magnus again. It does NOT erase them: a transcript is the
    * firm's work product, erased only when the whole conversation is deleted. The dialog says both
    * halves, because a member who expects the words to be gone has to learn otherwise before pressing.
    */
@@ -67,11 +67,11 @@
 
   {#snippet fields()}
     <p class="text-sm">
-      Your message and Magnus&rsquo;s answer to it leave this conversation, and Magnus does not read
-      them again. A note shows where they were.
+      Your message leaves this conversation and a note shows where it was. Magnus&rsquo;s answer to it
+      stays where you can read it, but Magnus no longer reads either one when it answers you.
     </p>
     <p class="text-sm">
-      They are not erased. They stay on the firm&rsquo;s record, where a colleague allowed to read
+      Neither is erased. They stay on the firm&rsquo;s record, where a colleague allowed to read
       every conversation can still see them, until the whole conversation is deleted.
     </p>
   {/snippet}

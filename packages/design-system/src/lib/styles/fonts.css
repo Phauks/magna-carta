@@ -4,17 +4,20 @@
  * the token stacks in @magna-carta/design-tokens name these families first and fall back to the
  * system stack until they load.
  *
- *  - Atkinson Hyperlegible Next Variable — the default reading face (legibility-engineered).
+ *  - Inter Variable — the default reading face (owner, 2026-11-14): a plain zero, where
+ *    Atkinson's slashed zero made dates and money read as code.
  *  - Fraunces Variable — the display serif for ceremonial edges (page mastheads, matter
  *    captions); opsz + wght axes so display sizes get the optical cut. Never in workflow cells.
  *  - UnifrakturMaguntia — the blackletter brand face for the illuminated-M mark ONLY (a fixed
  *    glyph, effectively artwork); never running text. A drawn SVG mark is the planned successor.
- *  - Lexend Variable, OpenDyslexic, Literata Variable — the reading faces a person can choose in
- *    Settings > Text instead of Atkinson (the data-typeface overlays in @magna-carta/design-tokens
+ *  - Atkinson Hyperlegible Next Variable, Lexend Variable, OpenDyslexic, Literata Variable — the
+ *    reading faces a person can choose in Settings > Text instead of Inter (the data-typeface overlays in @magna-carta/design-tokens
  *    re-point --mc-font-sans at them). Declaring a face costs nothing until it is used: a browser
  *    fetches a font file only when text is actually set in that family, so a person who never
  *    picks one never downloads it. Lexend ships no italic, so the browser slants it.
  */
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/inter/wght-italic.css";
 @import "@fontsource-variable/atkinson-hyperlegible-next/index.css";
 @import "@fontsource-variable/atkinson-hyperlegible-next/wght-italic.css";
 @import "@fontsource-variable/fraunces/opsz.css";
