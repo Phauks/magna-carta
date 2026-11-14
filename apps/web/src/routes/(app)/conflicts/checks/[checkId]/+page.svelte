@@ -131,8 +131,8 @@
     result = null;
     failure = stated(
       outcome.failure,
-      "The check could not be read.",
-      "The check could not be reached.",
+      "Couldn't load the check.",
+      "Couldn't connect to load the check.",
     );
   }
 
@@ -194,9 +194,9 @@
 
   /** A member's name, never their account handle. */
   function memberText(userId: string | null): string {
-    if (userId === null) return "Nobody — run automatically";
+    if (userId === null) return "No one (run automatically)";
     return personName(memberNames.get(userId) ?? null, {
-      whenUnrecorded: "A member the firm's roster does not name",
+      whenUnrecorded: "A staff member no longer on the firm's roster",
     });
   }
 
@@ -229,7 +229,7 @@
     const outcome = await rerunConflictsCheck(fetch, check.id, crypto.randomUUID());
     rerunning = false;
     if (outcome.kind !== "ok") {
-      actFailure = stated(outcome.failure, "The check could not be run again.");
+      actFailure = stated(outcome.failure, "Couldn't run the check again.");
       return;
     }
     selectRun(outcome.value.runId);
@@ -242,7 +242,7 @@
     const outcome = await cancelConflictsRun(fetch, check.id, run.id, crypto.randomUUID());
     cancelling = false;
     if (outcome.kind !== "ok") {
-      actFailure = stated(outcome.failure, "The run could not be cancelled.");
+      actFailure = stated(outcome.failure, "Couldn't cancel the run.");
       return;
     }
     if (outcome.value.status === "completed") toast.success("The run had already finished.");
@@ -261,7 +261,7 @@
     );
     filing = false;
     if (outcome.kind !== "ok") {
-      actFailure = stated(outcome.failure, "The check could not be assigned to that matter.");
+      actFailure = stated(outcome.failure, "Couldn't assign the check to that matter.");
       return;
     }
     matterToFile = null;
@@ -480,7 +480,7 @@
   {#if failure !== null}
     <FailureNotice
       failure={failure.failure}
-      title="The Check Could Not Be Read"
+      title="Couldn't Load the Check"
       fallback={failure.fallback}
       whenSilent={failure.whenSilent}
       onRetry={() => void read()}
@@ -580,7 +580,7 @@
                   {#each SEARCH_LOCATIONS as entry (entry.location)}
                     <DefinitionList.Row term={entry.label}>
                       {#if entry.location === "directory"}
-                        {directorySettings === "" ? "As the firm's floor sets it" : directorySettings}
+                        {directorySettings === "" ? "As the firm's minimum sets it" : directorySettings}
                       {:else}
                         {placeSettingsText(entry.location, run?.askedScope?.places ?? null) ??
                           "Not searched"}

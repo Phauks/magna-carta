@@ -77,7 +77,7 @@
                  is not the matter "three waivers" describes. The count says which. -->
             {#if entry.incompleteCount > 0}
               <span class="text-text-muted">
-                The platform cannot produce the record for {String(entry.incompleteCount)}.
+                Magna Carta can't produce the record for {String(entry.incompleteCount)}.
               </span>
             {/if}
           </li>
@@ -94,9 +94,9 @@
       <FieldLabel as="h4">Below The Firm's Current Policy</FieldLabel>
       {#if shortfall.sources.length > 0}
         <p>
-          The firm's policy now asks for {shortfall.sources
+          The firm's policy now requires {shortfall.sources
             .map((source) => sourceVocabulary(source).label)
-            .join(", ")}, and the latest check did not ask for {shortfall.sources.length === 1
+            .join(", ")}, and the latest check didn't include {shortfall.sources.length === 1
             ? "it"
             : "them"}.
         </p>
@@ -115,7 +115,7 @@
       class="flex flex-col gap-4 rounded-md bg-status-warning-subtle p-12 text-status-warning-subtle-foreground"
       data-section="could-not-search"
     >
-      <FieldLabel as="h4">Could Not Be Searched</FieldLabel>
+      <FieldLabel as="h4">Couldn't Be Searched</FieldLabel>
       {#each posture.unavailableSources as entry (entry.source)}
         <p><span class="font-semibold">{sourceVocabulary(entry.source).label}.</span> {entry.reason}</p>
       {/each}

@@ -64,7 +64,7 @@ export const AGAINST_A_MATTER = "A matter";
 export const AGAINST_NAMED_PARTIES = "Named parties";
 
 /** The scope the search ran under: what the firm's floor required, or exactly what was asked for. */
-export const FLOOR_RAISED = "Raised to the firm floor";
+export const FLOOR_RAISED = "Raised to the firm minimum";
 export const FLOOR_AS_ASKED = "As asked";
 
 /** Who asked for one check's latest run, as the register prints it. */
@@ -181,7 +181,7 @@ export function conflictsCheckColumns(
     },
     {
       id: "floorRaised",
-      label: "Floor",
+      label: "Minimum",
       filter: "set",
       filterValues: [FLOOR_RAISED, FLOOR_AS_ASKED],
       // Worth a column of its own: it explains a result set wider than whoever asked expected.
