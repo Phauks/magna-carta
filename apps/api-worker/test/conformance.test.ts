@@ -366,6 +366,10 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // catalog and the platform class registry, which are firm configuration in the same sense the
   // event-type catalog is.
   matterAssets: ["matter", "firm"],
+  // exhibits:* governs a matter's exhibits and the sets they are filed in. It binds the MATTER only:
+  // an exhibit is one document's identity on one matter, and a set is that matter's filing, so no
+  // exhibit read or write exists without a matter.
+  exhibits: "matter",
   // magnus:* governs the conversational assistant. It binds the FIRM, on the custody reasoning rather
   // than the matterAssets one: a conversation may carry an optional matter link, but it exists
   // perfectly well without one — a member asking a general question is the ordinary case, not an edge

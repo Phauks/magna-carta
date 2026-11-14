@@ -2,7 +2,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::{compose_json, FontFamily};
+use crate::{compose, document_from_json, FontFamily};
 
 /// A composed document, handed to JavaScript.
 #[wasm_bindgen]
@@ -33,7 +33,7 @@ impl ComposedPdf {
 }
 
 /// Compose a document from its JSON form (see `wire.rs`) and the pictures it names by
-/// position, in the bundled font family.
+/// position, in the compiled-in family the document names as its typeface.
 #[cfg(feature = "bundled-fonts")]
 #[wasm_bindgen(js_name = composeDocument)]
 pub fn compose_document(
@@ -42,7 +42,8 @@ pub fn compose_document(
 ) -> Result<ComposedPdf, JsError> {
     let images: Vec<Vec<u8>> = images.iter().map(js_sys::Uint8Array::to_vec).collect();
     let borrowed: Vec<&[u8]> = images.iter().map(Vec::as_slice).collect();
-    let output = compose_json(document_json, &borrowed, &FontFamily::bundled())
+    let output = document_from_json(document_json, &borrowed)
+        .and_then(|document| compose(&document, &FontFamily::bundled_as(document.typeface)))
         .map_err(|error| JsError::new(&error.to_string()))?;
     Ok(ComposedPdf {
         pdf: output.pdf,

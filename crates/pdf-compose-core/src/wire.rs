@@ -9,8 +9,8 @@
 use serde::Deserialize;
 
 use crate::model::{
-    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, PageSetup, Paragraph, Rgb,
-    RunningLine, Span, Table, Timestamp,
+    Alignment, Block, Column, ComposedDocument, Field, ImageBlock, Letterhead, PageSetup,
+    Paragraph, Rgb, RunningLine, Span, Table, Timestamp, Typeface,
 };
 use crate::{compose, ComposeError, ComposeOutput, FontFamily};
 
@@ -25,11 +25,14 @@ struct WireDocument {
     created: Option<WireTimestamp>,
     #[serde(default)]
     page: WirePage,
+    #[serde(default)]
+    typeface: WireTypeface,
     /// Red, green and blue, each from 0 to 255.
     accent: Option<[u8; 3]>,
     /// Rows of tables and field lists set closer together.
     #[serde(default)]
     compact: bool,
+    letterhead: Option<WireLetterhead>,
     header: Option<WireRunningLine>,
     footer: Option<WireRunningLine>,
     #[serde(default)]
@@ -73,6 +76,27 @@ struct WirePage {
     margin_right: Option<f32>,
     margin_bottom: Option<f32>,
     margin_left: Option<f32>,
+}
+
+#[derive(Deserialize, Default, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+enum WireTypeface {
+    #[default]
+    LiberationSans,
+    AtkinsonHyperlegible,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct WireLetterhead {
+    /// The picture's position in the list of byte arrays passed beside the JSON.
+    image: Option<usize>,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    label: String,
+    #[serde(default)]
+    detail: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -120,6 +144,9 @@ struct WireColumn {
 struct WireField {
     label: String,
     value: String,
+    /// The value's words set in columns of one width.
+    #[serde(default)]
+    grid: bool,
 }
 
 #[derive(Deserialize)]
@@ -156,20 +183,33 @@ enum WireBlock {
         #[serde(default)]
         alignment: WireAlignment,
         caption: Option<String>,
+        label: Option<String>,
+        #[serde(default)]
+        beside: bool,
     },
     Table {
         columns: Vec<WireColumn>,
         #[serde(default)]
         rows: Vec<Vec<String>>,
+        #[serde(default)]
+        banded: bool,
     },
     Fields {
         fields: Vec<WireField>,
+        /// Set the fields in two columns side by side, read down the first and then the second.
+        #[serde(default)]
+        two_up: bool,
     },
     Rule,
     Space {
         height: f32,
     },
     PageBreak,
+    /// Opens a rounded frame around the blocks up to the next `cardEnd`.
+    CardStart {
+        title: Option<String>,
+    },
+    CardEnd,
 }
 
 fn first_level() -> u8 {
@@ -246,6 +286,8 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                 width,
                 alignment: wire_alignment,
                 caption,
+                label,
+                beside,
             } => {
                 let data = images
                     .get(image)
@@ -255,9 +297,16 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                     width,
                     alignment: alignment(wire_alignment),
                     caption,
+                    label,
+                    beside,
                 })
             }
-            WireBlock::Table { columns, rows } => Block::Table(Table {
+            WireBlock::Table {
+                columns,
+                rows,
+                banded,
+            } => Block::Table(Table {
+                banded,
                 columns: columns
                     .into_iter()
                     .map(|column| Column {
@@ -268,20 +317,45 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
                     .collect(),
                 rows,
             }),
-            WireBlock::Fields { fields } => Block::Fields(
-                fields
+            WireBlock::Fields { fields, two_up } => {
+                let fields = fields
                     .into_iter()
                     .map(|field| Field {
                         label: field.label,
                         value: field.value,
+                        grid: field.grid,
                     })
-                    .collect(),
-            ),
+                    .collect();
+                if two_up {
+                    Block::FieldsTwoUp(fields)
+                } else {
+                    Block::Fields(fields)
+                }
+            }
             WireBlock::Rule => Block::Rule,
             WireBlock::Space { height } => Block::Space(height),
             WireBlock::PageBreak => Block::PageBreak,
+            WireBlock::CardStart { title } => Block::CardStart { title },
+            WireBlock::CardEnd => Block::CardEnd,
         });
     }
+    let letterhead = match wire.letterhead {
+        None => None,
+        Some(letterhead) => Some(Letterhead {
+            image: match letterhead.image {
+                None => None,
+                Some(index) => Some(
+                    images
+                        .get(index)
+                        .ok_or(ComposeError::ImageMissing { index })?
+                        .to_vec(),
+                ),
+            },
+            title: letterhead.title,
+            label: letterhead.label,
+            detail: letterhead.detail,
+        }),
+    };
     Ok(ComposedDocument {
         title: wire.title,
         author: wire.author,
@@ -296,10 +370,15 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             second: created.second,
         }),
         page,
+        typeface: match wire.typeface {
+            WireTypeface::LiberationSans => Typeface::LiberationSans,
+            WireTypeface::AtkinsonHyperlegible => Typeface::AtkinsonHyperlegible,
+        },
         accent: wire
             .accent
             .map(|[red, green, blue]| Rgb { red, green, blue }),
         compact: wire.compact,
+        letterhead,
         header: wire.header.map(running_line),
         footer: wire.footer.map(running_line),
         blocks,

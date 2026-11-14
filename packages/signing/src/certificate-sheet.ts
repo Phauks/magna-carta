@@ -15,18 +15,20 @@ import {
   signerDisplayName,
 } from "./certificate.ts";
 import type { CertificateOfCompletion, SignerCompletion, SigningContact } from "./esign.ts";
+import type { SignatureImage } from "./port.ts";
 
 interface SheetField {
   readonly label: string;
   readonly value: string;
+  /** The value's words set in columns of one width, so its lines stand under one another. */
+  readonly grid?: true;
 }
 
 /** The blocks the sheet uses, a subset of the composer's own. */
 export type CertificateSheetBlock =
-  | { readonly type: "title"; readonly text: string }
-  | { readonly type: "image"; readonly image: number; readonly width: number }
-  | { readonly type: "space"; readonly height: number }
   | { readonly type: "pageBreak" }
+  | { readonly type: "cardStart"; readonly title?: string }
+  | { readonly type: "cardEnd" }
   | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
   | { readonly type: "paragraph"; readonly text: string }
   | {
@@ -34,13 +36,27 @@ export type CertificateSheetBlock =
       readonly spans: readonly { readonly text: string; readonly bold?: boolean }[];
       readonly small: true;
     }
-  | { readonly type: "fields"; readonly fields: readonly SheetField[] }
+  | {
+      readonly type: "fields";
+      readonly fields: readonly SheetField[];
+      /** Two columns side by side, read down the first and then the second. */
+      readonly twoUp?: true;
+    }
   | {
       readonly type: "table";
       readonly columns: readonly { readonly heading: string; readonly weight: number }[];
       readonly rows: readonly (readonly string[])[];
     }
-  | { readonly type: "rule" };
+  /** A picture named by its position in the list passed to the composer beside the sheet. */
+  | {
+      readonly type: "image";
+      readonly image: number;
+      readonly width: number;
+      /** What the picture is, set small above it. */
+      readonly label: string;
+      /** Set on the line of the picture before it. */
+      readonly beside?: true;
+    };
 
 /** A document the PDF composer accepts as it stands. */
 export interface CertificateSheet {
@@ -56,15 +72,26 @@ export interface CertificateSheet {
     readonly second: number;
   };
   readonly page: {
-    readonly paper: "letter";
+    readonly paper: CertificatePaper;
     readonly marginTop: number;
+    readonly marginRight: number;
     readonly marginBottom: number;
+    readonly marginLeft: number;
   };
   /** The colour of the title, the headings and the rules: red, green and blue. */
   readonly accent: readonly [number, number, number];
   /** Rows set closer together, so the first page holds the summary, eight signers and the contacts. */
   readonly compact: true;
-  readonly footer: { readonly left: string; readonly right: string };
+  /** What heads every page: the lockup, the certificate's name and its reference. */
+  readonly letterhead: {
+    readonly image: number;
+    readonly title: string;
+    readonly label: string;
+    readonly detail: string;
+  };
+  /** The family the sheet is set in. */
+  readonly typeface: CertificateTypeface;
+  readonly footer: { readonly center: string };
   readonly blocks: readonly CertificateSheetBlock[];
 }
 
@@ -74,15 +101,36 @@ export interface CertificateSheet {
  */
 const ACCENT = [98, 72, 0] as const;
 
-/** The lockup's drawn width in points; it is 163 by 40 at its natural size. */
-const LOCKUP_WIDTH = 130;
+/**
+ * The pictures the sheet names by position: the lockup its letterhead draws, then each signer's
+ * signature in the order given. Passed to the composer beside the sheet, with the same signatures
+ * the sheet was laid out with.
+ */
+export function certificateSheetImages(
+  signatureImages: readonly SignatureImage[] = [],
+  initialsImages: readonly SignatureImage[] = [],
+): Uint8Array[] {
+  return [
+    brandLockupPng(),
+    ...signatureImages.map((signature) => signature.image),
+    ...initialsImages.map((initials) => initials.image),
+  ];
+}
 
 /**
- * The pictures the sheet's image blocks name by position. Passed to the composer beside the sheet.
+ * The families the composer carries. Atkinson Hyperlegible, the application's own reading face,
+ * draws Latin only; Liberation Sans also draws Greek and Cyrillic.
  */
-export function certificateSheetImages(): Uint8Array[] {
-  return [brandLockupPng()];
-}
+export type CertificateTypeface = "atkinsonHyperlegible" | "liberationSans";
+
+/** The paper the sheet is laid out for: US Letter unless told otherwise. */
+export type CertificatePaper = "letter" | "a4";
+
+/** Each paper's width and height in points, as the composer has them. */
+const PAPER_SIZE: Record<CertificatePaper, { width: number; height: number }> = {
+  letter: { width: 612, height: 792 },
+  a4: { width: 595.28, height: 841.89 },
+};
 
 /** What the sheet is told that the record does not hold. */
 export interface CertificateSheetOptions {
@@ -91,17 +139,206 @@ export interface CertificateSheetOptions {
    * support contact. Without one the sheet names the platform and gives no address.
    */
   readonly issuerContact?: SigningContact;
+  /**
+   * The family to set the sheet in: Atkinson Hyperlegible unless told otherwise. The service that
+   * composes it asks for Liberation Sans when a name on the certificate is in a script Atkinson
+   * cannot draw.
+   */
+  readonly typeface?: CertificateTypeface;
+  /**
+   * The paper to lay the sheet out for. The margins are the same on either; the audit log's
+   * pages are filled for the height and width the paper has.
+   */
+  readonly paper?: CertificatePaper;
+  /**
+   * The signers' signatures as pictures, each printed on its signer's record. A signer without
+   * one is recorded by how they adopted their signature alone.
+   */
+  readonly signatureImages?: readonly SignatureImage[];
+  /** The signers' initials as pictures, each printed beside its signer's signature. */
+  readonly initialsImages?: readonly SignatureImage[];
+}
+
+/**
+ * How large a signature is printed, in points: as tall as three lines of the record, and no wider
+ * than a signature line. A long name signed small and a short one signed large then print at the
+ * same height.
+ */
+const SIGNATURE_HEIGHT = 36;
+const SIGNATURE_WIDTH = 200;
+
+/**
+ * The width to print a signature at. A PNG says its size in its first chunk, and that gives the
+ * width its height allows; any other picture is printed at the width of a short signature.
+ */
+function signatureWidth(image: Uint8Array, widest = SIGNATURE_WIDTH): number {
+  const isPng = image.length >= 24 && image[0] === 0x89 && image[1] === 0x50;
+  if (!isPng) return widest / 2;
+  const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
+  const [width, height] = [view.getUint32(16), view.getUint32(20)];
+  if (width === 0 || height === 0) return widest / 2;
+  return Math.min(widest, Math.round((SIGNATURE_HEIGHT * width) / height));
 }
 
 /** The platform's name, where no issuer contact says otherwise. */
 const ISSUER_NAME = "Magna Carta";
 
 /**
- * The space above and below the page's content, in points: three quarters of an inch. The
- * composer's own inch leaves the first page short of eight signers, and a certificate that runs its
- * summary onto a second sheet is one a reader has to staple.
+ * How far every edge of the printed sheet stays from the edge of the paper, in points: half an
+ * inch on all four sides. The letterhead's bar starts there, the page number sits there, and the
+ * cards run from one side margin to the other. Half an inch is inside what a desktop printer
+ * reaches on Letter and on A4.
  */
-const PAGE_MARGIN_VERTICAL = 54;
+const PAGE_EDGE = 36;
+
+/** The top margin: the edge, then the room the composer's letterhead takes above the content. */
+const PAGE_MARGIN_TOP = PAGE_EDGE + 60;
+
+/** The bottom margin: the edge, then the room the composer's footer takes below the content. */
+const PAGE_MARGIN_BOTTOM = PAGE_EDGE + 28;
+
+/** What the composer's card takes above what it holds: the bar its title sits in. */
+const CARD_TITLE_HEIGHT = 27;
+
+/**
+ * How many lines of signature pictures one page of signer details has room for, two pictures to a
+ * line, beside two full records.
+ */
+const PICTURE_LINES_PER_PAGE = 3;
+
+/**
+ * The signers set out a page at a time: two to a page, and one alone where the two would carry
+ * more signature pictures than a page has room for under their records.
+ */
+function signerPages(
+  signers: readonly SignerCompletion[],
+  pictureCount: (signer: SignerCompletion) => number,
+): SignerCompletion[][] {
+  const pages: SignerCompletion[][] = [];
+  let lines = 0;
+  for (const signer of signers) {
+    const own = Math.ceil(pictureCount(signer) / 2);
+    const page = pages.at(-1);
+    if (
+      page === undefined ||
+      page.length >= SIGNERS_PER_PAGE ||
+      lines + own > PICTURE_LINES_PER_PAGE
+    ) {
+      pages.push([signer]);
+      lines = own;
+    } else {
+      page.push(signer);
+      lines += own;
+    }
+  }
+  return pages;
+}
+
+/** Page numbers as a reader says them: runs joined with a dash, as "Pages 1-3, 7". */
+function pageList(pages: readonly number[]): string {
+  const sorted = [...new Set(pages)].toSorted((a, b) => a - b);
+  const runs: string[] = [];
+  for (let start = 0; start < sorted.length;) {
+    let end = start;
+    while (sorted[end + 1] === (sorted[end] ?? 0) + 1) end += 1;
+    runs.push(end > start ? `${sorted[start]}-${sorted[end]}` : `${sorted[start]}`);
+    start = end + 1;
+  }
+  return `${sorted.length === 1 ? "Page" : "Pages"} ${runs.join(", ")}`;
+}
+
+/**
+ * What a signature picture is: "Signature" alone, its place among the signer's when they used
+ * more than one, and the pages it was placed on when the signing flow gave them.
+ */
+function pictureLabel(
+  what: string,
+  place: number,
+  count: number,
+  pages: readonly number[] | undefined,
+): string {
+  const name = count > 1 ? `${what} ${place + 1} of ${count}` : what;
+  return pages === undefined || pages.length === 0 ? name : `${name} (${pageList(pages)})`;
+}
+
+/**
+ * How many signers' full records one page holds. A record is never run across two pages: a reader
+ * checking one person's consent and signature should not have to turn the sheet. Two is what a
+ * letter page takes with room for a browser string that wraps.
+ */
+const SIGNERS_PER_PAGE = 2;
+
+/** The audit log's columns. The weights share the page's width out of a hundred. */
+const AUDIT_COLUMNS = [
+  { heading: "Time (UTC)", weight: 21 },
+  { heading: "Event", weight: 18 },
+  { heading: "By", weight: 24 },
+  { heading: "IP Address", weight: 15 },
+  { heading: "Details", weight: 22 },
+] as const;
+
+/**
+ * The room one page gives the audit log's rows, in points: the paper inside the sheet's margins,
+ * less the card around the table and its title, less the table's own heading row, less a margin
+ * for the estimate below being an estimate.
+ */
+function auditRowsHeight(paper: CertificatePaper): number {
+  const content = PAPER_SIZE[paper].height - PAGE_MARGIN_TOP - PAGE_MARGIN_BOTTOM;
+  return content - CARD_TITLE_HEIGHT - (ROW_LINE_HEIGHT + ROW_PADDING) - 20;
+}
+
+/** The composer's compact row: a line of cell text, and the space above and below a row. */
+const ROW_LINE_HEIGHT = 13;
+const ROW_PADDING = 3;
+
+/**
+ * How many characters of cell text fit a column one percent of the table wide, for each point of
+ * the table's width. The composer measures real glyphs; this sheet cannot, so it assumes text a
+ * little wider than it usually is. The time column is left out of the estimate because an instant
+ * is sized to fit it.
+ */
+const CHARACTERS_PER_WEIGHT_POINT = 0.92 / 468;
+
+/** The lines a row is expected to take in a table `width` points wide: its most-wrapped cell. */
+function estimatedLines(row: readonly string[], width: number): number {
+  let lines = 1;
+  for (const [index, cell] of row.entries()) {
+    const column = AUDIT_COLUMNS[index];
+    if (index === 0 || column === undefined) continue;
+    const capacity = Math.max(1, Math.floor(column.weight * CHARACTERS_PER_WEIGHT_POINT * width));
+    lines = Math.max(lines, Math.ceil(cell.length / capacity));
+  }
+  return lines;
+}
+
+/**
+ * The audit log's rows a page at a time. A page is filled by the height its rows are expected to
+ * take, so a log of short rows runs well down the page and one of long rows still breaks where the
+ * next heading can be printed above what follows.
+ */
+function auditPages(rows: readonly string[][], paper: CertificatePaper): string[][][] {
+  const pages: string[][][] = [[]];
+  const width = PAPER_SIZE[paper].width - 2 * PAGE_EDGE;
+  const room = auditRowsHeight(paper);
+  let used = 0;
+  for (const row of rows) {
+    const height = estimatedLines(row, width) * ROW_LINE_HEIGHT + ROW_PADDING;
+    const page = pages.at(-1);
+    if (page === undefined || (used + height > room && page.length > 0)) {
+      pages.push([row]);
+      used = height;
+    } else {
+      page.push(row);
+      used += height;
+    }
+  }
+  return pages;
+}
+
+/** `Signer Details (1 of 3)`: a section's heading on each of its pages, plain where it has one. */
+function pageHeading(section: string, page: number, pages: number): string {
+  return pages > 1 ? `${section} (${page + 1} of ${pages})` : section;
+}
 
 /** A contact as one small line: what it answers for, then who and how to reach them. */
 function contactLine(about: string, contact: SigningContact): CertificateSheetBlock {
@@ -124,9 +361,13 @@ function initialCount(signer: SignerCompletion): number {
   return signer.intent.initialCount ?? 0;
 }
 
-/** The hash in two rows of 32, so it fits a column and still reads as one value. */
+/**
+ * The hash as two lines of 32 characters, each set in eight groups of four, the grouping the
+ * reference uses, so a reader comparing it against another copy keeps their place.
+ */
 function hashRows(hash: string): string {
-  return `${hash.slice(0, 32)} ${hash.slice(32)}`;
+  const lines = hash.match(/.{1,32}/g) ?? [hash];
+  return lines.map((line) => (line.match(/.{1,4}/g) ?? [line]).join(" ")).join("\n");
 }
 
 /** `2026-07-18 12:00:01`: an instant to the second, in Coordinated Universal Time. */
@@ -164,7 +405,8 @@ function createdOn(instant: string): CertificateSheet["created"] {
 
 /**
  * Lay a Certificate of Completion out as a sheet: what was signed and by whom on the first page,
- * each signer in full on the next, then the audit log. Deterministic for a given certificate.
+ * each signer in full on the pages after it, two to a page, then the audit log. Every page of a
+ * section carries its heading. Deterministic for a given certificate.
  */
 export function certificateSheet(
   certificate: CertificateOfCompletion,
@@ -175,12 +417,9 @@ export function certificateSheet(
   const total = (count: (signer: SignerCompletion) => number) =>
     String(signers.reduce((sum, signer) => sum + count(signer), 0));
 
-  const summary: SheetField[] = [{ label: "Reference", value: certificate.reference }];
+  // The reference is in the letterhead of every page, so the summary does not repeat it.
+  const summary: SheetField[] = [];
   if (envelope !== undefined) {
-    if (envelope.title !== undefined) summary.push({ label: "Document", value: envelope.title });
-    if (envelope.pageCount !== undefined) {
-      summary.push({ label: "Pages", value: String(envelope.pageCount) });
-    }
     if (envelope.sender !== undefined) {
       summary.push({ label: "Sender: Name", value: envelope.sender.name });
       if (envelope.sender.email !== undefined) {
@@ -195,27 +434,40 @@ export function certificateSheet(
     { label: "Status", value: "Completed" },
     ...instantFields("Sealed", certificate.sealedAt),
     { label: "Signers", value: String(signers.length) },
-    { label: "Signatures", value: total(signatureCount) },
-    { label: "Initials", value: total(initialCount) },
-    { label: "Document Hash (SHA-256)", value: hashRows(certificate.documentHashSha256) },
-    { label: "Time Zone", value: "Coordinated Universal Time (UTC)" },
+    { label: "Total Signatures", value: total(signatureCount) },
+    { label: "Total Initials", value: total(initialCount) },
   );
 
+  // What was signed. One document today; the section is where a second would be listed.
+  const signed: SheetField[] = [];
+  if (envelope?.title !== undefined) signed.push({ label: "Document", value: envelope.title });
+  if (envelope?.pageCount !== undefined) {
+    signed.push({ label: "Pages", value: String(envelope.pageCount) });
+  }
+  signed.push({
+    label: "Hash (SHA-256)",
+    value: hashRows(certificate.documentHashSha256),
+    grid: true,
+  });
+
   const documentContact = envelope?.contact ?? envelope?.sender;
+  const paper = options.paper ?? "letter";
   const blocks: CertificateSheetBlock[] = [
-    { type: "image", image: 0, width: LOCKUP_WIDTH },
-    { type: "title", text: "Certificate of Completion" },
-    { type: "rule" },
-    { type: "fields", fields: summary },
-    { type: "heading", level: 1, text: "Signers" },
+    { type: "cardStart", title: "Request Details" },
+    { type: "fields", fields: summary, twoUp: true },
+    { type: "cardEnd" },
+    { type: "cardStart", title: "Documents" },
+    { type: "fields", fields: signed },
+    { type: "cardEnd" },
+    { type: "cardStart", title: "Signers" },
     {
       type: "table",
       columns: [
-        { heading: "Name", weight: 21 },
-        { heading: "Email", weight: 34 },
-        { heading: "Signed (UTC)", weight: 22 },
-        { heading: "Signatures", weight: 13 },
-        { heading: "Initials", weight: 10 },
+        { heading: "Name", weight: 24 },
+        { heading: "Email", weight: 31 },
+        { heading: "Signed (UTC)", weight: 20 },
+        { heading: "Signatures", weight: 14 },
+        { heading: "Initials", weight: 11 },
       ],
       rows: signers.map((signer) => [
         signerDisplayName(signer),
@@ -225,14 +477,46 @@ export function certificateSheet(
         String(initialCount(signer)),
       ]),
     },
-    { type: "heading", level: 2, text: "Contact" },
-    ...(documentContact === undefined ? [] : [contactLine("The Document", documentContact)]),
-    contactLine("This Certificate", options.issuerContact ?? { name: ISSUER_NAME }),
-    { type: "pageBreak" },
-    { type: "heading", level: 1, text: "Signer Details" },
+    { type: "cardEnd" },
+    { type: "cardStart", title: "Contact" },
+    ...(documentContact === undefined ? [] : [contactLine("Document", documentContact)]),
+    contactLine("Certificate of Completion", options.issuerContact ?? { name: ISSUER_NAME }),
+    { type: "cardEnd" },
   ];
 
-  for (const signer of signers) {
+  // Where each signature sits in the pictures passed beside the sheet: after the lockup, in the
+  // order given. Initials follow every signature; they are a few letters, so half the width.
+  const signatureImages = options.signatureImages ?? [];
+  const pictures = [
+    ...signatureImages.map((picture, index) => ({
+      picture,
+      what: "Signature",
+      image: 1 + index,
+      width: signatureWidth(picture.image),
+    })),
+    ...(options.initialsImages ?? []).map((picture, index) => ({
+      picture,
+      what: "Initials",
+      image: 1 + signatureImages.length + index,
+      width: signatureWidth(picture.image, SIGNATURE_WIDTH / 2),
+    })),
+  ];
+  const picturesOf = (signer: SignerCompletion) =>
+    pictures.filter((entry) => entry.picture.signerId === signer.intent.signerId);
+  const detailPagesOf = signerPages(signers, (signer) => picturesOf(signer).length);
+  for (const [index, signer] of detailPagesOf.flatMap((page, number) =>
+    page.map((signer, place) => [place === 0 ? number : -1, signer] as const),
+  )) {
+    if (index >= 0) {
+      blocks.push(
+        { type: "pageBreak" },
+        {
+          type: "heading",
+          level: 1,
+          text: pageHeading("Signer Details", index, detailPagesOf.length),
+        },
+      );
+    }
     const fields: SheetField[] = [];
     if (signer.intent.email !== undefined && signer.intent.name !== undefined) {
       fields.push({ label: "Email", value: signer.intent.email });
@@ -241,47 +525,70 @@ export function certificateSheet(
     if (signer.attribution.proofReference !== undefined) {
       fields.push({ label: "Identity Proof", value: signer.attribution.proofReference });
     }
+    if (signer.attribution.codeDestination !== undefined) {
+      fields.push({ label: "Code Sent To", value: signer.attribution.codeDestination });
+    }
     fields.push(
       ...instantFields("Consent", signer.consent.consentedAt),
       { label: "Consent: Disclosure", value: signer.consent.disclosureVersion },
-      { label: "Signature", value: ADOPTION_LABEL[signer.intent.adoption] },
+      { label: "Signature Type", value: ADOPTION_LABEL[signer.intent.adoption] },
       ...instantFields("Signed", signer.intent.affirmedAt),
       { label: "Signatures", value: String(signatureCount(signer)) },
       { label: "Initials", value: String(initialCount(signer)) },
     );
+    // Where the signing act was observed from. These are the long values, set the full width.
+    const observed: SheetField[] = [];
     if (signer.attribution.observedIp !== undefined) {
-      fields.push({ label: "IP Address", value: signer.attribution.observedIp });
+      observed.push({ label: "IP Address", value: signer.attribution.observedIp });
+    }
+    if (signer.attribution.location !== undefined) {
+      observed.push({ label: "Location (by IP Address)", value: signer.attribution.location });
     }
     if (signer.attribution.userAgent !== undefined) {
-      fields.push({ label: "Browser", value: signer.attribution.userAgent });
+      observed.push({ label: "Browser", value: signer.attribution.userAgent });
     }
+    // Each signer is a card of their own, which is what parts the two who share a page. The
+    // short facts are set in two columns; where they signed from takes the full width;
+    // the signature and the initials, where there are pictures of them, close the record.
     blocks.push(
-      { type: "heading", level: 2, text: signerDisplayName(signer) },
-      { type: "fields", fields },
+      { type: "cardStart", title: signerDisplayName(signer) },
+      { type: "fields", fields, twoUp: true },
     );
+    if (observed.length > 0) blocks.push({ type: "fields", fields: observed });
+    // Two pictures to a line: every signature the signer used, then every set of initials, each
+    // under a label that says which it is and the pages it was placed on.
+    const own = picturesOf(signer);
+    for (const [place, entry] of own.entries()) {
+      const alike = own.filter((other) => other.what === entry.what);
+      blocks.push({
+        type: "image",
+        label: pictureLabel(entry.what, alike.indexOf(entry), alike.length, entry.picture.pages),
+        image: entry.image,
+        width: entry.width,
+        ...(place % 2 === 1 ? { beside: true as const } : {}),
+      });
+    }
+    blocks.push({ type: "cardEnd" });
   }
 
-  blocks.push(
-    { type: "pageBreak" },
-    { type: "heading", level: 1, text: "Audit Log" },
-    {
-      type: "table",
-      columns: [
-        { heading: "Time (UTC)", weight: 21 },
-        { heading: "Event", weight: 20 },
-        { heading: "By", weight: 17 },
-        { heading: "IP Address", weight: 14 },
-        { heading: "Details", weight: 28 },
-      ],
-      rows: (certificate.events ?? []).map((event) => [
-        clock(event.at),
-        SIGNING_EVENT_LABEL[event.kind],
-        event.actor ?? "System",
-        event.observedIp ?? "",
-        event.detail ?? "",
-      ]),
-    },
+  const logPages = auditPages(
+    (certificate.events ?? []).map((event) => [
+      clock(event.at),
+      SIGNING_EVENT_LABEL[event.kind],
+      event.actor ?? "System",
+      event.observedIp ?? "",
+      event.detail ?? "",
+    ]),
+    paper,
   );
+  for (const [page, rows] of logPages.entries()) {
+    blocks.push(
+      { type: "pageBreak" },
+      { type: "cardStart", title: pageHeading("Audit Log", page, logPages.length) },
+      { type: "table", columns: AUDIT_COLUMNS, rows },
+      { type: "cardEnd" },
+    );
+  }
 
   return {
     title: "Certificate of Completion",
@@ -294,16 +601,22 @@ export function certificateSheet(
       ? { created: createdOn(certificate.sealedAt) }
       : {}),
     page: {
-      paper: "letter",
-      marginTop: PAGE_MARGIN_VERTICAL,
-      marginBottom: PAGE_MARGIN_VERTICAL,
+      paper,
+      marginTop: PAGE_MARGIN_TOP,
+      marginRight: PAGE_EDGE,
+      marginBottom: PAGE_MARGIN_BOTTOM,
+      marginLeft: PAGE_EDGE,
     },
     accent: ACCENT,
     compact: true,
-    footer: {
-      left: `Certificate ${certificate.reference}`,
-      right: "Page {page} of {pages}",
+    typeface: options.typeface ?? "atkinsonHyperlegible",
+    letterhead: {
+      image: 0,
+      title: "Certificate of Completion",
+      label: "Reference",
+      detail: certificate.reference,
     },
+    footer: { center: "Page {page} of {pages}" },
     blocks,
   };
 }

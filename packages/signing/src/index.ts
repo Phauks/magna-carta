@@ -35,6 +35,7 @@ export {
   type SealMetadata,
   type SealPort,
   type SealRequest,
+  type SignatureImage,
   type SealResponse,
 } from "./port.ts";
 export {

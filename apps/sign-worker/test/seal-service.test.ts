@@ -186,7 +186,68 @@ describe("sign worker — platform seal on workerd", () => {
     expect(printed).toContain("Alice Example");
     expect(printed).toContain("198.51.100.7");
     expect(printed).toContain("Sent for Signature");
-    expect(printed).toContain(response.documentHashSha256.slice(0, 32));
+    expect(printed.replaceAll(" ", "")).toContain(response.documentHashSha256.slice(0, 32));
+  });
+
+  it("prints a name its own typeface cannot draw by setting the sheet in the wider family", async () => {
+    // The certificate's typeface draws Latin only; a Greek name must still be readable on it.
+    const greek = "\u0391\u03bb\u03ad\u03be\u03b7\u03c2 \u03a0\u03b1\u03c0\u03ac\u03c2";
+    const response = await performSeal(
+      {
+        ...sealRequest(),
+        signers: [
+          {
+            intent: { ...signer.intent, name: greek, email: "alexis@example.test" },
+            consent: signer.consent,
+            attribution: { level: "access-code", location: "Springfield, Illinois, US" },
+          },
+        ],
+      },
+      { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+      engines,
+    );
+    const printed = (await extractPdfText(response.certificatePdf)).pages
+      .flatMap((page) => page.lines.map((line) => line.text))
+      .join("\n");
+    expect(printed).toContain(greek);
+    expect(printed).toContain("Springfield, Illinois, US");
+  });
+
+  it("prints a signer's signature on their record, and seals without one it cannot read", async () => {
+    // A one-pixel PNG stands in for the picture a signer drew.
+    const drawn = fromBase64(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    );
+    const lines = async (image: Uint8Array) => {
+      const response = await performSeal(
+        {
+          ...sealRequest(),
+          signers: [
+            {
+              intent: { ...signer.intent, name: "Alice Example", email: "alice@example.test" },
+              consent: signer.consent,
+              attribution: { level: "access-code", codeDestination: "alice@example.test" },
+            },
+          ],
+          signatureImages: [{ signerId: signer.intent.signerId, image }],
+          initialsImages: [{ signerId: signer.intent.signerId, image: drawn }],
+        },
+        { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+        engines,
+      );
+      expect(await verifySealedCms(response.certificatePdf, material.certificate)).toBe(true);
+      return (await extractPdfText(response.certificatePdf)).pages.flatMap((page) =>
+        page.lines.map((line) => line.text.trim()),
+      );
+    };
+    const signed = await lines(drawn);
+    // The record closes with the two pictures on one line, each under what it is.
+    expect(signed.join("\n")).toMatch(/^Signature\s+Initials$/m);
+    expect(signed.join("\n")).toContain("Code Sent To");
+    // Bytes that are no picture leave the signature off; the certificate is still issued.
+    const unread = await lines(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    expect(unread.join("\n")).not.toMatch(/^Signature\s+Initials$/m);
+    expect(unread.join("\n")).toContain("Alice Example");
   });
 
   it("holds the summary, eight signers and the contacts on the certificate's first page", async () => {
