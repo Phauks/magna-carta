@@ -347,7 +347,7 @@ describe("changing a member's own message", () => {
     expect(inserts[0]?.bindings).toContain(MEMBER_TURN);
   });
 
-  it("a removal hides the pair without touching its words, guarded against a pair already gone", () => {
+  it("a removal hides the message alone without touching its words, guarded against one already gone", () => {
     const { database, recorded } = recordingDatabase();
     const effect = removeTurn(database, context(), {
       conversationId: CONVERSATION,
@@ -359,11 +359,6 @@ describe("changing a member's own message", () => {
     const update = recorded.find((statement) => statement.sql.startsWith("UPDATE magnus_turn"));
     expect(update?.sql).toContain("SET removed_at = ?2");
     expect(update?.sql).not.toContain("content");
-    expect(update?.bindings).toEqual([
-      CONVERSATION,
-      "2026-08-06T12:00:00.000Z",
-      MEMBER_TURN,
-      MAGNUS_TURN,
-    ]);
+    expect(update?.bindings).toEqual([CONVERSATION, "2026-08-06T12:00:00.000Z", MEMBER_TURN]);
   });
 });
