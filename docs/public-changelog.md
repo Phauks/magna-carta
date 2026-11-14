@@ -73,6 +73,7 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
   reaches 25 matters or fewer, and says so under Not Searched when there are more. Searching inside
   files has to be turned on for the firm, in Settings under Search and Indexing.
 - **Print trust checks.** A trust payment made by check now waits on the account's Checks screen to be printed. Set up your check paper once over a scan of a blank check, drag each field to where your paper wants it, and print a test page to hold against a real check. Checks are numbered from your next check number, and a check that jams is voided with its number kept and printed again on the next.
+- A new Aged Expenses report shows unbilled costs by how long ago they were incurred.
 
 ### Changed
 

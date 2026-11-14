@@ -131,7 +131,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 
 ## Where we have been
 
-**252 of 271 commits read, 2026-07-14 to 2026-11-13 — 122 days.** The ledger keeps no history of its
+**253 of 272 commits read, 2026-07-14 to 2026-11-13 — 122 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -150,7 +150,7 @@ ledger itself grew by +199 units over the same period (541 to 740), so the share
 36% to 49% against a denominator that was moving too.
 
 That is **9.7 capabilities shipped a week** across the whole series, and **10.1 a week** over the
-245 snapshots since the last gap (2026-08-11 to 2026-11-13, +135 shipped in 94 days).
+246 snapshots since the last gap (2026-08-11 to 2026-11-13, +135 shipped in 94 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -412,10 +412,11 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-11-13 | `d24f0518` | 366 | 153 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 739 | 0 | 0 | 0 |
 | 2026-11-13 | `050317ac` | 366 | 154 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 740 | +1 | 0 | 0 |
 | 2026-11-13 | `507ae8c7` | 366 | 154 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 740 | 0 | 0 | 0 |
+| 2026-11-13 | `9990e793` | 366 | 154 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 740 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 271 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 272 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
