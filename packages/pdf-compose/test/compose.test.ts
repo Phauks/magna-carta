@@ -62,6 +62,41 @@ describe("composeDocument", () => {
     expect(composed.missingCharacters).toEqual(["山", "田"]);
   });
 
+  it("composes a report's figures, a table with a totals row, a cover label and signature lines", async () => {
+    const report: ComposeDocument = {
+      accent: [98, 72, 0],
+      blocks: [
+        {
+          type: "figures",
+          figures: [
+            { label: "Billed", value: "160.00" },
+            { label: "Overdue", value: "45.00", note: "Past 30 days", alert: true },
+          ],
+        },
+        {
+          type: "table",
+          columns: [{ heading: "Matter" }, { heading: "Billed", alignment: "end" }],
+          rows: [
+            ["Rivera", "100.00"],
+            ["Deposition", "60.00"],
+            ["Total", "160.00"],
+          ],
+          rowStyles: [null, "child", "total"],
+        },
+        { type: "pageBreak" },
+        { type: "display", text: "EXHIBIT 4", spaceAbove: 240 },
+        { type: "signatureLines", lines: ["Signature", "Date"] },
+      ],
+    };
+    const composed = await composeDocument(report);
+    expect(composed.pageCount).toBe(2);
+    expect(composed.missingCharacters).toEqual([]);
+    const unknown = { blocks: [{ type: "table", columns: [], rows: [], rowStyles: ["loud"] }] };
+    await expect(composeDocument(unknown as unknown as ComposeDocument)).rejects.toThrow(
+      "the document is not valid at line 1",
+    );
+  });
+
   it("rejects a picture that was not supplied, a damaged one, and a malformed document", async () => {
     await expect(composeDocument(record)).rejects.toThrow("image 0 was not supplied");
     await expect(composeDocument(record, [new Uint8Array([1, 2, 3])])).rejects.toThrow(
