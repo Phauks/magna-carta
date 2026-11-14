@@ -30,7 +30,7 @@
     samplePerson,
   } from "@magna-carta/design-system/loading-fixtures";
   import {
-    formatTimeOfDay,
+    formatInstant,
     instantAttribute,
     personInitials,
   } from "@magna-carta/design-system/formatters";
@@ -162,12 +162,13 @@
   <Conversation.Transcript
     arrangement="exchange"
     label="This conversation with Magnus"
-    class="*:mx-auto *:w-full *:max-w-3xl"
+    class="*:mx-auto *:w-full *:max-w-5xl"
   >
     {#each shown as turn, index (turn.id)}
       {@const failureSentence = turnFailureSentence(turn)}
       {@const name = live ? speakerName(turn) : turn.speaker === "member" ? samplePerson(index).name : "Magnus"}
       <Conversation.Turn
+        class="group/turn"
         speaker={turn.speaker}
         state={turnState(turn)}
         data-turn-id={live ? turn.id : undefined}
@@ -182,7 +183,7 @@
               class="text-xs font-normal text-text-muted"
               datetime={instantAttribute(turn.createdAt)}
             >
-              {formatTimeOfDay(turn.createdAt)}
+              {formatInstant(turn.createdAt)}
             </time>
             {#if turn.replacesTurnId !== null}
               <span class="text-xs font-normal text-text-muted">Edited</span>
@@ -191,7 +192,7 @@
           {#if turn.removedAt !== null}
             <Conversation.TurnNote tone="quiet">
               {turn.speaker === "member"
-                ? `${name} removed this message and Magnus's answer to it. They are kept on the firm's record and are not sent to Magnus again.`
+                ? `${name} removed this message. It is kept on the firm's record, and Magnus no longer reads it or the answer to it.`
                 : "Removed with the message it answered."}
             </Conversation.TurnNote>
           {/if}
@@ -248,7 +249,11 @@
             </Conversation.TurnNote>
           {/if}
           {#if turn.content !== null && turn.status !== "pending" && turn.removedAt === null}
-            <Conversation.TurnActions>
+            <!-- The owner's ruling (2026-11-14): the acts on a message show while the pointer is over it or
+                 focus is inside it, and always on a touch screen, which has no hover. -->
+            <Conversation.TurnActions
+              class="opacity-0 transition-opacity group-focus-within/turn:opacity-100 group-hover/turn:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none"
+            >
               <!-- The control names whose words it copies and when, because a long conversation
                    otherwise offers a screen reader a column of controls all called Copy. -->
               <Tooltip.Root>
@@ -259,7 +264,7 @@
                       variant="ghost"
                       size="icon-sm"
                       disabled={!live}
-                      aria-label="Copy what {name} said at {formatTimeOfDay(turn.createdAt)}"
+                      aria-label="Copy what {name} said at {formatInstant(turn.createdAt)}"
                       onclick={() => void copyTurn(turn)}
                     >
                       <Copy class="size-16" aria-hidden="true" />
@@ -278,7 +283,7 @@
                           variant="ghost"
                           size="icon-sm"
                           disabled={!settled}
-                          aria-label="Edit your message from {formatTimeOfDay(turn.createdAt)}"
+                          aria-label="Edit your message from {formatInstant(turn.createdAt)}"
                           onclick={() => onEdit?.(turn)}
                         >
                           <PencilLine class="size-16" aria-hidden="true" />
@@ -299,7 +304,7 @@
                           variant="ghost"
                           size="icon-sm"
                           disabled={!settled}
-                          aria-label="Remove your message from {formatTimeOfDay(turn.createdAt)}"
+                          aria-label="Remove your message from {formatInstant(turn.createdAt)}"
                           onclick={() => onRemove?.(turn)}
                         >
                           <Trash2 class="size-16" aria-hidden="true" />

@@ -111,8 +111,9 @@ in a conversation you started, and only when Magnus is not in the middle of an a
   **Send Edit** and Magnus answers the new version. Your old message and everything after it leave
   the conversation, and the new message is marked **Edited**. Press **Cancel Edit** to leave it as
   it was.
-- **Remove** (the bin) takes your message and Magnus's answer to it out of the conversation. A note
-  shows where they were, and Magnus does not read them again when it answers your later questions.
+- **Remove** (the bin) takes your message out of the conversation and a note shows where it was.
+  Magnus's answer to it stays where you can read it, but Magnus no longer reads either one when it
+  answers your later questions.
 
 Neither one erases anything. The words stay on the firm's record, where a colleague allowed to read
 every conversation can still see them, until the whole conversation is deleted.
@@ -168,7 +169,7 @@ conversation. To keep it on the matter, download it and add it to the matter's f
 
 ## While You Wait
 
-Your question is recorded the moment you send it, and the answer arrives underneath when it is ready.
+Press **Enter** to send your question; **Shift+Enter** starts a new line instead. Your question is recorded the moment you send it, and the answer arrives underneath when it is ready.
 You can leave the page; the conversation is there when you come back.
 
 Sometimes an answer does not come, and Magnus says which of these happened rather than only that

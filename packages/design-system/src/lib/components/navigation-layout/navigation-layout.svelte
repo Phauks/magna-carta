@@ -69,7 +69,7 @@
   type Props = WithElementRef<Omit<HTMLAttributes<HTMLDivElement>, "children">, HTMLDivElement> & {
     /** The accessible name of the navigation landmark — what this column lets a person choose between ("Settings sections", "Conversations", "Tools"). */
     navigationLabel: string;
-    /** How wide the navigation column is: `standard` is the settings width; `narrow` lands on the global sidebar's own width. */
+    /** How wide the navigation column is: `standard` is the settings width; `narrow` lands on the global sidebar's own width; `wide` holds a row of a name over a line. */
     navigationWidth?: NavigationWidth;
     /** Whether the content column is the page's scroll region (the default). A page that stages its own header, scrolling middle and pinned footer passes false and owns its scroller. */
     contentScrolls?: boolean;
@@ -165,6 +165,7 @@
         // <nav> is the scroll region, exactly as it was.
         navigationFooter ? "flex flex-col" : "mc-navigation-layout-navigation mc-scrollbar",
         navigationWidth === "narrow" && !navigationFooter && "mc-navigation-layout-navigation-narrow",
+        navigationWidth === "wide" && !navigationFooter && "mc-navigation-layout-navigation-wide",
       )}
     >
       {#if navigationFooter}
@@ -172,6 +173,7 @@
           class={mergeClasses(
             "mc-navigation-layout-navigation mc-scrollbar min-h-0 flex-1 max-lg:overflow-visible",
             navigationWidth === "narrow" && "mc-navigation-layout-navigation-narrow",
+            navigationWidth === "wide" && "mc-navigation-layout-navigation-wide",
           )}
         >
           {@render navigation()}
