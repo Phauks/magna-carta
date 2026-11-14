@@ -17,7 +17,7 @@
   .mc-date-field-label {
     display: block;
     margin-block-end: var(--mc-space-4);
-    color: var(--mc-text-default);
+    color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);

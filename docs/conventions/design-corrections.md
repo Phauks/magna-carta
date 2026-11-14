@@ -304,6 +304,10 @@ is usually the fastest way to understand the rule.
   same type: small, medium weight, muted, in sentence case, never small capitals with tracking.
   A fold heading in a navigation column composes the same voice.
   _(app visual refresh, 2026-11-14)_
+- **Two to four choices are shown, not hidden in a list.** A closed choice that small is a
+  `SegmentedControl`, every option on screen and the chosen one raised; five or more is a Select.
+  A choice not built yet stays in the track, refused, with its reason on hover. It takes a row of
+  its own when its words would not fit a column. _(app visual refresh, 2026-11-14)_
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
   column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
@@ -1646,8 +1650,9 @@ The owner, asked to pick one of three directions for the app as a whole:
 - **Labels in two voices.** The label over a read-only fact was tiny tracked capitals while a form
   label was plain words, so the same fact looked different on a record and in its edit window.
   Both now read the same. Promoted to _Data entry_.
-- **Still to come in later passes:** a typed date, a segmented control for two to four choices,
-  and the shell and tables in direction A.
+- **Billing was a dropdown of two or three words.** The time, cost and fee windows now show the
+  choices side by side in a segmented control. Promoted to _Data entry_.
+- **Still to come in later passes:** a typed date, and the shell and tables in direction A.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 
