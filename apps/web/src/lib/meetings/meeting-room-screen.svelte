@@ -122,7 +122,7 @@
   import MeetingReactions from "$lib/meetings/screen/meeting-reactions.svelte";
   import { MeetingChat, meetingChatSeams } from "$lib/meetings/client/chat.svelte.ts";
   import {
-    connectionEvents,
+    readCloudflareSite,
     connectionParticipants,
     connectionUplink,
   } from "$lib/meetings/screen/meeting-connection.ts";
@@ -1267,7 +1267,14 @@
 
   const uplink = $derived(connectionUplink(client));
   const connectionRoom = $derived(connectionParticipants(client));
-  const wireEvents = $derived(connectionEvents(client.diagnostics.recent));
+  /** The Cloudflare site the meeting runs through, read the first time the details are opened. */
+  let cloudflareSite = $state<string | null>(null);
+  let siteAsked = false;
+  async function readSiteOnce(): Promise<void> {
+    if (siteAsked) return;
+    siteAsked = true;
+    cloudflareSite = await readCloudflareSite();
+  }
 </script>
 
 <!--
@@ -1837,7 +1844,8 @@
           <MeetingConnectionPanel
             {uplink}
             participants={connectionRoom}
-            events={wireEvents}
+            site={cloudflareSite}
+            onOpen={() => void readSiteOnce()}
             onCopy={() => void copyDiagnostics()}
           />
         {/snippet}
