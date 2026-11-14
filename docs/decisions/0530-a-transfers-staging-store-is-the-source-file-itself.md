@@ -1,8 +1,9 @@
 ---
+number: 530
 slug: a-transfers-staging-store-is-the-source-file-itself
 status: Accepted
-area: Platform
 date: 2026-11-13
+area: Platform
 summary: "A record transfer stages a source file by keeping it whole and unchanged in the firm's object storage, with one transfer_source_file row of facts about it (kind, format, size, SHA-256 digest, key column, row count). No source row is copied into the firm's database. A row is named by its file and its number in it, which a reader reproduces from the same bytes every time."
 ---
 

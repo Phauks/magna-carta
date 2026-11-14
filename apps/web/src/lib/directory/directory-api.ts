@@ -203,7 +203,14 @@ export type DirectoryEdgeType =
   | "shareholder_of"
   | "beneficiary_of"
   | "guardian_of"
-  | "point_of_contact_for";
+  | "point_of_contact_for"
+  | "spouse_of"
+  | "parent_of"
+  | "child_of"
+  | "sibling_of"
+  | "grandparent_of"
+  | "grandchild_of"
+  | "family_member_of";
 
 /** One entity the firm may already hold under another spelling. */
 export interface DuplicateCandidate {

@@ -125,7 +125,17 @@
     // `scrollend` releases the hold where the browser has it; the timer is the backstop.
     releaseTimer = setTimeout(release, 1000);
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    element.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+    // Scroll the content pane alone. `scrollIntoView` scrolls every ancestor that can move, the
+    // dialog's own clipped frame included, so a jump to the last card lifted the whole window out of
+    // its frame, left the rail showing one row and a blank band under the footer, and no scroll bar
+    // could bring it back. The pane cannot scroll past its own end, so the last card simply rests
+    // as high as the pane allows.
+    const region = scroller;
+    if (region !== null) {
+      const top =
+        element.getBoundingClientRect().top - region.getBoundingClientRect().top + region.scrollTop;
+      region.scrollTo({ top, behavior: still ? "auto" : "smooth" });
+    }
     element.focus({ preventScroll: true });
   }
 

@@ -5096,7 +5096,7 @@ export type AddDirectoryIdentifierRequest = {
 
 export type CreateDirectoryPersonOrganization = {
     organizationId: string;
-    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment' | 'officer_of' | 'director_of' | 'partner_of' | 'trustee_of' | 'personal_representative_of' | 'agent_of' | 'employment' | 'member_of' | 'shareholder_of' | 'beneficiary_of' | 'guardian_of' | 'point_of_contact_for';
+    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment' | 'officer_of' | 'director_of' | 'partner_of' | 'trustee_of' | 'personal_representative_of' | 'agent_of' | 'employment' | 'member_of' | 'shareholder_of' | 'beneficiary_of' | 'guardian_of' | 'point_of_contact_for' | 'spouse_of' | 'parent_of' | 'child_of' | 'sibling_of' | 'grandparent_of' | 'grandchild_of' | 'family_member_of';
     /**
      * Which end of the edge the person is. The type says which way a membership reads (employment runs person to organization); the screen decides and the record keeps it.
      */
@@ -5374,7 +5374,7 @@ export type DirectoryIdentifierValueResponse = {
 export type CreateDirectoryEdgeRequest = {
     from: string;
     to: string;
-    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment' | 'officer_of' | 'director_of' | 'partner_of' | 'trustee_of' | 'personal_representative_of' | 'agent_of' | 'employment' | 'member_of' | 'shareholder_of' | 'beneficiary_of' | 'guardian_of' | 'point_of_contact_for';
+    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment' | 'officer_of' | 'director_of' | 'partner_of' | 'trustee_of' | 'personal_representative_of' | 'agent_of' | 'employment' | 'member_of' | 'shareholder_of' | 'beneficiary_of' | 'guardian_of' | 'point_of_contact_for' | 'spouse_of' | 'parent_of' | 'child_of' | 'sibling_of' | 'grandparent_of' | 'grandchild_of' | 'family_member_of';
     role?: string | null;
     note?: string | null;
     validFrom?: string | null;

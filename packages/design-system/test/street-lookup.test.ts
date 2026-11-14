@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   ADDRESS_LOOKUP_SENTENCES,
-  MINIMUM_ADDRESS_QUERY_LENGTH,
   addressLookupRequestFor,
   groupAside,
   groupHeading,
+  matchedSegments,
+  MINIMUM_ADDRESS_QUERY_LENGTH,
+  offerLines,
   withResolvedAddress,
 } from "../src/lib/components/address-fields/street-lookup.ts";
 
@@ -112,5 +114,50 @@ describe("what the list says", () => {
     ]) {
       expect(sentence).toMatch(/by hand|typed/);
     }
+  });
+});
+
+describe("offerLines", () => {
+  it("splits an offer at its first comma into the street and the rest of the place", () => {
+    expect(offerLines("14 Rosewood Dr, Reno, NV, USA")).toEqual({
+      main: "14 Rosewood Dr",
+      secondary: "Reno, NV, USA",
+    });
+  });
+
+  it("keeps a line with no comma whole, as the street", () => {
+    expect(offerLines("14 Rosewood Dr")).toEqual({ main: "14 Rosewood Dr", secondary: "" });
+  });
+});
+
+describe("matchedSegments", () => {
+  it("marks the typed text at the start of the street, ignoring case", () => {
+    expect(matchedSegments("14 Rosewood Dr", "14 rose")).toEqual([
+      { text: "14 Rose", matched: true },
+      { text: "wood Dr", matched: false },
+    ]);
+  });
+
+  it("finds the typed text at the start of a later word", () => {
+    expect(matchedSegments("14 Rosewood Dr", "rose")).toEqual([
+      { text: "14 ", matched: false },
+      { text: "Rose", matched: true },
+      { text: "wood Dr", matched: false },
+    ]);
+  });
+
+  it("does not mark text found only in the middle of a word", () => {
+    expect(matchedSegments("14 Rosewood Dr", "wood")).toEqual([
+      { text: "14 Rosewood Dr", matched: false },
+    ]);
+  });
+
+  it("leaves the street unmarked when nothing typed is in it", () => {
+    expect(matchedSegments("14 Rosewood Dr", "Avenue")).toEqual([
+      { text: "14 Rosewood Dr", matched: false },
+    ]);
+    expect(matchedSegments("14 Rosewood Dr", "  ")).toEqual([
+      { text: "14 Rosewood Dr", matched: false },
+    ]);
   });
 });
