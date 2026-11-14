@@ -13031,7 +13031,13 @@
                         "userAgent": {
                           "type": "string"
                         },
+                        "location": {
+                          "type": "string"
+                        },
                         "proofReference": {
+                          "type": "string"
+                        },
+                        "codeDestination": {
                           "type": "string"
                         }
                       },
@@ -22102,7 +22108,14 @@
               "shareholder_of",
               "beneficiary_of",
               "guardian_of",
-              "point_of_contact_for"
+              "point_of_contact_for",
+              "spouse_of",
+              "parent_of",
+              "child_of",
+              "sibling_of",
+              "grandparent_of",
+              "grandchild_of",
+              "family_member_of"
             ]
           },
           "personIs": {
@@ -23008,7 +23021,14 @@
               "shareholder_of",
               "beneficiary_of",
               "guardian_of",
-              "point_of_contact_for"
+              "point_of_contact_for",
+              "spouse_of",
+              "parent_of",
+              "child_of",
+              "sibling_of",
+              "grandparent_of",
+              "grandchild_of",
+              "family_member_of"
             ]
           },
           "role": {
@@ -70075,11 +70095,68 @@
                             },
                             "proofReference": {
                               "type": "string"
+                            },
+                            "codeDestination": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 320
                             }
                           },
                           "required": [
                             "level"
                           ]
+                        },
+                        "signatureImages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "imageBase64": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 350000
+                              },
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 50000
+                                },
+                                "maxItems": 200
+                              }
+                            },
+                            "required": [
+                              "imageBase64"
+                            ]
+                          },
+                          "maxItems": 8
+                        },
+                        "initialsImages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "imageBase64": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 350000
+                              },
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 50000
+                                },
+                                "maxItems": 200
+                              }
+                            },
+                            "required": [
+                              "imageBase64"
+                            ]
+                          },
+                          "maxItems": 8
                         }
                       },
                       "required": [
