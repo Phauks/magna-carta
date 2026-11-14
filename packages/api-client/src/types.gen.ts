@@ -927,6 +927,22 @@ export type PatchScanPolicyRequest = {
     stepUpReauthOnFlagged?: boolean;
 };
 
+export type DeletedFilePolicyResponse = {
+    /**
+     * Days a deleted file waits in its matter's Trash, where anyone with access can restore it.
+     */
+    trashDays: 30 | 60 | 90 | 180 | 365;
+    /**
+     * What happens after Trash: archive moves the file to Infrequent Access storage in place; keep-standard leaves it where it is. Neither destroys it.
+     */
+    afterTrash: 'archive' | 'keep-standard';
+};
+
+export type PatchDeletedFilePolicyRequest = {
+    trashDays?: 30 | 60 | 90 | 180 | 365;
+    afterTrash?: 'archive' | 'keep-standard';
+};
+
 export type EditingPolicyResponse = {
     recordChanges: boolean;
 };
@@ -13603,6 +13619,91 @@ export type ScanPolicyScoreHistogramResponses = {
 };
 
 export type ScanPolicyScoreHistogramResponse = ScanPolicyScoreHistogramResponses[keyof ScanPolicyScoreHistogramResponses];
+
+export type DeletedFilePolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/deleted-file-policy';
+};
+
+export type DeletedFilePolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DeletedFilePolicyGetError = DeletedFilePolicyGetErrors[keyof DeletedFilePolicyGetErrors];
+
+export type DeletedFilePolicyGetResponses = {
+    /**
+     * The firm's deleted-file policy
+     */
+    200: DeletedFilePolicyResponse;
+};
+
+export type DeletedFilePolicyGetResponse = DeletedFilePolicyGetResponses[keyof DeletedFilePolicyGetResponses];
+
+export type DeletedFilePolicyUpdateData = {
+    body: PatchDeletedFilePolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/deleted-file-policy';
+};
+
+export type DeletedFilePolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageRetention
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DeletedFilePolicyUpdateError = DeletedFilePolicyUpdateErrors[keyof DeletedFilePolicyUpdateErrors];
+
+export type DeletedFilePolicyUpdateResponses = {
+    /**
+     * The firm's deleted-file policy after the write
+     */
+    200: DeletedFilePolicyResponse;
+};
+
+export type DeletedFilePolicyUpdateResponse = DeletedFilePolicyUpdateResponses[keyof DeletedFilePolicyUpdateResponses];
 
 export type EditingPolicyGetData = {
     body?: never;

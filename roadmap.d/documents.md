@@ -348,21 +348,22 @@
   scope: Soft-delete trash window (Standard) then IA cold retention then policy-driven destruction blocked by holds; default retention indefinite.
   status: partial
   adrs: ADR-0049
-  evidence: Soft-delete/restore statements exist; no trash-expiry IA transition or destruction lever found in the tree.
+  evidence: Trash and restore and the trash-expiry move to Infrequent Access are built; policy-driven destruction is not.
 
 - id: documents.versioning.deleted-lifecycle.trash
   name: Trash & restore
   scope: Soft-delete hides the record from the File Manager (firm-scoped state change, bytes untouched); restore clears the flag in place.
   status: shipped
-  surface: awaiting-screen
-  evidence: softDeleteFileStatement + undelete in packages/file-manager/src/file-statements.ts; deleted_at filters in queries.ts.
+  surface: screen
+  evidence: softDeleteFileStatement + undelete in packages/file-manager/src/file-statements.ts; deleted_at filters in queries.ts. The matter file manager's Deleted Files view lists and restores them, with a Leaves Trash column.
 
 - id: documents.versioning.deleted-lifecycle.cold-retention
   name: Trash-expiry IA transition
   scope: After the trash window, deleted objects transition Standard to IA in place via the same server-side copy used for superseded versions.
-  status: not-started
+  status: shipped
+  surface: screen
   adrs: ADR-0049
-  evidence: tiering-sweep.ts documents that it only touches superseded versions, never deletes.
+  evidence: apps/api-worker/src/background/editing/tiering-sweep.ts also moves every version of a file deleted longer ago than the firm's trash window (listExpiredTrashVersions in packages/file-manager/src/queries.ts) when the firm's deleted-file policy says archive. The policy is the per-firm setting in packages/file-manager/src/deleted-file-settings.ts (default 30 days, then archive), read and written at /api/v1/firm/deleted-file-policy and set on Settings, Deleted Files; each matter's Deleted Files list shows when a file leaves Trash. No migration: the setting rides the per-firm key/value table.
 
 - id: documents.versioning.deleted-lifecycle.destruction
   name: Policy-driven destruction
@@ -370,6 +371,7 @@
   status: not-started
   adrs: ADR-0049
   evidence: No hard-delete path for file bytes in the tree; decision recorded in ADR-0049.
+  notes: Blocked on a hold to honour. Custody holds exist (custody_hold, on packets) and discovery holds its own sets, but there is no legal hold on a matter or a file, and the firm's settings promise destruction never happens under one.
 
 - id: documents.preview
   name: Inline file preview

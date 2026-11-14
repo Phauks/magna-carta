@@ -3,6 +3,7 @@ import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerAutoFilePolicyRoutes } from "./auto-file-policy.ts";
 import { registerCustomFieldsRoutes } from "./custom-fields.ts";
+import { registerDeletedFilePolicyRoutes } from "./deleted-file-policy.ts";
 import { registerDocumentTypesRoutes } from "./document-types.ts";
 import { registerDownloadPreferenceRoutes } from "./download-preferences.ts";
 import { registerEditingPolicyRoutes } from "./editing-policy.ts";
@@ -40,6 +41,8 @@ export function mountFirm(app: AppRouter, chokepoint: Chokepoint, _deps: DomainD
   registerNumberReservationRoutes(domain, chokepoint);
   // Read and update the firm's malware scan-policy settings (tier, score floor, flagged treatment).
   registerScanPolicyRoutes(domain, chokepoint);
+  // Read and update how long deleted files wait in Trash, and whether they then move to archive storage.
+  registerDeletedFilePolicyRoutes(domain, chokepoint);
   registerEditingPolicyRoutes(domain, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
