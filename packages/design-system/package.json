@@ -131,6 +131,7 @@
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "catalog:",
     "@fontsource-variable/fraunces": "catalog:",
+    "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/lexend": "catalog:",
     "@fontsource-variable/literata": "catalog:",
     "@fontsource/opendyslexic": "catalog:",

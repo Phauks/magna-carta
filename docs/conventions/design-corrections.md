@@ -304,6 +304,13 @@ is usually the fastest way to understand the rule.
   same type: small, medium weight, muted, in sentence case, never small capitals with tracking.
   A fold heading in a navigation column composes the same voice.
   _(app visual refresh, 2026-11-14)_
+- **A date is typed the way it is said, and read back in words.** "Nov 13", "11/13", "today",
+  "fri" all work; at rest the field shows "Fri, Nov 13, 2026", so the reader checks the weekday. A
+  date the field cannot read keeps its text with the red edge, and the value does not move.
+  _(app visual refresh, 2026-11-14)_
+- **The reading face is Inter.** Atkinson Hyperlegible's slashed zero made every date and amount
+  read as code ("2Ø26"), and the face has no plain zero to switch to. Atkinson stays a choice under
+  Settings > Text. _(app visual refresh, 2026-11-14)_
 - **Two to four choices are shown, not hidden in a list.** A closed choice that small is a
   `SegmentedControl`, every option on screen and the chosen one raised; five or more is a Select.
   A choice not built yet stays in the track, refused, with its reason on hover. It takes a row of
@@ -1652,7 +1659,10 @@ The owner, asked to pick one of three directions for the app as a whole:
   Both now read the same. Promoted to _Data entry_.
 - **Billing was a dropdown of two or three words.** The time, cost and fee windows now show the
   choices side by side in a segmented control. Promoted to _Data entry_.
-- **Still to come in later passes:** a typed date, and the shell and tables in direction A.
+- **"Atkinson's slashed zero makes dates and money look like code."** No plain zero exists in the
+  face, so the default became Inter (the direction A body face), and dates became typed. Promoted to
+  _Data entry_.
+- **Still to come in later passes:** the shell and tables in direction A.
 
 ### 2026-11-09 — About Magna Carta is a window of facts, not a page about the product
 

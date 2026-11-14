@@ -41,9 +41,9 @@ const densityPermutations = ["compact"].map((density) => ({
 }));
 
 // Same shape for the typeface axis: each non-default reading face re-points font.sans only (a font
-// stack is theme-, mode- and density-invariant); "atkinson" is the primitive truth and needs no
+// stack is theme-, mode- and density-invariant); "inter" is the primitive truth and needs no
 // overlay.
-const typefacePermutations = ["lexend", "opendyslexic", "serif", "system"].map((typeface) => ({
+const typefacePermutations = ["atkinson-hyperlegible", "lexend", "opendyslexic", "serif", "system"].map((typeface) => ({
   input: { theme: "chancery", mode: "light", typeface },
   include: ["font.sans"],
   prepare: (css) => `:root[data-typeface="${typeface}"] {\n${css}\n}`,
@@ -52,9 +52,16 @@ const typefacePermutations = ["lexend", "opendyslexic", "serif", "system"].map((
 // The typeface SAMPLES: one block per reading face, the default included, keyed on
 // [data-typeface-sample="…"] on any element. Each re-points --mc-font-sans for that subtree only,
 // which is how the Font Family picker draws every option in its own face whatever face the
-// document is set in. The default needs a block here too, or an Atkinson sample would inherit the
+// document is set in. The default needs a block here too, or an Inter sample would inherit the
 // face the document is set in.
-const typefaceSamplePermutations = ["atkinson", "lexend", "opendyslexic", "serif", "system"].map(
+const typefaceSamplePermutations = [
+  "inter",
+  "atkinson-hyperlegible",
+  "lexend",
+  "opendyslexic",
+  "serif",
+  "system",
+].map(
   (typeface) => ({
     input: { theme: "chancery", mode: "light", typeface },
     include: ["font.sans"],

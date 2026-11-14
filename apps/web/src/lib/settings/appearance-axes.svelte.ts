@@ -59,7 +59,7 @@ function readInitialValues(): AppearanceValues {
       density: "comfortable",
       contrast: "system",
       scrollEdgeHints: "shown",
-      typeface: "atkinson",
+      typeface: "inter",
       textSize: DEFAULT_TEXT_SIZE,
     };
   }
@@ -230,13 +230,14 @@ export const TYPEFACE_DEFINITION: SettingDefinition = {
   // The face's name alone (owner-directed, 2026-11-13): the Text page draws each option IN its
   // own face, so the face shows what it is and a line describing it is noise.
   options: [
-    { value: "atkinson", label: "Atkinson Hyperlegible" },
+    { value: "inter", label: "Inter" },
+    { value: "atkinson-hyperlegible", label: "Atkinson Hyperlegible" },
     { value: "lexend", label: "Lexend" },
     { value: "opendyslexic", label: "OpenDyslexic" },
     { value: "serif", label: "Literata" },
     { value: "system", label: "System" },
   ],
-  defaultValue: "atkinson",
+  defaultValue: "inter",
   sensitivity: "open",
 };
 
