@@ -11,6 +11,7 @@
    * With no picture there is nothing to look at, so the initials are only initials, and somebody
    * who may edit the directory gets the small camera button beside them that says Add Photo.
    */
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
   import * as Avatar from "@magna-carta/design-system/avatar";
   import Button from "@magna-carta/design-system/button";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
@@ -69,7 +70,7 @@
     if (outcome.kind !== "ok") {
       return outcome.kind === "problem" && outcome.problem.detail !== undefined
         ? outcome.problem.detail
-        : "The picture was not saved. Try again.";
+        : "The picture wasn't saved. Try again.";
     }
     photo = outcome.value.photo;
     toast.success("Photo saved");
@@ -79,7 +80,7 @@
   async function remove(): Promise<boolean> {
     const outcome = await removeDirectoryEntityPhoto(fetch, entityId, crypto.randomUUID());
     if (outcome.kind !== "ok") {
-      toast.error("The photo was not removed. Try again.");
+      failureToast(outcome.failure, "The photo wasn't removed. Try again.");
       return false;
     }
     photo = null;

@@ -1,30 +1,32 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { runConversion, type EngineResolver } from "@magna-carta/conversion/execute";
 import { composeTabularDocument } from "@magna-carta/document-assembly/compose/tabular";
 import { renderableTabularDocumentSchema } from "@magna-carta/export-document/renderable";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { resolveEnginePort } from "../../../conversions/conversion-engine.ts";
-import { Problem, problemJson } from "../../contracts/problem.ts";
+import { Problem } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 
 const DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-const PDF_MEDIA_TYPE = "application/pdf";
 
 const ExportRenderRequest = z
   .object({
-    format: z.enum(["docx", "pdf"]),
+    format: z.enum(["docx"]),
     document: renderableTabularDocumentSchema,
   })
   .openapi("ExportRenderRequest");
 
 // A printer, not a data source: the caller sends the tabular document it already holds (its bounds
-// are the schema's), the platform composes a plain word-processing package through document
-// assembly's guarded writer, and the PDF arm rides the registry's one docx-to-pdf edge. Nothing is
-// stored — filing an export would be a separate, audited decision. Spec:
-// docs/specs/2026-08-31-tabular-export-rendering-design.md.
+// are the schema's) and the platform composes a plain word-processing package through document
+// assembly's guarded writer. Nothing is stored; filing an export would be a separate, audited
+// decision.
+//
+// WORD ONLY. A tabular export's PDF is composed in the browser by the platform's PDF composer
+// (apps/web/src/lib/export/render-pdf.ts over @magna-carta/pdf-compose), the one way such a PDF is
+// made. This route used to carry a second, the Word document across the office suite's conversion
+// edge; it no longer does, and `format` keeps its one value so a later format is a new member
+// rather than a new route.
 export const reportExportRenderMeta: RouteMeta = {
   operationId: "reports.exportRender",
   surface: "app",
@@ -40,7 +42,7 @@ export const reportExportRenderRoute = defineOpenAPIRoute(reportExportRenderMeta
   method: "post",
   path: "/api/v1/reports/exports",
   description:
-    "Read-shaped POST: renders the tabular export document in the request into a file and returns its bytes — a Word document composed by the platform, or that document carried across the office suite's conversion edge as a PDF. Pure computation over the caller's own payload; nothing is stored.",
+    "Read-shaped POST: renders the tabular export document in the request into a Word document and returns its bytes. A tabular export's PDF is composed in the browser by the platform's PDF composer, not here. Pure computation over the caller's own payload; nothing is stored.",
   request: {
     body: { content: { "application/json": { schema: ExportRenderRequest } }, required: true },
   },
@@ -58,16 +60,11 @@ export const reportExportRenderRoute = defineOpenAPIRoute(reportExportRenderMeta
       content: { "application/problem+json": { schema: Problem } },
     },
     422: {
-      description: "The document is past the render bounds, or the conversion has no path",
+      description: "The document is past the render bounds, or asks for a format other than Word",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
       description: "Rate limit exceeded",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    503: {
-      description:
-        "The office-suite engine is not available right now — deployed but warming, faulted, or absent from this environment. Retry.",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -76,42 +73,16 @@ export const reportExportRenderRoute = defineOpenAPIRoute(reportExportRenderMeta
 export function registerReportExportRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
-  // The engine Container cannot run under the local test pool, so the resolver is injectable on the
-  // same terms the assembly consumer takes it.
-  resolveEngines: (env: Bindings) => EngineResolver = resolveEnginePort,
 ): void {
   app.openapi(
     {
       ...reportExportRenderRoute,
       middleware: chokepointMiddleware(chokepoint, reportExportRenderRoute),
     },
-    async (c) => {
-      const { format, document } = c.req.valid("json");
+    (c) => {
+      const { document } = c.req.valid("json");
       const composed = composeTabularDocument(document);
-      if (format === "docx") {
-        return c.body(composed.slice().buffer, 200, { "content-type": DOCX_MEDIA_TYPE });
-      }
-      const converted = await runConversion("docx", "pdf", composed, resolveEngines(c.env));
-      if (!converted.ok) {
-        if (converted.reason === "unsupported-edge") {
-          return problemJson(c, {
-            type: "unsupported-conversion",
-            title: "No conversion path",
-            status: 422,
-            detail: "The requested conversion has no path in the registry.",
-          });
-        }
-        // Deployed-but-warming, faulted, or an environment without the engine: the caller can act
-        // on "try again shortly"; an Error ID for an engine that is warming is the failure mode the
-        // template-scan precedent exists to prevent.
-        return problemJson(c, {
-          type: "service-unavailable",
-          title: "Document engine unavailable",
-          status: 503,
-          detail: "The office-suite engine is not available right now. Try again shortly.",
-        });
-      }
-      return c.body(converted.bytes.slice().buffer, 200, { "content-type": PDF_MEDIA_TYPE });
+      return c.body(composed.slice().buffer, 200, { "content-type": DOCX_MEDIA_TYPE });
     },
   );
 }

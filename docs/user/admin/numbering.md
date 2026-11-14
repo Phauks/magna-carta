@@ -35,6 +35,27 @@ sequence's name beside the number it is issuing today.
   knows when it happened without a lookup, and a firm-wide run would reach five digits inside a
   year. They are listed so the page is the whole inventory.
 
+## Draft numbers while a record is being created
+
+A window that creates a numbered record shows the number the record will be saved under before you
+save it, in italics: a new matter, intake or consultation, a new conflicts check, a new custody
+packet, and each call or text being written down. Point at the number to see what the italics mean.
+
+- **The number is held for you.** Somebody else creating the same kind of record at the same moment
+  is shown the next number, not yours, so the number you read out is the number the record gets.
+- **Cancelling gives the number back.** Close the window without saving and the next record of that
+  kind takes the number, so the run has no gap. A window left open and forgotten, or a tab that
+  closes, gives its number back after fifteen minutes on its own.
+- **Changing what you are creating changes the number.** Switching a new matter from Intake to
+  Consultation, or changing the day a call happened, gives the first number back and shows one from
+  the right run.
+- Because a number can be given back, a run fills in order of numbers rather than strictly in the
+  order records were saved: a matter numbered 0007 may be saved a minute after 0008.
+
+**Invoice numbers are never held.** A bill is numbered when it is finalized, all at once, so an
+invoice run stays both gapless and in the order the bills were issued. Time entries are numbered as
+they are captured and have no window to hold a number for.
+
 The first five are the firm's to shape. Until the firm has set a matter numbering scheme, a
 consultation cannot be opened as a matter: there is no shape to draw its number in. Every other
 sequence numbers itself from its built-in shape until the firm sets its own, so a file, a check or a

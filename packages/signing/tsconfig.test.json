@@ -11,6 +11,9 @@
   "references": [
     {
       "path": "./tsconfig.build.json"
+    },
+    {
+      "path": "../house-document/tsconfig.build.json"
     }
   ],
   "include": [

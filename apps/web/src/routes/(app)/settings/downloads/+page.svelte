@@ -20,8 +20,8 @@
    * Both rows are the shared settings row, so the plate keeps one rhythm: the folder row's
    * description states where files land today, and its control column holds the picker.
    */
+  import { failureToast } from "$lib/diagnostics/failure-toast.ts";
   import { onMount } from "svelte";
-  import { toast } from "@magna-carta/design-system/toast";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
@@ -100,7 +100,7 @@
     // Put the switch back where it was: a control that moved and did not save is a setting the
     // member believes they changed.
     saveImmediately = previous;
-    toast.error("That preference could not be saved. Try again shortly.");
+    failureToast(outcome.failure, "That preference could not be saved. Try again shortly.");
   }
 </script>
 

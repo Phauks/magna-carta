@@ -37,6 +37,41 @@ export interface ReportSection {
   readonly note?: string;
   /** What an empty section says in its one placeholder row. */
   readonly whenEmpty: string;
+  /**
+   * The report's own total for the section, drawn under the rows, ruled off, and outside any sort.
+   * It arrives from the payload's totals; a presenter never adds the rows above it up.
+   */
+  readonly totalRow?: readonly ReportCell[];
+  /** The reader may sort by any column: a figure by its number, anything else by its text. */
+  readonly sortable?: boolean;
+  /**
+   * Rows under each row, in the same columns, indexed with `rows`: a client's matters. The screen
+   * opens them under the row on a press; the file prints them under it, so both carry the same
+   * figures.
+   */
+  readonly rowDetails?: readonly (readonly (readonly ReportCell[])[])[];
+  /** Column indexes whose non-zero figures read in the attention tone: debt over ninety days. */
+  readonly attentionColumns?: readonly number[];
+  /**
+   * Columns the on-screen table draws under the first column's text rather than as columns of
+   * their own (a client's office, under the client's name), so the figures keep their width in a
+   * narrow column. The file and the cards keep them as columns.
+   */
+  readonly subordinateColumns?: readonly number[];
+  /** One short line at the end of the section's heading: the completeness declaration. */
+  readonly aside?: string;
+}
+
+/**
+ * One figure in the row of totals the report opens with. The value is the payload's own total,
+ * formatted; the detail is a count the payload also carries. A tile never derives a figure.
+ */
+export interface ReportSummaryTile {
+  readonly label: string;
+  readonly value: string;
+  readonly detail: string | null;
+  /** `attention` paints the figure in the danger tone; `total` is the closing tile, filled. */
+  readonly tone: "plain" | "attention" | "total";
 }
 
 /** What a report says about how much of the firm it covered, as the response declared it. */
@@ -54,6 +89,11 @@ export interface ReportPresentation {
   readonly reproducible: boolean;
   readonly completeness: ReportCompleteness;
   readonly sections: readonly ReportSection[];
+  /**
+   * The row of totals the report opens with, where it has one: the totals-first layout. A
+   * report with a summary carries its stamp as one line under the tiles rather than as a panel.
+   */
+  readonly summary?: readonly ReportSummaryTile[];
 }
 
 /** A figure with both faces: the text the screen prints and the number a spreadsheet sums. */
@@ -73,7 +113,7 @@ export function reportExportDocument(
   const sections: TabularExportSection[] = presentation.sections.map((section) => ({
     title: section.title,
     headers: section.headers,
-    rows: section.rows,
+    rows: exportRowsOf(section),
     ...(section.endAlignedColumns === undefined
       ? {}
       : { endAlignedColumns: section.endAlignedColumns }),
@@ -86,6 +126,26 @@ export function reportExportDocument(
     generatedAt,
     sections,
   };
+}
+
+/**
+ * A section's rows as the file prints them: each row with its detail rows under it, the first cell
+ * indented so a reader of the file sees which client a matter belongs to, then the total row.
+ */
+function exportRowsOf(section: ReportSection): readonly (readonly ReportCell[])[] {
+  const rows: (readonly ReportCell[])[] = [];
+  section.rows.forEach((row, rowIndex) => {
+    rows.push(row);
+    for (const detail of section.rowDetails?.[rowIndex] ?? []) {
+      rows.push(detail.map((cell, columnIndex) => (columnIndex === 0 ? indented(cell) : cell)));
+    }
+  });
+  if (section.totalRow !== undefined) rows.push(section.totalRow);
+  return rows;
+}
+
+function indented(cell: ReportCell): ReportCell {
+  return typeof cell === "string" ? `    ${cell}` : { ...cell, text: `    ${cell.text}` };
 }
 
 /** How the completeness declaration reads on the cover. */

@@ -121,7 +121,7 @@
 
   // ---- the listing, asked one way or the other -------------------------------------------------
 
-  const list = new PagedList<DirectoryEntityListing>("The firm's directory could not be read.");
+  const list = new PagedList<DirectoryEntityListing>("Couldn't load the firm's directory.");
   const records = $derived(list.items);
   const listFailure = $derived(list.failure);
   let total = $state(0);
@@ -215,7 +215,7 @@
         return;
       }
       matters = [];
-      matterFailure = stated(outcome.failure, "The firm's matters could not be searched.");
+      matterFailure = stated(outcome.failure, "Couldn't search the firm's matters.");
     })();
     return () => {
       cancelled = true;
@@ -344,7 +344,7 @@
          beneath it. Not an EntityIdentity — that mark says which side of the DIRECTORY a record
          is, and a matter is on neither side of it. -->
     <span class="flex flex-col">
-      <a class="underline underline-offset-2" href="/matters/{row.matterId}">{listingName(row)}</a>
+      <a class="underline-offset-2 hover:underline" href="/matters/{row.matterId}">{listingName(row)}</a>
       {#if row.matterNumber !== ""}
         <span class="text-xs text-text-muted">{row.matterNumber}</span>
       {/if}
@@ -404,15 +404,14 @@
 
   {#if createDisabledReason !== undefined && session !== null}
     <Alert.Root variant="info">
-      <Alert.Title>Adding To The Directory Is Not Available To This Account</Alert.Title>
+      <Alert.Title>This Account Can't Add to the Directory</Alert.Title>
       <Alert.Description>{createDisabledReason}</Alert.Description>
     </Alert.Root>
   {/if}
 
   {#if tooShortToAsk}
     <p class="text-xs text-text-muted">
-      It takes {MINIMUM_QUERY_LENGTH} letters to search. Every name the firm has ever recorded is matched,
-      the ones a person no longer goes by included, and a misspelling still finds them.
+      Type {MINIMUM_QUERY_LENGTH} letters to search. Current and former names are matched, and misspellings still find them.
     </p>
   {/if}
 
@@ -421,7 +420,7 @@
   {#if matterFailure !== null}
     <FailureNotice
       failure={matterFailure.failure}
-      title="The Firm's Matters Could Not Be Searched"
+      title="Couldn't Search Matters"
       fallback={matterFailure.fallback}
       whenSilent={matterFailure.whenSilent}
       onRetry={searchAgain}
@@ -433,9 +432,9 @@
          reader got "[object Object]" where the sentence belonged, and no Error ID to report. -->
     <FailureNotice
       failure={listFailure}
-      title="The Directory Could Not Be Read"
-      fallback="The firm's directory could not be read."
-      whenSilent="Nothing answered when the directory was asked for."
+      title="Couldn't Load the Directory"
+      fallback="Couldn't load the firm's directory."
+      whenSilent="Couldn't connect. The directory didn't load."
       onRetry={rereadIndex}
     />
   {:else if answeredNothing}
@@ -443,8 +442,7 @@
          what to do next. -->
     <div class="min-h-0 flex-1">
       <EmptyState title="Nothing Matches That Search">
-        No name on the firm's record answers to that, current or former. Recording them, with New at
-        the top of the screen, is what puts them in front of the next conflicts check.
+        No current or former name matches. Add them with New so the next conflicts check includes them.
       </EmptyState>
     </div>
   {:else}
@@ -454,7 +452,7 @@
       {grid}
       class="min-h-0 flex-1"
       caption={searching
-        ? "The firm's records and matters matching the search, in its own relevance order"
+        ? "Records and matters matching the search, most relevant first"
         : "The firm's directory, in name order"}
       cell={directoryCell}
       loading={records === null}
@@ -467,8 +465,7 @@
                count has no place here — the rows are a best-of, not a slice of a known total. -->
           {#if capped}
             <span>
-              The firm holds more matches than are shown. These are the closest; narrowing the
-              search reaches the rest.
+              More matches exist than are shown. Narrow the search to see the rest.
             </span>
           {/if}
         {:else if moreThanLoaded}

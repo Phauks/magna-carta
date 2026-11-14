@@ -45,17 +45,18 @@
         if (contrast === "standard") delete root.dataset.contrast;
         else root.dataset.contrast = contrast;
         // The reading face: without it a person who chose OpenDyslexic sees the whole boot in
-        // Atkinson and then watches every line reflow when the application mounts.
+        // Inter and then watches every line reflow when the application mounts.
         var typeface = localStorage.getItem("magna-carta.typeface");
         if (
+          typeface !== "atkinson-hyperlegible" &&
           typeface !== "lexend" &&
           typeface !== "opendyslexic" &&
           typeface !== "serif" &&
           typeface !== "system"
         ) {
-          typeface = "atkinson";
+          typeface = "inter";
         }
-        if (typeface === "atkinson") delete root.dataset.typeface;
+        if (typeface === "inter") delete root.dataset.typeface;
         else root.dataset.typeface = typeface;
         // The text size, a whole percentage from 50 to 200: without it a person who chose 150%
         // watches the whole boot at the browser's base size and then every line grow when the

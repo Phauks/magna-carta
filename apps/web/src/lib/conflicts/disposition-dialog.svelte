@@ -143,7 +143,7 @@
       if (consentingParty === null) return "A waiver has to name who gave it.";
       if (givenOn === "") return "A waiver has to say when it was given.";
       if (confirmedInWriting === "") {
-        return "Say whether the consent was confirmed in writing. Either answer is recordable; not answering is not.";
+        return "Say whether the consent was confirmed in writing.";
       }
     }
     return undefined;
@@ -207,7 +207,7 @@
     failure = stated(
       outcome.failure,
       "The answer was refused.",
-      "The answer could not be sent. Nothing was recorded.",
+      "Couldn't send the answer. Nothing was saved.",
     );
     return "refused";
   }
@@ -305,8 +305,8 @@
             {matterId}
             inputId={props.id}
             fieldName="Evidencing Document"
-            noMatterNote="This check names no matter, so there is nowhere to file the confirmation yet. The waiver can be recorded without it and reads as incomplete until a later answer names the document."
-            noFilesNote="This matter holds no files yet. Filing the confirmation and recording a second answer is what completes the record."
+            noMatterNote="This check isn't on a matter, so there's nowhere to save the confirmation yet. You can record the waiver now; it stays incomplete until the document is added."
+            noFilesNote="This matter has no files yet. Add the confirmation and record a second answer to complete the record."
             chosenNoun="the evidencing document"
             disabled={busy}
           />
@@ -336,7 +336,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Answer Was Not Recorded"
+        title="Answer Not Saved"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />

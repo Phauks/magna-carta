@@ -84,7 +84,7 @@
     <FailureNotice
       failure={failure.failure}
       subject="This matter"
-      title="This Matter Could Not Be Searched"
+      title="This Matter Couldn't Be Searched"
       fallback={failure.fallback}
       whenSilent={failure.whenSilent}
     />

@@ -16,12 +16,14 @@
 import type { HandleClientError } from "@sveltejs/kit";
 import { record } from "$lib/diagnostics/breadcrumbs.ts";
 import { CRASH_MESSAGE, crashSignature, noteCrash } from "$lib/diagnostics/crash.ts";
+import { recordCrash } from "$lib/diagnostics/crash-record.ts";
 
 export const handleError: HandleClientError = ({ error, event, status, message }) => {
   // A 404 is routing, not a crash: it has no handle to mint and nothing to report.
   if (status === 404) return { message };
 
   const errorId = noteCrash(error, event.url.pathname);
+  recordCrash(errorId, error, event.route.id ?? event.url.pathname);
 
   return { message: CRASH_MESSAGE, errorId, cause: crashSignature(error) };
 };

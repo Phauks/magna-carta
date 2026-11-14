@@ -16,7 +16,7 @@ Each procedure is a list of steps. A step has a title, optional instructions, an
 decides who answers the step:
 
 - **Conflicts Check**: answered by the matter's conflicts record. The step is satisfied when a check
-  has run at the firm's floor, every surfaced hit has a reviewer's answer, and no re-check is owed.
+  has run at the firm's minimum, every surfaced hit has a reviewer's answer, and no re-check is owed.
   It cannot be marked done by hand; it can be waived.
 - **Fee Agreement**: answered by the fee arrangement recorded from the matter's status window.
 - **Engagement Letter** and **Document**: answered when a document is produced onto the matter from

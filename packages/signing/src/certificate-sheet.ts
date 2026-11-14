@@ -7,7 +7,26 @@
 // read by people in more than one zone and a converted time invites the question of whose clock it
 // was. The record and its plain text keep each instant exactly as it was stored.
 
-import { brandLockupPng } from "./brand-lockup.ts";
+import {
+  card,
+  clock,
+  groupedCode,
+  houseDocument,
+  housePictures,
+  instantFields,
+  noteLine,
+  pagedTable,
+  pageHeading,
+  pageList,
+  pictureWidth,
+  type HouseBlock,
+  type HouseDocument,
+  type HouseField,
+  type HouseLetterhead,
+  type HousePaper,
+  type HouseTypeface,
+} from "@magna-carta/house-document";
+
 import {
   ADOPTION_LABEL,
   ATTRIBUTION_LABEL,
@@ -17,89 +36,11 @@ import {
 import type { CertificateOfCompletion, SignerCompletion, SigningContact } from "./esign.ts";
 import type { SignatureImage } from "./port.ts";
 
-interface SheetField {
-  readonly label: string;
-  readonly value: string;
-  /** The value's words set in columns of one width, so its lines stand under one another. */
-  readonly grid?: true;
-}
+/** The blocks the sheet uses: the house document's. */
+export type CertificateSheetBlock = HouseBlock;
 
-/** The blocks the sheet uses, a subset of the composer's own. */
-export type CertificateSheetBlock =
-  | { readonly type: "pageBreak" }
-  | { readonly type: "cardStart"; readonly title?: string }
-  | { readonly type: "cardEnd" }
-  | { readonly type: "heading"; readonly level: 1 | 2; readonly text: string }
-  | { readonly type: "paragraph"; readonly text: string }
-  | {
-      readonly type: "paragraph";
-      readonly spans: readonly { readonly text: string; readonly bold?: boolean }[];
-      readonly small: true;
-    }
-  | {
-      readonly type: "fields";
-      readonly fields: readonly SheetField[];
-      /** Two columns side by side, read down the first and then the second. */
-      readonly twoUp?: true;
-    }
-  | {
-      readonly type: "table";
-      readonly columns: readonly { readonly heading: string; readonly weight: number }[];
-      readonly rows: readonly (readonly string[])[];
-    }
-  /** A picture named by its position in the list passed to the composer beside the sheet. */
-  | {
-      readonly type: "image";
-      readonly image: number;
-      readonly width: number;
-      /** What the picture is, set small above it. */
-      readonly label: string;
-      /** Set on the line of the picture before it. */
-      readonly beside?: true;
-    };
-
-/** A document the PDF composer accepts as it stands. */
-export interface CertificateSheet {
-  readonly title: string;
-  readonly subject: string;
-  readonly language: string;
-  readonly created?: {
-    readonly year: number;
-    readonly month: number;
-    readonly day: number;
-    readonly hour: number;
-    readonly minute: number;
-    readonly second: number;
-  };
-  readonly page: {
-    readonly paper: CertificatePaper;
-    readonly marginTop: number;
-    readonly marginRight: number;
-    readonly marginBottom: number;
-    readonly marginLeft: number;
-  };
-  /** The colour of the title, the headings and the rules: red, green and blue. */
-  readonly accent: readonly [number, number, number];
-  /** Rows set closer together, so the first page holds the summary, eight signers and the contacts. */
-  readonly compact: true;
-  /** What heads every page: the lockup, the certificate's name and its reference. */
-  readonly letterhead: {
-    readonly image: number;
-    readonly title: string;
-    readonly label: string;
-    readonly detail: string;
-  };
-  /** The family the sheet is set in. */
-  readonly typeface: CertificateTypeface;
-  readonly footer: { readonly center: string };
-  readonly blocks: readonly CertificateSheetBlock[];
-}
-
-/**
- * The dark gold the application uses for an accent on a light ground (`accent-700` in
- * packages/design-tokens), as the red, green and blue a printed page needs.
- */
-const ACCENT = [98, 72, 0] as const;
+/** A house document with a letterhead on every page. */
+export type CertificateSheet = HouseDocument & { readonly letterhead: HouseLetterhead };
 
 /**
  * The pictures the sheet names by position: the lockup its letterhead draws, then each signer's
@@ -110,27 +51,14 @@ export function certificateSheetImages(
   signatureImages: readonly SignatureImage[] = [],
   initialsImages: readonly SignatureImage[] = [],
 ): Uint8Array[] {
-  return [
-    brandLockupPng(),
+  return housePictures([
     ...signatureImages.map((signature) => signature.image),
     ...initialsImages.map((initials) => initials.image),
-  ];
+  ]);
 }
 
-/**
- * The families the composer carries. Atkinson Hyperlegible, the application's own reading face,
- * draws Latin only; Liberation Sans also draws Greek and Cyrillic.
- */
-export type CertificateTypeface = "atkinsonHyperlegible" | "liberationSans";
-
-/** The paper the sheet is laid out for: US Letter unless told otherwise. */
-export type CertificatePaper = "letter" | "a4";
-
-/** Each paper's width and height in points, as the composer has them. */
-const PAPER_SIZE: Record<CertificatePaper, { width: number; height: number }> = {
-  letter: { width: 612, height: 792 },
-  a4: { width: 595.28, height: 841.89 },
-};
+export type CertificateTypeface = HouseTypeface;
+export type CertificatePaper = HousePaper;
 
 /** What the sheet is told that the record does not hold. */
 export interface CertificateSheetOptions {
@@ -167,38 +95,12 @@ export interface CertificateSheetOptions {
 const SIGNATURE_HEIGHT = 36;
 const SIGNATURE_WIDTH = 200;
 
-/**
- * The width to print a signature at. A PNG says its size in its first chunk, and that gives the
- * width its height allows; any other picture is printed at the width of a short signature.
- */
 function signatureWidth(image: Uint8Array, widest = SIGNATURE_WIDTH): number {
-  const isPng = image.length >= 24 && image[0] === 0x89 && image[1] === 0x50;
-  if (!isPng) return widest / 2;
-  const view = new DataView(image.buffer, image.byteOffset, image.byteLength);
-  const [width, height] = [view.getUint32(16), view.getUint32(20)];
-  if (width === 0 || height === 0) return widest / 2;
-  return Math.min(widest, Math.round((SIGNATURE_HEIGHT * width) / height));
+  return pictureWidth(image, SIGNATURE_HEIGHT, widest);
 }
 
 /** The platform's name, where no issuer contact says otherwise. */
 const ISSUER_NAME = "Magna Carta";
-
-/**
- * How far every edge of the printed sheet stays from the edge of the paper, in points: half an
- * inch on all four sides. The letterhead's bar starts there, the page number sits there, and the
- * cards run from one side margin to the other. Half an inch is inside what a desktop printer
- * reaches on Letter and on A4.
- */
-const PAGE_EDGE = 36;
-
-/** The top margin: the edge, then the room the composer's letterhead takes above the content. */
-const PAGE_MARGIN_TOP = PAGE_EDGE + 60;
-
-/** The bottom margin: the edge, then the room the composer's footer takes below the content. */
-const PAGE_MARGIN_BOTTOM = PAGE_EDGE + 28;
-
-/** What the composer's card takes above what it holds: the bar its title sits in. */
-const CARD_TITLE_HEIGHT = 27;
 
 /**
  * How many lines of signature pictures one page of signer details has room for, two pictures to a
@@ -234,19 +136,6 @@ function signerPages(
   return pages;
 }
 
-/** Page numbers as a reader says them: runs joined with a dash, as "Pages 1-3, 7". */
-function pageList(pages: readonly number[]): string {
-  const sorted = [...new Set(pages)].toSorted((a, b) => a - b);
-  const runs: string[] = [];
-  for (let start = 0; start < sorted.length;) {
-    let end = start;
-    while (sorted[end + 1] === (sorted[end] ?? 0) + 1) end += 1;
-    runs.push(end > start ? `${sorted[start]}-${sorted[end]}` : `${sorted[start]}`);
-    start = end + 1;
-  }
-  return `${sorted.length === 1 ? "Page" : "Pages"} ${runs.join(", ")}`;
-}
-
 /**
  * What a signature picture is: "Signature" alone, its place among the signer's when they used
  * more than one, and the pages it was placed on when the signing flow gave them.
@@ -277,79 +166,9 @@ const AUDIT_COLUMNS = [
   { heading: "Details", weight: 22 },
 ] as const;
 
-/**
- * The room one page gives the audit log's rows, in points: the paper inside the sheet's margins,
- * less the card around the table and its title, less the table's own heading row, less a margin
- * for the estimate below being an estimate.
- */
-function auditRowsHeight(paper: CertificatePaper): number {
-  const content = PAPER_SIZE[paper].height - PAGE_MARGIN_TOP - PAGE_MARGIN_BOTTOM;
-  return content - CARD_TITLE_HEIGHT - (ROW_LINE_HEIGHT + ROW_PADDING) - 20;
-}
-
-/** The composer's compact row: a line of cell text, and the space above and below a row. */
-const ROW_LINE_HEIGHT = 13;
-const ROW_PADDING = 3;
-
-/**
- * How many characters of cell text fit a column one percent of the table wide, for each point of
- * the table's width. The composer measures real glyphs; this sheet cannot, so it assumes text a
- * little wider than it usually is. The time column is left out of the estimate because an instant
- * is sized to fit it.
- */
-const CHARACTERS_PER_WEIGHT_POINT = 0.92 / 468;
-
-/** The lines a row is expected to take in a table `width` points wide: its most-wrapped cell. */
-function estimatedLines(row: readonly string[], width: number): number {
-  let lines = 1;
-  for (const [index, cell] of row.entries()) {
-    const column = AUDIT_COLUMNS[index];
-    if (index === 0 || column === undefined) continue;
-    const capacity = Math.max(1, Math.floor(column.weight * CHARACTERS_PER_WEIGHT_POINT * width));
-    lines = Math.max(lines, Math.ceil(cell.length / capacity));
-  }
-  return lines;
-}
-
-/**
- * The audit log's rows a page at a time. A page is filled by the height its rows are expected to
- * take, so a log of short rows runs well down the page and one of long rows still breaks where the
- * next heading can be printed above what follows.
- */
-function auditPages(rows: readonly string[][], paper: CertificatePaper): string[][][] {
-  const pages: string[][][] = [[]];
-  const width = PAPER_SIZE[paper].width - 2 * PAGE_EDGE;
-  const room = auditRowsHeight(paper);
-  let used = 0;
-  for (const row of rows) {
-    const height = estimatedLines(row, width) * ROW_LINE_HEIGHT + ROW_PADDING;
-    const page = pages.at(-1);
-    if (page === undefined || (used + height > room && page.length > 0)) {
-      pages.push([row]);
-      used = height;
-    } else {
-      page.push(row);
-      used += height;
-    }
-  }
-  return pages;
-}
-
-/** `Signer Details (1 of 3)`: a section's heading on each of its pages, plain where it has one. */
-function pageHeading(section: string, page: number, pages: number): string {
-  return pages > 1 ? `${section} (${page + 1} of ${pages})` : section;
-}
-
 /** A contact as one small line: what it answers for, then who and how to reach them. */
 function contactLine(about: string, contact: SigningContact): CertificateSheetBlock {
-  const reach = [contact.name, contact.email, contact.phone].filter(
-    (part): part is string => part !== undefined && part !== "",
-  );
-  return {
-    type: "paragraph",
-    small: true,
-    spans: [{ text: `${about}: `, bold: true }, { text: reach.join(", ") }],
-  };
+  return noteLine(about, [contact.name, contact.email, contact.phone]);
 }
 
 /** The signature blocks a signer completed: one, the signing act itself, where none is counted. */
@@ -359,48 +178,6 @@ function signatureCount(signer: SignerCompletion): number {
 
 function initialCount(signer: SignerCompletion): number {
   return signer.intent.initialCount ?? 0;
-}
-
-/**
- * The hash as two lines of 32 characters, each set in eight groups of four, the grouping the
- * reference uses, so a reader comparing it against another copy keeps their place.
- */
-function hashRows(hash: string): string {
-  const lines = hash.match(/.{1,32}/g) ?? [hash];
-  return lines.map((line) => (line.match(/.{1,4}/g) ?? [line]).join(" ")).join("\n");
-}
-
-/** `2026-07-18 12:00:01`: an instant to the second, in Coordinated Universal Time. */
-function clock(instant: string): string {
-  const date = new Date(instant);
-  if (Number.isNaN(date.getTime())) return instant;
-  return date.toISOString().slice(0, 19).replace("T", " ");
-}
-
-/**
- * An instant as two rows, `Label: Date` and `Label: Time`. One that does not read as an instant is
- * a single row holding what was recorded.
- */
-function instantFields(label: string, instant: string): SheetField[] {
-  const read = clock(instant);
-  if (read === instant) return [{ label, value: instant }];
-  return [
-    { label: `${label}: Date`, value: read.slice(0, 10) },
-    { label: `${label}: Time`, value: `${read.slice(11)} UTC` },
-  ];
-}
-
-function createdOn(instant: string): CertificateSheet["created"] {
-  const date = new Date(instant);
-  if (Number.isNaN(date.getTime())) return undefined;
-  return {
-    year: date.getUTCFullYear(),
-    month: date.getUTCMonth() + 1,
-    day: date.getUTCDate(),
-    hour: date.getUTCHours(),
-    minute: date.getUTCMinutes(),
-    second: date.getUTCSeconds(),
-  };
 }
 
 /**
@@ -418,7 +195,7 @@ export function certificateSheet(
     String(signers.reduce((sum, signer) => sum + count(signer), 0));
 
   // The reference is in the letterhead of every page, so the summary does not repeat it.
-  const summary: SheetField[] = [];
+  const summary: HouseField[] = [];
   if (envelope !== undefined) {
     if (envelope.sender !== undefined) {
       summary.push({ label: "Sender: Name", value: envelope.sender.name });
@@ -439,28 +216,23 @@ export function certificateSheet(
   );
 
   // What was signed. One document today; the section is where a second would be listed.
-  const signed: SheetField[] = [];
+  const signed: HouseField[] = [];
   if (envelope?.title !== undefined) signed.push({ label: "Document", value: envelope.title });
   if (envelope?.pageCount !== undefined) {
     signed.push({ label: "Pages", value: String(envelope.pageCount) });
   }
   signed.push({
     label: "Hash (SHA-256)",
-    value: hashRows(certificate.documentHashSha256),
+    value: groupedCode(certificate.documentHashSha256),
     grid: true,
   });
 
   const documentContact = envelope?.contact ?? envelope?.sender;
   const paper = options.paper ?? "letter";
   const blocks: CertificateSheetBlock[] = [
-    { type: "cardStart", title: "Request Details" },
-    { type: "fields", fields: summary, twoUp: true },
-    { type: "cardEnd" },
-    { type: "cardStart", title: "Documents" },
-    { type: "fields", fields: signed },
-    { type: "cardEnd" },
-    { type: "cardStart", title: "Signers" },
-    {
+    ...card("Request Details", { type: "fields", fields: summary, twoUp: true }),
+    ...card("Documents", { type: "fields", fields: signed }),
+    ...card("Signers", {
       type: "table",
       columns: [
         { heading: "Name", weight: 24 },
@@ -476,12 +248,12 @@ export function certificateSheet(
         String(signatureCount(signer)),
         String(initialCount(signer)),
       ]),
-    },
-    { type: "cardEnd" },
-    { type: "cardStart", title: "Contact" },
-    ...(documentContact === undefined ? [] : [contactLine("Document", documentContact)]),
-    contactLine("Certificate of Completion", options.issuerContact ?? { name: ISSUER_NAME }),
-    { type: "cardEnd" },
+    }),
+    ...card(
+      "Contact",
+      ...(documentContact === undefined ? [] : [contactLine("Document", documentContact)]),
+      contactLine("Certificate of Completion", options.issuerContact ?? { name: ISSUER_NAME }),
+    ),
   ];
 
   // Where each signature sits in the pictures passed beside the sheet: after the lockup, in the
@@ -517,7 +289,7 @@ export function certificateSheet(
         },
       );
     }
-    const fields: SheetField[] = [];
+    const fields: HouseField[] = [];
     if (signer.intent.email !== undefined && signer.intent.name !== undefined) {
       fields.push({ label: "Email", value: signer.intent.email });
     }
@@ -537,7 +309,7 @@ export function certificateSheet(
       { label: "Initials", value: String(initialCount(signer)) },
     );
     // Where the signing act was observed from. These are the long values, set the full width.
-    const observed: SheetField[] = [];
+    const observed: HouseField[] = [];
     if (signer.attribution.observedIp !== undefined) {
       observed.push({ label: "IP Address", value: signer.attribution.observedIp });
     }
@@ -571,52 +343,32 @@ export function certificateSheet(
     blocks.push({ type: "cardEnd" });
   }
 
-  const logPages = auditPages(
-    (certificate.events ?? []).map((event) => [
-      clock(event.at),
-      SIGNING_EVENT_LABEL[event.kind],
-      event.actor ?? "System",
-      event.observedIp ?? "",
-      event.detail ?? "",
-    ]),
-    paper,
+  blocks.push(
+    ...pagedTable(
+      "Audit Log",
+      AUDIT_COLUMNS,
+      (certificate.events ?? []).map((event) => [
+        clock(event.at),
+        SIGNING_EVENT_LABEL[event.kind],
+        event.actor ?? "System",
+        event.observedIp ?? "",
+        event.detail ?? "",
+      ]),
+      // An instant is sized to fit the time column, so it never wraps.
+      { paper, fittedColumns: [0] },
+    ),
   );
-  for (const [page, rows] of logPages.entries()) {
-    blocks.push(
-      { type: "pageBreak" },
-      { type: "cardStart", title: pageHeading("Audit Log", page, logPages.length) },
-      { type: "table", columns: AUDIT_COLUMNS, rows },
-      { type: "cardEnd" },
-    );
-  }
 
-  return {
-    title: "Certificate of Completion",
+  return houseDocument({
+    name: "Certificate of Completion",
     subject:
       envelope?.title === undefined
         ? "Electronic signature record"
         : `Electronic signature record for ${envelope.title}`,
-    language: "en-US",
-    ...(createdOn(certificate.sealedAt) !== undefined
-      ? { created: createdOn(certificate.sealedAt) }
-      : {}),
-    page: {
-      paper,
-      marginTop: PAGE_MARGIN_TOP,
-      marginRight: PAGE_EDGE,
-      marginBottom: PAGE_MARGIN_BOTTOM,
-      marginLeft: PAGE_EDGE,
-    },
-    accent: ACCENT,
-    compact: true,
-    typeface: options.typeface ?? "atkinsonHyperlegible",
-    letterhead: {
-      image: 0,
-      title: "Certificate of Completion",
-      label: "Reference",
-      detail: certificate.reference,
-    },
-    footer: { center: "Page {page} of {pages}" },
+    created: certificate.sealedAt,
+    paper,
+    ...(options.typeface !== undefined ? { typeface: options.typeface } : {}),
+    reference: { label: "Reference", value: certificate.reference },
     blocks,
-  };
+  });
 }

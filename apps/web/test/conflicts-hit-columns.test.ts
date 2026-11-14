@@ -78,7 +78,7 @@ describe("the column model", () => {
 
     const unnamed = hit({ party: { kind: "person", displayName: null } });
     expect(partyText(unnamed)).toBe("Unnamed record");
-    expect(partyCellTitle(unnamed)).toContain("carries no name");
+    expect(partyCellTitle(unnamed)).toContain("has no name");
 
     // A named party needs no explanation, so it carries no hover at all.
     expect(partyCellTitle(hit())).toBeUndefined();
@@ -156,6 +156,6 @@ describe("what a cell says", () => {
       },
     });
     expect(adjudicationText(answered)).not.toBe("Waiver Obtained");
-    expect(adjudicationText(answered)).toBe("Waiver — Incomplete Record");
+    expect(adjudicationText(answered)).toBe("Waiver: Incomplete Record");
   });
 });

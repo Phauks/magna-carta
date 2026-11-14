@@ -135,6 +135,7 @@ import {
 } from "./signaling.ts";
 import type { GroupEpoch, GroupStanding } from "./encryption-group.ts";
 import { type FrameEncryptionSeams, MeetingEncryption } from "./meeting-encryption.ts";
+import { browserNamingSeams, MeetingNaming } from "./naming.ts";
 import {
   MeetingSubscriptions,
   RECONCILE_DEBOUNCE_MILLISECONDS,
@@ -732,6 +733,7 @@ export class MeetingClient {
   readonly #seams: MeetingClientSeams;
   readonly #signaling: MeetingSignaling;
   readonly #negotiation: MeetingNegotiation;
+  readonly #naming: MeetingNaming;
   readonly #subscriptions: MeetingSubscriptions;
   readonly #presence = new MeetingPresence();
 
@@ -813,6 +815,19 @@ export class MeetingClient {
         // frame that stated the hand and guessed at the other two would relay a speaking
         // transition nobody measured.
         () => this.#presence.announced(),
+      ),
+    );
+    this.#naming = new MeetingNaming(
+      browserNamingSeams(
+        (frame) => this.#signaling.send(frame),
+        () => {
+          const own = this.participants.find(
+            (participant) => participant.participantId === this.participantId,
+          );
+          return own === undefined
+            ? null
+            : { displayName: own.displayName, accountName: own.accountName };
+        },
       ),
     );
     this.#negotiation = new MeetingNegotiation((problem) => {
@@ -1162,6 +1177,15 @@ export class MeetingClient {
    */
   lowerHands(participantId: string | null): void {
     this.reactions.lowerHands(participantId, this.participantId);
+  }
+
+  /**
+   * Go by `name` in this meeting, or by the name this person came in with (`null`). The room holds it
+   * for the meeting and tells everybody, with the original beside it; the meeting's record keeps the
+   * account's name either way.
+   */
+  rename(name: string | null): void {
+    this.#naming.rename(name);
   }
 
   /** How somebody else's picture and sound are arriving, for a surface that draws the mark. */
@@ -2147,6 +2171,7 @@ export class MeetingClient {
     // The bubbles, the counts and this browser's own hand go with the room they were about: every
     // one of them is a fact about the next few seconds of a meeting that is over.
     this.reactions.clear();
+    this.#naming.clear();
     // The mark goes with the socket, because this browser no longer knows what the room is doing;
     // which recording was announced aloud is kept, so a rejoin into the same one does not chime.
     this.recording.noteDisconnected();

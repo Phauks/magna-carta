@@ -13,6 +13,7 @@
 export {
   formatDate,
   formatDateRange,
+  formatDateWithWeekday,
   formatMonth,
   formatMonthName,
   type CivilDateInput,

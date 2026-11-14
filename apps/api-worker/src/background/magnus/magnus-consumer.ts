@@ -242,6 +242,18 @@ export async function handleMagnusTurnJob(
   }
 
   const port = resolveMagnusInferencePort(env);
+  if (port === null) {
+    // The deployment names no model port. The question is settled as unanswered, never answered by
+    // the stub, and the misconfiguration is reported once through the standard pipeline.
+    await settleFailure(env, job, "model-unavailable", "failed", modelId);
+    logOperationFailed(
+      createWorkersLogger(env.TELEMETRY),
+      `queue:magnus:${job.magnusTurnId}`,
+      new Error("magnus inference adapter not configured (MAGNUS_INFERENCE_ADAPTER)"),
+      newCorrelationId(),
+    );
+    return;
+  }
   const result = await port.generateConversation({
     modelId,
     firmId: job.firmId as FirmId,
