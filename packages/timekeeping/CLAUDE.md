@@ -28,6 +28,8 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
   Nothing here renders a number; the shape is the firm's, written on the numbering settings screen
 - `src/time-entry-attachments.ts` — the many-file relation to the entry's matter's documents; attach
   refuses a file on another matter, detach removes the link and never the file
+- `src/productivity-statements.ts` — the productivity reads (minutes, never money): the breakdown
+  and the day-by-day list, both through `TIME_RECORDED_IN_PERIOD` so their totals cannot disagree
 - `src/task-time.ts` — how long a task took: the grouped read over `time_entry.task_id`, batched by
   construction so a page of tasks costs one statement rather than one per task
 

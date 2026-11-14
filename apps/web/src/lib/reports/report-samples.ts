@@ -5,7 +5,10 @@
  * total, because the fixture is drawn through the same presenter as the answer and a test over it
  * asserts the presenter printed the payload's figures.
  */
-import { sampleMatter, samplePerson } from "@magna-carta/design-system/loading-fixtures";
+import {
+  sampleMatter,
+  samplePerson,
+} from "@magna-carta/design-system/loading-fixtures";
 import type {
   AccountsReceivableAging,
   AppliedFigures,
@@ -18,6 +21,7 @@ import type {
   PaymentsApplied,
   Realization,
   TimekeeperProductivity,
+  DailyTime,
   WorkInProgress,
 } from "./report-reads.ts";
 
@@ -26,10 +30,19 @@ const LIVE_STATEMENT =
   "This report shows the records as they stood when it was produced, at 2026-08-01T15:00:00.000Z. " +
   "They can change until they are billed, so it is a live report and is not claimed to reproduce.";
 
-const MAIN = { locationId: "location_sample_main", locationName: "Main Office" };
-const NORTH = { locationId: "location_sample_north", locationName: "North Office" };
+const MAIN = {
+  locationId: "location_sample_main",
+  locationName: "Main Office",
+};
+const NORTH = {
+  locationId: "location_sample_north",
+  locationName: "North Office",
+};
 
-function matter(index: number, office: { locationId: string; locationName: string }) {
+function matter(
+  index: number,
+  office: { locationId: string; locationName: string },
+) {
   const sample = sampleMatter(index);
   return {
     matterId: `matter_sample_${String(index)}`,
@@ -65,8 +78,16 @@ export function sampleAccountsReceivableAging(): AccountsReceivableAging {
       invoiceCount: [6, 3, 2, 1, 1],
     },
     offices: [
-      { ...MAIN, unpaidMinor: [900_000, 300_000, 180_000, 0, 95_000], totalMinor: 1_475_000 },
-      { ...NORTH, unpaidMinor: [350_000, 120_000, 0, 60_000, 0], totalMinor: 530_000 },
+      {
+        ...MAIN,
+        unpaidMinor: [900_000, 300_000, 180_000, 0, 95_000],
+        totalMinor: 1_475_000,
+      },
+      {
+        ...NORTH,
+        unpaidMinor: [350_000, 120_000, 0, 60_000, 0],
+        totalMinor: 530_000,
+      },
     ],
     clients: [
       {
@@ -127,12 +148,22 @@ export function sampleWorkInProgress(): WorkInProgress {
       {
         ...client(0),
         figures: figures(900, 600_000, 30_000, 200_000, 830_000),
-        matters: [{ ...matter(0, MAIN), figures: figures(900, 600_000, 30_000, 200_000, 830_000) }],
+        matters: [
+          {
+            ...matter(0, MAIN),
+            figures: figures(900, 600_000, 30_000, 200_000, 830_000),
+          },
+        ],
       },
       {
         ...client(1),
         figures: figures(600, 400_000, 15_000, 0, 415_000),
-        matters: [{ ...matter(1, NORTH), figures: figures(600, 400_000, 15_000, 0, 415_000) }],
+        matters: [
+          {
+            ...matter(1, NORTH),
+            figures: figures(600, 400_000, 15_000, 0, 415_000),
+          },
+        ],
       },
     ],
     timekeepers: [
@@ -182,12 +213,22 @@ export function sampleRealization(): Realization {
       {
         ...client(0),
         figures: figures(750_000, 700_000, 50_000, 500_000),
-        matters: [{ ...matter(0, MAIN), figures: figures(750_000, 700_000, 50_000, 500_000) }],
+        matters: [
+          {
+            ...matter(0, MAIN),
+            figures: figures(750_000, 700_000, 50_000, 500_000),
+          },
+        ],
       },
       {
         ...client(1),
         figures: figures(350_000, 300_000, 0, 200_000),
-        matters: [{ ...matter(1, NORTH), figures: figures(350_000, 300_000, 0, 200_000) }],
+        matters: [
+          {
+            ...matter(1, NORTH),
+            figures: figures(350_000, 300_000, 0, 200_000),
+          },
+        ],
       },
     ],
   };
@@ -240,7 +281,66 @@ export function sampleTimekeeperProductivity(): TimekeeperProductivity {
     nonBillableCategories: [
       { categoryId: "category_sample", categoryName: "Training", minutes: 60 },
     ],
-    taskCodes: [{ code: null, label: null, figures: figures(4, 210, 60, 7778) }],
+    taskCodes: [
+      { code: null, label: null, figures: figures(4, 210, 60, 7778) },
+    ],
+  };
+}
+
+export function sampleDailyTime(): DailyTime {
+  const figures = (
+    entryCount: number,
+    billableMinutes: number,
+    nonBillableMinutes: number,
+  ) => {
+    const totalMinutes = billableMinutes + nonBillableMinutes;
+    return {
+      entryCount,
+      billableMinutes,
+      nonBillableMinutes,
+      totalMinutes,
+      billableShareBasisPoints:
+        totalMinutes === 0
+          ? null
+          : Math.round((billableMinutes * 10000) / totalMinutes),
+    };
+  };
+  const one = {
+    timekeeperUserId: "user_sample_one",
+    timekeeperName: samplePerson(0).name,
+  };
+  const two = {
+    timekeeperUserId: "user_sample_two",
+    timekeeperName: samplePerson(1).name,
+  };
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    computedAt: COMPUTED_AT,
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    completeness: { scope: "complete" },
+    totals: figures(4, 210, 60),
+    days: [
+      {
+        workDate: "2026-07-14",
+        figures: figures(3, 150, 60),
+        timekeepers: [
+          { ...one, figures: figures(2, 120, 60) },
+          { ...two, figures: figures(1, 30, 0) },
+        ],
+      },
+      {
+        workDate: "2026-07-15",
+        figures: figures(1, 60, 0),
+        timekeepers: [{ ...one, figures: figures(1, 60, 0) }],
+      },
+    ],
+    timekeepers: [
+      { ...one, dayCount: 2, figures: figures(3, 180, 60) },
+      { ...two, dayCount: 1, figures: figures(1, 30, 0) },
+    ],
   };
 }
 
@@ -309,7 +409,13 @@ export function sampleInvoices(): Invoices {
     creditedMinor: number,
     appliedMinor: number,
     unpaidMinor: number,
-  ): InvoiceFigures => ({ invoiceCount, billedMinor, creditedMinor, appliedMinor, unpaidMinor });
+  ): InvoiceFigures => ({
+    invoiceCount,
+    billedMinor,
+    creditedMinor,
+    appliedMinor,
+    unpaidMinor,
+  });
   return {
     periodStart: "2026-07-01",
     periodEnd: "2026-07-31",
@@ -333,7 +439,12 @@ export function sampleInvoices(): Invoices {
             issueDate: "2026-07-03",
             dueDate: "2026-08-02",
             figures: figures(1, 400_000, 50_000, 350_000, 0),
-            matters: [{ ...matter(0, MAIN), figures: figures(1, 400_000, 50_000, 350_000, 0) }],
+            matters: [
+              {
+                ...matter(0, MAIN),
+                figures: figures(1, 400_000, 50_000, 350_000, 0),
+              },
+            ],
           },
           {
             invoiceId: "invoice_sample_2",
@@ -341,7 +452,12 @@ export function sampleInvoices(): Invoices {
             issueDate: "2026-07-24",
             dueDate: "2026-08-23",
             figures: figures(1, 300_000, 0, 150_000, 150_000),
-            matters: [{ ...matter(0, MAIN), figures: figures(1, 300_000, 0, 150_000, 150_000) }],
+            matters: [
+              {
+                ...matter(0, MAIN),
+                figures: figures(1, 300_000, 0, 150_000, 150_000),
+              },
+            ],
           },
         ],
       },
@@ -355,7 +471,12 @@ export function sampleInvoices(): Invoices {
             issueDate: "2026-07-15",
             dueDate: "2026-08-14",
             figures: figures(1, 300_000, 0, 200_000, 100_000),
-            matters: [{ ...matter(1, NORTH), figures: figures(1, 300_000, 0, 200_000, 100_000) }],
+            matters: [
+              {
+                ...matter(1, NORTH),
+                figures: figures(1, 300_000, 0, 200_000, 100_000),
+              },
+            ],
           },
         ],
       },
@@ -379,7 +500,12 @@ export function samplePaymentsApplied(): PaymentsApplied {
     index: number,
     values: Pick<
       PaymentsApplied["entries"][number],
-      "kind" | "reversesKind" | "effectiveDate" | "amountMinor" | "reason" | "invoiceNumber"
+      | "kind"
+      | "reversesKind"
+      | "effectiveDate"
+      | "amountMinor"
+      | "reason"
+      | "invoiceNumber"
     >,
     clientIndex: number,
     office: { locationId: string; locationName: string },
@@ -418,7 +544,11 @@ export function samplePaymentsApplied(): PaymentsApplied {
       },
       {
         ...NORTH,
-        figures: figures({ entryCount: 1, trustTransferMinor: 200_000, totalMinor: 200_000 }),
+        figures: figures({
+          entryCount: 1,
+          trustTransferMinor: 200_000,
+          totalMinor: 200_000,
+        }),
       },
     ],
     clients: [
@@ -434,7 +564,11 @@ export function samplePaymentsApplied(): PaymentsApplied {
       },
       {
         ...client(1),
-        figures: figures({ entryCount: 1, trustTransferMinor: 200_000, totalMinor: 200_000 }),
+        figures: figures({
+          entryCount: 1,
+          trustTransferMinor: 200_000,
+          totalMinor: 200_000,
+        }),
       },
     ],
     entries: [
@@ -508,7 +642,11 @@ export function samplePaymentsApplied(): PaymentsApplied {
 }
 
 export function sampleMatterBalances(): MatterBalances {
-  const figures = (unbilledMinor: number, owedMinor: number, trustMinor: number) => ({
+  const figures = (
+    unbilledMinor: number,
+    owedMinor: number,
+    trustMinor: number,
+  ) => ({
     unbilledMinor,
     owedMinor,
     trustMinor,
@@ -538,7 +676,9 @@ export function sampleMatterBalances(): MatterBalances {
       {
         ...client(1),
         figures: figures(415_000, 240_000, 350_000),
-        matters: [{ ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) }],
+        matters: [
+          { ...matter(1, NORTH), figures: figures(415_000, 240_000, 350_000) },
+        ],
       },
     ],
   };
@@ -569,15 +709,31 @@ export function sampleMattersList(): MattersList {
     completeness: { scope: "complete" },
     totals: { matterCount: 3, openCount: 1, heldCount: 1, closedCount: 1 },
     offices: [
-      { ...MAIN, counts: { matterCount: 2, openCount: 1, heldCount: 0, closedCount: 1 } },
-      { ...NORTH, counts: { matterCount: 1, openCount: 0, heldCount: 1, closedCount: 0 } },
+      {
+        ...MAIN,
+        counts: { matterCount: 2, openCount: 1, heldCount: 0, closedCount: 1 },
+      },
+      {
+        ...NORTH,
+        counts: { matterCount: 1, openCount: 0, heldCount: 1, closedCount: 0 },
+      },
     ],
-    matters: [row(0, MAIN, "open"), row(1, NORTH, "hold"), row(2, MAIN, "closed")],
+    matters: [
+      row(0, MAIN, "open"),
+      row(1, NORTH, "hold"),
+      row(2, MAIN, "closed"),
+    ],
   };
 }
 
 export function sampleAgedWorkInProgress(): AgedWorkInProgress {
-  const figures = (a: number, b: number, c: number, d: number, totalMinor: number) => ({
+  const figures = (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    totalMinor: number,
+  ) => ({
     unbilledMinor: [a, b, c, d],
     totalMinor,
   });
@@ -599,13 +755,21 @@ export function sampleAgedWorkInProgress(): AgedWorkInProgress {
         ...client(0),
         figures: figures(500_000, 200_000, 30_000, 100_000, 830_000),
         matters: [
-          { ...matter(0, MAIN), figures: figures(500_000, 200_000, 30_000, 100_000, 830_000) },
+          {
+            ...matter(0, MAIN),
+            figures: figures(500_000, 200_000, 30_000, 100_000, 830_000),
+          },
         ],
       },
       {
         ...client(1),
         figures: figures(200_000, 100_000, 115_000, 0, 415_000),
-        matters: [{ ...matter(1, NORTH), figures: figures(200_000, 100_000, 115_000, 0, 415_000) }],
+        matters: [
+          {
+            ...matter(1, NORTH),
+            figures: figures(200_000, 100_000, 115_000, 0, 415_000),
+          },
+        ],
       },
     ],
   };

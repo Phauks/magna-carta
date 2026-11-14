@@ -52,6 +52,7 @@ export const OPERATIONS: readonly string[] = [
   "costs.void",
   "reports.accountsReceivableAging",
   "reports.agedWorkInProgress",
+  "reports.dailyTime",
   "reports.exportRender",
   "reports.invoices",
   "reports.matterBalances",

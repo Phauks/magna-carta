@@ -69,12 +69,13 @@ export interface TimekeeperProductivityReport {
   }[];
 }
 
-class Tally {
+// Shared with the Daily Time report, so both compute the billable share the same way.
+export class Tally {
   entryCount = 0;
   billableMinutes = 0;
   nonBillableMinutes = 0;
 
-  take(row: TimeRecordedRow): void {
+  take(row: Pick<TimeRecordedRow, "billable" | "entryCount" | "minutes">): void {
     this.entryCount += row.entryCount;
     if (row.billable) this.billableMinutes += row.minutes;
     else this.nonBillableMinutes += row.minutes;

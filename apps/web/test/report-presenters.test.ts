@@ -15,15 +15,20 @@ import {
   SEVERAL_OFFICES,
 } from "../src/lib/reports/financial-presenters.ts";
 import {
+  presentDailyTime,
   presentMattersList,
   presentOperationalVolumes,
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
 import { moneyText } from "../src/lib/reports/report-cells.ts";
-import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
+import {
+  reportExportDocument,
+  type ReportCell,
+} from "../src/lib/reports/report-presentation.ts";
 import {
   sampleAccountsReceivableAging,
   sampleAgedWorkInProgress,
+  sampleDailyTime,
   sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
@@ -51,7 +56,9 @@ describe("the aging presenter", () => {
   });
 
   it("rules the by-office table off with the payload's totals, not a sum of its rows", () => {
-    const offices = presentation.sections.find((section) => section.id === "by-office");
+    const offices = presentation.sections.find(
+      (section) => section.id === "by-office",
+    );
     expect(offices?.totalRow?.[0]).toBe("Firm total");
     expect(numberOf(offices?.totalRow?.[6])).toBe(
       spreadsheetNumber(fromMinor(aging.totals.totalMinor, USD)),
@@ -60,15 +67,22 @@ describe("the aging presenter", () => {
   });
 
   it("puts every client on a row and every matter under its client, in the file too", () => {
-    const clients = presentation.sections.find((section) => section.id === "by-client");
+    const clients = presentation.sections.find(
+      (section) => section.id === "by-client",
+    );
     expect(clients?.sortable).toBe(true);
     expect(clients?.rows).toHaveLength(aging.clients.length);
     expect(clients?.rowDetails?.map((details) => details.length)).toEqual(
       aging.clients.map((client) => client.matters.length),
     );
     expect(clients?.aside).toBe("All matters in scope were read.");
-    const file = reportExportDocument(presentation, new Date("2026-08-01T00:00:00Z"));
-    const fileClients = file.sections.find((section) => section.title === "By Client");
+    const file = reportExportDocument(
+      presentation,
+      new Date("2026-08-01T00:00:00Z"),
+    );
+    const fileClients = file.sections.find(
+      (section) => section.title === "By Client",
+    );
     expect(fileClients?.rows).toHaveLength(aging.clients.length * 2);
   });
 
@@ -80,10 +94,12 @@ describe("the aging presenter", () => {
 
 describe("a client's office", () => {
   it("is the one office its matters name, or says there are several", () => {
-    expect(clientOffice([{ locationName: "North" }, { locationName: "North" }])).toBe("North");
-    expect(clientOffice([{ locationName: "North" }, { locationName: "Main" }])).toBe(
-      SEVERAL_OFFICES,
-    );
+    expect(
+      clientOffice([{ locationName: "North" }, { locationName: "North" }]),
+    ).toBe("North");
+    expect(
+      clientOffice([{ locationName: "North" }, { locationName: "Main" }]),
+    ).toBe(SEVERAL_OFFICES);
   });
 });
 
@@ -94,9 +110,10 @@ describe("the other presenters", () => {
       presentRealization(sampleRealization()),
     ]) {
       expect(presentation.summary?.length).toBeGreaterThan(0);
-      expect(presentation.sections.find((section) => section.id === "by-client")?.sortable).toBe(
-        true,
-      );
+      expect(
+        presentation.sections.find((section) => section.id === "by-client")
+          ?.sortable,
+      ).toBe(true);
     }
   });
 
@@ -112,18 +129,23 @@ describe("the other presenters", () => {
       IDENTITY_CAPTIONS,
     );
     expect(JSON.stringify(presentation)).not.toMatch(/\$/);
-    expect(presentation.summary?.find((tile) => tile.label === "Billable share")?.value).toBe(
-      "78%",
-    );
+    expect(
+      presentation.summary?.find((tile) => tile.label === "Billable share")
+        ?.value,
+    ).toBe("78%");
   });
 
   it("places each matter type's opened and closed counts on one row and adds none", () => {
     const presentation = presentOperationalVolumes(sampleOperationalVolumes());
-    const matters = presentation.sections.find((section) => section.id === "matters");
+    const matters = presentation.sections.find(
+      (section) => section.id === "matters",
+    );
     expect(matters?.rows).toEqual([
       ["Litigation", { text: "4", number: 4 }, { text: "2", number: 2 }],
     ]);
-    expect(matters?.note).toBe(sampleOperationalVolumes().liveSectionsStatement);
+    expect(matters?.note).toBe(
+      sampleOperationalVolumes().liveSectionsStatement,
+    );
   });
 });
 
@@ -145,15 +167,23 @@ describe("the matters list presenter", () => {
   });
 
   it("rules the by-office table off with the payload's totals", () => {
-    const offices = presentation.sections.find((section) => section.id === "by-office");
+    const offices = presentation.sections.find(
+      (section) => section.id === "by-office",
+    );
     expect(offices?.totalRow?.[0]).toBe("Firm total");
     expect(numberOf(offices?.totalRow?.[4])).toBe(report.totals.matterCount);
   });
 
   it("puts every matter on its own row, in the payload's order, with its status in words", () => {
-    const matters = presentation.sections.find((section) => section.id === "matters");
+    const matters = presentation.sections.find(
+      (section) => section.id === "matters",
+    );
     expect(matters?.rows).toHaveLength(report.matters.length);
-    expect(matters?.rows.map((row) => row[5])).toEqual(["Open", "On hold", "Closed"]);
+    expect(matters?.rows.map((row) => row[5])).toEqual([
+      "Open",
+      "On hold",
+      "Closed",
+    ]);
     expect(matters?.rows[0]?.[7]).toBe("-");
   });
 });
@@ -173,13 +203,50 @@ describe("the aged work in progress presenter", () => {
   });
 
   it("rules the by-office table off with the payload's total and opens each client onto matters", () => {
-    const offices = presentation.sections.find((section) => section.id === "by-office");
+    const offices = presentation.sections.find(
+      (section) => section.id === "by-office",
+    );
     expect(numberOf(offices?.totalRow?.[5])).toBe(
       spreadsheetNumber(fromMinor(report.totals.totalMinor, USD)),
     );
-    const clients = presentation.sections.find((section) => section.id === "by-client");
+    const clients = presentation.sections.find(
+      (section) => section.id === "by-client",
+    );
     expect(clients?.rowDetails?.map((matters) => matters.length)).toEqual(
       report.clients.map((client) => client.matters.length),
+    );
+  });
+});
+
+describe("the daily time presenter", () => {
+  const report = sampleDailyTime();
+  const presentation = presentDailyTime(report, IDENTITY_CAPTIONS);
+
+  it("keeps to minutes, and rules the by-day table off with the payload's totals", () => {
+    expect(JSON.stringify(presentation)).not.toMatch(/\$/);
+    const days = presentation.sections.find(
+      (section) => section.id === "by-day",
+    );
+    expect(days?.rows).toHaveLength(report.days.length);
+    expect(days?.totalRow?.[0]).toBe("Firm total");
+    expect(numberOf(days?.totalRow?.[3])).toBe(report.totals.totalMinutes);
+    expect(days?.rows.map((row) => numberOf(row[3]))).toEqual(
+      report.days.map((day) => day.figures.totalMinutes),
+    );
+  });
+
+  it("opens each day onto its timekeepers, and every timekeeper reaches a row", () => {
+    const days = presentation.sections.find(
+      (section) => section.id === "by-day",
+    );
+    expect(days?.rowDetails?.map((entries) => entries.length)).toEqual(
+      report.days.map((day) => day.timekeepers.length),
+    );
+    const timekeepers = presentation.sections.find(
+      (section) => section.id === "by-timekeeper",
+    );
+    expect(timekeepers?.rows.map((row) => numberOf(row[1]))).toEqual(
+      report.timekeepers.map((timekeeper) => timekeeper.dayCount),
     );
   });
 });
