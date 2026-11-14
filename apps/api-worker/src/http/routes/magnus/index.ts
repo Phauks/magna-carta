@@ -1,5 +1,7 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerMagnusArtifactRoutes } from "./artifacts.ts";
+import { registerMagnusConversationPermissionRoutes } from "./conversation-permissions.ts";
 import { registerMagnusRoutes } from "./magnus.ts";
 import { registerMagnusShelfRoutes } from "./shelf.ts";
 import { registerMagnusTurnChangeRoutes } from "./turn-changes.ts";
@@ -20,5 +22,9 @@ export function mountMagnus(app: AppRouter, chokepoint: Chokepoint, _deps: Domai
   registerMagnusShelfRoutes(domain, chokepoint);
   // Editing or removing one's own message.
   registerMagnusTurnChangeRoutes(domain, chokepoint);
+  // Turning Magnus's read permissions on or off for one of one's own conversations.
+  registerMagnusConversationPermissionRoutes(domain, chokepoint);
+  // The documents Magnus wrote, their versions, and putting an earlier version back.
+  registerMagnusArtifactRoutes(domain, chokepoint);
   app.route("/", domain);
 }

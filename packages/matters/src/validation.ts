@@ -16,6 +16,9 @@ export type MatterValidationCode =
   | "scheme-missing"
   | "matter-number-not-url-safe"
   | "matter-number-taken"
+  // A transferred matter (transferred-matter.ts): a party arriving with no role says nothing about
+  // why the person is on the matter.
+  | "empty-party-role"
   // Matter types (one error type for the whole matters module).
   | "empty-type-name"
   | "type-name-taken"

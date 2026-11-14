@@ -22,12 +22,12 @@ export const aiTextCapability: CapabilityModule = {
   timing: "on-request",
   scope: "single",
   description: "Estimate whether a passage was written by AI.",
-  awaiting: "text extraction, and the consent step that has to precede it",
+  awaiting: "text extraction",
   applies(file) {
     if (carriesText(file)) return APPLIES;
     if (isImage(file) || isPdf(file)) {
       return notApplicable(
-        "This reads text, and there is none here yet. Run Text Recognition first, then decide separately whether to send the result outside the firm.",
+        "There's no text here yet. Run Text Recognition first, then decide whether to send the result outside the firm.",
       );
     }
     return notApplicable(`There is no readable text in ${describeType(file)}.`);

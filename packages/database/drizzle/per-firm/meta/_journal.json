@@ -491,6 +491,27 @@
       "when": 1794612296276,
       "tag": "20261113T232456_meeting-poll-kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1794608865267,
+      "tag": "20261113T233830_magnus-pane-permissions-and-artifacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1794300441180,
+      "tag": "20261113T234231_transfer-run-and-source-record-link",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1794604542947,
+      "tag": "20261113T234231_transfer-source-file",
+      "breakpoints": true
     }
   ]
 }

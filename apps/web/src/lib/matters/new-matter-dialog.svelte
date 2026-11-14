@@ -347,7 +347,7 @@
    */
   const refusal = $derived.by((): string | undefined => {
     if (opened) {
-      return "The matter is open. Close this window; the rest are staffed from the matter itself.";
+      return "The matter is open. Close this window and staff the rest from the matter.";
     }
     return blockedOn ?? undefined;
   });
@@ -757,7 +757,7 @@
              the block is not drawn there. -->
         <Label id="new-matter-consultation-fee-label">Consultation Fee</Label>
         <SoonAffordance
-          reason="the intake handing a new matter to billing"
+          reason="billing setup for new matters"
           reasonPlacement="line"
         >
           {#snippet control(soon)}
@@ -765,7 +765,7 @@
           {/snippet}
         </SoonAffordance>
         <Label id="new-matter-deposit-label">Deposit Into Trust</Label>
-        <SoonAffordance reason="the intake handing a new matter to trust" reasonPlacement="line">
+        <SoonAffordance reason="trust setup for new matters" reasonPlacement="line">
           {#snippet control(soon)}
             <Input aria-labelledby="new-matter-deposit-label" {...soon} />
           {/snippet}

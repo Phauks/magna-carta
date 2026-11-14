@@ -1380,7 +1380,7 @@
                 disabled={choice.waitsOn !== null}
                 title={choice.waitsOn === null
                   ? undefined
-                  : `Not built yet. Waiting on ${choice.waitsOn}.`}
+                  : `Not built yet: ${choice.waitsOn}.`}
               />
             {/each}
           </Combobox.Content>
@@ -1698,7 +1698,7 @@
         <Info class="size-16 shrink-0" aria-hidden="true" />
         <span>
           {#if entry.status === "billed"}
-            Billed. Which invoice took it up is not served yet: waiting on {gapReason("invoice")}.
+            Billed. Which bill isn't shown yet.
           {:else}
             Not on a bill yet. Add it to a draft bill from the Billing tab.
           {/if}

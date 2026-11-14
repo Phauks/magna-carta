@@ -27,7 +27,7 @@
   let showing = $state<string | null>(null);
 
   const ROLE_WORDS: Readonly<Record<string, string>> = {
-    standalone: "On its own",
+    standalone: "Standalone",
     parent: "The message",
     attachment: "Attachment",
     "container-child": "Inside the archive",
@@ -64,8 +64,7 @@
 {:else if members !== null}
   {#if members.length <= 1}
     <p class="text-text-muted text-sm">
-      This document arrived on its own. Every document belongs to a family even when it is the only
-      one in it, so this is an answer rather than a gap.
+      This document arrived on its own, with no related documents.
     </p>
   {:else}
     <ul class="flex flex-col gap-8">

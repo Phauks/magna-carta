@@ -888,7 +888,7 @@ The owner asked on 2026-11-13 to try Google's addresses before deciding whether 
 1. In the Google Cloud console (under `ops@magnacarta.esq`, credentials in the Bitwarden vault), create or pick a project, attach a billing account, and enable **Places API (New)**. The older Places API is a different product and is not what the adapter calls.
 2. **APIs & Services → Credentials → Create credentials → API key.** Restrict it: **API restrictions** to Places API (New) only. Leave application restrictions at none: the key is used from a Worker, which has no fixed IP address or referrer, and it never reaches a browser.
 3. **Set a quota** under Places API (New) → Quotas (requests per day for Autocomplete and for Place Details), and a **budget alert** under Billing. Google has no hard spending cap; the quota is the ceiling.
-4. `wrangler secret put GOOGLE_PLACES_API_KEY` on `magna-carta-api`.
+4. Create it in the Secrets Store as `GOOGLE_PLACES_API_KEY` (scope _Workers_). `apps/api-worker/wrangler.jsonc` already binds that name as `SECRETS_STORE_GOOGLE_PLACES_API_KEY`, so the next deploy picks it up; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store").
 5. Open any address form and type the first few characters of a real street. The list shows up to five offers with "Google Maps" under them; choosing one fills the town, region and postal code.
 
 **What it costs.** Two billed calls per address: Autocomplete (New) for each settled pause in typing (the field waits 300 ms and needs three characters), and one Place Details call when an offer is chosen. The field mask (`addressComponents,postalAddress,location`) keeps Place Details in the Essentials tier; adding any other field moves every call to a dearer tier. No session tokens are sent, because a session that ends in an Essentials lookup still bills its first twelve Autocomplete requests. Prices and free monthly caps: [`docs/operating-costs.md`](../operating-costs.md).
@@ -900,7 +900,7 @@ The owner asked on 2026-11-13 to try Google's addresses before deciding whether 
 - **No other map:** Places content may not be shown on a non-Google map. Nothing draws a map today.
 - **Disclosure:** each pause in typing sends a client's partial address to Google. Nothing of it is logged here: the query is in the request body, the key in a header.
 
-**Switching it off.** `wrangler secret delete GOOGLE_PLACES_API_KEY`. The next request goes to the platform's index or Smarty if either is provisioned, and otherwise answers `unavailable`.
+**Switching it off.** Delete `GOOGLE_PLACES_API_KEY` from the Secrets Store (and any per-Worker copy); a deleted store secret leaves the binding answering nothing, which reads as unset. The next request goes to the platform's index or Smarty if either is provisioned, and otherwise answers `unavailable`.
 
 ## 20. Address autocomplete — the platform's own index (OpenAddresses)
 
@@ -994,7 +994,7 @@ value back, and `ROOT_KEK` in particular is unrecoverable if lost (§3).
 ### Which secret is read where
 
 The list each Worker looks for is in code: `API_WORKER_SECRET_NAMES` in
-`apps/api-worker/src/stored-secrets.ts`, `COMMUNITY_WORKER_SECRET_NAMES` in
+`apps/api-worker/src/stored-secret-names.ts`, `COMMUNITY_WORKER_SECRET_NAMES` in
 `apps/community-worker/src/bindings.ts`, and the names passed to `resolveStoredSecrets` in
 `apps/sign-worker/src/index.ts`, `apps/bundle-worker/src/index.ts` and
 `apps/scan-worker/src/index.ts`. Of those, only `COMMUNITY_HANDOFF_SECRET` is read by two Workers

@@ -46,6 +46,17 @@ export const CONVERSATION_ATTACHMENTS_MAX = 10;
 // does not fit is CUT AND SAID rather than silently dropped.
 export const ATTACHMENT_TEXT_MAX_BYTES = 65536;
 
+// The author's own earlier conversations on the matter, together, per request, when the author has
+// turned that permission on. Its own budget, so a long history never crowds out a file the member
+// attached on purpose, and inside the window's cap like the files.
+export const EARLIER_CONVERSATIONS_MAX_BYTES = 32768;
+
+// One version of a document Magnus wrote, and every document's latest version together in one
+// request. A version over the cap is not kept; the answer says so instead. The window's budget is
+// its own, like the files', so a long draft never crowds out the question.
+export const ARTIFACT_VERSION_MAX_BYTES = 65536;
+export const ARTIFACTS_WINDOW_MAX_BYTES = 65536;
+
 // A source file larger than this is not read at all. Extraction runs on every question that carries
 // the attachment, and a file this size is not a document a question is about.
 export const ATTACHMENT_SOURCE_MAX_BYTES = 25 * 1024 * 1024;

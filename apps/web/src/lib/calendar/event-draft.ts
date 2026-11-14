@@ -71,8 +71,7 @@ export function isMeetingChoice(value: string): value is MeetingChoice {
  * another party from the Directory has no way in yet.
  */
 export const MEETING_GUESTS_SENTENCE =
-  "Everyone at the firm on this event is invited. A client or another party from the Directory is " +
-  "not sent a way in yet.";
+  "Everyone at the firm on this event is invited. Clients and other outside people can't be invited yet.";
 
 /**
  * And where it belongs to the FIRM or to one staff member, which is the other record this form
@@ -86,8 +85,7 @@ export const MEETING_GUESTS_SENTENCE =
  * one thing that actually gets their colleagues into the room, which is telling them.
  */
 export const FIRM_MEETING_GUESTS_SENTENCE =
-  "Nobody is notified about a firm meeting yet, so tell the people on it yourself. The room is on " +
-  "their calendar with the event, and they join it from there.";
+  "No one is notified about firm meetings yet, so tell the people on it yourself. The room is on their calendar with the event.";
 
 /** Which of the two the form shows, which is decided by the record it is about to write. */
 export function meetingGuestsSentence(owner: EventOwner): string {

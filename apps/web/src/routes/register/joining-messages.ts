@@ -59,8 +59,7 @@ export const CONFIRMATION_MAIL_UNAVAILABLE =
 
 /** The service could not be reached, or failed. Says nothing about what was typed. */
 export const JOINING_UNAVAILABLE =
-  "That could not be completed just now. Try again, and if it keeps happening, ask the firm that " +
-  "invited you or contact support.";
+  "That couldn't be completed. Try again, and if it keeps happening, ask the firm that invited you or contact support.";
 
 /**
  * The sentence for a failed step. `refusal` is the step's own constant refusal, used only for the

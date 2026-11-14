@@ -92,7 +92,7 @@ export function reportExportDocument(
 export function completenessLine(completeness: ReportCompleteness): string {
   switch (completeness.scope) {
     case "complete":
-      return "Every matter in scope was read.";
+      return "All matters in scope were read.";
     case "complete-not-itemized":
       return `Totals include ${String(completeness.notItemizedMatterCount)} matters that are not itemized.`;
     case "screened":

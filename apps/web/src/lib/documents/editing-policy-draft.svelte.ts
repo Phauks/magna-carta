@@ -25,7 +25,7 @@ export const RECORD_CHANGES_DEFINITION: SettingDefinition = {
   plateLabel: "Recording Changes",
   label: "Record Changes in Every Document",
   description:
-    "Every document opened in the browser editor keeps a record of who changed what. Members cannot turn recording off; the marks are hidden until somebody chooses to see them, and a copy that leaves the firm carries none of them.",
+    "Documents edited in the browser track who changed what. Tracking can't be turned off; changes stay hidden until someone shows them, and copies sent outside the firm don't include them.",
   kind: "switch",
   defaultValue: true,
   sensitivity: "open",

@@ -629,7 +629,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   <RecordAttachments
     attachments={[]}
     canEdit={false}
-    attachDisabledReason="Not built yet. Waiting on {gapReason('attachmentPicker')}."
+    attachDisabledReason="Not built yet: {gapReason('attachmentPicker')}."
   />
 {/snippet}
 
@@ -637,8 +637,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   <EventRail
     events={[]}
     label="This cost's history"
-    emptyMessage="Not built yet. Waiting on {gapReason('history')}. Who recorded this cost and when
-      are under the fields on Details; what happened to it afterwards is what this rail will carry."
+    emptyMessage="Not built yet: {gapReason('history')}. Who recorded it and when is on Details."
   />
 {/snippet}
 

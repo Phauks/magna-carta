@@ -255,12 +255,12 @@ export function numberingSchemeRefusal(segments: readonly NumberSegment[]): stri
   if (segments.length === 0) return "A scheme needs at least a counter.";
   const counters = segments.filter((segment) => segment.kind === "counter").length;
   if (counters === 0) return "A scheme needs a counter: the part that ticks up with each number.";
-  if (counters > 1) return "A scheme has exactly one counter; remove the others.";
+  if (counters > 1) return "A scheme can have only one counter. Remove the others.";
   for (const segment of segments) {
     if (segment.kind === "literal" && !URL_SAFE_PATTERN.test(segment.text)) {
       return segment.text.length === 0
         ? "A text part cannot be empty."
-        : `Text can carry only letters, digits and . _ ~ -; "${segment.text}" cannot appear in a number.`;
+        : `Text can contain only letters, digits and . _ ~ -. "${segment.text}" isn't allowed in a number.`;
     }
     if (
       segment.kind === "counter" &&
@@ -417,13 +417,13 @@ export function numberingNothingInForceSentence(
 ): string {
   return record.purpose === "matter"
     ? "Nothing. A matter cannot open until a scheme is set, because its number is drawn at that moment and never changes."
-    : `Nothing of the firm's; the built-in sequence numbers ${record.subjects} until one is set.`;
+    : `None set. The built-in sequence numbers ${record.subjects} until one is.`;
 }
 
 /** What Save says once it has landed, in the sequence's own terms. */
 export function numberingSavedSentence(record: Pick<NumberingPurposeRecord, "subjects">): string {
   const subjects = record.subjects.charAt(0).toUpperCase() + record.subjects.slice(1);
-  return `Saved. ${subjects} numbered from now on draw their number from this scheme; numbers already drawn are unchanged.`;
+  return `Saved. ${subjects} numbered from now on use this scheme; existing numbers don't change.`;
 }
 
 /** The consequence line beside Save, in the owner's words (owner ruling, 2026-11-09). */
@@ -446,7 +446,7 @@ export function numberSegmentCellRefusal(
     case "value":
       return kind === "literal"
         ? null
-        : `${label} has no text of its own; it takes its value from the record.`;
+        : `${label} has no fixed text; its value comes from the record.`;
     case "format":
       return kind === "counter" ||
         kind === "year" ||
@@ -458,7 +458,7 @@ export function numberSegmentCellRefusal(
       return kind === "counter" ? null : `Only the counter starts at a number.`;
     case "scoping":
       if (scopeSource === "owner") {
-        return "Each record this belongs to already keeps its own count, so no part can separate it.";
+        return "Each record already has its own count, so no part can separate it.";
       }
       return numberSegmentVocabulary(kind).valued
         ? null

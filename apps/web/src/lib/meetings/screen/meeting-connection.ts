@@ -102,6 +102,13 @@ const STATEMENT: Record<DiagnosticEventKind, (detail: string | null) => string> 
     detail === null
       ? "This page and the room disagree about how to talk"
       : `The room is speaking ${detail}, which this page does not`,
+  picture: (detail) =>
+    detail === null ? "A tile started a new picture" : `A tile started a new picture (${detail})`,
+  "camera-track": (detail) =>
+    detail === null
+      ? "Your camera's picture was replaced"
+      : `Your camera's picture was replaced (${detail})`,
+  view: (detail) => (detail === null ? "The view changed" : `The view changed: ${detail}`),
 };
 
 /**

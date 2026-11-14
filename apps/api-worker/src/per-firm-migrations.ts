@@ -80,6 +80,9 @@ import magnusTurnEffortSql from "@magna-carta/database/drizzle/per-firm/20261113
 import magnusTurnEditsSql from "@magna-carta/database/drizzle/per-firm/20261113T212409_magnus-turn-edits.sql";
 import fileThePlayableCopySql from "@magna-carta/database/drizzle/per-firm/20261113T215937_file-the-playable-copy.sql";
 import meetingPollKindsSql from "@magna-carta/database/drizzle/per-firm/20261113T232456_meeting-poll-kinds.sql";
+import magnusPanePermissionsAndArtifactsSql from "@magna-carta/database/drizzle/per-firm/20261113T233830_magnus-pane-permissions-and-artifacts.sql";
+import transferRunAndSourceRecordLinkSql from "@magna-carta/database/drizzle/per-firm/20261113T234231_transfer-run-and-source-record-link.sql";
+import transferSourceFileSql from "@magna-carta/database/drizzle/per-firm/20261113T234231_transfer-source-file.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -162,6 +165,9 @@ export function perFirmMigrations(): Migration[] {
     "20261113T212409_magnus-turn-edits": magnusTurnEditsSql,
     "20261113T215937_file-the-playable-copy": fileThePlayableCopySql,
     "20261113T232456_meeting-poll-kinds": meetingPollKindsSql,
+    "20261113T233830_magnus-pane-permissions-and-artifacts": magnusPanePermissionsAndArtifactsSql,
+    "20261113T234231_transfer-run-and-source-record-link": transferRunAndSourceRecordLinkSql,
+    "20261113T234231_transfer-source-file": transferSourceFileSql,
   });
 }
 

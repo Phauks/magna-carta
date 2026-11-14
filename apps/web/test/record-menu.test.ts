@@ -279,7 +279,7 @@ describe("a verb that cannot run says why, and stays on screen", () => {
     const withFullFolder = [file({ name: "a" }), folder({ name: "Discovery", hasContents: true })];
     const menu = fileRecordMenu(withFullFolder, withFullFolder[0] as FileRecord, context());
     const reason = row(menu, "delete").disabledReason ?? "";
-    expect(reason).toContain("A folder with contents is deleted on its own");
+    expect(reason).toContain("Folders with contents are deleted one at a time");
     expect(reason).toContain("Discovery");
   });
 
@@ -409,7 +409,7 @@ describe("a designed but unserved verb renders, marked, with its dependency", ()
     const many = [file({ name: "a" }), file({ name: "b" }), file({ name: "c" })];
     const menu = fileRecordMenu(many, many[0] as FileRecord, context());
     expect(row(menu, "share").label).toBe("Share 3 Files");
-    expect(row(menu, "share").soonDependency).toBe("client-portal document sharing");
+    expect(row(menu, "share").soonDependency).toBe("document sharing in the client portal");
     expect(isEnabled(row(menu, "share"))).toBe(false);
   });
 
@@ -424,7 +424,7 @@ describe("a designed but unserved verb renders, marked, with its dependency", ()
       "To docx",
       "Convert With Options",
     ]);
-    expect(choices.every((choice) => choice.soonDependency === "the conversion engine")).toBe(true);
+    expect(choices.every((choice) => choice.soonDependency === "file conversion")).toBe(true);
   });
 
   it("calls taking a member out of a live archive an extraction and out of a deleted one a restore", () => {
@@ -438,7 +438,7 @@ describe("a designed but unserved verb renders, marked, with its dependency", ()
       context({ surface: "archive", archiveIsDeleted: true }),
     );
     expect(row(deleted, "extractIntoMatter").label).toBe("Restore This File Into the Matter…");
-    expect(row(deleted, "extractIntoMatter").soonDependency).toBe("the archive-extraction engine");
+    expect(row(deleted, "extractIntoMatter").soonDependency).toBe("archive extraction");
   });
 });
 

@@ -67,7 +67,7 @@
   <div class="flex flex-col gap-8">
     <SectionHeading>Convert To</SectionHeading>
     {#if targets.length > 0}
-      <SoonAffordance reason="the conversion container" reasonPlacement="line">
+      <SoonAffordance reason="file conversion" reasonPlacement="line">
         {#snippet control(soon)}
           <div class="flex flex-wrap gap-8">
             {#each targets as format (format.id)}
@@ -81,7 +81,7 @@
         kind="not-applicable"
         reason={files.length === 1
           ? `Nothing converts from ${describeType(files[0]!)}.`
-          : `${withoutTargets.length} of the selected files convert to nothing, so the selection shares no target. Narrow the selection to see what the rest can become.`}
+          : `${withoutTargets.length} of the selected files can't be converted, so there's no shared format. Narrow the selection to see options for the rest.`}
       />
     {:else}
       <Absence

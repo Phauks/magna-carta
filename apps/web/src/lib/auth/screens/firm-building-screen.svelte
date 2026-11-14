@@ -86,8 +86,7 @@
         </p>
       {:else if slow}
         <p class="text-sm text-text-muted">
-          This is taking longer than it usually does. The work is still queued and will finish on its
-          own; this page moves on by itself when it does.
+          This is taking longer than usual. It will finish on its own, and this page moves on when it does.
         </p>
       {:else}
         <p class="text-sm text-text-muted">

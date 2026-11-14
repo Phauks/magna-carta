@@ -226,8 +226,8 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
     title: "Trust entry posted",
     detail: (facts) => (boolean(facts, "reversal") === true ? "Reverses an earlier entry" : null),
   },
-  "billing.invoice.finalized": { title: "Invoice finalised" },
-  "billing.invoice.voided": { title: "Invoice voided" },
+  "billing.invoice.finalized": { title: "Bill finalized" },
+  "billing.invoice.voided": { title: "Bill voided" },
   "documents.file.quarantined": { title: "File quarantined by scanning" },
   "documents.file.rescanInfected": { title: "Rescan found a file infected" },
   "documents.checkinConflict": {

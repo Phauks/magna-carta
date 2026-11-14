@@ -239,8 +239,7 @@
     {#if bookConflicts > 0}
       <!-- Reported once, after the booking that made it: the room grid shows the pair. -->
       <p class="text-sm">
-        Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}.
-        The booking stands; the room grid shows the pair.
+        Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}. Both bookings stand; the room grid shows them.
       </p>
     {/if}
     <DataTable.Root>

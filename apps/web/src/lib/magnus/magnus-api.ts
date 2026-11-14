@@ -210,6 +210,36 @@ export interface MagnusConversationDetail {
   conversation: MagnusConversation;
   turns: Page<MagnusTurn>;
   attachments: MagnusAttachment[];
+  /** What Magnus may read beyond the conversation, as its author set it. Every one starts off. */
+  permissions: MagnusConversationPermission[];
+}
+
+/**
+ * A read permission the conversation's author can turn on for that one conversation.
+ * `own-matter-conversations`: the author's own other conversations kept on the same matter.
+ */
+export type MagnusConversationPermission = "own-matter-conversations";
+
+/** One version of a document Magnus wrote, without its text. */
+export interface MagnusArtifactVersion {
+  versionNumber: number;
+  /** What changed, as Magnus or the restore described it. */
+  note: string | null;
+  /** The answer that wrote it; null for a version a member restored. */
+  writtenByTurnId: string | null;
+  memberUserId: string;
+  restoredFromVersion: number | null;
+  createdAt: string;
+  bytes: number;
+}
+
+/** A document Magnus wrote in a conversation, with its versions oldest first. */
+export interface MagnusArtifact {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  versions: MagnusArtifactVersion[];
 }
 
 export interface MagnusAcknowledgement {
@@ -591,6 +621,60 @@ export function shelveConversation(
     fetchImpl,
     `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/shelf`,
     { method: "PUT", body: shelf, idempotencyKey },
+  );
+}
+
+/** Turns one of Magnus's read permissions on or off for one of the caller's conversations. */
+export function setConversationPermission(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  permission: MagnusConversationPermission,
+  granted: boolean,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ permissions: MagnusConversationPermission[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/permissions/${encodeURIComponent(permission)}`,
+    { method: "PUT", body: { granted }, idempotencyKey },
+  );
+}
+
+/** The documents Magnus wrote in a conversation, each with its versions but not their text. */
+export function listArtifacts(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+): Promise<ApiOutcome<{ artifacts: MagnusArtifact[] }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/artifacts`,
+  );
+}
+
+/** The text of one version of a document. */
+export function readArtifactVersion(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  artifactId: string,
+  versionNumber: number,
+): Promise<ApiOutcome<{ artifactId: string; versionNumber: number; content: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/artifacts/${encodeURIComponent(artifactId)}/versions/${versionNumber}`,
+  );
+}
+
+/** Puts an earlier version back as the newest. Every version stays. */
+export function restoreArtifactVersion(
+  fetchImpl: typeof fetch,
+  conversationId: string,
+  artifactId: string,
+  versionNumber: number,
+  idempotencyKey: string,
+): Promise<ApiOutcome<MagnusArtifact>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/magnus/conversations/${encodeURIComponent(conversationId)}/artifacts/${encodeURIComponent(artifactId)}/restore`,
+    { method: "POST", body: { versionNumber }, idempotencyKey },
   );
 }
 
