@@ -134,7 +134,7 @@
       })
       .join(", ");
     const request = [
-      "Magna Carta — settings change request",
+      "Magna Carta: settings change request",
       `To: ${recipients}`,
       "",
       `setting: ${definition.label}`,
