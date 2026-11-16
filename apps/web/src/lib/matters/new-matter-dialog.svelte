@@ -539,7 +539,7 @@
       <Tabs.Content value="matter" class="flex flex-col gap-16">
         <div class="grid gap-16 sm:grid-cols-2">
           <div class="flex flex-col gap-8">
-            <Label for="new-matter-title">Title</Label>
+            <Label necessity="required" for="new-matter-title">Title</Label>
             <Input id="new-matter-title" bind:value={title} disabled={busy} />
           </div>
           {#if purpose === "matter"}
@@ -592,7 +592,7 @@
 
         <div class="grid gap-16 sm:grid-cols-2">
           <div class="flex flex-col gap-8">
-            <Label for="new-matter-practice-area">Practice Area</Label>
+            <Label necessity="optional" for="new-matter-practice-area">Practice Area</Label>
             <PracticeAreaPicker
               {matterTypes}
               bind:value={matterTypeId}
@@ -603,7 +603,7 @@
             />
           </div>
           <div class="flex flex-col gap-8">
-            <Label for="new-matter-location">Location</Label>
+            <Label necessity="optional" for="new-matter-location">Location</Label>
             <!-- The office the matter is RUN OUT OF, picked by the one piece that picks an office
                  anywhere in the product — so what a firm's offices are is answered in one place
                  and a matter's office is the same record the Offices screen manages. Where the
@@ -620,7 +620,7 @@
         </div>
 
         <div class="flex flex-col gap-8">
-          <Label for="new-matter-description">Description</Label>
+          <Label necessity="optional" for="new-matter-description">Description</Label>
           <Textarea
             id="new-matter-description"
             bind:value={description}
@@ -633,7 +633,7 @@
       <!-- ---------- People ---------- -->
       <Tabs.Content value="people" class="flex flex-col gap-16">
         <div class="flex flex-col gap-8">
-          <Label for="new-matter-responsible">Responsible Attorney</Label>
+          <Label necessity="required" for="new-matter-responsible">Responsible Attorney</Label>
           <MemberPicker
             members={roster}
             value={team.responsibleMemberId}
@@ -656,7 +656,7 @@
         <div class="grid gap-16 sm:grid-cols-2">
           {#each SEATS as seat (seat.id)}
             <div class="flex flex-col gap-8">
-              <Label for="new-matter-{seat.id}">{seat.label}</Label>
+              <Label necessity="optional" for="new-matter-{seat.id}">{seat.label}</Label>
               <MemberPicker
                 members={roster}
                 exclude={teamMemberIds(team)}
@@ -694,7 +694,7 @@
   {#snippet context({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="new-matter-client">Client</Label>
+        <Label necessity="required" for="new-matter-client">Client</Label>
         <!-- From the directory, never typed: a name typed here is how one client ends up in the
              book twice. Someone the directory does not hold yet is added there first. -->
         <DirectoryEntityPicker

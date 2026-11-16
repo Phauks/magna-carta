@@ -615,7 +615,7 @@
       <p class="text-sm">
         Declining ends this request for everyone, and {view?.senderName ?? "the sender"} is told. Anything you filled in is discarded.
       </p>
-      <Label for="signer-decline-reason">Why (optional)</Label>
+      <Label for="signer-decline-reason" necessity="optional">Why</Label>
       <Textarea id="signer-decline-reason" bind:value={declineReason} maxlength={500} disabled={busy} />
     </div>
   {/snippet}

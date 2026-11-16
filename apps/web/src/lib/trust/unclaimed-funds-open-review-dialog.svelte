@@ -164,7 +164,7 @@
         {/if}
       </DefinitionList.Root>
 
-      <LabelledField
+      <LabelledField necessity="optional"
         label="Note"
         hint="Why this ledger is being looked at, where that is worth recording."
         error={fieldRefusal(serverProblem, "note")}

@@ -70,7 +70,7 @@
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="two-factor-code">Two-Factor Code</Label>
+        <Label necessity="required" for="two-factor-code">Two-Factor Code</Label>
         <VerificationCodeInput
           bind:inputRef={codeFieldReference}
           inputId="two-factor-code"

@@ -118,7 +118,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField label="Reason">
+      <LabelledField necessity="required" label="Reason">
         {#snippet children({ props })}
           <Textarea {...props} rows={3} resizable={false} disabled={busy} bind:value={reason} />
         {/snippet}

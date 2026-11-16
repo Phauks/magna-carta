@@ -67,7 +67,7 @@
     {:else}
       <form onsubmit={onSubmit} class="flex flex-col gap-16">
         <div class="flex flex-col gap-8">
-          <Label for="reset-password-new">New Password</Label>
+          <Label necessity="required" for="reset-password-new">New Password</Label>
           <PasswordInput
             bind:ref={passwordFieldReference}
             id="reset-password-new"

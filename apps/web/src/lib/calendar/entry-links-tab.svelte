@@ -382,7 +382,7 @@
   {#snippet fields()}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-relate-target">Setting</Label>
+        <Label necessity="required" for="{idPrefix}-relate-target">Setting</Label>
         {#if relateChoices.length === 0}
           <p class="text-sm text-text-muted">Nothing else to link this to.</p>
         {:else}
@@ -404,9 +404,8 @@
         {/if}
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-relate-note">Note</Label>
+        <Label for="{idPrefix}-relate-note" necessity="optional">Note</Label>
         <Input id="{idPrefix}-relate-note" bind:value={relateNote} />
-        <p class="text-xs text-text-muted">Reason (optional)</p>
       </div>
     </div>
   {/snippet}

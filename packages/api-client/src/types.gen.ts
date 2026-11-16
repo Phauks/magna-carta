@@ -8951,6 +8951,11 @@ export type SendGuestMeetingMessageRequest = {
     body: string;
 };
 
+export type GuestMeetingFileAddress = {
+    url: string;
+    name: string;
+};
+
 export type MeetingRoomInspection = {
     firmId: string | null;
     meetingId: string | null;
@@ -42637,6 +42642,62 @@ export type GuestSendMessageResponses = {
 };
 
 export type GuestSendMessageResponse = GuestSendMessageResponses[keyof GuestSendMessageResponses];
+
+export type GuestOpenSharedFileData = {
+    body?: never;
+    headers?: {
+        /**
+         * The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The shared file, as the chat line names it.
+         */
+        fileId: string;
+    };
+    url: '/api/v1/guest/meeting/files';
+};
+
+export type GuestOpenSharedFileErrors = {
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The request is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type GuestOpenSharedFileError = GuestOpenSharedFileErrors[keyof GuestOpenSharedFileErrors];
+
+export type GuestOpenSharedFileResponses = {
+    /**
+     * Where to fetch the file, for the next few minutes
+     */
+    200: GuestMeetingFileAddress;
+};
+
+export type GuestOpenSharedFileResponse = GuestOpenSharedFileResponses[keyof GuestOpenSharedFileResponses];
 
 export type MeetingsInspectData = {
     body?: never;

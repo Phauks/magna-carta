@@ -472,6 +472,30 @@ describe("the chat panel", () => {
     expect(document.body.textContent?.split("Exhibit list.pdf")).toHaveLength(2);
   });
 
+  it("draws a shared file as a button where the page opens files itself, as a guest's does", () => {
+    const opened: string[] = [];
+    instance = mount(Panel, {
+      target,
+      props: panelProps({
+        messages: [
+          message(1, {
+            body: "Exhibit list.pdf",
+            attachedFile: { id: "file_exhibits", name: "Exhibit list.pdf" },
+          }),
+        ],
+        onOpenFile: (file) => opened.push(file.id),
+      }),
+    });
+    flushSync();
+
+    expect(
+      document.body.querySelector('a[href="/api/v1/files/file_exhibits/download"]'),
+    ).toBeNull();
+    const control = controls().find((one) => one.textContent?.trim() === "Exhibit list.pdf");
+    control?.click();
+    expect(opened).toEqual(["file_exhibits"]);
+  });
+
   it("offers a file only in a meeting kept on a matter", () => {
     const sharing = {
       onShareFile: () => Promise.resolve(true),

@@ -344,3 +344,30 @@ export async function readShareableMeetingFile(
     .all<{ id: FileId; name: string }>();
   return results[0];
 }
+
+/**
+ * Whether a file is shared in this meeting's chat right now: a line of the meeting that is not taken
+ * back points at it, and it is still a live file on the meeting's own matter. This is the whole of a
+ * guest's reach into the matter's files, so it is answered from the line and the file together and
+ * never from a handle the guest names alone.
+ */
+export async function isFileSharedInMeeting(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  fileId: FileId,
+): Promise<boolean> {
+  const { results } = await database
+    .prepare(
+      `SELECT 1 AS shared FROM meeting_message ` +
+        `JOIN meeting ON meeting.id = meeting_message.meeting_id ` +
+        `JOIN matter_event ON matter_event.id = meeting.matter_event_id ` +
+        `JOIN file ON file.id = meeting_message.attached_file_id ` +
+        `AND file.matter_id = matter_event.matter_id ` +
+        `WHERE meeting_message.meeting_id = ?1 AND meeting_message.attached_file_id = ?2 ` +
+        `AND meeting_message.redacted_at IS NULL AND meeting.event_kind = 'matter' ` +
+        `AND file.deleted_at IS NULL LIMIT 1`,
+    )
+    .bind(meetingId, fileId)
+    .all<{ shared: number }>();
+  return results.length > 0;
+}

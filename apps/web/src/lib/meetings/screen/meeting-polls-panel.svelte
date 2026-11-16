@@ -584,7 +584,7 @@
           <h3 id="meeting-new-poll-heading" class="text-sm font-medium">New Poll</h3>
 
           <div class="flex flex-col gap-4">
-            <Label for="meeting-new-poll-question">Question</Label>
+            <Label necessity="required" for="meeting-new-poll-question">Question</Label>
             <Textarea id="meeting-new-poll-question" bind:value={question} rows={2} />
             {#if questionRoomLeft <= ROOM_LEFT_STATED_FROM}
               <p class="text-xs text-text-muted">

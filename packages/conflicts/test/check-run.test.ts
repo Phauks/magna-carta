@@ -9,6 +9,8 @@ import {
   type RunCheckInput,
 } from "../src/run-check.ts";
 import {
+  searchedEntityIdsOf,
+  subjectEntityIdsOf,
   cancelRunStatement,
   CANCELLED_RUN_FAILURE,
   reportedRunStatus,
@@ -490,4 +492,16 @@ test("cancelling a run that already finished changes nothing", async () => {
   expect(stopped.meta.changes).toBe(0);
   const row = await readRun(fixture.database, checkId);
   expect(row === null ? null : reportedRunStatus(row)).toBe("completed");
+});
+
+test("who a run searched is its record's subjects once it has one, and the request's before", () => {
+  const request = JSON.stringify({ subjectEntityIds: ["entity_named"] });
+  expect(searchedEntityIdsOf(null, request)).toEqual(subjectEntityIdsOf(request));
+  // A check against a matter names nobody on its request; the record holds the matter's parties.
+  expect(searchedEntityIdsOf('["entity_client","entity_named"]', request)).toEqual([
+    "entity_client",
+    "entity_named",
+  ]);
+  // A record that cannot be read never hides the request's own subjects.
+  expect(searchedEntityIdsOf("not json", request)).toEqual(subjectEntityIdsOf(request));
 });

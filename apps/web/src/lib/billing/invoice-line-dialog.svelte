@@ -109,7 +109,7 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-description">Line Text</Label>
+        <Label necessity="required" for="{fieldPrefix}-description">Line Text</Label>
         <Textarea
           id="{fieldPrefix}-description"
           rows={3}
@@ -118,7 +118,7 @@
         />
       </div>
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-amount">Amount</Label>
+        <Label necessity="required" for="{fieldPrefix}-amount">Amount</Label>
         <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
       </div>
       <p class="flex items-start gap-8 text-sm text-text-muted">

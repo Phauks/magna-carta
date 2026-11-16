@@ -18,4 +18,11 @@
     color: var(--mc-text-muted);
     user-select: none;
   }
+  /* The required-or-optional mark after a label's name (necessity.ts decides which side gets it):
+     the same size, a lighter weight and ink, so it reads as a note on the name rather than part of
+     it. The label's own gap spaces it. */
+  .mc-label-necessity {
+    color: var(--mc-text-subtle);
+    font-weight: var(--mc-weight-regular);
+  }
 }

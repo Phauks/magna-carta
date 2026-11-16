@@ -105,7 +105,7 @@ export function captureReportText(input: CaptureExportInput): string {
   }
 
   return [
-    "SAFE WEBSITE VIEWER — CAPTURE REPORT",
+    "SAFE WEBSITE VIEWER: CAPTURE REPORT",
     "",
     "Everything below was collected by an isolated remote browser. The page never ran on the",
     "computer that saved this report. Addresses are text, not links.",

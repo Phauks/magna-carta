@@ -215,19 +215,19 @@
   <div class="flex min-h-0 flex-1">
     <aside aria-label="Bates numbering" class="mc-scrollbar flex min-h-0 w-352 shrink-0 flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
       <FieldRow columns={2}>
-        <LabelledField label="Prefix" error={problems.prefix}>
+        <LabelledField necessity="optional" label="Prefix" error={problems.prefix}>
           {#snippet children({ props })}
             <Input {...props} value={settings.prefix} placeholder="SMITH-" oninput={(event) => update({ prefix: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
-        <LabelledField label="Suffix" error={problems.suffix}>
+        <LabelledField necessity="optional" label="Suffix" error={problems.suffix}>
           {#snippet children({ props })}
             <Input {...props} value={settings.suffix} oninput={(event) => update({ suffix: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
       </FieldRow>
       <FieldRow columns={2}>
-        <LabelledField label="First Number" error={problems.startNumber}>
+        <LabelledField necessity="required" label="First Number" error={problems.startNumber}>
           {#snippet children({ props })}
             <Input
               {...props}
@@ -239,7 +239,7 @@
             />
           {/snippet}
         </LabelledField>
-        <LabelledField label="Digits" hint="Padded with zeros" error={problems.digits}>
+        <LabelledField necessity="required" label="Digits" hint="Padded with zeros" error={problems.digits}>
           {#snippet children({ props })}
             <Input
               {...props}
@@ -292,7 +292,7 @@
             </Select.Root>
           {/snippet}
         </LabelledField>
-        <LabelledField label="Size (pt)" error={problems.sizePt}>
+        <LabelledField necessity="required" label="Size (pt)" error={problems.sizePt}>
           {#snippet children({ props })}
             <Input
               {...props}

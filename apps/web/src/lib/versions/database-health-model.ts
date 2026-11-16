@@ -111,7 +111,7 @@ function firmDatabaseRow(value: DatabaseHealthValue): HealthRow {
       detail:
         fault === null
           ? "The firm's database didn't respond and gave no reason."
-          : `The firm's database did not answer this request: ${fault}`,
+          : `Couldn't connect to the firm's database: ${fault}`,
     };
   }
   const roundTrip = value.firmDatabase.roundTripMilliseconds;
@@ -536,7 +536,7 @@ export function copyLineForDatabaseHealth(value: DatabaseHealthValue): string {
   // bug report.
   const segments = databaseHealthRows(value).map((row) =>
     row.reading === "fault"
-      ? `${row.name}: ${row.status} — ${row.detail}`
+      ? `${row.name}: ${row.status}. ${row.detail}`
       : `${row.name}: ${row.status}`,
   );
   const backlog = describeProvisioningBacklog(value);
