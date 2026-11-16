@@ -34187,9 +34187,9 @@
           "shownCalendars": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CalendarSyncShownCalendar"
+              "$ref": "#/components/schemas/CalendarSyncAccountShownCalendar"
             },
-            "description": "The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them."
+            "description": "The calendars these events are read from, across every account the member connected: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them."
           },
           "events": {
             "type": "array",
@@ -34208,12 +34208,45 @@
           "truncated"
         ]
       },
+      "CalendarSyncAccountShownCalendar": {
+        "type": "object",
+        "properties": {
+          "calendarRemoteId": {
+            "type": "string"
+          },
+          "calendarName": {
+            "type": "string",
+            "description": "The calendar's name when it was chosen, shown when the provider is unreachable."
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "microsoft",
+              "google"
+            ],
+            "description": "Which of the member's accounts holds it."
+          }
+        },
+        "required": [
+          "calendarRemoteId",
+          "calendarName",
+          "provider"
+        ]
+      },
       "CalendarSyncAccountEvent": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "description": "The provider's own identifier for the event."
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "microsoft",
+              "google"
+            ],
+            "description": "Which of the member's accounts the event was read from."
           },
           "calendarRemoteId": {
             "type": "string"
@@ -34266,6 +34299,7 @@
         },
         "required": [
           "id",
+          "provider",
           "calendarRemoteId",
           "calendarName",
           "title",
@@ -108453,6 +108487,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The member's calendar sync settings",
@@ -108527,6 +108577,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -108807,6 +108873,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -108903,7 +108985,7 @@
     },
     "/api/v1/me/calendar-sync/account-events": {
       "get": {
-        "description": "The session member's own events inside a window, as last read from the calendars of their account they chose to be shown. Only ever the session member's. Empty when they have no account or chose no calendar. Copies of the firm's own events are left out.",
+        "description": "The session member's own events inside a window, as last read from the calendars of their accounts they chose to be shown. Only ever the session member's. Empty when they have no account or chose no calendar. Copies of the firm's own events are left out.",
         "operationId": "calendarSync.listMyAccountEvents",
         "tags": [
           "calendarSync"
@@ -109027,6 +109109,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The member's open questions",
@@ -109124,6 +109222,20 @@
             "required": true,
             "name": "localId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
           }
         ],
         "responses": {
@@ -109223,6 +109335,20 @@
             "required": true,
             "name": "localId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
           }
         ],
         "responses": {

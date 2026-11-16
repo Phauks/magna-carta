@@ -1,3 +1,4 @@
+import type { CalendarProvider } from "@magna-carta/calendar/sync-contract";
 import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
 import { readSyncRules, readSyncSubjects } from "@magna-carta/calendar/sync-rule-service";
 import { readShownCalendars } from "@magna-carta/calendar/sync-shown-service";
@@ -47,13 +48,28 @@ export interface MemberAccountPorts {
   readonly now: () => Date;
 }
 
-export async function memberAccount(c: MemberAccountContext): Promise<MemberAccountRow | null> {
-  const row = await selectConnectionStatement(
+// Every calendar account the member has connected, in the order they connected them. One at each
+// provider at most.
+export async function memberAccounts(c: MemberAccountContext): Promise<MemberAccountRow[]> {
+  const { results } = await selectConnectionStatement(
     requireChokepointFirmContext(c).firmDatabase,
     CALENDAR_SYNC_CATEGORY,
     requireChokepointUserId(c),
-  ).first<MemberAccountRow>();
-  return row !== null && calendarProviderOfAdapter(row.adapter_id) !== undefined ? row : null;
+  ).all<MemberAccountRow>();
+  return results.filter((row) => calendarProviderOfAdapter(row.adapter_id) !== undefined);
+}
+
+// The member's account at one provider, or the one they connected first when none is named.
+export async function memberAccount(
+  c: MemberAccountContext,
+  provider?: CalendarProvider,
+): Promise<MemberAccountRow | null> {
+  const accounts = await memberAccounts(c);
+  const found =
+    provider === undefined
+      ? accounts[0]
+      : accounts.find((row) => calendarProviderOfAdapter(row.adapter_id) === provider);
+  return found ?? null;
 }
 
 // The account's calendars as the provider lists them at this moment.

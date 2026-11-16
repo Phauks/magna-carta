@@ -177,7 +177,7 @@
     catalog: () => ({
       members: context.members,
       resources: context.resources,
-      ownAccount: context.hasOwnAccountCalendars,
+      ownAccounts: context.ownAccountProviders,
     }),
   });
 
