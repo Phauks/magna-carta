@@ -14,7 +14,8 @@ to revisit — your job is fidelity to it, not invention.
    search it for the surface you are building, do not read it whole.
 2. The per-surface ledger for your screen, if `design-corrections.md` lists one (file manager, time
    tab, settings, matter, conflicts, Magnus, file workbench).
-3. `docs/conventions/ui-design.md` — the review rules a machine cannot check.
+3. `docs/conventions/ui-design.md` — the review rules a machine cannot check, and
+   `docs/conventions/ux-copy.md` — how every word on screen is written.
 4. `docs/specs/2026-06-12-page-archetypes.md` — the archetype your screen composes and its state set.
 5. `docs/specs/2026-06-12-design-language.md` — when color, type, space, motion or identity is in
    question.
@@ -43,6 +44,11 @@ than the rework.
   bare `0`, no `calc()`, no percentages. A length with no token means you add the token.
 
 ## Rules a machine will not catch, and a reviewer will
+
+- **Call things what people already call them.** Before you name a button, tab or heading, ask what
+  QuickBooks, Outlook, Google Docs or Word calls it, and use that word: Save, History, Undo, Notes.
+  One or two words. No invented descriptive names, no acronyms. The rule and examples are in
+  `docs/conventions/ux-copy.md` under _Names come first_; read it before writing any copy.
 
 - **Identity lives at the edges.** Chrome, headers, empty states, signature moments, primary actions
   carry the character. Work surfaces — tables, forms, dense entry — stay calm. Never a gold wash

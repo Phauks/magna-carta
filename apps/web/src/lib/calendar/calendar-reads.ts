@@ -60,7 +60,11 @@ import type { CalendarScope } from "./calendar-scope.ts";
 import { readOwnAccountEvents } from "./own-account-events.ts";
 import { windowOverlaps, type CalendarWindow } from "./calendar-window.ts";
 import { calendarLayer, FIRM_CALENDAR_KINDS } from "./calendar-vocabulary.ts";
-import { FIRM_OWN_CALENDARS, type CalendarSource } from "./calendar-sources.ts";
+import {
+  FIRM_OWN_CALENDARS,
+  type CalendarSource,
+  type OwnAccountProvider,
+} from "./calendar-sources.ts";
 
 /** Which of the plan's reads a failure belongs to, in the words a notice uses. */
 export type CalendarReadName = "events" | "deadlines" | "firmEvents" | "bookings" | "ownEvents";
@@ -273,17 +277,18 @@ async function readOneCalendar(
     case "layer":
       return readLayerCalendar(fetchImpl, source, source.kind.layerKey, window, context);
     case "ownAccount":
-      return readOwnAccountCalendar(source, window, context);
+      return readOwnAccountCalendar(source, source.kind.provider, window, context);
   }
 }
 
 /**
- * The reader's own events from their connected account: one read of what a sync pass last stored
+ * The reader's own events from one of their connected accounts: one read of what a sync pass last stored
  * for them, which never waits on their provider. Not paged, because one person's own month is
  * small; the server says when it answered with less than everything.
  */
 async function readOwnAccountCalendar(
   source: CalendarSource,
+  provider: OwnAccountProvider,
   window: CalendarWindow,
   context: EntryContext,
 ): Promise<CalendarWindowResult> {
@@ -297,6 +302,8 @@ async function readOwnAccountCalendar(
   }
   const entries: CalendarEntry[] = [];
   for (const event of outcome.value.events) {
+    // The read answers every account the reader connected; this row is one of them.
+    if (event.provider !== provider) continue;
     const entry = entryFromOwnAccountEvent(event, context);
     // The server's window is a day wide of the reader's on each side, since it cannot know their
     // zone; the days the entry actually lands on are checked here.

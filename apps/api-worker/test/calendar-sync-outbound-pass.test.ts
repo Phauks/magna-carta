@@ -206,10 +206,14 @@ let nextTransaction = 0;
 // as the member named. Without it every edit is a question, which is what the pass does for a
 // member who may not edit the calendar.
 let eventsChanged = 0;
-async function pass(port: CalendarSyncPort, carrying?: { as: UserId }) {
+async function pass(
+  port: CalendarSyncPort,
+  carrying?: { as: UserId },
+  connectionId: IntegrationConnectionId = CONNECTION,
+) {
   return await runOutboundPass({
     database: firmDatabase,
-    connectionId: CONNECTION,
+    connectionId,
     memberUserId,
     port,
     now: () => new Date(NOW),
@@ -238,15 +242,20 @@ async function run(sql: string, ...bindings: unknown[]): Promise<void> {
     .run();
 }
 
-async function setRule(subject: string, calendar: string, scope: "mine" | "my_matters") {
+async function setRule(
+  subject: string,
+  calendar: string,
+  scope: "mine" | "my_matters",
+  connectionId: IntegrationConnectionId = CONNECTION,
+) {
   await run(
     "DELETE FROM calendar_sync_rule WHERE connection_id = ?1 AND subject = ?2",
-    CONNECTION,
+    connectionId,
     subject,
   );
   await run(
     "INSERT INTO calendar_sync_rule (connection_id, subject, event_type_id, calendar_remote_id, calendar_name, scope, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 'Calendar', ?5, ?6, ?6)",
-    CONNECTION,
+    connectionId,
     subject,
     subject === "deadline" ? null : subject,
     calendar,
@@ -1253,5 +1262,91 @@ describe("a repeating event", () => {
     expect(await pass(retried.port)).toMatchObject({ report: { created: 1 } });
     expect(await issues()).toEqual([]);
     expect(await links()).toMatchObject([{ local_id: SERIES, state: "synced" }]);
+  });
+});
+
+describe("a member with an account at each of two providers", () => {
+  const HEARING = "matterEvent_outbound000001";
+  const SECOND = "integrationConnection_outboundpass0002" as IntegrationConnectionId;
+
+  it("carries an edit made in one account to the event and on to the other, and then is quiet", async () => {
+    // The same member, a second account at another provider. The firm's database takes it.
+    await run(
+      "INSERT OR IGNORE INTO integration_connection (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at) VALUES (?1, 'calendar-sync', 'google-calendar', 'user', ?2, 'integration:calendar-sync:y', 'connected', '{}', ?3, ?3)",
+      SECOND,
+      memberUserId,
+      NOW,
+    );
+    eventsChanged = 0;
+    await seedEvent(HEARING, MATTER, hearingTypeId, "Motion hearing", "2026-12-01", true);
+    await setRule(hearingTypeId, "cal-outlook", "mine");
+    await setRule(hearingTypeId, "cal-google", "mine", SECOND);
+
+    // Each account's pass sends its own copy, to its own calendar.
+    const outlook = new Map<string, RemoteCopy>();
+    const google = new Map<string, RemoteCopy>();
+    const first = recorder(outlook);
+    const second = recorder(google);
+    expect(await pass(first.port, { as: memberUserId })).toMatchObject({ report: { created: 1 } });
+    expect(await pass(second.port, { as: memberUserId }, SECOND)).toMatchObject({
+      report: { created: 1 },
+    });
+    expect(first.calls).toMatchObject([{ op: "create", calendar: "cal-outlook" }]);
+    expect(second.calls).toMatchObject([{ op: "create", calendar: "cal-google" }]);
+    const [outlookCopy] = [...outlook.keys()];
+    const [googleCopy] = [...google.keys()];
+    if (outlookCopy === undefined || googleCopy === undefined) throw new Error("no copies");
+
+    // The member moves the hearing in the first account. That account's pass moves the event
+    // itself, writes nothing to either provider, and asks every account to look again.
+    memberEdits(outlook, outlookCopy, { startsOn: "2026-12-03", startsAtTime: "14:00" });
+    const carried = recorder(outlook);
+    expect(await pass(carried.port, { as: memberUserId })).toMatchObject({
+      report: { applied: 1, flagged: 0 },
+    });
+    expect(carried.calls).toEqual([]);
+    expect(eventsChanged).toBe(1);
+    expect(
+      await firmDatabase
+        .prepare("SELECT starts_on, starts_at_time FROM matter_event WHERE id = ?1")
+        .bind(HEARING)
+        .first(),
+    ).toEqual({ starts_on: "2026-12-03", starts_at_time: "14:00" });
+
+    // The other account's pass sends the event as it now stands: one update, and it does not read
+    // its own copy as an edit to carry back.
+    const onward = recorder(google);
+    expect(await pass(onward.port, { as: memberUserId }, SECOND)).toMatchObject({
+      report: { updated: 1, applied: 0, flagged: 0, putBack: 0 },
+    });
+    expect(onward.calls).toMatchObject([
+      { op: "update", remoteId: googleCopy, event: { startsOn: "2026-12-03" } },
+    ]);
+    expect(google.get(googleCopy)?.event).toMatchObject({
+      startsOn: "2026-12-03",
+      startsAtTime: "14:00",
+    });
+
+    // The first account writes its own copy once in full, and carries nothing back either.
+    const settled = recorder(outlook);
+    expect(await pass(settled.port, { as: memberUserId })).toMatchObject({
+      report: { updated: 1, applied: 0, flagged: 0 },
+    });
+
+    // From here neither account has anything to send or to carry, pass after pass: the change
+    // went out from the event once and did not come back from either side.
+    for (let round = 0; round < 3; round += 1) {
+      const quietOutlook = recorder(outlook);
+      const quietGoogle = recorder(google);
+      expect(await pass(quietOutlook.port, { as: memberUserId })).toMatchObject({
+        report: { created: 0, updated: 0, applied: 0, flagged: 0, putBack: 0 },
+      });
+      expect(await pass(quietGoogle.port, { as: memberUserId }, SECOND)).toMatchObject({
+        report: { created: 0, updated: 0, applied: 0, flagged: 0, putBack: 0 },
+      });
+      expect(quietOutlook.calls).toEqual([]);
+      expect(quietGoogle.calls).toEqual([]);
+    }
+    expect(eventsChanged).toBe(1);
   });
 });

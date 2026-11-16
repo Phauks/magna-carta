@@ -3,6 +3,7 @@ import {
   noticeForOutcome,
   calendarRequestFor,
   providerFrom,
+  providerNames,
   signInOutcomeFrom,
   statusSentence,
 } from "../src/lib/calendar-sync/connected-accounts.ts";
@@ -27,13 +28,7 @@ describe("what each outcome tells the member", () => {
   });
 
   it("says nothing was connected for every other outcome", () => {
-    for (const outcome of [
-      "declined",
-      "expired",
-      "unavailable",
-      "failed",
-      "other-account",
-    ] as const) {
+    for (const outcome of ["declined", "expired", "unavailable", "failed"] as const) {
       const notice = noticeForOutcome(outcome);
       expect(notice.tone).not.toBe("success");
       expect(`${notice.title} ${notice.description}`.toLowerCase()).toContain("not");
@@ -75,9 +70,9 @@ describe("the provider a return names", () => {
     expect(statusSentence("needs_reauth", "google")).toContain("Google is asking");
   });
 
-  it("tells a member with an account already connected to disconnect it first", () => {
-    const notice = noticeForOutcome("other-account", "google");
-    expect(notice.tone).toBe("warning");
-    expect(notice.description).toContain("Disconnect it first");
+  it("no longer knows the word for a second account refused, now that both may be connected", () => {
+    expect(signInOutcomeFrom(new URLSearchParams("outcome=other-account"))).toBeNull();
+    expect(providerNames("google").ownCalendar).toBe("My Google Calendar");
+    expect(providerNames("microsoft").ownCalendar).toBe("My Outlook Calendar");
   });
 });

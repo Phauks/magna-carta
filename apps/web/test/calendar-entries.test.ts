@@ -478,6 +478,7 @@ describe("a matter number arriving after the chips", () => {
 describe("one of the reader's own events from their connected account", () => {
   const own = {
     id: "own-1",
+    provider: "microsoft" as const,
     calendarRemoteId: "cal-main",
     calendarName: "Calendar",
     title: "Dentist",
@@ -492,7 +493,7 @@ describe("one of the reader's own events from their connected account", () => {
   it("paints its own title at the reader's hour, and opens nowhere", () => {
     // The context's reader is in New York, five hours behind UTC in November.
     expect(entryFromOwnAccountEvent(own, context)).toMatchObject({
-      id: "other:ownAccount:own-1",
+      id: "other:ownAccount:microsoft:own-1",
       kind: "other",
       label: "Dentist",
       detail: "Main Street",

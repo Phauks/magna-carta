@@ -1,7 +1,7 @@
 import { assertPermission } from "@magna-carta/access-control/registry";
 import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
 import {
-  selectConnectionStatement,
+  selectConnectionByIdStatement,
   updateConnectionStatusStatement,
 } from "@magna-carta/data-access/integration-connection-statements";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
@@ -58,6 +58,8 @@ export interface ConnectionPassOverrides {
 
 interface ConnectionRow {
   readonly id: string;
+  readonly category: string;
+  readonly principal_ref: string | null;
   readonly adapter_id: string;
   readonly credential_ref: string;
   readonly status: string;
@@ -73,14 +75,21 @@ export async function runConnectionPass(
   const now = overrides.now ?? (() => new Date());
   const http = overrides.http ?? fetchHttpClient();
   const database = firmDatabaseFor(env.FIRM_DATABASE, identity.firmId);
-  const connection = await selectConnectionStatement(
+  // Found by its own id, because a member may hold an account at each provider and each has a
+  // pass of its own. A member who disconnected and connected again holds a new connection with a
+  // new object of its own; this one's account is gone.
+  const connection = await selectConnectionByIdStatement(
     database,
-    CALENDAR_SYNC_CATEGORY,
-    identity.memberUserId,
+    identity.connectionId,
   ).first<ConnectionRow>();
-  // A member who disconnected and connected again holds a new connection with a new object of its
-  // own; this one's account is gone.
-  if (connection === null || connection.id !== identity.connectionId) return { kind: "gone" };
+  // A row that is not this member's calendar account is never acted on, whatever the id says.
+  if (
+    connection === null ||
+    connection.category !== CALENDAR_SYNC_CATEGORY ||
+    connection.principal_ref !== identity.memberUserId
+  ) {
+    return { kind: "gone" };
+  }
   if (connection.status !== "connected") return { kind: "dormant" };
   const application = resolveApplicationOfAdapter(env, NO_REQUEST_ORIGIN, connection.adapter_id);
   if (application === undefined) return { kind: "dormant" };

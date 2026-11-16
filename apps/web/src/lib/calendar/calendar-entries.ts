@@ -408,7 +408,7 @@ export function entryFromOwnAccountEvent(
   context: EntryContext,
 ): CalendarEntry | null {
   const base = {
-    id: entryId("other", `ownAccount:${event.id}`),
+    id: entryId("other", `ownAccount:${event.provider}:${event.id}`),
     kind: "other" as const,
     recordId: event.id,
     matterId: null,

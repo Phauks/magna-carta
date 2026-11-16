@@ -2494,6 +2494,57 @@ export type MatterBillingGuideReport = {
     }>;
 };
 
+export type ClientStatementReport = {
+    periodStart: string;
+    periodEnd: string;
+    clientEntityId: string;
+    clientName: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        openingMinor: number;
+        billedMinor: number;
+        invoiceCount: number;
+        appliedMinor: number;
+        applicationCount: number;
+        closingMinor: number;
+    };
+    activity: Array<{
+        kind: 'invoice' | 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | 'reversal';
+        reversesKind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | null;
+        date: string;
+        invoiceId: string;
+        invoiceNumber: string | null;
+        applicationId: string | null;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+        }>;
+        reason: string | null;
+        chargedMinor: number | null;
+        appliedMinor: number | null;
+        balanceMinor: number;
+    }>;
+    unpaidInvoices: Array<{
+        invoiceId: string;
+        invoiceNumber: string | null;
+        issueDate: string;
+        dueDate: string | null;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+        }>;
+        agingBucket: 'current' | '1-30' | '31-60' | '61-90' | '90+';
+        billedMinor: number;
+        paidAndCreditedMinor: number;
+        unpaidMinor: number;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -7798,9 +7849,9 @@ export type CalendarSyncShownCalendarsReplace = {
 
 export type CalendarSyncAccountEventList = {
     /**
-     * The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
+     * The calendars these events are read from, across every account the member connected: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
      */
-    shownCalendars: Array<CalendarSyncShownCalendar>;
+    shownCalendars: Array<CalendarSyncAccountShownCalendar>;
     events: Array<CalendarSyncAccountEvent>;
     /**
      * True when the window held more events than one answer carries.
@@ -7808,11 +7859,27 @@ export type CalendarSyncAccountEventList = {
     truncated: boolean;
 };
 
+export type CalendarSyncAccountShownCalendar = {
+    calendarRemoteId: string;
+    /**
+     * The calendar's name when it was chosen, shown when the provider is unreachable.
+     */
+    calendarName: string;
+    /**
+     * Which of the member's accounts holds it.
+     */
+    provider: 'microsoft' | 'google';
+};
+
 export type CalendarSyncAccountEvent = {
     /**
      * The provider's own identifier for the event.
      */
     id: string;
+    /**
+     * Which of the member's accounts the event was read from.
+     */
+    provider: 'microsoft' | 'google';
     calendarRemoteId: string;
     calendarName: string | null;
     title: string;
@@ -17776,6 +17843,52 @@ export type ReportsMatterBillingGuideResponses = {
 };
 
 export type ReportsMatterBillingGuideResponse = ReportsMatterBillingGuideResponses[keyof ReportsMatterBillingGuideResponses];
+
+export type ReportsClientStatementData = {
+    body?: never;
+    path?: never;
+    query: {
+        clientEntityId: string | string;
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+    };
+    url: '/api/v1/reports/client-statement';
+};
+
+export type ReportsClientStatementErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The client is not a directory person or organization handle, the period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or the client has more bills or applications than one statement can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsClientStatementError = ReportsClientStatementErrors[keyof ReportsClientStatementErrors];
+
+export type ReportsClientStatementResponses = {
+    /**
+     * The client's statement of account for this period
+     */
+    200: ClientStatementReport;
+};
+
+export type ReportsClientStatementResponse = ReportsClientStatementResponses[keyof ReportsClientStatementResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
@@ -35422,7 +35535,12 @@ export type ConnectedAccountsDisconnectResponse = ConnectedAccountsDisconnectRes
 export type CalendarSyncReadMineData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync';
 };
 
@@ -35459,7 +35577,12 @@ export type CalendarSyncReadMineResponse = CalendarSyncReadMineResponses[keyof C
 export type CalendarSyncReplaceMyRulesData = {
     body: CalendarSyncRulesReplace;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/rules';
 };
 
@@ -35586,7 +35709,12 @@ export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsRespons
 export type CalendarSyncReplaceMyShownCalendarsData = {
     body: CalendarSyncShownCalendarsReplace;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/shown-calendars';
 };
 
@@ -35685,7 +35813,12 @@ export type CalendarSyncListMyAccountEventsResponse = CalendarSyncListMyAccountE
 export type CalendarSyncListMyIssuesData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues';
 };
 
@@ -35725,7 +35858,12 @@ export type CalendarSyncPutBackMyCopyData = {
         localKind: 'matter_event' | 'firm_event' | 'deadline';
         localId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back';
 };
 
@@ -35765,7 +35903,12 @@ export type CalendarSyncLeaveMyCopyData = {
         localKind: 'matter_event' | 'firm_event' | 'deadline';
         localId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave';
 };
 

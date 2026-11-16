@@ -3,6 +3,7 @@ import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.
 import { registerBillingRoutes } from "./billing.ts";
 import { registerChangeLogReportRoutes } from "./change-log-report.ts";
 import { registerBillingGuideReportRoutes } from "./billing-guide-report.ts";
+import { registerClientStatementReportRoutes } from "./client-statement-report.ts";
 import { registerCostsRoutes } from "./costs.ts";
 import { registerReportExportRoutes } from "./report-exports.ts";
 import { registerActivityReportsRoutes } from "./activity-reports.ts";
@@ -33,6 +34,7 @@ export function mountBilling(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   registerChangeLogReportRoutes(domain, chokepoint);
   registerRevenueReportRoutes(domain, chokepoint);
   registerBillingGuideReportRoutes(domain, chokepoint);
+  registerClientStatementReportRoutes(domain, chokepoint);
   // Billing — the invoice spine: draft, claim work-in-progress, review the lines, finalize (the one
   // batch that draws the number, locks the work, and posts the receivable), and the reads over it.
   registerBillingRoutes(domain, chokepoint);

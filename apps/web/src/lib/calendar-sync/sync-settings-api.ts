@@ -26,10 +26,15 @@ function refusal(error: unknown): { kind: "refused"; detail: string | null } {
   return { kind: "refused", detail: typeof detail === "string" ? detail : null };
 }
 
+// Which of the member's accounts a write is for. Absent, the server takes the one they connected
+// first, which is the only one for a member with one account.
+export type AccountChoice = { readonly provider: "microsoft" | "google" } | undefined;
+
 export async function saveMyRules(
   rules: { subject: string; calendarRemoteId: string; scope: "mine" | "my_matters" }[],
+  account?: AccountChoice,
 ): Promise<SaveOutcome<CalendarSyncSettings>> {
-  const { data, error } = await calendarSyncReplaceMyRules({ body: { rules } });
+  const { data, error } = await calendarSyncReplaceMyRules({ body: { rules }, query: account });
   return data === undefined ? refusal(error) : { kind: "saved", value: data };
 }
 
@@ -47,12 +52,13 @@ export async function setFirmLimit(limit: {
 export async function answerSyncIssue(
   issue: Pick<CalendarSyncIssue, "localKind" | "localId">,
   answer: "putBack" | "leave",
+  account?: AccountChoice,
 ): Promise<SaveOutcome<CalendarSyncIssueList>> {
   const path = { localKind: issue.localKind, localId: issue.localId };
   const { data, error } =
     answer === "putBack"
-      ? await calendarSyncPutBackMyCopy({ path })
-      : await calendarSyncLeaveMyCopy({ path });
+      ? await calendarSyncPutBackMyCopy({ path, query: account })
+      : await calendarSyncLeaveMyCopy({ path, query: account });
   return data === undefined ? refusal(error) : { kind: "saved", value: data };
 }
 
@@ -60,9 +66,11 @@ export async function answerSyncIssue(
 // settings as they now stand.
 export async function saveMyShownCalendars(
   calendarRemoteIds: string[],
+  account?: AccountChoice,
 ): Promise<SaveOutcome<CalendarSyncSettings>> {
   const { data, error } = await calendarSyncReplaceMyShownCalendars({
     body: { calendarRemoteIds },
+    query: account,
   });
   return data === undefined ? refusal(error) : { kind: "saved", value: data };
 }

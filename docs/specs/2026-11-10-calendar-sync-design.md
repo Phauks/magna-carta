@@ -206,8 +206,15 @@ passes, the event wins: a pass sends before it looks.
 For deadlines the narrow scope means the matters the member is responsible for and the wide one
 every matter they are assigned to, because a deadline names no person.
 
-`integration_connection` is unique on category and principal, so a member holds one account per
-category. Letting one person connect both Outlook and Google needs the adapter added to that index.
+`integration_connection` is unique on category, principal and adapter, so a member holds one
+account at each provider. Every sync table is keyed by the connection, so the two accounts have
+separate rules, copies, questions and passes. The event in the firm's calendar is the hub: an edit
+carried back from one account changes the event, every account is asked for a pass, and the other
+account's pass sends the event as it now stands. A pass sends before it looks and compares a copy
+with what it sent, so a copy it has just written never reads as an edit, and nothing travels back
+and forth between two accounts
+(`apps/api-worker/test/calendar-sync-outbound-pass.test.ts`, the last test). A sealed sign-in is
+addressed by member and provider; a connection made before that keeps the address it was made with.
 
 Titles and locations in `external_calendar_event` are personal and sometimes privileged. They are
 protected columns, and every new table is classified in the personal-data registry.
@@ -255,8 +262,8 @@ departure from the table as designed above, which carried a rule. A whole-day ev
 civil days and a timed one as two instants, because the provider answers in its own zone and the
 reader's screen decides the day and hour. The read route
 (`GET /api/v1/me/calendar-sync/account-events`) finds the account through the session member and
-nothing a request names, and answers from the table without asking the provider. On the web the events are one calendar in the rail, `My Outlook Calendar`, listed only
-for a member who chose a calendar and painted with their own titles at the reader's hour
+nothing a request names, and answers from the table without asking the provider. On the web the events are one calendar in the rail for each account, `My Outlook Calendar` and `My Google Calendar`, listed only
+for a member who chose a calendar there and painted with their own titles at the reader's hour
 (`apps/web/src/lib/calendar/own-account-events.ts`). Colleagues see
 nothing, not even busy time, which leaves that open question as it was. Attaching one of these
 events to a matter is not built. The whole window is read again on each pass; a delta cursor is the
@@ -383,9 +390,9 @@ changed to take it. What differs from the Outlook adapter, and why:
 - **Change notices.** A watch is one channel per calendar, twenty at most, and cannot be renewed:
   the adapter ends the channels and the engine begins a new watch in the same pass. Google's
   notice has no body; its token header carries the secret.
-- **One account per member.** A member connects Outlook or Google, not both. Connecting the other
-  provider is refused until the first is disconnected, because every copy on record is in the
-  account the connection names.
-
-Not built: revoking the token at Google on disconnect (the stored sign-in is deleted, as for
-Outlook), and naming the member's own calendar for Google in the calendar rail.
+- **Both accounts at once.** A member may connect Outlook and Google together. The member routes
+  take an optional `provider` query naming which account a read or write is about.
+- **Disconnecting.** The grant is withdrawn at Google's
+  [revocation endpoint](https://developers.google.com/identity/protocols/oauth2/web-server#tokenrevoke)
+  before the stored sign-in is deleted. A refusal or an unreachable Google does not stop the
+  disconnect.
