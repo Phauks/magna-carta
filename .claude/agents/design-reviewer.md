@@ -26,17 +26,21 @@ product, whether it honors rulings already issued, and whether it is actually fi
 1. **Standing corrections.** Walk the list. Title case on headers, no em dashes in user-facing copy,
    durations from configuration, back control on every non-initial step, countdown on resend,
    validation before enabling an advance control, meta-text offset. Name the rule and the file:line.
-2. **Archetype conformance and the full state set.** Empty, loading, filtered-no-results, error,
+2. **Names and copy.** Every label, button, tab and heading uses the word familiar software uses,
+   in one or two words, with no invented descriptive names and no acronyms
+   (`docs/conventions/ux-copy.md`, _Names come first_). A label like "Save Point" where "Save"
+   would do is a finding, not a nit. Hints and errors follow the rules in the same file.
+3. **Archetype conformance and the full state set.** Empty, loading, filtered-no-results, error,
    dense. A missing state is a finding, not a nit.
-3. **Identity placement.** Is character at the edges, or has it leaked onto a work surface? Is a
+4. **Identity placement.** Is character at the edges, or has it leaked onto a work surface? Is a
    status color shouting where the subtle register belongs?
-4. **Motion.** Anything animating a layout property is a defect — it reflows every frame and tears
+5. **Motion.** Anything animating a layout property is a defect — it reflows every frame and tears
    at fractional scaling.
-5. **Honest affordances.** Does anything unwired look live? Does anything live look disabled? Is a
+6. **Honest affordances.** Does anything unwired look live? Does anything live look disabled? Is a
    "Soon" surface carrying its one honest line about what it waits on?
-6. **Accessibility beyond the axe pass.** Accessible names survive collapse (`sr-only`, never
+7. **Accessibility beyond the axe pass.** Accessible names survive collapse (`sr-only`, never
    `display: none`). Focus is visible. An icon that is the only label has a name some other way.
-7. **Composition.** Styled raw HTML in an app screen, a pattern reinvented where a component exists,
+8. **Composition.** Styled raw HTML in an app screen, a pattern reinvented where a component exists,
    a component added where an existing one would have composed.
 
 ## How to report
