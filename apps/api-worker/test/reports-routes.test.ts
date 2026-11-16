@@ -712,3 +712,52 @@ describe("GET /api/v1/reports/invoices and /payments-applied", () => {
     });
   }
 });
+
+describe("GET /api/v1/reports/client-statement", () => {
+  const client = newIdentifier("directoryOrganization");
+  const url = (query: string) => `https://example.com/api/v1/reports/client-statement?${query}`;
+
+  it("answers the Owner with a stamped statement for one client", async () => {
+    const response = await SELF.fetch(
+      url(`clientEntityId=${client}&periodStart=2026-07-01&periodEnd=2026-07-31`),
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      clientEntityId: string;
+      reproducibilityStatement: string;
+      totals: { openingMinor: number; closingMinor: number };
+      activity: unknown[];
+    };
+    expect(body.clientEntityId).toBe(client);
+    expect(body.reproducibilityStatement.length).toBeGreaterThan(0);
+    expect(body.totals).toMatchObject({ openingMinor: 0, closingMinor: 0 });
+    expect(body.activity).toEqual([]);
+  });
+
+  it("refuses a client handle that is not a directory person or organization", async () => {
+    for (const malformed of ["entity_webb", newIdentifier("matter")]) {
+      const response = await SELF.fetch(
+        url(`clientEntityId=${malformed}&periodStart=2026-07-01&periodEnd=2026-07-31`),
+        { headers: { cookie: ownerCookie } },
+      );
+      expect(response.status).toBe(422);
+    }
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(
+      url(`clientEntityId=${client}&periodStart=2026-07-31&periodEnd=2026-07-01`),
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(
+      url(`clientEntityId=${client}&periodStart=2026-07-01&periodEnd=2026-07-31`),
+      { headers: { cookie: noPermissionCookie } },
+    );
+    expect(response.status).toBe(403);
+  });
+});

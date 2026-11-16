@@ -321,6 +321,57 @@ export const AppliedEntry = z.object({
   locationName: z.string().nullable(),
 });
 
+// CLIENT STATEMENT. One client's balance brought forward, every bill and application that moved it in
+// the period with the balance after each, where it ended, and the bills still unpaid then.
+export const ClientStatementTotals = z.object({
+  openingMinor: z.number().int(),
+  billedMinor: z.number().int(),
+  invoiceCount: z.number().int(),
+  appliedMinor: z.number().int(),
+  applicationCount: z.number().int(),
+  closingMinor: z.number().int(),
+});
+
+export const ClientStatementMatter = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+});
+
+export const ClientStatementLine = z.object({
+  kind: z.enum([
+    "invoice",
+    "trust_transfer",
+    "payment",
+    "credit_note",
+    "client_credit",
+    "write_off",
+    "reversal",
+  ]),
+  reversesKind: ApplicationKinds.exclude(["reversal"]).nullable(),
+  date: z.string(),
+  invoiceId: z.string(),
+  invoiceNumber: z.string().nullable(),
+  applicationId: z.string().nullable(),
+  matters: z.array(ClientStatementMatter),
+  reason: z.string().nullable(),
+  chargedMinor: z.number().int().nullable(),
+  appliedMinor: z.number().int().nullable(),
+  balanceMinor: z.number().int(),
+});
+
+export const ClientStatementUnpaidInvoice = z.object({
+  invoiceId: z.string(),
+  invoiceNumber: z.string().nullable(),
+  issueDate: z.string(),
+  dueDate: z.string().nullable(),
+  matters: z.array(ClientStatementMatter),
+  agingBucket: z.enum(["current", "1-30", "31-60", "61-90", "90+"]),
+  billedMinor: z.number().int(),
+  paidAndCreditedMinor: z.number().int(),
+  unpaidMinor: z.number().int(),
+});
+
 // MATTER BALANCES. Three facts per matter, never added to one another.
 export const MatterBalanceFigures = z.object({
   unbilledMinor: z.number().int(),

@@ -28,7 +28,8 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `financial-presenters.ts` (Aged Expenses is Aged Work in Progress's layout under its own words),
   `billing-presenters.ts` (Invoices, Payments Applied, Matter Balances),
   `activity-presenters.ts` (Timekeeper Productivity, Daily Time, Matter Productivity, Tasks by Person, operational volumes,
-  Matters List, Client List) — their presenters; `report-samples.ts` their
+  Matters List, Client List), `client-statement-presenter.ts` (Client Statement of Account, not yet
+  in the registry: the run screen has no client control) — their presenters; `report-samples.ts` their
   samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.
 - `report-summary.svelte` — the row of totals; `report-section-table.svelte` one section (a plain
   table with its ruled total, or `report-section-grid.svelte` on `DataTable.Grid` when sortable),

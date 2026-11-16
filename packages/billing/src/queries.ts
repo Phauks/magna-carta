@@ -937,7 +937,24 @@ export interface InvoiceRegisterQuery {
   readonly periodStart: string;
   readonly periodEnd: string;
   readonly knownAsOf: string;
+  // One client's bills only, for a statement of that client's account; absent or null is the firm.
+  // Narrowed in SQL rather than after the read, so one client's rows are never cut short by the
+  // firm's ceiling.
+  readonly clientEntityId?: string | null;
 }
+
+// The client a bill was issued to, named as the directory names them today. Shared by the registers
+// and the client's open bills below, so every report taken over them names a client the same way.
+const CLIENT_OF_INVOICE_JOIN = `LEFT JOIN directory_person
+                ON directory_person.id = i.client_entity_id AND directory_person.deleted_at IS NULL
+         LEFT JOIN directory_organization
+                ON directory_organization.id = i.client_entity_id AND directory_organization.deleted_at IS NULL`;
+const CLIENT_NAME_OF_INVOICE = `COALESCE(directory_person.display_name, directory_organization.display_name,
+                       directory_organization.legal_name)`;
+
+// The one-client narrowing, against a bound parameter that is null for the whole firm.
+const forClient = (parameter: string): string =>
+  `(${parameter} IS NULL OR i.client_entity_id = ${parameter})`;
 
 export interface InvoiceRegisterRow {
   readonly invoiceId: string;
@@ -976,8 +993,7 @@ export async function readInvoiceRegister(
           WHERE a.effective_date <= ?2 AND a.applied_at <= ?3
        )
        SELECT i.id AS invoice_id, i.invoice_number, i.issue_date, i.due_date, i.client_entity_id,
-              COALESCE(directory_person.display_name, directory_organization.display_name,
-                       directory_organization.legal_name) AS client_name,
+              ${CLIENT_NAME_OF_INVOICE} AS client_name,
               b.matter_id, m.title AS matter_title, m.matter_number,
               m.location_id, loc.name AS location_name,
               b.total_minor AS billed_minor,
@@ -991,15 +1007,19 @@ export async function readInvoiceRegister(
          JOIN invoice_matter_balance b ON b.invoice_id = i.id
          JOIN matter m ON m.id = b.matter_id
          LEFT JOIN location loc ON loc.id = m.location_id
-         LEFT JOIN directory_person
-                ON directory_person.id = i.client_entity_id AND directory_person.deleted_at IS NULL
-         LEFT JOIN directory_organization
-                ON directory_organization.id = i.client_entity_id AND directory_organization.deleted_at IS NULL
+         ${CLIENT_OF_INVOICE_JOIN}
         WHERE i.status = 'final' AND i.issue_date BETWEEN ?1 AND ?2 AND i.finalized_at <= ?3
+          AND ${forClient("?5")}
         ORDER BY i.issue_date, i.invoice_number, i.id, b.matter_id
         LIMIT ?4`,
     )
-    .bind(query.periodStart, query.periodEnd, query.knownAsOf, MAXIMUM_INVOICE_REGISTER_ROWS + 1)
+    .bind(
+      query.periodStart,
+      query.periodEnd,
+      query.knownAsOf,
+      MAXIMUM_INVOICE_REGISTER_ROWS + 1,
+      query.clientEntityId ?? null,
+    )
     .all<{
       invoice_id: string;
       invoice_number: string | null;
@@ -1086,8 +1106,7 @@ export async function readApplicationRegister(
       `SELECT a.id AS application_id, a.kind, o.kind AS reverses_kind, a.effective_date,
               CASE WHEN a.kind = 'reversal' THEN -a.amount_minor ELSE a.amount_minor END AS amount_minor,
               a.reason, a.invoice_id, i.invoice_number, i.client_entity_id,
-              COALESCE(directory_person.display_name, directory_organization.display_name,
-                       directory_organization.legal_name) AS client_name,
+              ${CLIENT_NAME_OF_INVOICE} AS client_name,
               a.matter_id, m.title AS matter_title, m.matter_number,
               m.location_id, loc.name AS location_name
          FROM invoice_application a
@@ -1095,11 +1114,9 @@ export async function readApplicationRegister(
          JOIN matter m ON m.id = a.matter_id
          LEFT JOIN invoice_application o ON o.id = a.reverses_application_id
          LEFT JOIN location loc ON loc.id = m.location_id
-         LEFT JOIN directory_person
-                ON directory_person.id = i.client_entity_id AND directory_person.deleted_at IS NULL
-         LEFT JOIN directory_organization
-                ON directory_organization.id = i.client_entity_id AND directory_organization.deleted_at IS NULL
+         ${CLIENT_OF_INVOICE_JOIN}
         WHERE a.effective_date BETWEEN ?1 AND ?2 AND a.applied_at <= ?3
+          AND ${forClient("?5")}
         ORDER BY a.effective_date, a.applied_at, a.id
         LIMIT ?4`,
     )
@@ -1108,6 +1125,7 @@ export async function readApplicationRegister(
       query.periodEnd,
       query.knownAsOf,
       MAXIMUM_APPLICATION_REGISTER_ROWS + 1,
+      query.clientEntityId ?? null,
     )
     .all<{
       application_id: string;
@@ -1144,6 +1162,102 @@ export async function readApplicationRegister(
       matterNumber: row.matter_number,
       locationId: row.location_id,
       locationName: row.location_name,
+    })),
+  };
+}
+
+// ONE CLIENT'S UNPAID BILLS AT A DATE, as the firm knew them at an instant — the as-of aging's own
+// balances (`OPEN_BALANCES_AS_OF`), narrowed to the client and added up per bill instead of per bucket
+// and matter. A bill's unpaid figure is the sum of its matters' unpaid shares that are above zero,
+// exactly the shares the aging counts, so the rows here add up to that client's total in the aging at
+// the same date and instant (packages/billing/test/report-registers.test.ts proves it). A client's
+// statement of account takes its opening and closing balances from this read at two dates.
+export const MAXIMUM_CLIENT_UNPAID_INVOICE_ROWS = 5000;
+
+export interface ClientUnpaidInvoicesQuery extends AgingAsOfQuery {
+  readonly clientEntityId: string;
+}
+
+export interface ClientUnpaidInvoiceRow {
+  readonly invoiceId: string;
+  readonly invoiceNumber: string | null;
+  readonly issueDate: string;
+  readonly dueDate: string | null;
+  // The bill's whole total, every matter it charges, as it was issued.
+  readonly billedMinor: number;
+  // The matters with something unpaid on this bill.
+  readonly matters: readonly MatterCaptionOfBill[];
+  // Index into the aging's five buckets: current, 1-30, 31-60, 61-90, 90+.
+  readonly bucketIndex: number;
+  readonly clientName: string | null;
+  readonly unpaidMinor: number;
+}
+
+export interface MatterCaptionOfBill {
+  readonly matterId: string;
+  readonly matterTitle: string;
+  readonly matterNumber: string | null;
+}
+
+export interface ClientUnpaidInvoices {
+  readonly rows: readonly ClientUnpaidInvoiceRow[];
+  readonly truncated: boolean;
+}
+
+export async function readClientUnpaidInvoicesAsOf(
+  database: SqlDatabase,
+  query: ClientUnpaidInvoicesQuery,
+): Promise<ClientUnpaidInvoices> {
+  const { results } = await database
+    .prepare(
+      `WITH ${OPEN_BALANCES_AS_OF}
+       SELECT i.id AS invoice_id, i.invoice_number, i.issue_date, i.due_date,
+              -- One bucket per bill: it is taken from the bill's own due date, so every matter shares it.
+              MIN(o.bucket_index) AS bucket_index,
+              ${CLIENT_NAME_OF_INVOICE} AS client_name,
+              (SELECT SUM(whole.total_minor) FROM invoice_matter_balance whole
+                WHERE whole.invoice_id = i.id) AS billed_minor,
+              json_group_array(json_object('matterId', m.id, 'matterTitle', m.title,
+                                           'matterNumber', m.matter_number)) AS matters,
+              SUM(o.unpaid_minor) AS unpaid_minor
+         FROM open_balance o
+         JOIN invoice i ON i.id = o.invoice_id
+         JOIN matter m ON m.id = o.matter_id
+         ${CLIENT_OF_INVOICE_JOIN}
+        WHERE o.unpaid_minor > 0 AND o.client_entity_id = ?3
+        GROUP BY i.id
+        ORDER BY i.issue_date, i.invoice_number, i.id
+        LIMIT ?4`,
+    )
+    .bind(
+      query.asOfDate,
+      query.knownAsOf,
+      query.clientEntityId,
+      MAXIMUM_CLIENT_UNPAID_INVOICE_ROWS + 1,
+    )
+    .all<{
+      invoice_id: string;
+      invoice_number: string | null;
+      issue_date: string;
+      due_date: string | null;
+      bucket_index: number;
+      client_name: string | null;
+      billed_minor: number;
+      matters: string;
+      unpaid_minor: number;
+    }>();
+  return {
+    truncated: results.length > MAXIMUM_CLIENT_UNPAID_INVOICE_ROWS,
+    rows: results.slice(0, MAXIMUM_CLIENT_UNPAID_INVOICE_ROWS).map((row) => ({
+      invoiceId: row.invoice_id,
+      invoiceNumber: row.invoice_number,
+      issueDate: row.issue_date,
+      dueDate: row.due_date,
+      billedMinor: row.billed_minor,
+      matters: JSON.parse(row.matters) as MatterCaptionOfBill[],
+      bucketIndex: row.bucket_index,
+      clientName: row.client_name,
+      unpaidMinor: row.unpaid_minor,
     })),
   };
 }

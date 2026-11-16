@@ -14,6 +14,7 @@ import type {
   MatterBalances,
   AgedWorkInProgress,
   ClientList,
+  ClientStatement,
   MattersList,
   OperationalVolumes,
   PaymentsApplied,
@@ -656,6 +657,134 @@ export function samplePaymentsApplied(): PaymentsApplied {
         0,
         MAIN,
       ),
+    ],
+  };
+}
+
+export function sampleClientStatement(): ClientStatement {
+  const { matterId, matterTitle, matterNumber } = matter(0, MAIN);
+  const matters = [{ matterId, matterTitle, matterNumber }];
+  const line = (
+    index: number,
+    values: Pick<
+      ClientStatement["activity"][number],
+      "kind" | "date" | "invoiceNumber" | "chargedMinor" | "appliedMinor" | "balanceMinor"
+    > &
+      Partial<ClientStatement["activity"][number]>,
+  ): ClientStatement["activity"][number] => ({
+    reversesKind: null,
+    invoiceId: `invoice_sample_${values.invoiceNumber ?? "draft"}`,
+    applicationId: values.kind === "invoice" ? null : `invoiceApplication_sample_${String(index)}`,
+    matters,
+    reason: null,
+    ...values,
+  });
+  const bill = (number: string, chargedMinor: number, date: string, balanceMinor: number) =>
+    line(0, {
+      kind: "invoice",
+      date,
+      invoiceNumber: number,
+      chargedMinor,
+      appliedMinor: null,
+      balanceMinor,
+    });
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    ...client(0),
+    currency: "USD",
+    ...REPRODUCIBLE_JULY,
+    completeness: { scope: "complete" },
+    totals: {
+      openingMinor: 420_000,
+      billedMinor: 1_245_000,
+      invoiceCount: 3,
+      appliedMinor: 900_000,
+      applicationCount: 5,
+      closingMinor: 765_000,
+    },
+    activity: [
+      line(1, {
+        kind: "payment",
+        date: "2026-07-03",
+        invoiceNumber: "00038",
+        chargedMinor: null,
+        appliedMinor: 420_000,
+        balanceMinor: 0,
+      }),
+      bill("00041", 845_000, "2026-07-10", 845_000),
+      bill("00042", 320_000, "2026-07-10", 1_165_000),
+      line(2, {
+        kind: "credit_note",
+        date: "2026-07-18",
+        invoiceNumber: "00042",
+        chargedMinor: null,
+        appliedMinor: 60_000,
+        balanceMinor: 1_105_000,
+      }),
+      line(3, {
+        kind: "write_off",
+        date: "2026-07-20",
+        invoiceNumber: "00041",
+        chargedMinor: null,
+        appliedMinor: 10_000,
+        balanceMinor: 1_095_000,
+        reason: "Courtesy discount",
+      }),
+      line(4, {
+        kind: "reversal",
+        reversesKind: "write_off",
+        date: "2026-07-22",
+        invoiceNumber: "00041",
+        chargedMinor: null,
+        appliedMinor: -10_000,
+        balanceMinor: 1_105_000,
+        reason: "Discount withdrawn",
+      }),
+      line(5, {
+        kind: "trust_transfer",
+        date: "2026-07-24",
+        invoiceNumber: "00041",
+        chargedMinor: null,
+        appliedMinor: 420_000,
+        balanceMinor: 685_000,
+      }),
+      bill("00047", 80_000, "2026-07-31", 765_000),
+    ],
+    unpaidInvoices: [
+      {
+        invoiceId: "invoice_sample_00041",
+        invoiceNumber: "00041",
+        issueDate: "2026-07-10",
+        dueDate: "2026-08-09",
+        matters,
+        agingBucket: "current",
+        billedMinor: 845_000,
+        paidAndCreditedMinor: 420_000,
+        unpaidMinor: 425_000,
+      },
+      {
+        invoiceId: "invoice_sample_00042",
+        invoiceNumber: "00042",
+        issueDate: "2026-07-10",
+        dueDate: "2026-08-09",
+        matters,
+        agingBucket: "current",
+        billedMinor: 320_000,
+        paidAndCreditedMinor: 60_000,
+        unpaidMinor: 260_000,
+      },
+      {
+        invoiceId: "invoice_sample_00047",
+        invoiceNumber: "00047",
+        issueDate: "2026-07-31",
+        dueDate: "2026-08-30",
+        matters,
+        agingBucket: "current",
+        billedMinor: 80_000,
+        paidAndCreditedMinor: 0,
+        unpaidMinor: 80_000,
+      },
     ],
   };
 }

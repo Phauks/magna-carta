@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload` and `reports.agedExpenses` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses` and `reports.clientStatement` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -16,6 +16,7 @@ import {
   reportsAgedExpenses,
   reportsAgedWorkInProgress,
   reportsClientList,
+  reportsClientStatement,
   reportsDailyTime,
   reportsInvoices,
   reportsMatterBalances,
@@ -540,6 +541,60 @@ export interface PaymentsApplied {
   entries: AppliedEntry[];
 }
 
+/** A matter as a client statement names it. */
+export interface ClientStatementMatter {
+  matterId: string;
+  matterTitle: string;
+  matterNumber: string | null;
+}
+
+/** One line of a client statement: a bill charges, an application is set against a bill. */
+export interface ClientStatementLine {
+  kind: "invoice" | ApplicationKind;
+  reversesKind: Exclude<ApplicationKind, "reversal"> | null;
+  date: string;
+  invoiceId: string;
+  invoiceNumber: string | null;
+  applicationId: string | null;
+  matters: ClientStatementMatter[];
+  reason: string | null;
+  chargedMinor: number | null;
+  /** Negative on a reversal. */
+  appliedMinor: number | null;
+  balanceMinor: number;
+}
+
+export interface ClientStatement {
+  periodStart: string;
+  periodEnd: string;
+  clientEntityId: string;
+  clientName: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  completeness: ReportCompleteness;
+  totals: {
+    openingMinor: number;
+    billedMinor: number;
+    invoiceCount: number;
+    appliedMinor: number;
+    applicationCount: number;
+    closingMinor: number;
+  };
+  activity: ClientStatementLine[];
+  unpaidInvoices: {
+    invoiceId: string;
+    invoiceNumber: string | null;
+    issueDate: string;
+    dueDate: string | null;
+    matters: ClientStatementMatter[];
+    agingBucket: "current" | "1-30" | "31-60" | "61-90" | "90+";
+    billedMinor: number;
+    paidAndCreditedMinor: number;
+    unpaidMinor: number;
+  }[];
+}
+
 /** A null filter is left off the query: the contract reads an absent parameter as "the whole firm". */
 function present(value: string | null): string | undefined {
   return value ?? undefined;
@@ -798,6 +853,32 @@ export function readPaymentsApplied(
         periodEnd: query.periodEnd,
         knownAsOf: present(query.knownAsOf),
         locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** The client is required: a statement is always one client's, never the firm's. */
+export interface ClientStatementQuery {
+  readonly clientEntityId: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly knownAsOf: string | null;
+}
+
+export function readClientStatement(
+  fetchImpl: typeof fetch,
+  query: ClientStatementQuery,
+): Promise<ApiOutcome<ClientStatement>> {
+  return outcome(() =>
+    reportsClientStatement({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        clientEntityId: query.clientEntityId,
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
       },
     }),
   );

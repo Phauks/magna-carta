@@ -2345,6 +2345,57 @@ export type ClientListReport = {
     }>;
 };
 
+export type ClientStatementReport = {
+    periodStart: string;
+    periodEnd: string;
+    clientEntityId: string;
+    clientName: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        openingMinor: number;
+        billedMinor: number;
+        invoiceCount: number;
+        appliedMinor: number;
+        applicationCount: number;
+        closingMinor: number;
+    };
+    activity: Array<{
+        kind: 'invoice' | 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | 'reversal';
+        reversesKind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | null;
+        date: string;
+        invoiceId: string;
+        invoiceNumber: string | null;
+        applicationId: string | null;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+        }>;
+        reason: string | null;
+        chargedMinor: number | null;
+        appliedMinor: number | null;
+        balanceMinor: number;
+    }>;
+    unpaidInvoices: Array<{
+        invoiceId: string;
+        invoiceNumber: string | null;
+        issueDate: string;
+        dueDate: string | null;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+        }>;
+        agingBucket: 'current' | '1-30' | '31-60' | '61-90' | '90+';
+        billedMinor: number;
+        paidAndCreditedMinor: number;
+        unpaidMinor: number;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -17485,6 +17536,52 @@ export type ReportsClientListResponses = {
 };
 
 export type ReportsClientListResponse = ReportsClientListResponses[keyof ReportsClientListResponses];
+
+export type ReportsClientStatementData = {
+    body?: never;
+    path?: never;
+    query: {
+        clientEntityId: string | string;
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+    };
+    url: '/api/v1/reports/client-statement';
+};
+
+export type ReportsClientStatementErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The client is not a directory person or organization handle, the period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or the client has more bills or applications than one statement can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsClientStatementError = ReportsClientStatementErrors[keyof ReportsClientStatementErrors];
+
+export type ReportsClientStatementResponses = {
+    /**
+     * The client's statement of account for this period
+     */
+    200: ClientStatementReport;
+};
+
+export type ReportsClientStatementResponse = ReportsClientStatementResponses[keyof ReportsClientStatementResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
