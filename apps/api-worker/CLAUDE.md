@@ -185,6 +185,14 @@ Worker.
   checks (cancelled, expired, already signed) and answers those 410 the way the link does. A member
   is never mailed a link; their turn is an outbox message (`src/signing/member-turn.ts`) committed
   in the batch that asks them, which raises the `documents.signing.memberTurn` notification.
+- **A completed request is sealed off the request path, and only once.** The finish that completes
+  it raises `signing.completed`, handled on the per-firm queue; the hourly signing pass seals any
+  that message missed. Both reach `src/signing/seal-completed.ts` through
+  `src/signing/sealing-wiring.ts`, which checks the sent version's bytes against the digest taken at
+  send (a changed document is never sealed), sends the marks to the sign worker to draw before it
+  seals, and files the signed copy as a new version and the certificate as a new file through the
+  same reserve, write, complete and ingest steps an upload takes. The final write is guarded on
+  `sealed_at IS NULL`.
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
 - **Every object written into a firm's bucket carries its dimensions.** Build them with

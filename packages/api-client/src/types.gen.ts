@@ -4012,6 +4012,8 @@ export type SigningRequestDetail = {
     sentAt: string | null;
     completedAt: string | null;
     sealedAt: string | null;
+    signedFileVersionId: string | null;
+    certificateFileId: string | null;
     voidedReason: string | null;
     signers: Array<{
         id: string;
@@ -6725,6 +6727,14 @@ export type SetDirectoryPersonLifeDatesRequest = {
      * Separate from the date, because known dead with the date unknown is a state probate work meets constantly. A recorded date of death implies this flag.
      */
     deceased?: boolean;
+};
+
+export type ChangeMatterPartyRoleRequest = {
+    role: string;
+    /**
+     * The capacity the party acts in, in its new role. Left out, it has none.
+     */
+    capacity?: string;
 };
 
 export type DirectoryEntityPhotoResponse = {
@@ -31889,6 +31899,60 @@ export type DirectoryUnlinkMatterPartyResponses = {
 };
 
 export type DirectoryUnlinkMatterPartyResponse = DirectoryUnlinkMatterPartyResponses[keyof DirectoryUnlinkMatterPartyResponses];
+
+export type DirectoryChangeMatterPartyRoleData = {
+    body: ChangeMatterPartyRoleRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/matter-parties/{id}';
+};
+
+export type DirectoryChangeMatterPartyRoleErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryChangeMatterPartyRoleError = DirectoryChangeMatterPartyRoleErrors[keyof DirectoryChangeMatterPartyRoleErrors];
+
+export type DirectoryChangeMatterPartyRoleResponses = {
+    /**
+     * The link that now carries the role
+     */
+    200: MatterPartyResponse;
+};
+
+export type DirectoryChangeMatterPartyRoleResponse = DirectoryChangeMatterPartyRoleResponses[keyof DirectoryChangeMatterPartyRoleResponses];
 
 export type DirectoryContactPointsData = {
     body?: never;

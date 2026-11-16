@@ -16,6 +16,10 @@ and prepares a document for a signature. Native `rlib`, and the WebAssembly modu
 - `src/textpos.rs`, `src/textextract.rs`, `src/detect.rs` — where each glyph and shape sits, the
   lines they make, and the patterns worth redacting among them.
 - `src/bates.rs`, `src/watermark.rs` — text and pictures drawn over existing pages.
+- `src/marks.rs` — `place_marks`: pictures, lines of text and ticks drawn into boxes given in
+  displayed page points, the way a signed copy carries what each signer gave. A picture used in
+  several boxes is embedded once, and the page's own drawing is closed in `q`/`Q` first so a
+  transform it leaves standing cannot move a mark.
 - `src/generate.rs` — merge, split and rotate.
 - `src/forms/` — `mod.rs` walks the field tree and reads it; `appearance.rs` draws a text field;
   `fill.rs` and `flatten.rs` are the two writers.
