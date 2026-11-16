@@ -105,7 +105,7 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <LabelledField
+    <LabelledField necessity="required"
       label="Matter"
       id="file-communication-matter"
       hint="An intake or consultation counts. A matter doesn't need a number to have a conversation."

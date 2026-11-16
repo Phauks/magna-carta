@@ -123,7 +123,7 @@
         </Select.Root>
       </div>
       <div class="flex flex-col gap-8">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Date"
           value={civilDateValue(issuedOn)}
           onValueChange={(next) => (issuedOn = civilDateTextOrEmpty(next))}

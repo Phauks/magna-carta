@@ -160,7 +160,7 @@
     </LabelledField>
   </div>
 
-  <LabelledField {label} id={numberInputId} class="min-w-0 flex-auto" {error}>
+  <LabelledField necessity="required" {label} id={numberInputId} class="min-w-0 flex-auto" {error}>
     {#snippet children({ props })}
       <!-- Grouped as it is typed, in the chosen country's own national form, so an area code lands
            where the eye expects it. The record stores the international form composed from the two. -->
@@ -186,7 +186,7 @@
     <!-- Narrow, and last: a direct dial is three or four digits and it is the half a reader's eye
          skips. Digits only, because "ext." is what the label already says. -->
     <div class="shrink-0" style="inline-size: 6rem">
-      <LabelledField label="Extension" id={extensionInputId}>
+      <LabelledField necessity="optional" label="Extension" id={extensionInputId}>
         {#snippet children({ props })}
           <Input
             {...props}

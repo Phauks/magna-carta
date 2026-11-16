@@ -58,7 +58,7 @@
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="registration-confirmation-code">Confirmation Code</Label>
+        <Label necessity="required" for="registration-confirmation-code">Confirmation Code</Label>
         <Input
           bind:ref={tokenFieldReference}
           id="registration-confirmation-code"

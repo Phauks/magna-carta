@@ -506,7 +506,7 @@
             </Alert.Description>
           </Alert.Root>
           <div class="flex flex-col gap-4">
-            <Label for="document-unlock-password">Password</Label>
+            <Label necessity="required" for="document-unlock-password">Password</Label>
             <PasswordInput
               id="document-unlock-password"
               bind:value={unlockPassword}

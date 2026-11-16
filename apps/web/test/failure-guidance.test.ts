@@ -91,6 +91,22 @@ describe("the remedy comes from what the server said", () => {
     expect(guidanceForProblem({ status: 409 }).remedy.kind).toBe("retry");
     expect(guidanceForProblem(null).remedy.kind).toBe("retry");
   });
+
+  it("offers a retry on a conflict only where the conflict passes", () => {
+    const problems = "https://api.magnacarta.esq/problems/";
+    // The first request is still running, or the set moved under the write: asking again can work.
+    for (const slug of [
+      "idempotency-key-conflict",
+      "export-copies-pending",
+      "exhibit-set-changed",
+    ]) {
+      expect(guidanceForProblem({ status: 409, type: problems + slug }).remedy.kind).toBe("retry");
+    }
+    // A state the record is in: the same request refuses the same way, so no Retry.
+    for (const slug of ["conflict", "legal-hold-in-force", "check-already-answered"]) {
+      expect(guidanceForProblem({ status: 409, type: problems + slug }).remedy.kind).toBe("none");
+    }
+  });
 });
 
 describe("a rate limit is not a verdict", () => {

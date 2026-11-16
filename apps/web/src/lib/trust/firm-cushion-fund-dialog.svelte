@@ -148,7 +148,7 @@
   {#snippet fields({ busy })}
     <div class="@container flex flex-col gap-16">
       <div class="grid gap-12 @sm:grid-cols-2">
-        <LabelledField
+        <LabelledField necessity="required"
           label="Amount"
           hint="Dollars and cents, as the money was paid in."
           error={fieldRefusal(serverProblem, "amountMinor")}
@@ -161,7 +161,7 @@
         <!-- The picker renders its own label, so it stands outside LabelledField rather than
              carrying a second one. -->
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Effective Date"
             value={civilDateValue(effectiveDate)}
             onValueChange={(next) => (effectiveDate = civilDateTextOrEmpty(next))}
@@ -177,7 +177,7 @@
       </div>
 
       <div class="grid gap-12 @sm:grid-cols-2">
-        <LabelledField label="Method" error={fieldRefusal(serverProblem, "method")}>
+        <LabelledField necessity="required" label="Method" error={fieldRefusal(serverProblem, "method")}>
           {#snippet children({ props })}
             <ChoicePicker
               inputId={props.id}
@@ -191,7 +191,7 @@
           {/snippet}
         </LabelledField>
 
-        <LabelledField
+        <LabelledField necessity="optional"
           label="Reference"
           hint="The check or confirmation number, where there is one."
           error={fieldRefusal(serverProblem, "reference")}
@@ -207,7 +207,7 @@
         </LabelledField>
       </div>
 
-      <LabelledField
+      <LabelledField necessity="required"
         label="Description"
         hint="Why the firm is adding its own money. This becomes the ledger entry's description."
         error={fieldRefusal(serverProblem, "description")}

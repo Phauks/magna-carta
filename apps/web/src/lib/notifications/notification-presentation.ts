@@ -276,6 +276,7 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
       return medium === "audio" ? "Audio call" : "Video meeting";
     },
   },
+  "documents.signing.memberTurn": { title: "A document is waiting for your signature" },
   "tasks.task.assigned": { title: "Task assigned to you", detail: taskDetail },
   "tasks.task.reassigned": { title: "Task passed to you", detail: taskDetail },
   "tasks.firmTask.assigned": { title: "Firm task assigned to you", detail: taskDetail },

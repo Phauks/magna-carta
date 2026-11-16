@@ -459,7 +459,7 @@
           {#if destructionChoice === "date"}
             <!-- A wrapper, because the picker renders its label and its field as two siblings. -->
             <div class="flex flex-col gap-4">
-              <DatePicker
+              <DatePicker necessity="required"
                 aria-label="Destroy after"
                 value={civilDateValue(destructionDraft)}
                 onValueChange={(next) => {
@@ -494,7 +494,7 @@
         <!-- The pause's reason, asked here because this is where the pause is recorded. The
              same field for a consultation being parked: the reason is the one thing a hold
              carries either way. -->
-        <LabelledField
+        <LabelledField necessity="required"
           label="Reason"
           hint="Why the firm has stopped work on this matter, in one sentence. It shows beside the status; put the details in the matter's notes."
           error={holdReasonError ?? undefined}

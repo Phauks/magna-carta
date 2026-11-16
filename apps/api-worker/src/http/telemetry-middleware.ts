@@ -20,6 +20,12 @@ import type { Bindings } from "../bindings.ts";
 import type { AppVariables } from "./chokepoint/ports.ts";
 import { answeredOperation, problemJson, publicCause } from "./contracts/problem.ts";
 import { recordAnsweredProblem } from "./error-record.ts";
+import { runInBackground } from "./deferred-work.ts";
+import {
+  backgroundFailureRecordsPending,
+  recordBackgroundFailures,
+  settleBackgroundFailureRecords,
+} from "../system-status/background-error-record.ts";
 import { FirmBucketUnavailableError } from "../files/firm-bucket-fault.ts";
 
 type TelemetryEnv = { Bindings: Bindings; Variables: AppVariables };
@@ -34,9 +40,13 @@ export function telemetryMiddleware(
     const correlationId = newCorrelationId();
     c.set("correlationId", correlationId);
     c.set("logger", loggerForEnv(c.env));
+    // A failure logged behind this request (a step after the response, a sweep it started) is kept
+    // in the error record too. Installing is idempotent: one env per isolate.
+    recordBackgroundFailures(c.env);
 
     const startMs = clock();
     await next();
+    if (backgroundFailureRecordsPending()) runInBackground(c, settleBackgroundFailureRecords());
 
     // Every problem this request answered is kept against its Error ID, so the ID on the member's
     // screen can be looked up. Off the request's path, and never able to fail it.

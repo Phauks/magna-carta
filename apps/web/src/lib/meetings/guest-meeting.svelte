@@ -77,6 +77,7 @@
     leaveMeetingAsGuest,
     leaveMeetingAsGuestOnDeparture,
     openGuestMeetingSocket,
+    openGuestSharedFile,
     readGuestMeeting,
     type GuestMeetingSummary,
     type GuestRefusal,
@@ -107,6 +108,7 @@
   import RecordingMark from "./screen/recording-mark.svelte";
   import RecordingNotice from "./screen/recording-notice.svelte";
   import type { Failure } from "$lib/api/problem.ts";
+  import { opensBeside, reserveBeside } from "$lib/navigation/open-beside.ts";
   import type { MeetingMessage } from "@magna-carta/api-client";
 
   let {
@@ -201,6 +203,39 @@
    * way the stay ends, and read by every departure — so a departure sent twice is sent once.
    */
   let grant = $state<string | null>(null);
+
+  /** Why the last shared file this guest pressed did not open. Null while nothing has refused one. */
+  let fileFailure = $state<Failure | null>(null);
+  /** A file whose address arrived after the browser refused to open a tab for it. */
+  let fileBlocked = $state<{ url: string; name: string } | null>(null);
+
+  /**
+   * A file shared in the chat, opened in a tab of its own. The tab is opened AT THE PRESS and sent
+   * to the file once the address arrives, because a tab opened after an await is a pop-up the
+   * browser blocks. The address is asked for at the press since the grant travels in a header.
+   */
+  async function openSharedFile(fileId: string): Promise<void> {
+    const held = grant;
+    if (held === null) return;
+    fileFailure = null;
+    fileBlocked = null;
+    const tab = reserveBeside("file");
+    const outcome = await openGuestSharedFile(held, fileId);
+    if (outcome.kind !== "ok") {
+      tab?.close();
+      fileFailure = outcome.failure;
+      return;
+    }
+    if (tab === null) {
+      // The browser refused the tab. Leaving this page for the file would leave the meeting, so the
+      // address is offered as a link of its own to press instead.
+      fileBlocked = outcome.value;
+      return;
+    }
+    // Cut the new tab off from this page before it leaves for the file's address.
+    tab.opener = null;
+    tab.location.href = outcome.value.url;
+  }
   /** The name the room knows this guest by, as the arrival answered it. */
   let displayName = $state("");
   /** True while a leave is in flight, so the way out cannot be taken twice. */
@@ -506,6 +541,7 @@
     canTakeBack={() => false}
     onSend={(body) => chat.send(body)}
     onTakeBack={() => undefined}
+    onOpenFile={(file) => void openSharedFile(file.id)}
   >
     {#snippet readFailure()}
       {#if chat.readFailure !== null}
@@ -528,6 +564,26 @@
           fallback="That wasn't saved to this meeting's record."
           whenSilent="Couldn't connect. Your message wasn't sent. Try again."
         />
+      {/if}
+      {#if fileFailure !== null}
+        <FailureNotice
+          failure={fileFailure}
+          subject="This meeting"
+          title="The File Did Not Open"
+          fallback="That file is no longer shared in this meeting, or you are no longer in it."
+          whenSilent="Couldn't connect. The file did not open. Try again."
+        />
+      {/if}
+      {#if fileBlocked !== null}
+        <p class="text-sm">
+          Your browser blocked a new tab.
+          <a
+            class="underline"
+            href={fileBlocked.url}
+            {...opensBeside("file")}
+            onclick={() => (fileBlocked = null)}>Open {fileBlocked.name}</a
+          >
+        </p>
       {/if}
     {/snippet}
   </MeetingChatPanel>

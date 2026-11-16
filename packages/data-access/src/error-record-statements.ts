@@ -1,6 +1,7 @@
 /*
  * The control plane's error record: one row per failure a member was shown, keyed by the Error ID on
- * their screen, so the ID can be looked up after the fact. The table is
+ * their screen, so the ID can be looked up after the fact, and one per background failure nobody was
+ * shown, keyed by the Error ID its log line carries. The table is
  * @magna-carta/database's `error_record`; what may go in each column is stated there.
  */
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
@@ -11,7 +12,9 @@ export const ERROR_RECORD_TABLE = "error_record";
 /** How long a record is kept. The daily pass deletes anything older. */
 export const ERROR_RECORD_RETENTION_DAYS = 30;
 
-export type ErrorRecordSource = "server" | "browser";
+// server: a problem the API answered; browser: a crash the app reported; background: a failure
+// nobody was shown (a sweep, a queue consumer, a Cron pass), from the failed-operation tap.
+export type ErrorRecordSource = "server" | "browser" | "background";
 
 export interface ErrorRecordInput {
   readonly errorId: string;

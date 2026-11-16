@@ -433,7 +433,7 @@
           Assign to Matter
         </Popover.Trigger>
         <Popover.Content align="end" class="flex w-sm flex-col gap-8">
-          <Label for="assign-to-matter">Assign to Matter</Label>
+          <Label necessity="required" for="assign-to-matter">Assign to Matter</Label>
           <MatterChoice
             subjectEntityIds={run.subjectParties.map((subject) => subject.entityId)}
             value={matterToFile}

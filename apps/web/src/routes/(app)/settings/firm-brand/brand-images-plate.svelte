@@ -291,7 +291,7 @@
   {/snippet}
   {#snippet fields({ busy: adding })}
     <div class="flex flex-col gap-12">
-      <LabelledField label="Image" hint="A PNG or a JPEG, up to two megabytes.">
+      <LabelledField necessity="required" label="Image" hint="A PNG or a JPEG, up to two megabytes.">
         {#snippet children({ props })}
           <FileInput
             {...props}
@@ -314,7 +314,7 @@
           />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Caption" hint="What the image is, in the firm's words: a seal, a wordmark.">
+      <LabelledField necessity="optional" label="Caption" hint="What the image is, in the firm's words: a seal, a wordmark.">
         {#snippet children({ props })}
           <Input {...props} bind:value={label} disabled={adding} />
         {/snippet}

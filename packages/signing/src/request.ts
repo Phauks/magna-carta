@@ -298,3 +298,16 @@ export function completionCounts(
     initialCount: own.filter((field) => field.kind === "initials").length,
   };
 }
+
+// A request reached a colleague's turn: a signer the sender named as a member of the firm, who signs
+// in the app rather than from a mailed link. Written to the outbox in the same batch that marks them
+// asked; the notification it raises names the member and points at the file, never the title.
+export const SIGNING_MEMBER_TURN_TOPIC = "signing.memberTurn";
+
+/** What the outbox row for a member's turn carries: identifiers only. */
+export interface SigningMemberTurnPayload {
+  readonly requestId: string;
+  readonly fileId: string;
+  readonly matterId: string;
+  readonly signerUserId: string;
+}

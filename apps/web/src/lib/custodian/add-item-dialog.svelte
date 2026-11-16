@@ -165,13 +165,13 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="new-item-description">Description</Label>
+        <Label necessity="required" for="new-item-description">Description</Label>
         <Textarea id="new-item-description" rows={2} disabled={busy} bind:value={draft.description} />
       </div>
 
       <div class="grid gap-16 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label id="new-item-type-label">Type</Label>
+          <Label necessity="optional" id="new-item-type-label">Type</Label>
           <Select.Root
             type="single"
             items={typeItems}
@@ -192,7 +192,7 @@
         </div>
         <div class="flex flex-col gap-8">
           <!-- The date on the instrument itself, which is not the date the firm took it in. -->
-          <DatePicker
+          <DatePicker necessity="optional"
             label="Dated"
             value={instrumentDateValue}
             onValueChange={recordInstrumentDate}

@@ -184,7 +184,7 @@
 </script>
 
 <form class="flex flex-col gap-16" onsubmit={join} novalidate>
-  <LabelledField label="Your Name" error={nameRefusal}>
+  <LabelledField necessity="required" label="Your Name" error={nameRefusal}>
     {#snippet children({ props })}
       <Input
         {...props}

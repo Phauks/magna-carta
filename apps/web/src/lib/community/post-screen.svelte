@@ -242,7 +242,7 @@
             <FailureNotice failure={actionFailure} subject="That" />
           {/if}
           {#if canWrite && post.moderationState === "published"}
-            <LabelledField
+            <LabelledField necessity="required"
               label="Comment"
               hint="About the software only. No client names, matter numbers, balances or screenshots."
             >

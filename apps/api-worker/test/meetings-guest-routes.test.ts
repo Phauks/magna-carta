@@ -651,6 +651,77 @@ describe("in the room", () => {
     ]);
   });
 
+  it("opens a file shared in the chat while in the room, and only one a line still points at", async () => {
+    const { meetingId, token } = await meetingWithAGuest();
+    const arrived = await readJson<Arrival>(await arrive(token));
+    const grant = arrived.guestGrant;
+    const now = new Date().toISOString();
+    const shared = newIdentifier("file");
+    const notShared = newIdentifier("file");
+    for (const [fileId, name] of [
+      [shared, "Exhibit list.pdf"],
+      [notShared, "Privileged memo.pdf"],
+    ] as const) {
+      const versionId = newIdentifier("fileVersion");
+      await firmDatabase
+        .prepare(
+          "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
+        )
+        .bind(fileId, MATTER, name, now)
+        .run();
+      await firmDatabase
+        .prepare(
+          "INSERT INTO file_version (id, file_id, version_number, r2_key, status, created_at) " +
+            "VALUES (?1, ?2, 1, ?3, 'clean', ?4)",
+        )
+        .bind(versionId, fileId, `files/${versionId}`, now)
+        .run();
+      await firmDatabase
+        .prepare("UPDATE file SET current_version_id = ?1 WHERE id = ?2")
+        .bind(versionId, fileId)
+        .run();
+    }
+    const fileAddress = (fileId: string) => `/api/v1/guest/meeting/files?fileId=${fileId}`;
+
+    const said = await hostPost(`/api/v1/meetings/${meetingId}/messages`, {
+      body: "",
+      attachedFileId: shared,
+    });
+    expect(said.status).toBe(201);
+    const messageId = (await readJson<{ id: string }>(said)).id;
+
+    // AT THE DOOR, NOT IN THE ROOM: nothing shared is theirs yet.
+    expect((await guestRequest(fileAddress(shared), grant)).status).toBe(409);
+    expect(
+      (
+        await hostPost(`/api/v1/meetings/${meetingId}/lobby/admissions`, {
+          participantIds: [arrived.participantId],
+        })
+      ).status,
+    ).toBe(200);
+
+    // The line names the file to the guest, and the file opens.
+    const read = await readJson<{ data: { attachedFile: unknown }[] }>(
+      await guestRequest("/api/v1/guest/meeting/messages", grant),
+    );
+    expect(read.data[0]?.attachedFile).toEqual({ id: shared, name: "Exhibit list.pdf" });
+    const opened = await guestRequest(fileAddress(shared), grant);
+    expect(opened.status).toBe(200);
+    expect(await readJson<{ name: string; url: string }>(opened)).toMatchObject({
+      name: "Exhibit list.pdf",
+      url: expect.any(String) as unknown,
+    });
+
+    // A file of the same matter nobody shared is not reachable by its handle.
+    expect((await guestRequest(fileAddress(notShared), grant)).status).toBe(404);
+
+    // Taken back, the line no longer reaches the file.
+    expect(
+      (await hostPost(`/api/v1/meetings/${meetingId}/messages/${messageId}/redact`)).status,
+    ).toBe(200);
+    expect((await guestRequest(fileAddress(shared), grant)).status).toBe(404);
+  });
+
   it("opens the socket on the guest parameter, and no log line carries the credential", async () => {
     const { token } = await meetingWithAGuest();
     const grant = (await readJson<Arrival>(await arrive(token))).guestGrant;
@@ -1053,8 +1124,10 @@ describe("the contract", () => {
     );
     expect(guestPaths.toSorted()).toEqual([
       "/api/v1/guest/arrivals",
+      "/api/v1/guest/client-errors",
       "/api/v1/guest/departures",
       "/api/v1/guest/meeting",
+      "/api/v1/guest/meeting/files",
       "/api/v1/guest/meeting/messages",
       "/api/v1/guest/meeting/socket",
     ]);
@@ -1133,5 +1206,54 @@ describe("inviting a guest by name and address", () => {
       emailAddress: "not an address",
     });
     expect(refused.status).toBe(422);
+  });
+});
+
+describe("a crash on the guest's page", () => {
+  const crash = (errorId: string) => ({
+    errorId,
+    route: "/join/should-not-be-kept",
+    errorName: "TypeError",
+    message: "Cannot read properties of undefined (reading 'tracks')",
+    location: "guest-meeting.svelte:88:12",
+    build: "main 1234567",
+  });
+
+  it("is kept against its client_ Error ID on the link, under the page's template and no user", async () => {
+    const { token } = await meetingWithAGuest();
+    const errorId = "client_7K2M9QXA";
+    const response = await guestRequest("/api/v1/guest/client-errors", token, {
+      method: "POST",
+      body: crash(errorId),
+    });
+    expect(response.status).toBe(201);
+    const row = await env.DB_CONTROL.prepare("SELECT * FROM error_record WHERE id = ?1")
+      .bind(errorId)
+      .first();
+    expect(row).toMatchObject({
+      source: "browser",
+      service: "web",
+      operation: "/join/[token]",
+      error_name: "TypeError",
+      message_head: "Cannot read properties of undefined (reading 'tracks')",
+      firm_id: firmId,
+      user_id: null,
+    });
+    // The link is a credential: no column of the record holds it.
+    expect(JSON.stringify(row)).not.toContain(token);
+  });
+
+  it("answers the flat 404 without a link, and keeps nothing", async () => {
+    await meetingWithAGuest();
+    const errorId = "client_8M3N0RYB";
+    const response = await guestRequest("/api/v1/guest/client-errors", null, {
+      method: "POST",
+      body: crash(errorId),
+    });
+    expect(response.status).toBe(404);
+    const row = await env.DB_CONTROL.prepare("SELECT id FROM error_record WHERE id = ?1")
+      .bind(errorId)
+      .first();
+    expect(row).toBeNull();
   });
 });

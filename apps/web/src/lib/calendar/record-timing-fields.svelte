@@ -135,7 +135,7 @@
 
 <div class="flex flex-col gap-16">
   <div class="flex flex-col gap-4">
-    <DateTimeField
+    <DateTimeField necessity="required"
       id="{idPrefix}-starts-on"
       label="Starts"
       date={startsOnValue}
@@ -153,7 +153,7 @@
   </div>
 
   <div class="flex flex-col gap-4">
-    <DateTimeField
+    <DateTimeField necessity="optional"
       id="{idPrefix}-ends-on"
       label="Ends"
       mode={allDay ? "date" : "date-time"}

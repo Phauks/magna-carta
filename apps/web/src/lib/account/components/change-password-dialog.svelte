@@ -106,7 +106,7 @@
   {/snippet}
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField label="Current Password">
+      <LabelledField necessity="required" label="Current Password">
         {#snippet children({ props })}
           <PasswordInput
             {...props}
@@ -117,7 +117,7 @@
         {/snippet}
       </LabelledField>
 
-      <LabelledField
+      <LabelledField necessity="required"
         label="New Password"
         hint="At least {MINIMUM_PASSWORD_LENGTH} characters."
       >

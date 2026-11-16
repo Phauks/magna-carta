@@ -96,7 +96,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField
+      <LabelledField necessity="required"
         label="File"
         error={attempted && fileMissing
           ? "Choose a file."
@@ -115,7 +115,7 @@
           />
         {/snippet}
       </LabelledField>
-      <LabelledField
+      <LabelledField necessity="required"
         label="Contents"
         error={attempted && kindMissing ? "Choose the contents of this file." : undefined}
       >
