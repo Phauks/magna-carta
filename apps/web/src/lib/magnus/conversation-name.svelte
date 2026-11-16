@@ -108,7 +108,7 @@
   }
 </script>
 
-<div class="flex min-w-0 flex-col gap-4">
+<div class="flex min-w-0 max-w-full flex-col gap-4">
   <div class="flex min-w-0 items-center gap-4">
     {#if editing}
       <Input
@@ -116,7 +116,7 @@
         bind:value={draft}
         size="sm"
         aria-label="Conversation name"
-        class="w-2xs"
+        class="w-2xs max-w-full"
         onkeydown={keydown}
         onblur={() => void commit()}
       />
