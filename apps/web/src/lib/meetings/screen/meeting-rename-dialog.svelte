@@ -68,7 +68,7 @@
 >
   {#snippet fields()}
     <div class="flex flex-col gap-8">
-      <Label for="meeting-rename-name">Name in This Meeting</Label>
+      <Label necessity="required" for="meeting-rename-name">Name in This Meeting</Label>
       <Input
         id="meeting-rename-name"
         bind:value={typed}

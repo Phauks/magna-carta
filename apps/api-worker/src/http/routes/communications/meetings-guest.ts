@@ -201,7 +201,7 @@ const SendGuestMessageRequest = z
   })
   .openapi("SendGuestMeetingMessageRequest");
 
-const guestCredentialHeader = z.object({
+export const guestCredentialHeader = z.object({
   "x-meeting-guest": z
     .string()
     .optional()
@@ -232,7 +232,7 @@ const invitationParams = z.object({
 
 // What every guest route may answer beyond its success. 404 is the FLAT refusal — a credential that
 // is not one, answered as an address that does not exist, so a stranger learns nothing.
-const guestErrors = {
+export const guestErrors = {
   403: {
     description: "The request is refused — a socket upgrade from another site",
     content: { "application/problem+json": { schema: Problem } },
@@ -834,19 +834,10 @@ export async function replaceAndMail(
   return await mailTheLink(c, sendEmail, meetingId, minted);
 }
 
-/**
- * A message as a guest reads it: no member's user id, and no file. A file shared in chat is one of
- * the matter's documents, reached through the member's download route, which a guest cannot call;
- * the line's words (the file's name, where nothing else was typed) still say that it was shared.
- */
-function redactedForGuest<
-  T extends {
-    userId: string | null;
-    redactedByUserId: string | null;
-    attachedFile: { id: string; name: string } | null;
-  },
->(message: T): T {
-  return { ...message, userId: null, redactedByUserId: null, attachedFile: null };
+function redactedForGuest<T extends { userId: string | null; redactedByUserId: string | null }>(
+  message: T,
+): T {
+  return { ...message, userId: null, redactedByUserId: null };
 }
 
 // ---- registration ----

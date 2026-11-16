@@ -54,8 +54,7 @@ const STATE_DETAILS: Record<ConnectedServiceStatus["id"], Record<ConnectedServic
       "The Realtime application id or secret is not set on the magna-carta Worker, so no meeting can open.",
     refused:
       "The service did not accept the Realtime application id and secret. Check that both are the pair on the Realtime application.",
-    unreachable:
-      "The service did not answer in time, or answered with a fault. Meetings may not open.",
+    unreachable: "Couldn't connect to the service, or it returned an error. Meetings may not open.",
   },
   googleCalendar: calendarDetails(
     "Google",

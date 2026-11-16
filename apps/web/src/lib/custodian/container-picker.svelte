@@ -247,7 +247,7 @@
     <div class="flex flex-col gap-16 rounded-md border border-border-default bg-surface-subtle p-16">
       <div class="grid gap-16 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label for="{inputId}-new-name">Name</Label>
+          <Label necessity="required" for="{inputId}-new-name">Name</Label>
           <Input
             id="{inputId}-new-name"
             disabled={disabled || saving}

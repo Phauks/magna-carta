@@ -376,7 +376,7 @@
       <!-- First, because a fee is a fact about a matter before it is a fact about an amount, and
            because the refusal that names it leads the others. -->
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-pick-matter">Matter</Label>
+        <Label necessity="required" for="{fieldPrefix}-pick-matter">Matter</Label>
         <MatterPicker
           {matters}
           value={chosenMatterId}
@@ -391,7 +391,7 @@
 
     <!-- The description leads: it is the line the client reads, and it grows to fit. -->
     <div class="flex flex-col gap-4">
-      <Label for="{fieldPrefix}-description">Description</Label>
+      <Label necessity="required" for="{fieldPrefix}-description">Description</Label>
       <Textarea
         id="{fieldPrefix}-description"
         rows={2}
@@ -405,7 +405,7 @@
 
     <div class="grid gap-12 sm:grid-cols-3">
       <div class="flex flex-col gap-4">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Date"
           value={civilDateValue(serviceDateText)}
           onValueChange={(next) => (serviceDateText = civilDateTextOrEmpty(next))}
@@ -440,7 +440,7 @@
 
     <div class="grid gap-12 sm:grid-cols-3">
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-amount">Amount</Label>
+        <Label necessity="required" for="{fieldPrefix}-amount">Amount</Label>
         <Input
           id="{fieldPrefix}-amount"
           placeholder={placeholderOf("Amount")}
@@ -480,7 +480,7 @@
 
     <!-- Internal, not hidden: it shows on a read-only record too, and never reaches the paper. -->
     <div class="flex flex-col gap-4">
-      <Label for="{fieldPrefix}-memo">Internal Memo</Label>
+      <Label necessity="optional" for="{fieldPrefix}-memo">Internal Memo</Label>
       <Textarea
         id="{fieldPrefix}-memo"
         rows={2}

@@ -177,7 +177,7 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-reason">Reason</Label>
+        <Label necessity="required" for="{fieldPrefix}-reason">Reason</Label>
         <Textarea id="{fieldPrefix}-reason" rows={3} disabled={busy} bind:value={reason} />
         <p class="text-xs text-text-muted">
           In your own words: what was charged that should not have been, and why. It is read years
@@ -187,11 +187,11 @@
 
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-amount">Amount</Label>
+          <Label necessity="required" for="{fieldPrefix}-amount">Amount</Label>
           <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
         </div>
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Effective Date"
             value={civilDateValue(effectiveDate)}
             onValueChange={(next) => (effectiveDate = civilDateTextOrEmpty(next))}
@@ -201,7 +201,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label id="{fieldPrefix}-line-label">Credits Which Charge</Label>
+        <Label necessity="required" id="{fieldPrefix}-line-label">Credits Which Charge</Label>
         <Select.Root
           type="single"
           items={lineItems}

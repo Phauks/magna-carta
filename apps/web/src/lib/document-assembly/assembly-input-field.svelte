@@ -61,14 +61,14 @@
   <div class="flex flex-col gap-4">
     {#if field.valueType !== "date"}
       <!-- The date control renders its own label, tied to its own input. -->
-      <Label for={controlId} optional={!field.required}>{field.label}</Label>
+      <Label for={controlId} necessity={field.required ? "required" : "optional"}>{field.label}</Label>
     {/if}
 
     {#if field.valueType === "date"}
       <!-- DatePicker holds a calendar date; the form's state stays ISO text (see the model). -->
       <DatePicker
         label={field.label}
-        optional={!field.required}
+        necessity={field.required ? "required" : "optional"}
         value={calendarValue}
         onValueChange={recordDate}
       />

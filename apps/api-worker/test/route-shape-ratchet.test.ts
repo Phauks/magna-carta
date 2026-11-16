@@ -64,7 +64,7 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "communications/meeting-polls.ts": { lines: 860, shapes: 5 },
   "communications/meeting-questions.ts": { lines: 839, shapes: 3 },
   "communications/meeting-summary.ts": { lines: 761, shapes: 6 },
-  "communications/meetings-guest.ts": { lines: 1419, shapes: 8 },
+  "communications/meetings-guest.ts": { lines: 1398, shapes: 8 },
   "communications/meetings.ts": { lines: 2719, shapes: 16 },
   // Raised from 1364 lines when the postage-account permission and the server-side label fee landed;
   // the growth is the comments that say who may change the account and why the fee is not sent in.

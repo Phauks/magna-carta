@@ -98,7 +98,7 @@
         </span>
       </p>
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-reason">Reason</Label>
+        <Label necessity="required" for="{fieldPrefix}-reason">Reason</Label>
         <Input
           id="{fieldPrefix}-reason"
           placeholder={placeholderOf("Reason")}

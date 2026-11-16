@@ -44,7 +44,7 @@ export const SIGNED_OUT_PATH = "/login";
  * went wrong, because what the person does next depends on that fact and on nothing else.
  */
 export const SIGN_OUT_FAILED =
-  "You could not be signed out — your session is still open. Try again, and if you are on a shared computer, close the browser.";
+  "You weren't signed out. Your session is still open. Try again, and close the browser if you're on a shared computer.";
 
 /** What happened. A refusal carries the sentence to show, so no caller writes its own. */
 export type SignOutOutcome = { kind: "signed-out" } | { kind: "failed"; message: string };

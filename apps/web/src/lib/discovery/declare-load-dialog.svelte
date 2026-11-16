@@ -226,7 +226,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="declare-load-count">Documents expected</Label>
+        <Label necessity="required" for="declare-load-count">Documents expected</Label>
         <Input
           id="declare-load-count"
           inputmode="numeric"
@@ -239,7 +239,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="declare-load-source">What it is</Label>
+        <Label necessity="optional" for="declare-load-source">What it is</Label>
         <Input
           id="declare-load-source"
           disabled={busy}

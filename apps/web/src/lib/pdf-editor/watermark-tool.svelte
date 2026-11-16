@@ -267,7 +267,7 @@
           {/snippet}
         </LabelledField>
         {#if preset === OTHER}
-          <LabelledField label="Your Words" error={problems.text}>
+          <LabelledField necessity="required" label="Your Words" error={problems.text}>
             {#snippet children({ props })}
               <Input {...props} value={settings.text} maxlength={WATERMARK_LIMITS.textLength} oninput={(event) => update({ text: event.currentTarget.value })} />
             {/snippet}
@@ -293,7 +293,7 @@
               </Select.Root>
             {/snippet}
           </LabelledField>
-          <LabelledField label="Size (pt)" error={problems.sizePt}>
+          <LabelledField necessity="required" label="Size (pt)" error={problems.sizePt}>
             {#snippet children({ props })}
               <Input
                 {...props}
@@ -327,7 +327,7 @@
           {/snippet}
         </LabelledField>
       {:else}
-        <LabelledField label="Image" hint="PNG or JPEG, such as the firm's logo" error={imageProblem ?? problems.kind}>
+        <LabelledField necessity="required" label="Image" hint="PNG or JPEG, such as the firm's logo" error={imageProblem ?? problems.kind}>
           {#snippet children({ props })}
             <FileInput {...props} accept="image/png,image/jpeg" onchange={chooseImage} />
           {/snippet}
@@ -398,7 +398,7 @@
           {/snippet}
         </LabelledField>
       </FieldRow>
-      <LabelledField label="Pages" hint="Leave empty for all pages, or write pages like 1-3, 7" error={problems.pages}>
+      <LabelledField necessity="optional" label="Pages" hint="Leave empty for all pages, or write pages like 1-3, 7" error={problems.pages}>
         {#snippet children({ props })}
           <Input {...props} value={settings.pages} placeholder="All pages" oninput={(event) => update({ pages: event.currentTarget.value })} />
         {/snippet}

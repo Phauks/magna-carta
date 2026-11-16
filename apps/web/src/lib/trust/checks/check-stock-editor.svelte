@@ -517,12 +517,12 @@
         </div>
 
         <div class="grid grid-cols-1 gap-16 sm:grid-cols-2">
-          <LabelledField label="Name">
+          <LabelledField necessity="required" label="Name">
             {#snippet children({ props })}
               <Input {...props} bind:value={name} autocomplete="off" />
             {/snippet}
           </LabelledField>
-          <LabelledField label="Starting Check Number">
+          <LabelledField necessity="required" label="Starting Check Number">
             {#snippet children({ props })}
               <Input
                 {...props}

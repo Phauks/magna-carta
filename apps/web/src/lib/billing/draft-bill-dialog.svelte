@@ -216,7 +216,7 @@
         <!-- First, because a bill is a fact about a client before it is a fact about a period, and
              the client comes from the matter. -->
         <div class="flex flex-col gap-4">
-          <Label for="draft-bill-matter">Matter</Label>
+          <Label necessity="required" for="draft-bill-matter">Matter</Label>
           <MatterPicker
             matters={matters ?? []}
             value={chosenMatterId}
@@ -245,7 +245,7 @@
         <!-- The picker's label and field are siblings with no wrapper of their own, so each one
              needs a track to itself or the label lands in the next column. -->
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Billing Period Starts"
             value={civilDateValue(periodStart)}
             onValueChange={(next) => (periodStart = civilDateTextOrEmpty(next))}
@@ -253,7 +253,7 @@
           />
         </div>
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Billing Period Ends"
             value={civilDateValue(periodEnd)}
             onValueChange={(next) => (periodEnd = civilDateTextOrEmpty(next))}

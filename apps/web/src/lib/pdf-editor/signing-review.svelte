@@ -90,19 +90,19 @@
 
   <section class="grid max-w-3xl gap-16" aria-labelledby="signing-review-email">
     <h2 id="signing-review-email" class="text-sm font-semibold">The Email</h2>
-    <LabelledField label="Subject">
+    <LabelledField necessity="optional" label="Subject">
       {#snippet children({ props })}
         <Input {...props} {disabled} maxlength={200} value={draft.subject} oninput={(event) => (draft = { ...draft, subject: event.currentTarget.value })} />
       {/snippet}
     </LabelledField>
-    <LabelledField label="Message" hint="Optional. Shown to signers above the link.">
+    <LabelledField necessity="optional" label="Message" hint="Shown to signers above the link.">
       {#snippet children({ props })}
         <Textarea {...props} {disabled} rows={4} maxlength={4000} value={draft.message} oninput={(event) => (draft = { ...draft, message: event.currentTarget.value })} />
       {/snippet}
     </LabelledField>
     <div class="grid gap-16 sm:grid-cols-2">
       <div class="flex flex-col gap-8">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Signable Until"
           value={civilDateValue(draft.expiresOn)}
           onValueChange={(next) => {

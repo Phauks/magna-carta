@@ -130,7 +130,7 @@ function scopeFields(check: CheckWithHits["check"]): PrintSheetField[] {
         label: "Longest Chain Followed",
         value: countText(check.traversal.longestPathLength),
       },
-      { label: "The Platform's Ceiling", value: countText(check.traversal.closureCap) },
+      { label: "Magna Carta's Limit", value: countText(check.traversal.closureCap) },
       { label: "Traversal Truncated", value: yesOrNo(check.traversal.truncated) },
     );
   } else {

@@ -302,7 +302,7 @@
         double-booking is reported, never refused.
       </p>
       <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-book-resource">Resource</Label>
+        <Label necessity="required" for="{idPrefix}-book-resource">Resource</Label>
         {#if bookableResources.length === 0}
           <p class="text-sm text-text-muted">
             The firm has no rooms or resources yet. They are added under Settings › Practice › Rooms

@@ -119,7 +119,7 @@
       </p>
     {/if}
 
-    <LabelledField
+    <LabelledField necessity="required"
       label="Amount To Apply"
       hint="Applying part of what is owed is ordinary: the rest stays owing and can be applied later."
     >

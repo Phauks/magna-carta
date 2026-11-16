@@ -122,11 +122,11 @@
       </div>
 
       <div class="flex flex-col gap-8 sm:col-span-2">
-        <Label for="bundle-password">Password</Label>
+        <Label necessity="optional" for="bundle-password">Password</Label>
         <PasswordInput
           id="bundle-password"
           autocomplete="new-password"
-          placeholder="Optional. Encrypts with AES-256"
+          placeholder="Encrypts with AES-256"
           disabled={busy}
           bind:value={password}
         />
