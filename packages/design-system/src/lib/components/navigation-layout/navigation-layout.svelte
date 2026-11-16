@@ -155,12 +155,15 @@
       column stood 48px taller than the row and pushed the canvas into growing a scrollbar of its
       own beside the column's. Stretch sizes the column's OUTER box to the row whatever its box
       sizing, so the gutter falls inside the height and the canvas never scrolls.
+
+      Stacked (below lg) the column takes the full width rather than its measure: the measure plus
+      its gutters is wider than a phone, and held there it ran past the screen's edge.
     -->
     <nav
       aria-label={navigationLabel}
       data-navigation-layout="navigation"
       class={mergeClasses(
-        "shrink-0 max-lg:overflow-visible lg:self-stretch",
+        "shrink-0 max-lg:w-auto max-lg:overflow-visible lg:self-stretch",
         // With a pinned footer the <nav> is a stack and the INNER div scrolls; without one the
         // <nav> is the scroll region, exactly as it was.
         navigationFooter ? "flex flex-col" : "mc-navigation-layout-navigation mc-scrollbar",
@@ -171,7 +174,7 @@
       {#if navigationFooter}
         <div
           class={mergeClasses(
-            "mc-navigation-layout-navigation mc-scrollbar min-h-0 flex-1 max-lg:overflow-visible",
+            "mc-navigation-layout-navigation mc-scrollbar min-h-0 flex-1 max-lg:w-auto max-lg:overflow-visible",
             navigationWidth === "narrow" && "mc-navigation-layout-navigation-narrow",
             navigationWidth === "wide" && "mc-navigation-layout-navigation-wide",
           )}
