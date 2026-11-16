@@ -13,6 +13,7 @@ import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
 import { registerMeetingPollRoutes } from "./meeting-polls.ts";
 import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
 import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { registerMeetingGuestCrashRoute } from "./meetings-guest-crash.ts";
 import { registerMeetingGuestFileRoutes } from "./meeting-guest-files.ts";
 import { registerMeetingGuestByAddressRoutes } from "./meeting-guest-by-address.ts";
 import { registerMeetingSettingsRoutes } from "./meeting-settings.ts";
@@ -88,6 +89,8 @@ export function mountCommunications(
     deps.meetingGuestMail ?? emailAdapterForEnv,
   );
   registerMeetingGuestRoutes(domain, chokepoint, deps.meetingGuestMail ?? emailAdapterForEnv);
+  // A crash on a guest's page, kept against its client_ Error ID on the guest's own link.
+  registerMeetingGuestCrashRoute(domain, chokepoint);
   // A file shared in the chat, opened by a guest who is in the room: the guest lane again, reaching
   // only a file a line of that meeting points at.
   registerMeetingGuestFileRoutes(domain, chokepoint);

@@ -3,6 +3,7 @@
  * The engine is about 5 MB of WebAssembly, so it loads only when a person prints.
  */
 import type { ComposeDocument } from "@magna-carta/pdf-compose";
+import { openBeside } from "$lib/navigation/open-beside.ts";
 
 export type CheckPdfReply =
   | { readonly kind: "done"; readonly pdf: ArrayBuffer }
@@ -30,6 +31,7 @@ export function composeCheckPdf(document: ComposeDocument): Promise<Blob> {
 /** Open the PDF in a new tab, where the browser's own print dialog sends it to the printer. */
 export function openPdf(blob: Blob): void {
   const url = URL.createObjectURL(blob);
-  window.open(url, "_blank", "noopener");
+  // A PDF is bytes the browser handles, so it opens beside the checks rather than replacing them.
+  openBeside(url, "file");
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

@@ -75,7 +75,9 @@ export const RegisterRow = z
 export const ChecksResponse = z
   .object({
     nextCheckNumber: z.number().int(),
-    stock: CheckStock.nullable(),
+    // A union, not `.nullable()`: a nullable copy of a named component carries its name, and the
+    // contract would then hold two shapes under "TrustCheckStock".
+    stock: z.union([CheckStock, z.null()]),
     toPrint: z.array(CheckToPrint),
     register: z.array(RegisterRow),
   })

@@ -11081,7 +11081,7 @@ export type TrustFrozenProof = {
 
 export type TrustChecksResponse = {
     nextCheckNumber: number;
-    stock: TrustCheckStock;
+    stock: TrustCheckStock | null;
     toPrint: Array<TrustCheckToPrint>;
     register: Array<TrustCheckRegisterRow>;
 };
@@ -11098,7 +11098,7 @@ export type TrustCheckStock = {
     hasScan: boolean;
     savedBy: string;
     savedAt: string;
-} | null;
+};
 
 export type TrustCheckField = {
     kind: 'date' | 'payee' | 'amount' | 'amount_words' | 'memo' | 'matter' | 'check_number';
@@ -42924,6 +42924,53 @@ export type GuestSendMessageResponses = {
 };
 
 export type GuestSendMessageResponse = GuestSendMessageResponses[keyof GuestSendMessageResponses];
+
+export type GuestRecordCrashData = {
+    body: RecordClientErrorRequest;
+    headers?: {
+        /**
+         * The link the guest's page was opened from.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/guest/client-errors';
+};
+
+export type GuestRecordCrashErrors = {
+    /**
+     * No such resource: the answer to a missing or unverifiable link
+     */
+    404: Problem;
+    /**
+     * The meeting has ended or the link is used up
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type GuestRecordCrashError = GuestRecordCrashErrors[keyof GuestRecordCrashErrors];
+
+export type GuestRecordCrashResponses = {
+    /**
+     * The crash is recorded (or already was)
+     */
+    201: RecordClientErrorResponse;
+};
+
+export type GuestRecordCrashResponse = GuestRecordCrashResponses[keyof GuestRecordCrashResponses];
 
 export type GuestOpenSharedFileData = {
     body?: never;
