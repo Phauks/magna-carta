@@ -14,9 +14,6 @@
   "apps/web/src/lib/components/app-shell.svelte": {
     "em-dash": 1
   },
-  "apps/web/src/lib/components/bug-report-dialog.svelte": {
-    "em-dash": 1
-  },
   "apps/web/src/lib/conflicts/conflicts-report.ts": {
     "machinery": 1
   },

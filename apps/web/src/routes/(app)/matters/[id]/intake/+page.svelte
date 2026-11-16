@@ -424,12 +424,12 @@
           The matter may open without this step. The waiver is recorded under your name with the
           reason, and stays on the record.
         </p>
-        <Label for="intake-words">Reason</Label>
+        <Label necessity="required" for="intake-words">Reason</Label>
       {:else}
         <p class="text-sm text-text-muted">
           Recorded under your name. Add a word on what you did, where it helps the next reader.
         </p>
-        <Label for="intake-words">Note</Label>
+        <Label necessity="optional" for="intake-words">Note</Label>
       {/if}
       <Textarea id="intake-words" bind:value={words} rows={3} disabled={busy} />
     </div>

@@ -106,7 +106,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-8">
-      <Label for="magnus-move-matter">Matter</Label>
+      <Label necessity="required" for="magnus-move-matter">Matter</Label>
       <MatterPicker
         matters={anchors.matters ?? []}
         capped={anchors.capped}

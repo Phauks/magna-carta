@@ -104,7 +104,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-8">
-      <Label id="set-aside-reason-label">Why</Label>
+      <Label necessity="required" id="set-aside-reason-label">Why</Label>
       <Select.Root
         type="single"
         items={ITEMS}

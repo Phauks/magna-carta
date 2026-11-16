@@ -183,7 +183,7 @@
       </p>
     </div>
 
-    <LabelledField label="Send to">
+    <LabelledField necessity="required" label="Send to">
       {#snippet children({ props })}
         <RecipientPicker
           members={recipientRoster}
@@ -199,7 +199,7 @@
       <p class="text-xs text-text-muted">{firmRoster.failure}</p>
     {/if}
 
-    <LabelledField
+    <LabelledField necessity="optional"
       label="Proposed value"
       hint="In your own words. The administrator making the change will interpret it."
     >
@@ -214,7 +214,7 @@
       {/snippet}
     </LabelledField>
 
-    <LabelledField label="Reason" hint="Why the firm should make this change">
+    <LabelledField necessity="required" label="Reason" hint="Why the firm should make this change">
       {#snippet children({ props })}
         <Textarea
           {...props}

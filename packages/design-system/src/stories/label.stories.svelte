@@ -47,7 +47,7 @@
 
 {#snippet optionalTemplate()}
   <div class="flex items-center gap-3">
-    <Label for="matter-nickname" optional>Nickname</Label>
+    <Label for="matter-nickname" necessity="optional">Nickname</Label>
     <input id="matter-nickname" type="text" class="mc-input max-w-xs" />
   </div>
 {/snippet}
@@ -58,7 +58,7 @@
   play={async ({ canvas, step }) => {
     await step("Names the field with the Optional mark after it", async () => {
       await expect(canvas.getByRole("textbox", { name: "Nickname Optional" })).toBeInTheDocument();
-      await expect(canvas.getByText("Optional")).toHaveClass("mc-label-optional");
+      await expect(canvas.getByText("Optional")).toHaveClass("mc-label-necessity");
     });
   }}
 />

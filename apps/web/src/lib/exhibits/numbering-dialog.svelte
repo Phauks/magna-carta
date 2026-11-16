@@ -168,13 +168,13 @@
         </Select.Root>
       </div>
 
-      <LabelledField label="Word">
+      <LabelledField necessity="optional" label="Word">
         {#snippet children({ props })}
           <Input {...props} disabled={busy} bind:value={noun} placeholder={placeholderOf("Exhibit")} />
         {/snippet}
       </LabelledField>
 
-      <LabelledField label="Start At">
+      <LabelledField necessity="required" label="Start At">
         {#snippet children({ props })}
           <Input
             {...props}
@@ -187,7 +187,7 @@
       </LabelledField>
 
       {#if showPrefix}
-        <LabelledField label="Prefix">
+        <LabelledField necessity="optional" label="Prefix">
           {#snippet children({ props })}
             <Input {...props} disabled={busy} bind:value={prefix} placeholder={placeholderOf("P-")} />
           {/snippet}

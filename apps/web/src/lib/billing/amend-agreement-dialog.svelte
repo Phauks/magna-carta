@@ -215,7 +215,7 @@
       <div class="flex flex-col gap-16">
         <div class="grid gap-12 sm:grid-cols-3">
           <div class="flex flex-col gap-8">
-            <Label id="{fieldPrefix}-kind-label">Billed As</Label>
+            <Label necessity="required" id="{fieldPrefix}-kind-label">Billed As</Label>
             <Select.Root
               type="single"
               items={KIND_ITEMS}
@@ -234,7 +234,7 @@
             </Select.Root>
           </div>
           <div class="flex flex-col gap-8">
-            <DatePicker
+            <DatePicker necessity="required"
               label="Effective From"
               value={civilDateValue(validFrom)}
               onValueChange={(next) => (validFrom = civilDateTextOrEmpty(next))}
@@ -243,7 +243,7 @@
           </div>
           {#if takesAdvanceDeposit(kind)}
             <div class="flex flex-col gap-8">
-              <Label id="{fieldPrefix}-deposit-label">Advance Deposit Sits In</Label>
+              <Label necessity="required" id="{fieldPrefix}-deposit-label">Advance Deposit Sits In</Label>
               <Select.Root
                 type="single"
                 items={DEPOSIT_ITEMS}
@@ -267,19 +267,19 @@
         {#if kind === "flat_fee"}
           <div class="grid gap-12 sm:grid-cols-3">
             <div class="flex flex-col gap-8">
-              <Label for="{fieldPrefix}-flat">Flat Fee</Label>
+              <Label necessity="required" for="{fieldPrefix}-flat">Flat Fee</Label>
               <Input id="{fieldPrefix}-flat" disabled={busy} bind:value={flatFeeText} />
             </div>
           </div>
         {:else if kind === "contingency"}
           <div class="grid gap-12 sm:grid-cols-3">
             <div class="flex flex-col gap-8">
-              <Label for="{fieldPrefix}-share">Share of Recovery</Label>
+              <Label necessity="required" for="{fieldPrefix}-share">Share of Recovery</Label>
               <Input id="{fieldPrefix}-share" disabled={busy} bind:value={shareText} />
               <p class="text-xs text-text-muted">As a percentage, such as 33.33.</p>
             </div>
             <div class="flex flex-col gap-8 sm:col-span-2">
-              <Label id="{fieldPrefix}-basis-label">Costs and the Fee</Label>
+              <Label necessity="required" id="{fieldPrefix}-basis-label">Costs and the Fee</Label>
               <Select.Root
                 type="single"
                 items={BASIS_ITEMS}
@@ -301,11 +301,11 @@
         {:else if kind === "retainer"}
           <div class="grid gap-12 sm:grid-cols-3">
             <div class="flex flex-col gap-8">
-              <Label for="{fieldPrefix}-target">Retainer Target</Label>
+              <Label necessity="required" for="{fieldPrefix}-target">Retainer Target</Label>
               <Input id="{fieldPrefix}-target" disabled={busy} bind:value={retainerTargetText} />
             </div>
             <div class="flex flex-col gap-8">
-              <Label for="{fieldPrefix}-floor">Replenish Below</Label>
+              <Label necessity="required" for="{fieldPrefix}-floor">Replenish Below</Label>
               <Input id="{fieldPrefix}-floor" disabled={busy} bind:value={retainerFloorText} />
             </div>
           </div>
@@ -318,7 +318,7 @@
 
         <p class="text-xs text-text-muted">{amendmentNote(kind)}</p>
 
-        <LabelledField
+        <LabelledField necessity="optional"
           label="Signed Agreement"
           hint="The intake agreement or amendment the client signed, from this matter's files. A version can be recorded before the paper is filed."
         >

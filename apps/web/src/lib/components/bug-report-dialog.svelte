@@ -174,7 +174,7 @@
         This goes to the firm's own reporting pipeline, not to a third party.
       </p>
 
-      <LabelledField
+      <LabelledField necessity="required"
         label="What happened?"
         hint="What you did, what you expected, what happened instead"
       >
@@ -223,9 +223,9 @@
         {/if}
       </div>
 
-      <LabelledField
+      <LabelledField necessity="optional"
         label="Also Send To"
-        hint="Optional — colleagues who should see this report; they ride the filed report once it carries recipients"
+        hint="Colleagues who should see this report. They ride the filed report once it carries recipients"
       >
         {#snippet children({ props })}
           <RecipientPicker

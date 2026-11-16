@@ -6,28 +6,29 @@
    * (src/lib/styles/components.css); callers layer Tailwind utilities via `class`, merged last
    * so they win (mergeClasses is the single class-merge path). WithElementRef adds `ref`.
    *
-   * `optional` marks a field that may be left empty with the word "Optional" after the name, in a
-   * lighter voice. One marker everywhere, so a form never says "(optional)" in one label, "if you
-   * want to say" in another and nothing in a third. Required fields carry no mark: in a form most
-   * fields are needed, so the exception is what gets the word.
+   * `necessity` says whether the field it names must be filled. The label draws the mark that
+   * follows from it (see `necessity.ts`, the one place the marking is chosen), so no form ever
+   * writes "(optional)" or a star into its own text.
    */
   import type { HTMLLabelAttributes } from "svelte/elements";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import NecessityMark from "./necessity-mark.svelte";
+  import type { FieldNecessity } from "./necessity.ts";
 
   let {
     ref = $bindable(null),
     class: className,
     children,
-    optional = false,
+    necessity,
     ...restProps
   }: WithElementRef<HTMLLabelAttributes, HTMLLabelElement> & {
-    /** Says "Optional" after the name: the field may be left empty. */
-    optional?: boolean;
+    /** Whether the field this names must be filled. Leave it out for a field that is neither. */
+    necessity?: FieldNecessity;
   } = $props();
 </script>
 
 <label bind:this={ref} class={mergeClasses("mc-label", className)} {...restProps}>
   {@render children?.()}
-  {#if optional}<span class="mc-label-optional">Optional</span>{/if}
+  <NecessityMark {necessity} />
 </label>

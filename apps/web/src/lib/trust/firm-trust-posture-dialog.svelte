@@ -187,7 +187,7 @@
       </div>
 
       {#if policy === "threshold"}
-        <LabelledField
+        <LabelledField necessity="required"
           label="Amount"
           hint="A second person is needed strictly above this figure."
           error={fieldRefusal(failure?.failure.problem ?? null, "thresholdAmountMinor")}

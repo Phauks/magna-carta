@@ -326,7 +326,7 @@
          a name entered one way and corrected another is how a record ends up carrying two
          spellings of one convention. -->
     <FieldRow>
-      <LabelledField label="First Name">
+      <LabelledField necessity="required" label="First Name">
         {#snippet children({ props })}
           <Input
             {...props}
@@ -336,7 +336,7 @@
           />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Middle Name">
+      <LabelledField necessity="optional" label="Middle Name">
         {#snippet children({ props })}
           <Input
             {...props}
@@ -346,19 +346,19 @@
           />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Last Name">
+      <LabelledField necessity="optional" label="Last Name">
         {#snippet children({ props })}
           <Input {...props} disabled={busy} bind:value={family} placeholder={placeholderOf("Last Name")} />
         {/snippet}
       </LabelledField>
     </FieldRow>
     <FieldRow>
-      <LabelledField label="Prefix">
+      <LabelledField necessity="optional" label="Prefix">
         {#snippet children({ props })}
           <HonorificField part="prefix" bind:value={prefix} disabled={busy} inputProps={props} />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Suffix">
+      <LabelledField necessity="optional" label="Suffix">
         {#snippet children({ props })}
           <HonorificField part="suffix" bind:value={suffix} disabled={busy} inputProps={props} />
         {/snippet}
@@ -371,7 +371,7 @@
       </Alert.Root>
     {/if}
   {:else}
-    <LabelledField label="Name">
+    <LabelledField necessity="required" label="Name">
       {#snippet children({ props })}
         <Input {...props} disabled={busy} bind:value={legalName} placeholder={placeholderOf("Name")} />
       {/snippet}

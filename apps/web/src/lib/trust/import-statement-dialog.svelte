@@ -296,7 +296,7 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-file">Statement File</Label>
+        <Label necessity="required" for="{fieldPrefix}-file">Statement File</Label>
         <FileInput
           id="{fieldPrefix}-file"
           accept="text/csv,text/plain,.csv,.txt"
@@ -308,7 +308,7 @@
         </DefinitionList.Root>
       </div>
 
-      <LabelledField label="Date Format" error={fieldRefusal(problem, "dateFormat")}>
+      <LabelledField necessity="required" label="Date Format" error={fieldRefusal(problem, "dateFormat")}>
         {#snippet children({ props })}
           <ChoicePicker
             inputId={props.id}
@@ -322,13 +322,13 @@
       </LabelledField>
 
       <div class="grid gap-12 sm:grid-cols-2">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Period Start"
           value={civilDateValue(periodStart)}
           onValueChange={(next) => (periodStart = civilDateTextOrEmpty(next))}
           disabled={busy}
         />
-        <DatePicker
+        <DatePicker necessity="required"
           label="Period End"
           value={civilDateValue(periodEnd)}
           onValueChange={(next) => (periodEnd = civilDateTextOrEmpty(next))}
@@ -337,7 +337,7 @@
       </div>
 
       <div class="grid gap-12 sm:grid-cols-2">
-        <LabelledField
+        <LabelledField necessity="required"
           label="Opening Balance"
           hint="What the bank said the account held when the period opened."
           error={fieldRefusal(problem, "openingBalanceMinor")}
@@ -353,7 +353,7 @@
           {/snippet}
         </LabelledField>
 
-        <LabelledField
+        <LabelledField necessity="required"
           label="Closing Balance"
           hint="What the bank said the account held when the period closed."
           error={fieldRefusal(problem, "closingBalanceMinor")}
@@ -370,7 +370,7 @@
         </LabelledField>
       </div>
 
-      <LabelledField
+      <LabelledField necessity="optional"
         label="Statement Reference"
         hint="The statement's name or number at the bank, if it has one."
         error={fieldRefusal(problem, "statementReference")}
