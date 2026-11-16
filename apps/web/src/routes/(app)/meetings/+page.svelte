@@ -169,7 +169,7 @@
     {#snippet actions()}
       <CreateControl
         noun="Meeting"
-        title="Schedule a meeting or a call. It is recorded on the calendar as an event."
+        title="Schedule a meeting or a call. It's saved to the calendar as an event."
         refusal={scheduleRefusal}
         onpress={() => (scheduleOpen = true)}
       />

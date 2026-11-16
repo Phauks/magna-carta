@@ -57,6 +57,7 @@ import type {
   NotificationSubjectKind,
 } from "./types.ts";
 import { MANDATORY_CATEGORIES } from "./types.ts";
+import { SIGNING_MEMBER_TURN_TOPIC } from "@magna-carta/signing/request";
 
 // THE REGISTRY: one declaration per kind of thing a member can be told about, and the reason this
 // subsystem is a registry rather than a switch statement.
@@ -785,6 +786,30 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     channels: ["in_app", "email"],
     emailContent: "category-count",
     deepLink: (subjectId) => `/tasks?entry=${subjectId}`,
+  },
+  // A DOCUMENT IS WAITING ON A COLLEAGUE'S SIGNATURE. Reaches exactly the member the sender named
+  // as a signer, because the request is waiting on them and on nobody else; the matter team learns
+  // nothing from someone else's turn to sign. Raised again by each reminder, which is a fresh outbox
+  // row and so a fresh notification. Carries no title: the document's name is read behind the link.
+  {
+    key: "documents.signing.memberTurn",
+    category: "documents",
+    severity: "attention",
+    mandatory: false,
+    audience: "named-recipient",
+    audiencePayloadKey: "signerUserId",
+    includeActor: false,
+    subscribesTo: SIGNING_MEMBER_TURN_TOPIC,
+    subjectKind: "file",
+    subjectPayloadKey: "fileId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/documents/${subjectId}/sign`,
   },
   // A TASK SOMEBODY IS WATCHING MOVED. A watcher is copied in, as on a CC line: the work is not
   // theirs, so these are informational where an assignment asks for attention. Reaches the watchers

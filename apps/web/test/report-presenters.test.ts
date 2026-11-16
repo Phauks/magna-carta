@@ -9,26 +9,43 @@ import { describe, expect, it } from "vitest";
 import {
   clientOffice,
   presentAccountsReceivableAging,
+  presentAgedExpenses,
+  presentAgedWorkInProgress,
   presentRealization,
   presentWorkInProgress,
   SEVERAL_OFFICES,
 } from "../src/lib/reports/financial-presenters.ts";
 import {
+  presentClientList,
+  presentDailyTime,
+  presentMatterProductivity,
   presentMattersList,
   presentOperationalVolumes,
+  presentTaskWorkload,
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
+import { presentChangeLog } from "../src/lib/reports/change-log-presenter.ts";
+import { presentMatterBillingGuide } from "../src/lib/reports/billing-guide-presenter.ts";
 import { moneyText } from "../src/lib/reports/report-cells.ts";
 import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleChangeLog,
+  sampleAgedWorkInProgress,
+  sampleClientList,
+  sampleDailyTime,
+  sampleMatterProductivity,
+  sampleMatterBillingGuide,
   sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
+  sampleTaskWorkload,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
 } from "../src/lib/reports/report-samples.ts";
 import { IDENTITY_CAPTIONS } from "../src/lib/reports/trust-compliance-presenter.ts";
+import { NO_MATTER_TYPE, presentRevenue } from "../src/lib/reports/revenue-presenter.ts";
+import { sampleRevenue } from "../src/lib/reports/report-samples.ts";
 
 const numberOf = (cell: ReportCell | undefined): number | null =>
   cell === undefined || typeof cell === "string" ? null : cell.number;
@@ -153,5 +170,286 @@ describe("the matters list presenter", () => {
     expect(matters?.rows).toHaveLength(report.matters.length);
     expect(matters?.rows.map((row) => row[5])).toEqual(["Open", "On hold", "Closed"]);
     expect(matters?.rows[0]?.[7]).toBe("-");
+  });
+});
+
+describe("the matter billing guide presenter", () => {
+  const report = sampleMatterBillingGuide();
+  const presentation = presentMatterBillingGuide(report);
+
+  it("opens with the payload's counts by kind of agreement, none recorded among them", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => [tile.label, tile.value])).toEqual([
+      ["Hourly", String(report.totals.hourlyCount)],
+      ["Flat Fee", String(report.totals.flatFeeCount)],
+      ["Contingency", String(report.totals.contingencyCount)],
+      ["Evergreen Retainer", String(report.totals.retainerCount)],
+      ["None recorded", String(report.totals.noneRecordedCount)],
+      ["Matters", String(report.totals.matterCount)],
+    ]);
+    expect(tiles[5]?.tone).toBe("total");
+  });
+
+  it("puts every matter on its own sortable row with its agreement, terms and rates", () => {
+    const matters = presentation.sections.find((section) => section.id === "matters");
+    expect(matters?.headers).toEqual([
+      "Matter",
+      "Client",
+      "Office",
+      "Arrangement",
+      "Terms",
+      "Rates",
+    ]);
+    expect(matters?.sortable).toBe(true);
+    expect(matters?.rows).toHaveLength(report.matters.length);
+    expect(matters?.rows.map((row) => row[3])).toEqual([
+      "Hourly",
+      "Flat Fee",
+      "Contingency",
+      "Evergreen Retainer",
+      "None recorded",
+    ]);
+    // The flat fee is the payload's minor units, printed as money; the share is a percentage.
+    expect(matters?.rows[1]?.[4]).toContain(moneyText(250_000));
+    expect(matters?.rows[2]?.[4]).toContain("33.33%");
+    // An amendment recorded to start later is named after the terms in force.
+    expect(matters?.rows[0]?.[4]).toContain(moneyText(900_000));
+    expect(matters?.rows[0]?.[5]).toContain("$450.00 an hour for this matter (Standard)");
+    expect(matters?.rows[4]?.[5]).toBe("-");
+  });
+});
+
+describe("the aged work in progress presenter", () => {
+  const report = sampleAgedWorkInProgress();
+  const presentation = presentAgedWorkInProgress(report);
+
+  it("opens with a tile per age and the payload's total, old work in the attention tone", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual([
+      ...report.totals.unbilledMinor.map((amount) => moneyText(amount)),
+      moneyText(report.totals.totalMinor),
+    ]);
+    expect(tiles[3]?.tone).toBe("attention");
+    expect(tiles[4]?.tone).toBe("total");
+  });
+
+  it("rules the by-office table off with the payload's total and opens each client onto matters", () => {
+    const offices = presentation.sections.find((section) => section.id === "by-office");
+    expect(numberOf(offices?.totalRow?.[5])).toBe(
+      spreadsheetNumber(fromMinor(report.totals.totalMinor, USD)),
+    );
+    const clients = presentation.sections.find((section) => section.id === "by-client");
+    expect(clients?.rowDetails?.map((matters) => matters.length)).toEqual(
+      report.clients.map((client) => client.matters.length),
+    );
+  });
+});
+
+describe("the daily time presenter", () => {
+  const report = sampleDailyTime();
+  const presentation = presentDailyTime(report, IDENTITY_CAPTIONS);
+
+  it("keeps to minutes, and rules the by-day table off with the payload's totals", () => {
+    expect(JSON.stringify(presentation)).not.toMatch(/\$/);
+    const days = presentation.sections.find((section) => section.id === "by-day");
+    expect(days?.rows).toHaveLength(report.days.length);
+    expect(days?.totalRow?.[0]).toBe("Firm total");
+    expect(numberOf(days?.totalRow?.[3])).toBe(report.totals.totalMinutes);
+    expect(days?.rows.map((row) => numberOf(row[3]))).toEqual(
+      report.days.map((day) => day.figures.totalMinutes),
+    );
+  });
+
+  it("opens each day onto its timekeepers, and every timekeeper reaches a row", () => {
+    const days = presentation.sections.find((section) => section.id === "by-day");
+    expect(days?.rowDetails?.map((entries) => entries.length)).toEqual(
+      report.days.map((day) => day.timekeepers.length),
+    );
+    const timekeepers = presentation.sections.find((section) => section.id === "by-timekeeper");
+    expect(timekeepers?.rows.map((row) => numberOf(row[1]))).toEqual(
+      report.timekeepers.map((timekeeper) => timekeeper.dayCount),
+    );
+  });
+});
+
+describe("the matter productivity presenter", () => {
+  const report = sampleMatterProductivity();
+  const presentation = presentMatterProductivity(report, IDENTITY_CAPTIONS);
+
+  it("keeps to minutes and puts every matter on a row with the payload's figures", () => {
+    expect(JSON.stringify(presentation)).not.toMatch(/\$/);
+    const matters = presentation.sections.find((section) => section.id === "by-matter");
+    expect(matters?.rows.map((row) => numberOf(row[4]))).toEqual(
+      report.matters.map((matter) => matter.figures.totalMinutes),
+    );
+    expect(presentation.summary?.at(-1)?.tone).toBe("total");
+  });
+
+  it("opens each matter onto the timekeepers who recorded time on it", () => {
+    const matters = presentation.sections.find((section) => section.id === "by-matter");
+    expect(matters?.rowDetails?.map((entries) => entries.length)).toEqual(
+      report.matters.map((matter) => matter.timekeepers.length),
+    );
+  });
+});
+
+describe("the client list presenter", () => {
+  const report = sampleClientList();
+  const presentation = presentClientList(report);
+
+  it("opens with the payload's counts, the number of clients as the total", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [
+        report.totals.openCount,
+        report.totals.heldCount,
+        report.totals.closedCount,
+        report.clientCount,
+      ].map(String),
+    );
+    expect(tiles[3]?.tone).toBe("total");
+  });
+
+  it("puts every client on a row with the directory's details and their own counts", () => {
+    const clients = presentation.sections.find((section) => section.id === "clients");
+    expect(clients?.rows).toHaveLength(report.clients.length);
+    expect(clients?.rows[0]?.slice(1, 5)).toEqual([
+      "office@example.com",
+      "+1 775 555 0100",
+      "Reno, NV",
+      "Main Office",
+    ]);
+    expect(clients?.rows[1]?.slice(1, 5)).toEqual(["-", "-", "-", "Several offices"]);
+    expect(clients?.rows.map((row) => numberOf(row[8]))).toEqual(
+      report.clients.map((client) => client.counts.matterCount),
+    );
+  });
+});
+
+describe("the tasks by person presenter", () => {
+  const report = sampleTaskWorkload();
+  const presentation = presentTaskWorkload(report, IDENTITY_CAPTIONS);
+
+  it("opens with the payload's counts, overdue in the attention tone", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [report.totals.overdueCount, report.totals.undatedCount, report.totals.openCount].map(String),
+    );
+    expect(tiles[0]?.tone).toBe("attention");
+    expect(tiles[2]?.tone).toBe("total");
+  });
+
+  it("puts every person on a row with their own counts, nobody assigned last", () => {
+    const people = presentation.sections.find((section) => section.id === "by-person");
+    expect(people?.rows.map((row) => numberOf(row[1]))).toEqual(
+      report.people.map((person) => person.openCount),
+    );
+    expect(people?.rows.at(-1)?.[0]).toBe("Nobody assigned");
+  });
+});
+
+describe("the aged expenses presenter", () => {
+  it("draws the aged layout under its own name and empty-state words", () => {
+    const report = sampleAgedWorkInProgress();
+    const presentation = presentAgedExpenses(report);
+    expect(presentation.title).toBe("Aged Expenses");
+    expect(presentation.summary?.at(-1)?.value).toBe(moneyText(report.totals.totalMinor));
+    expect(presentation.sections.find((section) => section.id === "by-client")?.whenEmpty).toBe(
+      "No client has unbilled costs.",
+    );
+  });
+});
+
+describe("the change log presenter", () => {
+  const report = sampleChangeLog();
+  const presentation = presentChangeLog(report, IDENTITY_CAPTIONS);
+
+  it("opens with the payload's counts by kind of record, the total last", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.label)).toEqual([
+      "People and organizations",
+      "Matters",
+      "Accounts",
+      "Total changes",
+    ]);
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [
+        report.totals.directoryCount,
+        report.totals.matterCount,
+        report.totals.accountCount,
+        report.totals.totalCount,
+      ].map(String),
+    );
+    expect(tiles[3]?.tone).toBe("total");
+    expect(presentation.reproducible).toBe(report.reproducible);
+  });
+
+  it("puts every person on a row with their own counts, ruled off with the payload's totals", () => {
+    const people = presentation.sections.find((section) => section.id === "by-person");
+    expect(people?.rows.map((row) => numberOf(row[4]))).toEqual(
+      report.people.map((person) => person.totalCount),
+    );
+    expect(people?.rows.at(-1)?.[0]).toBe("System");
+    expect(numberOf(people?.totalRow?.[4])).toBe(report.totals.totalCount);
+  });
+
+  it("lists every change as served, with its label and record, and never the event's own key", () => {
+    const changes = presentation.sections.find((section) => section.id === "changes");
+    expect(changes?.headers).toEqual(["When", "Who", "What", "Record"]);
+    expect(changes?.sortable).toBe(true);
+    expect(changes?.rows.map((row) => [row[2], row[3]])).toEqual(
+      report.entries.map((entry) => [entry.eventLabel, entry.subjectId]),
+    );
+    expect(changes?.rows.flat()).not.toContain("matter.closed");
+  });
+});
+
+describe("the revenue presenter", () => {
+  const revenue = sampleRevenue();
+  const presentation = presentRevenue(revenue);
+  const money = (minor: number) => spreadsheetNumber(fromMinor(minor, USD));
+
+  it("opens with billed, credited and collected, collected as the closing tile", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => [tile.label, tile.value, tile.tone])).toEqual([
+      ["Billed", moneyText(revenue.totals.billedMinor), "plain"],
+      ["Credited and written off", moneyText(revenue.totals.creditedMinor), "plain"],
+      ["Collected", moneyText(revenue.totals.collectedMinor), "total"],
+    ]);
+    expect(presentation.stamp).toBe(revenue.reproducibilityStatement);
+  });
+
+  it("rules the by-office table off with the payload's totals and states what collected counts", () => {
+    const offices = presentation.sections.find((section) => section.id === "by-office");
+    expect(offices?.rows).toHaveLength(revenue.offices.length);
+    expect(offices?.totalRow?.[0]).toBe("Firm total");
+    expect(offices?.totalRow?.slice(1).map(numberOf)).toEqual([
+      money(revenue.totals.billedMinor),
+      money(revenue.totals.creditedMinor),
+      money(revenue.totals.collectedMinor),
+    ]);
+    expect(offices?.note).toBe(revenue.attributionStatement);
+  });
+
+  it("puts every matter type and every responsible attorney on a sortable row of its own", () => {
+    const types = presentation.sections.find((section) => section.id === "by-matter-type");
+    const attorneys = presentation.sections.find(
+      (section) => section.id === "by-responsible-attorney",
+    );
+    expect(types?.sortable).toBe(true);
+    expect(attorneys?.sortable).toBe(true);
+    expect(types?.rows.map((row) => row[0])).toEqual(
+      revenue.matterTypes.map((type) => type.matterTypeName ?? NO_MATTER_TYPE),
+    );
+    expect(types?.rows.map((row) => numberOf(row[4]))).toEqual(
+      revenue.matterTypes.map((type) => money(type.figures.collectedMinor)),
+    );
+    expect(attorneys?.rows.map((row) => row[0])).toEqual(
+      revenue.responsibleAttorneys.map((attorney) => attorney.responsibleName),
+    );
+    expect(attorneys?.rows.map((row) => numberOf(row[2]))).toEqual(
+      revenue.responsibleAttorneys.map((attorney) => money(attorney.figures.billedMinor)),
+    );
+    expect(types?.totalRow).toBeUndefined();
   });
 });

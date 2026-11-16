@@ -69,7 +69,7 @@
     {/if}
   {/snippet}
   {#snippet fields({ busy })}
-    <LabelledField label="Password">
+    <LabelledField necessity="required" label="Password">
       {#snippet children({ props })}
         <PasswordInput
           {...props}

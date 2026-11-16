@@ -143,7 +143,7 @@ export function roomsByOffice(
  * held that is not. The sentence states both halves in the order they happened.
  */
 export function roomNotHeldSentence(roomName: string): string {
-  return `The event was recorded, but ${roomName} was not held. Book it from the event's Rooms tab.`;
+  return `The event was saved, but ${roomName} wasn't booked. Book it from the event's Rooms tab.`;
 }
 
 /**

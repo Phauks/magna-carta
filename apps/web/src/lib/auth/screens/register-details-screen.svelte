@@ -95,7 +95,7 @@
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex gap-8">
         <div class="flex min-w-0 flex-1 flex-col gap-8">
-          <Label for="register-first-name">First Name</Label>
+          <Label necessity="required" for="register-first-name">First Name</Label>
           <Input
             bind:ref={firstNameFieldReference}
             id="register-first-name"
@@ -109,7 +109,7 @@
           />
         </div>
         <div class="flex min-w-0 flex-1 flex-col gap-8">
-          <Label for="register-last-name">Last Name</Label>
+          <Label necessity="required" for="register-last-name">Last Name</Label>
           <Input
             id="register-last-name"
             name="family-name"
@@ -124,7 +124,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="register-email">Email Address</Label>
+        <Label necessity="required" for="register-email">Email Address</Label>
         <Input
           id="register-email"
           name="email"
@@ -140,7 +140,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="register-details-password">Password</Label>
+        <Label necessity="required" for="register-details-password">Password</Label>
         <PasswordInput
           id="register-details-password"
           name="new-password"

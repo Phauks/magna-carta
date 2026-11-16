@@ -122,7 +122,7 @@
         </Alert.Description>
       </Alert.Root>
     {:else}
-      <LabelledField label="What Happened" hint="Say what you were doing when it failed.">
+      <LabelledField necessity="required" label="What Happened" hint="Say what you were doing when it failed.">
         {#snippet children({ props })}
           <Textarea
             {...props}

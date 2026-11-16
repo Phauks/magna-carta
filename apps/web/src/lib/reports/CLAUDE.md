@@ -25,8 +25,13 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `reports-api.ts` — the wire shapes and the reads (the pack, the trust-account roster).
 - `trust-compliance-presenter.ts` — the pack's presenter; `trust-compliance-fixture.ts` its sample.
 - `report-reads.ts` — the financial, productivity and operational wire shapes and reads.
-- `financial-presenters.ts`, `billing-presenters.ts` (Invoices, Payments Applied, Matter Balances),
-  `activity-presenters.ts` (productivity, operational volumes, Matters List) — their presenters; `report-samples.ts` their
+- `financial-presenters.ts` (Aged Expenses is Aged Work in Progress's layout under its own words),
+  `billing-presenters.ts` (Invoices, Payments Applied, Matter Balances), `revenue-presenter.ts` (Revenue),
+  `billing-guide-presenter.ts` (Matter Billing Guide, its terms in `$lib/billing/fee-agreement.ts`'s words),
+  `activity-presenters.ts` (Timekeeper Productivity, Daily Time, Matter Productivity, Tasks by Person, operational volumes,
+  Matters List, Client List), `change-log-presenter.ts` (Change Log),
+  `client-statement-presenter.ts` (Client Statement of Account, not yet
+  in the registry: the run screen has no client control) — their presenters; `report-samples.ts` their
   samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.
 - `report-summary.svelte` — the row of totals; `report-section-table.svelte` one section (a plain
   table with its ruled total, or `report-section-grid.svelte` on `DataTable.Grid` when sortable),

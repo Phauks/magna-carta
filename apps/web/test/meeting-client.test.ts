@@ -528,7 +528,7 @@ describe("publishing", () => {
 
     await client.publish();
 
-    expect(client.lastProblem).toBe("Your camera and microphone were not offered to the room.");
+    expect(client.lastProblem).toBe("Your camera and microphone weren't sent to the room.");
     expect(socket.framesOfType("publish")).toHaveLength(0);
     // A failed step is not the end of the meeting: the member is still in the room and the next
     // frame is still worth applying.
@@ -1033,7 +1033,7 @@ describe("answering the unit", () => {
     await settle();
 
     expect(socket.framesOfType("renegotiate")).toHaveLength(0);
-    expect(client.lastProblem).toBe("Somebody else's picture and sound did not come in.");
+    expect(client.lastProblem).toBe("Someone else's picture and sound didn't come in.");
   });
 });
 
@@ -1856,7 +1856,7 @@ describe("keeping people on screen", () => {
     client.pin("attendance_30");
     expect(client.pinned).toHaveLength(MAX_VIDEO_SUBSCRIPTIONS);
     expect(client.pinned).not.toContain("attendance_30");
-    expect(client.lastProblem).toContain("kept on screen");
+    expect(client.lastProblem).toContain("can be pinned at once");
   });
 });
 
@@ -2348,7 +2348,7 @@ describe("a directive from somebody holding no grant", () => {
     socket.deliver({ v: 1, type: "refused", reason: "not-host" });
 
     expect(client.state).toBe("live");
-    expect(client.lastNotice).toContain("not running this meeting");
+    expect(client.lastNotice).toContain("aren't running this meeting");
     // Deliberately NOT the band that reports a frame the room could not read: nothing is wrong with
     // this browser, and the member is still in the meeting.
     expect(client.lastRefusal).toBeNull();
@@ -2491,7 +2491,7 @@ describe("a host turning somebody away at the door", () => {
     // The twin of a removal and barred on the same terms, so the sentence has to say there is no
     // way back in rather than reading as one more thing the room refused.
     expect(refusalStatement({ reason: DENIED_REASON, errorId: null })).toBe(DENIED_STATEMENT);
-    expect(DENIED_STATEMENT).toContain("cannot come back");
+    expect(DENIED_STATEMENT).toContain("can't come back");
   });
 });
 
@@ -2661,7 +2661,7 @@ describe("capture, then effects, then publish", () => {
     expect(client.localStream).toBe(captured);
     expect(client.captureRefusal).toBeNull();
     expect(client.appliedEffects?.refusal).toBe(
-      "Your sound and picture are being sent as captured, without the effects you chose.",
+      "Your sound and picture are sent without the effects you chose.",
     );
     expect(socket.framesOfType("publish")).toHaveLength(1);
   });
@@ -2681,7 +2681,7 @@ describe("capture, then effects, then publish", () => {
       backgroundByProduct: false,
       imageChosen: false,
       noiseRemoval: "unavailable" as const,
-      refusal: "Your browser did not change how it treats your microphone.",
+      refusal: "Your browser didn't change how it handles your microphone.",
     };
     const stage = stageThat(async (stream) => {
       const passing = await passThroughEffects().applyEffects(stream, {

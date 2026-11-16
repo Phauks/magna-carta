@@ -34,12 +34,15 @@
   import * as Popover from "../popover/index.ts";
   import { formatDateWithWeekday } from "../../formatters/civil-date.ts";
   import { parseTypedDate } from "./typed-date.ts";
+  import NecessityMark from "../label/necessity-mark.svelte";
+  import type { FieldNecessity } from "../label/necessity.ts";
   import { dateFieldClasses } from "./variants.ts";
 
   let {
     value = $bindable(),
     onValueChange,
     label,
+    necessity,
     size = "default",
     disabled = false,
     readonly = false,
@@ -63,6 +66,8 @@
     onValueChange?: (value: DateValue | undefined) => void;
     /** Visible label above the field; it names the input. */
     label?: string;
+    /** Whether the date must be filled. Leave it out for a field that is neither. */
+    necessity?: FieldNecessity;
     /** Control height, from the same scale the Input and the Button use. */
     size?: InputSize;
     /** Shut: nothing can be typed or picked. */
@@ -201,7 +206,7 @@
 </script>
 
 {#if label}
-  <label for={inputId} class="mc-date-field-label">{label}</label>
+  <label for={inputId} class="mc-date-field-label">{label} <NecessityMark {necessity} /></label>
 {/if}
 <div
   bind:this={fieldBox}
@@ -220,7 +225,7 @@
     value={shown}
     {disabled}
     {readonly}
-    {required}
+    required={required || necessity === "required"}
     aria-label={label ? undefined : ariaLabel}
     aria-invalid={invalid ? "true" : undefined}
     aria-describedby={ariaDescribedby}

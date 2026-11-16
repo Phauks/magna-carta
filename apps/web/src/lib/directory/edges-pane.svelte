@@ -419,7 +419,7 @@
         {/if}
 
         <FieldRow columns={2}>
-          <LabelledField label={farEndName}>
+          <LabelledField necessity="required" label={farEndName}>
             {#snippet children({ props })}
               <DirectoryEntityPicker
                 {search}
@@ -433,7 +433,7 @@
             {/snippet}
           </LabelledField>
 
-          <LabelledField label={RELATIONSHIP_FIELD_NAME} id={relationshipInputId}>
+          <LabelledField necessity="required" label={RELATIONSHIP_FIELD_NAME} id={relationshipInputId}>
             {#snippet children({ props })}
               <Combobox.Root
                 type="single"
@@ -468,12 +468,12 @@
         </FieldRow>
 
         <FieldRow columns={2}>
-          <LabelledField label={ROLE_FIELD_NAME}>
+          <LabelledField necessity="optional" label={ROLE_FIELD_NAME}>
             {#snippet children({ props })}
               <Input {...props} bind:value={role} disabled={submitting} />
             {/snippet}
           </LabelledField>
-          <LabelledField label={NOTE_FIELD_NAME}>
+          <LabelledField necessity="optional" label={NOTE_FIELD_NAME}>
             {#snippet children({ props })}
               <Input {...props} bind:value={note} disabled={submitting} />
             {/snippet}

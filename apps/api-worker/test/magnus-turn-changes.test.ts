@@ -22,7 +22,7 @@ import type { ProblemBody } from "../src/http/contracts/problem.ts";
 //
 // Its own firm, because the rate limit is the firm's and the main Magnus route suite already spends
 // most of a minute's budget. The load-bearing assertions: neither act erases anything, the author no
-// longer sees what they removed while a supervisory read still does, and nothing changes under an
+// longer sees what they removed while a supervisory read still does, and a change cancels an
 // answer still being written.
 
 let firmId: FirmId;
@@ -173,7 +173,7 @@ describe("changing one's own message", () => {
     expect(replacement?.supersededAt).toBeNull();
   });
 
-  it("refuses to change a message while an answer is pending, an answer itself, or one already set aside", async () => {
+  it("refuses to change an answer itself", async () => {
     const conversationId = await startConversation(attorneyCookie);
     const first = await askAndSettle(conversationId, "a question", "an answer", attorneyCookie);
     const answerRefused = await remove(
@@ -182,20 +182,56 @@ describe("changing one's own message", () => {
     );
     expect(answerRefused.status).toBe(409);
     expect((await readJson<ProblemBody>(answerRefused)).type).toContain("magnus-turn-unchangeable");
+  });
 
-    const pending = await post(
+  it("removing a message while its answer is being written cancels that answer", async () => {
+    const conversationId = await startConversation(attorneyCookie);
+    const asked = await post(
       `/api/v1/magnus/conversations/${conversationId}/turns`,
-      {
-        content: "a second question",
-      },
+      { content: "a question taken back" },
       attorneyCookie,
     );
-    expect(pending.status).toBe(202);
-    const whilePending = await remove(
-      `/api/v1/magnus/conversations/${conversationId}/turns/${first.memberTurnId}`,
+    expect(asked.status).toBe(202);
+    const pending = await readJson<{ memberTurnId: string; magnusTurnId: string }>(asked);
+    const before = await auditCount("magnus.turn_failed");
+
+    const removed = await remove(
+      `/api/v1/magnus/conversations/${conversationId}/turns/${pending.memberTurnId}`,
       attorneyCookie,
     );
-    expect(whilePending.status).toBe(409);
+    expect(removed.status).toBe(200);
+    const answer = (await readTurns(conversationId, attorneyCookie)).find(
+      (turn) => turn.id === pending.magnusTurnId,
+    );
+    expect(answer?.status).toBe("refused");
+    expect(answer?.failureLabel).toBe("cancelled");
+    expect(await auditCount("magnus.turn_failed")).toBe(before + 1);
+  });
+
+  it("editing a message while its answer is being written cancels it and asks again", async () => {
+    const conversationId = await startConversation(attorneyCookie);
+    const asked = await post(
+      `/api/v1/magnus/conversations/${conversationId}/turns`,
+      { content: "a question with a typo" },
+      attorneyCookie,
+    );
+    expect(asked.status).toBe(202);
+    const pending = await readJson<{ memberTurnId: string; magnusTurnId: string }>(asked);
+
+    const edited = await patch(
+      `/api/v1/magnus/conversations/${conversationId}/turns/${pending.memberTurnId}`,
+      { content: "a question without one" },
+      attorneyCookie,
+    );
+    expect(edited.status).toBe(202);
+    const replacement = await readJson<{ memberTurnId: string; magnusTurnId: string }>(edited);
+
+    const turns = await readTurns(conversationId, attorneyCookie);
+    const cancelled = turns.find((turn) => turn.id === pending.magnusTurnId);
+    expect(cancelled?.status).toBe("refused");
+    expect(cancelled?.failureLabel).toBe("cancelled");
+    expect(cancelled?.supersededAt).not.toBeNull();
+    expect(turns.find((turn) => turn.id === replacement.magnusTurnId)?.status).toBe("pending");
   });
 
   it("removes a message and keeps its answer: the message hidden from its author, kept for a supervisory read", async () => {
@@ -251,6 +287,8 @@ describe("changing one's own message", () => {
 interface TurnOnTheWire {
   readonly id: string;
   readonly content: string | null;
+  readonly status: string;
+  readonly failureLabel: string | null;
   readonly removedAt: string | null;
   readonly supersededAt: string | null;
   readonly replacesTurnId: string | null;

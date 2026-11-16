@@ -124,7 +124,7 @@
 
   {#if draft.outcome === "transferred"}
     <div class="flex flex-col gap-8 rounded-md border border-border-default p-12">
-      <Label for="{identity}-transfer">Transferred To</Label>
+      <Label necessity="optional" for="{identity}-transfer">Transferred To</Label>
       <MemberPicker
         members={firmRoster.active}
         bind:value={draft.transferToUserId}
@@ -142,7 +142,7 @@
     <div class="flex flex-col gap-12 rounded-md border border-border-default p-12">
       <div class="grid gap-12 @sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label for="{identity}-message-for">Message For</Label>
+          <Label necessity="optional" for="{identity}-message-for">Message For</Label>
           <MemberPicker
             members={firmRoster.active}
             bind:value={draft.messageForUserId}
@@ -168,7 +168,7 @@
       </div>
       <div class="grid items-end gap-12 @sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="optional"
             label="By"
             value={civilDateValue(draft.messageByDate)}
             onValueChange={(next) => (draft.messageByDate = civilDateTextOrEmpty(next))}

@@ -97,7 +97,7 @@
       await navigator.clipboard.writeText(link);
       toast.success("Link copied.");
     } catch {
-      toast.error("Could not copy the link. Open the conversation in a new tab and copy it there.");
+      toast.error("Couldn't copy the link. Open the conversation in a new tab and copy it there.");
     }
   }
 

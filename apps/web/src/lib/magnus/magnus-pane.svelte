@@ -95,7 +95,7 @@
     if (outcome.kind !== "ok") {
       failureToast(
         outcome.failure,
-        "The document could not be read, so nothing was downloaded. Try again.",
+        "Couldn't load the document, so nothing was downloaded. Try again.",
       );
       return;
     }
@@ -116,7 +116,7 @@
     const outcome = await session.setPermission("own-matter-conversations", granted);
     changingPermission = false;
     if (outcome !== null && outcome.kind !== "ok") {
-      failureToast(outcome.failure, "Nothing changed. The permission is as it was.");
+      failureToast(outcome.failure, "Nothing changed.");
     }
   }
 
@@ -124,8 +124,8 @@
     if (openDocument === null) return false;
     const outcome = await session.restoreVersion(openDocument.artifactId, versionNumber);
     if (outcome === null || outcome.kind !== "ok") {
-      if (outcome === null) toast.error("The version was not restored. Nothing changed.");
-      else failureToast(outcome.failure, "The version was not restored. Nothing changed.");
+      if (outcome === null) toast.error("The version wasn't restored. Nothing changed.");
+      else failureToast(outcome.failure, "The version wasn't restored. Nothing changed.");
       return false;
     }
     return true;
@@ -332,14 +332,14 @@
           <div class="flex items-baseline justify-between gap-8 pb-4">
             <FieldLabel as="h3" id="pane-this-matter">This Matter</FieldLabel>
             <span class="truncate text-xs text-text-muted">
-              {matterLine ?? "Not kept on a matter"}
+              {matterLine ?? "Not on a matter"}
             </span>
           </div>
           <div class="flex items-start justify-between gap-12 border-b border-border-default py-8">
             <span class="flex min-w-0 flex-col gap-2">
               <span class="text-sm font-medium">Attached Files</span>
               <span class="text-xs text-text-muted">
-                Always on. Magnus reads the files attached to this conversation, and no others.
+                Always on. Magnus reads only the files attached to this conversation.
               </span>
             </span>
           </div>
@@ -350,11 +350,11 @@
               </span>
               <span class="text-xs text-text-muted">
                 {#if matterLine === null}
-                  Keep this conversation on a matter to turn this on.
+                  Move this conversation to a matter to turn this on.
                 {:else}
-                  Off unless turned on. When on, Magnus reads the latest messages of up to five of
+                  Off unless you turn it on. When on, Magnus reads the latest messages of up to five of
                   {readerIsAuthor ? "your" : `${memberName}'s`} most recent other conversations on
-                  this matter. Never a colleague's.
+                  this matter. Never another staff member's.
                 {/if}
               </span>
             </span>
@@ -367,8 +367,7 @@
           </div>
         </section>
         <p class="text-xs text-text-muted">
-          Firm records, the client's other matters, research services and the firm library are not
-          read. Each appears here once Magnus can search it, off until it is turned on.
+          Firm records, the client's other matters, research services and the firm library aren't read. Each shows here, off, once Magnus can search it.
         </p>
       {:else}
         {#if session.artifacts.length === 0}

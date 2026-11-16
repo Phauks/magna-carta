@@ -82,7 +82,7 @@
           {member.caption}, {member.title}. It's marked withdrawn and keeps its label.
         </p>
       {/if}
-      <LabelledField label="Reason">
+      <LabelledField necessity="required" label="Reason">
         {#snippet children({ props })}
           <Textarea
             {...props}

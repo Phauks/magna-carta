@@ -147,6 +147,87 @@ export const ProductivityTaskCodeRow = z.object({
   figures: ProductivityFigures,
 });
 
+// DAILY TIME. The same figures as Timekeeper Productivity, day by day.
+export const DailyTimeTimekeeperOnDay = z.object({
+  timekeeperUserId: z.string(),
+  timekeeperName: z.string().nullable(),
+  figures: ProductivityFigures,
+});
+
+export const DailyTimeDayRow = z.object({
+  workDate: z.string(),
+  figures: ProductivityFigures,
+  timekeepers: z.array(DailyTimeTimekeeperOnDay),
+});
+
+export const DailyTimeTimekeeperRow = z.object({
+  timekeeperUserId: z.string(),
+  timekeeperName: z.string().nullable(),
+  dayCount: z.number().int(),
+  figures: ProductivityFigures,
+});
+
+// MATTER PRODUCTIVITY. The same figures again, per matter with its timekeepers under it.
+export const MatterProductivityRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: ProductivityFigures,
+  timekeepers: z.array(DailyTimeTimekeeperOnDay),
+});
+
+// TASKS BY PERSON. Counts of open tasks, never a task's words.
+export const TaskWorkloadFigures = z.object({
+  openCount: z.number().int(),
+  overdueCount: z.number().int(),
+  undatedCount: z.number().int(),
+});
+
+export const TaskWorkloadPersonRow = z.object({
+  assigneeUserId: z.string().nullable(),
+  assigneeName: z.string().nullable(),
+  openCount: z.number().int(),
+  overdueCount: z.number().int(),
+  undatedCount: z.number().int(),
+});
+
+// CHANGE LOG. Counts of the audit log's rows, and each row as event, label, person, record handle
+// and instant; never an audit row's metadata.
+export const ChangeFamily = z.enum(["directory", "matters", "accounts"]);
+
+export const ChangeCounts = z.object({
+  directoryCount: z.number().int(),
+  matterCount: z.number().int(),
+  accountCount: z.number().int(),
+  totalCount: z.number().int(),
+});
+
+export const ChangeFamilyRow = z.object({
+  family: ChangeFamily,
+  label: z.string(),
+  changeCount: z.number().int(),
+});
+
+export const ChangePersonRow = ChangeCounts.extend({
+  actorUserId: z.string().nullable(),
+  actorName: z.string().nullable(),
+});
+
+export const ChangeEntryRow = z.object({
+  id: z.string(),
+  at: z.string(),
+  actorUserId: z.string().nullable(),
+  actorName: z.string().nullable(),
+  family: ChangeFamily,
+  event: z.string(),
+  eventLabel: z.string(),
+  subjectId: z.string().nullable(),
+});
+
 // OPERATIONAL VOLUMES. Counts only, never money.
 export const OperationalSections = z.enum(["matters", "billing", "trust", "costs"]);
 
@@ -273,6 +354,57 @@ export const AppliedEntry = z.object({
   locationName: z.string().nullable(),
 });
 
+// CLIENT STATEMENT. One client's balance brought forward, every bill and application that moved it in
+// the period with the balance after each, where it ended, and the bills still unpaid then.
+export const ClientStatementTotals = z.object({
+  openingMinor: z.number().int(),
+  billedMinor: z.number().int(),
+  invoiceCount: z.number().int(),
+  appliedMinor: z.number().int(),
+  applicationCount: z.number().int(),
+  closingMinor: z.number().int(),
+});
+
+export const ClientStatementMatter = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+});
+
+export const ClientStatementLine = z.object({
+  kind: z.enum([
+    "invoice",
+    "trust_transfer",
+    "payment",
+    "credit_note",
+    "client_credit",
+    "write_off",
+    "reversal",
+  ]),
+  reversesKind: ApplicationKinds.exclude(["reversal"]).nullable(),
+  date: z.string(),
+  invoiceId: z.string(),
+  invoiceNumber: z.string().nullable(),
+  applicationId: z.string().nullable(),
+  matters: z.array(ClientStatementMatter),
+  reason: z.string().nullable(),
+  chargedMinor: z.number().int().nullable(),
+  appliedMinor: z.number().int().nullable(),
+  balanceMinor: z.number().int(),
+});
+
+export const ClientStatementUnpaidInvoice = z.object({
+  invoiceId: z.string(),
+  invoiceNumber: z.string().nullable(),
+  issueDate: z.string(),
+  dueDate: z.string().nullable(),
+  matters: z.array(ClientStatementMatter),
+  agingBucket: z.enum(["current", "1-30", "31-60", "61-90", "90+"]),
+  billedMinor: z.number().int(),
+  paidAndCreditedMinor: z.number().int(),
+  unpaidMinor: z.number().int(),
+});
+
 // MATTER BALANCES. Three facts per matter, never added to one another.
 export const MatterBalanceFigures = z.object({
   unbilledMinor: z.number().int(),
@@ -316,6 +448,21 @@ export const MatterListOfficeRow = z.object({
   counts: MatterStatusCounts,
 });
 
+// CLIENT LIST. The directory's row for each client, and their matters counted by status.
+export const ClientListRow = z.object({
+  clientEntityId: z.string(),
+  entityKind: z.enum(["person", "organization"]).nullable(),
+  displayName: z.string().nullable(),
+  legalName: z.string().nullable(),
+  emailAddress: z.string().nullable(),
+  phoneNumber: z.string().nullable(),
+  city: z.string().nullable(),
+  region: z.string().nullable(),
+  country: z.string().nullable(),
+  counts: MatterStatusCounts,
+  locationNames: z.array(z.string().nullable()),
+});
+
 export const MatterListRow = z.object({
   matterId: z.string(),
   matterNumber: z.string().nullable(),
@@ -330,4 +477,113 @@ export const MatterListRow = z.object({
   responsibleName: z.string().nullable(),
   openedAt: z.string().nullable(),
   closedAt: z.string().nullable(),
+});
+
+// AGED WORK IN PROGRESS. Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days
+// since the work was done.
+export const AgedWorkFigures = z.object({
+  unbilledMinor: z.array(z.number().int()).length(4),
+  totalMinor: z.number().int(),
+});
+
+export const AgedWorkOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkMatterRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkClientRow = z.object({
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  figures: AgedWorkFigures,
+  matters: z.array(AgedWorkMatterRow),
+});
+
+// REVENUE. Billed and collected in a period; credited (credit notes and write-offs) beside them and
+// never counted as collected.
+export const RevenueFigures = z.object({
+  billedMinor: z.number().int(),
+  collectedMinor: z.number().int(),
+  creditedMinor: z.number().int(),
+});
+
+export const RevenueOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: RevenueFigures,
+});
+
+export const RevenueMatterTypeRow = z.object({
+  matterTypeId: z.string().nullable(),
+  matterTypeName: z.string().nullable(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+});
+
+export const RevenueResponsibleAttorneyRow = z.object({
+  responsibleMemberId: z.string(),
+  responsibleName: z.string().nullable(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+});
+
+// MATTER BILLING GUIDE. Each open and held matter with the fee agreement governing the day, any
+// amendment recorded to start later, and the rates recorded against the matter or its client.
+export const MatterBillingTerms = z.object({
+  arrangementId: z.string(),
+  version: z.number().int(),
+  kind: z.enum(["hourly", "flat_fee", "contingency", "retainer"]),
+  flatFeeAmountMinor: z.number().int().nullable(),
+  contingencyShareE4: z.number().int().nullable(),
+  contingencyBasis: z.enum(["gross_recovery", "net_after_costs"]).nullable(),
+  retainerTargetMinor: z.number().int().nullable(),
+  retainerThresholdMinor: z.number().int().nullable(),
+  advanceDepositDestination: z.enum(["trust", "operating"]).nullable(),
+  currency: z.string(),
+  validFrom: z.string(),
+  validTo: z.string().nullable(),
+});
+
+export const MatterBillingRate = z.object({
+  rateId: z.string(),
+  rateCardId: z.string(),
+  rateCardName: z.string(),
+  tier: z.enum(["matter", "client"]),
+  rateE4: z.number().int(),
+  currency: z.string(),
+  validFrom: z.string(),
+  validTo: z.string().nullable(),
+});
+
+export const MatterBillingGuideRow = z.object({
+  matterId: z.string(),
+  matterNumber: z.string().nullable(),
+  matterTitle: z.string(),
+  status: z.enum(["open", "hold"]),
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  responsibleName: z.string().nullable(),
+  arrangement: MatterBillingTerms.nullable(),
+  nextArrangement: MatterBillingTerms.nullable(),
+  rates: z.array(MatterBillingRate),
+});
+
+export const MatterBillingKindCounts = z.object({
+  matterCount: z.number().int(),
+  hourlyCount: z.number().int(),
+  flatFeeCount: z.number().int(),
+  contingencyCount: z.number().int(),
+  retainerCount: z.number().int(),
+  noneRecordedCount: z.number().int(),
 });

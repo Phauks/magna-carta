@@ -239,6 +239,13 @@ export const ENTITY_PREFIXES = {
   trustUnclaimedFundsReview: "trustUnclaimedFundsReview",
   trustUnclaimedFundsContactAttempt: "trustUnclaimedFundsContactAttempt",
   trustUnclaimedFundsReviewClosure: "trustUnclaimedFundsReviewClosure",
+  // Check printing. A `trustCheck` is one check number used on a trust account, printed for a
+  // disbursement or voided unprinted; a `trustCheckEvent` is one append-only fact about it (printed,
+  // spoiled, voided); a `trustCheckStock` is one saved version of where each field prints on the
+  // firm's check paper.
+  trustCheck: "trustCheck",
+  trustCheckEvent: "trustCheckEvent",
+  trustCheckStock: "trustCheckStock",
   // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
   // entities); an `invoiceLine` is what the client is told, in presentation order; an
   // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the

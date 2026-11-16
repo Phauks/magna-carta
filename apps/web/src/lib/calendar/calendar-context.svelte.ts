@@ -42,7 +42,7 @@ import { mayManageCalendar } from "./calendar-permission.ts";
 import type { EntryContext } from "./calendar-entries.ts";
 import { eventTypesByCode } from "./calendar-vocabulary.ts";
 import { todayCivil } from "./calendar-window.ts";
-import { readHasOwnAccountCalendars } from "./own-account-events.ts";
+import { readOwnAccountProviders, type OwnAccountEvent } from "./own-account-events.ts";
 
 export class CalendarContext {
   session = $state<SessionBootstrap | null>(null);
@@ -60,10 +60,10 @@ export class CalendarContext {
   locationsFailure = $state<Failure | null>(null);
   /** The firm's bookable things: every room is a calendar the rail offers and a place to meet. */
   /**
-   * Whether the reader chose any of their own account's calendars to be shown. False until the
-   * read answers and where it fails, so the rail never lists a calendar with nothing behind it.
+   * The reader's own accounts they chose a calendar to be shown from. Empty until the read
+   * answers and where it fails, so the rail never lists a calendar with nothing behind it.
    */
-  hasOwnAccountCalendars = $state(false);
+  ownAccountProviders = $state<readonly OwnAccountEvent["provider"][]>([]);
   resources = $state<readonly FirmResource[]>([]);
   resourcesFailure = $state<Failure | null>(null);
   /**
@@ -220,7 +220,7 @@ export class CalendarContext {
   }
 
   async #readOwnAccount(fetchImpl: typeof fetch): Promise<void> {
-    this.hasOwnAccountCalendars = await readHasOwnAccountCalendars(todayCivil(), fetchImpl);
+    this.ownAccountProviders = await readOwnAccountProviders(todayCivil(), fetchImpl);
   }
 
   async #read(fetchImpl: typeof fetch): Promise<void> {

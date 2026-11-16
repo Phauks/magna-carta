@@ -56,11 +56,11 @@ export const ATTACHMENT_STATUS_SENTENCES: Readonly<
   pending: () => "Its text will be sent with the next question.",
   sent: () => "Its text was sent whole with the last question.",
   cut: (attachment) =>
-    `Only the first ${formatKilobytes(attachment.textBytes ?? 0)} of its text fit; the rest was not sent.`,
+    `Only the first ${formatKilobytes(attachment.textBytes ?? 0)} of its text fit. The rest wasn't sent.`,
   unreadable: (attachment) =>
     attachment.name === null
-      ? "The file has been deleted, so nothing of it was sent."
-      : "No readable text could be taken from it, so nothing of it was sent.",
+      ? "The file was deleted, so none of it was sent."
+      : "The file has no readable text, so none of it was sent.",
 });
 
 export function attachmentStatusSentence(attachment: MagnusAttachment): string {
@@ -96,7 +96,7 @@ export function composerDisclosureLine(options: {
     options.readsEarlierConversations === true
       ? " It also reads the latest messages of your own other conversations on this matter, as set in the pane."
       : "";
-  return `${reads}${earlier} Keeping the conversation on this matter's file does not let Magnus read the matter: not its other documents, not its calendar, not its parties.`;
+  return `${reads}${earlier} Magnus can't read the rest of the matter: not its other documents, calendar or parties.`;
 }
 
 /** Which model answers, as the composer states it beside the disclosure line. */
@@ -112,11 +112,11 @@ export function answeringModelLine(
 ): string {
   if (model === undefined) return "";
   if (model === null) {
-    return "The model the firm chose is no longer carried by the platform; an administrator chooses another in the firm's AI settings.";
+    return "Magna Carta no longer offers the model the firm chose. An administrator can choose another in the firm's settings.";
   }
   const name = model.displayName ?? model.modelId;
   return model.zeroDataRetention
-    ? `Answered by ${name}, which keeps nothing that is sent to it.`
+    ? `Answered by ${name}, which keeps nothing sent to it.`
     : `Answered by ${name}.`;
 }
 

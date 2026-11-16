@@ -133,6 +133,44 @@ export async function readBillingArrangementHistory(
   return results.map(toSnapshot);
 }
 
+/** The version governing one civil date, and the next version already recorded to start after it. */
+export interface BillingArrangementOnDate {
+  readonly onDate: BillingArrangementSnapshot | undefined;
+  readonly next: BillingArrangementSnapshot | undefined;
+}
+
+// Every matter's arrangement ON ONE CIVIL DATE, firm-wide, for a report that lists many matters at
+// once. Normally the version governing the date IS the open row `readBillingArrangementInForce`
+// returns. The two differ only where an amendment was recorded to start after the date: the open
+// row has not begun, the version it closed still governs the date, and the open row is handed back
+// as `next` so a reader is told what is coming rather than shown it early. A version covers
+// [valid_from, valid_to): the superseding version's valid_from is the day the old one stops, so a
+// version superseded on the day it started governed no day at all and is passed over.
+// Absent from the map means no version covers the date and none is recorded after it: hourly by
+// absence, as everywhere else.
+export async function readBillingArrangementsOnDate(
+  database: SqlDatabase,
+  date: string,
+): Promise<Map<MatterId, BillingArrangementOnDate>> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${ARRANGEMENT_COLUMNS} ${ARRANGEMENT_FROM} WHERE (a.valid_to IS NULL OR (a.valid_to > ?1 AND a.valid_to > a.valid_from)) ORDER BY a.matter_id, a.version`,
+    )
+    .bind(date)
+    .all<ArrangementRow>();
+  const byMatter = new Map<MatterId, BillingArrangementOnDate>();
+  for (const row of results) {
+    const snapshot = toSnapshot(row);
+    const held = byMatter.get(snapshot.matterId) ?? { onDate: undefined, next: undefined };
+    if (snapshot.validFrom <= date) {
+      byMatter.set(snapshot.matterId, { ...held, onDate: snapshot });
+    } else if (held.next === undefined) {
+      byMatter.set(snapshot.matterId, { ...held, next: snapshot });
+    }
+  }
+  return byMatter;
+}
+
 export async function readBillingArrangement(
   database: SqlDatabase,
   id: BillingArrangementId,

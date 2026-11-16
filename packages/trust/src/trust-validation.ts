@@ -56,6 +56,18 @@ export type TrustValidationCode =
   | "jurisdiction-not-encoded"
   | "jurisdiction-not-verified"
   | "jurisdiction-requirement-not-encoded"
+  // Check printing: the stock a check prints on, and a check number's life in the register
+  | "check-stock-invalid"
+  | "check-stock-missing"
+  | "check-stock-unreadable"
+  | "check-print-empty"
+  | "check-print-too-many"
+  | "check-print-duplicate"
+  | "check-not-waiting"
+  | "check-result-empty"
+  | "check-already-answered"
+  | "check-void-reason-missing"
+  | "unknown-trust-check"
   // Bank statements — the one external input
   | "unknown-trust-bank-statement"
   | "unknown-trust-bank-statement-line"

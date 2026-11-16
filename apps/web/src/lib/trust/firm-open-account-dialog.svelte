@@ -157,7 +157,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField
+      <LabelledField necessity="required"
         label="Name"
         hint="What the firm calls this account."
         error={fieldRefusal(problem, "name")}
@@ -173,7 +173,7 @@
       </LabelledField>
 
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-office">Office</Label>
+        <Label necessity="required" for="{fieldPrefix}-office">Office</Label>
         <OfficePicker
           inputId="{fieldPrefix}-office"
           bind:value={locationId}
@@ -186,7 +186,7 @@
       </div>
 
       <div class="grid gap-12 sm:grid-cols-2">
-        <LabelledField label="Bank" error={fieldRefusal(problem, "bankName")}>
+        <LabelledField necessity="optional" label="Bank" error={fieldRefusal(problem, "bankName")}>
           {#snippet children({ props })}
             <Input
               {...props}
@@ -197,7 +197,7 @@
           {/snippet}
         </LabelledField>
 
-        <LabelledField
+        <LabelledField necessity="optional"
           label="Ending"
           hint="The last four digits. Only these are stored."
           error={lastFourRefusal ?? fieldRefusal(problem, "accountNumberLastFour")}
@@ -225,7 +225,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Opened On"
           value={civilDateValue(openedOn)}
           onValueChange={(next) => (openedOn = civilDateTextOrEmpty(next))}

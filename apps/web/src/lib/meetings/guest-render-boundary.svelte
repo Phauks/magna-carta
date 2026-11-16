@@ -17,12 +17,15 @@
    *
    * It catches what the application's boundary catches — a throw while the page renders, which
    * SvelteKit itself never sees — and mints the same kind of Error ID through the same `noteCrash`,
-   * so a firm reporting the crash quotes a handle the diagnostics recognise. What it does not do is
-   * record or print the address: the breadcrumb names the guest page's family rather than the path,
+   * so a firm reporting the crash quotes a handle the diagnostics recognise, and keeps the crash on
+   * the server against that handle through the guest's own link. What it does not do is record or
+   * print the address: the breadcrumb names the guest page's family rather than the path,
    * and the screen is `guest-failure.svelte`, which says why the application's screen is wrong here.
    */
   import type { Snippet } from "svelte";
+  import { page } from "$app/state";
   import { noteCrash } from "$lib/diagnostics/crash.ts";
+  import { recordGuestCrash } from "$lib/diagnostics/crash-record.ts";
   import GuestFailure from "./guest-failure.svelte";
 
   let { children }: { children: Snippet } = $props();
@@ -39,6 +42,10 @@
 <svelte:boundary
   onerror={(error) => {
     errorId = noteCrash(error, GUEST_PAGE_PATH);
+    // The link is the page's own credential, sent in the header the guest lane reads; the record is
+    // filed under the page's template, never this address.
+    const link = page.params.token;
+    if (link !== undefined && link !== "") recordGuestCrash(errorId, error, link);
   }}
 >
   {@render children()}

@@ -30,15 +30,15 @@
       <EmptyState title="No Meeting at This Address">
         {joinCode === undefined
           ? "A meeting's address ends in nine digits, like 482-917-305."
-          : `Nothing you can join is at ${formatMeetingCode(joinCode)}. Check the code with whoever sent it.`}
+          : `No meeting you can join is at ${formatMeetingCode(joinCode)}. Check the code with the person who sent it.`}
       </EmptyState>
     {:else if read.isError}
       <FailureNotice
         failure={failureOf(read.error)}
         subject="The meeting"
         title="Meeting Not Read"
-        fallback="The meeting could not be read."
-        whenSilent="Nothing answered, so the meeting could not be found."
+        fallback="Couldn't load the meeting."
+        whenSilent="Couldn't connect. Couldn't find the meeting. Try again."
       />
     {:else}
       <p class="text-sm text-text-muted">Finding the meeting</p>

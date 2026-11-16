@@ -28,11 +28,22 @@
    * the words to the queue instead of the chat, and the Questions filter shows only the queue, in
    * the order a host works it. They stay two records, because a question is answered and upvoted
    * and a message is not.
+   *
+   * A LINE CAN POINT AT ONE OF THE MATTER'S FILES. In a meeting kept on a matter the paperclip
+   * beside Send offers Existing File (picked from the matter's own store) and Upload File (filed
+   * onto the matter in "Meeting files" first); either says a line pointing at the file, with what
+   * is typed in the box as its words. The line draws the file as a link to its own download route,
+   * so the file is opened under the same scan and permissions as anywhere else on the matter.
    */
   import ArrowBigUp from "@lucide/svelte/icons/arrow-big-up";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import MessageCircleQuestionMark from "@lucide/svelte/icons/message-circle-question-mark";
   import MessageSquare from "@lucide/svelte/icons/message-square";
+  import FileText from "@lucide/svelte/icons/file-text";
+  import Paperclip from "@lucide/svelte/icons/paperclip";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import { downloadUrl } from "$lib/file-manager/folder-api.ts";
+  import MeetingChatFileDialog from "./meeting-chat-file-dialog.svelte";
   import SendHorizontal from "@lucide/svelte/icons/send-horizontal";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -51,6 +62,7 @@
     type MeetingQuestionView,
   } from "$lib/meetings/client/questions.svelte.ts";
   import { chatTimeline } from "./chat-timeline.ts";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import type { MeetingMessage } from "@magna-carta/api-client";
   import type { Snippet } from "svelte";
 
@@ -89,6 +101,11 @@
     onMarkAnswered,
     onRedactQuestion,
     questionFailure,
+    matterId = null,
+    uploading = false,
+    onShareFile,
+    onUploadFile,
+    onOpenFile,
   }: {
     /** Drawn in the room's side panel rather than as a popover from the band. */
     inline?: boolean;
@@ -136,7 +153,48 @@
     onRedactQuestion?: (questionId: string) => void;
     /** A refused question write, in the app's own words. */
     questionFailure?: Snippet;
+    /** The meeting's matter. Files are offered only where there is one and both handlers are given. */
+    matterId?: string | null;
+    /** True while a file is being filed onto the matter before it is said. */
+    uploading?: boolean;
+    /** Say a line pointing at one of the matter's files, with these words. */
+    onShareFile?: (fileId: string, body: string) => Promise<boolean>;
+    /** File a new document onto the matter, then say a line pointing at it, with these words. */
+    onUploadFile?: (file: File, body: string) => Promise<boolean>;
+    /**
+     * Open a shared file some other way than its download link: the guest page, whose credential
+     * cannot ride a link. Given, the file is drawn as a button that calls this.
+     */
+    onOpenFile?: (file: { id: string; name: string }) => void;
   } = $props();
+
+  const sharesFiles = $derived(
+    matterId !== null && onShareFile !== undefined && onUploadFile !== undefined,
+  );
+  let sharingExisting = $state(false);
+  let filePicker = $state<HTMLInputElement>();
+
+  /** The words in the box go with the file, and are cleared once the line is on the record. */
+  async function shareExisting(fileId: string): Promise<boolean> {
+    if (onShareFile === undefined || tooLong) return false;
+    const sent = await onShareFile(fileId, stated);
+    if (sent) draft = "";
+    return sent;
+  }
+
+  async function uploadPicked(event: Event): Promise<void> {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    // Emptied at once, so choosing the same file again after a refusal is a change the input sees.
+    input.value = "";
+    if (file === undefined || onUploadFile === undefined || tooLong) return;
+    if (await onUploadFile(file, stated)) draft = "";
+  }
+
+  /** Whether a line's words are only the file's name, which the file's own link already says. */
+  function onlyNamesTheFile(message: MeetingMessage): boolean {
+    return message.attachedFile !== null && message.body === message.attachedFile.name;
+  }
 
   const withQuestions = $derived(questions !== undefined && onAsk !== undefined);
   /** Whether the words in the box go to the question queue rather than the chat. */
@@ -191,6 +249,7 @@
     body: SAMPLE_SENTENCE,
     redactedAt: null,
     redactedByUserId: null,
+    attachedFile: null,
   }));
 </script>
 
@@ -310,9 +369,38 @@
     {#if wasTakenBack(message)}
       <Conversation.TurnNote>Taken back.</Conversation.TurnNote>
     {:else}
-      <Conversation.TurnBody>{message.body}</Conversation.TurnBody>
+      {@render messageBody(message)}
     {/if}
   </Conversation.Turn>
+{/snippet}
+
+{#snippet messageBody(message: MeetingMessage)}
+  {#if !onlyNamesTheFile(message)}
+    <Conversation.TurnBody>{message.body}</Conversation.TurnBody>
+  {/if}
+  {#if message.attachedFile !== null && onOpenFile !== undefined}
+    {@const shared = message.attachedFile}
+    <Button
+      variant="secondary"
+      size="sm"
+      class="max-w-full self-start"
+      onclick={() => onOpenFile(shared)}
+    >
+      <FileText class="size-16 shrink-0" aria-hidden="true" />
+      <span class="truncate">{shared.name}</span>
+    </Button>
+  {:else if message.attachedFile !== null}
+    <!-- The file's own download route, in a new tab: opened under the matter's scan and permissions,
+         never through anything of the chat's. -->
+    <a
+      class="{buttonClasses({ variant: 'secondary', size: 'sm' })} max-w-full self-start"
+      href={downloadUrl(message.attachedFile.id)}
+      {...opensBeside("file")}
+    >
+      <FileText class="size-16 shrink-0" aria-hidden="true" />
+      <span class="truncate">{message.attachedFile.name}</span>
+    </a>
+  {/if}
 {/snippet}
 
 {#snippet transcript(shown: readonly MeetingMessage[], live: boolean)}
@@ -346,7 +434,7 @@
                removed it, which is what the record itself now holds. -->
           <Conversation.TurnNote>Taken back.</Conversation.TurnNote>
         {:else}
-          <Conversation.TurnBody>{message.body}</Conversation.TurnBody>
+          {@render messageBody(message)}
         {/if}
       </Conversation.Turn>
     {:else}
@@ -383,8 +471,7 @@
       <!-- The one fact a reader needs to read the rest correctly: this is not the room, it is the
            record. Said once, where the decision to type is made. -->
       <p class="text-xs text-text-muted">
-        What is said here is kept on the meeting&rsquo;s record. Taking a message back leaves a
-        mark where it was.
+        Messages here are saved to the meeting&rsquo;s record. A deleted message leaves a mark where it was.
       </p>
     </div>
 
@@ -438,6 +525,23 @@
             <Label for="meeting-chat-as-question">Ask as a question</Label>
           </span>
         {/if}
+        {#if sharesFiles}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              class={buttonClasses({ variant: "ghost", size: "icon" })}
+              aria-label={uploading ? "Uploading a file" : "Share a file"}
+              disabled={sending || uploading || tooLong}
+            >
+              <Paperclip class="size-16" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item onSelect={() => (sharingExisting = true)}>
+                Existing File
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onSelect={() => filePicker?.click()}>Upload File</DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        {/if}
         <Button onclick={() => void say()} disabled={!canSay}>
           <SendHorizontal class="size-16" aria-hidden="true" />
           {#if asking_}
@@ -448,6 +552,17 @@
         </Button>
       {/snippet}
     </Conversation.Composer>
+    {#if sharesFiles && matterId !== null}
+      <input
+        bind:this={filePicker}
+        type="file"
+        class="sr-only"
+        aria-hidden="true"
+        tabindex="-1"
+        onchange={(event) => void uploadPicked(event)}
+      />
+      <MeetingChatFileDialog bind:open={sharingExisting} {matterId} onShare={shareExisting} />
+    {/if}
 {/snippet}
 
 {#if inline}

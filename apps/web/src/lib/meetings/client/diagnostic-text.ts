@@ -116,7 +116,7 @@ export function diagnosticText(
     `background ${environment.background}, layout ${environment.layout}`,
   ];
   if (first === null || last === null) {
-    lines.push("", "No measurements yet: the connection has not been sampled.");
+    lines.push("", "No measurements yet.");
     return lines.join("\n");
   }
   const seconds = Math.max(0, (last.at - first.at) / 1000);

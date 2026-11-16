@@ -91,8 +91,8 @@ describe("the room a location names", () => {
 describe("what a person is told when the room was not held", () => {
   it("states both halves, in the order they happened", () => {
     const sentence = roomNotHeldSentence("Boardroom");
-    expect(sentence).toContain("was recorded");
-    expect(sentence).toContain("Boardroom was not held");
+    expect(sentence).toContain("was saved");
+    expect(sentence).toContain("Boardroom wasn't booked");
   });
 });
 

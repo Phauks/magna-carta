@@ -51,7 +51,7 @@ describe("causeLabel", () => {
     expect(causeLabel(server)).toBe("Server fault: TypeError");
     expect(
       causeLabel({ problem: { status: 403, title: "Forbidden" }, request: "GET /x", failedAt: AT }),
-    ).toBe("Refused (403): Forbidden");
+    ).toBe("Refused: not allowed (403)");
     expect(causeLabel({ problem: null, request: "GET /x", failedAt: AT })).toBe(
       "No answer from the server",
     );

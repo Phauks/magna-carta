@@ -197,14 +197,14 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="grid gap-12 sm:grid-cols-2">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Period Start"
           value={civilDateValue(periodStart)}
           onValueChange={(next) => (periodStart = civilDateTextOrEmpty(next))}
           disabled={busy}
           aria-invalid={fieldRefusal(problem, "periodStart") === undefined ? undefined : "true"}
         />
-        <DatePicker
+        <DatePicker necessity="required"
           label="Period End"
           value={civilDateValue(periodEnd)}
           onValueChange={(next) => (periodEnd = civilDateTextOrEmpty(next))}
@@ -214,7 +214,7 @@
       </div>
 
       <div class="grid gap-12 sm:grid-cols-2">
-        <LabelledField
+        <LabelledField necessity="required"
           label="Opening Balance"
           hint="What the bank said the account held when the period opened."
           error={fieldRefusal(problem, "openingBalanceMinor")}
@@ -230,7 +230,7 @@
           {/snippet}
         </LabelledField>
 
-        <LabelledField
+        <LabelledField necessity="required"
           label="Closing Balance"
           hint="What the bank said the account held when the period closed."
           error={fieldRefusal(problem, "closingBalanceMinor")}
@@ -247,7 +247,7 @@
         </LabelledField>
       </div>
 
-      <LabelledField
+      <LabelledField necessity="optional"
         label="Statement Reference"
         hint="The statement's name or number at the bank, if it has one."
         error={fieldRefusal(problem, "statementReference")}
@@ -284,7 +284,7 @@
             </div>
 
             <div class="grid gap-12 sm:grid-cols-2">
-              <DatePicker
+              <DatePicker necessity="required"
                 label="Posted On"
                 value={civilDateValue(line.postedOn)}
                 onValueChange={(next) =>
@@ -292,7 +292,7 @@
                 disabled={busy}
               />
 
-              <LabelledField label="Direction" error={fieldRefusal(problem, "direction")}>
+              <LabelledField necessity="required" label="Direction" error={fieldRefusal(problem, "direction")}>
                 {#snippet children({ props })}
                   <ChoicePicker
                     inputId={props.id}
@@ -308,7 +308,7 @@
                 {/snippet}
               </LabelledField>
 
-              <LabelledField label="Amount">
+              <LabelledField necessity="required" label="Amount">
                 {#snippet children({ props })}
                   <Input
                     {...props}
@@ -322,7 +322,7 @@
                 {/snippet}
               </LabelledField>
 
-              <LabelledField label="Description">
+              <LabelledField necessity="required" label="Description">
                 {#snippet children({ props })}
                   <Input
                     {...props}
@@ -335,7 +335,7 @@
                 {/snippet}
               </LabelledField>
 
-              <LabelledField label="Reference">
+              <LabelledField necessity="optional" label="Reference">
                 {#snippet children({ props })}
                   <Input
                     {...props}
@@ -348,7 +348,7 @@
                 {/snippet}
               </LabelledField>
 
-              <LabelledField label="Counterparty">
+              <LabelledField necessity="optional" label="Counterparty">
                 {#snippet children({ props })}
                   <Input
                     {...props}

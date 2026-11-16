@@ -20,7 +20,10 @@ export type MeetingChatValidationCode =
   | "meeting-message-empty"
   // Somebody else's message, and the caller is not hosting. A host moderates the room and an author
   // takes back their own words; a third member does neither.
-  | "meeting-message-not-redactable";
+  | "meeting-message-not-redactable"
+  // A file the meeting cannot share: not one of the meeting's matter's files, deleted, or the meeting
+  // is on no matter at all. One refusal for all three, for the existence-oracle reason above.
+  | "meeting-message-file-unavailable";
 
 export class MeetingChatValidationError extends Error {
   constructor(

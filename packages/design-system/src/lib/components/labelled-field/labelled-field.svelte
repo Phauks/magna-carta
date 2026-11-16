@@ -21,7 +21,7 @@
    * the control `aria-invalid`.
    */
   import type { Snippet } from "svelte";
-  import Label from "../label/index.ts";
+  import Label, { type FieldNecessity } from "../label/index.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { LabelledFieldControlProperties } from "./types.ts";
 
@@ -30,6 +30,7 @@
     label,
     hint,
     error,
+    necessity,
     class: className,
     children,
   }: {
@@ -39,6 +40,8 @@
     hint?: string;
     /** What is wrong with the value, if anything. Also marks the control invalid. */
     error?: string;
+    /** Whether the field must be filled. Leave it out for a field that is neither. */
+    necessity?: FieldNecessity;
     /** The control's id. Minted when omitted; give one only to point something else at it. */
     id?: string;
     class?: string;
@@ -63,12 +66,13 @@
     id: identifier,
     "aria-describedby": describedBy,
     "aria-invalid": error === undefined ? undefined : true,
+    "aria-required": necessity === "required" ? true : undefined,
     title: error,
   });
 </script>
 
 <div class={mergeClasses("mc-labelled-field", className)}>
-  <Label for={identifier}>{label}</Label>
+  <Label for={identifier} {necessity}>{label}</Label>
   {@render children({ props: controlProperties })}
   {#if hint !== undefined}
     <p id={hintIdentifier} class="mc-form-description">{hint}</p>

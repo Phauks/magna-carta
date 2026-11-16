@@ -333,7 +333,7 @@
         {/if}
         <p class="text-sm text-text-muted">
           {client.retrying !== null
-            ? `The isolated browser did not answer. Trying again, attempt ${client.retrying.attempt} of ${client.retrying.maximumAttempts}…`
+            ? `Couldn't connect to the safe browser. Trying again, attempt ${client.retrying.attempt} of ${client.retrying.maximumAttempts}…`
             : "Opening the isolated remote browser…"}
         </p>
         <p class="font-mono text-xs text-text-muted">{elapsedSeconds}s</p>

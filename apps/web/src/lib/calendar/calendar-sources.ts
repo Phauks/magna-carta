@@ -48,7 +48,7 @@ export type CalendarSourceKind =
   /** One bookable resource's schedule: a room, a vehicle, a piece of equipment. */
   | { readonly kind: "resource"; readonly resourceId: string }
   /** The reader's own events from their connected account, shown to them and to nobody else. */
-  | { readonly kind: "ownAccount" }
+  | { readonly kind: "ownAccount"; readonly provider: OwnAccountProvider }
   /** A date-bearing timeline source the federated read is widened to. */
   | { readonly kind: "layer"; readonly layerKey: string };
 
@@ -101,6 +101,11 @@ export const DEADLINES_SOURCE_KEY = "deadlines";
 export const FIRM_EVENTS_SOURCE_KEY = "firmEvents";
 /** The reader's own events from their connected calendar account. */
 export const OWN_ACCOUNT_SOURCE_KEY = "ownAccount";
+/** The same, from a Google account. A reader may have both, and each is a row of its own. */
+export const OWN_GOOGLE_ACCOUNT_SOURCE_KEY = "ownAccount:google";
+
+/** Where a reader's own connected calendar account is held. */
+export type OwnAccountProvider = "microsoft" | "google";
 
 /**
  * The calendars that are on when nobody has said otherwise: the firm's case settings, its deadlines
@@ -117,6 +122,7 @@ export const DEFAULT_ON_SOURCE_KEYS: readonly string[] = [
   // On from the start because the reader already said so once, on their Calendar Sync page, when
   // they chose which of their calendars to be shown. The row exists only for a reader who did.
   OWN_ACCOUNT_SOURCE_KEY,
+  OWN_GOOGLE_ACCOUNT_SOURCE_KEY,
 ];
 
 /** The folder the firm's own three calendars sit in. */
@@ -155,10 +161,10 @@ export interface CalendarCatalogInput {
   /** The firm's bookable resources. An inactive one is not offered. */
   readonly resources: readonly FirmResource[];
   /**
-   * Whether the reader chose any of their own account's calendars to be shown. Absent or false,
-   * the row is not listed at all: it would have nothing behind it.
+   * The providers of the reader's own accounts they chose a calendar to be shown from. One row
+   * each. Absent or empty, no row is listed at all: it would have nothing behind it.
    */
-  readonly ownAccount?: boolean;
+  readonly ownAccounts?: readonly OwnAccountProvider[];
   /** The date-bearing sources the read can be widened to. The vocabulary's own list by default. */
   readonly layers?: readonly CalendarLayer[];
   /** The date calendars listed but not yet served. The catalog's own list by default. */
@@ -179,14 +185,28 @@ export const FIRM_OWN_CALENDARS: readonly CalendarSource[] = [
 ];
 
 /**
- * The reader's own calendar at their provider. Named for the provider because that is where the
- * events live and where the reader goes to change one.
+ * The reader's own calendar at each provider. Named for the provider because that is where the
+ * events live and where the reader goes to change one. In the order the rail lists them.
  */
-export const OWN_ACCOUNT_CALENDAR: CalendarSource = {
-  key: OWN_ACCOUNT_SOURCE_KEY,
-  name: "My Outlook Calendar",
-  kind: { kind: "ownAccount" },
-};
+export const OWN_ACCOUNT_CALENDARS: readonly CalendarSource[] = [
+  {
+    key: OWN_ACCOUNT_SOURCE_KEY,
+    name: "My Outlook Calendar",
+    kind: { kind: "ownAccount", provider: "microsoft" },
+  },
+  {
+    key: OWN_GOOGLE_ACCOUNT_SOURCE_KEY,
+    name: "My Google Calendar",
+    kind: { kind: "ownAccount", provider: "google" },
+  },
+];
+
+/** The rows for the accounts the reader has something shown from. */
+function ownAccountSources(providers: readonly OwnAccountProvider[]): readonly CalendarSource[] {
+  return OWN_ACCOUNT_CALENDARS.filter(
+    (source) => source.kind.kind === "ownAccount" && providers.includes(source.kind.provider),
+  );
+}
 
 /**
  * The whole catalog, in the order the rail draws it: the firm's own calendars, then the members
@@ -204,7 +224,7 @@ export function calendarFolders(input: CalendarCatalogInput): readonly CalendarF
     {
       key: OWN_FOLDER_KEY,
       name: "Mine",
-      sources: input.ownAccount === true ? [OWN_ACCOUNT_CALENDAR] : [],
+      sources: ownAccountSources(input.ownAccounts ?? []),
     },
     ...memberFolders(input.members),
     ...resourceFolders(input.resources),

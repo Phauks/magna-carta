@@ -316,16 +316,15 @@ describe("changing a member's own message", () => {
     };
   }
 
-  it("refuses an answer, a turn already gone, and any change while an answer is pending", () => {
-    expect(turnChangeRefusal(memberTurn(), false)).toBeNull();
-    expect(turnChangeRefusal(memberTurn({ speaker: "magnus" }), false)).toBe("not-yours");
-    expect(turnChangeRefusal(memberTurn({ removedAt: "2026-08-06T01:00:00.000Z" }), false)).toBe(
+  it("refuses an answer and a turn already gone, and never refuses for a pending answer", () => {
+    expect(turnChangeRefusal(memberTurn())).toBeNull();
+    expect(turnChangeRefusal(memberTurn({ speaker: "magnus" }))).toBe("not-yours");
+    expect(turnChangeRefusal(memberTurn({ removedAt: "2026-08-06T01:00:00.000Z" }))).toBe(
       "already-gone",
     );
-    expect(turnChangeRefusal(memberTurn({ supersededAt: "2026-08-06T01:00:00.000Z" }), false)).toBe(
+    expect(turnChangeRefusal(memberTurn({ supersededAt: "2026-08-06T01:00:00.000Z" }))).toBe(
       "already-gone",
     );
-    expect(turnChangeRefusal(memberTurn(), true)).toBe("answer-pending");
   });
 
   it("an edit sets aside the message and everything after it, then records the new message naming it", () => {

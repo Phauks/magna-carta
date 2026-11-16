@@ -25,7 +25,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import DrawingPad from "./drawing-pad.svelte";
-  import { adoptSignature, type SignerAdoption } from "./signer-api.ts";
+  import type { SignerAdoption, SigningSession } from "./signer-api.ts";
   import { initialsFrom } from "./signer-walk.ts";
   import {
     TYPED_STYLES,
@@ -45,13 +45,13 @@
 
   let {
     open = $bindable(false),
-    token,
+    session,
     signerName,
     needsInitials,
     onAdopted,
   }: {
     open?: boolean;
-    token: string;
+    session: SigningSession;
     signerName: string;
     needsInitials: boolean;
     onAdopted: (marks: AdoptedMarks) => void;
@@ -123,7 +123,7 @@
           : "Couldn't make your mark. Try again.";
       return "refused";
     }
-    const outcome = await adoptSignature(token, { how, signaturePng, initialsPng });
+    const outcome = await session.adopt({ how, signaturePng, initialsPng });
     if (outcome.kind === "failed") {
       failure = stated(outcome.failure, "Your signature wasn't adopted.");
       return "refused";
@@ -165,13 +165,13 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <FieldRow>
-        <LabelledField label="Full Name">
+        <LabelledField necessity="required" label="Full Name">
           {#snippet children({ props })}
             <Input {...props} bind:value={fullName} disabled={busy || how !== "typed"} autocomplete="name" />
           {/snippet}
         </LabelledField>
         {#if needsInitials}
-          <LabelledField label="Initials">
+          <LabelledField necessity={needsInitials ? "required" : undefined} label="Initials">
             {#snippet children({ props })}
               <Input {...props} bind:value={initials} disabled={busy || how === "drawn"} maxlength={4} />
             {/snippet}
@@ -231,7 +231,7 @@
         </Tabs.Content>
 
         <Tabs.Content value="uploaded" class="flex flex-col gap-8 pt-16">
-          <Label for="signature-upload">A picture of your signature</Label>
+          <Label necessity="required" for="signature-upload">A picture of your signature</Label>
           <FileInput
             id="signature-upload"
             accept="image/png,image/jpeg"

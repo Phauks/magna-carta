@@ -262,6 +262,16 @@ component for both places), `meeting-hosts-panel.svelte` (who holds a grant, and
 things missing). All of them take models and handlers rather than the client, like every other
 screen component here.
 
+**A file shared in chat** is a line pointing at one of the matter's files, never a file of the
+chat's: `chat-files.ts` files an upload into "Meeting files" at the matter root (found by name, made
+once, found again when a make races) through the file manager's own upload, and only then is the
+line said; `screen/meeting-chat-file-dialog.svelte` picks an existing one with
+`MatterDocumentPicker`. The panel offers the paperclip only where the room screen passes a
+`matterId` (a meeting on a matter event); the link is the file's own download route. A guest opens it while in the room through
+`openGuestSharedFile` (the guest page passes `onOpenFile`, so the panel draws a button, not a link):
+the tab is opened at the press and sent to the signed address that comes back, because the grant is
+a header a link cannot carry.
+
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
 contract, chat's three and the calls for polls and questions included, with the seams those two
 records take), `meeting-list.ts` / `meeting-list-section.svelte` / `meetings-screen.svelte` (the Meetings

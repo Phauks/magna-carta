@@ -7,8 +7,8 @@
  * spreadsheet still sums the column.
  */
 import { formatNumber } from "@magna-carta/design-system/formatters";
-import { format, fromMinor, spreadsheetNumber } from "@magna-carta/money/format";
-import { USD } from "@magna-carta/money/money";
+import { format, formatRate, fromMinor, spreadsheetNumber } from "@magna-carta/money/format";
+import { currencyFromCode, rate, USD } from "@magna-carta/money/money";
 import { figureCell, type ReportCell } from "./report-presentation.ts";
 
 /** What an empty figure prints as. */
@@ -23,6 +23,11 @@ export function moneyCell(amountMinor: number): ReportCell {
 /** An amount as the text a summary tile prints. Zero prints as an amount here: a tile is never blank. */
 export function moneyText(amountMinor: number): string {
   return format(fromMinor(amountMinor, USD));
+}
+
+/** An hourly rate the payload carried at scale 4 (4500000 is 450.00), as text. */
+export function rateText(rateE4: number, currency: string): string {
+  return formatRate(rate(rateE4, currencyFromCode(currency)));
 }
 
 /** A count, as a cell. */

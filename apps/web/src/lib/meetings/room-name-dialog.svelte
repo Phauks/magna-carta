@@ -86,15 +86,15 @@
       <FailureNotice
         {failure}
         subject="The room"
-        title="The Name Did Not Change"
-        fallback="The room kept its name."
-        whenSilent="Couldn't connect. The room kept its name. Try again."
+        title="Name Not Changed"
+        fallback="The room's name didn't change."
+        whenSilent="Couldn't connect. The room's name didn't change. Try again."
       />
     {/if}
   {/snippet}
   {#snippet fields()}
     <div class="flex flex-col gap-8">
-      <Label for="room-name">Name</Label>
+      <Label necessity="required" for="room-name">Name</Label>
       <Input id="room-name" bind:value={typed} maxlength={ROOM_NAME_MAXIMUM} autocomplete="off" />
     </div>
     <p class="text-sm text-text-muted">{note}</p>

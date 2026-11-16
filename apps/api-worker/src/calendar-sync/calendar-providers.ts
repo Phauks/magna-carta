@@ -42,6 +42,10 @@ export interface CalendarProviderApplication {
   // an administrator grant less than was asked.
   grantsCalendar(grantedScopes: readonly string[]): boolean;
   readAccount(http: HttpClient, accessToken: string): Promise<AccountOutcome>;
+  // Withdraws the member's grant at the provider when they disconnect, where the provider has a
+  // way to withdraw one grant. Absent where it has none: Microsoft offers only signing the member
+  // out of everything, which is not ours to do for a calendar.
+  revokeGrant?(http: HttpClient, refreshToken: string): Promise<boolean>;
   adapter(dependencies: {
     readonly http: HttpClient;
     readonly now: () => Date;
@@ -131,6 +135,7 @@ export function resolveCalendarApplication(
       google.refreshAccessToken(dependencies, application, refreshToken),
     grantsCalendar: google.grantsCalendar,
     readAccount: google.readSignedInAccount,
+    revokeGrant: google.revokeGrant,
     adapter: ({ http, now }) =>
       createGoogleCalendarAdapter({ http, now, newChannelId: () => crypto.randomUUID() }),
   };

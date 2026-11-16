@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 886 nodes of the feature ledger in
+is the complete register rather than a digest: all 887 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**886 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
+**887 capabilities across 32 areas.** Every one of them is listed in [the register](#the-register)
 below. 147 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **739 that are units of work**, for the reason set out under [What a roll-up is
+count the **740 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 365 | 49% |
-| Part-built | partial, in-build | 154 | 21% |
-| Ahead | designed, planned, researching, not-started | 178 | 24% |
+| Done | shipped | 366 | 49% |
+| Part-built | partial, in-build | 157 | 21% |
+| Ahead | designed, planned, researching, not-started | 175 | 24% |
 | Parked | deferred, cut | 42 | 6% |
-| **All units of work** | | **739** | **100%** |
+| **All units of work** | | **740** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 365 | 49% |
-| `partial` | 151 | 21% |
+| `shipped` | 366 | 49% |
+| `partial` | 154 | 21% |
 | `in-build` | 3 | 0% |
 | `designed` | 45 | 6% |
 | `planned` | 7 | 1% |
 | `researching` | 5 | 1% |
-| `not-started` | 121 | 16% |
+| `not-started` | 118 | 16% |
 | `deferred` | 37 | 5% |
 | `cut` | 5 | 1% |
-| **All statuses** | **739** | **100%** |
+| **All statuses** | **740** | **100%** |
 
 ### What a roll-up is not
 
-**147 of the 886 nodes are parents, and 115 of those parents are `partial`.** A parent's status is a
+**147 of the 887 nodes are parents, and 115 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 365 of 739 (49%). Shipped plus partial is 516 (70%).**
+**Shipped alone is 366 of 740 (49%). Shipped plus partial is 520 (70%).**
 
-The 151 units between those two numbers are work that is engineered and paid for and is not
+The 154 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**519 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**523 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 178 | 34% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 147 | 28% |
-| No user surface by nature (`internal`) | 194 | 38% |
+| A person can open it today (`screen`) | 183 | 35% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 146 | 28% |
+| No user surface by nature (`internal`) | 194 | 37% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **519** | **100%** |
+| **Everything with something built** | **523** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,9 +106,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 13 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 68% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 10 | 30% |
-| Documents | 77 | 16 | 0 | 2 | 0 | 0 | 8 | 3 | 1 | 107 | 72% |
+| Documents | 78 | 18 | 0 | 2 | 0 | 0 | 5 | 3 | 1 | 107 | 73% |
 | Exhibits and Exhibit Lists | 0 | 4 | 0 | 0 | 3 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 22 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 63 | 35% |
+| Financial Core | 22 | 20 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 64 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 18 | 3 | 0 | 1 | 0 | 3 | 15 | 2 | 1 | 43 | 42% |
 | Maintenance Agents | 2 | 3 | 0 | 0 | 0 | 0 | 5 | 0 | 0 | 10 | 20% |
@@ -127,11 +127,11 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 16 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 23 | 70% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **365** | **151** | **3** | **45** | **7** | **5** | **121** | **37** | **5** | **739** | **49%** |
+| **All areas** | **366** | **154** | **3** | **45** | **7** | **5** | **118** | **37** | **5** | **740** | **49%** |
 
 ## Where we have been
 
-**241 of 260 commits read, 2026-07-14 to 2026-11-13 — 122 days.** The ledger keeps no history of its
+**252 of 271 commits read, 2026-07-14 to 2026-11-13 — 122 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -143,14 +143,14 @@ Every figure in this section counts **units of work**, the same quantity [Where 
 stands](#where-the-program-stands) counts, so a level here is comparable to a level there. Roll-up
 parents are excluded at every past commit the same way they are excluded now — the reconstruction
 reads the hierarchy off the ledger as it stood, not off today's. The whole-node totals are on the
-record too: 663 nodes on 2026-07-14, 886 on 2026-11-13.
+record too: 663 nodes on 2026-07-14, 887 on 2026-11-13.
 
-**+168 shipped since the ledger began** — 197 on 2026-07-14, 365 on 2026-11-13, across 122 days. The
-ledger itself grew by +198 units over the same period (541 to 739), so the share shipped went from
+**+169 shipped since the ledger began** — 197 on 2026-07-14, 366 on 2026-11-13, across 122 days. The
+ledger itself grew by +199 units over the same period (541 to 740), so the share shipped went from
 36% to 49% against a denominator that was moving too.
 
-That is **9.6 capabilities shipped a week** across the whole series, and **10.0 a week** over the
-234 snapshots since the last gap (2026-08-11 to 2026-11-13, +134 shipped in 94 days).
+That is **9.7 capabilities shipped a week** across the whole series, and **10.1 a week** over the
+245 snapshots since the last gap (2026-08-11 to 2026-11-13, +135 shipped in 94 days).
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -401,10 +401,21 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 | 2026-11-13 | `91fee4e8` | 364 | 152 | 3 | 45 | 7 | 5 | 121 | 37 | 5 | 739 | 0 | 0 | 0 |
 | 2026-11-13 | `0dd1d736` | 364 | 152 | 3 | 45 | 7 | 5 | 121 | 37 | 5 | 739 | 0 | 0 | 0 |
 | 2026-11-13 | `f01adb58` | 365 | 151 | 3 | 45 | 7 | 5 | 121 | 37 | 5 | 739 | 0 | +1 | 0 |
+| 2026-11-13 | `94144de8` | 365 | 151 | 3 | 45 | 7 | 5 | 121 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `ce27d636` | 365 | 151 | 3 | 45 | 7 | 5 | 121 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `75f91de1` | 365 | 151 | 3 | 45 | 7 | 5 | 121 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `6336b4e8` | 365 | 153 | 3 | 45 | 7 | 5 | 119 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `5f13fa08` | 366 | 153 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 739 | 0 | +1 | 0 |
+| 2026-11-13 | `17445d0f` | 366 | 153 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `bff40681` | 366 | 153 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `c423cd24` | 366 | 153 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `d24f0518` | 366 | 153 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 739 | 0 | 0 | 0 |
+| 2026-11-13 | `050317ac` | 366 | 154 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 740 | +1 | 0 | 0 |
+| 2026-11-13 | `507ae8c7` | 366 | 154 | 3 | 45 | 7 | 5 | 118 | 37 | 5 | 740 | 0 | 0 | 0 |
 
 ### The gaps
 
-**19 of the 260 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
+**19 of the 271 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
 2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
 counts are absent from the table above, no line is drawn through them, and the changes on either
 side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
@@ -435,9 +446,9 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Design System, UI Consistency & Design Quality | 15 | 19 | 11 | 13 | +2 |
 | Discovery (e-discovery) | 15 | 22 | 2 | 8 | +6 |
 | Document Automation | 7 | 10 | 0 | 3 | +3 |
-| Documents | 97 | 107 | 58 | 77 | +19 |
+| Documents | 97 | 107 | 58 | 78 | +20 |
 | Exhibits and Exhibit Lists | — | 8 | — | 0 | 0 |
-| Financial Core | 42 | 63 | 8 | 22 | +14 |
+| Financial Core | 42 | 64 | 8 | 22 | +14 |
 | Client Intake / CRM | 6 | 8 | 0 | 2 | +2 |
 | Integrations & Plugins | 41 | 43 | 16 | 18 | +2 |
 | Maintenance Agents | 10 | 10 | 0 | 2 | +2 |
@@ -457,7 +468,7 @@ partial, in-build, designed, planned, researching, not-started, deferred, cut)
 | Tasks and Workflows / Matter Plans | 3 | 4 | 0 | 2 | +2 |
 | Translation Services | — | 6 | — | 0 | 0 |
 
-**Fastest since the first snapshot:** Documents (+19), Core Domain — Directory, Matters & Locations
+**Fastest since the first snapshot:** Documents (+20), Core Domain — Directory, Matters & Locations
 (+18), Calendar and Rules-Based Docketing (+15). **7 of 32 areas have shipped nothing in that
 time**: Exhibits and Exhibit Lists, Payments, Performance & Concurrency, Client Portal, Product
 Updates & User-Facing Documentation, Release Channels, Translation Services. An area standing still
@@ -844,7 +855,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `matters.search` · `partial` · **Consolidated matter search** — One search over everything on a matter, opening scoped to the section the reader is standing on and never widening past the matter. _Note: PARTIAL because eight of the fourteen sections answer; the other six decline in the scope dropdown with the line saying what each waits on. The read layer is a registry of declared sources on the federated-timeline pattern, so a fifteenth searchable section is one source module rather than a change to the route, the control or the results page._
     - `matters.search.sources` · `partial` · **Declared search sources** — One source module per searchable section — its bounded statements, its projection, the read permission that gates it, and whether it declares a non-privileged snippet. _Note: PARTIAL because six sections still decline; apps/web/src/lib/matters/sections.ts records each one's reason and pnpm run lint:matter-search-coverage refuses a section that answers neither way. Fees is blocked on the fee work-in-progress store existing at all — nothing on the wire carries the record. The matter-asset register has a query but no screen to land a hit on, so it is deliberately unregistered until the register gets one. Review-set sources are structurally refused: a review set is its own corpus._
   - `search.record-index` · `shipped` · **Record index** — One full-text index, in each firm's own database, over the text held in rows — notes, time narratives, cost descriptions, calendar events, calls and texts, tasks and Magnus conversations — written only by triggers rendered from one list of declared sources. _Note: The index and its two readers: the matter search's prose sources, and the conflicts check, which reads calls and texts, tasks and Magnus conversations through it. Each source declares its readers (readBy), held to the readers' own statements by packages/search/test/record-index-readers.test.ts. The status screen (search.status-screen) and the search across matters are separate nodes of the same specification._
-  - `search.across-matters` · `partial` · **Search across matters** — One search from the top bar over every matter the reader may see, answered from the record index and, once it is on, the file-contents index. _Note: PARTIAL because eight places answer across matters and two are still searched inside a matter only (the words inside files, which are one index per matter, and calendar, which waits on the owner); the page names them from the server's own answer. Invoice lines are read by a substring match over every line a reader may see, measured at about 50 ms for 200,000 lines and about 250 ms when every line holds the word; a firm near that size moves them into the record index. Not built - people searched under a narrowed choice of matters (the directory is firm-wide, so the page says it was not asked), a narrowed search of more than 25 matters reading past the firm-wide cap, marks in the Matters and People groups (read from the matters listing and the directory, which carry none), and a name index for file names, whose substring match grows with the number of files a firm holds. A snippet is shown, on the owner's approval of 2026-11-10 (build order step 4, "snippets shown"), which settles notes design flag W6 for this surface._
+  - `search.across-matters` · `partial` · **Search across matters** — One search from the top bar over every matter the reader may see, answered from the record index and, once it is on, the file-contents index. _Note: PARTIAL because nine places answer across matters, one of them only for a search of few matters, and one is still searched inside a matter only (calendar, which waits on the owner); the page names what it did not read from the server's own answer. The words inside files are one index per matter and are asked one matter at a time, so that place answers where a search reaches 25 matters or fewer and says too-many-matters past that (runKeywordSearchOverMatters in apps/api-worker/src/search/keyword-search.ts, the file-contents source's acrossMatters.prepare in packages/matter-search/src/sources/all.ts; held by the file contents cases in packages/matter-search/test/across-matters.test.ts, apps/api-worker/test/matter-file-contents.test.ts and packages/data-access/test/index-split-corpus-scope.test.ts). What 25 questions in one request cost the engine is not measured, because the engine cannot run in a cloud session. Invoice lines are read by a substring match over every line a reader may see, measured at about 50 ms for 200,000 lines and about 250 ms when every line holds the word; a firm near that size moves them into the record index. Not built - the words inside files for a search of more than 25 matters (it needs the per-split word summary), people searched under a narrowed choice of matters (the directory is firm-wide, so the page says it was not asked), a narrowed search of more than 25 matters reading past the firm-wide cap, marks in the Matters and People groups (read from the matters listing and the directory, which carry none), and a name index for file names, whose substring match grows with the number of files a firm holds. A snippet is shown, on the owner's approval of 2026-11-10 (build order step 4, "snippets shown"), which settles notes design flag W6 for this surface._
   - `search.status-screen` · `partial` · **Search and Indexing status** — A settings screen showing what is searchable, how much of each place is indexed, and a rebuild per place. _Note: PARTIAL because the rebuild covers the record index only. An older schema generation of the file contents index has no rebuild path, a firm past roughly a million indexed records needs a rebuild in steps and not one place to a transaction, and discovery review sets are named and not counted, because a firm-wide count would read across each set's access list._
     - `matters.search.file-contents` · `partial` · **File contents in a matter search** — A second source on the Files section that asks the keyword index over the matter's own corpus and answers with the files whose text matches, each naming the pages matched and quoting the passage. _Note: PARTIAL because it has not answered a real question in production yet. The app worker declares the SEARCH_SERVICE binding since 2026-11-13, on the owner's confirmation that the search worker is on the account (docs/deploy-queue.md, Search engine activation, which lists the two checks still to make), so a firm reads inside its files once its own switch is on (settings.area-ui.search-and-indexing) and until then the group says file indexing is not turned on. No file has been indexed by the deployed engine yet. A result quotes the passage it matched: the index job keeps each indexed version's extracted text in the firm's bucket, and the search reads one passage of it, only for a row its own statement has returned, and finds the reader's words in it again. The matched words are not marked, nothing yet destroys the kept text (it goes with the version at the purge point the retention engine will call), and the per-split word summary is not built. Capital letters and accents do not matter: the engine composes, folds and lowercases each word (schema generation 2, taken before any production index exists), and the search box folds an unfinished word from the engine's own table._
 - `locations` · `partial` · **Locations (offices)** — First-class per-firm entity for physical offices; a dimension within the firm tenancy boundary, referenced by matters, trust accounts, Custodian roots, users, and generated documents. _Note: Backend shipped; administration UI not built._
@@ -977,7 +988,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 107 units of work, 72% shipped. 77 done, 16 part-built, 10 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 107 units of work, 73% shipped. 78 done, 18 part-built, 7 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -1022,8 +1033,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.versioning.delta-storage` · `deferred` · **Version-history delta storage** — Superseded versions re-stored (ZIP entries stored, not deflated) as zstd patch-from deltas with keyframes and roundtrip-hash verification, as an async Queue/Container job.
     - `documents.versioning.deleted-lifecycle` · `partial` · **Deleted-file lifecycle** — Soft-delete trash window (Standard) then IA cold retention then policy-driven destruction blocked by holds; default retention indefinite.
       - `documents.versioning.deleted-lifecycle.trash` · `shipped` · **Trash & restore** — Soft-delete hides the record from the File Manager (firm-scoped state change, bytes untouched); restore clears the flag in place.
-      - `documents.versioning.deleted-lifecycle.cold-retention` · `not-started` · **Trash-expiry IA transition** — After the trash window, deleted objects transition Standard to IA in place via the same server-side copy used for superseded versions.
-      - `documents.versioning.deleted-lifecycle.destruction` · `not-started` · **Policy-driven destruction** — Per-record retention/destruction date driving audited hard-delete, blocked by legal/discovery/Custodian holds; ships defaulted off (indefinite).
+      - `documents.versioning.deleted-lifecycle.cold-retention` · `shipped` · **Trash-expiry IA transition** — After the trash window, deleted objects transition Standard to IA in place via the same server-side copy used for superseded versions.
+      - `documents.versioning.deleted-lifecycle.destruction` · `not-started` · **Policy-driven destruction** — Per-record retention/destruction date driving audited hard-delete, blocked by legal/discovery/Custodian holds; ships defaulted off (indefinite). _Note: Blocked on a hold to honour. Custody holds exist (custody_hold, on packets) and discovery holds its own sets, but there is no legal hold on a matter or a file, and the firm's settings promise destruction never happens under one._
   - `documents.preview` · `partial` · **Inline file preview** — Files viewed in place (video first) with download alongside; untrusted bytes delivered safely.
     - `documents.preview.signed-delivery` · `shipped` · **Authorization-gated delivery** — Short-lived tokened URLs minted only after matter/RBAC checks; originals stream from R2 (progressive playback, free egress).
     - `documents.preview.sandbox-origin` · `shipped` · **Safe-delivery sandbox** — Untrusted bytes served from a separate cookieless files._ origin with attachment disposition, correct Content-Type, nosniff, restrictive CSP, iframe sandbox.
@@ -1063,9 +1074,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.pdf.tool-uis` · `partial` · **PDF tool UIs** — User-facing PDF tools (redact, Bates, forms, secure, etc.) in a PDF Editor beside the reader and a PDF tab in the File Workbench.
   - `documents.esignature` · `partial` · **E-signature** — First-party e-signature on the PDF engine — sender field placement, signing UI, PAdES platform seal, audit trail, certificate of completion, attribution tiers. _Note: ADR-0045 records the whole area as provisional — every license/legal specific to be re-verified before build._
     - `documents.esignature.pades-seal` · `shipped` · **PAdES platform seal** — Server-applied tamper-evidence seal with the firm certificate on completed documents. _Note: ADR-0206 resolves the Worker-crypto vs Container question in favour of pkijs over WebCrypto in the Worker. Baseline B-B only — timestamp/LTV levels (B-T/B-LT/B-LTA, needs a TSA) and independent-validator conformance remain._
-    - `documents.esignature.signing-flow` · `not-started` · **Signing flow & adoption UI** — Client-side field placement, signing UI, signature adoption (type/draw/upload).
+    - `documents.esignature.signing-flow` · `partial` · **Signing flow & adoption UI** — Client-side field placement, signing UI, signature adoption (type/draw/upload).
     - `documents.esignature.audit-trail` · `partial` · **Audit trail & certificate of completion** — Server-observed signer IP/timestamp/consent/document hash assembled into a stored Certificate of Completion. _Note: The certificate can be assembled and rendered, but nothing yet captures a signer's consent through a signing flow, and the certificate is not stored against a document._
-    - `documents.esignature.attribution` · `not-started` · **Attribution assurance tiers** — Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
+    - `documents.esignature.attribution` · `partial` · **Attribution assurance tiers** — Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
     - `documents.esignature.vendor-port` · `not-started` · **Vendor adapter seam** — Plugin-port seam for a third-party trust-service adapter (certified filing, remote online notarization).
   - `documents.bundling` · `partial` · **Enhanced bundling** — Matter bundle export with format choice, compression, AES-256 encryption, and multi-volume output, in two lanes.
     - `documents.bundling.light-lane` · `shipped` · **TypeScript bundle lane** — In-Worker lane for plain streaming bundles (formats/layout/manifest/options in the file-manager package).
@@ -1122,7 +1133,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 63 units of work, 35% shipped. 22 done, 19 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 64 units of work, 34% shipped. 22 done, 20 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -1163,6 +1174,7 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.trust.jurisdiction-engine.rules-catalog` · `designed` · **Trust-rules catalog (56 jurisdictions)** — Verified research corpus of 56 US jurisdictions across 16 rule dimensions compiled into shared reference data. _Note: Research corpus complete and adversarially verified; the build-data pipeline exists only in the design._
     - `financial.trust.multi-jurisdiction-accounts` · `partial` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location. _Note: The binding and its refusals ship; what does not is the per-account profile actually resolving - no trust surface reads a requirement through the port in packages/trust/src/jurisdiction.ts yet - and matter trust activity defaulting to the matter's home location, which callers still name an account for._
     - `financial.trust.reconciliation` · `partial` · **Interactive three-way reconciliation** — Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account. _Note: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration._
+    - `financial.trust.check-printing` · `partial` · **Trust check printing** — Print checks for trust disbursements paid by check, on the firm's own check stock placed over a scan of a blank check; number them from the account's next number, confirm printed or spoiled, void with the number kept, and print a test page. _Note: Operating-account checks, printing the MICR line on blank stock, printed signatures and positive-pay export are not built. Design: docs/specs/2026-11-14-trust-check-printing-design.md._
     - `financial.trust.close-rule` · `shipped` · **Zero-balance close precondition** — Registers "all bills paid, no remaining balance" on the matter close-precondition hook. _Note: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts._
   - `financial.billing` · `partial` · **Billing and invoicing** — Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle. _Note: The slice map serializes this after time and costs, which are both on main. Two registers now read it — the matter's own Billing section and the firm's whole register — and the acts against a bill live on the first of them._
     - `financial.billing.fee-models` · `shipped` · **Fee models** — The four billing arrangements — hourly, flat/fixed, contingency, retainer/evergreen _Note: Built all at once per the owner's docket override of the staged default._

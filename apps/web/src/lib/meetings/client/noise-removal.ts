@@ -42,11 +42,11 @@ export interface NoiseSeams {
 
 /** What a filter that could not start reads as. */
 export const NOISE_REMOVAL_REFUSED =
-  "Stronger noise removal could not start in this browser, so your microphone is sent as it is.";
+  "Stronger noise removal couldn't start in this browser, so your microphone is sent without it.";
 
 /** What a filter that stopped working reads as. */
 export const NOISE_REMOVAL_STOPPED =
-  "Stronger noise removal stopped working, so your microphone is being sent as it is.";
+  "Stronger noise removal stopped working, so your microphone is sent without it.";
 
 /** The product's noise filter over another stage (in a browser, the background stage). */
 export function noiseRemoval(inner: MediaEffectsStage, seams: NoiseSeams): MediaEffectsStage {

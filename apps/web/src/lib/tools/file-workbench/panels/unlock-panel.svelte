@@ -163,7 +163,7 @@
     <div class="flex flex-col gap-8">
       <SectionHeading>Unlock With a Password You Have</SectionHeading>
       <div class="flex max-w-md flex-col gap-4">
-        <Label for="unlock-password">Password</Label>
+        <Label necessity="required" for="unlock-password">Password</Label>
         <PasswordInput
           id="unlock-password"
           bind:value={password}

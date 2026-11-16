@@ -9,6 +9,8 @@ export interface LabelledFieldControlProperties {
   readonly id: string;
   readonly "aria-describedby": string | undefined;
   readonly "aria-invalid": true | undefined;
+  /** Set when the field must be filled, so a screen reader says so whatever mark is drawn. */
+  readonly "aria-required": true | undefined;
   /** The error, as the control's hover text: the only place it is shown on screen. */
   readonly title: string | undefined;
 }

@@ -201,7 +201,7 @@ const SendGuestMessageRequest = z
   })
   .openapi("SendGuestMeetingMessageRequest");
 
-const guestCredentialHeader = z.object({
+export const guestCredentialHeader = z.object({
   "x-meeting-guest": z
     .string()
     .optional()
@@ -232,7 +232,7 @@ const invitationParams = z.object({
 
 // What every guest route may answer beyond its success. 404 is the FLAT refusal — a credential that
 // is not one, answered as an address that does not exist, so a stranger learns nothing.
-const guestErrors = {
+export const guestErrors = {
   403: {
     description: "The request is refused — a socket upgrade from another site",
     content: { "application/problem+json": { schema: Problem } },
