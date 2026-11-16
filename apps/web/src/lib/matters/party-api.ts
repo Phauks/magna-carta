@@ -67,6 +67,27 @@ export function linkMatterParty(
   });
 }
 
+/**
+ * Changes the role a party plays on a matter, keeping its capacity. The server closes the old link
+ * and opens one in the new role, so the answer is the id of the link that now carries it.
+ */
+export function changeMatterPartyRole(
+  fetchImpl: typeof fetch,
+  matterPartyId: string,
+  request: { role: string; capacity: string | null },
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  const body: Record<string, string> = { role: request.role };
+  if (request.capacity !== null && request.capacity.trim() !== "") {
+    body["capacity"] = request.capacity.trim();
+  }
+  return requestJson(
+    fetchImpl,
+    `/api/v1/directory/matter-parties/${encodeURIComponent(matterPartyId)}`,
+    { method: "PATCH", body, idempotencyKey },
+  );
+}
+
 export function unlinkMatterParty(
   fetchImpl: typeof fetch,
   matterPartyId: string,
