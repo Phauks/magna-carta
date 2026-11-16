@@ -43,3 +43,5 @@ blocked-by:
 **Tasks by Person (2026-11-14).** Live, on `reports:productivity`: each member's open tasks, how many are overdue (the calendar's comparison, in each task's own zone) and how many have no due date, counts only. The tasks package owns the read; the people are proved to add up to every open task.
 
 **Aged Expenses (2026-11-14).** Live, on `reports:financial`: the aged work-in-progress report over cost entries alone, from billing's same rows; its total is proved equal to the costs in Work in Progress.
+
+**Change Log (2026-11-16).** On `reports:operational`: who added, changed or removed people and organizations, matters and the trust approval rule in a period, read from the audit log through `readAuditChanges` in the data-access layer, never an audit row's metadata. One axis only, because an audit row is never edited or backdated; the report says whether its period had ended.

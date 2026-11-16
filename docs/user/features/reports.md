@@ -23,10 +23,10 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Sixteen reports run today: the trust compliance report, accounts receivable aging, work in
+Seventeen reports run today: the trust compliance report, accounts receivable aging, work in
 progress, aged work in progress, aged expenses, realization, invoices, payments applied, matter balances,
 timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
-the matters list, and the client list.
+the matters list, the client list, and the change log.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
