@@ -918,7 +918,7 @@
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   spec: docs/specs/2026-06-22-metadata-tool-design.md
-  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts + the File Workbench Metadata tab; XLSX/PPTX reading, HEIC/PDF and the container engine still to come.
+  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts + the File Workbench Metadata tab, which lists each value per kind (FindingField, read by packages/metadata/src/ooxml/fields.ts and src/image/{exif,xmp,iptc}.ts); the API route publishes counts only (withoutFieldValues). XLSX/PPTX reading, HEIC/PDF and the container engine still to come.
   audience: public
   public-name: Metadata scrubbing
   public-summary: See what is hidden inside a file — tracked changes, comments, author details, the place a photograph was taken — and strip it out before you send it.
@@ -928,14 +928,14 @@
   scope: Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
   status: shipped
   surface: screen
-  evidence: packages/metadata/src/ooxml + engine.ts/port.ts.
+  evidence: packages/metadata/src/ooxml (inspect.ts counts, fields.ts reads the values) + engine.ts/port.ts; test/ooxml-fields.test.ts.
 
 - id: documents.metadata.image
   name: Image metadata
   scope: Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
   status: shipped
   surface: screen
-  evidence: packages/metadata/src/image + tests.
+  evidence: packages/metadata/src/image (EXIF, XMP, IPTC and PNG text values read beside the segment surgery) + test/image-fields.test.ts.
 
 - id: documents.metadata.extended-formats
   name: HEIC / PDF / container-engine metadata

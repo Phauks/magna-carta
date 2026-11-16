@@ -17,7 +17,7 @@ Some of this is read the moment a file lands, without being asked, because it is
 - **Type** — what the file actually is, read from its own first bytes rather than from its name, and whether the name agrees. A file called `invoice.pdf` whose contents are a Windows program is named on this tab, in those words.
 - **Hash** — the file's fingerprints, and a box to paste in a fingerprint somebody sent you so you can see at a glance whether they match.
 - **Malware Scan** — what the scanner made of it, and what in the file can act on its own: scripts, macros, actions that run when it opens, embedded objects, links it fetches without asking. A disarmed copy with all of that taken out is one click away.
-- **Metadata** — the properties a document carries that nobody typed on purpose: the author, the firm, the revision count, a scanner's model number.
+- **Metadata**: the properties a document carries that nobody typed on purpose, with their values: who wrote it and who last saved it, who changed or commented on what and when, the hidden text itself, and where and on what camera a photo was taken.
 - **Email** — for a saved message, its headers, the route it took, and what it carried, and a copy of it as a PDF.
 
 The rest wait until you ask, because each one either writes a new file, costs money, or sends something outside the firm:

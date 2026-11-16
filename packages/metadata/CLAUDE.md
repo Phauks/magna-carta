@@ -10,6 +10,20 @@ same `MetadataPort` directly. Design: `docs/specs/2026-06-22-metadata-tool-desig
   `.jpg`/`.png`). `createMetadataPort()` wraps them with the size cap + typed outcomes
   (`{ ok: false, reason }`, never throws for expected failures). `scrub` re-inspects its OUTPUT so callers
   can confirm `clean`.
+- **A finding carries its values as `fields`** (`FindingField` in `src/model.ts`): a property and what it
+  says, or who made a change or comment, its words and its moment. Additive and optional: a finding with
+  no readable value (a preview picture, editing-session identifiers, trailing bytes) has none. Readers:
+  `src/ooxml/fields.ts` (core/app/custom properties, settings and their relationship targets, custom XML,
+  comments, tracked changes, hidden text), `src/image/exif.ts` (TIFF directories: IFD0, EXIF, GPS),
+  `src/image/xmp.ts`, `src/image/iptc.ts`, and the PNG text/tIME/eXIf chunks in `src/image/png.ts`.
+  Every value is untrusted: `cleanText` (`src/fields.ts`) strips control and direction-override characters
+  and caps length at `MAX_FIELD_TEXT_LENGTH`; `FieldCollector` keeps `MAX_FIELDS_PER_FINDING` and counts
+  the rest as `unlistedFieldCount`. Moments are `instant` (zoned, canonical ISO) or `zoneless` (a camera
+  clock: never converted). Binary walks bounds-check every offset and never revisit a directory; XMP is read
+  by `indexOf`, never a backtracking pattern; compressed PNG text inflates in slices under a byte cap.
+- **Values are for the reader beside the file, never a server response or a log.** The browser panel shows
+  them; the api-worker route publishes findings through `withoutFieldValues`, so its documented contract
+  (category, label, risk, count) is unchanged and no value rides a response that does not declare it.
 - **Every zip read goes through `src/guards.ts`.** `safeUnzip` for content, `zipHasEntry` for detection
   (existence only — it never inflates). Nothing calls `unzipSync` directly: an unguarded inflate anywhere
   makes the caps decorative, and detection runs FIRST, so it is the one that matters most.
