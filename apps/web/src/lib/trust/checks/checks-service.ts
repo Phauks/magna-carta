@@ -31,6 +31,8 @@ export interface TrustChecksService {
     trustAccountId: string,
     trustMovementIds: readonly string[],
     idempotencyKey: string,
+    /** The number on the first sheet in the printer; absent, the account's next number. */
+    firstCheckNumber?: number,
   ): Promise<ApiOutcome<PrintTrustChecksResponse>>;
   recordResults(
     trustAccountId: string,

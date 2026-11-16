@@ -1018,6 +1018,74 @@ pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, J
     pdf_result(&pdf)
 }
 
+/// Draw marks into boxes on existing pages: the signatures, names, dates and ticks a signer gave.
+/// `marks` is an array of `{ page, rect: [left, bottom, right, top], content }` where `page` counts
+/// from 1, `rect` is in displayed page points from the displayed bottom-left corner, and `content`
+/// is `{ kind: "image", bytes }` (PNG or JPEG, fitted to the box), `{ kind: "text", text, font? }`
+/// (one line in a standard font, Windows-1252 only) or `{ kind: "check" }`. Returns
+/// `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = placeMarks)]
+pub fn place_marks_js(bytes: Vec<u8>, marks: JsValue) -> Result<JsValue, JsError> {
+    let get = |target: &JsValue, key: &str| js_sys::Reflect::get(target, &key.into()).ok();
+    let array = js_sys::Array::from(&marks);
+    if array.length() as usize > crate::MAX_MARKS {
+        return Err(JsError::new("too many marks"));
+    }
+    let mut parsed = Vec::with_capacity(array.length() as usize);
+    for value in array.iter() {
+        let page = get(&value, "page")
+            .and_then(|v| v.as_f64())
+            .filter(|v| v.is_finite() && *v >= 1.0 && v.fract() == 0.0)
+            .ok_or_else(|| JsError::new("a mark needs a page counted from 1"))?
+            as usize;
+        let rect_value = get(&value, "rect").ok_or_else(|| JsError::new("a mark needs a rect"))?;
+        let rect_array = js_sys::Array::from(&rect_value);
+        if rect_array.length() != 4 {
+            return Err(JsError::new("a mark's rect is four numbers"));
+        }
+        let mut rect = [0.0_f32; 4];
+        for (index, slot) in rect.iter_mut().enumerate() {
+            *slot = rect_array
+                .get(index as u32)
+                .as_f64()
+                .filter(|v| v.is_finite())
+                .ok_or_else(|| JsError::new("a mark's rect is four numbers"))?
+                as f32;
+        }
+        let content_value =
+            get(&value, "content").ok_or_else(|| JsError::new("a mark needs content"))?;
+        let content = match get(&content_value, "kind")
+            .and_then(|v| v.as_string())
+            .as_deref()
+        {
+            Some("image") => {
+                let image = get(&content_value, "bytes")
+                    .ok_or_else(|| JsError::new("an image mark needs bytes"))?;
+                crate::MarkContent::Image(js_sys::Uint8Array::new(&image).to_vec())
+            }
+            Some("text") => crate::MarkContent::Text {
+                text: get(&content_value, "text")
+                    .and_then(|v| v.as_string())
+                    .unwrap_or_default(),
+                font: watermark_font_from_str(
+                    get(&content_value, "font")
+                        .and_then(|v| v.as_string())
+                        .as_deref(),
+                ),
+            },
+            Some("check") => crate::MarkContent::Check,
+            _ => return Err(JsError::new("a mark's kind is image, text or check")),
+        };
+        parsed.push(crate::Mark {
+            page,
+            rect,
+            content,
+        });
+    }
+    let pdf = crate::place_marks(&bytes, &parsed)?;
+    pdf_result(&pdf)
+}
+
 // ── PAdES seal: prepare / signed-bytes / embed ──────────────────────────────────
 //
 // The engine owns the PDF structure end to end; the CMS is opaque here. `prepareSignature`

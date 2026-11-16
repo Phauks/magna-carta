@@ -274,7 +274,10 @@ const MAX_IMAGE_PIXELS: u64 = 40_000_000;
 /// colorspace; any other format (PNG, or a CMYK JPEG the `image` crate normalises) is
 /// decoded to RGB and stored (Flate-compressed), with an `/SMask` carrying the alpha
 /// channel when the source is not fully opaque.
-fn image_xobject(doc: &mut Document, data: &[u8]) -> Result<(ObjectId, f32, f32), GenerateError> {
+pub(crate) fn image_xobject(
+    doc: &mut Document,
+    data: &[u8],
+) -> Result<(ObjectId, f32, f32), GenerateError> {
     let is_jpeg = data.starts_with(&[0xFF, 0xD8, 0xFF]);
     let decoded = image::load_from_memory(data).map_err(|_| GenerateError::Image)?;
     let (w, h) = decoded.dimensions();
@@ -426,7 +429,7 @@ fn merge_overlay_resources(
 }
 
 /// Clone a resource sub-dictionary (resolving an indirect ref), or an empty one.
-fn sub_dict(doc: &Document, resources: &Dictionary, key: &[u8]) -> Dictionary {
+pub(crate) fn sub_dict(doc: &Document, resources: &Dictionary, key: &[u8]) -> Dictionary {
     match resources.get(key) {
         Ok(obj) => resolve_dict(doc, obj).cloned().unwrap_or_default(),
         Err(_) => Dictionary::new(),
@@ -434,7 +437,7 @@ fn sub_dict(doc: &Document, resources: &Dictionary, key: &[u8]) -> Dictionary {
 }
 
 /// Append a content stream to a page so it draws last (on top).
-fn append_content(
+pub(crate) fn append_content(
     doc: &mut Document,
     page: ObjectId,
     content: Vec<u8>,

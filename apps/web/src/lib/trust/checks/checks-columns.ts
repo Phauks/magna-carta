@@ -10,7 +10,7 @@ import { fromMinor, spreadsheetNumber } from "@magna-carta/money/format";
 import { currencyFromCode } from "@magna-carta/money/money";
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import type { TrustCheckRegisterRow, TrustCheckToPrint } from "./checks-api.ts";
-import { checkStatusLabel, matterLabel } from "./checks-model.ts";
+import { checkStatusLabel, matterLabel, settledReasonText } from "./checks-model.ts";
 
 /** An amount as whole currency units, the number a money column sorts and totals by. */
 function wholeUnits(amountMinor: number, currency: string): number {
@@ -155,7 +155,7 @@ export function registerColumns(
         label: "Reason",
         type: "text",
         filter: "text",
-        value: (row) => row.settledReason,
+        value: (row) => settledReasonText(row),
       },
       {
         id: REGISTER_COLUMNS.settledOn,

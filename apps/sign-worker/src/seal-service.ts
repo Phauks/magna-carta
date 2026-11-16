@@ -1,5 +1,11 @@
 import { composeReadable } from "@magna-carta/house-document";
-import { createSealEngine, loadDocument } from "@magna-carta/pdf";
+import {
+  createSealEngine,
+  ensureReady as ensurePdfReady,
+  loadDocument,
+  placeMarks,
+  type Mark,
+} from "@magna-carta/pdf";
 import { composeDocument, ensureReady as ensureComposerReady } from "@magna-carta/pdf-compose";
 import {
   assembleCertificateOfCompletion,
@@ -41,6 +47,28 @@ async function describedEnvelope(
 }
 
 /**
+ * The document with the signers' marks drawn into their boxes, or the document as it came when the
+ * request carries none. A mark naming a picture the request did not send is refused, because a box
+ * left empty on a sealed copy reads as a signature that was never given.
+ */
+async function markedDocument(
+  request: SealRequest,
+  pdfWasm: WebAssembly.Module,
+): Promise<Uint8Array> {
+  if (request.marks === undefined || request.marks.length === 0) return request.document;
+  const pictures = request.markPictures ?? [];
+  const marks: Mark[] = request.marks.map((mark) => {
+    if (mark.content.kind !== "picture")
+      return { page: mark.page, rect: mark.rect, content: mark.content };
+    const bytes = pictures[mark.content.picture];
+    if (bytes === undefined) throw new Error("a mark names a picture the request did not send");
+    return { page: mark.page, rect: mark.rect, content: { kind: "image", bytes } };
+  });
+  await ensurePdfReady(pdfWasm);
+  return (await placeMarks(request.document, marks)).pdf;
+}
+
+/**
  * Apply the platform seal to one document and issue its Certificate of Completion: the record, its
  * plain text, and the PDF sheet with the audit log, which is sealed in turn so the certificate is as
  * tamper-evident as the document it describes. The WASM engines and the CMS (pkijs) run here; the
@@ -58,8 +86,10 @@ export async function performSeal(
 ): Promise<SealResponse> {
   const engine = createSealEngine(engines.pdf);
   const signingTime = new Date(request.signingTime);
+  // The marks go on first, so the seal's byte range covers them.
+  const document = await markedDocument(request, engines.pdf);
   const result = await sealDocument({
-    pdf: request.document,
+    pdf: document,
     engine,
     signingKey: identity.signingKey,
     certificate: identity.certificate,
@@ -67,7 +97,7 @@ export async function performSeal(
     seal: request.seal,
   });
 
-  const envelope = await describedEnvelope(request, engines.pdf);
+  const envelope = await describedEnvelope({ ...request, document }, engines.pdf);
   const certificate = assembleCertificateOfCompletion({
     documentHashSha256: result.documentHashSha256,
     sealedAt: request.signingTime,

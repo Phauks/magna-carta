@@ -4012,6 +4012,8 @@ export type SigningRequestDetail = {
     sentAt: string | null;
     completedAt: string | null;
     sealedAt: string | null;
+    signedFileVersionId: string | null;
+    certificateFileId: string | null;
     voidedReason: string | null;
     signers: Array<{
         id: string;
@@ -11252,6 +11254,7 @@ export type PrintedTrustCheck = {
 export type PrintTrustChecksRequest = {
     trustAccountId: string;
     trustMovementIds: Array<string>;
+    firstCheckNumber?: number | null;
 };
 
 export type TrustCheckAcknowledgement = {

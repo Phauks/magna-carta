@@ -701,7 +701,7 @@
   status: partial
   slices: 2-5-pdf-services-e-signature-core
   adrs: ADR-0045, ADR-0205, ADR-0206
-  evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/api-worker/src/http/routes/documents/document-seal.ts on main; the signing flow, field placement, and adoption UI are not started.
+  evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/api-worker/src/http/routes/documents/document-seal.ts; the signing flow from field placement through sealing on completion is built (documents.esignature.signing-flow).
   audience: public
   public-name: Electronic signatures
   public-summary: Send a document for signature and get the signed copy back with a record of who signed it and when.
@@ -723,7 +723,7 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-11-13-signing-flow-design.md
-  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. the hourly reminder and expiry pass in apps/api-worker/src/signing/signing-sweep.ts; a colleague signing in the app on the member routes in apps/api-worker/src/http/routes/documents/my-signing-routes.ts (the same handlers through the member lane in signer-lanes.ts), told by the documents.signing.memberTurn notification raised from apps/api-worker/src/signing/member-turn.ts, on the page at apps/web/src/routes/(app)/documents/[id]/sign. Sealing on completion is next.
+  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. the hourly reminder and expiry pass in apps/api-worker/src/signing/signing-sweep.ts; a colleague signing in the app on the member routes in apps/api-worker/src/http/routes/documents/my-signing-routes.ts (the same handlers through the member lane in signer-lanes.ts), told by the documents.signing.memberTurn notification raised from apps/api-worker/src/signing/member-turn.ts, on the page at apps/web/src/routes/(app)/documents/[id]/sign; sealing on completion in apps/api-worker/src/signing/seal-completed.ts, raised by the signing.completed outbox topic with the hourly pass as its backstop, which draws what each signer gave into their boxes (place_marks in crates/pdf-core/src/marks.rs, run by the sign worker before the seal) and files the signed copy as a new version with its Certificate of Completion beside it. Emailing signers the signed copy is next.
 
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion
@@ -731,8 +731,7 @@
   status: partial
   surface: awaiting-screen
   slices: 2-5-pdf-services-e-signature-core
-  evidence: packages/signing/src/esign.ts holds the ESIGN/UETA model and the Certificate of Completion assemble-and-render path; the seal route sets signing time and observed IP server-side and emits a redacted esign.sealed audit event.
-  notes: The certificate can be assembled and rendered, but nothing yet captures a signer's consent through a signing flow, and the certificate is not stored against a document.
+  evidence: packages/signing/src/esign.ts holds the ESIGN/UETA model and the Certificate of Completion assemble-and-render path; the seal route sets signing time and observed IP server-side and emits a redacted esign.sealed audit event. A completed signing request is sealed by apps/api-worker/src/signing/seal-completed.ts with each signer's consent, signing address and browser as the request observed them, and the certificate is filed beside the signed copy and named on the request (signing_request.certificate_file_id).
 
 - id: documents.esignature.attribution
   name: Attribution assurance tiers

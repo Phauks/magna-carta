@@ -17852,6 +17852,18 @@
               "null"
             ]
           },
+          "signedFileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "certificateFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "voidedReason": {
             "type": [
               "string",
@@ -18066,6 +18078,8 @@
           "sentAt",
           "completedAt",
           "sealedAt",
+          "signedFileVersionId",
+          "certificateFileId",
           "voidedReason",
           "signers",
           "fields",
@@ -48952,6 +48966,13 @@
             },
             "minItems": 1,
             "maxItems": 100
+          },
+          "firstCheckNumber": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
           }
         },
         "required": [

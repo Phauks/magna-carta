@@ -138,6 +138,42 @@ describe("sign worker — platform seal on workerd", () => {
     expect(await verifySealedCms(response.sealedPdf, material.certificate)).toBe(true);
   });
 
+  it("draws the signers' marks before sealing, so the seal covers them", async () => {
+    const picture = fromBase64(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    );
+    const response = await performSeal(
+      {
+        ...sealRequest(),
+        marks: [
+          { page: 1, rect: [72, 100, 252, 130], content: { kind: "picture", picture: 0 } },
+          { page: 1, rect: [72, 300, 252, 320], content: { kind: "text", text: "Jordan Smith" } },
+          { page: 1, rect: [72, 400, 86, 414], content: { kind: "check" } },
+        ],
+        markPictures: [picture],
+      },
+      { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+      engines,
+    );
+    // The marked document, not the original, is what the seal's byte range starts from.
+    expect(response.sealedPdf.subarray(0, helloPdf.length)).not.toEqual(helloPdf);
+    expect(await verifySealedCms(response.sealedPdf, material.certificate)).toBe(true);
+    const text = (await extractPdfText(response.sealedPdf)).pages.flatMap((page) =>
+      page.lines.map((line) => line.text.trim()),
+    );
+    expect(text).toContain("Jordan Smith");
+    await expect(
+      performSeal(
+        {
+          ...sealRequest(),
+          marks: [{ page: 1, rect: [72, 100, 252, 130], content: { kind: "picture", picture: 3 } }],
+        },
+        { signingKey: material.privateKey, certificate: fromBase64(material.certDerBase64) },
+        engines,
+      ),
+    ).rejects.toThrow(/picture/);
+  });
+
   it("issues the certificate as a sealed PDF that prints the request and its audit log", async () => {
     const response = await performSeal(
       {

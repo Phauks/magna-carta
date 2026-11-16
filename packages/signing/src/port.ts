@@ -49,6 +49,30 @@ export interface SealRequest {
   readonly signatureImages?: readonly SignatureImage[];
   /** The signers' initials as pictures, carried and printed as their signatures are. */
   readonly initialsImages?: readonly SignatureImage[];
+  /**
+   * What the signers gave, drawn into their boxes on the document before it is sealed, so the seal
+   * covers the marks. Absent, the document is sealed as it came.
+   */
+  readonly marks?: readonly SealMark[];
+  /**
+   * The pictures the marks draw, each sent once however many boxes it fills: a mark names one by
+   * its position in this list.
+   */
+  readonly markPictures?: readonly Uint8Array[];
+}
+
+/**
+ * One box on the document and what is drawn in it. The page counts from 1, and the box is left,
+ * bottom, right, top in displayed page points from the displayed page's bottom-left corner, the frame
+ * the PDF Editor records a field in.
+ */
+export interface SealMark {
+  readonly page: number;
+  readonly rect: readonly [number, number, number, number];
+  readonly content:
+    | { readonly kind: "picture"; readonly picture: number }
+    | { readonly kind: "text"; readonly text: string }
+    | { readonly kind: "check" };
 }
 
 /**
@@ -98,6 +122,8 @@ interface WireSealRequest {
   events?: readonly SigningEvent[];
   signatureImages?: readonly WirePicture[];
   initialsImages?: readonly WirePicture[];
+  marks?: readonly SealMark[];
+  markPictures?: readonly string[];
 }
 
 interface WireSealResponse {
@@ -132,6 +158,8 @@ export function encodeSealRequest(request: SealRequest): string {
     events: request.events,
     signatureImages: request.signatureImages?.map(encodePicture),
     initialsImages: request.initialsImages?.map(encodePicture),
+    marks: request.marks,
+    markPictures: request.markPictures?.map(toBase64),
   };
   return JSON.stringify(wire);
 }
@@ -151,6 +179,8 @@ export function decodeSealRequest(json: string): SealRequest {
     ...(wire.initialsImages !== undefined
       ? { initialsImages: wire.initialsImages.map(decodePicture) }
       : {}),
+    ...(wire.marks !== undefined ? { marks: wire.marks } : {}),
+    ...(wire.markPictures !== undefined ? { markPictures: wire.markPictures.map(fromBase64) } : {}),
   };
 }
 

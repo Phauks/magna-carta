@@ -13,6 +13,15 @@
    * version. A field that may not stand where it is turns red and says nothing under itself; the
    * sentence that names the problem is the Save button's refusal.
    *
+   * THE WHOLE PAGE IS SHOWN AS IT WILL PRINT. Each page layout is offered as a miniature of the
+   * letter page with its check and stubs where they fall, and beside the choices the chosen page
+   * is drawn larger with the sample values in every field and stub, from the same lines the PDF is
+   * set from, so it follows every drag, nudge, shift and layout change as it happens.
+   *
+   * THE NEXT CHECK NUMBER IS THE READER'S, higher or lower than before: it is saved as the stock's
+   * starting number, and the next check prints on the first number at or after it that no check
+   * on the account has used.
+   *
    * THE TEST PAGE IS THE DRAFT, NOT THE SAVED STOCK, because the test print is how a reader finds
    * out whether the draft is right before saving it.
    */
@@ -65,6 +74,7 @@
   } from "./checks-model.ts";
   import CheckBoard from "./check-board.svelte";
   import CheckScanDialog from "./check-scan-dialog.svelte";
+  import CheckPagePreview from "./check-page-preview.svelte";
 
   let {
     trustAccountId,
@@ -128,7 +138,8 @@
     fields = stock.fields.map((field) => ({ ...field }));
     shiftXMils = stock.shiftXMils;
     shiftYMils = stock.shiftYMils;
-    startingText = String(stock.startingCheckNumber);
+    // The number the next check prints on, which is what saving it again keeps.
+    startingText = String(outcome.value.nextCheckNumber);
     scanChange = "keep";
     if (stock.hasScan) {
       const url = await service.readScanUrl(trustAccountId);
@@ -245,7 +256,7 @@
     if (manageRefusal !== undefined) return manageRefusal;
     if (data === null) return "Reading this account's check stock.";
     if (name.trim() === "") return "Name this check stock.";
-    if (startingNumber === null) return "Give the number on the first check in the box.";
+    if (startingNumber === null) return "Give the number on the next check in the printer.";
     if (unreadable.size > 0) return "One of the measurements is not a number.";
     if (shiftProblem(shiftXMils) || shiftProblem(shiftYMils)) {
       return "A whole page shift can be at most half an inch either way.";
@@ -289,6 +300,7 @@
     if (data !== null) {
       data = { ...data, stock: outcome.value.stock, nextCheckNumber: outcome.value.nextCheckNumber };
     }
+    startingText = String(outcome.value.nextCheckNumber);
     toast.success("Layout saved.");
   }
 
@@ -302,7 +314,7 @@
     testFailure = null;
     try {
       const pdf = await service.composePdf(
-        checkTestPageDocument({ pageLayout, fields, shiftXMils, shiftYMils }),
+        checkTestPageDocument(draft),
       );
       service.openPdf(pdf);
     } catch (error) {
@@ -322,7 +334,8 @@
   const testLabel = $derived(testing ? "Making the Test Page" : "Print Test on Plain Paper");
 
   const layoutLabel = $derived(CHECK_PAGE_LAYOUT_LABELS[pageLayout]);
-  const hasStubs = $derived(pageLayout !== "three_per_page");
+  /** The draft as the page preview and the test page read it. */
+  const draft = $derived({ pageLayout, fields, shiftXMils, shiftYMils });
 </script>
 
 {#snippet pageMenu()}
@@ -497,22 +510,36 @@
 
         <div class="flex flex-col gap-8">
           <span id="check-page-layout-label" class="text-sm font-medium">Page Layout</span>
-          <div
-            role="radiogroup"
-            aria-labelledby="check-page-layout-label"
-            class="grid grid-cols-1 gap-8 sm:grid-cols-2"
-          >
-            {#each CHECK_PAGE_LAYOUTS as layout (layout)}
-              <ChoiceRow
-                selected={pageLayout === layout}
-                role="radio"
-                aria-checked={pageLayout === layout}
-                onclick={() => (pageLayout = layout)}
-              >
-                {CHECK_PAGE_LAYOUT_LABELS[layout].title}
-                {#snippet detail()}{CHECK_PAGE_LAYOUT_LABELS[layout].detail}{/snippet}
-              </ChoiceRow>
-            {/each}
+          <div class="grid grid-cols-1 gap-16 md:grid-cols-2">
+            <div
+              role="radiogroup"
+              aria-labelledby="check-page-layout-label"
+              class="grid grid-cols-2 content-start gap-8"
+            >
+              {#each CHECK_PAGE_LAYOUTS as layout (layout)}
+                <ChoiceRow
+                  selected={pageLayout === layout}
+                  role="radio"
+                  aria-checked={pageLayout === layout}
+                  class="h-full flex-col items-stretch"
+                  onclick={() => (pageLayout = layout)}
+                >
+                  <span class="flex flex-col items-center gap-8">
+                    <span class="block w-64">
+                      <CheckPagePreview stock={{ ...draft, pageLayout: layout }} miniature />
+                    </span>
+                    <span class="text-center">{CHECK_PAGE_LAYOUT_LABELS[layout].title}</span>
+                  </span>
+                  {#snippet detail()}<span class="block text-center">{CHECK_PAGE_LAYOUT_LABELS[layout].detail}</span>{/snippet}
+                </ChoiceRow>
+              {/each}
+            </div>
+            <div class="flex w-full max-w-sm flex-col gap-8 justify-self-center">
+              <CheckPagePreview stock={draft} />
+              <span class="text-center text-sm text-text-muted">
+                The whole page as it prints, with sample values
+              </span>
+            </div>
           </div>
         </div>
 
@@ -522,7 +549,7 @@
               <Input {...props} bind:value={name} autocomplete="off" />
             {/snippet}
           </LabelledField>
-          <LabelledField necessity="required" label="Starting Check Number">
+          <LabelledField necessity="required" label="Next Check Number">
             {#snippet children({ props })}
               <Input
                 {...props}
@@ -536,17 +563,6 @@
           </LabelledField>
         </div>
 
-        {#if hasStubs}
-          <Card.Root>
-            <Card.Header>
-              <Card.Title>Voucher Stubs</Card.Title>
-              <Card.Description>
-                The two stubs on the page repeat the check number, date, payee, amount, matter and
-                memo for your file copy. They follow the check's position on the page.
-              </Card.Description>
-            </Card.Header>
-          </Card.Root>
-        {/if}
       </div>
 
       <div class="flex w-full shrink-0 flex-col gap-16 lg:w-xs">

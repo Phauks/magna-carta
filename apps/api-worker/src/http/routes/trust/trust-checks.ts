@@ -249,6 +249,7 @@ export function registerTrustCheckRoutes(
           {
             trustAccountId: request.trustAccountId as TrustAccountId,
             movementIds: request.trustMovementIds as TrustMovementId[],
+            firstCheckNumber: request.firstCheckNumber ?? null,
             numberedBy,
           },
           trustCheckOptions(),
