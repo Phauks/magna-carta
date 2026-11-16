@@ -22,6 +22,7 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
+import { recordEngineFailure } from "./engine-failure.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
 
 type AppContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
@@ -478,6 +479,7 @@ export function registerFileRepairRoutes(
       const dispatched = await dispatchToRecovery(c, "diagnose");
       if (!dispatched.ok) return dispatched.problem;
       if (dispatched.containerResponse.status !== 200) {
+        await recordEngineFailure(c, "file-repair", "diagnose", dispatched.containerResponse);
         return problemJson(c, {
           type: "service-unavailable",
           title: "Diagnosis failed",
@@ -505,6 +507,7 @@ export function registerFileRepairRoutes(
         });
       }
       if (containerResponse.status !== 200) {
+        await recordEngineFailure(c, "file-repair", "repair", containerResponse);
         return problemJson(c, {
           type: "service-unavailable",
           title: "Recovery failed",
@@ -543,6 +546,7 @@ export function registerFileRepairRoutes(
         });
       }
       if (containerResponse.status !== 200) {
+        await recordEngineFailure(c, "file-repair", "carve", containerResponse);
         return problemJson(c, {
           type: "service-unavailable",
           title: "Recovery failed",
@@ -585,6 +589,7 @@ export function registerFileRepairRoutes(
         });
       }
       if (containerResponse.status !== 200) {
+        await recordEngineFailure(c, "file-repair", "repair", containerResponse);
         return problemJson(c, {
           type: "service-unavailable",
           title: "Recovery failed",
@@ -659,6 +664,7 @@ export function registerFileRepairRoutes(
         });
       }
       if (containerResponse.status !== 200) {
+        await recordEngineFailure(c, "file-repair", "carve", containerResponse);
         return problemJson(c, {
           type: "service-unavailable",
           title: "Recovery failed",

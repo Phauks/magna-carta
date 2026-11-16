@@ -311,3 +311,13 @@ export interface SigningMemberTurnPayload {
   readonly matterId: string;
   readonly signerUserId: string;
 }
+
+/**
+ * The outbox topic raised in the batch that completes a request, so the seal is applied off the
+ * request path. The payload names the request and nothing else.
+ */
+export const SIGNING_COMPLETED_TOPIC = "signing.completed";
+
+export interface SigningCompletedPayload {
+  readonly requestId: string;
+}

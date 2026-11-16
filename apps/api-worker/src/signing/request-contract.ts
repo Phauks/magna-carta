@@ -64,6 +64,9 @@ export const SigningRequestDetail = z
     sentAt: z.string().nullable(),
     completedAt: z.string().nullable(),
     sealedAt: z.string().nullable(),
+    // The version the sealed copy was filed as, and the certificate filed beside it; null until sealed.
+    signedFileVersionId: z.string().nullable(),
+    certificateFileId: z.string().nullable(),
     voidedReason: z.string().nullable(),
     signers: z.array(
       z.object({
@@ -160,6 +163,8 @@ export function signingRequestBody(detail: StoredDetail): z.infer<typeof Signing
     sentAt: request.sentAt,
     completedAt: request.completedAt,
     sealedAt: request.sealedAt,
+    signedFileVersionId: request.signedFileVersionId,
+    certificateFileId: request.certificateFileId,
     voidedReason: request.voidedReason,
     signers: detail.signers.map((signer) => ({
       id: signer.id,

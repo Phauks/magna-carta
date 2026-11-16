@@ -160,8 +160,16 @@ The document sent is the file's current version. Its fingerprint is recorded whe
 
 **Following a request.** After sending, the tab shows who has signed, who is next, and everything
 that has happened and when. **Send Reminder** emails whoever is waiting now. **Cancel Request**
-stops the links working; signatures already given stay on the record. Saving the signed copy and
-its Certificate of Completion beside the original when everyone has signed is coming next.
+stops the links working; signatures already given stay on the record.
+
+**When everyone has signed.** Magna Carta draws each signature, set of initials, name, date and
+tick into the box it belongs in, seals the document so any later change to it shows, and saves the
+signed copy as the document's newest version. Its **Certificate of Completion**, which lists each
+signer, how they proved who they were, and every step with its time and address, is saved beside it
+as its own file. This takes a few minutes; the Signature tab says **Being Sealed** until it is done,
+then **Signed and Sealed** with a button to open the certificate. Dates are written as the day in
+the time zone of the matter's office. A name in a script other than Western European letters is
+left off the page and printed on the certificate.
 
 **What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
 link opens a page with your firm's name, the document's title and your message. If you chose

@@ -63,6 +63,8 @@ export type TrustValidationCode =
   | "check-print-empty"
   | "check-print-too-many"
   | "check-print-duplicate"
+  | "check-number-invalid"
+  | "check-number-used"
   | "check-not-waiting"
   | "check-result-empty"
   | "check-already-answered"

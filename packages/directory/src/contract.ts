@@ -356,6 +356,15 @@ export const LinkMatterPartyRequest = z
 
 export const MatterPartyResponse = z.object({ id: z.string() }).meta({ id: "MatterPartyResponse" });
 
+export const ChangeMatterPartyRoleRequest = z
+  .object({
+    role: z.string().min(1),
+    capacity: z.string().min(1).max(200).optional().meta({
+      description: "The capacity the party acts in, in its new role. Left out, it has none.",
+    }),
+  })
+  .meta({ id: "ChangeMatterPartyRoleRequest" });
+
 export const MatterPartyEntry = z
   .object({
     id: z.string(),

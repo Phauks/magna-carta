@@ -274,8 +274,8 @@ evidence is — an exact match on a tax or social security number is stronger ev
 sharing a surname — and stops there. Nothing is hidden because it looked weak: a weak match you never
 see is a missed conflict you never get the chance to catch.
 
-Each result in **Results** is a card. It shows the name, how strong the match is in a word (**Exact**,
-**Same name**, **Might be**, **Weak**), which search found it, what matched, and how it was reached:
+Each result in **Results** is a card. It shows the name, how strong the match is in a word (**Exact**
+for an identifier match, then **High**, **Medium** or **Low** for a name match), which search found it, what matched, and how it was reached:
 directly, as another party on the same check, as one of your own people, or through a chain of
 relationships. The arrow at the left opens the full account in place, and clicking the name opens the
 result's own window with its history of decisions. Above the cards you can narrow the list by text,
