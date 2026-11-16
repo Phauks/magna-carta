@@ -131,6 +131,25 @@ async function firstInForce(
   return undefined;
 }
 
+/**
+ * The client a matter's time is priced for: the matter's client party, read from `matter_party`, the
+ * one home for that link, ignoring a party since removed. The client-tier rate is scoped to this directory entity, so every capture
+ * path passes it to `resolveRate`. A matter with two client parties takes the lowest identifier, the
+ * same choice every report makes; a matter with none resolves no client tier.
+ */
+export async function readMatterClientId(
+  database: SqlDatabase,
+  matterId: string,
+): Promise<string | null> {
+  const { results } = await database
+    .prepare(
+      "SELECT MIN(entity_id) AS client_entity_id FROM matter_party WHERE matter_id = ?1 AND role = 'client' AND deleted_at IS NULL",
+    )
+    .bind(matterId)
+    .all<{ client_entity_id: string | null }>();
+  return results[0]?.client_entity_id ?? null;
+}
+
 /** The role a timekeeper's rate is priced by, and its parent where it is a sub-role. */
 export interface TimekeeperRateRole {
   readonly roleId: string | null;

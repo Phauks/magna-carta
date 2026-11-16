@@ -18,7 +18,11 @@ import {
   TIME_ENTRY_NUMBERING_TABLES,
 } from "@magna-carta/timekeeping/entry-numbering";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
-import { readTimekeeperRateRole, resolveRate } from "@magna-carta/timekeeping/rate-resolution";
+import {
+  readMatterClientId,
+  readTimekeeperRateRole,
+  resolveRate,
+} from "@magna-carta/timekeeping/rate-resolution";
 import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/rounding";
 import {
   abandonedThresholdMinutesDefinition,
@@ -583,7 +587,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
 
       const rateResolution = await resolveRate(firm.firmDatabase, {
         matterId,
-        clientId: null,
+        clientId: await readMatterClientId(firm.firmDatabase, matterId),
         timekeeperUserId: userId,
         roleId: rateRole.roleId,
         parentRoleId: rateRole.parentRoleId,

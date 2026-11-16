@@ -18,6 +18,8 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
 - `src/lifecycle.ts` — the pure Draft→Billed state machine (`assertTransition`, `isFrozen`), gate-aware
 - `src/rate-service.ts` — `createRateCard` / `appendRate` (effective-dated, non-overlap) / `reRateUnbilledDrafts`
 - `src/rate-resolution.ts` — pure `resolveRate` (override → matter → client → timekeeper → role → card default),
+  `readMatterClientId` (the matter's client party, which every capture path passes so a client-tier
+  rate applies),
   and `readMatterAndClientRatesInForce` (the matter- and client-tier rates in force on a date, for the Matter Billing Guide)
 - `src/rounding.ts` — `roundDuration` (quantity) + `computeAmountMinor` (integer-minor money via @magna-carta/money)
 - `src/utbms-catalog.ts` / `src/utbms-service.ts` — the seeded ABA UTBMS codes + enable/disable

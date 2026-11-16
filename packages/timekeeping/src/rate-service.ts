@@ -4,7 +4,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { RateCardId, RateId, UserId } from "@magna-carta/identifiers/types";
 import { type AuditContext, timeAuditStatement } from "./audit.ts";
-import { resolveRate } from "./rate-resolution.ts";
+import { readMatterClientId, resolveRate } from "./rate-resolution.ts";
 import { RateValidationError } from "./rate-validation.ts";
 import {
   closePriorOpenRateStatement,
@@ -161,7 +161,7 @@ export async function reRateUnbilledDrafts(
   for (const row of results) {
     const resolution = await resolveRate(database, {
       matterId: row.matter_id,
-      clientId: null,
+      clientId: await readMatterClientId(database, row.matter_id),
       timekeeperUserId: row.timekeeper_user_id,
       roleId: null,
       workDate: row.work_date,
