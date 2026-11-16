@@ -40,6 +40,7 @@
     value = $bindable(),
     onValueChange,
     label,
+    optional = false,
     size = "default",
     disabled = false,
     readonly = false,
@@ -63,6 +64,8 @@
     onValueChange?: (value: DateValue | undefined) => void;
     /** Visible label above the field; it names the input. */
     label?: string;
+    /** Says "Optional" after the label: the field may be left empty. */
+    optional?: boolean;
     /** Control height, from the same scale the Input and the Button use. */
     size?: InputSize;
     /** Shut: nothing can be typed or picked. */
@@ -201,7 +204,10 @@
 </script>
 
 {#if label}
-  <label for={inputId} class="mc-date-field-label">{label}</label>
+  <label for={inputId} class="mc-date-field-label"
+    >{label}{#if optional}
+      <span class="mc-label-optional">Optional</span>{/if}</label
+  >
 {/if}
 <div
   bind:this={fieldBox}
