@@ -8,6 +8,7 @@
     "./event": "./src/event.ts",
     "./events": "./src/events.ts",
     "./operation": "./src/operation.ts",
+    "./failed-operation-tap": "./src/failed-operation-tap.ts",
     "./scrub": "./src/scrub.ts",
     "./ids": "./src/ids.ts",
     "./service-identity": "./src/service-identity.ts",

@@ -124008,6 +124008,113 @@
         }
       }
     },
+    "/api/v1/guest/client-errors": {
+      "post": {
+        "description": "Keeps a crash on a meeting guest's page against the client_ Error ID its crash screen shows, so the ID can be looked up in System Status. The same facts a member's crash carries; the route is filed as the guest page's template, never the address, which holds the link. A second send of one ID is a no-op.",
+        "operationId": "guest.recordCrash",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.recordCrash",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "client-error",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "invitation",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The link the guest's page was opened from."
+            },
+            "required": false,
+            "description": "The link the guest's page was opened from.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordClientErrorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The crash is recorded (or already was)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordClientErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource: the answer to a missing or unverifiable link",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended or the link is used up",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/meetings/{meetingId}/inspect": {
       "get": {
         "description": "A platform operator reads what one meeting's signaling room is holding: the roster with each participant's hosting role, presence, track and subscription counts and last connection report; who is at the door; the open sockets and which stay each carries; the alarm and which of its deadlines are pending; the storage key count and approximate size; the routing sessions; and the ended marker. It carries no session description, no display name and no track name, and it changes nothing. Each participant is named by the stay and by the member handle behind it: the stay is what every frame, every event and the member's own screen correlate by, and the member handle is what joins a report of \"my tile went black\" — which arrives as a person, and often as the second of that person's two stays — to the room that was serving them. Both are minted identifiers; neither says who anybody is. A room that has never been addressed answers with empty lists rather than a refusal — that is itself the finding.",

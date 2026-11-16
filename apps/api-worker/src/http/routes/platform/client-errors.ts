@@ -5,17 +5,12 @@
 // the crash's code-shaped facts here the moment the crash screen draws, and the control plane's error
 // record keeps them beside the server's own failures.
 //
-// What arrives is a shape, never content: the handle, the SvelteKit route id (a template such as
-// "/(app)/meetings/[meetingId]", not the concrete path), the error's kind, the first stack frame as
-// file, line and column, and the build. A message is kept only for the kinds whose message the
-// JavaScript engine writes itself, and it is scrubbed here as well as there; anything else is
-// dropped, because a message our code or a library wrote can carry what the code had in hand.
+// What a crash may carry, and the insert that keeps it, are ../shared/client-error-record.ts, which
+// the meeting guest's route uses too.
 //
 // It is not an incident. Nothing a member wrote travels, nobody is notified, and the member still
 // chooses whether to report it; this only makes the handle on their screen resolvable.
-import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { insertErrorRecordStatement } from "@magna-carta/data-access/error-record-statements";
-import { scrubText } from "@magna-carta/telemetry/scrub";
+import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
@@ -24,29 +19,15 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { Problem, publicCause } from "../../contracts/problem.ts";
+import { Problem } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
+import {
+  keepClientError,
+  RecordClientErrorRequest,
+  RecordClientErrorResponse,
+} from "../shared/client-error-record.ts";
 
-/** The shape apps/web/src/lib/diagnostics/client-error-id.ts mints: Crockford base32, eight long. */
-export const CLIENT_ERROR_ID_PATTERN = /^client_[0-9A-HJKMNP-TV-Z]{8}$/;
-
-const RecordClientErrorRequest = z
-  .object({
-    errorId: z.string().regex(CLIENT_ERROR_ID_PATTERN),
-    // The SvelteKit route id the crash happened under, or the path where there is none.
-    route: z.string().max(200),
-    errorName: z.string().max(60),
-    // Present only for an engine-written message; the server keeps it only for those kinds too.
-    message: z.string().max(200).optional(),
-    // The first stack frame, "file.svelte:212:18".
-    location: z.string().max(160).optional(),
-    build: z.string().max(60),
-  })
-  .openapi("RecordClientErrorRequest");
-
-const RecordClientErrorResponse = z
-  .object({ errorId: z.string(), recorded: z.boolean() })
-  .openapi("RecordClientErrorResponse");
+export { CLIENT_ERROR_ID_PATTERN, keptClientMessage } from "../shared/client-error-record.ts";
 
 // audited: true — the error record row IS the durable record, the same reasoning the incident
 // route gives. firm:reportIncident is held by every default role: anybody who can crash the app
@@ -106,15 +87,6 @@ export const recordClientErrorRoute = defineOpenAPIRoute(recordClientErrorMeta, 
   },
 });
 
-/** The message the record may keep: an engine kind's message, scrubbed, or nothing. */
-export function keptClientMessage(errorName: string, message: string | undefined): string | null {
-  if (message === undefined || message === "") return null;
-  const scrubbed = scrubText(message).text;
-  const cause = publicCause(errorName, scrubbed);
-  // publicCause returns the bare kind when the kind is not one the engine writes.
-  return cause === (errorName === "" ? "Error" : errorName) ? null : scrubbed;
-}
-
 export function registerClientErrorsRoute(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -128,23 +100,12 @@ export function registerClientErrorsRoute(
       const userId = requireChokepointUserId(c);
       const firmId = requireChokepointFirmId(c);
       const request = c.req.valid("json");
-      await insertErrorRecordStatement(c.env.DB_CONTROL, {
-        errorId: request.errorId,
-        recordedAt: new Date().toISOString(),
-        source: "browser",
-        service: "web",
-        operation: request.route,
-        status: null,
-        problemType: null,
-        title: null,
-        errorName: request.errorName,
-        messageHead: keptClientMessage(request.errorName, request.message),
-        location: request.location ?? null,
-        build: request.build,
+      await keepClientError(c.env, request, {
         firmId,
         userId,
         correlationId: c.get("correlationId") ?? null,
-      }).run();
+        route: request.route,
+      });
       return c.json({ errorId: request.errorId, recorded: true }, 201);
     },
   );

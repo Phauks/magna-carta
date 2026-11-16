@@ -13,6 +13,7 @@ import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
 import { registerMeetingPollRoutes } from "./meeting-polls.ts";
 import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
 import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { registerMeetingGuestCrashRoute } from "./meetings-guest-crash.ts";
 import { registerMeetingGuestByAddressRoutes } from "./meeting-guest-by-address.ts";
 import { registerMeetingSettingsRoutes } from "./meeting-settings.ts";
 import { registerMeetingSummaryRoutes } from "./meeting-summary.ts";
@@ -87,6 +88,8 @@ export function mountCommunications(
     deps.meetingGuestMail ?? emailAdapterForEnv,
   );
   registerMeetingGuestRoutes(domain, chokepoint, deps.meetingGuestMail ?? emailAdapterForEnv);
+  // A crash on a guest's page, kept against its client_ Error ID on the guest's own link.
+  registerMeetingGuestCrashRoute(domain, chokepoint);
   // The operator's read into one live room, behind the platform-operator guard rather than the
   // firm door every other meeting route goes through: a meeting holds no rows and deletes its own
   // state as it goes, so from outside it there is nothing to look at when one goes wrong.

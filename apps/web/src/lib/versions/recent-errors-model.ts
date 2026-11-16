@@ -67,11 +67,11 @@ export function describeBackgroundState(state: BackgroundErrorsState): string | 
     case "read":
       return null;
     case "not-configured":
-      return "Background failures are not shown: Workers Logs needs a read-only token first.";
+      return "Background failures in the other Workers (editing, scanning, conversion) are not shown: Workers Logs needs a read-only token first.";
     case "refused":
-      return "Background failures are not shown: Cloudflare did not accept the log-read token.";
+      return "Background failures in the other Workers are not shown: Cloudflare did not accept the log-read token.";
     case "unreachable":
-      return "Background failures are not shown: Workers Logs did not answer in time.";
+      return "Background failures in the other Workers are not shown: Workers Logs did not answer in time.";
   }
 }
 
