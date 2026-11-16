@@ -281,6 +281,45 @@ describe("conflicts check routes", () => {
     );
   });
 
+  it("names a matter's own parties as searched, though the request names nobody", async () => {
+    const matter = await post("/api/v1/matters", {
+      title: "Searched through its parties",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "Parties Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+    const partyId = await createPerson("Linked", "Party");
+    const linked = await post("/api/v1/directory/matter-parties", {
+      matterId,
+      entityId: partyId,
+      role: "client",
+    });
+    expect(linked.status, await linked.clone().text()).toBeLessThan(300);
+
+    const response = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [],
+      scope: PARTY_SCOPE,
+    });
+    expect(response.status, await response.clone().text()).toBe(202);
+    const opened = (await response.json()) as OpenedCheck;
+
+    const read = await readSettled(opened.id);
+    // The matter's party was searched, so the run and the log both name them.
+    const names = read.run.subjectParties.map((subject) => subject.party?.displayName);
+    expect(names).toContain("Linked Party");
+    const log = await get(`/api/v1/conflicts/checks?matterId=${matterId}`);
+    const page = (await log.json()) as {
+      data: Array<{ id: string; subjectParties: RunSummary["subjectParties"] }>;
+    };
+    expect(page.data.find((row) => row.id === opened.id)?.subjectParties).toEqual(
+      read.run.subjectParties,
+    );
+  });
+
   it("holds a draft number for the panel, gives it back on cancel, and opens the check under it", async () => {
     const hold = async (token?: string) => {
       const response = await post(

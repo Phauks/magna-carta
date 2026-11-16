@@ -95,7 +95,7 @@
   {#snippet fields({ busy }: { busy: boolean })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="{identity}-reason" optional>Why</Label>
+        <Label for="{identity}-reason" necessity="optional">Why</Label>
         <Textarea id="{identity}-reason" rows={3} disabled={busy} bind:value={reason} />
       </div>
       <p class="text-sm text-text-muted">

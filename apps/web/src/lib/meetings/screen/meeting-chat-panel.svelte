@@ -104,6 +104,7 @@
     uploading = false,
     onShareFile,
     onUploadFile,
+    onOpenFile,
   }: {
     /** Drawn in the room's side panel rather than as a popover from the band. */
     inline?: boolean;
@@ -159,6 +160,11 @@
     onShareFile?: (fileId: string, body: string) => Promise<boolean>;
     /** File a new document onto the matter, then say a line pointing at it, with these words. */
     onUploadFile?: (file: File, body: string) => Promise<boolean>;
+    /**
+     * Open a shared file some other way than its download link: the guest page, whose credential
+     * cannot ride a link. Given, the file is drawn as a button that calls this.
+     */
+    onOpenFile?: (file: { id: string; name: string }) => void;
   } = $props();
 
   const sharesFiles = $derived(
@@ -371,7 +377,18 @@
   {#if !onlyNamesTheFile(message)}
     <Conversation.TurnBody>{message.body}</Conversation.TurnBody>
   {/if}
-  {#if message.attachedFile !== null}
+  {#if message.attachedFile !== null && onOpenFile !== undefined}
+    {@const shared = message.attachedFile}
+    <Button
+      variant="secondary"
+      size="sm"
+      class="max-w-full self-start"
+      onclick={() => onOpenFile(shared)}
+    >
+      <FileText class="size-16 shrink-0" aria-hidden="true" />
+      <span class="truncate">{shared.name}</span>
+    </Button>
+  {:else if message.attachedFile !== null}
     <!-- The file's own download route, in a new tab: opened under the matter's scan and permissions,
          never through anything of the chat's. -->
     <a

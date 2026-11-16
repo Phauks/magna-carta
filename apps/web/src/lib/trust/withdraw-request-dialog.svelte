@@ -99,9 +99,9 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <LabelledField
+    <LabelledField necessity="optional"
       label="Reason"
-      hint="Optional. Saved with the withdrawal."
+      hint="Saved with the withdrawal."
       error={fieldRefusal(failure?.failure.problem ?? null, "reason")}
     >
       {#snippet children({ props })}

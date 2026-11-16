@@ -25,29 +25,29 @@
 </script>
 
 <div class="grid gap-12 sm:grid-cols-3">
-  <LabelledField label="First Name">
+  <LabelledField necessity="required" label="First Name">
     {#snippet children({ props })}
       <Input {...props} bind:value={parts.given} {disabled} placeholder={placeholderOf("First Name")} />
     {/snippet}
   </LabelledField>
-  <LabelledField label="Middle Name">
+  <LabelledField necessity="optional" label="Middle Name">
     {#snippet children({ props })}
       <Input {...props} bind:value={parts.middle} {disabled} placeholder={placeholderOf("Middle Name")} />
     {/snippet}
   </LabelledField>
-  <LabelledField label="Last Name">
+  <LabelledField necessity="optional" label="Last Name">
     {#snippet children({ props })}
       <Input {...props} bind:value={parts.family} {disabled} placeholder={placeholderOf("Last Name")} />
     {/snippet}
   </LabelledField>
 </div>
 <div class="grid gap-12 sm:grid-cols-2">
-  <LabelledField label="Prefix">
+  <LabelledField necessity="optional" label="Prefix">
     {#snippet children({ props })}
       <HonorificField part="prefix" bind:value={parts.prefix} {disabled} inputProps={props} />
     {/snippet}
   </LabelledField>
-  <LabelledField label="Suffix">
+  <LabelledField necessity="optional" label="Suffix">
     {#snippet children({ props })}
       <HonorificField part="suffix" bind:value={parts.suffix} {disabled} inputProps={props} />
     {/snippet}

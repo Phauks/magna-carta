@@ -222,7 +222,7 @@
       <!-- The chosen matters, each its own row, and the field that adds another as the last row.
            The rows are the same rows before, during and after the act; only the reporting column
            changes, so nothing moves under the pointer when the commit is pressed. -->
-      <LabelledField label="Matters" id="{identity}-matter">
+      <LabelledField necessity="required" label="Matters" id="{identity}-matter">
         {#snippet children({ props })}
           <div class="flex flex-col">
             {#each chosen as target (target.matterId)}

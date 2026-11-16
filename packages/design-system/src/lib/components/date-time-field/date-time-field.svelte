@@ -36,6 +36,8 @@
   import { formatWallClockTime } from "../../formatters/wall-clock.ts";
   import type { InputSize } from "../input/variants.ts";
   import { dateFieldClasses } from "../date-picker/variants.ts";
+  import NecessityMark from "../label/necessity-mark.svelte";
+  import type { FieldNecessity } from "../label/necessity.ts";
   import { Calendar } from "../calendar/index.ts";
   import * as Popover from "../popover/index.ts";
   import {
@@ -60,6 +62,7 @@
     durationFrom,
     zoneLabel,
     label,
+    necessity,
     id,
     size = "default",
     disabled = false,
@@ -92,6 +95,8 @@
     zoneLabel?: string;
     /** The visible label above the field. */
     label?: string;
+    /** Whether the record needs this field filled; the label carries the firm's mark for it. */
+    necessity?: FieldNecessity;
     /** The id the field's first segment group takes, for a `<Label for>` outside it. */
     id?: string;
     /** Control height, from the Input's own scale. */
@@ -194,7 +199,7 @@
 
 <div class="mc-date-time-field-stack">
   {#if label}
-    <span id={labelId} class="mc-date-field-label">{label}</span>
+    <span id={labelId} class="mc-date-field-label">{label} <NecessityMark {necessity} /></span>
   {/if}
   <Popover.Root bind:open>
     <div
@@ -209,6 +214,7 @@
             aria-labelledby={label ? labelId : undefined}
             aria-label={label ? undefined : "Date"}
             aria-invalid={ariaInvalid}
+            aria-required={necessity === "required" ? true : undefined}
             class="mc-date-time-field-part"
           >
             {#snippet children({ segments })}

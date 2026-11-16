@@ -107,7 +107,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField label="Name">
+      <LabelledField necessity={following ? "optional" : "required"} label="Name">
         {#snippet children({ props })}
           <Input
             {...props}

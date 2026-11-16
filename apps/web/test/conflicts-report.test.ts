@@ -113,7 +113,7 @@ describe("a walk that reached the platform's ceiling", () => {
       "All recorded relationships, followed to the end",
     );
     expect(fieldValue(sheet, "Longest Chain Followed")).toBe("4");
-    expect(fieldValue(sheet, "The Platform's Ceiling")).toBe("10000");
+    expect(fieldValue(sheet, "Magna Carta's Limit")).toBe("10000");
     expect(fieldValue(sheet, "Per-Class Budgets")).toBeUndefined();
   });
 

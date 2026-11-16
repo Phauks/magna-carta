@@ -172,7 +172,7 @@
       </DefinitionList.Root>
 
       {#if existing.length > 0}
-        <LabelledField
+        <LabelledField necessity="optional"
           label="Supersedes"
           hint="This period was reconciled before. A correction is a new reconciliation that replaces the old one, and the old one stays on record."
         >
@@ -189,7 +189,7 @@
         </LabelledField>
       {/if}
 
-      <LabelledField label="Note" hint="Why this reconciliation is being opened, where that is worth recording.">
+      <LabelledField necessity="optional" label="Note" hint="Why this reconciliation is being opened, where that is worth recording.">
         {#snippet children({ props })}
           <Textarea
             {...props}

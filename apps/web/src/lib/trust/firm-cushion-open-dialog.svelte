@@ -114,7 +114,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField
+      <LabelledField necessity="required"
         label="Name"
         hint="What the firm calls this carve-out on the ledger."
         error={fieldRefusal(serverProblem, "nodeName")}

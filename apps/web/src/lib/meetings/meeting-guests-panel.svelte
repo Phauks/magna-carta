@@ -492,11 +492,11 @@
       >
         <p class="text-sm">Invite somebody by e-mail</p>
         <div class="flex flex-col gap-4">
-          <Label for="guest-typed-name">Name</Label>
+          <Label necessity="required" for="guest-typed-name">Name</Label>
           <Input id="guest-typed-name" bind:value={typedName} disabled={typedBusy} autocomplete="off" />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="guest-typed-address">E-mail address</Label>
+          <Label necessity="required" for="guest-typed-address">E-mail address</Label>
           <Input
             id="guest-typed-address"
             type="email"

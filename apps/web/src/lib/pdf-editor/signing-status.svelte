@@ -148,7 +148,7 @@
         Links already sent stop working. Signatures already given are kept, and nothing is deleted.
       </Alert.Description>
       <div class="flex flex-col gap-8">
-        <LabelledField label="Reason" hint="Kept on the request's record">
+        <LabelledField necessity="optional" label="Reason" hint="Kept on the request's record">
           {#snippet children({ props })}
             <Input {...props} bind:value={cancelReason} maxlength={500} />
           {/snippet}

@@ -106,7 +106,7 @@
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
         <div class="flex items-baseline justify-between gap-8">
-          <Label for="sign-in-email">Email Address</Label>
+          <Label necessity="required" for="sign-in-email">Email Address</Label>
           {#if onRegister}
             <button type="button" class={QUIET_LINK} onclick={onRegister}>Register</button>
           {/if}
@@ -129,7 +129,7 @@
 
       <div class="flex flex-col gap-8">
         <div class="flex items-baseline justify-between gap-8">
-          <Label for="sign-in-password">Password</Label>
+          <Label necessity="required" for="sign-in-password">Password</Label>
           {#if onForgotPassword}
             <button type="button" class={QUIET_LINK} onclick={onForgotPassword}>
               Forgot Password

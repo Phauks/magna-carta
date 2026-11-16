@@ -81,7 +81,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField label="Label" error={attempted && labelMissing ? "Enter a label." : undefined}>
+      <LabelledField necessity="required" label="Label" error={attempted && labelMissing ? "Enter a label." : undefined}>
         {#snippet children({ props })}
           <Input {...props} bind:value={label} maxlength={120} disabled={busy} autocomplete="off" />
         {/snippet}

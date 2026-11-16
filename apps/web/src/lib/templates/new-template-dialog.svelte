@@ -239,20 +239,20 @@
           {/if}
         </div>
 
-        <LabelledField label="Name" id="{identity}-name">
+        <LabelledField necessity="required" label="Name" id="{identity}-name">
           {#snippet children({ props })}
             <Input {...props} required disabled={busy} bind:value={name} />
           {/snippet}
         </LabelledField>
 
-        <LabelledField label="Description" id="{identity}-description">
+        <LabelledField necessity="optional" label="Description" id="{identity}-description">
           {#snippet children({ props })}
             <Textarea {...props} rows={2} resizable={false} disabled={busy} bind:value={description} />
           {/snippet}
         </LabelledField>
 
         <div class="grid gap-12 @sm:grid-cols-2">
-          <LabelledField label="Practice Area" id="{identity}-matter-type">
+          <LabelledField necessity="optional" label="Practice Area" id="{identity}-matter-type">
             {#snippet children({ props })}
               <ChoicePicker
                 inputId={props.id}
@@ -264,7 +264,7 @@
             {/snippet}
           </LabelledField>
 
-          <LabelledField label="Office" id="{identity}-location">
+          <LabelledField necessity="optional" label="Office" id="{identity}-location">
             {#snippet children({ props })}
               <ChoicePicker
                 inputId={props.id}

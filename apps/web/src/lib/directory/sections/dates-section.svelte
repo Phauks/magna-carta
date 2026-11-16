@@ -29,7 +29,7 @@
 <section class="flex flex-col gap-12">
   <div class="grid gap-12 sm:grid-cols-2" style="max-width: 26rem">
     <div class="flex flex-col gap-8">
-      <DatePicker
+      <DatePicker necessity="optional"
         label="Date of birth"
         value={civilDateValue(dateOfBirth)}
         onValueChange={(next) => (dateOfBirth = civilDateTextOrEmpty(next))}
@@ -37,7 +37,7 @@
       />
     </div>
     <div class="flex flex-col gap-8">
-      <DatePicker
+      <DatePicker necessity="optional"
         label="Date of death"
         value={civilDateValue(dateOfDeath)}
         onValueChange={(next) => (dateOfDeath = civilDateTextOrEmpty(next))}

@@ -324,7 +324,7 @@
       </Alert.Root>
     {/if}
   {:else}
-    <LabelledField label="Name">
+    <LabelledField necessity="required" label="Name">
       {#snippet children({ props })}
         <Input {...props} disabled={busy} bind:value={legalName} placeholder={placeholderOf("Name")} />
       {/snippet}
