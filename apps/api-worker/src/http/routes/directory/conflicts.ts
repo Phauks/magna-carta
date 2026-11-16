@@ -14,7 +14,7 @@ import {
   askedScopeOf,
   reportedRunStatus,
   reportedStatusOrNull,
-  subjectEntityIdsOf,
+  searchedEntityIdsOf,
   subjectPartiesOf,
   RUN_STAGES,
   settleStaleRuns,
@@ -1320,7 +1320,10 @@ function runSummary(
     cancelledByUserId: run.cancelled_by_user_id,
     askedScope: askedScopeOf(run.request_json),
     hitCount: run.status === "completed" ? (hitCounts.get(run.id) ?? 0) : null,
-    subjectParties: subjectPartiesOf(subjectEntityIdsOf(run.request_json), names),
+    subjectParties: subjectPartiesOf(
+      searchedEntityIdsOf(run.searched_parties_json, run.request_json),
+      names,
+    ),
   };
 }
 
@@ -1529,7 +1532,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       // One set-valued Directory read for the whole page, never one per row.
       const names = await readEntityDisplayNames(
         firm.firmDatabase,
-        rows.flatMap((row) => subjectEntityIdsOf(row.request_json)),
+        rows.flatMap((row) => searchedEntityIdsOf(row.searched_parties_json, row.request_json)),
       );
       return c.json(
         {
@@ -1549,7 +1552,10 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
             strictness: row.strictness,
             floorRaised: row.floor_raised === null ? null : row.floor_raised === 1,
             hitCount: row.hit_count,
-            subjectParties: subjectPartiesOf(subjectEntityIdsOf(row.request_json), names),
+            subjectParties: subjectPartiesOf(
+              searchedEntityIdsOf(row.searched_parties_json, row.request_json),
+              names,
+            ),
           })),
           // Keyed on the same (created_at, id) pair the statement orders by, so the walk can
           // neither skip a check nor show one twice.
@@ -1765,7 +1771,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         selected.status === "completed" ? await readRecord(firm.firmDatabase, selected.id) : null;
       const names = await readEntityDisplayNames(
         firm.firmDatabase,
-        runs.flatMap((run) => subjectEntityIdsOf(run.request_json)),
+        runs.flatMap((run) => searchedEntityIdsOf(run.searched_parties_json, run.request_json)),
       );
       return c.json(
         {

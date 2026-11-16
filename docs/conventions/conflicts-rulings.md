@@ -321,3 +321,8 @@ beneath them. Rows here supersede R1 where they say so.
   counsel's firm or Co-counsel's firm, so the next check searches it as a party. Before this, a
   counsel's firm was reached only through the relationship walk, and only if the relationship was
   recorded.
+- **2026-11-16, fix.** A run's `subjectParties` (on the check read and the firm's log) is read from
+  the run's record (`conflicts_check.subject_parties_json`, which holds every seed, a matter's
+  parties included) once the run has one, and from the request's named subjects before then
+  (`searchedEntityIdsOf` in `packages/conflicts/src/check-run.ts`). Reading the request alone
+  reported a check run against a matter as searching nobody.

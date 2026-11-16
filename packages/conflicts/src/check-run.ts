@@ -162,6 +162,28 @@ export function subjectEntityIdsOf(requestJson: string | null): readonly string[
   return parseStoredRunRequest(requestJson)?.subjectEntityIds ?? [];
 }
 
+/**
+ * Who a run searched: its record's subjects once it has one, which include a matter's parties, and
+ * the request's named subjects before then. A check run against a matter names no subjects on its
+ * request, so reading the request alone reported such a check as searching nobody.
+ */
+export function searchedEntityIdsOf(
+  searchedPartiesJson: string | null,
+  requestJson: string | null,
+): readonly string[] {
+  if (searchedPartiesJson !== null) {
+    try {
+      const parsed: unknown = JSON.parse(searchedPartiesJson);
+      if (Array.isArray(parsed) && parsed.every((entry) => typeof entry === "string")) {
+        return parsed as string[];
+      }
+    } catch {
+      // A record that cannot be read falls back to the request, which is never wrong, only short.
+    }
+  }
+  return subjectEntityIdsOf(requestJson);
+}
+
 // The parties a run was asked about, named from one set-valued Directory read.
 export function subjectPartiesOf(
   entityIds: readonly string[],
@@ -228,12 +250,17 @@ export interface CheckRunRow {
   readonly cancelled_at: string | null;
   readonly cancelled_by_user_id: string | null;
   readonly created_at: string;
+  /** Who the run actually searched, from its record: null until the run has one. */
+  readonly searched_parties_json: string | null;
 }
 
 const NUMBERED_CHECK_COLUMNS =
   "id, check_sequence, check_number, subject_matter_id, latest_run_id, created_by_user_id, created_at, updated_at";
 const RUN_COLUMNS =
-  "id, numbered_check_id, ordinal, status, stage, progress_json, request_json, trigger, trigger_source, requested_by_user_id, started_at, heartbeat_at, finished_at, failure, cancelled_at, cancelled_by_user_id, created_at";
+  "id, numbered_check_id, ordinal, status, stage, progress_json, request_json, trigger, trigger_source, requested_by_user_id, started_at, heartbeat_at, finished_at, failure, cancelled_at, cancelled_by_user_id, created_at, " +
+  // The record a completed run wrote shares the run's id, and holds every party it searched: the
+  // ones named on the request AND the matter's own parties, which the request never lists.
+  `(SELECT subject_parties_json FROM conflicts_check WHERE conflicts_check.id = ${CONFLICTS_CHECK_RUN_TABLE}.id) AS searched_parties_json`;
 
 export async function readNumberedCheck(
   database: SqlDatabase,
