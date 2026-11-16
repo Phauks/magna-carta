@@ -225,7 +225,7 @@
 
       <LabelledField
         label="Also Send To"
-        hint="Optional — colleagues who should see this report; they ride the filed report once it carries recipients"
+        hint="Optional. Staff who should also see this report."
       >
         {#snippet children({ props })}
           <RecipientPicker

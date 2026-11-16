@@ -167,8 +167,8 @@
 
 <SettingsScrollRegion>
     <SettingsDescription>
-      Whether this firm's content may be sent to a model, and which of the platform's features may
-      send it. Everything here is off until the firm turns it on.
+      Whether the firm's content can be sent to an AI model, and which features can send it. Everything
+      here is off until the firm turns it on.
     </SettingsDescription>
 
     {#if draft.saveFailure !== null}
