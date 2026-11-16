@@ -37,6 +37,11 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   sections named; `src/operational/matters-list.ts` — the matters package's register of opened
   matters, listed as served and counted by office (live); `src/operational/client-list.ts` — the clients of
   that register, each with the directory's own listing row and its matters counted (live)
+- `src/operational/change-log.ts` — who changed the firm's people and organizations, matters and
+  trust approval rule in a period, from the audit log through `readAuditChanges`
+  (`@magna-carta/data-access/audit-statements`); `CHANGE_LOG_EVENTS` is the vocabulary and its
+  labels. Never an audit row's metadata. One axis: an audit row is never edited or backdated, so
+  no knowledge instant; `reproducible` says whether the period had ended
 - `src/contract.ts` — the wire rows of the financial, productivity and operational reports; the
   routes in `apps/api-worker/src/http/routes/billing/` build each top-level response over them. It is
   the one source file allowed to import zod, and nothing else here imports it (`test/purity.test.ts`)
@@ -94,7 +99,7 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
 - Depends on `@magna-carta/directory` (the listing row the Client List prints), `@magna-carta/tasks`
   (the workload Tasks by Person counts), `@magna-carta/trust` (the account tree, the three-way proof, the bitemporal select
   builders), `@magna-carta/ledger` (the stored-balance fitness query and the calendar-date check),
-  `@magna-carta/data-access` (the `SqlDatabase` shape only), and `@magna-carta/identifiers`.
+  `@magna-carta/data-access` (the `SqlDatabase` shape, and `readAuditChanges` for the Change Log), and `@magna-carta/identifiers`.
 - **New SQL over trust or billing tables belongs in THAT package**, inside its schema-name-sync net
   and beside the invariants it must respect. This package holds no SQL of its own by design; it
   composes those builders into report shapes. The purity scan's non-vacuity floor is that these

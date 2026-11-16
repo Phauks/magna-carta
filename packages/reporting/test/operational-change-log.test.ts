@@ -6,7 +6,13 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { assembleChangeLog, CHANGE_LOG_EVENTS } from "../src/operational/change-log.ts";
 import { ReportingValidationError } from "../src/reporting-validation.ts";
-import { AUTHORIZER, clockAt, RECORDER, reportingFixture, type ReportingFixture } from "./support.ts";
+import {
+  AUTHORIZER,
+  clockAt,
+  RECORDER,
+  reportingFixture,
+  type ReportingFixture,
+} from "./support.ts";
 
 // THE CHANGE LOG. Its figures are counts of the audit log's own rows: the families and the people
 // must each add up to the number of audit rows in the period for the covered events, and the list
@@ -47,9 +53,16 @@ async function book() {
     { clock: clockAt("2026-07-03T10:00:00.000Z"), actorUserId: RECORDER },
   );
   await audit(fixture, "matter.created", "matter_one", AUTHORIZER, "2026-07-01T00:00:00.000Z");
-  await audit(fixture, "matter.client_linked", "matter_one", AUTHORIZER, "2026-07-04T08:00:00.000Z", {
-    entityId: personId,
-  });
+  await audit(
+    fixture,
+    "matter.client_linked",
+    "matter_one",
+    AUTHORIZER,
+    "2026-07-04T08:00:00.000Z",
+    {
+      entityId: personId,
+    },
+  );
   await audit(fixture, "matter.closed", "matter_one", RECORDER, "2026-07-31T23:59:59.999Z");
   await audit(
     fixture,
@@ -61,11 +74,24 @@ async function book() {
   // A system change: no person made it.
   await audit(fixture, "matter.updated", "matter_one", null, "2026-07-11T12:00:00.000Z");
   // Not counted: other events, and changes either side of the period.
-  await audit(fixture, "matter.files_rescan_requested", "matter_one", RECORDER, "2026-07-12T00:00:00.000Z");
-  await audit(fixture, "protected.decrypt", "directoryIdentifier_one", RECORDER, "2026-07-12T00:00:00.000Z", {
-    table: "directory_identifier",
-    field: "value_ciphertext",
-  });
+  await audit(
+    fixture,
+    "matter.files_rescan_requested",
+    "matter_one",
+    RECORDER,
+    "2026-07-12T00:00:00.000Z",
+  );
+  await audit(
+    fixture,
+    "protected.decrypt",
+    "directoryIdentifier_one",
+    RECORDER,
+    "2026-07-12T00:00:00.000Z",
+    {
+      table: "directory_identifier",
+      field: "value_ciphertext",
+    },
+  );
   await audit(fixture, "matter.updated", "matter_one", RECORDER, "2026-06-30T23:59:59.999Z");
   await audit(fixture, "matter.updated", "matter_one", RECORDER, "2026-08-01T00:00:00.000Z");
   return fixture;
@@ -145,7 +171,7 @@ describe("the change log report", () => {
     });
     expect(report.entries.at(-1)?.event).toBe("matter.created");
     const ats = report.entries.map((entry) => entry.at);
-    expect([...ats].sort().reverse()).toEqual(ats);
+    expect(ats.toSorted().toReversed()).toEqual(ats);
     expect(JSON.stringify(report)).not.toContain("entityId");
     expect(JSON.stringify(report)).not.toContain("value_ciphertext");
   });

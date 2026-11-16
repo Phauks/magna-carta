@@ -66,6 +66,14 @@ the matters list, and the client list.
   overdue once its due time has passed in its own time zone; one due today is not overdue until the
   day is out. It shows counts only, never what the tasks say. Choose an office to count only tasks
   on that office's matters.
+- **Change Log** shows who added, changed or removed people and organizations, matters and the
+  trust approval rule in the period you choose. It counts the changes by kind of record and by
+  person, then lists every change, newest first: when it was made, who made it, what it was in plain
+  words, and which record it was on. It never shows what a record said before or after. Days are
+  counted in UTC. Changes the platform made itself are put down to System. A period that has ended
+  always shows the same changes when you run it again. Opening a trust account and setting up the
+  billing accounts are not recorded as changes yet, so they do not appear. The Change Log covers the
+  whole firm and has no office choice.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count

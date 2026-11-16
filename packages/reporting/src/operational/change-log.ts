@@ -1,8 +1,5 @@
 import { addCalendarDays } from "@magna-carta/civil-time/civil-date";
-import {
-  readAuditChanges,
-  type AuditChangeEntry,
-} from "@magna-carta/data-access/audit-statements";
+import { readAuditChanges, type AuditChangeEntry } from "@magna-carta/data-access/audit-statements";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { completeScope, type ReportCompleteness } from "../completeness.ts";
 import { ReportingValidationError } from "../reporting-validation.ts";
@@ -88,7 +85,10 @@ export const CHANGE_LOG_EVENTS: Readonly<
     family: "matters",
     label: "File destruction date cleared",
   },
-  "trust.authorization_policy_changed": { family: "accounts", label: "Trust approval rule changed" },
+  "trust.authorization_policy_changed": {
+    family: "accounts",
+    label: "Trust approval rule changed",
+  },
 };
 
 export const CHANGE_FAMILY_LABELS: Readonly<Record<ChangeFamily, string>> = {
@@ -251,12 +251,13 @@ export async function assembleChangeLog(
       changeCount: totals.of(family),
     })),
     people: [...people.entries()]
-      .map(([key, person]) => ({
-        actorUserId: key === "" ? null : key,
-        actorName: person.name,
-        ...person.tally.figures(),
-      }))
-      .sort((left, right) => {
+      .map(([key, person]) =>
+        Object.assign(
+          { actorUserId: key === "" ? null : key, actorName: person.name },
+          person.tally.figures(),
+        ),
+      )
+      .toSorted((left, right) => {
         if (left.actorUserId === null) return 1;
         if (right.actorUserId === null) return -1;
         return (
