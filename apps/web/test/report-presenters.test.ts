@@ -25,6 +25,7 @@ import {
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
 import { presentChangeLog } from "../src/lib/reports/change-log-presenter.ts";
+import { presentMatterBillingGuide } from "../src/lib/reports/billing-guide-presenter.ts";
 import { moneyText } from "../src/lib/reports/report-cells.ts";
 import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
 import {
@@ -34,6 +35,7 @@ import {
   sampleClientList,
   sampleDailyTime,
   sampleMatterProductivity,
+  sampleMatterBillingGuide,
   sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
@@ -168,6 +170,52 @@ describe("the matters list presenter", () => {
     expect(matters?.rows).toHaveLength(report.matters.length);
     expect(matters?.rows.map((row) => row[5])).toEqual(["Open", "On hold", "Closed"]);
     expect(matters?.rows[0]?.[7]).toBe("-");
+  });
+});
+
+describe("the matter billing guide presenter", () => {
+  const report = sampleMatterBillingGuide();
+  const presentation = presentMatterBillingGuide(report);
+
+  it("opens with the payload's counts by kind of agreement, none recorded among them", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => [tile.label, tile.value])).toEqual([
+      ["Hourly", String(report.totals.hourlyCount)],
+      ["Flat Fee", String(report.totals.flatFeeCount)],
+      ["Contingency", String(report.totals.contingencyCount)],
+      ["Evergreen Retainer", String(report.totals.retainerCount)],
+      ["None recorded", String(report.totals.noneRecordedCount)],
+      ["Matters", String(report.totals.matterCount)],
+    ]);
+    expect(tiles[5]?.tone).toBe("total");
+  });
+
+  it("puts every matter on its own sortable row with its agreement, terms and rates", () => {
+    const matters = presentation.sections.find((section) => section.id === "matters");
+    expect(matters?.headers).toEqual([
+      "Matter",
+      "Client",
+      "Office",
+      "Arrangement",
+      "Terms",
+      "Rates",
+    ]);
+    expect(matters?.sortable).toBe(true);
+    expect(matters?.rows).toHaveLength(report.matters.length);
+    expect(matters?.rows.map((row) => row[3])).toEqual([
+      "Hourly",
+      "Flat Fee",
+      "Contingency",
+      "Evergreen Retainer",
+      "None recorded",
+    ]);
+    // The flat fee is the payload's minor units, printed as money; the share is a percentage.
+    expect(matters?.rows[1]?.[4]).toContain(moneyText(250_000));
+    expect(matters?.rows[2]?.[4]).toContain("33.33%");
+    // An amendment recorded to start later is named after the terms in force.
+    expect(matters?.rows[0]?.[4]).toContain(moneyText(900_000));
+    expect(matters?.rows[0]?.[5]).toContain("$450.00 an hour for this matter (Standard)");
+    expect(matters?.rows[4]?.[5]).toBe("-");
   });
 });
 

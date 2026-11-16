@@ -2428,6 +2428,72 @@ export type RevenueReport = {
     }>;
 };
 
+export type MatterBillingGuideReport = {
+    computedAt: string;
+    asOfDate: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        matterCount: number;
+        hourlyCount: number;
+        flatFeeCount: number;
+        contingencyCount: number;
+        retainerCount: number;
+        noneRecordedCount: number;
+    };
+    matters: Array<{
+        matterId: string;
+        matterNumber: string | null;
+        matterTitle: string;
+        status: 'open' | 'hold';
+        clientEntityId: string | null;
+        clientName: string | null;
+        locationId: string | null;
+        locationName: string | null;
+        responsibleName: string | null;
+        arrangement: {
+            arrangementId: string;
+            version: number;
+            kind: 'hourly' | 'flat_fee' | 'contingency' | 'retainer';
+            flatFeeAmountMinor: number | null;
+            contingencyShareE4: number | null;
+            contingencyBasis: 'gross_recovery' | 'net_after_costs' | null;
+            retainerTargetMinor: number | null;
+            retainerThresholdMinor: number | null;
+            advanceDepositDestination: 'trust' | 'operating' | null;
+            currency: string;
+            validFrom: string;
+            validTo: string | null;
+        } | null;
+        nextArrangement: {
+            arrangementId: string;
+            version: number;
+            kind: 'hourly' | 'flat_fee' | 'contingency' | 'retainer';
+            flatFeeAmountMinor: number | null;
+            contingencyShareE4: number | null;
+            contingencyBasis: 'gross_recovery' | 'net_after_costs' | null;
+            retainerTargetMinor: number | null;
+            retainerThresholdMinor: number | null;
+            advanceDepositDestination: 'trust' | 'operating' | null;
+            currency: string;
+            validFrom: string;
+            validTo: string | null;
+        } | null;
+        rates: Array<{
+            rateId: string;
+            rateCardId: string;
+            rateCardName: string;
+            tier: 'matter' | 'client';
+            rateE4: number;
+            currency: string;
+            validFrom: string;
+            validTo: string | null;
+        }>;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -17667,6 +17733,49 @@ export type ReportsRevenueResponses = {
 };
 
 export type ReportsRevenueResponse = ReportsRevenueResponses[keyof ReportsRevenueResponses];
+
+export type ReportsMatterBillingGuideData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/matter-billing-guide';
+};
+
+export type ReportsMatterBillingGuideErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The firm has more matters than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsMatterBillingGuideError = ReportsMatterBillingGuideErrors[keyof ReportsMatterBillingGuideErrors];
+
+export type ReportsMatterBillingGuideResponses = {
+    /**
+     * How each open and held matter is billed today
+     */
+    200: MatterBillingGuideReport;
+};
+
+export type ReportsMatterBillingGuideResponse = ReportsMatterBillingGuideResponses[keyof ReportsMatterBillingGuideResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
@@ -42815,6 +42924,53 @@ export type GuestSendMessageResponses = {
 };
 
 export type GuestSendMessageResponse = GuestSendMessageResponses[keyof GuestSendMessageResponses];
+
+export type GuestRecordCrashData = {
+    body: RecordClientErrorRequest;
+    headers?: {
+        /**
+         * The link the guest's page was opened from.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/guest/client-errors';
+};
+
+export type GuestRecordCrashErrors = {
+    /**
+     * No such resource: the answer to a missing or unverifiable link
+     */
+    404: Problem;
+    /**
+     * The meeting has ended or the link is used up
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type GuestRecordCrashError = GuestRecordCrashErrors[keyof GuestRecordCrashErrors];
+
+export type GuestRecordCrashResponses = {
+    /**
+     * The crash is recorded (or already was)
+     */
+    201: RecordClientErrorResponse;
+};
+
+export type GuestRecordCrashResponse = GuestRecordCrashResponses[keyof GuestRecordCrashResponses];
 
 export type GuestOpenSharedFileData = {
     body?: never;

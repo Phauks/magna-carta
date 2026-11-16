@@ -26,7 +26,8 @@
     "./productivity/matter-productivity": "./src/productivity/matter-productivity.ts",
     "./operational/client-list": "./src/operational/client-list.ts",
     "./productivity/task-workload": "./src/productivity/task-workload.ts",
-    "./operational/change-log": "./src/operational/change-log.ts"
+    "./operational/change-log": "./src/operational/change-log.ts",
+    "./financial/matter-billing-guide": "./src/financial/matter-billing-guide.ts"
   },
   "scripts": {
     "test": "vp test run"

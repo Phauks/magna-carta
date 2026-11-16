@@ -47,6 +47,8 @@ deployment.
 Sometimes the reference begins `client_` instead. That means the failure happened in the app on your
 screen rather than in the service. When you are signed in, the app sends the technical facts of that
 failure (never anything you typed or any record's contents) so the reference can be looked up too.
+The same is true for a guest you invited to a meeting: a failure on their page is kept against their
+reference through their own meeting link, without the link itself.
 
 ## Copy details
 
@@ -78,7 +80,10 @@ straight to your report.
 ## What the controls mean
 
 A failure only offers a control that would actually do something. If you see nothing to press, there
-is nothing pressing would fix — copy the details and report it.
+is nothing pressing would fix — copy the details and report it. A clash with the state a record is in
+(a cost already on a finalized bill, a hold in force) offers no Retry, because it would only be refused
+again; a clash that clears by itself (the same request still running, a set that changed while you
+worked) does.
 
 | Control              | Means                                                                    |
 | -------------------- | ------------------------------------------------------------------------ |

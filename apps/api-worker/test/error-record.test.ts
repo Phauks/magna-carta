@@ -1,13 +1,22 @@
 /*
  * The error record: every problem the API answers is kept against the Error ID the member was shown
  * (except a signed-out or rate-limit answer), a browser crash is kept through POST
- * /api/v1/client-errors, the lookup is a platform operator's alone, and the daily pass ages records
- * out after thirty days.
+ * /api/v1/client-errors, a failure nobody was shown is kept through the failed-operation tap, the
+ * lookup is a platform operator's alone, and the daily pass ages records out after thirty days.
  */
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { runErrorRecordRetentionSweep } from "../src/background/system-status/error-record-retention.ts";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import { setFailedOperationTap } from "@magna-carta/telemetry/failed-operation-tap";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
+import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
+import {
+  recordBackgroundFailures,
+  settleBackgroundFailureRecords,
+} from "../src/system-status/background-error-record.ts";
+import { readRecordedErrors } from "../src/system-status/recorded-errors.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { settleBackgroundWork } from "./support/settle-background-work.ts";
 import {
@@ -175,5 +184,55 @@ describe("the retention pass", () => {
     await runErrorRecordRetentionSweep(env, now);
     expect(await storedRecord("error_retention_old")).toBeUndefined();
     expect(await storedRecord("error_retention_new")).toBeDefined();
+  });
+});
+
+describe("a failure nobody was shown", () => {
+  it("is kept as a background record when the Workers logger logs it, and read back with no token", async () => {
+    // The dispatch module announces the Worker; this test reaches the tap without it.
+    setServiceIdentity("api");
+    const lines: string[] = [];
+    const logger = createWorkersLogger(undefined, (line) => lines.push(line));
+    recordBackgroundFailures(env);
+    try {
+      const errorId = logOperationFailed(
+        logger,
+        "cron:storage-reconciliation",
+        new TypeError("Cannot read properties of undefined (reading 'bucket')"),
+      );
+      await settleBackgroundFailureRecords();
+      expect(lines).toHaveLength(1);
+      expect(await storedRecord(errorId)).toMatchObject({
+        source: "background",
+        service: "api",
+        operation: "cron:storage-reconciliation",
+        status: null,
+        error_name: "TypeError",
+        message_head: "Cannot read properties of undefined (reading 'bucket')",
+        firm_id: null,
+        user_id: null,
+      });
+
+      const report = await readRecordedErrors({ ...env, OBSERVABILITY_API_TOKEN: undefined });
+      expect(report.state).toBe("read");
+      expect(report.backgroundState).toBe("not-configured");
+      if (report.state !== "read") return;
+      const group = report.groups.find((entry) => entry.latestErrorId === errorId);
+      expect(group).toMatchObject({ source: "background", where: "cron:storage-reconciliation" });
+    } finally {
+      setFailedOperationTap(null);
+    }
+  });
+
+  it("never writes the record's own failure back into it", async () => {
+    const logger = createWorkersLogger(undefined, () => {});
+    recordBackgroundFailures(env);
+    try {
+      const errorId = logOperationFailed(logger, "error-record:write", new Error("D1 refused"));
+      await settleBackgroundFailureRecords();
+      expect(await storedRecord(errorId)).toBeUndefined();
+    } finally {
+      setFailedOperationTap(null);
+    }
   });
 });

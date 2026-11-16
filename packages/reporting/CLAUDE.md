@@ -31,7 +31,10 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   figures moved onto each matter as three columns that are never added to one another; and revenue
   (`revenue.ts`): the Invoices billed figure and the collection kinds of Payments Applied (payments,
   trust transfers, client credits; credit notes and write-offs apart, as credited) by office, by
-  matter type and by responsible attorney, over billing's `readMatterAttributions`
+  matter type and by responsible attorney, over billing's `readMatterAttributions`;
+  and the matter billing guide (`matter-billing-guide.ts`, live): each open and held matter from
+  the matters register beside billing's agreement governing the day and timekeeping's matter- and
+  client-tier rates in force, counted by kind of agreement
 - `src/productivity/timekeeper-productivity.ts` — minutes recorded, never money, never a target; `src/productivity/daily-time.ts`
   — the same minutes per day and timekeeper, its totals equal to Timekeeper Productivity's (live); `src/productivity/matter-productivity.ts` — the
   same breakdown per matter with its timekeepers (live); `src/productivity/task-workload.ts` — the
