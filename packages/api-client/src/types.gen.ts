@@ -10932,7 +10932,7 @@ export type TrustFrozenProof = {
 
 export type TrustChecksResponse = {
     nextCheckNumber: number;
-    stock: TrustCheckStock;
+    stock: TrustCheckStock | null;
     toPrint: Array<TrustCheckToPrint>;
     register: Array<TrustCheckRegisterRow>;
 };
@@ -10949,7 +10949,7 @@ export type TrustCheckStock = {
     hasScan: boolean;
     savedBy: string;
     savedAt: string;
-} | null;
+};
 
 export type TrustCheckField = {
     kind: 'date' | 'payee' | 'amount' | 'amount_words' | 'memo' | 'matter' | 'check_number';
