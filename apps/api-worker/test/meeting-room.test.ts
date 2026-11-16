@@ -3978,8 +3978,8 @@ describe("a guest in the room — somebody from outside the firm, on a link", ()
     expect(lastFrame(guest, "message")).toEqual({
       v: 1,
       type: "message",
-      // No file either: a guest cannot reach the member's route that opens it.
-      message: { ...said, userId: null, attachedFile: null },
+      // The shared file stays: a guest in the room opens it through the guest lane's own route.
+      message: { ...said, userId: null },
     });
     // The member's copy is the record's.
     expect(lastFrame(member, "message")).toEqual({ v: 1, type: "message", message: said });

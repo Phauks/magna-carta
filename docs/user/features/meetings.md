@@ -295,8 +295,12 @@ file the check refuses is left on the matter and not shared. If the file is late
 matter, or the line is taken back, the line stops linking to it.
 
 A meeting that is not kept on a matter (a firm event, or your own room before you move it onto a
-matter) has nowhere to file anything, so it offers no paperclip. Guests see that a file was shared,
-by its name, but cannot open it from the chat.
+matter) has nowhere to file anything, so it offers no paperclip.
+
+**Guests can open a shared file while they are in the meeting.** A guest sees the file in the chat
+and can open it until they leave or the meeting ends. They can open only files somebody shared in
+that meeting's chat, never anything else on the matter. A file whose line is taken back, or that is
+deleted from the matter, stops opening for them too. Guests cannot share files themselves.
 
 ## Raising your hand and reacting
 
@@ -933,8 +937,7 @@ room.
   in to the firm. A guest from outside is still invited to a particular meeting.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
-- **Files in a meeting with no matter, and files for guests.** Only a meeting kept on a matter can
-  share files in chat, and a guest cannot open one from the chat.
+- **Files in a meeting with no matter.** Only a meeting kept on a matter can share files in chat.
 - **A gallery of ready-made backgrounds.** **Image** uses a picture you choose from your own
   computer; there is no built-in set to pick from yet.
 
