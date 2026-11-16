@@ -12,7 +12,8 @@ random bytes and the channel identifiers, so every branch runs in a test with no
 - `src/sign-in.ts` — the authorization-code flow with a proof key: the address a member's browser
   is sent to, trading the returned code for tokens, and refreshing. `GOOGLE_CALENDAR_SCOPES` is the
   whole calendar grant. The account is named by its primary calendar's identifier, which is the
-  account's own address, so no profile permission is asked for.
+  account's own address, so no profile permission is asked for. `revokeGrant` withdraws a
+  member's grant at Google when they disconnect; it answers whether Google agreed and never throws.
 - `src/calendar-sync-adapter.ts` — `CalendarSyncPort` (defined in `packages/calendar/src/sync-port.ts`)
   over the Google Calendar API. Every event it writes carries the private extended property
   `WRITTEN_COPY_PROPERTY_NAME`, and the read back asks for events carrying it and nothing else, so

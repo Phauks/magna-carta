@@ -8,6 +8,7 @@ import {
   readSignedInAccount,
   redeemAuthorizationCode,
   refreshAccessToken,
+  revokeGrant,
   type GoogleApplication,
 } from "../src/sign-in.ts";
 
@@ -235,5 +236,21 @@ describe("checkApplicationCredentials", () => {
     );
     const offline: HttpClient = { request: () => Promise.reject(new Error("offline")) };
     expect(await checkApplicationCredentials(offline, application)).toBe("unreachable");
+  });
+});
+
+describe("revokeGrant", () => {
+  it("sends Google the refresh token and nothing else, and answers that it was withdrawn", async () => {
+    const { http, sent } = answering(200, {});
+    expect(await revokeGrant(http, "refresh-1")).toBe(true);
+    expect(sent[0]?.method).toBe("POST");
+    expect(sent[0]?.url).toBe("https://oauth2.googleapis.com/revoke");
+    expect(sent[0]?.body).toBe("token=refresh-1");
+  });
+
+  it("answers no for a refusal or no answer, and never throws", async () => {
+    expect(await revokeGrant(answering(400, { error: "invalid_token" }).http, "gone")).toBe(false);
+    const offline: HttpClient = { request: () => Promise.reject(new Error("offline")) };
+    expect(await revokeGrant(offline, "refresh-1")).toBe(false);
   });
 });

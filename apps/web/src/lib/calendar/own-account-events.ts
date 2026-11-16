@@ -36,15 +36,17 @@ export async function readOwnAccountEvents(
 }
 
 /**
- * Whether the reader has chosen any of their own calendars to be shown, asked with a one-day
- * window so the answer costs a read of nothing. A failure reads as "no": a row that could be
- * turned on and paint nothing is the one thing the catalog refuses to list.
+ * Which of the reader's accounts they have chosen a calendar to be shown from, asked with a
+ * one-day window so the answer costs a read of nothing. A failure reads as "none": a row that
+ * could be turned on and paint nothing is the one thing the catalog refuses to list.
  */
-export async function readHasOwnAccountCalendars(
+export async function readOwnAccountProviders(
   today: string,
   fetchImpl?: typeof fetch,
-): Promise<boolean> {
+): Promise<readonly OwnAccountEvent["provider"][]> {
   const outcome = await readOwnAccountEvents({ from: today, to: today }, fetchImpl);
-  // An answer of any other shape reads as "no" too, for the same reason a failure does.
-  return outcome.kind === "ok" && (outcome.value?.shownCalendars?.length ?? 0) > 0;
+  // An answer of any other shape reads as "none" too, for the same reason a failure does.
+  if (outcome.kind !== "ok") return [];
+  const providers = (outcome.value?.shownCalendars ?? []).map((calendar) => calendar.provider);
+  return [...new Set(providers)];
 }

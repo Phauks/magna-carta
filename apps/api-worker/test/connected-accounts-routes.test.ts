@@ -85,6 +85,7 @@ const app = createApp({
 let googleTokenAnswer: { status: number; body: unknown };
 function googleAnswerFor(input: HttpRequest): { status: number; body: unknown } | undefined {
   if (input.url === "https://oauth2.googleapis.com/token") return googleTokenAnswer;
+  if (input.url === "https://oauth2.googleapis.com/revoke") return { status: 200, body: {} };
   if (!input.url.startsWith("https://www.googleapis.com/calendar/v3/")) return undefined;
   if (input.url.includes("/users/me/calendarList/primary")) {
     return { status: 200, body: { id: "jane@gmail.example" } };
@@ -469,7 +470,7 @@ describe("disconnecting", () => {
 
     const credentials = await firmDatabase
       .prepare("SELECT COUNT(*) AS total FROM integration_credential WHERE credential_ref LIKE ?1")
-      .bind(`%${memberUserId}`)
+      .bind(`%${memberUserId}%`)
       .first<{ total: number }>();
     expect(credentials?.total).toBe(0);
     const audit = await firmDatabase
@@ -569,24 +570,103 @@ describe("a Google account, through the same routes", () => {
     expect(audit?.metadata).not.toContain("jane@gmail.example");
   });
 
-  it("refuses an Outlook account while the Google one is connected, and spends no code", async () => {
+  it("connects an Outlook account beside the Google one, each with its own row and token", async () => {
     const { state, attempt } = await start(memberCookie, START_URL);
-    microsoftCalls.length = 0;
     const response = await comeBack(memberCookie, { code: "code-9", state }, attempt);
-    expect(outcomeOf(response)).toBe("other-account");
+    expect(outcomeOf(response)).toBe("connected");
     expect(providerOf(response)).toBe("microsoft");
-    expect(microsoftCalls).toHaveLength(0);
-    expect((await list(memberCookie)).accounts).toMatchObject([{ provider: "google" }]);
+
+    const { accounts } = await list(memberCookie);
+    expect(accounts).toMatchObject([
+      { provider: "google", accountLabel: "jane@gmail.example", status: "connected" },
+      { provider: "microsoft", accountLabel: "jane@firm.example", status: "connected" },
+    ]);
+    expect(accounts[0]?.id).not.toBe(accounts[1]?.id);
+    const { results: rows } = await firmDatabase
+      .prepare(
+        "SELECT adapter_id, credential_ref FROM integration_connection WHERE category = 'calendar-sync' AND principal_ref = ?1 ORDER BY adapter_id",
+      )
+      .bind(memberUserId)
+      .all<{ adapter_id: string; credential_ref: string }>();
+    expect(rows).toEqual([
+      {
+        adapter_id: "google-calendar",
+        credential_ref: `integration:calendar-sync:${memberUserId}:google`,
+      },
+      {
+        adapter_id: "microsoft-graph",
+        credential_ref: `integration:calendar-sync:${memberUserId}:microsoft`,
+      },
+    ]);
+    const credentials = await firmDatabase
+      .prepare("SELECT COUNT(*) AS total FROM integration_credential WHERE credential_ref LIKE ?1")
+      .bind(`%${memberUserId}%`)
+      .first<{ total: number }>();
+    expect(credentials?.total).toBe(2);
   });
 
-  it("disconnects it like any other account", async () => {
-    const account = (await list(memberCookie)).accounts[0];
+  it("reads and saves each account's own settings when the provider is named", async () => {
+    const settings = async (provider?: string) =>
+      await readJson<{ account: { provider: string } | null }>(
+        await app.request(
+          `${ORIGIN}/api/v1/me/calendar-sync${provider === undefined ? "" : `?provider=${provider}`}`,
+          { headers: headers(memberCookie) },
+          PROVISIONED,
+        ),
+      );
+    expect((await settings("microsoft")).account?.provider).toBe("microsoft");
+    expect((await settings("google")).account?.provider).toBe("google");
+    // With no provider named, the account connected first.
+    expect((await settings()).account?.provider).toBe("google");
+  });
+
+  it("signing in to Google again replaces that account in place and leaves Outlook alone", async () => {
+    const before = (await list(memberCookie)).accounts;
+    const { state, attempt } = await start(memberCookie, GOOGLE_START_URL);
+    expect(
+      outcomeOf(
+        await comeBack(memberCookie, { code: "code-3", state }, attempt, GOOGLE_CALLBACK_URL),
+      ),
+    ).toBe("connected");
+    const after = (await list(memberCookie)).accounts;
+    expect(after.map((account) => account.id)).toEqual(before.map((account) => account.id));
+  });
+
+  it("disconnects the Google account, withdraws the grant at Google, and leaves Outlook connected", async () => {
+    const account = (await list(memberCookie)).accounts.find((row) => row.provider === "google");
+    microsoftCalls.length = 0;
     const response = await app.request(
       `${LIST_URL}/${account?.id}`,
       { method: "DELETE", headers: headers(memberCookie) },
       PROVISIONED,
     );
     expect(response.status).toBe(200);
+    // Google is told the grant is over, with the refresh token and nothing else.
+    const revocations = microsoftCalls.filter(
+      (call) => call.url === "https://oauth2.googleapis.com/revoke",
+    );
+    expect(revocations).toHaveLength(1);
+    expect(revocations[0]?.body).toBe("token=google-refresh-1");
+    expect((await list(memberCookie)).accounts).toMatchObject([{ provider: "microsoft" }]);
+    const { results: left } = await firmDatabase
+      .prepare("SELECT credential_ref FROM integration_credential WHERE credential_ref LIKE ?1")
+      .bind(`%${memberUserId}%`)
+      .all<{ credential_ref: string }>();
+    expect(left).toEqual([
+      { credential_ref: `integration:calendar-sync:${memberUserId}:microsoft` },
+    ]);
+  });
+
+  it("disconnects Outlook too, asking Microsoft nothing", async () => {
+    const account = (await list(memberCookie)).accounts[0];
+    microsoftCalls.length = 0;
+    const response = await app.request(
+      `${LIST_URL}/${account?.id}`,
+      { method: "DELETE", headers: headers(memberCookie) },
+      PROVISIONED,
+    );
+    expect(response.status).toBe(200);
+    expect(microsoftCalls).toHaveLength(0);
     expect((await list(memberCookie)).accounts).toEqual([]);
   });
 });

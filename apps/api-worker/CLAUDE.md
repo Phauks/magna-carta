@@ -110,7 +110,7 @@ routes requests through the chokepoint into those packages.
   what belongs in somebody's calendar. `calendar-providers.ts` is the one place that knows there is
   more than one provider (Microsoft and Google): it hands a sign-in, a pass or a route the
   provider's application in one shape, found from the connection's `adapter_id`, and a third
-  provider is a package and an entry there. A member holds one calendar account, at one provider.
+  provider is a package and an entry there. A member may hold one calendar account at each provider; every sync table is keyed by the connection, so each account has its own rules, copies and pass, and a member route takes an optional `provider` query that names which account it is about (absent, the one connected first).
   All of it returns early in a deployment registered with no provider
 - `src/progress/` — push progress for job coordinators: the WebSocket frame contract
   (`job-progress-protocol.ts`) and the hibernation-aware socket helper (`job-progress-sockets.ts`)

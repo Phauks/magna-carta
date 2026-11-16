@@ -9693,7 +9693,7 @@ export const calendarSyncReplaceMyShownCalendarsMutation = (options?: Partial<Op
 export const calendarSyncListMyAccountEventsQueryKey = (options: Options<CalendarSyncListMyAccountEventsData>) => createQueryKey('calendarSyncListMyAccountEvents', options);
 
 /**
- * The session member's own events inside a window, as last read from the calendars of their account they chose to be shown. Only ever the session member's. Empty when they have no account or chose no calendar. Copies of the firm's own events are left out.
+ * The session member's own events inside a window, as last read from the calendars of their accounts they chose to be shown. Only ever the session member's. Empty when they have no account or chose no calendar. Copies of the firm's own events are left out.
  */
 export const calendarSyncListMyAccountEventsOptions = (options: Options<CalendarSyncListMyAccountEventsData>) => queryOptions<CalendarSyncListMyAccountEventsResponse, CalendarSyncListMyAccountEventsError, CalendarSyncListMyAccountEventsResponse, ReturnType<typeof calendarSyncListMyAccountEventsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

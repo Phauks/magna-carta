@@ -49,6 +49,20 @@ export const ConnectedAccountDisconnectAck = z
   .object({ id: z.string(), status: z.literal("disconnected") })
   .meta({ id: "ConnectedAccountDisconnectAck" });
 
+// Which of the session member's calendar accounts a settings route is about. A member may have one
+// account at each provider; a request that names none is about the account they connected first.
+export const CalendarSyncAccountChoice = z
+  .object({
+    provider: z
+      .enum(CALENDAR_PROVIDERS)
+      .optional()
+      .describe(
+        "The provider of the member's account the request is about. Left out, it is the account " +
+          "the member connected first.",
+      ),
+  })
+  .meta({ id: "CalendarSyncAccountChoice" });
+
 // CALENDAR SYNC SETTINGS: what the firm lets leave, and what a member chose to send.
 
 const SYNC_DETAIL = z
@@ -242,6 +256,9 @@ export const CalendarSyncAccountEventWindow = z
 export const CalendarSyncAccountEvent = z
   .object({
     id: z.string().describe("The provider's own identifier for the event."),
+    provider: z
+      .enum(CALENDAR_PROVIDERS)
+      .describe("Which of the member's accounts the event was read from."),
     calendarRemoteId: z.string(),
     calendarName: z.string().nullable(),
     title: z.string(),
@@ -266,13 +283,18 @@ export const CalendarSyncAccountEvent = z
   })
   .meta({ id: "CalendarSyncAccountEvent" });
 
+export const CalendarSyncAccountShownCalendar = CalendarSyncShownCalendar.extend({
+  provider: z.enum(CALENDAR_PROVIDERS).describe("Which of the member's accounts holds it."),
+}).meta({ id: "CalendarSyncAccountShownCalendar" });
+
 export const CalendarSyncAccountEventList = z
   .object({
     shownCalendars: z
-      .array(CalendarSyncShownCalendar)
+      .array(CalendarSyncAccountShownCalendar)
       .describe(
-        "The calendars these events are read from: the member's own choice. Empty when they " +
-          "have no account or chose none, in which case there is nothing to show them.",
+        "The calendars these events are read from, across every account the member connected: " +
+          "the member's own choice. Empty when they have no account or chose none, in which " +
+          "case there is nothing to show them.",
       ),
     events: z.array(CalendarSyncAccountEvent),
     truncated: z
