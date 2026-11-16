@@ -19,8 +19,8 @@ export interface InsertConnectionRow {
   readonly createdAt: string;
 }
 
-// Connect, or RE-connect. A principal has at most one connection per category (the unique index
-// says so), and re-connecting is the normal way a firm rotates a credential or recovers a
+// Connect, or RE-connect. A principal has at most one connection per category and adapter (the
+// unique index says so), and re-connecting is the normal way a firm rotates a credential or recovers a
 // connection the health model parked in `needs_reauth` — so a second connect must land on the
 // existing row rather than collide with it. Re-arming the status to `connected` is the whole point:
 // `needs_reauth` means "supply credentials again", and this IS that supply. The row id is stable
@@ -32,7 +32,7 @@ export function upsertConnectionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${INTEGRATION_CONNECTION_TABLE} (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at, account_label) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'connected', ?7, ?8, ?8, ?9) ON CONFLICT (category, principal_ref) DO UPDATE SET adapter_id = excluded.adapter_id, scope = excluded.scope, credential_ref = excluded.credential_ref, status = 'connected', capability_snapshot = excluded.capability_snapshot, updated_at = excluded.updated_at, account_label = excluded.account_label`,
+      `INSERT INTO ${INTEGRATION_CONNECTION_TABLE} (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at, account_label) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'connected', ?7, ?8, ?8, ?9) ON CONFLICT (category, principal_ref, adapter_id) DO UPDATE SET scope = excluded.scope, credential_ref = excluded.credential_ref, status = 'connected', capability_snapshot = excluded.capability_snapshot, updated_at = excluded.updated_at, account_label = excluded.account_label`,
     )
     .bind(
       row.id,
@@ -54,9 +54,37 @@ export function selectConnectionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, account_label, created_at, updated_at FROM ${INTEGRATION_CONNECTION_TABLE} WHERE category = ?1 AND principal_ref = ?2`,
+      `SELECT id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, account_label, created_at, updated_at FROM ${INTEGRATION_CONNECTION_TABLE} WHERE category = ?1 AND principal_ref = ?2 ORDER BY created_at, id`,
     )
     .bind(category, principalRef);
+}
+
+// A principal's connection through one adapter. A category where a principal may hold more than
+// one connection (a member's calendar accounts, one per provider) is read through this; a category
+// with a single adapter reads the same row either way.
+export function selectConnectionOfAdapterStatement(
+  database: SqlDatabase,
+  category: string,
+  principalRef: string,
+  adapterId: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, account_label, created_at, updated_at FROM ${INTEGRATION_CONNECTION_TABLE} WHERE category = ?1 AND principal_ref = ?2 AND adapter_id = ?3`,
+    )
+    .bind(category, principalRef, adapterId);
+}
+
+// One connection, by its own identifier.
+export function selectConnectionByIdStatement(
+  database: SqlDatabase,
+  id: IntegrationConnectionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, account_label, created_at, updated_at FROM ${INTEGRATION_CONNECTION_TABLE} WHERE id = ?1`,
+    )
+    .bind(id);
 }
 
 export function updateConnectionStatusStatement(

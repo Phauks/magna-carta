@@ -2,23 +2,41 @@ import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import {
-  selectConnectionStatement,
+  selectConnectionOfAdapterStatement,
   upsertConnectionStatement,
 } from "@magna-carta/data-access/integration-connection-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
 import type { CredentialStore } from "@magna-carta/integrations/credentials";
 import type { HttpClient } from "@magna-carta/integrations/http";
+import { CALENDAR_PROVIDERS, type CalendarProvider } from "@magna-carta/calendar/sync-contract";
 import type { CalendarProviderApplication } from "./calendar-providers.ts";
 
 // Turning the code a provider handed a member's browser into a recorded connection. Called only
 // after the return has been matched to a sign-in this browser started; nothing here checks that.
 
-// Where a member's calendar token is addressed. A member has at most one calendar connection, so
-// the ref is derived from the member rather than minted: signing in again overwrites the old token
-// in place instead of leaving it sealed under a reference nothing points at.
-export function calendarCredentialRefForMember(userId: UserId): string {
+// Where a member's calendar token is addressed. A member has at most one calendar connection at
+// each provider, so the ref is derived from the member and the provider rather than minted:
+// signing in again overwrites the old token in place instead of leaving it sealed under a
+// reference nothing points at.
+export function calendarCredentialRefForMember(userId: UserId, provider: CalendarProvider): string {
+  return `integration:${CALENDAR_SYNC_CATEGORY}:${userId}:${provider}`;
+}
+
+// The ref every connection made before a member could hold two accounts was stored under. A
+// connection keeps the ref it was made with, so these stay readable and are overwritten in place
+// when that account is signed in to again.
+export function firstCalendarCredentialRefForMember(userId: UserId): string {
   return `integration:${CALENDAR_SYNC_CATEGORY}:${userId}`;
+}
+
+// Every ref that can hold one of this member's own calendar sign-ins. All of them are derived from
+// the member's id, which is what lets the member's credential store refuse everything else.
+export function calendarCredentialRefsForMember(userId: UserId): ReadonlySet<string> {
+  return new Set([
+    firstCalendarCredentialRefForMember(userId),
+    ...CALENDAR_PROVIDERS.map((provider) => calendarCredentialRefForMember(userId, provider)),
+  ]);
 }
 
 export interface ConnectCalendarAccountInput {
@@ -32,23 +50,21 @@ export interface ConnectCalendarAccountInput {
   readonly credentials: CredentialStore;
 }
 
-// `other-account` is a member who already has an account connected at a different provider. A
-// member holds one calendar connection, and every copy on record is in the account it names;
-// pointing the same connection at another provider would leave those records naming events that
-// are not there. They disconnect the first account and then connect the second.
-export type ConnectCalendarAccountOutcome = "connected" | "declined" | "failed" | "other-account";
+export type ConnectCalendarAccountOutcome = "connected" | "declined" | "failed";
 
 export async function connectCalendarAccount(
   input: ConnectCalendarAccountInput,
 ): Promise<ConnectCalendarAccountOutcome> {
   const { http, now, userId, firmDatabase, application } = input;
-  const existing = await selectConnectionStatement(
+  // The member's account at THIS provider. An account at another provider is a separate
+  // connection with its own rules, copies and token, and signing in here leaves it alone.
+  const existing = await selectConnectionOfAdapterStatement(
     firmDatabase,
     CALENDAR_SYNC_CATEGORY,
     userId,
-  ).first<{ id: string; adapter_id: string }>();
-  // Before the code is spent: nothing is asked of the provider for a sign-in that cannot be kept.
-  if (existing !== null && existing.adapter_id !== application.adapterId) return "other-account";
+    application.adapterId,
+  ).first<{ id: string; credential_ref: string }>();
+  const ownRefs = calendarCredentialRefsForMember(userId);
 
   const redeemed = await application.redeem(
     { http, now },
@@ -75,7 +91,12 @@ export async function connectCalendarAccount(
     existing === null
       ? newIdentifier("integrationConnection")
       : (existing.id as IntegrationConnectionId);
-  const credentialRef = calendarCredentialRefForMember(userId);
+  // An account signed in to again keeps the ref it was made with, so the new token replaces the
+  // old one. A ref on the row that is not one of the member's own is never written to.
+  const credentialRef =
+    existing !== null && ownRefs.has(existing.credential_ref)
+      ? existing.credential_ref
+      : calendarCredentialRefForMember(userId, application.provider);
   // The token first, then the row that points at it. A row over a token that was never stored
   // would tell the member they are connected when nothing can act for them; a stored token with no
   // row is inert, and the next sign-in overwrites it. Only the refresh token is kept: the access

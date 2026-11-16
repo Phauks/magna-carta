@@ -1,5 +1,6 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import {
+  CalendarSyncAccountChoice,
   CalendarSyncAccountEventList,
   CalendarSyncAccountEventWindow,
   CalendarSyncSettings,
@@ -16,6 +17,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
 import type { Bindings } from "../../../bindings.ts";
+import { calendarProviderOfAdapter } from "../../../calendar-sync/calendar-providers.ts";
 import { integrationCredentialStoreForFirm } from "../../../plugins/credential-store.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
@@ -27,7 +29,12 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import type { ConnectedAccountsRouteDeps } from "./connected-accounts.ts";
-import { memberAccount, memberAccountCalendars, memberSyncSettings } from "./member-account.ts";
+import {
+  memberAccount,
+  memberAccountCalendars,
+  memberAccounts,
+  memberSyncSettings,
+} from "./member-account.ts";
 
 // A MEMBER'S OWN EVENTS, SHOWN BACK TO THEM IN THE FIRM'S CALENDAR.
 //
@@ -99,6 +106,7 @@ const replaceShownRoute = defineOpenAPIRoute(replaceShownMeta, {
     "to them in the firm's calendar. Events from a calendar no longer chosen are removed at " +
     "once. Nothing is shown to anybody else, and nothing is changed at the provider.",
   request: {
+    query: CalendarSyncAccountChoice,
     body: {
       content: { "application/json": { schema: CalendarSyncShownCalendarsReplace } },
       required: true,
@@ -124,7 +132,7 @@ const listEventsRoute = defineOpenAPIRoute(listEventsMeta, {
   path: "/api/v1/me/calendar-sync/account-events",
   description:
     "The session member's own events inside a window, as last read from the calendars of their " +
-    "account they chose to be shown. Only ever the session member's. Empty when they have no " +
+    "accounts they chose to be shown. Only ever the session member's. Empty when they have no " +
     "account or chose no calendar. Copies of the firm's own events are left out.",
   request: { query: CalendarSyncAccountEventWindow },
   responses: {
@@ -163,7 +171,7 @@ export function registerCalendarAccountEventRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { calendarRemoteIds } = c.req.valid("json");
-      const connection = await memberAccount(c);
+      const connection = await memberAccount(c, c.req.valid("query").provider);
       if (connection === null) {
         return problemJson(c, {
           type: "conflict",
@@ -224,37 +232,53 @@ export function registerCalendarAccountEventRoutes(
           detail: "The window must be two days in order, no more than a year apart.",
         });
       }
-      const connection = await memberAccount(c);
-      if (connection === null) {
-        return c.json({ shownCalendars: [], events: [], truncated: false }, 200);
-      }
+      // Every account the member connected, read side by side. Each event and calendar says
+      // which account it is from, so the calendar can list one row for each.
       const database = requireChokepointFirmContext(c).firmDatabase;
-      const connectionId = connection.id as IntegrationConnectionId;
-      const shownCalendars = await readShownCalendars(database, connectionId);
-      const { events, truncated } = await readExternalEvents(database, connectionId, {
-        from,
-        to,
-        // A day either side, so an event on the window's first or last day is inside it
-        // wherever on earth the reader is. Their screen places each one exactly.
-        fromInstant: `${addCalendarDays(from as CivilDate, -1)}T00:00:00.000Z`,
-        toInstant: `${addCalendarDays(to as CivilDate, 2)}T00:00:00.000Z`,
-      });
+      const perAccount = await Promise.all(
+        (await memberAccounts(c)).map(async (connection) => {
+          const provider = calendarProviderOfAdapter(connection.adapter_id);
+          if (provider === undefined) return null;
+          const connectionId = connection.id as IntegrationConnectionId;
+          const [shownCalendars, read] = await Promise.all([
+            readShownCalendars(database, connectionId),
+            readExternalEvents(database, connectionId, {
+              from,
+              to,
+              // A day either side, so an event on the window's first or last day is inside it
+              // wherever on earth the reader is. Their screen places each one exactly.
+              fromInstant: `${addCalendarDays(from as CivilDate, -1)}T00:00:00.000Z`,
+              toInstant: `${addCalendarDays(to as CivilDate, 2)}T00:00:00.000Z`,
+            }),
+          ]);
+          return { provider, shownCalendars, ...read };
+        }),
+      );
+      const accounts = perAccount.filter((account) => account !== null);
       return c.json(
         {
-          shownCalendars,
-          events: events.map((event) => ({
-            id: event.remoteEventId,
-            calendarRemoteId: event.calendarRemoteId,
-            calendarName: event.calendarName,
-            title: event.title,
-            location: event.location,
-            wholeDay: event.wholeDay,
-            startsOn: event.startsOn,
-            endsOn: event.endsOn,
-            startsAt: event.startsAt,
-            endsAt: event.endsAt,
-          })),
-          truncated,
+          shownCalendars: accounts.flatMap((account) =>
+            account.shownCalendars.map((calendar) => ({
+              ...calendar,
+              provider: account.provider,
+            })),
+          ),
+          events: accounts.flatMap((account) =>
+            account.events.map((event) => ({
+              id: event.remoteEventId,
+              provider: account.provider,
+              calendarRemoteId: event.calendarRemoteId,
+              calendarName: event.calendarName,
+              title: event.title,
+              location: event.location,
+              wholeDay: event.wholeDay,
+              startsOn: event.startsOn,
+              endsOn: event.endsOn,
+              startsAt: event.startsAt,
+              endsAt: event.endsAt,
+            })),
+          ),
+          truncated: accounts.some((account) => account.truncated),
         },
         200,
       );

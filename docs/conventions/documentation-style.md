@@ -4,7 +4,7 @@
 
 **Scope (single home for):** the standard _language_ for everything we write about changes — commit messages, changelog entries, PR descriptions, bug-fix and feature writeups, and the canonical domain vocabulary. Sibling: [`documentation.md`](documentation.md) covers _what_ to document and _when_ (definition of done); this file covers _how to word it_, so the same change reads the same way everywhere.
 
-**Principle:** clear, concise, consistent. Prefer plain words and cut needless ones; describe the effect, not the mechanism, for anything a user reads.
+**Principle:** clear, short, plain. Use the words people already use, cut needless ones, and describe the effect, not the mechanism.
 
 ## One vocabulary of change types
 
@@ -55,8 +55,11 @@ State briefly, in order: **Symptom** (observable failure) · **Root cause** · *
 
 ## Voice & tense
 
+- **Plain words, short sentences, everywhere.** This covers docs, comments, PR descriptions and messages to the owner, not just screens. Say it the way a colleague would say it out loud.
+- **Use the name people already know.** Save, History, Undo, Notes. Don't invent a descriptive compound ("Save Point", "Every Change") when a familiar word exists. The full rule and examples are in [`ux-copy.md`](ux-copy.md) under _Names come first_.
+- **Shorter is better, but no acronyms or abbreviations** the reader would have to decode. Spell them out.
 - **Developer docs:** terse, technical, present tense, active voice.
-- **User docs:** plain language, second person ("you"), task-oriented steps, **no jargon or architecture**. Introduce a term only when unavoidable.
+- **User docs:** second person ("you"), task-oriented steps, **no jargon or architecture**. Introduce a term only when unavoidable.
 
 ## Line wrapping — never hand-wrap
 

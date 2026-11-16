@@ -10,6 +10,9 @@ This page describes Outlook. A [connected Google account](connecting-your-google
 the same way, with Google Calendar wherever this page says Outlook; the one difference is noted
 under repeating events.
 
+If you connected both an Outlook and a Google account, a row at the top of the page lets you choose
+which one you are setting up. Each account has its own choices.
+
 After you [connect your Outlook account](connecting-your-outlook-calendar.md), you choose which
 kinds of Magna Carta event are copied to your Outlook calendar, and which of your calendars each
 kind goes to. Nothing is chosen for you. Until a row says otherwise, that kind of event is not
@@ -106,7 +109,8 @@ calendar.
 2. Under **From Outlook to Magna Carta**, switch on each Outlook calendar you want to see. A
    calendar somebody shared with you can be switched on like your own.
 3. Open the **Calendar**. A calendar named **My Outlook Calendar** appears under **Mine** and is
-   switched on.
+   switched on. For a Google account it is named **My Google Calendar**, and with both connected
+   you have both.
 
 What to know:
 

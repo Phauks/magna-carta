@@ -3,12 +3,11 @@
    * RecordParties — the people and organizations linked to a record, and the one place any kind of
    * record shows them.
    *
-   * REMOVING IS NOT DELETING, and every word here is chosen to keep that true. A record and a
-   * directory entity are joined, in a role; ending the join ends the join, and the person stays
-   * exactly where they are in the directory with everything recorded about them. So the act is
-   * called Remove and never Delete, its glyph is a broken link and never a waste bin, its colour is
-   * never the danger colour, and the confirmation says in as many words where the person will still
-   * be afterwards.
+   * THE ACT IS CALLED DELETE (owner's ruling, 2026-11-16: "remove is weird, it should be delete").
+   * What is deleted is the party's place on THIS record, never the person: a record and a directory
+   * entity are joined, in a role, and ending the join leaves the person exactly where they are in
+   * the directory with everything recorded about them. So the confirmation says in as many words
+   * where the person will still be afterwards, and its colour is never the danger colour.
    *
    * ONE ENTITY, AS MANY ROWS AS ROLES. The same person is the executor and a beneficiary on one
    * estate, and each of those is its own association that ends on its own. So an entity already on
@@ -18,12 +17,15 @@
    *
    * ADDING HAPPENS IN THE TAB, not in a panel over it. The add row opens INLINE beneath the list:
    * who, then the role where the record offers one, then the capacity where it takes one, then Add.
-   * A person choosing who to link wants to see who is already linked while they do it.
+   * A person choosing who to link wants to see who is already linked while they do it. A record
+   * whose screen already has its own New control at the top (a matter's New Party) turns the tab's
+   * own Add… off with `addControl={false}`: two Add controls for one act read as two different acts
+   * (owner's ruling, 2026-11-16). That control opens the same row through `openAddRow`.
    *
    * A RECORD MAY LAY THE ROWS OUT ITSELF. A record with more to say about each party than a name and
    * a role (a matter says whether its latest conflicts check searched them) hands over `rows` and
    * draws them as a table, while this tab keeps what must not be copied: the add row, the rules
-   * about a repeat link, and the Remove confirmation, which the record's rows reach through
+   * about a repeat link, and the Delete confirmation, which the record's rows reach through
    * `askToRemove`.
    *
    * The tab is DOMAIN-BLIND. It is the same tab on a matter, a custodian packet or a calendar
@@ -32,7 +34,7 @@
    */
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
-  import Unlink from "@lucide/svelte/icons/unlink";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import UserPlus from "@lucide/svelte/icons/user-plus";
   import ActionDialog from "../action-dialog/action-dialog.svelte";
   import * as Alert from "../alert/index.ts";
@@ -78,6 +80,7 @@
     onRetry,
     formatInstant = instantText,
     rows,
+    addControl = true,
     ref = $bindable(null),
     class: className,
     ...restProps
@@ -167,6 +170,11 @@
         },
       ]
     >;
+    /**
+     * Whether the tab shows its own Add… beneath the list. False where the screen already offers
+     * the same act at the top and opens this tab's add row through `openAddRow`.
+     */
+    addControl?: boolean;
   } = $props();
 
   /** The one sentence for the link that means nothing: the same entity, in the same role, again. */
@@ -316,10 +324,10 @@
    * reason, so a reader who cannot see it greyed out is told the same thing the pointer is told.
    */
   // The role is part of the name, because one person may be on the record twice: two controls
-  // that both read "Remove Eleanor Whitcombe" are one control to a screen reader.
+  // that both read "Delete Eleanor Whitcombe" are one control to a screen reader.
   function removeLabel(party: RecordParty): string {
     const role = party.roleLabel ?? party.role;
-    const name = role === undefined || role === "" ? `Remove ${party.name}` : `Remove ${party.name} as ${role}`;
+    const name = role === undefined || role === "" ? `Delete ${party.name}` : `Delete ${party.name} as ${role}`;
     return canEdit || linkDisabledReason === undefined ? name : `${name}: ${linkDisabledReason}`;
   }
 
@@ -333,7 +341,7 @@
     if (pendingRemoval === null) return "";
     const role = pendingRemoval.roleLabel ?? pendingRemoval.role;
     const inRole = role === undefined || role === "" ? "" : ` as ${role}`;
-    return `${pendingRemoval.name} stops being linked to this record${inRole}.`;
+    return `${pendingRemoval.name}${inRole} is deleted from this record.`;
   });
 
   async function confirmRemoval(): Promise<"committed"> {
@@ -418,11 +426,11 @@
               type="button"
               class="mc-record-parties-remove"
               disabled={!canEdit}
-              title={canEdit ? "Remove" : linkDisabledReason}
+              title={canEdit ? "Delete" : linkDisabledReason}
               aria-label={removeLabel(party)}
               onclick={() => (pendingRemoval = party)}
             >
-              <Unlink class="mc-record-parties-remove-icon" aria-hidden="true" />
+              <Trash2 class="mc-record-parties-remove-icon" aria-hidden="true" />
             </button>
           {/if}
         </li>
@@ -512,7 +520,7 @@
           </Button>
         </div>
       </div>
-    {:else}
+    {:else if addControl}
       <div class="mc-record-parties-actions">
         <Button
           variant="secondary"
@@ -534,7 +542,7 @@
 
 <!--
   The confirmation. It names what stops and, in the same breath, where the person will still be —
-  because the fear this dialog has to answer is that pressing Remove takes them out of the directory.
+  because the fear this dialog has to answer is that pressing Delete takes them out of the directory.
   Nothing was begun, so there is nothing to lose by backing out and no discard question to ask.
 -->
 <ActionDialog
@@ -545,8 +553,8 @@
     }
   }
   kind="confirm"
-  heading="Remove This Party?"
-  commitLabel="Remove"
+  heading="Delete This Party?"
+  commitLabel="Delete"
   unsavedChanges={false}
   onCommit={confirmRemoval}
 >
