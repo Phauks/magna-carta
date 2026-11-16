@@ -1,4 +1,8 @@
+import { Unzlib } from "fflate";
+import { FieldCollector, momentFromParts, textValue } from "../fields.ts";
 import type { Finding } from "../model.ts";
+import { readExif } from "./exif.ts";
+import { readXmp } from "./xmp.ts";
 
 const SIGNATURE_LENGTH = 8;
 // Ancillary metadata chunks we strip. Structural/critical chunks (IHDR, PLTE, IDAT, IEND) and color
@@ -46,17 +50,124 @@ function trailingByteCount(bytes: Uint8Array, chunks: readonly Chunk[]): number 
   return bytes.length - last.end;
 }
 
+// A compressed text chunk inflates to at most this much; past it the text is cut. The input is fed
+// to the inflater in small slices so one slice can never expand past the cap by more than deflate's
+// maximum ratio, which bounds the memory a crafted chunk can claim.
+const MAX_INFLATED_TEXT_BYTES = 64 * 1024;
+const INFLATE_SLICE_BYTES = 1024;
+
+class TextCapReached extends Error {}
+
+function inflateBytes(compressed: Uint8Array): Uint8Array | undefined {
+  const pieces: Uint8Array[] = [];
+  let total = 0;
+  const inflater = new Unzlib((chunk) => {
+    pieces.push(chunk);
+    total += chunk.length;
+    if (total >= MAX_INFLATED_TEXT_BYTES) throw new TextCapReached();
+  });
+  try {
+    for (let at = 0; at < compressed.length; at += INFLATE_SLICE_BYTES) {
+      const end = Math.min(at + INFLATE_SLICE_BYTES, compressed.length);
+      inflater.push(compressed.subarray(at, end), end === compressed.length);
+    }
+  } catch (error) {
+    if (!(error instanceof TextCapReached)) return undefined;
+  }
+  const joined = new Uint8Array(Math.min(total, MAX_INFLATED_TEXT_BYTES));
+  let offset = 0;
+  for (const piece of pieces) {
+    const room = joined.length - offset;
+    if (room <= 0) break;
+    joined.set(piece.subarray(0, room), offset);
+    offset += Math.min(piece.length, room);
+  }
+  return joined;
+}
+
+function latin1(bytes: Uint8Array): string {
+  let text = "";
+  for (const byte of bytes) text += String.fromCharCode(byte);
+  return text;
+}
+
+// The keyword a text chunk is filed under: Latin-1, up to the first NUL.
+function keywordOf(data: Uint8Array): { keyword: string; rest: number } | undefined {
+  const end = data.indexOf(0);
+  if (end <= 0 || end > 79) return undefined;
+  return { keyword: latin1(data.subarray(0, end)), rest: end + 1 };
+}
+
+const XMP_KEYWORD = "XML:com.adobe.xmp";
+
+// tEXt: keyword, NUL, Latin-1 text. zTXt: keyword, NUL, method, zlib text.
+// iTXt: keyword, NUL, compressed flag, method, language, NUL, translated keyword, NUL, UTF-8 text.
+function readTextChunk(type: string, data: Uint8Array, fields: FieldCollector): void {
+  const header = keywordOf(data);
+  if (header === undefined) return;
+  const { keyword, rest } = header;
+  let text: string | undefined;
+  if (type === "tEXt") {
+    text = latin1(data.subarray(rest, rest + MAX_INFLATED_TEXT_BYTES));
+  } else if (type === "zTXt") {
+    const inflated = inflateBytes(data.subarray(rest + 1));
+    text = inflated === undefined ? undefined : latin1(inflated);
+  } else {
+    const compressed = data[rest] === 1;
+    const languageEnd = data.indexOf(0, rest + 2);
+    const translatedEnd = languageEnd === -1 ? -1 : data.indexOf(0, languageEnd + 1);
+    if (translatedEnd === -1) return;
+    const body = data.subarray(translatedEnd + 1);
+    const utf8 = compressed ? inflateBytes(body) : body.subarray(0, MAX_INFLATED_TEXT_BYTES);
+    text = utf8 === undefined ? undefined : new TextDecoder("utf-8").decode(utf8);
+  }
+  if (text === undefined) return;
+  if (keyword === XMP_KEYWORD) {
+    readXmp(text, fields);
+    return;
+  }
+  fields.addNamed(keyword, textValue(text));
+}
+
+// tIME: the last modification, as seven bytes of UTC.
+function readTime(data: Uint8Array, fields: FieldCollector): void {
+  if (data.length < 7) return;
+  const moment = momentFromParts(
+    {
+      year: ((data[0] ?? 0) << 8) | (data[1] ?? 0),
+      month: data[2] ?? 0,
+      day: data[3] ?? 0,
+      hour: data[4] ?? 0,
+      minute: data[5] ?? 0,
+      second: data[6] ?? 0,
+    },
+    "Z",
+  );
+  if (moment !== undefined) fields.add({ name: "Modified", value: moment });
+}
+
+function readChunk(bytes: Uint8Array, chunk: Chunk, fields: FieldCollector): void {
+  const data = bytes.subarray(chunk.start + 8, chunk.end - 4);
+  if (chunk.type === "eXIf") readExif(data, fields);
+  else if (chunk.type === "tIME") readTime(data, fields);
+  else readTextChunk(chunk.type, data, fields);
+}
+
 export function inspectPngFindings(bytes: Uint8Array): Finding[] {
   const chunks = walkChunks(bytes);
   const counts = new Map<Finding["category"], number>();
+  const fieldsByCategory = new Map<Finding["category"], FieldCollector>();
   for (const chunk of chunks) {
     if (!METADATA_CHUNKS.has(chunk.type)) continue;
     const category: Finding["category"] = chunk.type === "eXIf" ? "image-location" : "image-other";
     counts.set(category, (counts.get(category) ?? 0) + 1);
+    const fields = fieldsByCategory.get(category) ?? new FieldCollector();
+    fieldsByCategory.set(category, fields);
+    readChunk(bytes, chunk, fields);
   }
   const findings: Finding[] = [];
   for (const [category, count] of counts) {
-    findings.push({
+    const finding: Finding = {
       category,
       label:
         category === "image-location"
@@ -65,7 +176,8 @@ export function inspectPngFindings(bytes: Uint8Array): Finding[] {
       risk: category === "image-location" ? "high" : "medium",
       count,
       defaultScrub: true,
-    });
+    };
+    findings.push(fieldsByCategory.get(category)?.attachTo(finding) ?? finding);
   }
   if (trailingByteCount(bytes, chunks) > 0) {
     findings.push({

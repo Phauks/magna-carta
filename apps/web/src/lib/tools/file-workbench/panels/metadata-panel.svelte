@@ -8,19 +8,29 @@
    * never changed; the clean copy is saved, or put on the bench beside it, where every other tab
    * can check it.
    *
-   * The reader (`@magna-carta/metadata`) is plain TypeScript and runs in this browser. It reports
-   * kinds and counts, never the values themselves.
+   * The reader (`@magna-carta/metadata`) is plain TypeScript and runs in this browser, so the values
+   * it reads (who wrote a comment, where a picture was taken) never leave this machine. Each table
+   * lists them: a property and what it says, or who changed what and when.
    */
   import Eraser from "@lucide/svelte/icons/eraser";
   import FilePlus from "@lucide/svelte/icons/file-plus";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
+  import Label from "@magna-carta/design-system/label";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import type { MetadataFailure, MetadataReport } from "@magna-carta/metadata";
   import { saveToTarget } from "$lib/export/save-target.ts";
   import Absence from "../parts/absence.svelte";
-  import { cleanCopyName, groupsOf, leftBehind, optionsFrom, type ScrubSwitch } from "../metadata-reading.ts";
+  import {
+    cleanCopyName,
+    groupsOf,
+    leftBehind,
+    optionsFrom,
+    type FindingGroup,
+    type TableCell,
+    type ScrubSwitch,
+  } from "../metadata-reading.ts";
   import type { CapabilityPanelProps } from "../capability.ts";
 
   let { file, onAddFiles }: CapabilityPanelProps = $props();
@@ -79,6 +89,28 @@
   });
 
   const groups = $derived(reading.kind === "read" ? groupsOf(reading.report) : []);
+
+  // The name column and the moment column take a fixed share; the value takes the rest, because the
+  // value is what wraps longest. Where hidden text sits is one word, so it takes less.
+  function columnWidth(group: FindingGroup, index: number): string | undefined {
+    const count = group.columns.length;
+    if (count === 2 && index === 0) return group.switch === "hiddenContent" ? "w-1/4" : "w-2/5";
+    if (count === 3 && (index === 0 || index === 2)) return "w-1/4";
+    return undefined;
+  }
+
+  // A cell wraps anywhere, so a long path never widens its column. Under the narrow breakpoint the
+  // cells of a row stack: the first reads as a small label over the rest, the hairline is drawn
+  // once under the row, and an empty cell collapses to nothing.
+  function cellClass(cell: TableCell, index: number): string {
+    const classes = ["align-top whitespace-normal wrap-anywhere @max-sm:block @max-sm:not-last:border-b-0"];
+    if (cell.text === "" && cell.note === undefined) classes.push("@max-sm:py-0");
+    else if (index === 0) classes.push("@max-sm:pb-0 @max-sm:text-xs @max-sm:text-text-muted");
+    else classes.push("@max-sm:pt-4");
+    if (cell.muted === true) classes.push("text-text-muted");
+    return classes.join(" ");
+  }
+
   const highRisk = $derived(
     groups.filter((group) => group.findings.some((finding) => finding.risk === "high")).map((group) => group.title),
   );
@@ -142,31 +174,56 @@
       {/each}
     </div>
 
-    <div class="grid items-start gap-16 @5xl:grid-cols-2">
+    <div class="grid min-w-0 items-start gap-16 @5xl:grid-cols-2">
       {#each groups as group (group.switch)}
         {@const boxId = `metadata-${group.switch}`}
-        <DataTable.Root class="w-full">
-          <DataTable.Header>
-            <DataTable.Row>
-              <DataTable.Head class="w-40">
-                <Checkbox
-                  id={boxId}
-                  aria-label={`Remove ${group.title}`}
-                  checked={ticked.has(group.switch)}
-                  disabled={cleaning}
-                  onCheckedChange={(on) => setTicked(group.switch, on === true)}
-                />
+        <!-- Fixed layout with wrapping cells: a long path or comment wraps inside its column, so the
+             table never grows past the pane and nothing scrolls sideways at any width. In a narrow
+             pane the columns stack: each row reads as its name over its value. -->
+        <DataTable.Root class="w-full table-fixed @max-sm:block">
+          <colgroup>
+            {#each group.columns as column, index (column)}
+              <col class={columnWidth(group, index)} />
+            {/each}
+          </colgroup>
+          <DataTable.Header class="@max-sm:block">
+            <DataTable.Row class="@max-sm:block">
+              <DataTable.Head colspan={group.columns.length} class="whitespace-normal @max-sm:block @max-sm:h-auto @max-sm:py-8">
+                <span class="flex items-center gap-12">
+                  <Checkbox
+                    id={boxId}
+                    aria-label={`Remove ${group.title}`}
+                    checked={ticked.has(group.switch)}
+                    disabled={cleaning}
+                    onCheckedChange={(on) => setTicked(group.switch, on === true)}
+                  />
+                  <Label for={boxId} class="cursor-pointer font-semibold text-text-default">{group.title}</Label>
+                </span>
               </DataTable.Head>
-              <DataTable.Head>{group.title}</DataTable.Head>
-              <DataTable.Head class="text-right">Count</DataTable.Head>
+            </DataTable.Row>
+            <DataTable.Row class="@max-sm:hidden">
+              {#each group.columns as column (column)}
+                <DataTable.Head>{column}</DataTable.Head>
+              {/each}
             </DataTable.Row>
           </DataTable.Header>
-          <DataTable.Body>
-            {#each group.findings as finding (finding.category)}
-              <DataTable.Row>
-                <DataTable.Cell></DataTable.Cell>
-                <DataTable.Cell class="break-words">{finding.label}</DataTable.Cell>
-                <DataTable.Cell class="text-right tabular-nums">{finding.count}</DataTable.Cell>
+          <DataTable.Body class="@max-sm:block">
+            {#each group.rows as row (row.key)}
+              <DataTable.Row class="@max-sm:block">
+                {#each row.cells as cell, index (index)}
+                  <DataTable.Cell
+                    class={cellClass(cell, index)}
+                  >
+                    {#if cell.datetime !== undefined}
+                      <time datetime={cell.datetime}>{cell.text}</time>
+                    {:else}
+                      {cell.text}
+                    {/if}
+                    {#if cell.note !== undefined}
+                      <span class="mt-4 block text-xs text-text-muted">{cell.note}</span>
+                    {/if}
+                  </DataTable.Cell>
+                {/each}
               </DataTable.Row>
             {/each}
           </DataTable.Body>
