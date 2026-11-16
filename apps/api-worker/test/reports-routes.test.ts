@@ -600,6 +600,48 @@ describe("GET /api/v1/reports/daily-time", () => {
   });
 });
 
+describe("GET /api/v1/reports/change-log", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/change-log?${query}`;
+
+  it("answers the Owner with the period's changes, whose families and people add up to the whole", async () => {
+    // A period that has not ended, so whatever the firm's setup recorded is in it.
+    const response = await SELF.fetch(url("periodStart=2000-01-01&periodEnd=2099-12-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { totalCount: number };
+      families: { changeCount: number }[];
+      people: { totalCount: number }[];
+      entries: { event: string; eventLabel: string }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.families.reduce((sum, family) => sum + family.changeCount, 0)).toBe(
+      report.totals.totalCount,
+    );
+    expect(report.people.reduce((sum, person) => sum + person.totalCount, 0)).toBe(
+      report.totals.totalCount,
+    );
+    expect(report.entries).toHaveLength(report.totals.totalCount);
+    expect(JSON.stringify(report)).not.toContain("metadata");
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/matter-productivity", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/matter-productivity?${query}`;
 

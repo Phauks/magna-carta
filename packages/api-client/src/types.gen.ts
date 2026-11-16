@@ -2345,6 +2345,44 @@ export type ClientListReport = {
     }>;
 };
 
+export type ChangeLogReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: boolean;
+    statement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        directoryCount: number;
+        matterCount: number;
+        accountCount: number;
+        totalCount: number;
+    };
+    families: Array<{
+        family: 'directory' | 'matters' | 'accounts';
+        label: string;
+        changeCount: number;
+    }>;
+    people: Array<{
+        directoryCount: number;
+        matterCount: number;
+        accountCount: number;
+        totalCount: number;
+        actorUserId: string | null;
+        actorName: string | null;
+    }>;
+    entries: Array<{
+        id: string;
+        at: string;
+        actorUserId: string | null;
+        actorName: string | null;
+        family: 'directory' | 'matters' | 'accounts';
+        event: string;
+        eventLabel: string;
+        subjectId: string | null;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -17494,6 +17532,50 @@ export type ReportsClientListResponses = {
 };
 
 export type ReportsClientListResponse = ReportsClientListResponses[keyof ReportsClientListResponses];
+
+export type ReportsChangeLogData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+    };
+    url: '/api/v1/reports/change-log';
+};
+
+export type ReportsChangeLogErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not a pair of calendar dates in order, or holds more changes than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsChangeLogError = ReportsChangeLogErrors[keyof ReportsChangeLogErrors];
+
+export type ReportsChangeLogResponses = {
+    /**
+     * The changes recorded in this period
+     */
+    200: ChangeLogReport;
+};
+
+export type ReportsChangeLogResponse = ReportsChangeLogResponses[keyof ReportsChangeLogResponses];
 
 export type BillingListInvoicesData = {
     body?: never;

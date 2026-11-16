@@ -62,6 +62,7 @@
     type MeetingQuestionView,
   } from "$lib/meetings/client/questions.svelte.ts";
   import { chatTimeline } from "./chat-timeline.ts";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import type { MeetingMessage } from "@magna-carta/api-client";
   import type { Snippet } from "svelte";
 
@@ -394,8 +395,7 @@
     <a
       class="{buttonClasses({ variant: 'secondary', size: 'sm' })} max-w-full self-start"
       href={downloadUrl(message.attachedFile.id)}
-      target="_blank"
-      rel="noopener"
+      {...opensBeside("file")}
     >
       <FileText class="size-16 shrink-0" aria-hidden="true" />
       <span class="truncate">{message.attachedFile.name}</span>
