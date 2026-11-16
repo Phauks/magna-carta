@@ -47843,7 +47843,14 @@
             "type": "integer"
           },
           "stock": {
-            "$ref": "#/components/schemas/TrustCheckStock"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrustCheckStock"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "toPrint": {
             "type": "array",
@@ -47866,10 +47873,7 @@
         ]
       },
       "TrustCheckStock": {
-        "type": [
-          "object",
-          "null"
-        ],
+        "type": "object",
         "properties": {
           "trustCheckStockId": {
             "type": "string"
