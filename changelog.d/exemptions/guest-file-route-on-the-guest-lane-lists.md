@@ -1,3 +1,3 @@
 ---
-reason: Adds the guest shared-file route to the contract tests' lists of routes that work without signing in; no behaviour changes.
+reason: Adds the two newest guest routes to the contract test's list of guest-lane routes; no behaviour changes.
 ---
