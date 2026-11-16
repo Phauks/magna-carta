@@ -34,7 +34,10 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   matter type and by responsible attorney, over billing's `readMatterAttributions`;
   and the matter billing guide (`matter-billing-guide.ts`, live): each open and held matter from
   the matters register beside billing's agreement governing the day and timekeeping's matter- and
-  client-tier rates in force, counted by kind of agreement
+  client-tier rates in force, counted by kind of agreement;
+  and the client statement (`client-statement.ts`): one client's opening balance, bills and applications
+  with a running balance, closing balance and unpaid bills, its balances the as-of aging's for the
+  client, so it closes at that client's total in the aging
 - `src/productivity/timekeeper-productivity.ts` — minutes recorded, never money, never a target; `src/productivity/daily-time.ts`
   — the same minutes per day and timekeeper, its totals equal to Timekeeper Productivity's (live); `src/productivity/matter-productivity.ts` — the
   same breakdown per matter with its timekeepers (live); `src/productivity/task-workload.ts` — the
@@ -114,6 +117,12 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   and the jurisdiction port. Nothing here resolves any of the three.
 
 ## Gotchas
+
+- **A client statement can fail to close when an application is dated before its bill.** Billing
+  accepts an application whose effective date precedes its bill's issue date. The as-of aging counts
+  it only once the bill exists; the application register dates it by its own effective date. A
+  period that separates the two then ends its running balance away from its closing balance. It is
+  billing's to refuse, not this package's to paper over.
 
 - **The pack's `proofAtProduction` is deliberately live, and the reproducibility test knows it.**
   `computeTrustThreeWayProof` computes over everything recorded and takes no knowledge instant. A pack
