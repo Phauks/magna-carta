@@ -7849,9 +7849,9 @@ export type CalendarSyncShownCalendarsReplace = {
 
 export type CalendarSyncAccountEventList = {
     /**
-     * The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
+     * The calendars these events are read from, across every account the member connected: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
      */
-    shownCalendars: Array<CalendarSyncShownCalendar>;
+    shownCalendars: Array<CalendarSyncAccountShownCalendar>;
     events: Array<CalendarSyncAccountEvent>;
     /**
      * True when the window held more events than one answer carries.
@@ -7859,11 +7859,27 @@ export type CalendarSyncAccountEventList = {
     truncated: boolean;
 };
 
+export type CalendarSyncAccountShownCalendar = {
+    calendarRemoteId: string;
+    /**
+     * The calendar's name when it was chosen, shown when the provider is unreachable.
+     */
+    calendarName: string;
+    /**
+     * Which of the member's accounts holds it.
+     */
+    provider: 'microsoft' | 'google';
+};
+
 export type CalendarSyncAccountEvent = {
     /**
      * The provider's own identifier for the event.
      */
     id: string;
+    /**
+     * Which of the member's accounts the event was read from.
+     */
+    provider: 'microsoft' | 'google';
     calendarRemoteId: string;
     calendarName: string | null;
     title: string;
@@ -35520,7 +35536,12 @@ export type ConnectedAccountsDisconnectResponse = ConnectedAccountsDisconnectRes
 export type CalendarSyncReadMineData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync';
 };
 
@@ -35557,7 +35578,12 @@ export type CalendarSyncReadMineResponse = CalendarSyncReadMineResponses[keyof C
 export type CalendarSyncReplaceMyRulesData = {
     body: CalendarSyncRulesReplace;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/rules';
 };
 
@@ -35684,7 +35710,12 @@ export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsRespons
 export type CalendarSyncReplaceMyShownCalendarsData = {
     body: CalendarSyncShownCalendarsReplace;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/shown-calendars';
 };
 
@@ -35783,7 +35814,12 @@ export type CalendarSyncListMyAccountEventsResponse = CalendarSyncListMyAccountE
 export type CalendarSyncListMyIssuesData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues';
 };
 
@@ -35823,7 +35859,12 @@ export type CalendarSyncPutBackMyCopyData = {
         localKind: 'matter_event' | 'firm_event' | 'deadline';
         localId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back';
 };
 
@@ -35863,7 +35904,12 @@ export type CalendarSyncLeaveMyCopyData = {
         localKind: 'matter_event' | 'firm_event' | 'deadline';
         localId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave';
 };
 

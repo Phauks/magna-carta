@@ -67,10 +67,10 @@ is the same standard you would apply to a memo from someone whose work you have 
 ## Before Your First Question
 
 The first time you open Magnus you are shown a short disclosure and asked to accept it. It says what
-is on this page: what leaves the platform, what Magnus can see, what it can do, that transcripts are
-kept, and that it can be wrong. You accept it once. If it changes in a way that matters, you are
-asked again: when Magnus gained the ability to read attached files, everybody was asked once more,
-and again when it gained the pane, its documents and the switch for your other conversations.
+is on this page: what goes to an outside AI provider, what Magnus can see, what it can do, that
+conversations are kept, and that it can be wrong. You accept it once. If it changes, you are asked
+again: when Magnus gained the ability to read attached files, when it gained the pane, its documents
+and the switch for your other conversations, and when the disclosure was reworded more plainly.
 
 ## What Happens to What You Type
 

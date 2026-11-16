@@ -16,11 +16,23 @@ export interface ProviderNames {
   readonly product: string;
   readonly company: string;
   readonly account: string;
+  /** The row on the calendar that holds the member's own events from this account. */
+  readonly ownCalendar: string;
 }
 
 const PROVIDER_NAMES: Readonly<Record<CalendarProvider, ProviderNames>> = {
-  microsoft: { product: "Outlook", company: "Microsoft", account: "Microsoft 365 account" },
-  google: { product: "Google Calendar", company: "Google", account: "Google account" },
+  microsoft: {
+    product: "Outlook",
+    company: "Microsoft",
+    account: "Microsoft 365 account",
+    ownCalendar: "My Outlook Calendar",
+  },
+  google: {
+    product: "Google Calendar",
+    company: "Google",
+    account: "Google account",
+    ownCalendar: "My Google Calendar",
+  },
 };
 
 export function providerNames(provider: CalendarProvider): ProviderNames {
@@ -33,13 +45,7 @@ export function providerFrom(searchParams: URLSearchParams): CalendarProvider | 
   return CALENDAR_PROVIDERS.find((provider) => provider === value) ?? null;
 }
 
-export type SignInOutcome =
-  | "connected"
-  | "declined"
-  | "expired"
-  | "unavailable"
-  | "failed"
-  | "other-account";
+export type SignInOutcome = "connected" | "declined" | "expired" | "unavailable" | "failed";
 
 const OUTCOMES: readonly SignInOutcome[] = [
   "connected",
@@ -47,7 +53,6 @@ const OUTCOMES: readonly SignInOutcome[] = [
   "expired",
   "unavailable",
   "failed",
-  "other-account",
 ];
 
 /** The outcome an address carries, or null where it carries none this page knows. */
@@ -94,12 +99,6 @@ export function noticeForOutcome(
       tone: "danger",
       title: `${product} could not be connected`,
       description: `${company} did not complete the sign-in, or the calendar could not be read afterwards. Nothing was connected.`,
-    },
-    "other-account": {
-      tone: "warning",
-      title: `${product} was not connected`,
-      description:
-        "You already have a calendar account connected. Disconnect it first, then connect this one.",
     },
   };
   return notices[outcome];

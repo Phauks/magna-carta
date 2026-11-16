@@ -1,0 +1,2 @@
+DROP INDEX `integration_connection_principal_category_unique_index`;--> statement-breakpoint
+CREATE UNIQUE INDEX `integration_connection_principal_category_adapter_unique_index` ON `integration_connection` (`category`,`principal_ref`,`adapter_id`);

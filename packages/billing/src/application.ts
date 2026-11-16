@@ -65,6 +65,14 @@ export interface InvoiceApplicationInput {
   readonly amountMinor: number;
   readonly currency: string;
   readonly effectiveDate: string; // YYYY-MM-DD civil date
+  // The bill's own issue date, read by the caller with the invoice it already checked is final. An
+  // application cannot take effect before the bill it is set against existed: the as-of aging does not
+  // know the bill on that day, so the application would reduce nothing anyone owed, and every
+  // statement of what the client owed between the two dates would stop adding up.
+  readonly invoiceIssueDate: string;
+  // For a reversal, the effective date of the application it unwinds: a reversal cannot take effect
+  // before what it reverses, or the share would read as negative on every day between the two.
+  readonly reversesEffectiveDate?: string | null;
   readonly trustTransferId?: TrustTransferId | null;
   readonly reversesApplicationId?: InvoiceApplicationId | null;
   readonly creditNoteId?: CreditNoteId | null;
@@ -115,6 +123,24 @@ export function composeInvoiceApplication(
     );
   }
 
+  // Civil dates (YYYY-MM-DD) order correctly as strings.
+  if (input.effectiveDate < input.invoiceIssueDate) {
+    throw new BillingValidationError(
+      "application-before-invoice-issued",
+      `invoice ${input.invoiceId} was issued on ${input.invoiceIssueDate} and this ${input.kind.replace("_", " ")} takes effect on ${input.effectiveDate}: nothing can be set against a bill before the bill existed, so date it on or after ${input.invoiceIssueDate}`,
+    );
+  }
+  if (
+    input.reversesEffectiveDate !== undefined &&
+    input.reversesEffectiveDate !== null &&
+    input.effectiveDate < input.reversesEffectiveDate
+  ) {
+    throw new BillingValidationError(
+      "application-reversal-before-original",
+      `the application this reverses took effect on ${input.reversesEffectiveDate} and the reversal on ${input.effectiveDate}: a reversal cannot take effect before what it reverses, so date it on or after ${input.reversesEffectiveDate}`,
+    );
+  }
+
   const now = options.clock.now();
   const applicationId = newIdentifier("invoiceApplication", options.randomSource);
 
@@ -154,4 +180,15 @@ export function composeInvoiceApplication(
   ];
 
   return { applicationId, effect: { statements, outboxMessages: [] } };
+}
+
+/** A finalized bill's issue date: finalize stamps it, so its absence is a broken record, not a refusal. */
+export function issueDateOfFinalizedInvoice(invoice: {
+  readonly id: string;
+  readonly issueDate: string | null;
+}): string {
+  if (invoice.issueDate === null) {
+    throw new Error(`unreachable: finalized invoice ${invoice.id} has no issue date`);
+  }
+  return invoice.issueDate;
 }
