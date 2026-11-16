@@ -54,6 +54,7 @@ import {
   presentMatterBalances,
   presentPaymentsApplied,
 } from "./billing-presenters.ts";
+import { presentMatterBillingGuide } from "./billing-guide-presenter.ts";
 import {
   FINANCIAL_REPORTS_PERMISSION,
   OPERATIONAL_REPORTS_PERMISSION,
@@ -63,6 +64,7 @@ import {
   readAgedWorkInProgress,
   readInvoices,
   readMatterBalances,
+  readMatterBillingGuide,
   readClientList,
   readMattersList,
   readOperationalVolumes,
@@ -77,6 +79,7 @@ import {
   type AgedWorkInProgress,
   type Invoices,
   type MatterBalances,
+  type MatterBillingGuide,
   type ClientList,
   type MattersList,
   type OperationalVolumes,
@@ -94,6 +97,7 @@ import {
   sampleAgedWorkInProgress,
   sampleInvoices,
   sampleMatterBalances,
+  sampleMatterBillingGuide,
   sampleClientList,
   sampleMattersList,
   sampleOperationalVolumes,
@@ -305,6 +309,21 @@ const agedExpenses = built<AgedWorkInProgress>({
   read: (fetchImpl, scope) => readAgedExpenses(fetchImpl, { locationId: scope.office }),
   present: (payload) => presentAgedExpenses(payload),
   samplePayload: sampleAgedExpenses,
+});
+
+const matterBillingGuide = built<MatterBillingGuide>({
+  id: "matter-billing-guide",
+  family: "financial",
+  name: "Matter Billing Guide",
+  answers:
+    "How each open and held matter is billed today: its fee agreement and terms, and the rates recorded against the matter or its client.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readMatterBillingGuide(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentMatterBillingGuide(payload),
+  samplePayload: sampleMatterBillingGuide,
 });
 
 const realization = built<Realization>({
@@ -521,6 +540,7 @@ const REPORT_LIST = [
   invoices,
   paymentsApplied,
   matterBalances,
+  matterBillingGuide,
   timekeeperProductivity,
   dailyTime,
   matterProductivity,

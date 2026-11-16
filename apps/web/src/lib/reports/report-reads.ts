@@ -4,7 +4,8 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload` and `reports.agedExpenses` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses` and
+ * `reports.matterBillingGuide` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -19,6 +20,7 @@ import {
   reportsDailyTime,
   reportsInvoices,
   reportsMatterBalances,
+  reportsMatterBillingGuide,
   reportsMatterProductivity,
   reportsMattersList,
   reportsOperationalVolumes,
@@ -222,6 +224,72 @@ export interface MattersList {
   totals: MatterStatusCounts;
   offices: { locationId: string | null; locationName: string | null; counts: MatterStatusCounts }[];
   matters: MatterListRow[];
+}
+
+/** A fee agreement's own terms, as the Matter Billing Guide carries them. */
+export interface MatterBillingTerms {
+  arrangementId: string;
+  version: number;
+  kind: "hourly" | "flat_fee" | "contingency" | "retainer";
+  flatFeeAmountMinor: number | null;
+  /** The share of a recovery at the rate scale: 3333 is 33.33%. */
+  contingencyShareE4: number | null;
+  contingencyBasis: "gross_recovery" | "net_after_costs" | null;
+  retainerTargetMinor: number | null;
+  retainerThresholdMinor: number | null;
+  advanceDepositDestination: "trust" | "operating" | null;
+  currency: string;
+  validFrom: string;
+  validTo: string | null;
+}
+
+/** A rate recorded against the matter or its client, in force today. */
+export interface MatterBillingRate {
+  rateId: string;
+  rateCardId: string;
+  rateCardName: string;
+  tier: "matter" | "client";
+  /** Per hour, at scale 4: 4500000 is 450.00. */
+  rateE4: number;
+  currency: string;
+  validFrom: string;
+  validTo: string | null;
+}
+
+export interface MatterBillingGuideRow {
+  matterId: string;
+  matterNumber: string | null;
+  matterTitle: string;
+  status: "open" | "hold";
+  clientEntityId: string | null;
+  clientName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  responsibleName: string | null;
+  /** Null: no agreement is recorded, and the matter bills hourly by absence. */
+  arrangement: MatterBillingTerms | null;
+  nextArrangement: MatterBillingTerms | null;
+  rates: MatterBillingRate[];
+}
+
+export interface MatterBillingKindCounts {
+  matterCount: number;
+  hourlyCount: number;
+  flatFeeCount: number;
+  contingencyCount: number;
+  retainerCount: number;
+  noneRecordedCount: number;
+}
+
+export interface MatterBillingGuide {
+  computedAt: string;
+  asOfDate: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: MatterBillingKindCounts;
+  matters: MatterBillingGuideRow[];
 }
 
 /** Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days since the work. */
@@ -608,6 +676,20 @@ export function readMattersList(
 ): Promise<ApiOutcome<MattersList>> {
   return outcome(() =>
     reportsMattersList({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** How each open and held matter is billed today. Live only. */
+export function readMatterBillingGuide(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<MatterBillingGuide>> {
+  return outcome(() =>
+    reportsMatterBillingGuide({
       fetch: fetchImpl,
       throwOnError: true,
       query: { locationId: present(query.locationId) },

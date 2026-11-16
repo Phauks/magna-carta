@@ -41,7 +41,8 @@ ADR-0072, ADR-0079.) **Invariants:**
   age (`readWorkInProgressByAge`, which shares the breakdown's one definition of unbilled), and
   `readMatterCaptions` for a report that gathers matters from several domains
 - `src/arrangements.ts` — the fee agreement: `setBillingArrangement` (a fee change is a NEW
-  version), the in-force/history reads, and `requireArrangementOfKind`
+  version), the in-force/history reads, `readBillingArrangementsOnDate` (every matter's version
+  governing one civil date, firm-wide, for the Matter Billing Guide), and `requireArrangementOfKind`
 - `src/flat-fee.ts` — `addFlatFeeToDraft`: one `flat_fee` line, contributing time claimed at ZERO
 - `src/contingency.ts` — `matter_recovery` record/void, `deriveContingencyFee` (always computed at
   composition, never stored), and `addContingencyFeeToDraft`

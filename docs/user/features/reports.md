@@ -45,6 +45,13 @@ the matters list, and the client list.
   its bills still owe, and what is held for it in trust. The three figures are shown side by side
   and never added together. It always shows the present, so it has no date to choose; choose an
   office to narrow it. Open a client to see their matters.
+- **Matter Billing Guide** shows how each open and on-hold matter is billed today: its fee
+  agreement (hourly, flat fee, contingency or evergreen retainer) with its terms, and any hourly
+  rates set on a rate card for that matter or for its client. A matter with no fee agreement shows
+  "None recorded", which means it is billed hourly at each person's usual rates. If a change to the
+  agreement is already recorded to start later, the guide says what it is and when it starts. The
+  tiles count the matters under each kind of agreement. It always shows the present; choose an
+  office to narrow it, and sort the list by any column.
 - **Matters List** lists every matter the firm has opened, open, on hold or closed, with its client,
   type, office, responsible attorney and the days it opened and closed, and counts them by office.
   Enquiries and consultations are not listed. It always shows the present; choose an office to

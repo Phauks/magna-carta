@@ -1,5 +1,5 @@
 import { snapshot, toDecimal } from "./dinero.ts";
-import { money, type NumberCurrency, type Money } from "./money.ts";
+import { money, type NumberCurrency, type Money, type Rate } from "./money.ts";
 
 // DB boundary: Money <-> minor units (cents). Money is always scale 2, so the snapshot amount IS minor units.
 export function toMinor(value: Money): number {
@@ -32,6 +32,25 @@ export function format(value: Money): string {
   // value. Converting through Number() would be lossy — float spacing near 2^53 cents (~1.6 cents)
   // exceeds half a cent, silently misprinting the last digits of amounts the package supports.
   // toDecimal returns string; the exact-value overload (ES2023.Intl) wants the numeric-string literal type.
+  return formatter.format(toDecimal(value) as Intl.StringNumericLiteral);
+}
+
+// A rate per hour at its own scale (four places, 4500000 is 450.00). It prints as money does where it
+// is a whole number of cents, and keeps its finer places where a rate card holds them, so nothing a
+// rate card says is rounded away on screen.
+const rateFormatters = new Map<string, Intl.NumberFormat>();
+
+export function formatRate(value: Rate): string {
+  const code = snapshot(value).currency.code;
+  let formatter = rateFormatters.get(code);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 4,
+    });
+    rateFormatters.set(code, formatter);
+  }
   return formatter.format(toDecimal(value) as Intl.StringNumericLiteral);
 }
 

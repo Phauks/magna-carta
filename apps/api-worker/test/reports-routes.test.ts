@@ -1,4 +1,4 @@
-import { civilDateOf } from "@magna-carta/civil-time/civil-date";
+import { civilDateOf, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
@@ -440,6 +440,36 @@ describe("GET /api/v1/reports/matters-list", () => {
   it("refuses a member without reports:operational at the chokepoint", async () => {
     const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
     expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/matter-billing-guide", () => {
+  const url = "https://example.com/api/v1/reports/matter-billing-guide";
+
+  it("answers the Owner with a live guide whose kind counts cover every matter listed", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      asOfDate: string;
+      totals: { matterCount: number };
+      matters: unknown[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(isCivilDate(report.asOfDate)).toBe(true);
+    expect(report.matters).toHaveLength(report.totals.matterCount);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+
+  it("refuses an office that is not a location identifier", async () => {
+    const response = await SELF.fetch(`${url}?locationId=not-an-identifier`, {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
   });
 });
 
