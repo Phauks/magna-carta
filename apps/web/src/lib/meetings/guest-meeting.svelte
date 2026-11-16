@@ -108,6 +108,7 @@
   import RecordingMark from "./screen/recording-mark.svelte";
   import RecordingNotice from "./screen/recording-notice.svelte";
   import type { Failure } from "$lib/api/problem.ts";
+  import { opensBeside, reserveBeside } from "$lib/navigation/open-beside.ts";
   import type { MeetingMessage } from "@magna-carta/api-client";
 
   let {
@@ -218,7 +219,7 @@
     if (held === null) return;
     fileFailure = null;
     fileBlocked = null;
-    const tab = window.open("", "_blank");
+    const tab = reserveBeside("file");
     const outcome = await openGuestSharedFile(held, fileId);
     if (outcome.kind !== "ok") {
       tab?.close();
@@ -579,8 +580,7 @@
           <a
             class="underline"
             href={fileBlocked.url}
-            target="_blank"
-            rel="noopener noreferrer"
+            {...opensBeside("file")}
             onclick={() => (fileBlocked = null)}>Open {fileBlocked.name}</a
           >
         </p>
