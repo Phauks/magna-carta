@@ -754,3 +754,40 @@ describe("GET /api/v1/reports/invoices and /payments-applied", () => {
     });
   }
 });
+
+describe("GET /api/v1/reports/revenue", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/revenue?${query}`;
+
+  it("answers the Owner with a stamped revenue report and its three breakdowns", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      reproducibilityStatement: string;
+      attributionStatement: string;
+      totals: { billedMinor: number; collectedMinor: number; creditedMinor: number };
+      matterTypes: unknown[];
+      responsibleAttorneys: unknown[];
+    };
+    expect(body.reproducibilityStatement.length).toBeGreaterThan(0);
+    expect(body.attributionStatement.length).toBeGreaterThan(0);
+    expect(typeof body.totals.collectedMinor).toBe("number");
+    expect(Array.isArray(body.matterTypes)).toBe(true);
+    expect(Array.isArray(body.responsibleAttorneys)).toBe(true);
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

@@ -456,3 +456,31 @@ export const AgedWorkClientRow = z.object({
   figures: AgedWorkFigures,
   matters: z.array(AgedWorkMatterRow),
 });
+
+// REVENUE. Billed and collected in a period; credited (credit notes and write-offs) beside them and
+// never counted as collected.
+export const RevenueFigures = z.object({
+  billedMinor: z.number().int(),
+  collectedMinor: z.number().int(),
+  creditedMinor: z.number().int(),
+});
+
+export const RevenueOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: RevenueFigures,
+});
+
+export const RevenueMatterTypeRow = z.object({
+  matterTypeId: z.string().nullable(),
+  matterTypeName: z.string().nullable(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+});
+
+export const RevenueResponsibleAttorneyRow = z.object({
+  responsibleMemberId: z.string(),
+  responsibleName: z.string().nullable(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+});
