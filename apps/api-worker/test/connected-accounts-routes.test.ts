@@ -576,7 +576,11 @@ describe("a Google account, through the same routes", () => {
     expect(outcomeOf(response)).toBe("connected");
     expect(providerOf(response)).toBe("microsoft");
 
-    const { accounts } = await list(memberCookie);
+    // The test's clock stands still, so the two were connected at the same instant and their
+    // order is not the point here.
+    const accounts = (await list(memberCookie)).accounts.toSorted((left, right) =>
+      left.provider.localeCompare(right.provider),
+    );
     expect(accounts).toMatchObject([
       { provider: "google", accountLabel: "jane@gmail.example", status: "connected" },
       { provider: "microsoft", accountLabel: "jane@firm.example", status: "connected" },
@@ -616,8 +620,10 @@ describe("a Google account, through the same routes", () => {
       );
     expect((await settings("microsoft")).account?.provider).toBe("microsoft");
     expect((await settings("google")).account?.provider).toBe("google");
-    // With no provider named, the account connected first.
-    expect((await settings()).account?.provider).toBe("google");
+    // With no provider named, the account the member's list puts first.
+    expect((await settings()).account?.provider).toBe(
+      (await list(memberCookie)).accounts[0]?.provider,
+    );
   });
 
   it("signing in to Google again replaces that account in place and leaves Outlook alone", async () => {
