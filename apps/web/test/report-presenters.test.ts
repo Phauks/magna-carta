@@ -24,10 +24,12 @@ import {
   presentTaskWorkload,
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
+import { presentChangeLog } from "../src/lib/reports/change-log-presenter.ts";
 import { moneyText } from "../src/lib/reports/report-cells.ts";
 import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleChangeLog,
   sampleAgedWorkInProgress,
   sampleClientList,
   sampleDailyTime,
@@ -305,5 +307,49 @@ describe("the aged expenses presenter", () => {
     expect(presentation.sections.find((section) => section.id === "by-client")?.whenEmpty).toBe(
       "No client has unbilled costs.",
     );
+  });
+});
+
+describe("the change log presenter", () => {
+  const report = sampleChangeLog();
+  const presentation = presentChangeLog(report, IDENTITY_CAPTIONS);
+
+  it("opens with the payload's counts by kind of record, the total last", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.label)).toEqual([
+      "People and organizations",
+      "Matters",
+      "Accounts",
+      "Total changes",
+    ]);
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [
+        report.totals.directoryCount,
+        report.totals.matterCount,
+        report.totals.accountCount,
+        report.totals.totalCount,
+      ].map(String),
+    );
+    expect(tiles[3]?.tone).toBe("total");
+    expect(presentation.reproducible).toBe(report.reproducible);
+  });
+
+  it("puts every person on a row with their own counts, ruled off with the payload's totals", () => {
+    const people = presentation.sections.find((section) => section.id === "by-person");
+    expect(people?.rows.map((row) => numberOf(row[4]))).toEqual(
+      report.people.map((person) => person.totalCount),
+    );
+    expect(people?.rows.at(-1)?.[0]).toBe("System");
+    expect(numberOf(people?.totalRow?.[4])).toBe(report.totals.totalCount);
+  });
+
+  it("lists every change as served, with its label and record, and never the event's own key", () => {
+    const changes = presentation.sections.find((section) => section.id === "changes");
+    expect(changes?.headers).toEqual(["When", "Who", "What", "Record"]);
+    expect(changes?.sortable).toBe(true);
+    expect(changes?.rows.map((row) => [row[2], row[3]])).toEqual(
+      report.entries.map((entry) => [entry.eventLabel, entry.subjectId]),
+    );
+    expect(changes?.rows.flat()).not.toContain("matter.closed");
   });
 });
