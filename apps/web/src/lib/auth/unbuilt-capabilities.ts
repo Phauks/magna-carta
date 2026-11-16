@@ -51,7 +51,7 @@ export const UNBUILT_CAPABILITIES: readonly UnbuiltCapability[] = [
     id: "human-verification",
     label: "Human verification on the anonymous endpoints",
     missing:
-      "The server verifies a Turnstile solution on the two joining endpoints, but nothing here mints one and the sign-in endpoints are not gated at all — so this row is a placeholder, not a widget.",
+      "The server verifies a Turnstile solution on the two joining endpoints, but nothing here mints one and the sign-in endpoints aren't checked at all. This row is a placeholder.",
   },
   {
     id: "second-factor-choice",

@@ -405,7 +405,7 @@
     {#if fieldsOpen}
       <div class="grid grid-cols-2 gap-12 @md:grid-cols-4">
         <div class="flex flex-col gap-4">
-          <DatePicker
+          <DatePicker necessity="optional"
             label="Date"
             value={civilDateValue(occurredOnText)}
             onValueChange={(next) => (occurredOnText = civilDateTextOrEmpty(next))}
@@ -413,7 +413,7 @@
           />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="note-occurred-at">Time</Label>
+          <Label necessity="optional" for="note-occurred-at">Time</Label>
           <Input
             id="note-occurred-at"
             type="time"
@@ -435,7 +435,7 @@
     {/if}
 
     <div class="flex flex-col gap-4">
-      <Label for="note-body">Note</Label>
+      <Label necessity="required" for="note-body">Note</Label>
       <Textarea
         id="note-body"
         rows={8}

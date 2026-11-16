@@ -53,7 +53,7 @@
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="recovery-code">Recovery Code</Label>
+        <Label necessity="required" for="recovery-code">Recovery Code</Label>
         <Input
           bind:ref={codeFieldReference}
           id="recovery-code"

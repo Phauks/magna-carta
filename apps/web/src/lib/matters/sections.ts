@@ -339,8 +339,7 @@ export const matterSections: readonly MatterSection[] = [
      */
     searchSource: null,
     searchWaitingOn:
-      "A review set is a separate corpus behind its own access list; the matter's search never " +
-      "reaches it",
+      "Review sets have their own access list, so the matter's search doesn't include them",
     /*
      * Two kinds, so the control reads the bare "New" and the menu names them: a review set, and a
      * load into one that exists. It is also the one section where a noun would not have fit — the

@@ -95,7 +95,7 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <LabelledField
+    <LabelledField necessity="required"
       label="Reason"
       hint="What the member who proposed this payment reads."
       error={fieldRefusal(failure?.failure.problem ?? null, "reason")}

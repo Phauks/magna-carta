@@ -151,7 +151,7 @@
     <!-- Every N days/weeks/months/years: one fact on one line, as the timing fields read. -->
     <FieldRow columns={2}>
       <div class="flex flex-col gap-8">
-        <Label for="{idPrefix}-repeat-interval">Every</Label>
+        <Label necessity="required" for="{idPrefix}-repeat-interval">Every</Label>
         <Input
           id="{idPrefix}-repeat-interval"
           type="number"

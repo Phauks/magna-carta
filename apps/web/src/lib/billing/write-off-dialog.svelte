@@ -131,11 +131,11 @@
 
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-amount">Amount</Label>
+          <Label necessity="required" for="{fieldPrefix}-amount">Amount</Label>
           <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
         </div>
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Effective Date"
             value={civilDateValue(effectiveDate)}
             onValueChange={(next) => (effectiveDate = civilDateTextOrEmpty(next))}
@@ -145,7 +145,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-reason">Reason</Label>
+        <Label necessity="required" for="{fieldPrefix}-reason">Reason</Label>
         <Input
           id="{fieldPrefix}-reason"
           placeholder={placeholderOf("Reason")}

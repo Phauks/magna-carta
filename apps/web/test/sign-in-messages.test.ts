@@ -53,7 +53,7 @@ describe("copy states no duration the configuration does not", () => {
   it("builds the rotation interval from the policy constant", () => {
     expect(VERIFICATION_CODE_PERIOD_SECONDS).toBe(30);
     expect(VERIFICATION_CODE_REJECTED).toBe(
-      `That code didn't verify. Codes rotate every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds — enter the current one.`,
+      `That code didn't verify. Codes rotate every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds. Enter the current one.`,
     );
   });
 

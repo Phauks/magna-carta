@@ -101,7 +101,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField label="Legal name">
+      <LabelledField necessity="required" label="Legal name">
         {#snippet children({ props })}
           <Input
             {...props}
@@ -111,7 +111,7 @@
           />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Display name">
+      <LabelledField necessity="optional" label="Display name">
         {#snippet children({ props })}
           <Input
             {...props}

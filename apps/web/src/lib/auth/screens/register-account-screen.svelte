@@ -105,7 +105,7 @@
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="register-email">Email Address</Label>
+        <Label necessity="required" for="register-email">Email Address</Label>
         <Input
           bind:ref={emailFieldReference}
           id="register-email"
@@ -122,7 +122,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="register-password">Password</Label>
+        <Label necessity="required" for="register-password">Password</Label>
         <PasswordInput
           id="register-password"
           name="new-password"
@@ -136,7 +136,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="register-password-again">Verify Password</Label>
+        <Label necessity="required" for="register-password-again">Verify Password</Label>
         <PasswordInput
           id="register-password-again"
           name="new-password-again"

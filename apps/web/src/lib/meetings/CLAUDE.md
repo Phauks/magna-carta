@@ -267,8 +267,10 @@ chat's: `chat-files.ts` files an upload into "Meeting files" at the matter root 
 once, found again when a make races) through the file manager's own upload, and only then is the
 line said; `screen/meeting-chat-file-dialog.svelte` picks an existing one with
 `MatterDocumentPicker`. The panel offers the paperclip only where the room screen passes a
-`matterId` (a meeting on a matter event); the link is the file's own download route, and a guest's
-copy of the line carries no file.
+`matterId` (a meeting on a matter event); the link is the file's own download route. A guest opens it while in the room through
+`openGuestSharedFile` (the guest page passes `onOpenFile`, so the panel draws a button, not a link):
+the tab is opened at the press and sent to the signed address that comes back, because the grant is
+a header a link cannot carry.
 
 **Beside them, and not part of the room:** `meetings-api.ts` (every read and write, mirroring the
 contract, chat's three and the calls for polls and questions included, with the seams those two

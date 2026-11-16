@@ -322,8 +322,11 @@ produces no statements rather than moving an instant somebody's record already c
 references `file`; `readShareableMeetingFile` accepts a live file on the matter of the meeting's
 matter event and nothing else, so a meeting on a firm event shares no file, and every other answer is
 `meeting-message-file-unavailable` (a 404, so a guessed handle learns nothing). The read names the
-file only while the line is not taken back and the file is not deleted. A guest posts no file, and
-the guest routes blank `attachedFile` on what they read, because the file's route is a member's.
+file only while the line is not taken back and the file is not deleted. A guest posts no file. A guest
+in the room opens a shared one through `GET /api/v1/guest/meeting/files?fileId=`, which answers only
+where `isFileSharedInMeeting` holds (a line not taken back points at it, and it is still live on the
+meeting's matter) and the current version is clean; the address comes back as data and the download
+is audited as `file.downloaded_by_meeting_guest` with no member behind it.
 
 ## Polls and the question queue are content on chat's terms, and a poll's anonymity is two tables
 

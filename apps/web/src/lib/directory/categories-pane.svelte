@@ -359,7 +359,7 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <LabelledField label={FIELD_NAME}>
+    <LabelledField necessity="required" label={FIELD_NAME}>
       {#snippet children({ props })}
         <Combobox.Root
           type="single"

@@ -126,7 +126,7 @@
   {/snippet}
   {#snippet fields({ busy })}
     {#if step === "password"}
-      <LabelledField label="Password">
+      <LabelledField necessity="required" label="Password">
         {#snippet children({ props })}
           <PasswordInput
             {...props}
@@ -149,7 +149,7 @@
         </div>
 
         <div class="flex flex-col gap-8">
-          <Label for="two-factor-setup-code">Code From Your App</Label>
+          <Label necessity="required" for="two-factor-setup-code">Code From Your App</Label>
           <VerificationCodeInput
             inputId="two-factor-setup-code"
             bind:value={code}

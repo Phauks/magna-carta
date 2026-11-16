@@ -180,7 +180,7 @@ describe("a paste from the Build Information panel", () => {
     // "Absent" and "not yours to run" are different facts and only one of them is about the
     // deployment.
     const report = buildPanelReport(state());
-    expect(lineFor(report, "check")).toContain("may not run it");
+    expect(lineFor(report, "check")).toContain("can't run it");
   });
 
   it("says the aggregate was never attempted on a signed-out panel", () => {

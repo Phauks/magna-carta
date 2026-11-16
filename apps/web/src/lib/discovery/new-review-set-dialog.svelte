@@ -155,7 +155,7 @@
     <div class="flex flex-col gap-16">
       {#if chooseMatter}
         <div class="flex flex-col gap-8">
-          <Label for="new-review-set-matter">Matter</Label>
+          <Label necessity="required" for="new-review-set-matter">Matter</Label>
           <Combobox.Root
             type="single"
             items={matters.map((matter) => ({ value: matter.id, label: matterLine(matter) }))}
@@ -184,7 +184,7 @@
       {/if}
 
       <div class="flex flex-col gap-8">
-        <Label for="new-review-set-name">Name</Label>
+        <Label necessity="required" for="new-review-set-name">Name</Label>
         <Input id="new-review-set-name" disabled={busy} bind:value={name} />
         <p class="text-text-muted text-sm">
           A name the firm would use in a letter, such as "plaintiff's March production".

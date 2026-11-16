@@ -54,7 +54,7 @@
   {#snippet children()}
     <form onsubmit={onContinue} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="found-firm-name">Firm Name</Label>
+        <Label necessity="required" for="found-firm-name">Firm Name</Label>
         <Input
           bind:ref={firmNameFieldReference}
           id="found-firm-name"

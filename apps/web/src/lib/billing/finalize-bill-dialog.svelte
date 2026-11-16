@@ -139,7 +139,7 @@
 
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Issue Date"
             value={civilDateValue(issueDate)}
             onValueChange={(next) => (issueDate = civilDateTextOrEmpty(next))}
@@ -147,7 +147,7 @@
           />
         </div>
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Due Date"
             value={civilDateValue(dueDate)}
             onValueChange={(next) => (dueDate = civilDateTextOrEmpty(next))}
