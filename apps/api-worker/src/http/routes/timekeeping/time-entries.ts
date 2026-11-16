@@ -18,11 +18,7 @@ import {
 } from "@magna-carta/timekeeping/time-entry-service";
 import type { DraftPatch } from "@magna-carta/timekeeping/time-entry-statements";
 import { cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
-import {
-  readMatterClientId,
-  readTimekeeperRateRole,
-  resolveRate,
-} from "@magna-carta/timekeeping/rate-resolution";
+import { readTimekeeperRateRole, resolveRate } from "@magna-carta/timekeeping/rate-resolution";
 import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/rounding";
 import {
   incrementMinutesDefinition,
@@ -1041,7 +1037,6 @@ async function resolveCaptureValues(
 
   const rate = await resolveRate(database, {
     matterId: input.matterId,
-    clientId: await readMatterClientId(database, input.matterId),
     timekeeperUserId: input.timekeeperUserId,
     roleId: rateRole.roleId,
     parentRoleId: rateRole.parentRoleId,
@@ -1646,7 +1641,6 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
             );
             const resolved = await resolveRate(firm.firmDatabase, {
               matterId: ownerRow.matter_id,
-              clientId: await readMatterClientId(firm.firmDatabase, ownerRow.matter_id),
               timekeeperUserId: ownerRow.timekeeper_user_id,
               roleId: rateRole.roleId,
               parentRoleId: rateRole.parentRoleId,

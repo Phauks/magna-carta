@@ -5,9 +5,10 @@ audience: public
 
 **Client-tier rates now price time, and billing refuses an application dated before its bill.**
 Every path that resolves a time entry's rate (capture, an edit that changes the rate inputs, the
-timer's stop, and re-rating unbilled drafts) now passes the matter's client party, read by
-`readMatterClientId` in `packages/timekeeping/src/rate-resolution.ts`; before this each passed no
-client, so the client tier of a rate card was never reached. `composeInvoiceApplication` now takes
+timer's stop, and re-rating unbilled drafts) now prices with the matter's client party: `resolveRate`
+in `packages/timekeeping/src/rate-resolution.ts` reads it (`readMatterClientId`) when the caller
+names no client. Before this every path passed no client, so the client tier of a rate card was never
+reached. `composeInvoiceApplication` now takes
 the bill's issue date and refuses an application dated before it
 (`application-before-invoice-issued`) and a reversal dated before what it reverses
 (`application-reversal-before-original`); write-offs, credit notes, client credits and transfers

@@ -466,6 +466,13 @@ describe("the client a matter's time is priced for", () => {
     expect(
       await resolveRate(database, { ...baseContext(rateCardId), matterId, clientId }),
     ).toMatchObject({ rateSource: "client", rateE4: 2_500_000 });
+
+    // A capture path names no client: the engine reads the matter's own.
+    const { clientId: _named, ...withoutClient } = baseContext(rateCardId);
+    expect(await resolveRate(database, { ...withoutClient, matterId })).toMatchObject({
+      rateSource: "client",
+      rateE4: 2_500_000,
+    });
   });
 
   it("is none for a matter with no client party, or one whose client was removed", async () => {

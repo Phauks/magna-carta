@@ -1,13 +1,15 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { RATE_CARD_TABLE, RATE_TABLE, type RateTier } from "./rate-statements.ts";
 
-// The capture-time inputs the rate engine needs. clientId is derived from the matter and roleId from
+// The capture-time inputs the rate engine needs. clientId is derived from the matter (left out, the
+// engine reads the matter's client party itself, which is what every capture path does) and roleId from
 // the timekeeper's member record at the call site (re-derivable for an audit of rate_source, not
 // snapshotted separately). rateCardId names which card resolves the rate (a matter may be on a capped
 // card); overrideE4 is a per-entry manual rate that sits above every stored tier.
 export interface RateResolutionContext {
   readonly matterId: string;
-  readonly clientId: string | null;
+  // Left out: the matter's client party (`readMatterClientId`). Null: price with no client tier.
+  readonly clientId?: string | null;
   readonly timekeeperUserId: string;
   readonly roleId: string | null;
   // The parent of roleId where roleId is a sub-role (Partner under Attorney), so a card that prices
@@ -38,7 +40,7 @@ interface Candidate {
 function candidatesFor(context: RateResolutionContext): Candidate[] {
   const candidates: Candidate[] = [];
   candidates.push({ tier: "matter", scopedId: context.matterId, source: "matter" });
-  if (context.clientId !== null) {
+  if (context.clientId !== undefined && context.clientId !== null) {
     candidates.push({ tier: "client", scopedId: context.clientId, source: "client" });
   }
   candidates.push({ tier: "timekeeper", scopedId: context.timekeeperUserId, source: "timekeeper" });
@@ -88,6 +90,12 @@ export async function resolveRate(
   // no card is treated the same — the override is only meaningful as a rate ON a card.
   if (context.rateCardId === undefined) return { noRate: true };
   const rateCardId = context.rateCardId;
+  if (context.clientId === undefined) {
+    return resolveRate(database, {
+      ...context,
+      clientId: await readMatterClientId(database, context.matterId),
+    });
+  }
 
   if (context.overrideE4 !== undefined) {
     // An override sits above every stored tier; it carries no stored currency, so it inherits the
