@@ -423,6 +423,24 @@ export async function listRequestsForFile(
  * The requests still out for signing, oldest deadline first, for the sweep that reminds and
  * expires them. Bounded: a firm with more than this many open is caught up over the next passes.
  */
+/**
+ * The requests on a file still waiting on one member's own signature, newest first: out for
+ * signing, naming them as a colleague who signs in the firm, and their part asked and unfinished.
+ */
+export async function listWaitingOnMember(
+  database: SqlDatabase,
+  fileId: FileId,
+  userId: UserId,
+): Promise<SigningRequestId[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT request.id AS id FROM ${SIGNING_REQUEST_TABLE} AS request JOIN ${SIGNING_SIGNER_TABLE} AS signer ON signer.request_id = request.id WHERE request.file_id = ? AND request.status = 'sent' AND signer.attribution_level = 'firm-authenticated' AND signer.user_id = ? AND signer.status IN ('notified', 'opened') ORDER BY request.sent_at DESC, request.id DESC LIMIT 20`,
+    )
+    .bind(fileId, userId)
+    .all<{ id: string }>();
+  return results.map((row) => row.id as SigningRequestId);
+}
+
 export async function listOpenRequests(
   database: SqlDatabase,
   limit = 200,

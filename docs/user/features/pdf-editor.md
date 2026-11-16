@@ -177,5 +177,9 @@ by themselves every so many days to whoever's turn it is, and a request past its
 as expired. A link stops working when the
 request is cancelled, declined or past its last day, and the page says which.
 
-Colleagues you add as signers cannot sign inside Magna Carta yet, so a request with a colleague as
-a signer waits at their turn until that arrives.
+**When a colleague signs.** A colleague you add as a signer is not emailed a link. When it is their
+turn, a notification tells them a document is waiting for their signature, and opening it takes
+them to the signing page inside Magna Carta. They can also open the document in the PDF Editor,
+where the Signature tab shows **Sign Now** while the request waits on them. They agree, adopt a
+signature and finish the same way an outside signer does, without a code, because they are already
+signed in. A reminder reaches them as another notification.

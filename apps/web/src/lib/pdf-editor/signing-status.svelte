@@ -8,6 +8,7 @@
    */
   import Bell from "@lucide/svelte/icons/bell";
   import Ban from "@lucide/svelte/icons/ban";
+  import Signature from "@lucide/svelte/icons/signature";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -19,6 +20,7 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { cancelSigningRequest, remindSigners, type SigningRequestDetail } from "./signing-api.ts";
   import { attributionLabel } from "./signing-draft.ts";
+  import { listMySigningRequests } from "$lib/signing/signer-api.ts";
 
   let {
     request,
@@ -34,6 +36,22 @@
   let failure = $state<StatedFailure | null>(null);
   let confirmingCancel = $state(false);
   let cancelReason = $state("");
+
+  /*
+   * Whether this request waits on the person looking at it. The server decides, from the session,
+   * so the tab never compares user identifiers itself; a failed read just leaves the button away.
+   */
+  let waitsOnMe = $state(false);
+  $effect(() => {
+    const { id, fileId, status } = request;
+    if (status !== "sent") {
+      waitsOnMe = false;
+      return;
+    }
+    void listMySigningRequests(fileId).then((outcome) => {
+      waitsOnMe = outcome.kind === "ok" && outcome.value.includes(id);
+    });
+  });
 
   const STATUS_LABEL: Record<SigningRequestDetail["status"], string> = {
     draft: "Draft",
@@ -118,6 +136,12 @@
     </div>
     <span class="ms-auto flex gap-8">
       {#if request.status === "sent"}
+        {#if waitsOnMe}
+          <Button variant="primary" href={`/documents/${request.fileId}/sign`}>
+            <Signature class="size-16" aria-hidden="true" />
+            Sign Now
+          </Button>
+        {/if}
         <Button variant="secondary" disabled={busy !== null || next === null} onclick={remind}>
           <Bell class="size-16" aria-hidden="true" />
           {busy === "reminding" ? "Sending" : "Send Reminder"}

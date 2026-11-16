@@ -13,6 +13,7 @@ import { FILE_MANAGER_OUTBOX_TOPICS } from "@magna-carta/file-manager/topics";
 import { TASK_OUTBOX_TOPICS } from "@magna-carta/tasks/notifications";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_OUTBOX_TOPICS } from "@magna-carta/matters/topics";
+import { SIGNING_MEMBER_TURN_TOPIC } from "@magna-carta/signing/request";
 import { LOCALLY_NAMED_EMISSION_POINTS } from "../src/emission-points.ts";
 import { validateFactsSchema } from "../src/facts-grammar.ts";
 import {
@@ -51,6 +52,7 @@ const PRODUCING_PACKAGE_TOPICS = new Set<string>([
   LEDGER_ENTRY_POSTED_TOPIC,
   INVOICE_FINALIZED_TOPIC,
   INVOICE_VOIDED_TOPIC,
+  SIGNING_MEMBER_TURN_TOPIC,
 ]);
 
 // The emission points a COMPARISON kind may name. The calendar declares its own set — the deadline
