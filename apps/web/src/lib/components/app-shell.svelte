@@ -402,7 +402,7 @@
                     </span>
                     <Sidebar.MenuButton
                       aria-roledescription="Reorderable sidebar destination"
-                      aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
+                      aria-label="{destination.label}. Alt plus Arrow Up or Arrow Down moves it"
                       aria-disabled={fixed ? "true" : undefined}
                       data-arrived={isNewArrival(destination.id) ? "true" : undefined}
                       onkeydown={(event) => onEditKeydown(event, group, destination)}

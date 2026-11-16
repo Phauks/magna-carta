@@ -25,7 +25,7 @@
     items,
     heading = "Placeholders found in this document",
     headingLevel = 3,
-    guidance = "These are suggestions read from the document you uploaded. Nothing has been changed — confirm each one you want to use.",
+    guidance = "These are suggestions read from the document you uploaded. Nothing has changed yet. Confirm each one you want to use.",
     emptyMessage = "No placeholders needing review were found in this document.",
     onToggle,
     class: className,
