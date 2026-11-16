@@ -1690,6 +1690,12 @@ The owner, on the person record window:
   mistyped row is retired (soft-deleted, still in the audit log) and is not listed, searched or
   conflict-checked as a former name. A name the person really held is kept by adding it with Add
   Other Name.
+- **"We shouldn't have two name fields? They look different"** and **"Add other name should be same
+  as add new name"** (2026-11-16). Every place a person's name is typed renders one component,
+  `sections/person-name-fields.svelte`: first, middle and last on one row, prefix and suffix
+  beneath. The record's Add Other Name sits under the same "Other Name" kind field New Person uses,
+  with no grey panel, and while Edit Name is open the names list steps aside, so the name is not
+  shown twice.
 - Found while checking at phone width: the section rail and a side column squeezed the form to a
   sliver. Below the medium breakpoint the rail steps aside and a panel's side column stands under
   the form (`ActionDialog`), so nothing scrolls sideways.
