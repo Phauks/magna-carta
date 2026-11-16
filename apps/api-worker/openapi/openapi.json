@@ -17471,6 +17471,20 @@
           "reason"
         ]
       },
+      "MySigningRequestsOnFile": {
+        "type": "object",
+        "properties": {
+          "requestIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "requestIds"
+        ]
+      },
       "SessionLaunchResponse": {
         "type": "object",
         "properties": {
@@ -38860,6 +38874,21 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "GuestMeetingFileAddress": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "name"
         ]
       },
       "MeetingRoomInspection": {
@@ -80055,6 +80084,917 @@
           },
           "410": {
             "description": "The link was replaced, or the request is no longer out for signing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/my-signing-requests": {
+      "get": {
+        "description": "The requests on a file that name the signed-in member as a signer and are still out with their part unfinished, newest first. Empty when nothing waits on them.",
+        "operationId": "signing.listMyRequests",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.listMyRequests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySigningRequestsOnFile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part": {
+      "get": {
+        "description": "The signed-in member's own part of a request: who sent it, the document's title and message, the agreement to sign electronically, their own fields, and where they stand. Writes nothing.",
+        "operationId": "signing.readMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.readMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/document": {
+      "get": {
+        "description": "The exact PDF version that was sent for signature, for the member to read.",
+        "operationId": "signing.readMyDocument",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.readMyDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The document",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/opening": {
+      "post": {
+        "description": "Records that the member opened the request, the first time only.",
+        "operationId": "signing.openMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.openMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/consent": {
+      "post": {
+        "description": "Records that the member agreed to sign electronically, under the disclosure version they were shown.",
+        "operationId": "signing.consentMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.consentMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/adoption": {
+      "post": {
+        "description": "Keeps the signature (and initials) the member adopted, as PNG images in the firm's own storage.",
+        "operationId": "signing.adoptMySignature",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.adoptMySignature",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerAdoption"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/finish": {
+      "post": {
+        "description": "Signs: every one of the member's fields is checked, their answers recorded, and the request moves on to the next signer or to complete.",
+        "operationId": "signing.finishMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.finishMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerFinish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerOutcome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/declining": {
+      "post": {
+        "description": "Declines to sign, which ends the request for everyone; the reason is kept on its record.",
+        "operationId": "signing.declineMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.declineMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerDecline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Declined",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerOutcome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -124104,6 +125044,124 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guest/meeting/files": {
+      "get": {
+        "description": "A short-lived address for a file shared in the meeting's chat, for a guest who is in the room. Answered only for a file a line of this meeting points at that has not been taken back, still on the meeting's matter, whose current version is clean; anything else is 404.",
+        "operationId": "guest.openSharedFile",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.openSharedFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "grant",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$",
+              "description": "The shared file, as the chat line names it."
+            },
+            "required": true,
+            "description": "The shared file, as the chat line names it.",
+            "name": "fileId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else."
+            },
+            "required": false,
+            "description": "The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Where to fetch the file, for the next few minutes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestMeetingFileAddress"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request is refused — a socket upgrade from another site",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource — the answer to a missing or unverifiable credential",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended, the link is used up, or the guest is not in the meeting",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
             "content": {
               "application/problem+json": {
                 "schema": {

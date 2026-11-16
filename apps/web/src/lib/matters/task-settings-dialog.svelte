@@ -182,7 +182,7 @@
             }}
           >
             <div class="flex flex-col gap-4">
-              <Label for="task-settings-new-list">New List</Label>
+              <Label necessity="required" for="task-settings-new-list">New List</Label>
               <Input id="task-settings-new-list" bind:value={newListName} disabled={saving} />
             </div>
             <Button type="submit" variant="secondary" disabled={saving || newListName.trim() === ""}>
@@ -207,7 +207,7 @@
                 }}
               >
                 <div class="flex flex-col gap-4">
-                  <Label for="task-settings-list-name">Name</Label>
+                  <Label necessity="required" for="task-settings-list-name">Name</Label>
                   <Input id="task-settings-list-name" bind:value={listName} disabled={saving} />
                 </div>
                 <Button
@@ -319,7 +319,7 @@
                 }}
               >
                 <div class="flex flex-col gap-4">
-                  <Label for="task-settings-new-status">New Status</Label>
+                  <Label necessity="required" for="task-settings-new-status">New Status</Label>
                   <Input id="task-settings-new-status" bind:value={newStatusName} disabled={saving} />
                 </div>
                 <Button type="submit" variant="secondary" disabled={saving || newStatusName.trim() === ""}>
@@ -333,7 +333,7 @@
               {@const targets = lists.filter((other) => other.id !== list.id)}
               <div class="flex flex-wrap items-end gap-8 border-t border-border-subtle pt-12">
                 <div class="flex min-w-48 flex-col gap-4">
-                  <Label for="task-settings-retire-target">Move Its Tasks To</Label>
+                  <Label necessity="required" for="task-settings-retire-target">Move Its Tasks To</Label>
                   <Select.Root type="single" bind:value={retireTargetId}>
                     <Select.Trigger id="task-settings-retire-target">
                       {targets.find((other) => other.id === retireTargetId)?.name ?? "Choose a list"}
@@ -426,7 +426,7 @@
           }}
         >
           <div class="flex flex-col gap-4">
-            <Label for="task-settings-new-team">New Team</Label>
+            <Label necessity="required" for="task-settings-new-team">New Team</Label>
             <Input id="task-settings-new-team" bind:value={newTeamName} disabled={saving} />
           </div>
           <Button type="submit" variant="secondary" disabled={saving || newTeamName.trim() === ""}>

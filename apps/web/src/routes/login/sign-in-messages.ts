@@ -24,7 +24,7 @@ export const CREDENTIALS_REJECTED =
   "That email and password combination doesn't match our records. Check both and try again.";
 
 /** A rejected authenticator code. */
-export const VERIFICATION_CODE_REJECTED = `That code didn't verify. Codes rotate every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds — enter the current one.`;
+export const VERIFICATION_CODE_REJECTED = `That code didn't verify. Codes rotate every ${VERIFICATION_CODE_PERIOD_SECONDS} seconds. Enter the current one.`;
 
 /*
  * A rejected recovery code. This one names WHY a code that was once valid may not be — each works

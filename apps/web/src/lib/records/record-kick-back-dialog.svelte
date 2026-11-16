@@ -98,7 +98,7 @@
 
   {#snippet fields({ busy }: { busy: boolean })}
     <div class="flex flex-col gap-8">
-      <Label for="{fieldPrefix}-reason">Reason</Label>
+      <Label necessity="required" for="{fieldPrefix}-reason">Reason</Label>
       <Textarea
         id="{fieldPrefix}-reason"
         rows={3}

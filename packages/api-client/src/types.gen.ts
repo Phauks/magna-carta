@@ -3955,6 +3955,10 @@ export type SignerDecline = {
     reason: string;
 };
 
+export type MySigningRequestsOnFile = {
+    requestIds: Array<string>;
+};
+
 export type SessionLaunchResponse = {
     editorUrl: string;
     editorOrigin: string;
@@ -8945,6 +8949,11 @@ export type GuestAcknowledged = {
 
 export type SendGuestMeetingMessageRequest = {
     body: string;
+};
+
+export type GuestMeetingFileAddress = {
+    url: string;
+    name: string;
 };
 
 export type MeetingRoomInspection = {
@@ -23972,6 +23981,398 @@ export type SignerDeclineResponses = {
 };
 
 export type SignerDeclineResponse = SignerDeclineResponses[keyof SignerDeclineResponses];
+
+export type SigningListMyRequestsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/my-signing-requests';
+};
+
+export type SigningListMyRequestsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningListMyRequestsError = SigningListMyRequestsErrors[keyof SigningListMyRequestsErrors];
+
+export type SigningListMyRequestsResponses = {
+    /**
+     * The requests
+     */
+    200: MySigningRequestsOnFile;
+};
+
+export type SigningListMyRequestsResponse = SigningListMyRequestsResponses[keyof SigningListMyRequestsResponses];
+
+export type SigningReadMyPartData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part';
+};
+
+export type SigningReadMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningReadMyPartError = SigningReadMyPartErrors[keyof SigningReadMyPartErrors];
+
+export type SigningReadMyPartResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningReadMyPartResponse = SigningReadMyPartResponses[keyof SigningReadMyPartResponses];
+
+export type SigningReadMyDocumentData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/document';
+};
+
+export type SigningReadMyDocumentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningReadMyDocumentError = SigningReadMyDocumentErrors[keyof SigningReadMyDocumentErrors];
+
+export type SigningReadMyDocumentResponses = {
+    /**
+     * The document
+     */
+    200: Blob | File;
+};
+
+export type SigningReadMyDocumentResponse = SigningReadMyDocumentResponses[keyof SigningReadMyDocumentResponses];
+
+export type SigningOpenMyPartData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/opening';
+};
+
+export type SigningOpenMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningOpenMyPartError = SigningOpenMyPartErrors[keyof SigningOpenMyPartErrors];
+
+export type SigningOpenMyPartResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningOpenMyPartResponse = SigningOpenMyPartResponses[keyof SigningOpenMyPartResponses];
+
+export type SigningConsentMyPartData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/consent';
+};
+
+export type SigningConsentMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningConsentMyPartError = SigningConsentMyPartErrors[keyof SigningConsentMyPartErrors];
+
+export type SigningConsentMyPartResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningConsentMyPartResponse = SigningConsentMyPartResponses[keyof SigningConsentMyPartResponses];
+
+export type SigningAdoptMySignatureData = {
+    body: SignerAdoption;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/adoption';
+};
+
+export type SigningAdoptMySignatureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningAdoptMySignatureError = SigningAdoptMySignatureErrors[keyof SigningAdoptMySignatureErrors];
+
+export type SigningAdoptMySignatureResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningAdoptMySignatureResponse = SigningAdoptMySignatureResponses[keyof SigningAdoptMySignatureResponses];
+
+export type SigningFinishMyPartData = {
+    body: SignerFinish;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/finish';
+};
+
+export type SigningFinishMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningFinishMyPartError = SigningFinishMyPartErrors[keyof SigningFinishMyPartErrors];
+
+export type SigningFinishMyPartResponses = {
+    /**
+     * Signed
+     */
+    200: SignerOutcome;
+};
+
+export type SigningFinishMyPartResponse = SigningFinishMyPartResponses[keyof SigningFinishMyPartResponses];
+
+export type SigningDeclineMyPartData = {
+    body: SignerDecline;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/declining';
+};
+
+export type SigningDeclineMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningDeclineMyPartError = SigningDeclineMyPartErrors[keyof SigningDeclineMyPartErrors];
+
+export type SigningDeclineMyPartResponses = {
+    /**
+     * Declined
+     */
+    200: SignerOutcome;
+};
+
+export type SigningDeclineMyPartResponse = SigningDeclineMyPartResponses[keyof SigningDeclineMyPartResponses];
 
 export type DocumentsEditSessionData = {
     body?: never;
@@ -42288,6 +42689,62 @@ export type GuestRecordCrashResponses = {
 };
 
 export type GuestRecordCrashResponse = GuestRecordCrashResponses[keyof GuestRecordCrashResponses];
+
+export type GuestOpenSharedFileData = {
+    body?: never;
+    headers?: {
+        /**
+         * The guest's credential: the link the e-mail carried on the summary and the arrival, the grant the arrival answered with everywhere else.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query: {
+        /**
+         * The shared file, as the chat line names it.
+         */
+        fileId: string;
+    };
+    url: '/api/v1/guest/meeting/files';
+};
+
+export type GuestOpenSharedFileErrors = {
+    /**
+     * The request is refused — a socket upgrade from another site
+     */
+    403: Problem;
+    /**
+     * No such resource — the answer to a missing or unverifiable credential
+     */
+    404: Problem;
+    /**
+     * The meeting has ended, the link is used up, or the guest is not in the meeting
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The request is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type GuestOpenSharedFileError = GuestOpenSharedFileErrors[keyof GuestOpenSharedFileErrors];
+
+export type GuestOpenSharedFileResponses = {
+    /**
+     * Where to fetch the file, for the next few minutes
+     */
+    200: GuestMeetingFileAddress;
+};
+
+export type GuestOpenSharedFileResponse = GuestOpenSharedFileResponses[keyof GuestOpenSharedFileResponses];
 
 export type MeetingsInspectData = {
     body?: never;

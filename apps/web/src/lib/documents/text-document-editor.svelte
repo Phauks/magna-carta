@@ -211,8 +211,8 @@
           </Alert.Root>
         {:else if saveOutcome.kind === "transport"}
           <Alert.Root variant="danger">
-            <Alert.Title>Nothing Answered</Alert.Title>
-            <Alert.Description>The bytes did not reach the server. Nothing was saved.</Alert.Description>
+            <Alert.Title>Couldn't Connect</Alert.Title>
+            <Alert.Description>Nothing was saved. Try again.</Alert.Description>
           </Alert.Root>
         {:else}
           {@const guidance = problemGuidance(saveOutcome.problem)}

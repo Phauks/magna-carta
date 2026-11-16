@@ -385,12 +385,12 @@
       {/each}
 
       <div class="flex flex-col gap-8 border-t border-border-default pt-8">
-        <LabelledField label="Name">
+        <LabelledField necessity="required" label="Name">
           {#snippet children({ props })}
             <Input {...props} bind:value={newName} maxlength={200} autocomplete="off" />
           {/snippet}
         </LabelledField>
-        <LabelledField label="Email">
+        <LabelledField necessity="required" label="Email">
           {#snippet children({ props })}
             <Input {...props} type="email" bind:value={newEmail} maxlength={320} autocomplete="off" />
           {/snippet}

@@ -162,7 +162,7 @@
       <div class="flex flex-col gap-8">
         <!-- A password field for a value nobody will read back: it keeps the key off the screen
              while it is being pasted, in a room that may not be private. -->
-        <LabelledField label={connected ? "Replace the account key" : "Account key"}>
+        <LabelledField necessity="required" label={connected ? "Replace the account key" : "Account key"}>
           <PasswordInput bind:value={apiKey} autocomplete="off" disabled={busy} />
         </LabelledField>
         <p class="text-sm text-text-muted">

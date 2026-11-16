@@ -10,15 +10,12 @@
    * block left empty is not a name and is not sent (person-draft.ts, `filledOtherNames`).
    */
   import Button from "@magna-carta/design-system/button";
-  import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import LabelledField from "@magna-carta/design-system/labelled-field";
   import * as Select from "@magna-carta/design-system/select";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import HonorificField from "$lib/names/honorific-field.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { DirectoryNameRole } from "../directory-api.ts";
+  import PersonNameFields from "./person-name-fields.svelte";
   import { appendableNameRoles } from "../directory-vocabulary.ts";
   import { blankOtherName, type OtherNameDraft, type PersonNameDraft } from "../person-draft.ts";
 
@@ -49,45 +46,10 @@
   }
 </script>
 
-<!-- Every part of a name, in the order a name is written: the three names on one row, the prefix
-     and the suffixes on the row beneath, because the honorific field holds several comma-separated
-     values and grows as they are added. The current name and every other name use this one. -->
-{#snippet nameFields(parts: PersonNameDraft)}
-  <div class="grid gap-12 sm:grid-cols-3">
-    <LabelledField label="First Name">
-      {#snippet children({ props })}
-        <Input {...props} bind:value={parts.given} {disabled} placeholder={placeholderOf("First Name")} />
-      {/snippet}
-    </LabelledField>
-    <LabelledField label="Middle Name">
-      {#snippet children({ props })}
-        <Input {...props} bind:value={parts.middle} {disabled} placeholder={placeholderOf("Middle Name")} />
-      {/snippet}
-    </LabelledField>
-    <LabelledField label="Last Name">
-      {#snippet children({ props })}
-        <Input {...props} bind:value={parts.family} {disabled} placeholder={placeholderOf("Last Name")} />
-      {/snippet}
-    </LabelledField>
-  </div>
-  <div class="grid gap-12 sm:grid-cols-2">
-    <LabelledField label="Prefix">
-      {#snippet children({ props })}
-        <HonorificField part="prefix" bind:value={parts.prefix} {disabled} inputProps={props} />
-      {/snippet}
-    </LabelledField>
-    <LabelledField label="Suffix">
-      {#snippet children({ props })}
-        <HonorificField part="suffix" bind:value={parts.suffix} {disabled} inputProps={props} />
-      {/snippet}
-    </LabelledField>
-  </div>
-{/snippet}
-
 <section class="flex flex-col gap-16">
-  {@render nameFields(name)}
+  <PersonNameFields bind:parts={name} {disabled} />
 
-  {#each otherNames as other (other.id)}
+  {#each otherNames as other, index (other.id)}
     {@const roleLabelId = `${identity}-role-${other.id}`}
     <div class="flex flex-col gap-12 border-t border-border-default pt-16">
       <!-- The kind's own label names the block, so the block needs no heading of its own. -->
@@ -124,7 +86,12 @@
           <Trash2 class="size-16" aria-hidden="true" />
         </Button>
       </div>
-      {@render nameFields(other)}
+      <PersonNameFields
+        bind:parts={
+          () => other, (next) => (otherNames[index] = { ...other, ...next })
+        }
+        {disabled}
+      />
     </div>
   {/each}
 

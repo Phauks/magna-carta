@@ -2,7 +2,8 @@
   /*
    * SegmentedControl. A tinted track the height of a field, holding equal segments; the chosen
    * segment is a tile with the control edge and the default ink, the rest are muted words on the
-   * track. The edge is what tells the chosen tile apart in dark mode, where the surfaces are close. The track is a field-height control, so it lines up with the fields beside it in a row.
+   * track. Track and tile are both fully round (a pill in a pill), because a square tile inside a
+   * rounded track read as a mismatch. The edge is what tells the chosen tile apart in dark mode, where the surfaces are close. The track is a field-height control, so it lines up with the fields beside it in a row.
    * Focus is the shared merged edge, drawn on the segment that holds the tab stop.
    */
   .mc-segmented-control {
@@ -11,7 +12,7 @@
     gap: var(--mc-space-4);
     padding: var(--mc-space-4);
     min-block-size: var(--mc-density-control-md);
-    border-radius: var(--mc-radius-md);
+    border-radius: var(--mc-radius-full);
     background-color: var(--mc-surface-selected);
   }
   .mc-segmented-control-item {
@@ -25,7 +26,7 @@
     border-style: solid;
     border-width: var(--mc-border-width-default);
     border-color: transparent;
-    border-radius: var(--mc-radius-sm);
+    border-radius: var(--mc-radius-full);
     background-color: transparent;
     color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);

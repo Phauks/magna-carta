@@ -111,6 +111,8 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "The chat of the one meeting the verified grant names, for a guest who has been admitted into the room, with every firm user identifier removed.",
   "guest.sendMessage":
     "A chat line said from the guest's own admitted stay, on the record like every other; the stay is the one the verified grant names.",
+  "guest.openSharedFile":
+    "Hands an admitted guest the address of one clean file a line of their meeting's chat points at, while their stay is in the room and the meeting has not ended. Admitted by the guest lane's verified grant; a handle the guest names alone reaches nothing, and the download is recorded on the firm's audit trail naming the meeting, the invitation and the stay.",
   "guest.recordCrash":
     "Keeps a crash on the guest's own page against the client_ Error ID its crash screen shows: the route template, the error kind, the first stack frame, the build and an engine-written message, scrubbed. Admitted by the guest lane's verified invitation credential; filed under the page's template, never the address, with no user; bounded per link by the client-error bucket keyed by the invitation.",
   // AN OUTSIDE SIGNER'S NINE. A signer holds a signed link minted for one signer on one signing

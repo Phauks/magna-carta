@@ -1,5 +1,7 @@
 /*
- * Everything an outside signer's page asks of the server.
+ * Everything a signer's page asks of the server, for both kinds of signer: an outside signer holding
+ * a link, and a colleague signing in the app on their own session. The page is one component and
+ * takes a `SigningSession`; only how each call is made differs.
  *
  * THE LINK IS THE ONLY CREDENTIAL, AND IT TRAVELS IN A HEADER. Every call carries the token from the
  * signer's mail in the signing-link header and sends no cookie: the page is served from the firm's
@@ -14,6 +16,14 @@
  * looked, which a mail scanner that follows links never does, because it runs no script.
  */
 import {
+  signingAdoptMySignature,
+  signingConsentMyPart,
+  signingDeclineMyPart,
+  signingFinishMyPart,
+  signingListMyRequests,
+  signingOpenMyPart,
+  signingReadMyDocument,
+  signingReadMyPart,
   signerAdopt,
   signerCheckAccessCode,
   signerConsent,
@@ -106,4 +116,77 @@ export function finishSigning(
 
 export function declineSigning(token: string, reason: string): Promise<SignerCall<SignerOutcome>> {
   return outcomeOf(() => signerDecline({ ...asSigner(token), body: { reason } }));
+}
+
+/** One signer's calls, whichever way they prove who they are. */
+export interface SigningSession {
+  /** Whether a code step can arise: only a link can ask for one. */
+  readonly kind: "link" | "member";
+  read(): Promise<SignerCall<SignerRequestView>>;
+  readDocument(): Promise<SignerCall<ArrayBuffer>>;
+  open(): Promise<SignerCall<unknown>>;
+  sendAccessCode(): Promise<SignerCall<SignerAccessCodeSent>>;
+  checkAccessCode(code: string): Promise<SignerCall<unknown>>;
+  consent(): Promise<SignerCall<unknown>>;
+  adopt(adoption: SignerAdoption): Promise<SignerCall<unknown>>;
+  finish(answers: Record<string, string | boolean>): Promise<SignerCall<SignerOutcome>>;
+  decline(reason: string): Promise<SignerCall<SignerOutcome>>;
+}
+
+/** An outside signer, by the link in their mail. */
+export function linkSession(token: string): SigningSession {
+  return {
+    kind: "link",
+    read: () => readSigning(token),
+    readDocument: () => readSigningDocument(token),
+    open: () => openSigning(token),
+    sendAccessCode: () => sendAccessCode(token),
+    checkAccessCode: (code) => checkAccessCode(token, code),
+    consent: () => giveConsent(token),
+    adopt: (adoption) => adoptSignature(token, adoption),
+    finish: (answers) => finishSigning(token, answers),
+    decline: (reason) => declineSigning(token, reason),
+  };
+}
+
+const NO_CODE: SignerCall<never> = {
+  kind: "failed",
+  failure: { problem: null, request: "", failedAt: new Date(0) },
+};
+
+/** A colleague signing in the app: their session says who they are, the path says which request. */
+export function memberSession(requestId: string): SigningSession {
+  const path = { requestId };
+  return {
+    kind: "member",
+    read: () => outcomeOf(() => signingReadMyPart({ path, throwOnError: true })),
+    readDocument: () =>
+      outcomeOf(async () => {
+        const answer = await signingReadMyDocument({
+          path,
+          parseAs: "arrayBuffer",
+          throwOnError: true,
+        });
+        return { data: answer.data as unknown as ArrayBuffer };
+      }),
+    open: () => outcomeOf(() => signingOpenMyPart({ path, throwOnError: true })),
+    // A member is never asked for a code; the session already says who they are.
+    sendAccessCode: () => Promise.resolve(NO_CODE),
+    checkAccessCode: () => Promise.resolve(NO_CODE),
+    consent: () => outcomeOf(() => signingConsentMyPart({ path, throwOnError: true })),
+    adopt: (adoption) =>
+      outcomeOf(() => signingAdoptMySignature({ path, body: adoption, throwOnError: true })),
+    finish: (answers) =>
+      outcomeOf(() => signingFinishMyPart({ path, body: { answers }, throwOnError: true })),
+    decline: (reason) =>
+      outcomeOf(() => signingDeclineMyPart({ path, body: { reason }, throwOnError: true })),
+  };
+}
+
+/** The requests on a file still waiting on the signed-in member's signature, newest first. */
+export function listMySigningRequests(fileId: string): Promise<SignerCall<string[]>> {
+  return outcomeOf(async () => {
+    const { data } = await signingListMyRequests({ path: { id: fileId }, throwOnError: true });
+    return { data: data.requestIds };
+  });
 }

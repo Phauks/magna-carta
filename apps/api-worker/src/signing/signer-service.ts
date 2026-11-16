@@ -19,6 +19,7 @@ import {
   type SigningFieldKind,
 } from "@magna-carta/signing/request";
 import { CURRENT_CONSENT_VERSION } from "./consent-disclosure.ts";
+import { memberTurnMessages } from "./member-turn.ts";
 import {
   SIGNING_GUARD,
   SigningRequestRefusal,
@@ -407,7 +408,11 @@ export function finishSigning(
       insertEventStatement(database, event(requestId, "completed", observed.now)),
     );
   }
-  return { effect: write(statements), notify, completed };
+  return {
+    effect: { statements, outboxMessages: memberTurnMessages(view.detail.request, notify) },
+    notify,
+    completed,
+  };
 }
 
 /** Declining ends the request for everyone; the reason is kept on the record. */

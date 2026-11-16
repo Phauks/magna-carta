@@ -441,7 +441,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
       <!-- First, because a cost is a fact about a matter before it is a fact about an amount, and
            because the refusal that names it leads the others. -->
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-matter">Matter</Label>
+        <Label necessity="required" for="{fieldPrefix}-matter">Matter</Label>
         <MatterPicker
           {matters}
           value={chosenMatterId}
@@ -456,7 +456,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
 
     <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Date Incurred"
           value={civilDateValue(incurredDateText)}
           onValueChange={(next) => (incurredDateText = civilDateTextOrEmpty(next))}
@@ -489,7 +489,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
 
     <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-payee">Payee</Label>
+        <Label necessity="optional" for="{fieldPrefix}-payee">Payee</Label>
         {#if readOnly}
           <Input
             id="{fieldPrefix}-payee"
@@ -509,7 +509,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
       </div>
 
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-expense-code">Expense Code</Label>
+        <Label necessity="optional" for="{fieldPrefix}-expense-code">Expense Code</Label>
         {#if readOnly}
           <Input id="{fieldPrefix}-expense-code" value={expenseCodeLabel} disabled />
         {:else if expenseCodes.pickerRefusal !== null}
@@ -546,7 +546,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
     <div class="flex flex-col gap-8">
       <div class="flex flex-wrap items-end gap-12">
         <div class="flex min-w-0 flex-1 flex-col gap-4">
-          <Label for="{fieldPrefix}-amount">Amount</Label>
+          <Label necessity="required" for="{fieldPrefix}-amount">Amount</Label>
           <Input
             id="{fieldPrefix}-amount"
             placeholder="Amount"
@@ -573,7 +573,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
       by the same person, and the fields they share should not move between them.
     -->
     <div class="flex flex-col gap-4">
-      <Label for="{fieldPrefix}-description">Description</Label>
+      <Label necessity="required" for="{fieldPrefix}-description">Description</Label>
       <Textarea
         id="{fieldPrefix}-description"
         class="resize-none"
