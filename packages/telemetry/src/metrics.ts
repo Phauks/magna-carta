@@ -522,6 +522,12 @@ export const signingRemindersUndelivered = defineMetric(
   [] as const,
 );
 
+// Each attempt to seal a completed signing request that did something, by how it ended: sealed,
+// document-changed (the sent bytes no longer match), not-configured (no signing identity yet) or
+// refused (the sealing service would not seal these bytes). Anything but sealed leaves a request
+// a member is waiting on.
+export const signingSealOutcome = defineMetric("signing.seal_outcome", ["outcome"] as const);
+
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
   unloggableField,
@@ -599,6 +605,7 @@ const CATALOG: readonly MetricDefinition[] = [
   signingRequestsExpired,
   signingRequestsReminded,
   signingRemindersUndelivered,
+  signingSealOutcome,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));
