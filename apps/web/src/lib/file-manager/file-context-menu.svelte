@@ -37,6 +37,7 @@
     onPickColor,
     onPickIcon,
     onPickConversion,
+    onConvertWithOptions,
     onOpenChange,
     children,
   }: {
@@ -52,6 +53,8 @@
     onPickIcon: (icon: FolderIconName) => void;
     /** A Convert target was chosen, by the conversion graph's format id. */
     onPickConversion: (formatId: string) => void;
+    /** Convert With Options was chosen: the host opens the dialog for the menu's one file. */
+    onConvertWithOptions?: () => void;
     onOpenChange?: (open: boolean) => void;
     children: Snippet;
   } = $props();
@@ -198,6 +201,11 @@
             {#each entry.formats ?? [] as format (format.id)}
               <ContextMenu.Item onSelect={() => onPickConversion(format.id)}>{format.label}</ContextMenu.Item>
             {/each}
+            {#if entry.withOptions === true && onConvertWithOptions !== undefined}
+              <!-- Last, after the quick converts: the one entry that asks before it converts. -->
+              <ContextMenu.Separator />
+              <ContextMenu.Item onSelect={() => onConvertWithOptions()}>Convert with Options</ContextMenu.Item>
+            {/if}
           </ContextMenu.SubContent>
         </ContextMenu.Sub>
       {/if}

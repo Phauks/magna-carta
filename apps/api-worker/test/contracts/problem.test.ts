@@ -73,6 +73,7 @@ describe("problem-type URI registry", () => {
         "malware-flagged",
         "export-copies-pending",
         "unsupported-conversion",
+        "unsupported-conversion-option",
         "not-an-archive",
         "archive-unreadable",
         "page-render-failed",

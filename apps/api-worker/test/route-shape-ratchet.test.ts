@@ -78,7 +78,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "discovery/discovery-coding.ts": { lines: 1347, shapes: 21 },
   "discovery/discovery-review-reads.ts": { lines: 742, shapes: 9 },
   "discovery/discovery.ts": { lines: 1607, shapes: 16 },
-  "documents/conversions.ts": { lines: 423, shapes: 6 },
   "documents/templates.ts": { lines: 2029, shapes: 26 },
   "email/auto-file-rules.ts": { lines: 1135, shapes: 8 },
   "email/capture-addresses.ts": { lines: 728, shapes: 4 },

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { backgroundMenu, rowMenu } from "../src/lib/file-manager/file-menu-model.ts";
+import {
+  backgroundMenu,
+  conversionTakesOptions,
+  rowMenu,
+} from "../src/lib/file-manager/file-menu-model.ts";
 import type {
   FileMenuEntry,
   FileMenuFlyout,
@@ -191,6 +195,33 @@ describe("the Convert flyout", () => {
     const labels = flyout?.formats?.map((format) => format.label) ?? [];
     expect(labels.length).toBeGreaterThan(0);
     for (const label of labels) expect(label).toMatch(/^To [a-z0-9]+( \(.+\))?$/);
+  });
+
+  it("ends with Convert With Options for an image, whose targets take a size or grayscale", () => {
+    const menu = rowMenu({
+      ...base,
+      rows: [file("scan", { name: "scan.png", sniffedContentType: "image/png" })],
+    });
+    const flyout = convertOf(menu);
+    expect(flyout?.disabledReason).toBeUndefined();
+    expect(flyout?.withOptions).toBe(true);
+    expect(conversionTakesOptions({ name: "scan.png", sniffedContentType: "image/png" })).toBe(
+      true,
+    );
+  });
+
+  it("leaves Convert With Options off a Word file, whose targets take no settings", () => {
+    const menu = rowMenu({
+      ...base,
+      rows: [
+        file("letter", {
+          name: "letter.docx",
+          sniffedContentType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }),
+      ],
+    });
+    expect(convertOf(menu)?.withOptions).toBe(false);
   });
 
   it("is disabled with its reason when nothing converts from the file", () => {

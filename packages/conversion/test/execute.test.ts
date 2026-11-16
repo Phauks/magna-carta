@@ -37,6 +37,25 @@ describe("executePath", () => {
     expect(calls).toEqual([`a->b@1`, `b->c@1,${"b".charCodeAt(0)}`]);
   });
 
+  it("hands the options to the final hop only", async () => {
+    const seen: Array<{ to: string; options: unknown }> = [];
+    const fake: ConversionPort = {
+      convert(input) {
+        seen.push({ to: input.to, options: input.options });
+        return Promise.resolve(converted(input.bytes, `application/${input.to}`));
+      },
+    };
+    const path: ConversionEdge[] = [
+      { from: "a", to: "b", engineId: "libreoffice", recipeRef: "b", weight: 1 },
+      { from: "b", to: "c", engineId: "libvips", recipeRef: "c", weight: 1 },
+    ];
+    await executePath(path, new Uint8Array([1]), () => fake, { grayscale: true });
+    expect(seen).toEqual([
+      { to: "b", options: undefined },
+      { to: "c", options: { grayscale: true } },
+    ]);
+  });
+
   it("stops at the first failing hop and returns that failure", async () => {
     let secondHopRan = false;
     const fail: ConversionPort = {

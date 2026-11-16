@@ -3,6 +3,13 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { markDownloadItemReadyByObjectKeyStatement } from "@magna-carta/data-access/download-register-statements";
 import { findPath } from "@magna-carta/conversion/pathfinding";
 import { getFormat } from "@magna-carta/conversion/registry";
+import {
+  ConversionStatusResponse,
+  ConversionSubmitRequest,
+  ConversionSubmitResponse,
+  ConversionUploadResponse,
+} from "@magna-carta/conversion/contract";
+import { compactOptions, refusedOptions } from "@magna-carta/conversion/options";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../../../bindings.ts";
@@ -47,17 +54,6 @@ const conversionMeta: RouteMeta = {
   rateLimit: "default",
 };
 
-const ConversionUploadResponse = z
-  .object({
-    jobId: z.string(),
-    uploadUrl: z.string(),
-    // The headers the upload must carry. They are covered by the URL's signature, so an upload that
-    // sends anything less is rejected by storage rather than landing an object nothing can classify.
-    uploadHeaders: z.record(z.string(), z.string()),
-    sourceKey: z.string(),
-  })
-  .openapi("ConversionUploadResponse");
-
 const conversionUploadRoute = defineOpenAPIRoute(conversionMeta, {
   method: "post",
   path: "/api/v1/conversions/upload",
@@ -100,26 +96,15 @@ const conversionSubmitMeta: RouteMeta = {
   rateLimit: "default",
 };
 
-const ConversionSubmitRequest = z
-  .object({
-    jobId: z.string().min(1),
-    sourceKey: z.string().min(1),
-    from: z.string().min(1),
-    to: z.string().min(1),
-  })
-  .openapi("ConversionSubmitRequest");
-
-const ConversionSubmitResponse = z
-  .object({ jobId: z.string(), status: z.literal("queued") })
-  .openapi("ConversionSubmitResponse");
-
 const conversionSubmitRoute = defineOpenAPIRoute(conversionSubmitMeta, {
   method: "post",
   path: "/api/v1/conversions",
   description:
     "Submits a file conversion job. The client must have already uploaded the source file using " +
     "the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists " +
-    "between the specified formats. Returns 202 with status queued when the job is accepted.",
+    "between the specified formats, or if an option is given that the conversion cannot honour " +
+    "(size and grayscale apply to image targets and image-to-PDF; quality to JPEG only). " +
+    "Returns 202 with status queued when the job is accepted.",
   request: {
     body: { content: { "application/json": { schema: ConversionSubmitRequest } }, required: true },
   },
@@ -141,7 +126,9 @@ const conversionSubmitRoute = defineOpenAPIRoute(conversionSubmitMeta, {
       content: { "application/problem+json": { schema: Problem } },
     },
     422: {
-      description: "The requested format conversion is not supported (no conversion path found)",
+      description:
+        "The requested format conversion is not supported (no conversion path found), or an " +
+        "option was given that this conversion cannot honour",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -161,15 +148,6 @@ const conversionStatusMeta: RouteMeta = {
   idempotency: "optional",
   rateLimit: "default",
 };
-
-const ConversionStatusResponse = z
-  .object({
-    status: z.string(),
-    url: z.string().optional(),
-    mediaType: z.string().optional(),
-    reason: z.string().optional(),
-  })
-  .openapi("ConversionStatus");
 
 const conversionStatusRoute = defineOpenAPIRoute(conversionStatusMeta, {
   method: "get",
@@ -290,7 +268,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const { jobId, from, to } = c.req.valid("json");
+      const { jobId, from, to, options: askedOptions } = c.req.valid("json");
 
       // Reject unknown formats or pairs with no conversion path — the client asked for something
       // the registry cannot satisfy.
@@ -302,6 +280,16 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
           detail: `No conversion path from "${from}" to "${to}".`,
         });
       }
+      const refused = refusedOptions(from, to, askedOptions);
+      if (refused.length > 0) {
+        return problemJson(c, {
+          type: "unsupported-conversion-option",
+          title: "Conversion option not supported",
+          status: 422,
+          detail: `Converting from "${from}" to "${to}" cannot honour: ${refused.join(", ")}.`,
+        });
+      }
+      const options = compactOptions(askedOptions);
 
       // Pin both keys server-side from the session firm id and the client-supplied job id: the
       // body's sourceKey field is ignored to prevent a caller from supplying a key outside their
@@ -314,7 +302,16 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
       const coordinator = c.env.CONVERSION_JOB.get(
         c.env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`),
       );
-      await coordinator.start({ firmId, bucketName, jobId, sourceKey, resultKey, from, to });
+      await coordinator.start({
+        firmId,
+        bucketName,
+        jobId,
+        sourceKey,
+        resultKey,
+        from,
+        to,
+        ...(options !== undefined ? { options } : {}),
+      });
       // The register learns about the work when it is SUBMITTED, not when it finishes: the result
       // key is already pinned above, and a member who asked for a conversion should see it on their
       // shelf while it runs rather than only once it lands. The poll below advances it to ready.
