@@ -38,14 +38,7 @@
   import { pointsToScreen } from "$lib/pdf-editor/redactions.ts";
   import AdoptSignatureDialog, { type AdoptedMarks } from "./adopt-signature-dialog.svelte";
   import {
-    checkAccessCode,
-    declineSigning,
-    finishSigning,
-    giveConsent,
-    openSigning,
-    readSigning,
-    readSigningDocument,
-    sendAccessCode,
+    type SigningSession,
     type SignerRequestView,
   } from "./signer-api.ts";
   import {
@@ -57,7 +50,17 @@
     type SignerField,
   } from "./signer-walk.ts";
 
-  let { token }: { token: string } = $props();
+  let {
+    session,
+    embedded = false,
+    onFinished,
+  }: {
+    session: SigningSession;
+    /** Inside the application's own frame, which owns the height and the firm's name. */
+    embedded?: boolean;
+    /** After signing or declining, for a page that wants to take the signer back. */
+    onFinished?: () => void;
+  } = $props();
 
   /** A refusal the server described, said in its own words: the link, the turn, the request. */
   interface Closed {
@@ -92,7 +95,7 @@
   }
 
   async function read(): Promise<void> {
-    const outcome = await readSigning(token);
+    const outcome = await session.read();
     if (gone) return;
     if (outcome.kind === "failed") {
       settleFailure(outcome.failure, "Couldn't load the document to sign.");
@@ -104,7 +107,7 @@
   async function begin(): Promise<void> {
     phase = { kind: "reading" };
     // Opening records that the signer looked, and refuses a signer whose turn has not come.
-    const opened = await openSigning(token);
+    const opened = await session.open();
     if (gone) return;
     if (opened.kind === "failed") {
       settleFailure(opened.failure, "Couldn't open the document to sign.");
@@ -134,7 +137,7 @@
   async function askForCode(): Promise<void> {
     codeBusy = true;
     codeFailure = null;
-    const outcome = await sendAccessCode(token);
+    const outcome = await session.sendAccessCode();
     codeBusy = false;
     if (outcome.kind === "failed") {
       codeFailure = stated(outcome.failure, "The code wasn't sent.");
@@ -148,7 +151,7 @@
     codeBusy = true;
     codeFailure = null;
     codeWrong = false;
-    const outcome = await checkAccessCode(token, code);
+    const outcome = await session.checkAccessCode(code);
     codeBusy = false;
     if (outcome.kind === "failed") {
       if (outcome.failure.problem?.status === 422) {
@@ -176,7 +179,7 @@
     if (!agreed) return;
     consentBusy = true;
     consentFailure = null;
-    const outcome = await giveConsent(token);
+    const outcome = await session.consent();
     consentBusy = false;
     if (outcome.kind === "failed") {
       consentFailure = stated(outcome.failure, "Your agreement wasn't recorded.");
@@ -208,7 +211,7 @@
 
   async function openDocument(): Promise<void> {
     documentState = { kind: "reading" };
-    const outcome = await readSigningDocument(token);
+    const outcome = await session.readDocument();
     if (gone) return;
     if (outcome.kind === "failed") {
       documentState = {
@@ -307,7 +310,7 @@
     if (refusal !== null) return;
     finishBusy = true;
     finishFailure = null;
-    const outcome = await finishSigning(token, answersToSend(fields, answers));
+    const outcome = await session.finish(answersToSend(fields, answers));
     finishBusy = false;
     if (outcome.kind === "failed") {
       const closed = closedBy(outcome.failure);
@@ -324,7 +327,7 @@
 
   async function decline(): Promise<ActionOutcome> {
     declineFailure = null;
-    const outcome = await declineSigning(token, declineReason.trim());
+    const outcome = await session.decline(declineReason.trim());
     if (outcome.kind === "failed") {
       declineFailure = stated(outcome.failure, "Your decline wasn't recorded.");
       return "refused";
@@ -335,8 +338,10 @@
 </script>
 
 <svelte:head>
-  <title>{view === null ? "Sign a Document" : `Sign ${view.title}`}</title>
-  <meta name="referrer" content="no-referrer" />
+  {#if !embedded}
+    <title>{view === null ? "Sign a Document" : `Sign ${view.title}`}</title>
+    <meta name="referrer" content="no-referrer" />
+  {/if}
 </svelte:head>
 
 {#snippet closedCard(closed: Closed)}
@@ -345,7 +350,7 @@
   </AuthPanel>
 {/snippet}
 
-<div class="flex h-dvh min-h-0 flex-col bg-surface-sunken">
+<div class={["flex min-h-0 flex-col bg-surface-sunken", embedded ? "h-full" : "h-dvh"]}>
   <header class="flex min-h-64 flex-wrap items-center gap-x-16 gap-y-8 border-b border-border-default bg-surface-default px-24 py-8">
     <span class="shrink-0 font-display text-xl text-text-default">{named?.firmName ?? ""}</span>
     {#if named !== null}
@@ -401,10 +406,19 @@
       {:else if phase.kind === "finished"}
         <AuthPanel title={phase.status === "signed" ? "You Have Signed" : "You Declined to Sign"}>
           <p class="text-sm">
-            {phase.status === "signed"
-              ? "Your signature is recorded. You'll get a copy of the signed document by email once everyone has signed. You can close this page."
-              : "Your decline is recorded and the sender has been told. You can close this page."}
+            {#if session.kind === "member"}
+              {phase.status === "signed"
+                ? "Your signature is recorded. The signed copy is filed with the document once everyone has signed."
+                : "Your decline is recorded and the sender has been told."}
+            {:else}
+              {phase.status === "signed"
+                ? "Your signature is recorded. You'll get a copy of the signed document by email once everyone has signed. You can close this page."
+                : "Your decline is recorded and the sender has been told. You can close this page."}
+            {/if}
           </p>
+          {#if onFinished !== undefined}
+            <Button variant="primary" class="mt-16 self-start" onclick={onFinished}>Back to the Document</Button>
+          {/if}
         </AuthPanel>
       {:else if view !== null && view.needsCode}
         <AuthPanel title="Confirm It Is You">
@@ -572,7 +586,7 @@
 {#if view !== null}
   <AdoptSignatureDialog
     bind:open={adoptOpen}
-    {token}
+    {session}
     signerName={view.signerName}
     {needsInitials}
     onAdopted={adoptedNow}
@@ -601,7 +615,7 @@
       <p class="text-sm">
         Declining ends this request for everyone, and {view?.senderName ?? "the sender"} is told. Anything you filled in is discarded.
       </p>
-      <Label for="signer-decline-reason">Why (optional)</Label>
+      <Label for="signer-decline-reason" necessity="optional">Why</Label>
       <Textarea id="signer-decline-reason" bind:value={declineReason} maxlength={500} disabled={busy} />
     </div>
   {/snippet}

@@ -60,6 +60,9 @@
       "path": "../meetings/tsconfig.build.json"
     },
     {
+      "path": "../signing/tsconfig.build.json"
+    },
+    {
       "path": "../tasks/tsconfig.build.json"
     }
   ],

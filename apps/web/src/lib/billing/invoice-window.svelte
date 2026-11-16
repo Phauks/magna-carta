@@ -242,7 +242,7 @@
     for (const note of creditNotes) {
       events.push({
         id: `${note.id}-issued`,
-        action: `Credit note recorded beside the bill — ${money(note.totalMinor)}`,
+        action: `Credit note added to the bill: ${money(note.totalMinor)}`,
         at: note.issuedAt,
         source: "The firm",
         detail: note.reason,

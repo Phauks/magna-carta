@@ -301,7 +301,7 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     deployQueueHeading: null,
   },
   recentErrors: {
-    name: "Background errors",
+    name: "Other Workers' background errors",
     group: "platform",
     steps: [
       "Create a Cloudflare API token with only Account > Workers Observability > Read.",

@@ -258,23 +258,23 @@
           {#each [{ label: "From", address: from }, { label: "To", address: to }] as entry (entry.label)}
             <fieldset class="flex flex-col gap-8">
               <legend class="text-sm font-medium">{entry.label}</legend>
-              <LabelledField label="Name">
+              <LabelledField necessity="required" label="Name">
                 <Input bind:value={entry.address.name} />
               </LabelledField>
-              <LabelledField label="Street">
+              <LabelledField necessity="required" label="Street">
                 <Input bind:value={entry.address.street1} />
               </LabelledField>
               <div class="grid grid-cols-3 gap-8">
-                <LabelledField label="City"><Input bind:value={entry.address.city} /></LabelledField>
-                <LabelledField label="State">
+                <LabelledField necessity="required" label="City"><Input bind:value={entry.address.city} /></LabelledField>
+                <LabelledField necessity="required" label="State">
                   <Input bind:value={entry.address.state} />
                 </LabelledField>
-                <LabelledField label="ZIP"><Input bind:value={entry.address.zip} /></LabelledField>
+                <LabelledField necessity="required" label="ZIP"><Input bind:value={entry.address.zip} /></LabelledField>
               </div>
             </fieldset>
           {/each}
 
-          <LabelledField label="Matter">
+          <LabelledField necessity="optional" label="Matter">
             <MatterPicker
               matters={firmMatters.matters ?? []}
               capped={firmMatters.capped}
@@ -294,7 +294,7 @@
       <Card.Root>
         <Card.Header><Card.Title>What is being sent</Card.Title></Card.Header>
         <Card.Content>
-          <LabelledField label="Weight (ounces)">
+          <LabelledField necessity="required" label="Weight (ounces)">
             <Input bind:value={weightOz} inputmode="decimal" />
           </LabelledField>
         </Card.Content>

@@ -460,7 +460,7 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     label: "Not Connected",
     tone: "neutral",
     meaning:
-      "The platform service this runs on is not connected yet, so nothing is searchable here whatever the firm's setting says.",
+      "Search isn't connected yet, so nothing here can be searched, whatever the firm's setting says.",
     presentation: "chip",
   },
 };

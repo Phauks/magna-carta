@@ -91,7 +91,7 @@
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="invitation-code">Invitation Code</Label>
+        <Label necessity="required" for="invitation-code">Invitation Code</Label>
         <Input
           bind:ref={codeFieldReference}
           id="invitation-code"
@@ -111,7 +111,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="invitation-last-name">Last Name</Label>
+        <Label necessity="required" for="invitation-last-name">Last Name</Label>
         <Input
           id="invitation-last-name"
           name="family-name"
@@ -134,7 +134,7 @@
              it recognises as one. The picker has no name or autocomplete to pass through, so the
              three facts on this screen are all typed now. Raised for the owner rather than settled
              here — the alternative is one screen keeping a control the rest of the product does not. -->
-        <DatePicker
+        <DatePicker necessity="required"
           label="Date of Birth"
           size="lg"
           value={civilDateValue(dateOfBirth)}

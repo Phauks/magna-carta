@@ -460,7 +460,7 @@
             </div>
             {#if owner === "matter"}
               <div class="flex flex-col gap-8">
-                <Label for="{idPrefix}-matter">Matter</Label>
+                <Label necessity="required" for="{idPrefix}-matter">Matter</Label>
                 <MatterPicker
                   inputId="{idPrefix}-matter"
                   {matters}
@@ -473,7 +473,7 @@
               </div>
             {:else if owner === "staff"}
               <div class="flex flex-col gap-8">
-                <Label for="{idPrefix}-staff-member">Staff member</Label>
+                <Label necessity="required" for="{idPrefix}-staff-member">Staff member</Label>
                 <MemberPicker
                   inputId="{idPrefix}-staff-member"
                   label="Staff member"
@@ -506,7 +506,7 @@
 
         <div class="grid gap-16 sm:grid-cols-2">
           <div class="flex flex-col gap-8">
-            <Label for="{idPrefix}-title">Title</Label>
+            <Label necessity="required" for="{idPrefix}-title">Title</Label>
             <Input
               id="{idPrefix}-title"
               aria-invalid={titleRefusal === undefined ? undefined : "true"}
@@ -527,7 +527,7 @@
         <!-- The description's height is the form's to decide, not the reader's: a grab corner
              here only pushed the tabs and the footer around (owner, 2026-09-18). -->
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-description">Description</Label>
+          <Label necessity="optional" for="{idPrefix}-description">Description</Label>
           <Textarea
             id="{idPrefix}-description"
             rows={4}
@@ -560,7 +560,7 @@
       <Tabs.Content value="where" class="flex flex-col gap-16">
         <div class="grid gap-16 sm:grid-cols-2">
           <div class="flex flex-col gap-8">
-            <Label for="{idPrefix}-location">Location</Label>
+            <Label necessity="optional" for="{idPrefix}-location">Location</Label>
             <LocationPicker
               inputId="{idPrefix}-location"
               {locations}
@@ -588,7 +588,7 @@
             <!-- The court's own number for the case. A firm meeting has no court, so the office
                  takes this slot instead of the field being shown empty and ignored. -->
             <div class="flex flex-col gap-8">
-              <Label for="{idPrefix}-court-reference">Court reference</Label>
+              <Label necessity="optional" for="{idPrefix}-court-reference">Court reference</Label>
               <Input
                 id="{idPrefix}-court-reference"
                 disabled={busy}
@@ -645,7 +645,7 @@
              conference room and on a call at once and a firm that typed the link where the room
              goes has lost the room. -->
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-conference-url">Conference link</Label>
+          <Label necessity="optional" for="{idPrefix}-conference-url">Conference link</Label>
           <Input
             id="{idPrefix}-conference-url"
             type="url"
@@ -671,7 +671,7 @@
             </p>
           {/if}
           <div class="flex flex-col gap-8">
-            <Label for="{idPrefix}-participants">Participants</Label>
+            <Label necessity="optional" for="{idPrefix}-participants">Participants</Label>
             <ParticipantPicker
               inputId="{idPrefix}-participants"
               {members}

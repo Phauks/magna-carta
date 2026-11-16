@@ -227,7 +227,7 @@
             {#if line.draft.kind === "email"}
               {@const email = line.draft}
               <div class="min-w-0 flex-auto" style="flex-basis: 16rem">
-                <LabelledField label="Address" {error}>
+                <LabelledField necessity="required" label="Address" {error}>
                   {#snippet children({ props })}
                     <Input
                       {...props}

@@ -195,6 +195,39 @@ export const TaskWorkloadPersonRow = z.object({
   undatedCount: z.number().int(),
 });
 
+// CHANGE LOG. Counts of the audit log's rows, and each row as event, label, person, record handle
+// and instant; never an audit row's metadata.
+export const ChangeFamily = z.enum(["directory", "matters", "accounts"]);
+
+export const ChangeCounts = z.object({
+  directoryCount: z.number().int(),
+  matterCount: z.number().int(),
+  accountCount: z.number().int(),
+  totalCount: z.number().int(),
+});
+
+export const ChangeFamilyRow = z.object({
+  family: ChangeFamily,
+  label: z.string(),
+  changeCount: z.number().int(),
+});
+
+export const ChangePersonRow = ChangeCounts.extend({
+  actorUserId: z.string().nullable(),
+  actorName: z.string().nullable(),
+});
+
+export const ChangeEntryRow = z.object({
+  id: z.string(),
+  at: z.string(),
+  actorUserId: z.string().nullable(),
+  actorName: z.string().nullable(),
+  family: ChangeFamily,
+  event: z.string(),
+  eventLabel: z.string(),
+  subjectId: z.string().nullable(),
+});
+
 // OPERATIONAL VOLUMES. Counts only, never money.
 export const OperationalSections = z.enum(["matters", "billing", "trust", "costs"]);
 
@@ -422,4 +455,84 @@ export const AgedWorkClientRow = z.object({
   clientName: z.string().nullable(),
   figures: AgedWorkFigures,
   matters: z.array(AgedWorkMatterRow),
+});
+
+// REVENUE. Billed and collected in a period; credited (credit notes and write-offs) beside them and
+// never counted as collected.
+export const RevenueFigures = z.object({
+  billedMinor: z.number().int(),
+  collectedMinor: z.number().int(),
+  creditedMinor: z.number().int(),
+});
+
+export const RevenueOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: RevenueFigures,
+});
+
+export const RevenueMatterTypeRow = z.object({
+  matterTypeId: z.string().nullable(),
+  matterTypeName: z.string().nullable(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+});
+
+export const RevenueResponsibleAttorneyRow = z.object({
+  responsibleMemberId: z.string(),
+  responsibleName: z.string().nullable(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+});
+
+// MATTER BILLING GUIDE. Each open and held matter with the fee agreement governing the day, any
+// amendment recorded to start later, and the rates recorded against the matter or its client.
+export const MatterBillingTerms = z.object({
+  arrangementId: z.string(),
+  version: z.number().int(),
+  kind: z.enum(["hourly", "flat_fee", "contingency", "retainer"]),
+  flatFeeAmountMinor: z.number().int().nullable(),
+  contingencyShareE4: z.number().int().nullable(),
+  contingencyBasis: z.enum(["gross_recovery", "net_after_costs"]).nullable(),
+  retainerTargetMinor: z.number().int().nullable(),
+  retainerThresholdMinor: z.number().int().nullable(),
+  advanceDepositDestination: z.enum(["trust", "operating"]).nullable(),
+  currency: z.string(),
+  validFrom: z.string(),
+  validTo: z.string().nullable(),
+});
+
+export const MatterBillingRate = z.object({
+  rateId: z.string(),
+  rateCardId: z.string(),
+  rateCardName: z.string(),
+  tier: z.enum(["matter", "client"]),
+  rateE4: z.number().int(),
+  currency: z.string(),
+  validFrom: z.string(),
+  validTo: z.string().nullable(),
+});
+
+export const MatterBillingGuideRow = z.object({
+  matterId: z.string(),
+  matterNumber: z.string().nullable(),
+  matterTitle: z.string(),
+  status: z.enum(["open", "hold"]),
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  responsibleName: z.string().nullable(),
+  arrangement: MatterBillingTerms.nullable(),
+  nextArrangement: MatterBillingTerms.nullable(),
+  rates: z.array(MatterBillingRate),
+});
+
+export const MatterBillingKindCounts = z.object({
+  matterCount: z.number().int(),
+  hourlyCount: z.number().int(),
+  flatFeeCount: z.number().int(),
+  contingencyCount: z.number().int(),
+  retainerCount: z.number().int(),
+  noneRecordedCount: z.number().int(),
 });

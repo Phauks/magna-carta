@@ -10,3 +10,12 @@ import { z } from "zod";
  * on every copy a guest reads.
  */
 export const MeetingMessageFile = z.object({ id: z.string(), name: z.string() });
+
+/**
+ * Where a guest's browser fetches a file shared in the chat: a short-lived signed address, handed
+ * back as data rather than as a redirect, because the guest's credential travels in a header that a
+ * plain link cannot carry.
+ */
+export const GuestMeetingFileAddress = z
+  .object({ url: z.string(), name: z.string() })
+  .meta({ id: "GuestMeetingFileAddress" });

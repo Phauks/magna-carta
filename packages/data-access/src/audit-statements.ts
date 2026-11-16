@@ -65,3 +65,118 @@ export function domainAuditStatement(database: SqlDatabase, input: DomainAuditIn
     now: input.clock.now(),
   });
 }
+
+// THE CHANGE LOG READ: who changed which records, from the audit rows themselves, over a window of
+// the row's own `created_at`. The caller names the events it covers (the Change Log report passes
+// the directory, matters and trust-account maintenance events), so this read knows no domain's
+// vocabulary and every domain keeps writing its own rows through domainAuditStatement above.
+//
+// METADATA NEVER LEAVES THIS READ. It is redacted at write time, but redacted means "no privileged
+// content", not "fit to print on a report about people": a client-link row carries an entity handle,
+// a decrypt row names a sealed field. The rows carry the event, the actor, the subject handle and the
+// instant, and nothing else.
+//
+// Two statements, one window. The counts are an aggregate and are never short; the entries are the
+// same rows newest first, capped with one probe row past the ceiling so a full list can be told from
+// a truncated one. Both are bounded by the same `knownAtOrBefore` instant, so a row committed while
+// the two run cannot land in one answer and not the other.
+export const MAXIMUM_AUDIT_CHANGE_ENTRIES = 5000;
+
+export interface AuditChangeWindow {
+  readonly events: readonly string[];
+  // The window on `created_at`: from (inclusive) to before (exclusive), each a stored instant.
+  readonly fromInstant: string;
+  readonly beforeInstant: string;
+  // No row recorded after this instant is read (inclusive).
+  readonly knownAtOrBefore: string;
+}
+
+export interface AuditChangeCount {
+  readonly event: string;
+  readonly actorUserId: UserId | null;
+  readonly actorName: string | null;
+  readonly count: number;
+}
+
+export interface AuditChangeEntry {
+  readonly id: AuditLogId;
+  readonly event: string;
+  readonly actorUserId: UserId | null;
+  readonly actorName: string | null;
+  readonly subjectId: string | null;
+  readonly at: string;
+}
+
+export interface AuditChanges {
+  readonly counts: readonly AuditChangeCount[];
+  readonly entries: readonly AuditChangeEntry[];
+  readonly truncated: boolean;
+}
+
+export async function readAuditChanges(
+  database: SqlDatabase,
+  window: AuditChangeWindow,
+): Promise<AuditChanges> {
+  if (window.events.length === 0) return { counts: [], entries: [], truncated: false };
+  const eventPlaceholders = window.events.map((_, index) => `?${String(index + 4)}`).join(", ");
+  // Leads with the created_at index; the event list is a filter on the rows that walk finds.
+  const where =
+    `a.created_at >= ?1 AND a.created_at < ?2 AND a.created_at <= ?3 ` +
+    `AND a.event IN (${eventPlaceholders})`;
+  const bindings = [
+    window.fromInstant,
+    window.beforeInstant,
+    window.knownAtOrBefore,
+    ...window.events,
+  ];
+  // The actor's name is the member mirror's, and stays null for system rows and departed members.
+  const actor = `LEFT JOIN member m ON m.user_id = a.actor_user_id`;
+
+  const counted = await database
+    .prepare(
+      `SELECT a.event, a.actor_user_id, m.display_name AS actor_name, COUNT(*) AS change_count ` +
+        `FROM ${AUDIT_LOG_TABLE} a ${actor} WHERE ${where} ` +
+        `GROUP BY a.event, a.actor_user_id ORDER BY a.event, a.actor_user_id`,
+    )
+    .bind(...bindings)
+    .all<{
+      event: string;
+      actor_user_id: UserId | null;
+      actor_name: string | null;
+      change_count: number;
+    }>();
+
+  const listed = await database
+    .prepare(
+      `SELECT a.id, a.event, a.actor_user_id, m.display_name AS actor_name, a.subject_id, a.created_at ` +
+        `FROM ${AUDIT_LOG_TABLE} a ${actor} WHERE ${where} ` +
+        `ORDER BY a.created_at DESC, a.id DESC LIMIT ${String(MAXIMUM_AUDIT_CHANGE_ENTRIES + 1)}`,
+    )
+    .bind(...bindings)
+    .all<{
+      id: AuditLogId;
+      event: string;
+      actor_user_id: UserId | null;
+      actor_name: string | null;
+      subject_id: string | null;
+      created_at: string;
+    }>();
+
+  return {
+    counts: counted.results.map((row) => ({
+      event: row.event,
+      actorUserId: row.actor_user_id,
+      actorName: row.actor_name,
+      count: row.change_count,
+    })),
+    entries: listed.results.slice(0, MAXIMUM_AUDIT_CHANGE_ENTRIES).map((row) => ({
+      id: row.id,
+      event: row.event,
+      actorUserId: row.actor_user_id,
+      actorName: row.actor_name,
+      subjectId: row.subject_id,
+      at: row.created_at,
+    })),
+    truncated: listed.results.length > MAXIMUM_AUDIT_CHANGE_ENTRIES,
+  };
+}

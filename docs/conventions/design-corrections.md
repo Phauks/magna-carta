@@ -320,6 +320,10 @@ is usually the fastest way to understand the rule.
   `SegmentedControl`, every option on screen and the chosen one raised; five or more is a Select.
   A choice not built yet stays in the track, refused, with its reason on hover. It takes a row of
   its own when its words would not fit a column. _(app visual refresh, 2026-11-14)_
+- **A segmented control is a pill in a pill.** The track and the chosen tile are both fully round,
+  and the chosen tile stays light and raised rather than filled with ink, so it does not compete
+  with the primary button beside it. A square tile in a rounded track read as a mismatch.
+  _(Magnus sort control, 2026-11-16)_
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
   column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
@@ -1686,6 +1690,12 @@ The owner, on the person record window:
   mistyped row is retired (soft-deleted, still in the audit log) and is not listed, searched or
   conflict-checked as a former name. A name the person really held is kept by adding it with Add
   Other Name.
+- **"We shouldn't have two name fields? They look different"** and **"Add other name should be same
+  as add new name"** (2026-11-16). Every place a person's name is typed renders one component,
+  `sections/person-name-fields.svelte`: first, middle and last on one row, prefix and suffix
+  beneath. The record's Add Other Name sits under the same "Other Name" kind field New Person uses,
+  with no grey panel, and while Edit Name is open the names list steps aside, so the name is not
+  shown twice.
 - Found while checking at phone width: the section rail and a side column squeezed the form to a
   sliver. Below the medium breakpoint the rail steps aside and a panel's side column stands under
   the form (`ActionDialog`), so nothing scrolls sideways.
@@ -1715,6 +1725,7 @@ The owner, asked to pick one of three directions for the app as a whole:
 - **Capitals, underlines and a gold edge on every list.** Column headers, sidebar groups and
   filter headings were tracked capitals, every matter title was underlined, and the scroll-edge
   rule drew a gold line down the table's side. Promoted to _Data entry_.
+- **Every field states its necessity; the mark is one setting.** `Label`, `LabelledField`, `DatePicker` and `DateTimeField` take `necessity="required" | "optional"`, read from the record's rules (the commit refuses an empty value: required; a blank becomes null: optional). Checkboxes, switches, radio items, pickers that always hold a value, read-only fields and filters take none. How it shows is `NECESSITY_MARKING` in `packages/design-system/src/lib/components/label/necessity.ts`: today "Optional" after an optional label and nothing on a required one. Never "(optional)" written into the label text, never a hint line that only says so, and never a star or a word written by hand.
 - **Statuses are a dot and a word, not a tinted pill.** The status tones of `Badge` (neutral, success, warning, danger, info, accent) draw a small disc in the status hue before the word in the reading colour. The `caps` option is retired and changes nothing.
 - **Still to come in later passes:** the top bar, and the near-identical greys.
 

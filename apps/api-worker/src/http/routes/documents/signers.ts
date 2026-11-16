@@ -4,7 +4,12 @@ import {
   GuardedWriteRefusedError,
   type EffectWrite,
 } from "@magna-carta/data-access/effect-batch";
-import type { SigningRequestId, SigningSignerId } from "@magna-carta/identifiers/types";
+import type {
+  FileId,
+  FirmId,
+  SigningRequestId,
+  SigningSignerId,
+} from "@magna-carta/identifiers/types";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
@@ -12,7 +17,7 @@ import { constantTimeStringEquals } from "../../../constant-time.ts";
 import { sendMessage } from "../../../email-delivery.ts";
 import type { SendEmail } from "../../../email-port.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
-import { SigningRequestRefusal } from "../../../signing/request-service.ts";
+import { SigningRequestRefusal, readRequestDetail } from "../../../signing/request-service.ts";
 import {
   MAXIMUM_MARK_BYTES,
   maskedAddress,
@@ -20,6 +25,7 @@ import {
 } from "../../../signing/signer-contract.ts";
 import { linkStatements, mailSigners } from "../../../signing/signer-delivery.ts";
 import { hashAccessCode, newAccessCode } from "../../../signing/signer-link.ts";
+import { signerLinkRefusal, signerLinkRefusalFor } from "../../../signing/signer-refusals.ts";
 import {
   ACCESS_CODE_LIFETIME_MINUTES,
   SignerStepRefusal,
@@ -39,11 +45,17 @@ import {
   SIGNING_ACCESS_CODE_MESSAGE_CLASS,
   accessCodeEmail,
 } from "../../../signing/signing-mail.ts";
-import { readMemberName, readVersionObjectKey } from "../../../signing/statements.ts";
-import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
+import {
+  listWaitingOnMember,
+  readMemberName,
+  readVersionObjectKey,
+} from "../../../signing/statements.ts";
+import type { Chokepoint, GuestLaneRefusal } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointSignerGrant,
+  requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
@@ -59,39 +71,39 @@ import {
   readRoute,
   sendCodeRoute,
 } from "./signer-routes.ts";
+import {
+  LINK_LANE,
+  MEMBER_LANE,
+  observedFrom,
+  refusal,
+  type SignerContext,
+  type SignerLane,
+} from "./signer-lanes.ts";
+import {
+  myAdoptRoute,
+  myConsentRoute,
+  myDeclineRoute,
+  myDocumentRoute,
+  myFinishRoute,
+  myOpenRoute,
+  myReadRoute,
+  myRequestsRoute,
+} from "./my-signing-routes.ts";
 
-// An outside signer's side of a signing request, on the chokepoint's signer lane. The lane has
-// already verified the link and checked it against the signer's row; every handler reads the
-// request afresh, asks the signer service (../../../signing/signer-service.ts) whether the act is
-// the signer's to take now, and commits what it returns. The IP address and browser recorded with
+// A signer's side of a signing request, for both kinds of signer. An outside signer comes in on the
+// chokepoint's signer lane, which has already verified the link and checked it against the signer's
+// row. A firm member comes in with their session on the routes in ./my-signing-routes.ts, and is
+// found on the request by their user id. Past that one difference every act is the same code: each
+// handler reads the request afresh, asks the signer service (../../../signing/signer-service.ts)
+// whether the act is the signer's to take now, and commits what it returns. The IP address and browser recorded with
 // each act are the edge's own reading of the request, never anything the page sends.
 //
 // Nothing here logs, echoes or stores the link, the code, or an adopted image's bytes beyond the
 // firm's own bucket.
 
 type App = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
-type SignerContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const MAXIMUM_USER_AGENT = 300;
-
-function observedFrom(c: SignerContext): Observed {
-  const userAgent = c.req.header("user-agent");
-  return {
-    now: new Date().toISOString(),
-    ip: c.req.header("cf-connecting-ip") ?? null,
-    userAgent: userAgent === undefined ? null : userAgent.slice(0, MAXIMUM_USER_AGENT),
-  };
-}
-
-async function viewFor(c: SignerContext): Promise<SignerView> {
-  const grant = requireChokepointSignerGrant(c);
-  return await readSignerView(
-    requireChokepointFirmContext(c).firmDatabase,
-    grant.requestId as SigningRequestId,
-    grant.signerId as SigningSignerId,
-  );
-}
 
 async function namesFor(
   c: SignerContext,
@@ -104,44 +116,13 @@ async function namesFor(
   };
 }
 
-async function freshViewBody(c: SignerContext) {
-  const view = await viewFor(c);
+async function freshViewBody(c: SignerContext, lane: SignerLane) {
+  const view = await lane.viewFor(c);
   return signerViewBody(view, await namesFor(c, view));
 }
 
 async function commit(c: SignerContext, effect: EffectWrite, now: string): Promise<void> {
   await commitEffectBatch(requireChokepointFirmContext(c).firmDatabase, effect, { now: () => now });
-}
-
-function refusal(
-  c: SignerContext,
-  error: unknown,
-): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> | undefined {
-  if (error instanceof GuardedWriteRefusedError) {
-    return problemJson(c, {
-      type: "signing-request-moved",
-      title: "The request changed",
-      status: 409,
-      detail: "Something changed while you were signing. Reload the page and try again.",
-    });
-  }
-  if (error instanceof SignerStepRefusal) {
-    return problemJson(c, {
-      type: "signing-step-refused",
-      title: error.status === 422 ? "Something is missing" : "Not yet",
-      status: error.status,
-      detail: error.message,
-    });
-  }
-  if (error instanceof SigningRequestRefusal) {
-    return problemJson(c, {
-      type: "not-found",
-      title: "Not found",
-      status: 404,
-      detail: "No such resource in this firm.",
-    });
-  }
-  return undefined;
 }
 
 function decodePng(base64: string): Uint8Array<ArrayBuffer> | null {
@@ -157,71 +138,210 @@ function decodePng(base64: string): Uint8Array<ArrayBuffer> | null {
   return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte) ? bytes : null;
 }
 
+type SignerAdoptionBody = {
+  readonly how: "typed" | "drawn" | "uploaded";
+  readonly signaturePng: string;
+  readonly initialsPng: string | null;
+};
+
+async function answered(c: SignerContext, act: () => Promise<Response>): Promise<Response> {
+  try {
+    return await act();
+  } catch (error) {
+    const answer = refusal(c, error);
+    if (answer !== undefined) return answer;
+    throw error;
+  }
+}
+
+async function readDocument(c: SignerContext, lane: SignerLane): Promise<Response> {
+  return await answered(c, async () => {
+    const firm = requireChokepointFirmContext(c);
+    const view = await lane.viewFor(c);
+    const key = await readVersionObjectKey(firm.firmDatabase, view.detail.request.fileVersionId);
+    const object =
+      key === undefined ? null : await resolveFirmBucket(c.env, firm.bucketName).bucket.get(key);
+    if (object === null) {
+      return problemJson(c, {
+        type: "not-found",
+        title: "Not found",
+        status: 404,
+        detail: "The document is no longer available. Ask whoever sent it.",
+      });
+    }
+    return new Response(object.body, {
+      status: 200,
+      headers: {
+        "content-type": "application/pdf",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  });
+}
+
+async function openPart(c: SignerContext, lane: SignerLane): Promise<Response> {
+  const observed = observedFrom(c);
+  return await answered(c, async () => {
+    const view = await lane.viewFor(c);
+    await commit(
+      c,
+      openRequest(requireChokepointFirmContext(c).firmDatabase, view, observed),
+      observed.now,
+    );
+    return c.json(await freshViewBody(c, lane), 200);
+  });
+}
+
+async function consent(c: SignerContext, lane: SignerLane): Promise<Response> {
+  const observed = observedFrom(c);
+  return await answered(c, async () => {
+    const view = await lane.viewFor(c);
+    await commit(
+      c,
+      giveConsent(requireChokepointFirmContext(c).firmDatabase, view, observed),
+      observed.now,
+    );
+    return c.json(await freshViewBody(c, lane), 200);
+  });
+}
+
+async function adopt(
+  c: SignerContext,
+  lane: SignerLane,
+  body: SignerAdoptionBody,
+): Promise<Response> {
+  const observed = observedFrom(c);
+  const signature = decodePng(body.signaturePng);
+  const initials = body.initialsPng === null ? null : decodePng(body.initialsPng);
+  if (signature === null || (body.initialsPng !== null && initials === null)) {
+    return problemJson(c, {
+      type: "signing-step-refused",
+      title: "The image cannot be used",
+      status: 422,
+      detail: "A signature must be a PNG image smaller than 200 KB.",
+    });
+  }
+  const firm = requireChokepointFirmContext(c);
+  return await answered(c, async () => {
+    const view = await lane.viewFor(c);
+    if (needsCode(view) || view.signer.consentedAt === null) {
+      throw new SignerStepRefusal(409, "Agree to sign electronically first.");
+    }
+    const bucket = resolveFirmBucket(c.env, firm.bucketName).bucket;
+    const stamp = observed.now.replace(/[^0-9]/g, "");
+    const prefix = `signing/${view.detail.request.id}/${view.signer.id}`;
+    const signatureKey = `${prefix}/signature-${stamp}.png`;
+    const initialsKey = initials === null ? null : `${prefix}/initials-${stamp}.png`;
+    await bucket.put(signatureKey, signature, {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: matterScopedObjectDimensions({
+        matterId: view.detail.request.matterId,
+        objectClass: "signing-mark",
+      }),
+    });
+    if (initials !== null && initialsKey !== null) {
+      await bucket.put(initialsKey, initials, {
+        httpMetadata: { contentType: "image/png" },
+        customMetadata: matterScopedObjectDimensions({
+          matterId: view.detail.request.matterId,
+          objectClass: "signing-mark",
+        }),
+      });
+    }
+    await commit(
+      c,
+      adoptSignature(
+        firm.firmDatabase,
+        view,
+        { how: body.how, signatureKey, initialsKey },
+        observed,
+      ),
+      observed.now,
+    );
+    return c.json(await freshViewBody(c, lane), 200);
+  });
+}
+
+async function finish(
+  c: SignerContext,
+  lane: SignerLane,
+  answers: Record<string, string | boolean>,
+  sendEmail: (env: Bindings) => SendEmail,
+): Promise<Response> {
+  const observed = observedFrom(c);
+  const firm = requireChokepointFirmContext(c);
+  const firmId = lane.firmIdOf(c);
+  return await answered(c, async () => {
+    const view = await lane.viewFor(c);
+    const finished = finishSigning(firm.firmDatabase, view, answers, observed);
+    const links = await linkStatements(
+      firm.firmDatabase,
+      c.env.AUTH_SECRET,
+      firmId,
+      finished.notify,
+      observed.now,
+    );
+    await commit(
+      c,
+      { ...finished.effect, statements: [...finished.effect.statements, ...links] },
+      observed.now,
+    );
+    if (finished.notify.length > 0) {
+      const names = await namesFor(c, view);
+      const logger = c.get("logger");
+      await mailSigners(
+        {
+          send: sendEmail(c.env),
+          key: c.env.AUTH_SECRET,
+          firmId,
+          firmName: names.firmName,
+          senderName: names.senderName,
+          origin: new URL(c.req.url).origin,
+          ...(logger === undefined ? {} : { logger }),
+          correlationId: c.get("correlationId") ?? "",
+        },
+        view.detail.request,
+        finished.notify,
+        "request",
+      );
+    }
+    return c.json({ status: "signed" as const }, 200);
+  });
+}
+
+async function decline(c: SignerContext, lane: SignerLane, reason: string): Promise<Response> {
+  const observed = observedFrom(c);
+  return await answered(c, async () => {
+    const view = await lane.viewFor(c);
+    await commit(
+      c,
+      declineSigning(requireChokepointFirmContext(c).firmDatabase, view, reason, observed),
+      observed.now,
+    );
+    return c.json({ status: "declined" as const }, 200);
+  });
+}
+
 export function registerSignerRoutes(
   app: App,
   chokepoint: Chokepoint,
   sendEmail: (env: Bindings) => SendEmail,
 ): void {
+  // The outside signer's lane: the link names the request and the signer.
   app.openapi(
     { ...readRoute, middleware: chokepointMiddleware(chokepoint, readRoute) },
-    async (c) => {
-      try {
-        return c.json(await freshViewBody(c), 200);
-      } catch (error) {
-        const answer = refusal(c, error);
-        if (answer !== undefined) return answer;
-        throw error;
-      }
-    },
+    async (c) =>
+      (await answered(c, async () => c.json(await freshViewBody(c, LINK_LANE), 200))) as never,
   );
-
   app.openapi(
     { ...documentRoute, middleware: chokepointMiddleware(chokepoint, documentRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const view = await viewFor(c);
-      const key = await readVersionObjectKey(firm.firmDatabase, view.detail.request.fileVersionId);
-      const object =
-        key === undefined ? null : await resolveFirmBucket(c.env, firm.bucketName).bucket.get(key);
-      if (object === null) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "The document is no longer available. Ask whoever sent it.",
-        });
-      }
-      return new Response(object.body, {
-        status: 200,
-        headers: {
-          "content-type": "application/pdf",
-          "cache-control": "private, no-store",
-          "x-content-type-options": "nosniff",
-        },
-      }) as never;
-    },
+    async (c) => (await readDocument(c, LINK_LANE)) as never,
   );
-
   app.openapi(
     { ...openRoute, middleware: chokepointMiddleware(chokepoint, openRoute) },
-    async (c) => {
-      const observed = observedFrom(c);
-      try {
-        const view = await viewFor(c);
-        await commit(
-          c,
-          openRequest(requireChokepointFirmContext(c).firmDatabase, view, observed),
-          observed.now,
-        );
-        return c.json(await freshViewBody(c), 200);
-      } catch (error) {
-        const answer = refusal(c, error);
-        if (answer !== undefined) return answer;
-        throw error;
-      }
-    },
+    async (c) => (await openPart(c, LINK_LANE)) as never,
   );
-
   app.openapi(
     { ...sendCodeRoute, middleware: chokepointMiddleware(chokepoint, sendCodeRoute) },
     async (c) => {
@@ -230,7 +350,7 @@ export function registerSignerRoutes(
       let view: SignerView;
       const digits = newAccessCode();
       try {
-        view = await viewFor(c);
+        view = await LINK_LANE.viewFor(c);
         const codeHash = await hashAccessCode(c.env.AUTH_SECRET, view.signer.id, digits);
         await commit(c, issueAccessCode(firm.firmDatabase, view, codeHash, observed), observed.now);
       } catch (error) {
@@ -274,7 +394,7 @@ export function registerSignerRoutes(
       const observed = observedFrom(c);
       const { code } = c.req.valid("json");
       try {
-        const view = await viewFor(c);
+        const view = await LINK_LANE.viewFor(c);
         const stored = view.progress.accessCodeHash;
         const matches =
           stored !== null &&
@@ -297,7 +417,7 @@ export function registerSignerRoutes(
             detail: "Check the code in your email and try again, or ask for a new one.",
           });
         }
-        return c.json(await freshViewBody(c), 200);
+        return c.json(await freshViewBody(c, LINK_LANE), 200);
       } catch (error) {
         const answer = refusal(c, error);
         if (answer !== undefined) return answer;
@@ -308,153 +428,61 @@ export function registerSignerRoutes(
 
   app.openapi(
     { ...consentRoute, middleware: chokepointMiddleware(chokepoint, consentRoute) },
-    async (c) => {
-      const observed = observedFrom(c);
-      try {
-        const view = await viewFor(c);
-        await commit(
-          c,
-          giveConsent(requireChokepointFirmContext(c).firmDatabase, view, observed),
-          observed.now,
-        );
-        return c.json(await freshViewBody(c), 200);
-      } catch (error) {
-        const answer = refusal(c, error);
-        if (answer !== undefined) return answer;
-        throw error;
-      }
-    },
+    async (c) => (await consent(c, LINK_LANE)) as never,
   );
-
   app.openapi(
     { ...adoptRoute, middleware: chokepointMiddleware(chokepoint, adoptRoute) },
-    async (c) => {
-      const observed = observedFrom(c);
-      const body = c.req.valid("json");
-      const signature = decodePng(body.signaturePng);
-      const initials = body.initialsPng === null ? null : decodePng(body.initialsPng);
-      if (signature === null || (body.initialsPng !== null && initials === null)) {
-        return problemJson(c, {
-          type: "signing-step-refused",
-          title: "The image cannot be used",
-          status: 422,
-          detail: "A signature must be a PNG image smaller than 200 KB.",
-        });
-      }
-      const firm = requireChokepointFirmContext(c);
-      try {
-        const view = await viewFor(c);
-        if (needsCode(view) || view.signer.consentedAt === null) {
-          throw new SignerStepRefusal(409, "Agree to sign electronically first.");
-        }
-        const bucket = resolveFirmBucket(c.env, firm.bucketName).bucket;
-        const stamp = observed.now.replace(/[^0-9]/g, "");
-        const prefix = `signing/${view.detail.request.id}/${view.signer.id}`;
-        const signatureKey = `${prefix}/signature-${stamp}.png`;
-        const initialsKey = initials === null ? null : `${prefix}/initials-${stamp}.png`;
-        await bucket.put(signatureKey, signature, {
-          httpMetadata: { contentType: "image/png" },
-          customMetadata: matterScopedObjectDimensions({
-            matterId: view.detail.request.matterId,
-            objectClass: "signing-mark",
-          }),
-        });
-        if (initials !== null && initialsKey !== null) {
-          await bucket.put(initialsKey, initials, {
-            httpMetadata: { contentType: "image/png" },
-            customMetadata: matterScopedObjectDimensions({
-              matterId: view.detail.request.matterId,
-              objectClass: "signing-mark",
-            }),
-          });
-        }
-        await commit(
-          c,
-          adoptSignature(
-            firm.firmDatabase,
-            view,
-            { how: body.how, signatureKey, initialsKey },
-            observed,
-          ),
-          observed.now,
-        );
-        return c.json(await freshViewBody(c), 200);
-      } catch (error) {
-        const answer = refusal(c, error);
-        if (answer !== undefined) return answer;
-        throw error;
-      }
-    },
+    async (c) => (await adopt(c, LINK_LANE, c.req.valid("json"))) as never,
   );
-
   app.openapi(
     { ...finishRoute, middleware: chokepointMiddleware(chokepoint, finishRoute) },
-    async (c) => {
-      const observed = observedFrom(c);
-      const { answers } = c.req.valid("json");
-      const firm = requireChokepointFirmContext(c);
-      const grant = requireChokepointSignerGrant(c);
-      try {
-        const view = await viewFor(c);
-        const finished = finishSigning(firm.firmDatabase, view, answers, observed);
-        const links = await linkStatements(
-          firm.firmDatabase,
-          c.env.AUTH_SECRET,
-          grant.firmId,
-          finished.notify,
-          observed.now,
-        );
-        await commit(
-          c,
-          { ...finished.effect, statements: [...finished.effect.statements, ...links] },
-          observed.now,
-        );
-        if (finished.notify.length > 0) {
-          const names = await namesFor(c, view);
-          const logger = c.get("logger");
-          await mailSigners(
-            {
-              send: sendEmail(c.env),
-              key: c.env.AUTH_SECRET,
-              firmId: grant.firmId,
-              firmName: names.firmName,
-              senderName: names.senderName,
-              origin: new URL(c.req.url).origin,
-              ...(logger === undefined ? {} : { logger }),
-              correlationId: c.get("correlationId") ?? "",
-            },
-            view.detail.request,
-            finished.notify,
-            "request",
-          );
-        }
-        return c.json({ status: "signed" as const }, 200);
-      } catch (error) {
-        const answer = refusal(c, error);
-        if (answer !== undefined) return answer;
-        throw error;
-      }
-    },
+    async (c) => (await finish(c, LINK_LANE, c.req.valid("json").answers, sendEmail)) as never,
   );
-
   app.openapi(
     { ...declineRoute, middleware: chokepointMiddleware(chokepoint, declineRoute) },
+    async (c) => (await decline(c, LINK_LANE, c.req.valid("json").reason)) as never,
+  );
+
+  // A firm member's own part, on their session: the same acts, found by who is signed in.
+  app.openapi(
+    { ...myRequestsRoute, middleware: chokepointMiddleware(chokepoint, myRequestsRoute) },
     async (c) => {
-      const observed = observedFrom(c);
-      const { reason } = c.req.valid("json");
-      try {
-        const view = await viewFor(c);
-        await commit(
-          c,
-          declineSigning(requireChokepointFirmContext(c).firmDatabase, view, reason, observed),
-          observed.now,
-        );
-        return c.json({ status: "declined" as const }, 200);
-      } catch (error) {
-        const answer = refusal(c, error);
-        if (answer !== undefined) return answer;
-        throw error;
-      }
+      const { id } = c.req.valid("param");
+      const requestIds = await listWaitingOnMember(
+        requireChokepointFirmContext(c).firmDatabase,
+        id as FileId,
+        requireChokepointUserId(c),
+      );
+      return c.json({ requestIds }, 200);
     },
+  );
+  app.openapi(
+    { ...myReadRoute, middleware: chokepointMiddleware(chokepoint, myReadRoute) },
+    async (c) =>
+      (await answered(c, async () => c.json(await freshViewBody(c, MEMBER_LANE), 200))) as never,
+  );
+  app.openapi(
+    { ...myDocumentRoute, middleware: chokepointMiddleware(chokepoint, myDocumentRoute) },
+    async (c) => (await readDocument(c, MEMBER_LANE)) as never,
+  );
+  app.openapi(
+    { ...myOpenRoute, middleware: chokepointMiddleware(chokepoint, myOpenRoute) },
+    async (c) => (await openPart(c, MEMBER_LANE)) as never,
+  );
+  app.openapi(
+    { ...myConsentRoute, middleware: chokepointMiddleware(chokepoint, myConsentRoute) },
+    async (c) => (await consent(c, MEMBER_LANE)) as never,
+  );
+  app.openapi(
+    { ...myAdoptRoute, middleware: chokepointMiddleware(chokepoint, myAdoptRoute) },
+    async (c) => (await adopt(c, MEMBER_LANE, c.req.valid("json"))) as never,
+  );
+  app.openapi(
+    { ...myFinishRoute, middleware: chokepointMiddleware(chokepoint, myFinishRoute) },
+    async (c) => (await finish(c, MEMBER_LANE, c.req.valid("json").answers, sendEmail)) as never,
+  );
+  app.openapi(
+    { ...myDeclineRoute, middleware: chokepointMiddleware(chokepoint, myDeclineRoute) },
+    async (c) => (await decline(c, MEMBER_LANE, c.req.valid("json").reason)) as never,
   );
 }

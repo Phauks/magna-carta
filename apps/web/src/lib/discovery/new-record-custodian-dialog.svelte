@@ -134,7 +134,7 @@
         </p>
       {:else}
         <div class="flex flex-col gap-8">
-          <Label for="new-record-custodian-name">Name</Label>
+          <Label necessity="required" for="new-record-custodian-name">Name</Label>
           <Input id="new-record-custodian-name" disabled={busy} bind:value={displayName} />
           <p class="text-text-muted text-sm">
             As named in the production. They don't need to be in the firm's Directory.

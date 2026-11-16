@@ -28,7 +28,13 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   realization, invoices (`invoice-register.ts`) and payments applied (`payments-applied.ts`): billing's per-matter rows added into offices, clients and matters;
   aged work in progress (`aged-work-in-progress.ts`, live): billing's unbilled entries by age, adding
   up to the work-in-progress total, and over cost entries alone as Aged Expenses; and matter balances (`matter-balances.ts`, live): the work-in-progress, aging and trust per-leaf
-  figures moved onto each matter as three columns that are never added to one another
+  figures moved onto each matter as three columns that are never added to one another; and revenue
+  (`revenue.ts`): the Invoices billed figure and the collection kinds of Payments Applied (payments,
+  trust transfers, client credits; credit notes and write-offs apart, as credited) by office, by
+  matter type and by responsible attorney, over billing's `readMatterAttributions`;
+  and the matter billing guide (`matter-billing-guide.ts`, live): each open and held matter from
+  the matters register beside billing's agreement governing the day and timekeeping's matter- and
+  client-tier rates in force, counted by kind of agreement
 - `src/productivity/timekeeper-productivity.ts` — minutes recorded, never money, never a target; `src/productivity/daily-time.ts`
   — the same minutes per day and timekeeper, its totals equal to Timekeeper Productivity's (live); `src/productivity/matter-productivity.ts` — the
   same breakdown per matter with its timekeepers (live); `src/productivity/task-workload.ts` — the
@@ -37,6 +43,11 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   sections named; `src/operational/matters-list.ts` — the matters package's register of opened
   matters, listed as served and counted by office (live); `src/operational/client-list.ts` — the clients of
   that register, each with the directory's own listing row and its matters counted (live)
+- `src/operational/change-log.ts` — who changed the firm's people and organizations, matters and
+  trust approval rule in a period, from the audit log through `readAuditChanges`
+  (`@magna-carta/data-access/audit-statements`); `CHANGE_LOG_EVENTS` is the vocabulary and its
+  labels. Never an audit row's metadata. One axis: an audit row is never edited or backdated, so
+  no knowledge instant; `reproducible` says whether the period had ended
 - `src/contract.ts` — the wire rows of the financial, productivity and operational reports; the
   routes in `apps/api-worker/src/http/routes/billing/` build each top-level response over them. It is
   the one source file allowed to import zod, and nothing else here imports it (`test/purity.test.ts`)
@@ -94,7 +105,7 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
 - Depends on `@magna-carta/directory` (the listing row the Client List prints), `@magna-carta/tasks`
   (the workload Tasks by Person counts), `@magna-carta/trust` (the account tree, the three-way proof, the bitemporal select
   builders), `@magna-carta/ledger` (the stored-balance fitness query and the calendar-date check),
-  `@magna-carta/data-access` (the `SqlDatabase` shape only), and `@magna-carta/identifiers`.
+  `@magna-carta/data-access` (the `SqlDatabase` shape, and `readAuditChanges` for the Change Log), and `@magna-carta/identifiers`.
 - **New SQL over trust or billing tables belongs in THAT package**, inside its schema-name-sync net
   and beside the invariants it must respect. This package holds no SQL of its own by design; it
   composes those builders into report shapes. The purity scan's non-vacuity floor is that these

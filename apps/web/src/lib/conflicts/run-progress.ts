@@ -70,7 +70,7 @@ export function runProgressSteps(run: RunSummary): ProgressStep[] {
   return stages.map((stage, index) => {
     const count = stageCountText(stage, run.progress);
     const label =
-      count === null ? RUN_STAGE_VOCABULARY[stage] : `${RUN_STAGE_VOCABULARY[stage]} — ${count}`;
+      count === null ? RUN_STAGE_VOCABULARY[stage] : `${RUN_STAGE_VOCABULARY[stage]}: ${count}`;
     if (run.status === "completed") return { label, status: "done" };
     if (run.status === "failed") {
       if (index < current) return { label, status: "done" };

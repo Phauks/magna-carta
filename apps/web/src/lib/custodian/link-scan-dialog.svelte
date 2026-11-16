@@ -171,7 +171,7 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label id="link-scan-file-label">Document</Label>
+        <Label necessity="required" id="link-scan-file-label">Document</Label>
         <Select.Root
           type="single"
           items={documentItems}
@@ -218,7 +218,7 @@
         <div class="flex flex-col gap-8">
           <!-- When the copy was taken, which is not when it is being linked. A photograph of a deed
                taken at a completion meeting is dated that day whenever it reaches the register. -->
-          <DatePicker label="Taken on" value={capturedAtValue} onValueChange={recordCapturedAt} />
+          <DatePicker necessity="optional" label="Taken on" value={capturedAtValue} onValueChange={recordCapturedAt} />
         </div>
       </div>
 

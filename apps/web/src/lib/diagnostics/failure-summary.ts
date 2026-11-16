@@ -225,10 +225,29 @@ export function causeLabel(failure: Failure): string {
       ? `Server fault (${String(problem.status)})`
       : `Server fault: ${kind}`;
   }
-  return problem.title === undefined
+  // The refusal's kind in a few words, never the server's title: the title is usually the heading
+  // the surface already shows, and a tag that repeats the heading says nothing new. The title is in
+  // the details, on the Answer row.
+  const kind = REFUSAL_KINDS[problem.status];
+  return kind === undefined
     ? `Refused (${String(problem.status)})`
-    : `Refused (${String(problem.status)}): ${problem.title}`;
+    : `Refused: ${kind} (${String(problem.status)})`;
 }
+
+const REFUSAL_KINDS: Readonly<Record<number, string>> = {
+  400: "bad request",
+  401: "not signed in",
+  403: "not allowed",
+  404: "not found",
+  408: "timed out",
+  409: "conflict",
+  410: "gone",
+  413: "too large",
+  415: "file type not accepted",
+  422: "not accepted as entered",
+  423: "locked",
+  429: "too many attempts",
+};
 
 /** The path the failure is about: the operation the server matched, or the request as made. */
 export function failurePath(failure: Failure): string {

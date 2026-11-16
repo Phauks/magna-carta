@@ -144,7 +144,7 @@
     <div class="flex flex-col gap-16">
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label id="{fieldPrefix}-channel-label">How It Went</Label>
+          <Label necessity="required" id="{fieldPrefix}-channel-label">How It Went</Label>
           <Select.Root
             type="single"
             items={CHANNEL_ITEMS}
@@ -163,7 +163,7 @@
           </Select.Root>
         </div>
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Date It Reached Them"
             value={civilDateValue(deliveryDate)}
             onValueChange={(next) => (deliveryDate = civilDateTextOrEmpty(next))}
@@ -173,7 +173,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-recipient">Recipient</Label>
+        <Label necessity="required" for="{fieldPrefix}-recipient">Recipient</Label>
         <Input id="{fieldPrefix}-recipient" disabled={busy} bind:value={recipient} />
         <p class="text-xs text-text-muted">
           Who received it: the postal address, the email address, or the person it was handed to.
@@ -182,7 +182,7 @@
 
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label id="{fieldPrefix}-outcome-label">What Became Of It</Label>
+          <Label necessity="required" id="{fieldPrefix}-outcome-label">What Became Of It</Label>
           <Select.Root
             type="single"
             items={[...OUTCOME_ITEMS]}
@@ -201,7 +201,7 @@
           </Select.Root>
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-reference">Carrier Reference</Label>
+          <Label necessity="optional" for="{fieldPrefix}-reference">Carrier Reference</Label>
           <Input id="{fieldPrefix}-reference" disabled={busy} bind:value={externalReference} />
           <p class="text-xs text-text-muted">
             A tracking number or other reference, if there is one.

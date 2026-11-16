@@ -189,7 +189,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
-      <LabelledField
+      <LabelledField necessity="required"
         label="Outcome"
         hint={reviewOutcomeMeaning(outcome)}
         error={fieldRefusal(serverProblem, "outcome")}
@@ -207,7 +207,7 @@
         {/snippet}
       </LabelledField>
 
-      <LabelledField
+      <LabelledField necessity={movementWanted ? "required" : "optional"}
         label={TRUST_MOVEMENT_LABEL}
         hint={movementRefusal ?? TRUST_MOVEMENT_HINT}
         error={fieldRefusal(serverProblem, "trustMovementId")}
@@ -224,7 +224,7 @@
         {/snippet}
       </LabelledField>
 
-      <LabelledField
+      <LabelledField necessity="optional"
         label="Note"
         hint="What the round came to, where that is worth recording."
         error={fieldRefusal(serverProblem, "note")}

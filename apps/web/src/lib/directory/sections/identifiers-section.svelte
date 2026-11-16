@@ -185,7 +185,7 @@
         <!-- The refusal sits on the number, the field every type has and the one it is usually
              about; it appears once something has been typed, so a blank row is not nagged. -->
         <div class="min-w-0 flex-auto" style="flex-basis: {widthOf(field.key)}">
-        <LabelledField
+        <LabelledField necessity={field.key === "number" ? "required" : "optional"}
           label={field.label}
           error={field.key === "number" && started && refusal !== null ? refusal : undefined}
         >

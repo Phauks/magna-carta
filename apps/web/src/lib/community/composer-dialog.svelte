@@ -225,7 +225,7 @@
 
       {#if renaming}
         <div class="flex flex-col gap-8">
-          <LabelledField
+          <LabelledField necessity="required"
             label="Display Name"
             hint="Any name you like, a pseudonym included. It is your name everywhere on the board, and your firm is never shown."
             error={nameRefusal ?? undefined}

@@ -88,7 +88,7 @@
   {/snippet}
 
   {#snippet fields({ busy })}
-    <LabelledField label="Name">
+    <LabelledField necessity="required" label="Name">
       {#snippet children({ props })}
         <Input {...props} disabled={busy} bind:value={name} placeholder={placeholderOf("Name")} />
       {/snippet}

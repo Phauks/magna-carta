@@ -1201,6 +1201,52 @@ export async function readMatterCaptions(
   }));
 }
 
+// WHO AND WHAT A KNOWN SET OF MATTERS ARE ATTRIBUTED TO: each matter's type and its responsible
+// attorney, named as the member directory names them. The registers above carry the matter and its
+// office but not these; a report that breaks billed and applied money down by type or attorney reads
+// them here for the matters its rows name. Both are the matter's CURRENT values: a matter's type and
+// responsible attorney are editable and keep no history, so a figure is attributed as the matter
+// stands now, and the report says so. The ids travel as one JSON parameter, as in the read above.
+export interface MatterAttribution {
+  readonly matterId: string;
+  readonly matterTypeId: string | null;
+  readonly matterTypeName: string | null;
+  readonly responsibleMemberId: string;
+  readonly responsibleName: string | null;
+}
+
+export async function readMatterAttributions(
+  database: SqlDatabase,
+  matterIds: readonly string[],
+): Promise<readonly MatterAttribution[]> {
+  if (matterIds.length === 0) return [];
+  const { results } = await database
+    .prepare(
+      `SELECT m.id AS matter_id, m.matter_type_id, t.name AS matter_type_name,
+              m.responsible_member_id, mem.display_name AS responsible_name
+         FROM matter m
+         LEFT JOIN matter_type t ON t.id = m.matter_type_id
+         LEFT JOIN member mem ON mem.user_id = m.responsible_member_id
+        WHERE m.id IN (SELECT value FROM json_each(?1))
+        ORDER BY m.id`,
+    )
+    .bind(JSON.stringify(matterIds))
+    .all<{
+      matter_id: string;
+      matter_type_id: string | null;
+      matter_type_name: string | null;
+      responsible_member_id: string;
+      responsible_name: string | null;
+    }>();
+  return results.map((row) => ({
+    matterId: row.matter_id,
+    matterTypeId: row.matter_type_id,
+    matterTypeName: row.matter_type_name,
+    responsibleMemberId: row.responsible_member_id,
+    responsibleName: row.responsible_name,
+  }));
+}
+
 // WORK IN PROGRESS BY AGE — the same unbilled time and costs as the breakdown above (one predicate,
 // UNBILLED_TIME_PREDICATE and UNBILLED_COST_PREDICATE), placed by how long ago the work was done: a
 // time entry by its work date, a cost by the day it was incurred, counted from `asOfDate`. Work on a

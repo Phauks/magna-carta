@@ -178,6 +178,13 @@ Worker.
   an access code are never logged, counted, echoed or written to an activity line, and the address
   and browser on every act are read from the request, never from the body. The routes are
   `src/http/routes/documents/signers.ts`.
+- **A colleague signs through the same handlers on a member lane.** The routes in
+  `src/http/routes/documents/my-signing-routes.ts` are ordinary session routes (`esign:sign`); the
+  member lane in `signer-lanes.ts` finds the session's user on the request as a firm-authenticated
+  signer, and answers a request that names them any other way 404. It runs the link lane's closed
+  checks (cancelled, expired, already signed) and answers those 410 the way the link does. A member
+  is never mailed a link; their turn is an outbox message (`src/signing/member-turn.ts`) committed
+  in the batch that asks them, which raises the `documents.signing.memberTurn` notification.
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
 - **Every object written into a firm's bucket carries its dimensions.** Build them with

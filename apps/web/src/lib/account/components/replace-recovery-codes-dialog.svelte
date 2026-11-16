@@ -70,7 +70,7 @@
     {#if codes === null}
       <div class="flex flex-col gap-16">
         <p class="text-sm">Your current recovery codes stop working when the new ones are made.</p>
-        <LabelledField label="Password">
+        <LabelledField necessity="required" label="Password">
           {#snippet children({ props })}
             <PasswordInput
               {...props}
