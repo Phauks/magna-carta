@@ -99,7 +99,7 @@ shows the time it was sent, and the copy button beneath it puts that message's w
 clipboard.
 
 The open conversation's name sits at the top with the matter it is kept on in small print beneath
-it, or "Not kept on a matter". Inside a matter's own Magnus section the matter is already named at
+it, or "Not on a matter". Inside a matter's own Magnus section the matter is already named at
 the top of the page, so that line is left out.
 
 ## Editing or Removing Your Own Message

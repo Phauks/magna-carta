@@ -1,12 +1,14 @@
 /*
- * The productivity and operational reports, and the matters list, arranged for a screen and a file.
+ * The productivity reports (Timekeeper Productivity, Daily Time, Matter Productivity, Tasks by
+ * Person), the operational volumes and the
+ * matters list and the client list, arranged for a screen and a file.
  *
  * Totals first, then tables, as the financial reports are. Productivity is minutes and never money:
  * what the time was worth is the realization report's, on a different permission. Operational
  * volumes are counts and never money. Every figure is the payload's; the tiles are its totals and
  * fields, and nothing here adds two counts.
  */
-import { formatInstantDate, formatNumber } from "@magna-carta/design-system/formatters";
+import { formatDate, formatInstantDate, formatNumber } from "@magna-carta/design-system/formatters";
 import {
   completenessLine,
   type ReportCell,
@@ -22,13 +24,17 @@ import {
   shareCell,
   shareText,
 } from "./report-cells.ts";
-import { matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
+import { clientOffice, matterCaption, NO_CLIENT, NO_OFFICE } from "./financial-presenters.ts";
 import type {
+  ClientList,
+  DailyTime,
   MatterListRow,
+  MatterProductivity,
   MattersList,
   MatterStatusCounts,
   OperationalVolumes,
   ProductivityFigures,
+  TaskWorkload,
   TimekeeperProductivity,
 } from "./report-reads.ts";
 import type { ReportCaptions } from "./trust-compliance-presenter.ts";
@@ -154,6 +160,214 @@ export function presentTimekeeperProductivity(
         ]),
         endAlignedColumns: [1],
         whenEmpty: "No non-billable time was recorded in this period.",
+      },
+    ],
+  };
+}
+
+// ---- daily time -----------------------------------------------------------------------------------
+
+export function presentDailyTime(report: DailyTime, captions: ReportCaptions): ReportPresentation {
+  const totals = report.totals;
+  const summary: ReportSummaryTile[] = [
+    {
+      label: "Billable",
+      value: hoursText(totals.billableMinutes),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Non-billable",
+      value: hoursText(totals.nonBillableMinutes),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Billable share",
+      value:
+        totals.billableShareBasisPoints === null ? "-" : shareText(totals.billableShareBasisPoints),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Total recorded",
+      value: hoursText(totals.totalMinutes),
+      detail: `${counted(report.days.length, "day", "days")} · ${counted(report.timekeepers.length, "timekeeper", "timekeepers")}`,
+      tone: "total",
+    },
+  ];
+  const timekeeperCaption = (entry: { timekeeperUserId: string; timekeeperName: string | null }) =>
+    captionOr(entry.timekeeperName, captions.member(entry.timekeeperUserId));
+
+  return {
+    title: "Daily Time",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-day",
+        title: "By Day",
+        headers: ["Day", ...PRODUCTIVITY_HEADINGS],
+        rows: report.days.map((day) => [
+          formatDate(day.workDate),
+          ...productivityCells(day.figures),
+        ]),
+        rowDetails: report.days.map((day) =>
+          day.timekeepers.map((timekeeper) => [
+            timekeeperCaption(timekeeper),
+            ...productivityCells(timekeeper.figures),
+          ]),
+        ),
+        endAlignedColumns: [1, 2, 3, 4],
+        totalRow: [
+          report.locationId === null ? "Firm total" : "Office total",
+          ...productivityCells(totals),
+        ],
+        whenEmpty: "No time was recorded in this period.",
+      },
+      {
+        id: "by-timekeeper",
+        title: "By Timekeeper",
+        headers: ["Timekeeper", "Days", ...PRODUCTIVITY_HEADINGS],
+        rows: report.timekeepers.map((timekeeper) => [
+          timekeeperCaption(timekeeper),
+          countCell(timekeeper.dayCount),
+          ...productivityCells(timekeeper.figures),
+        ]),
+        endAlignedColumns: [1, 2, 3, 4, 5],
+        sortable: true,
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No time was recorded in this period.",
+      },
+    ],
+  };
+}
+
+// ---- matter productivity ----------------------------------------------------------------------------
+
+export function presentMatterProductivity(
+  report: MatterProductivity,
+  captions: ReportCaptions,
+): ReportPresentation {
+  const totals = report.totals;
+  const summary: ReportSummaryTile[] = [
+    { label: "Billable", value: hoursText(totals.billableMinutes), detail: null, tone: "plain" },
+    {
+      label: "Non-billable",
+      value: hoursText(totals.nonBillableMinutes),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Billable share",
+      value:
+        totals.billableShareBasisPoints === null ? "-" : shareText(totals.billableShareBasisPoints),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Total recorded",
+      value: hoursText(totals.totalMinutes),
+      detail: `${counted(totals.entryCount, "entry", "entries")} · ${counted(report.matters.length, "matter", "matters")}`,
+      tone: "total",
+    },
+  ];
+
+  return {
+    title: "Matter Productivity",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-matter",
+        title: "By Matter",
+        headers: ["Matter", "Client", ...PRODUCTIVITY_HEADINGS],
+        rows: report.matters.map((matter) => [
+          matterCaption(matter),
+          captionOr(matter.clientName, matter.clientEntityId ?? NO_CLIENT),
+          ...productivityCells(matter.figures),
+        ]),
+        rowDetails: report.matters.map((matter) =>
+          matter.timekeepers.map((timekeeper) => [
+            captionOr(timekeeper.timekeeperName, captions.member(timekeeper.timekeeperUserId)),
+            "",
+            ...productivityCells(timekeeper.figures),
+          ]),
+        ),
+        endAlignedColumns: [2, 3, 4, 5],
+        sortable: true,
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No time was recorded in this period.",
+      },
+    ],
+  };
+}
+
+// ---- tasks by person ------------------------------------------------------------------------------
+
+/**
+ * Tasks by Person: the firm's open, overdue and undated counts, then a member per row, sortable.
+ * Overdue reads in the attention tone. Counts only: the payload carries no task's words.
+ */
+export function presentTaskWorkload(
+  report: TaskWorkload,
+  captions: ReportCaptions,
+): ReportPresentation {
+  const summary: ReportSummaryTile[] = [
+    {
+      label: "Overdue",
+      value: formatNumber(report.totals.overdueCount),
+      detail: null,
+      tone: report.totals.overdueCount === 0 ? "plain" : "attention",
+    },
+    {
+      label: "No due date",
+      value: formatNumber(report.totals.undatedCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Open tasks",
+      value: formatNumber(report.totals.openCount),
+      detail: counted(
+        report.people.filter((person) => person.assigneeUserId !== null).length,
+        "person",
+        "people",
+      ),
+      tone: "total",
+    },
+  ];
+  return {
+    title: "Tasks by Person",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "by-person",
+        title: "By Person",
+        headers: ["Person", "Open", "Overdue", "No due date"],
+        rows: report.people.map((person) => [
+          person.assigneeUserId === null
+            ? "Nobody assigned"
+            : captionOr(person.assigneeName, captions.member(person.assigneeUserId)),
+          countCell(person.openCount),
+          countCell(person.overdueCount),
+          countCell(person.undatedCount),
+        ]),
+        endAlignedColumns: [1, 2, 3],
+        attentionColumns: [2],
+        sortable: true,
+        aside: completenessLine(report.completeness),
+        whenEmpty: "Nobody has an open task.",
       },
     ],
   };
@@ -316,8 +530,18 @@ function instantDay(instant: string | null): string {
  */
 export function presentMattersList(report: MattersList): ReportPresentation {
   const summary: ReportSummaryTile[] = [
-    { label: "Open", value: formatNumber(report.totals.openCount), detail: null, tone: "plain" },
-    { label: "On hold", value: formatNumber(report.totals.heldCount), detail: null, tone: "plain" },
+    {
+      label: "Open",
+      value: formatNumber(report.totals.openCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "On hold",
+      value: formatNumber(report.totals.heldCount),
+      detail: null,
+      tone: "plain",
+    },
     {
       label: "Closed",
       value: formatNumber(report.totals.closedCount),
@@ -381,6 +605,92 @@ export function presentMattersList(report: MattersList): ReportPresentation {
         subordinateColumns: [2, 3],
         aside: completenessLine(report.completeness),
         whenEmpty: "No matter has been opened.",
+      },
+    ],
+  };
+}
+
+// ---- client list ----------------------------------------------------------------------------------
+
+/** Where the directory places a client: the town and its region, as far as the record says. */
+function placeText(client: ClientList["clients"][number]): string {
+  const parts = [client.city, client.region].filter(
+    (part): part is string => part !== null && part.trim() !== "",
+  );
+  return parts.length === 0 ? "-" : parts.join(", ");
+}
+
+/**
+ * Client List: how many clients and their matters by status, then every client on its own row in
+ * the directory's name order, sortable, with the default way to reach them.
+ */
+export function presentClientList(report: ClientList): ReportPresentation {
+  const summary: ReportSummaryTile[] = [
+    {
+      label: "Open matters",
+      value: formatNumber(report.totals.openCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "On hold",
+      value: formatNumber(report.totals.heldCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Closed",
+      value: formatNumber(report.totals.closedCount),
+      detail: null,
+      tone: "plain",
+    },
+    {
+      label: "Clients",
+      value: formatNumber(report.clientCount),
+      detail: counted(report.totals.matterCount, "matter", "matters"),
+      tone: "total",
+    },
+  ];
+  const withoutClient =
+    report.mattersWithoutClient === 0
+      ? undefined
+      : `${counted(report.mattersWithoutClient, "opened matter has", "opened matters have")} no client recorded and ${report.mattersWithoutClient === 1 ? "is" : "are"} not counted here.`;
+  return {
+    title: "Client List",
+    subtitle: null,
+    stamp: report.statement,
+    reproducible: false,
+    completeness: report.completeness,
+    summary,
+    sections: [
+      {
+        id: "clients",
+        title: "Clients",
+        headers: [
+          "Client",
+          "Email",
+          "Phone",
+          "Place",
+          "Office",
+          "Open",
+          "On hold",
+          "Closed",
+          "Total",
+        ],
+        rows: report.clients.map((client) => [
+          captionOr(client.displayName, client.clientEntityId),
+          captionOr(client.emailAddress, "-"),
+          captionOr(client.phoneNumber, "-"),
+          placeText(client),
+          clientOffice(client.locationNames.map((locationName) => ({ locationName }))),
+          ...statusCountCells(client.counts),
+        ]),
+        endAlignedColumns: [5, 6, 7, 8],
+        sortable: true,
+        subordinateColumns: [3, 4],
+        ...(withoutClient === undefined ? {} : { note: withoutClient }),
+        aside: completenessLine(report.completeness),
+        whenEmpty: "No matter has been opened, so there are no clients to list.",
       },
     ],
   };

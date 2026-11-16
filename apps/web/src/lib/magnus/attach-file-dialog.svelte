@@ -62,8 +62,8 @@
     }
     failure = stated(
       outcome.failure,
-      "The file was not attached.",
-      "Nothing answered. The file was not attached and the conversation is unchanged.",
+      "The file wasn't attached.",
+      "Couldn't connect. The file wasn't attached. Try again.",
     );
     return "refused";
   }
@@ -84,7 +84,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="It Was Not Attached"
+        title="Not Attached"
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />
@@ -100,14 +100,12 @@
         inputId="magnus-attach-file"
         fieldName="File"
         disabled={busy}
-        noMatterNote="This conversation is kept on no matter, so there are no files to reach. Keep it on a matter first."
-        noFilesNote="This matter holds no files yet."
+        noMatterNote="This conversation isn't on a matter, so there are no files to attach. Move it to a matter first."
+        noFilesNote="This matter has no files yet."
         chosenNoun="attached to this conversation"
       />
       <p class="text-sm text-text-muted">
-        The file&rsquo;s readable text is sent with every question from now on, ahead of what you
-        type, up to the request&rsquo;s budget. A file with no readable text attaches but sends
-        nothing, and the conversation says so beside it.
+        Magnus reads the file&rsquo;s text with every question from now on. A file with no readable text attaches but sends nothing, and the conversation shows that beside it.
       </p>
     </div>
   {/snippet}

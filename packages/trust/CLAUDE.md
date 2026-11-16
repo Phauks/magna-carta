@@ -58,6 +58,14 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - `src/matching.ts` — `suggestTrustStatementMatches` (pure, suggests only) and the two composers a
   person's confirmation goes through
 - `src/fitness.ts` — re-proves the invariants over stored data
+- `src/checks.ts` — check printing: `readTrustChecksToPrint` (the derived queue),
+  `readTrustCheckRegister` (THE register; the reconciliation report reads it too),
+  `composeTrustCheckPrint` (numbers a batch from `readNextTrustCheckNumber`),
+  `composeTrustCheckResults` / `composeTrustCheckVoid` / `composeTrustCheckNumberVoid`, and the stock
+  (`readCurrentTrustCheckStock` / `composeTrustCheckStockSave`). `src/check-layout.ts` is pure (the
+  web app imports it): field positions in thousandths of an inch, the MICR band refusal, the
+  standard positions, amount in words. `src/check-statements.ts` holds the live-check SQL fragments
+  `statements.ts` reads a printed number through
 - `src/statements.ts` / `src/types.ts` / `src/trust-validation.ts`
 
 ## Invariants that apply here
@@ -116,7 +124,8 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   `trust_disbursement_request`, `trust_disbursement_decision`, `trust_bank_statement`,
   `trust_bank_statement_line`, `trust_reconciliation`, `trust_reconciliation_match`,
   `trust_firm_funds_movement`, `trust_unclaimed_funds_review`,
-  `trust_unclaimed_funds_contact_attempt`, and `trust_unclaimed_funds_review_closure` carry
+  `trust_unclaimed_funds_contact_attempt`, `trust_unclaimed_funds_review_closure`,
+  `trust_check_stock`, `trust_check` and `trust_check_event` carry
   RAISE(ABORT) triggers (a reconciliation takes exactly one update — its close). A
   release is a new row linked by `releases_hold_id` (UNIQUE, so a double release loses at commit); a
   partial release is a release plus a new, smaller hold. A movement correction is a reversing entry
@@ -271,6 +280,14 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   signed, because a trust bank account really can be overdrawn and refusing to record that would
   refuse to record the condition reconciliation exists to catch.
 - **Clock injection.** No wall-clock reads — `ClockPort` only.
+- **A check number follows the paper, and a check's history is events.** The next number is the
+  greater of the stock's starting number and one past the highest used on the account; a number is
+  never reused, and `trust_check_account_number_unique_index` is what separates two prints that read
+  the same one. A check's status is its `trust_check_event` rows (a trigger holds the sequences), and
+  a payment's one LIVE check is `liveTrustCheckPredicate`. Printing and voiding never touch the
+  ledger: voiding a check does not reverse the payment. Because `trust_movement` is append-only, a
+  printed number reaches reconciliation through `liveTrustCheckNumberExpression` in the outstanding
+  and matches reads, never by writing the movement's `reference`.
 
 ## Dependencies & contracts
 

@@ -12,11 +12,16 @@ import type {
   InvoiceFigures,
   Invoices,
   MatterBalances,
+  AgedWorkInProgress,
+  ClientList,
   MattersList,
   OperationalVolumes,
   PaymentsApplied,
   Realization,
   TimekeeperProductivity,
+  TaskWorkload,
+  DailyTime,
+  MatterProductivity,
   WorkInProgress,
 } from "./report-reads.ts";
 
@@ -25,8 +30,14 @@ const LIVE_STATEMENT =
   "This report shows the records as they stood when it was produced, at 2026-08-01T15:00:00.000Z. " +
   "They can change until they are billed, so it is a live report and is not claimed to reproduce.";
 
-const MAIN = { locationId: "location_sample_main", locationName: "Main Office" };
-const NORTH = { locationId: "location_sample_north", locationName: "North Office" };
+const MAIN = {
+  locationId: "location_sample_main",
+  locationName: "Main Office",
+};
+const NORTH = {
+  locationId: "location_sample_north",
+  locationName: "North Office",
+};
 
 function matter(index: number, office: { locationId: string; locationName: string }) {
   const sample = sampleMatter(index);
@@ -64,8 +75,16 @@ export function sampleAccountsReceivableAging(): AccountsReceivableAging {
       invoiceCount: [6, 3, 2, 1, 1],
     },
     offices: [
-      { ...MAIN, unpaidMinor: [900_000, 300_000, 180_000, 0, 95_000], totalMinor: 1_475_000 },
-      { ...NORTH, unpaidMinor: [350_000, 120_000, 0, 60_000, 0], totalMinor: 530_000 },
+      {
+        ...MAIN,
+        unpaidMinor: [900_000, 300_000, 180_000, 0, 95_000],
+        totalMinor: 1_475_000,
+      },
+      {
+        ...NORTH,
+        unpaidMinor: [350_000, 120_000, 0, 60_000, 0],
+        totalMinor: 530_000,
+      },
     ],
     clients: [
       {
@@ -126,12 +145,22 @@ export function sampleWorkInProgress(): WorkInProgress {
       {
         ...client(0),
         figures: figures(900, 600_000, 30_000, 200_000, 830_000),
-        matters: [{ ...matter(0, MAIN), figures: figures(900, 600_000, 30_000, 200_000, 830_000) }],
+        matters: [
+          {
+            ...matter(0, MAIN),
+            figures: figures(900, 600_000, 30_000, 200_000, 830_000),
+          },
+        ],
       },
       {
         ...client(1),
         figures: figures(600, 400_000, 15_000, 0, 415_000),
-        matters: [{ ...matter(1, NORTH), figures: figures(600, 400_000, 15_000, 0, 415_000) }],
+        matters: [
+          {
+            ...matter(1, NORTH),
+            figures: figures(600, 400_000, 15_000, 0, 415_000),
+          },
+        ],
       },
     ],
     timekeepers: [
@@ -181,12 +210,22 @@ export function sampleRealization(): Realization {
       {
         ...client(0),
         figures: figures(750_000, 700_000, 50_000, 500_000),
-        matters: [{ ...matter(0, MAIN), figures: figures(750_000, 700_000, 50_000, 500_000) }],
+        matters: [
+          {
+            ...matter(0, MAIN),
+            figures: figures(750_000, 700_000, 50_000, 500_000),
+          },
+        ],
       },
       {
         ...client(1),
         figures: figures(350_000, 300_000, 0, 200_000),
-        matters: [{ ...matter(1, NORTH), figures: figures(350_000, 300_000, 0, 200_000) }],
+        matters: [
+          {
+            ...matter(1, NORTH),
+            figures: figures(350_000, 300_000, 0, 200_000),
+          },
+        ],
       },
     ],
   };
@@ -240,6 +279,92 @@ export function sampleTimekeeperProductivity(): TimekeeperProductivity {
       { categoryId: "category_sample", categoryName: "Training", minutes: 60 },
     ],
     taskCodes: [{ code: null, label: null, figures: figures(4, 210, 60, 7778) }],
+  };
+}
+
+export function sampleDailyTime(): DailyTime {
+  const figures = (entryCount: number, billableMinutes: number, nonBillableMinutes: number) => {
+    const totalMinutes = billableMinutes + nonBillableMinutes;
+    return {
+      entryCount,
+      billableMinutes,
+      nonBillableMinutes,
+      totalMinutes,
+      billableShareBasisPoints:
+        totalMinutes === 0 ? null : Math.round((billableMinutes * 10000) / totalMinutes),
+    };
+  };
+  const one = {
+    timekeeperUserId: "user_sample_one",
+    timekeeperName: samplePerson(0).name,
+  };
+  const two = {
+    timekeeperUserId: "user_sample_two",
+    timekeeperName: samplePerson(1).name,
+  };
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    computedAt: COMPUTED_AT,
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    completeness: { scope: "complete" },
+    totals: figures(4, 210, 60),
+    days: [
+      {
+        workDate: "2026-07-14",
+        figures: figures(3, 150, 60),
+        timekeepers: [
+          { ...one, figures: figures(2, 120, 60) },
+          { ...two, figures: figures(1, 30, 0) },
+        ],
+      },
+      {
+        workDate: "2026-07-15",
+        figures: figures(1, 60, 0),
+        timekeepers: [{ ...one, figures: figures(1, 60, 0) }],
+      },
+    ],
+    timekeepers: [
+      { ...one, dayCount: 2, figures: figures(3, 180, 60) },
+      { ...two, dayCount: 1, figures: figures(1, 30, 0) },
+    ],
+  };
+}
+
+export function sampleMatterProductivity(): MatterProductivity {
+  const day = sampleDailyTime();
+  const first = day.timekeepers[0] ?? { timekeeperUserId: "user_sample_one", timekeeperName: null };
+  return {
+    periodStart: day.periodStart,
+    periodEnd: day.periodEnd,
+    computedAt: day.computedAt,
+    reproducible: false,
+    statement: day.statement,
+    locationId: null,
+    completeness: day.completeness,
+    totals: day.totals,
+    matters: [
+      {
+        ...matter(0, MAIN),
+        ...client(0),
+        figures: day.days[0]?.figures ?? day.totals,
+        timekeepers: day.days[0]?.timekeepers ?? [],
+      },
+      {
+        ...matter(1, NORTH),
+        ...client(1),
+        figures: day.days[1]?.figures ?? day.totals,
+        timekeepers: [
+          {
+            timekeeperUserId: first.timekeeperUserId,
+            timekeeperName: first.timekeeperName,
+            figures: day.days[1]?.figures ?? day.totals,
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -308,7 +433,13 @@ export function sampleInvoices(): Invoices {
     creditedMinor: number,
     appliedMinor: number,
     unpaidMinor: number,
-  ): InvoiceFigures => ({ invoiceCount, billedMinor, creditedMinor, appliedMinor, unpaidMinor });
+  ): InvoiceFigures => ({
+    invoiceCount,
+    billedMinor,
+    creditedMinor,
+    appliedMinor,
+    unpaidMinor,
+  });
   return {
     periodStart: "2026-07-01",
     periodEnd: "2026-07-31",
@@ -332,7 +463,12 @@ export function sampleInvoices(): Invoices {
             issueDate: "2026-07-03",
             dueDate: "2026-08-02",
             figures: figures(1, 400_000, 50_000, 350_000, 0),
-            matters: [{ ...matter(0, MAIN), figures: figures(1, 400_000, 50_000, 350_000, 0) }],
+            matters: [
+              {
+                ...matter(0, MAIN),
+                figures: figures(1, 400_000, 50_000, 350_000, 0),
+              },
+            ],
           },
           {
             invoiceId: "invoice_sample_2",
@@ -340,7 +476,12 @@ export function sampleInvoices(): Invoices {
             issueDate: "2026-07-24",
             dueDate: "2026-08-23",
             figures: figures(1, 300_000, 0, 150_000, 150_000),
-            matters: [{ ...matter(0, MAIN), figures: figures(1, 300_000, 0, 150_000, 150_000) }],
+            matters: [
+              {
+                ...matter(0, MAIN),
+                figures: figures(1, 300_000, 0, 150_000, 150_000),
+              },
+            ],
           },
         ],
       },
@@ -354,7 +495,12 @@ export function sampleInvoices(): Invoices {
             issueDate: "2026-07-15",
             dueDate: "2026-08-14",
             figures: figures(1, 300_000, 0, 200_000, 100_000),
-            matters: [{ ...matter(1, NORTH), figures: figures(1, 300_000, 0, 200_000, 100_000) }],
+            matters: [
+              {
+                ...matter(1, NORTH),
+                figures: figures(1, 300_000, 0, 200_000, 100_000),
+              },
+            ],
           },
         ],
       },
@@ -417,7 +563,11 @@ export function samplePaymentsApplied(): PaymentsApplied {
       },
       {
         ...NORTH,
-        figures: figures({ entryCount: 1, trustTransferMinor: 200_000, totalMinor: 200_000 }),
+        figures: figures({
+          entryCount: 1,
+          trustTransferMinor: 200_000,
+          totalMinor: 200_000,
+        }),
       },
     ],
     clients: [
@@ -433,7 +583,11 @@ export function samplePaymentsApplied(): PaymentsApplied {
       },
       {
         ...client(1),
-        figures: figures({ entryCount: 1, trustTransferMinor: 200_000, totalMinor: 200_000 }),
+        figures: figures({
+          entryCount: 1,
+          trustTransferMinor: 200_000,
+          totalMinor: 200_000,
+        }),
       },
     ],
     entries: [
@@ -568,9 +722,138 @@ export function sampleMattersList(): MattersList {
     completeness: { scope: "complete" },
     totals: { matterCount: 3, openCount: 1, heldCount: 1, closedCount: 1 },
     offices: [
-      { ...MAIN, counts: { matterCount: 2, openCount: 1, heldCount: 0, closedCount: 1 } },
-      { ...NORTH, counts: { matterCount: 1, openCount: 0, heldCount: 1, closedCount: 0 } },
+      {
+        ...MAIN,
+        counts: { matterCount: 2, openCount: 1, heldCount: 0, closedCount: 1 },
+      },
+      {
+        ...NORTH,
+        counts: { matterCount: 1, openCount: 0, heldCount: 1, closedCount: 0 },
+      },
     ],
     matters: [row(0, MAIN, "open"), row(1, NORTH, "hold"), row(2, MAIN, "closed")],
   };
+}
+
+export function sampleAgedWorkInProgress(): AgedWorkInProgress {
+  const figures = (a: number, b: number, c: number, d: number, totalMinor: number) => ({
+    unbilledMinor: [a, b, c, d],
+    totalMinor,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    asOfDate: "2026-08-01",
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    currency: "USD",
+    completeness: { scope: "complete" },
+    totals: figures(700_000, 300_000, 145_000, 100_000, 1_245_000),
+    offices: [
+      { ...MAIN, figures: figures(500_000, 200_000, 30_000, 100_000, 830_000) },
+      { ...NORTH, figures: figures(200_000, 100_000, 115_000, 0, 415_000) },
+    ],
+    clients: [
+      {
+        ...client(0),
+        figures: figures(500_000, 200_000, 30_000, 100_000, 830_000),
+        matters: [
+          {
+            ...matter(0, MAIN),
+            figures: figures(500_000, 200_000, 30_000, 100_000, 830_000),
+          },
+        ],
+      },
+      {
+        ...client(1),
+        figures: figures(200_000, 100_000, 115_000, 0, 415_000),
+        matters: [
+          {
+            ...matter(1, NORTH),
+            figures: figures(200_000, 100_000, 115_000, 0, 415_000),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function sampleClientList(): ClientList {
+  const counts = (open: number, held: number, closed: number) => ({
+    matterCount: open + held + closed,
+    openCount: open,
+    heldCount: held,
+    closedCount: closed,
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    completeness: { scope: "complete" },
+    clientCount: 2,
+    totals: counts(2, 0, 1),
+    mattersWithoutClient: 0,
+    clients: [
+      {
+        clientEntityId: client(0).clientEntityId,
+        displayName: sampleMatter(0).client,
+        entityKind: "organization",
+        legalName: null,
+        emailAddress: "office@example.com",
+        phoneNumber: "+1 775 555 0100",
+        city: "Reno",
+        region: "NV",
+        country: "US",
+        counts: counts(1, 0, 1),
+        locationNames: [MAIN.locationName],
+      },
+      {
+        clientEntityId: client(1).clientEntityId,
+        displayName: sampleMatter(1).client,
+        entityKind: "person",
+        legalName: null,
+        emailAddress: null,
+        phoneNumber: null,
+        city: null,
+        region: null,
+        country: null,
+        counts: counts(1, 0, 0),
+        locationNames: [NORTH.locationName, MAIN.locationName],
+      },
+    ],
+  };
+}
+
+export function sampleTaskWorkload(): TaskWorkload {
+  return {
+    computedAt: COMPUTED_AT,
+    reproducible: false,
+    statement: LIVE_STATEMENT,
+    locationId: null,
+    completeness: { scope: "complete" },
+    totals: { openCount: 9, overdueCount: 2, undatedCount: 3 },
+    people: [
+      {
+        assigneeUserId: "user_sample_one",
+        assigneeName: samplePerson(0).name,
+        openCount: 6,
+        overdueCount: 2,
+        undatedCount: 1,
+      },
+      {
+        assigneeUserId: "user_sample_two",
+        assigneeName: samplePerson(1).name,
+        openCount: 2,
+        overdueCount: 0,
+        undatedCount: 1,
+      },
+      { assigneeUserId: null, assigneeName: null, openCount: 1, overdueCount: 0, undatedCount: 1 },
+    ],
+  };
+}
+
+/** Aged Expenses wears Aged Work in Progress's shape; its sample is the costs-only reading of it. */
+export function sampleAgedExpenses(): AgedWorkInProgress {
+  return sampleAgedWorkInProgress();
 }

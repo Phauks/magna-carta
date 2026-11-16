@@ -17,6 +17,8 @@ import {
   trustAccount,
   trustBankStatement,
   trustBankStatementLine,
+  trustCheck,
+  trustCheckEvent,
   trustDisbursementDecision,
   trustDisbursementRequest,
   trustHold,
@@ -541,6 +543,13 @@ describe("schema name sync (trust SQL pinned to @magna-carta/database)", () => {
         ...columnsOf(trustReconciliationMatch),
         ...columnsOf(ledgerEntry),
         ...columnsOf(ledgerLine),
+        // A printed check's number stands in for an empty movement reference.
+        "trust_check",
+        "trust_check_event",
+        "live_check",
+        "live_event",
+        ...columnsOf(trustCheck),
+        ...columnsOf(trustCheckEvent),
       ]),
       "trust proof reads",
     );

@@ -380,8 +380,8 @@
         <FailureNotice
           failure={failureOf(summaryRead.error)}
           subject="This recording"
-          fallback="This recording's summary could not be read."
-          whenSilent="Nothing answered. This recording's summary could not be read."
+          fallback="Couldn't load this recording's summary."
+          whenSilent="Couldn't connect. Couldn't load this recording's summary. Try again."
           onRetry={() => void summaryRead.refetch()}
         />
       {/snippet}
@@ -423,8 +423,8 @@
         <FailureNotice
           failure={rerunFailure}
           subject="This summary"
-          fallback="This summary could not be written again."
-          whenSilent="Nothing answered. This summary could not be written again."
+          fallback="Couldn't rewrite this summary."
+          whenSilent="Couldn't connect. The summary wasn't rewritten. Try again."
         />
       {/if}
     {/snippet}
@@ -449,8 +449,8 @@
       <FailureNotice
         failure={taskFailure}
         subject="This action item"
-        fallback="A task could not be made of this action item."
-        whenSilent="Nothing answered. A task could not be made of this action item."
+        fallback="Couldn't make a task from this action item."
+        whenSilent="Couldn't connect. No task was made. Try again."
       />
     {/if}
   {/snippet}

@@ -215,8 +215,7 @@
     <Alert.Root variant="info">
       <Alert.Title>Nothing Is Being Captured</Alert.Title>
       <Alert.Description>
-        Your browser did not allow the microphone{medium === "video" ? " or camera" : ""}. You can
-        still join and hear the meeting, and allow them from the browser's address bar.
+        Your browser didn't allow the microphone{medium === "video" ? " or camera" : ""}. You can still join and hear the meeting, and allow them from the browser's address bar.
       </Alert.Description>
     </Alert.Root>
   {/if}

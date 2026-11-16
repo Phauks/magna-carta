@@ -753,7 +753,7 @@
 
     {#if anchorProblem !== null}
       <Alert.Root variant="warning">
-        <Alert.Title>It Was Not Moved</Alert.Title>
+        <Alert.Title>Not Moved</Alert.Title>
         <Alert.Description>{anchorProblem} Where it belongs is unchanged.</Alert.Description>
       </Alert.Root>
     {/if}

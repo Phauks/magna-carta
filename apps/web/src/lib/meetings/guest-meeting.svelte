@@ -513,8 +513,8 @@
           failure={chat.readFailure}
           subject="This meeting"
           title="Nothing Could Be Read"
-          fallback="What has been said in this meeting could not be read."
-          whenSilent="Nothing answered. What has been said in this meeting could not be read."
+          fallback="Couldn't load the chat for this meeting."
+          whenSilent="Couldn't connect. Couldn't load the chat for this meeting. Try again."
           onRetry={() => void chat.refresh()}
         />
       {/if}
@@ -525,8 +525,8 @@
           failure={chat.writeFailure}
           subject="This meeting"
           title="Nothing Was Said"
-          fallback="That did not reach this meeting's record."
-          whenSilent="Nothing answered, so nothing was said in this meeting."
+          fallback="That wasn't saved to this meeting's record."
+          whenSilent="Couldn't connect. Your message wasn't sent. Try again."
         />
       {/if}
     {/snippet}
@@ -592,16 +592,14 @@
         <Alert.Root variant="warning">
           <Alert.Title>This Page Is Out of Date</Alert.Title>
           <Alert.Description>
-            This page was open while the meeting service was updated, so it no longer understands
-            what the room is sending. Reload the page and join again.
+            This page was open while meetings were updated, so it can't follow the room anymore. Reload the page and join again.
           </Alert.Description>
         </Alert.Root>
       {:else if cannotEncrypt}
         <Alert.Root variant="warning">
-          <Alert.Title>This Browser Cannot Join an Encrypted Meeting</Alert.Title>
+          <Alert.Title>This Browser Can't Join an Encrypted Meeting</Alert.Title>
           <Alert.Description>
-            This meeting's pictures and sound are sealed end to end, and this browser cannot seal or
-            open them. Open the link in a current version of Chrome, Edge, Firefox or Safari.
+            This meeting is encrypted end to end, and this browser can't encrypt or decrypt it. Open the link in a current version of Chrome, Edge, Firefox or Safari.
           </Alert.Description>
         </Alert.Root>
       {:else if client.state === "failed"}
@@ -609,7 +607,7 @@
           <Alert.Root variant="warning">
             <Alert.Title>The Room Stopped Answering</Alert.Title>
             <Alert.Description>
-              The connection to the room ended and nothing is being sent or received.
+              The connection to the room ended. Nothing is being sent or received.
             </Alert.Description>
           </Alert.Root>
           <Button variant="secondary" disabled={arriving} onclick={rejoin}>Rejoin</Button>
@@ -617,9 +615,9 @@
             <FailureNotice
               failure={arrivalFailure}
               subject="This meeting"
-              title="You Are Not in the Room"
-              fallback="You were not joined to this meeting."
-              whenSilent="Nothing answered. You were not joined to this meeting."
+              title="You Aren't in the Room"
+              fallback="You weren't joined to this meeting."
+              whenSilent="Couldn't connect. You weren't joined to this meeting. Try again."
             />
           {/if}
         </div>
@@ -635,7 +633,7 @@
       {#if client.lastRefusal !== null}
         <FailureBand
           variant="warning"
-          title="Something Did Not Reach the Room"
+          title="Something Didn't Reach the Room"
           message={refusalStatement(client.lastRefusal)}
           errorId={client.lastRefusal.errorId}
         />
@@ -662,7 +660,7 @@
           <Alert.Root variant="info">
             <Alert.Title>A Host Asked You to Unmute</Alert.Title>
             <Alert.Description>
-              Nothing has changed. Your microphone stays off until you turn it on.
+              Nothing changed. Your microphone stays off until you turn it on.
             </Alert.Description>
           </Alert.Root>
           <div class="flex flex-wrap items-center gap-8">
@@ -756,19 +754,18 @@
         {#if linkRefusal !== null}
           {@render refusalCard(linkRefusal)}
         {:else if readFailure !== null}
-          <AuthPanel title="This Meeting Could Not Be Read">
+          <AuthPanel title="Couldn't Load This Meeting">
             <FailureNotice
               failure={readFailure}
               subject="This meeting"
-              fallback="This meeting could not be read."
-              whenSilent="Nothing answered. This meeting could not be read."
+              fallback="Couldn't load this meeting."
+              whenSilent="Couldn't connect. Couldn't load this meeting. Try again."
               onRetry={() => void readSummary()}
             />
           </AuthPanel>
         {:else if summary !== null && left}
           <EmptyState title="You Left the Meeting">
-            Your link still works until it expires, so you can go back to the door and be let in
-            again.
+            Your link works until it expires, so you can go back to the door and be let in again.
             {#snippet actions()}
               <Button variant="secondary" onclick={returnToTheDoor}>Go Back to the Door</Button>
             {/snippet}
@@ -818,9 +815,9 @@
                   <FailureNotice
                     failure={arrivalFailure}
                     subject="This meeting"
-                    title="You Are Not at the Door"
-                    fallback="You were not joined to this meeting."
-                    whenSilent="Nothing answered. You were not joined to this meeting."
+                    title="You Aren't at the Door"
+                    fallback="You weren't joined to this meeting."
+                    whenSilent="Couldn't connect. You weren't joined to this meeting. Try again."
                   />
                 {/if}
               {/snippet}

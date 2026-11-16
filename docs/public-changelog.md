@@ -50,6 +50,29 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
   sentence with a Change Repeat button, so the series cannot be changed by a stray click.
 - **Convert files on the File Workbench.** Select one file or many, open **Convert** and press a format. Each file is converted in turn, and every copy can be saved or put on the bench beside the original. The originals are never changed.
 - **Repair a damaged file, and get the text out of a scan, on the File Workbench.** The **Repair** tab diagnoses a damaged file, then rebuilds a copy or pulls whole pictures and documents out of it, and lists exactly what came back and what did not. The **Text Recognition** tab reads the text of a scan page by page, flags pages worth checking, and saves a searchable PDF or the text on its own. Both run only when you ask, and the original is never changed.
+- **Deleted files say when they leave Trash.** A matter's **Deleted Files** list now shows when each file leaves Trash. After that the file moves to cheaper archive storage, and it can still be restored. Admins choose how long files wait and whether they are archived under **Settings**, **Deleted Files**. Nothing is ever destroyed.
+- **Send a document for signature.** In the PDF Editor's Signature tab, add the people who sign, place their signature, initials, date and other fields on the pages, choose the order and the email, and send. The tab then shows who has signed, who is next and everything that has happened.
+- **See what Magnus is thinking.** While Magnus works on an answer, a Thinking section shows a summary of what it is considering and grows as it goes, in place of "Magnus is answering." When the answer arrives, the summary folds shut above it, and you can open it again. The long "taking longer than it should" message is gone.
+- **Convert a document from its right-click menu.** Right-click a file in a matter and open **Convert** to turn it into a PDF, a text file or another format it can become. The converted copy is filed beside the original, and the original is never changed.
+- **Share a file in a meeting's chat.** In a meeting kept on a matter, the paperclip beside Send shares one of the matter's files, or uploads one from your computer into the matter's Meeting files folder and shares it. Everybody in the meeting can open it from the chat.
+- **People outside the firm can sign.** Each person you send a document to gets an email with a link when it is their turn. They confirm it is them with an emailed code if you asked for one, agree to sign electronically, adopt a signature by typing, drawing or uploading it, fill in their fields and finish, or decline and say why.
+- **Password-protect a PDF.** In the PDF Editor's Secure tab, see what a file carries besides its pages, then save a protected copy with a password to open it, a choice of what recipients may do (print, copy, edit, comment), and its hidden data removed first. Magna Carta never keeps the passwords.
+- **Fill in PDF forms.** In the PDF Editor's Forms tab, answer a form's fields beside a preview of the page, see which required fields are still empty, and save the answers as a new version, optionally flattened so they cannot be changed.
+- **Bates-number a PDF.** In the PDF Editor's Bates tab, set a prefix, the first number and how many digits to pad to, choose where the number goes, and see it on the first and last pages before you commit. The numbered copy is saved beside the original, named with its number range, and Magna Carta tells you where the next production should start.
+- **Watermark a PDF.** In the PDF Editor's Watermark tab, print a word such as CONFIDENTIAL or the firm's logo across all of a document's pages or only the ones you choose, and see it on a page before you commit. The marked copy is saved beside the original.
+- **Record Transfer: bring your firm's records in from the system you are leaving.** Owners and Admins have a new Record Transfer entry under Firm in the sidebar. Start a run, upload a file of people, organizations or matters, say what each of its columns has in it, and run it. The file list shows how many rows arrived, how many are waiting on another record and how many were rejected. The Report tab lists each of those rows with its line in the file and the reason, and the Sample tab links to records the run created so you can check them against the file. Running a file again brings nothing in twice. LEAP is the first system supported.
+- A new Aged Work in Progress report shows unbilled time and costs by how long ago the work was done, so old work that has not been billed stands out.
+- A new Client List report lists every client with their contact details and how many matters they have open and closed.
+- A new Daily Time report shows how many hours were recorded on each day, and by whom.
+- A new Matter Productivity report shows how many hours were recorded on each matter, and by whom.
+- A new Matters List report lists every matter the firm has opened, with its client, type, office, responsible attorney and the days it opened and closed, and how many are open, on hold and closed in each office.
+- A new Tasks by Person report shows how many open and overdue tasks each person has.
+- **The Search page looks inside files when you search a client's matters, your own, or a small
+  firm's.** Choose One Client or My Matters under Search In and a new place, Inside Files, finds
+  files by the words in them, names the pages, and quotes the sentence. It answers when the search
+  reaches 25 matters or fewer, and says so under Not Searched when there are more. Searching inside
+  files has to be turned on for the firm, in Settings under Search and Indexing.
+- **Print trust checks.** A trust payment made by check now waits on the account's Checks screen to be printed. Set up your check paper once over a scan of a blank check, drag each field to where your paper wants it, and print a test page to hold against a real check. Checks are numbered from your next check number, and a check that jams is voided with its number kept and printed again on the next.
 
 ### Changed
 
@@ -102,6 +125,10 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 - Report PDFs now open with the report's totals across the top of the first page, print each table's total in bold under a darker rule, and step a client's matters in under their client.
 - **See what each feature depends on in System Status.** Settings, System Status now lists every feature beside the services it needs, whether each one is working, and which version is running, all on one tab. Outside services such as Google Calendar or Telnyx say whether they connected, whether their key is set, or whether they still need setting up.
 - **Type dates the way you say them.** Every date field now takes "Nov 13", "11/13", "today", "tomorrow", "fri" or "last fri", and shows the date in words, like "Fri, Nov 13, 2026", once you move on, so you can see it landed on the right day. Up and down arrows move a day at a time, and the calendar button still opens a month to pick from.
+- **Edit or remove a message while Magnus is still answering.** You no longer have to wait. Editing a message stops the answer in progress and asks again with your new version; removing one stops the answer and leaves a note where the message was.
+- **Clearer signing and PDF tool messages.** The PDF tools and the page a signer sees use shorter, plainer wording.
+- **Clearer Magnus messages.** Magnus uses shorter, plainer wording in its messages, errors and dialogs.
+- **Clearer meeting messages.** Meetings use shorter, plainer wording in their messages, errors and settings.
 
 ### Fixed
 

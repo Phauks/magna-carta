@@ -23,9 +23,10 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Ten reports run today: the trust compliance report, accounts receivable aging, work in progress,
-realization, invoices, payments applied, matter balances, timekeeper productivity, operational
-volumes, and the matters list.
+Sixteen reports run today: the trust compliance report, accounts receivable aging, work in
+progress, aged work in progress, aged expenses, realization, invoices, payments applied, matter balances,
+timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
+the matters list, and the client list.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
@@ -33,6 +34,13 @@ volumes, and the matters list.
 - **Payments Applied** lists everything set against a bill in the period: payments, transfers from
   trust, client credits, credit notes and write-offs. A reversal appears as its own negative line,
   saying what it reverses. It shows what was set against bills, not money arriving in the bank.
+- **Aged Work in Progress** shows unbilled time and costs by how long ago the work was done: 0 to
+  30 days, 31 to 60, 61 to 90, and over 90. Time counts from the day it was worked and a cost from
+  the day it was incurred. Work over 90 days old is shown in red. It adds up to the same total as
+  Work in Progress.
+- **Aged Expenses** is the same report for costs alone: unbilled costs by how long ago they were
+  incurred, so money the firm has paid out and not yet billed stands out. Its total is the costs
+  figure in Work in Progress.
 - **Matter Balances** shows where each matter stands right now: its unbilled time and costs, what
   its bills still owe, and what is held for it in trust. The three figures are shown side by side
   and never added together. It always shows the present, so it has no date to choose; choose an
@@ -41,6 +49,23 @@ volumes, and the matters list.
   type, office, responsible attorney and the days it opened and closed, and counts them by office.
   Enquiries and consultations are not listed. It always shows the present; choose an office to
   narrow it, and sort the list by any column.
+- **Client List** lists every client of a matter the firm has opened, in name order, with their
+  email, phone number and town as their Directory record gives them, the office their matters are
+  in, and how many of their matters are open, on hold and closed. It always shows the present;
+  choose an office to see only the clients with matters there.
+- **Daily Time** shows how many hours were recorded on each day of the period you choose, billable
+  and non-billable. Open a day to see who recorded the time. A second table shows each person's
+  hours over the whole period and how many days they recorded time on. It adds up to the same
+  totals as Timekeeper Productivity. Hours only, never money.
+- **Matter Productivity** shows how many hours were recorded on each matter in the period you
+  choose, billable and non-billable, the matters with the most time first. Open a matter to see who
+  recorded the time on it. It adds up to the same totals as Timekeeper Productivity. Hours only,
+  never money.
+- **Tasks by Person** counts each person's open tasks right now, how many of them are overdue, and
+  how many have no due date. Open tasks nobody is assigned to have a row of their own. A task is
+  overdue once its due time has passed in its own time zone; one due today is not overdue until the
+  day is out. It shows counts only, never what the tasks say. Choose an office to count only tasks
+  on that office's matters.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count

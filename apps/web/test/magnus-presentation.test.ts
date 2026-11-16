@@ -143,7 +143,7 @@ describe("what the composer says about what leaves the platform", () => {
 
   it("inside a matter, still says the matter itself is not read", () => {
     const line = composerDisclosureLine({ onMatter: true, attachmentCount: 2 });
-    expect(line).toContain("does not let Magnus read the matter");
+    expect(line).toContain("Magnus can't read the rest of the matter");
   });
 
   it("says so when the conversation also reads the author's other conversations on the matter", () => {
@@ -157,9 +157,9 @@ describe("what the composer says about what leaves the platform", () => {
 
   it("names the model that answers, and says when the firm's choice is gone", () => {
     expect(answeringModelLine({ modelId: "anthropic/model", zeroDataRetention: true })).toBe(
-      "Answered by anthropic/model, which keeps nothing that is sent to it.",
+      "Answered by anthropic/model, which keeps nothing sent to it.",
     );
-    expect(answeringModelLine(null)).toContain("no longer carried");
+    expect(answeringModelLine(null)).toContain("no longer offers");
     expect(answeringModelLine(undefined)).toBe("");
   });
 });

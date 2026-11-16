@@ -443,6 +443,71 @@ describe("GET /api/v1/reports/matters-list", () => {
   });
 });
 
+describe("GET /api/v1/reports/client-list", () => {
+  const url = "https://example.com/api/v1/reports/client-list";
+
+  it("answers the Owner with a live list whose clients' counts add up to the whole", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { matterCount: number };
+      clients: { counts: { matterCount: number } }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.clients.reduce((sum, client) => sum + client.counts.matterCount, 0)).toBe(
+      report.totals.matterCount,
+    );
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/aged-work-in-progress", () => {
+  const url = "https://example.com/api/v1/reports/aged-work-in-progress";
+
+  it("answers the Owner with four age buckets that add up to the total", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { unbilledMinor: number[]; totalMinor: number };
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.totals.unbilledMinor).toHaveLength(4);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/aged-expenses", () => {
+  const url = "https://example.com/api/v1/reports/aged-expenses";
+
+  it("answers the Owner with four age buckets that add up to the total", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { unbilledMinor: number[]; totalMinor: number };
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.totals.unbilledMinor.reduce((sum, amount) => sum + amount, 0)).toBe(
+      report.totals.totalMinor,
+    );
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/realization", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/realization?${query}`;
 
@@ -497,6 +562,90 @@ describe("GET /api/v1/reports/timekeeper-productivity", () => {
     const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
       headers: { cookie: noPermissionCookie },
     });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/daily-time", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/daily-time?${query}`;
+
+  it("answers the Owner with time per day, live, whose days add up to the whole", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { totalMinutes: number };
+      days: { figures: { totalMinutes: number } }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.days.reduce((sum, day) => sum + day.figures.totalMinutes, 0)).toBe(
+      report.totals.totalMinutes,
+    );
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/matter-productivity", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/matter-productivity?${query}`;
+
+  it("answers the Owner with time per matter, live, whose matters add up to the whole", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { totalMinutes: number };
+      matters: { figures: { totalMinutes: number } }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.matters.reduce((sum, matter) => sum + matter.figures.totalMinutes, 0)).toBe(
+      report.totals.totalMinutes,
+    );
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/task-workload", () => {
+  const url = "https://example.com/api/v1/reports/task-workload";
+
+  it("answers the Owner with each member's open tasks, live, adding up to the whole", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { openCount: number };
+      people: { openCount: number }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.people.reduce((sum, person) => sum + person.openCount, 0)).toBe(
+      report.totals.openCount,
+    );
+  });
+
+  it("refuses a member without reports:productivity at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
     expect(response.status).toBe(403);
   });
 });

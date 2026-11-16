@@ -9,22 +9,33 @@ import { describe, expect, it } from "vitest";
 import {
   clientOffice,
   presentAccountsReceivableAging,
+  presentAgedExpenses,
+  presentAgedWorkInProgress,
   presentRealization,
   presentWorkInProgress,
   SEVERAL_OFFICES,
 } from "../src/lib/reports/financial-presenters.ts";
 import {
+  presentClientList,
+  presentDailyTime,
+  presentMatterProductivity,
   presentMattersList,
   presentOperationalVolumes,
+  presentTaskWorkload,
   presentTimekeeperProductivity,
 } from "../src/lib/reports/activity-presenters.ts";
 import { moneyText } from "../src/lib/reports/report-cells.ts";
 import { reportExportDocument, type ReportCell } from "../src/lib/reports/report-presentation.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleAgedWorkInProgress,
+  sampleClientList,
+  sampleDailyTime,
+  sampleMatterProductivity,
   sampleMattersList,
   sampleOperationalVolumes,
   sampleRealization,
+  sampleTaskWorkload,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
 } from "../src/lib/reports/report-samples.ts";
@@ -153,5 +164,146 @@ describe("the matters list presenter", () => {
     expect(matters?.rows).toHaveLength(report.matters.length);
     expect(matters?.rows.map((row) => row[5])).toEqual(["Open", "On hold", "Closed"]);
     expect(matters?.rows[0]?.[7]).toBe("-");
+  });
+});
+
+describe("the aged work in progress presenter", () => {
+  const report = sampleAgedWorkInProgress();
+  const presentation = presentAgedWorkInProgress(report);
+
+  it("opens with a tile per age and the payload's total, old work in the attention tone", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual([
+      ...report.totals.unbilledMinor.map((amount) => moneyText(amount)),
+      moneyText(report.totals.totalMinor),
+    ]);
+    expect(tiles[3]?.tone).toBe("attention");
+    expect(tiles[4]?.tone).toBe("total");
+  });
+
+  it("rules the by-office table off with the payload's total and opens each client onto matters", () => {
+    const offices = presentation.sections.find((section) => section.id === "by-office");
+    expect(numberOf(offices?.totalRow?.[5])).toBe(
+      spreadsheetNumber(fromMinor(report.totals.totalMinor, USD)),
+    );
+    const clients = presentation.sections.find((section) => section.id === "by-client");
+    expect(clients?.rowDetails?.map((matters) => matters.length)).toEqual(
+      report.clients.map((client) => client.matters.length),
+    );
+  });
+});
+
+describe("the daily time presenter", () => {
+  const report = sampleDailyTime();
+  const presentation = presentDailyTime(report, IDENTITY_CAPTIONS);
+
+  it("keeps to minutes, and rules the by-day table off with the payload's totals", () => {
+    expect(JSON.stringify(presentation)).not.toMatch(/\$/);
+    const days = presentation.sections.find((section) => section.id === "by-day");
+    expect(days?.rows).toHaveLength(report.days.length);
+    expect(days?.totalRow?.[0]).toBe("Firm total");
+    expect(numberOf(days?.totalRow?.[3])).toBe(report.totals.totalMinutes);
+    expect(days?.rows.map((row) => numberOf(row[3]))).toEqual(
+      report.days.map((day) => day.figures.totalMinutes),
+    );
+  });
+
+  it("opens each day onto its timekeepers, and every timekeeper reaches a row", () => {
+    const days = presentation.sections.find((section) => section.id === "by-day");
+    expect(days?.rowDetails?.map((entries) => entries.length)).toEqual(
+      report.days.map((day) => day.timekeepers.length),
+    );
+    const timekeepers = presentation.sections.find((section) => section.id === "by-timekeeper");
+    expect(timekeepers?.rows.map((row) => numberOf(row[1]))).toEqual(
+      report.timekeepers.map((timekeeper) => timekeeper.dayCount),
+    );
+  });
+});
+
+describe("the matter productivity presenter", () => {
+  const report = sampleMatterProductivity();
+  const presentation = presentMatterProductivity(report, IDENTITY_CAPTIONS);
+
+  it("keeps to minutes and puts every matter on a row with the payload's figures", () => {
+    expect(JSON.stringify(presentation)).not.toMatch(/\$/);
+    const matters = presentation.sections.find((section) => section.id === "by-matter");
+    expect(matters?.rows.map((row) => numberOf(row[4]))).toEqual(
+      report.matters.map((matter) => matter.figures.totalMinutes),
+    );
+    expect(presentation.summary?.at(-1)?.tone).toBe("total");
+  });
+
+  it("opens each matter onto the timekeepers who recorded time on it", () => {
+    const matters = presentation.sections.find((section) => section.id === "by-matter");
+    expect(matters?.rowDetails?.map((entries) => entries.length)).toEqual(
+      report.matters.map((matter) => matter.timekeepers.length),
+    );
+  });
+});
+
+describe("the client list presenter", () => {
+  const report = sampleClientList();
+  const presentation = presentClientList(report);
+
+  it("opens with the payload's counts, the number of clients as the total", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [
+        report.totals.openCount,
+        report.totals.heldCount,
+        report.totals.closedCount,
+        report.clientCount,
+      ].map(String),
+    );
+    expect(tiles[3]?.tone).toBe("total");
+  });
+
+  it("puts every client on a row with the directory's details and their own counts", () => {
+    const clients = presentation.sections.find((section) => section.id === "clients");
+    expect(clients?.rows).toHaveLength(report.clients.length);
+    expect(clients?.rows[0]?.slice(1, 5)).toEqual([
+      "office@example.com",
+      "+1 775 555 0100",
+      "Reno, NV",
+      "Main Office",
+    ]);
+    expect(clients?.rows[1]?.slice(1, 5)).toEqual(["-", "-", "-", "Several offices"]);
+    expect(clients?.rows.map((row) => numberOf(row[8]))).toEqual(
+      report.clients.map((client) => client.counts.matterCount),
+    );
+  });
+});
+
+describe("the tasks by person presenter", () => {
+  const report = sampleTaskWorkload();
+  const presentation = presentTaskWorkload(report, IDENTITY_CAPTIONS);
+
+  it("opens with the payload's counts, overdue in the attention tone", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => tile.value)).toEqual(
+      [report.totals.overdueCount, report.totals.undatedCount, report.totals.openCount].map(String),
+    );
+    expect(tiles[0]?.tone).toBe("attention");
+    expect(tiles[2]?.tone).toBe("total");
+  });
+
+  it("puts every person on a row with their own counts, nobody assigned last", () => {
+    const people = presentation.sections.find((section) => section.id === "by-person");
+    expect(people?.rows.map((row) => numberOf(row[1]))).toEqual(
+      report.people.map((person) => person.openCount),
+    );
+    expect(people?.rows.at(-1)?.[0]).toBe("Nobody assigned");
+  });
+});
+
+describe("the aged expenses presenter", () => {
+  it("draws the aged layout under its own name and empty-state words", () => {
+    const report = sampleAgedWorkInProgress();
+    const presentation = presentAgedExpenses(report);
+    expect(presentation.title).toBe("Aged Expenses");
+    expect(presentation.summary?.at(-1)?.value).toBe(moneyText(report.totals.totalMinor));
+    expect(presentation.sections.find((section) => section.id === "by-client")?.whenEmpty).toBe(
+      "No client has unbilled costs.",
+    );
   });
 });

@@ -318,6 +318,13 @@ redaction act. And **removal is a redaction, never a delete**:
 the body is blanked and the row stays, guarded so the batch rolls back whole, and a second removal
 produces no statements rather than moving an instant somebody's record already carries.
 
+**A line may point at one file, and only at one of the meeting's own matter's.** `attached_file_id`
+references `file`; `readShareableMeetingFile` accepts a live file on the matter of the meeting's
+matter event and nothing else, so a meeting on a firm event shares no file, and every other answer is
+`meeting-message-file-unavailable` (a 404, so a guessed handle learns nothing). The read names the
+file only while the line is not taken back and the file is not deleted. A guest posts no file, and
+the guest routes blank `attachedFile` on what they read, because the file's route is a member's.
+
 ## Polls and the question queue are content on chat's terms, and a poll's anonymity is two tables
 
 `poll-types.ts` / `poll-validation.ts` / `poll-statements.ts` / `poll-service.ts` and the same four

@@ -101,7 +101,7 @@ export function recordingStopWord(
     case "abandoned":
       return "It stopped when nobody had been heard for a while";
     case "start-failed":
-      return "It could not start";
+      return "It couldn't start";
     default:
       return UNWORDED_STOP;
   }

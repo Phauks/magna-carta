@@ -3,7 +3,8 @@
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
- * `reports.paymentsApplied`, `reports.matterBalances` and `reports.mattersList` in
+ * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload` and `reports.agedExpenses` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -12,12 +13,18 @@
  */
 import {
   reportsAccountsReceivableAging,
+  reportsAgedExpenses,
+  reportsAgedWorkInProgress,
+  reportsClientList,
+  reportsDailyTime,
   reportsInvoices,
   reportsMatterBalances,
+  reportsMatterProductivity,
   reportsMattersList,
   reportsOperationalVolumes,
   reportsPaymentsApplied,
   reportsRealization,
+  reportsTaskWorkload,
   reportsTimekeeperProductivity,
   reportsWorkInProgress,
 } from "@magna-carta/api-client";
@@ -163,6 +170,33 @@ export interface MatterStatusCounts {
   closedCount: number;
 }
 
+export interface ClientListRow {
+  clientEntityId: string;
+  /** Null where the directory no longer holds the record live. */
+  entityKind: "person" | "organization" | null;
+  displayName: string | null;
+  legalName: string | null;
+  emailAddress: string | null;
+  phoneNumber: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  counts: MatterStatusCounts;
+  locationNames: (string | null)[];
+}
+
+export interface ClientList {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  clientCount: number;
+  totals: MatterStatusCounts;
+  mattersWithoutClient: number;
+  clients: ClientListRow[];
+}
+
 export interface MatterListRow {
   matterId: string;
   matterNumber: string | null;
@@ -188,6 +222,37 @@ export interface MattersList {
   totals: MatterStatusCounts;
   offices: { locationId: string | null; locationName: string | null; counts: MatterStatusCounts }[];
   matters: MatterListRow[];
+}
+
+/** Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days since the work. */
+export interface AgedWorkFigures {
+  unbilledMinor: number[];
+  totalMinor: number;
+}
+
+export interface AgedWorkInProgress {
+  computedAt: string;
+  asOfDate: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  currency: "USD";
+  completeness: ReportCompleteness;
+  totals: AgedWorkFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: AgedWorkFigures }[];
+  clients: {
+    clientEntityId: string | null;
+    clientName: string | null;
+    figures: AgedWorkFigures;
+    matters: {
+      matterId: string;
+      matterTitle: string;
+      matterNumber: string | null;
+      locationId: string | null;
+      locationName: string | null;
+      figures: AgedWorkFigures;
+    }[];
+  }[];
 }
 
 export interface RealizationFigures {
@@ -272,6 +337,77 @@ export interface TimekeeperProductivity {
     label: string | null;
     figures: ProductivityFigures;
   }[];
+}
+
+export interface DailyTime {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: ProductivityFigures;
+  /** Every day with time on it, oldest first. */
+  days: {
+    workDate: string;
+    figures: ProductivityFigures;
+    timekeepers: {
+      timekeeperUserId: string;
+      timekeeperName: string | null;
+      figures: ProductivityFigures;
+    }[];
+  }[];
+  timekeepers: {
+    timekeeperUserId: string;
+    timekeeperName: string | null;
+    dayCount: number;
+    figures: ProductivityFigures;
+  }[];
+}
+
+export interface MatterProductivity {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: ProductivityFigures;
+  /** The matters with the most time first. */
+  matters: {
+    matterId: string;
+    matterTitle: string;
+    matterNumber: string | null;
+    clientEntityId: string | null;
+    clientName: string | null;
+    locationId: string | null;
+    locationName: string | null;
+    figures: ProductivityFigures;
+    timekeepers: {
+      timekeeperUserId: string;
+      timekeeperName: string | null;
+      figures: ProductivityFigures;
+    }[];
+  }[];
+}
+
+export interface TaskWorkloadFigures {
+  openCount: number;
+  overdueCount: number;
+  undatedCount: number;
+}
+
+export interface TaskWorkload {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: TaskWorkloadFigures;
+  /** Members by name, then the open tasks nobody is assigned to (assigneeUserId null). */
+  people: (TaskWorkloadFigures & { assigneeUserId: string | null; assigneeName: string | null })[];
 }
 
 export type OperationalSection = "matters" | "billing" | "trust" | "costs";
@@ -479,6 +615,33 @@ export function readMattersList(
   );
 }
 
+export function readAgedWorkInProgress(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<AgedWorkInProgress>> {
+  return outcome(() =>
+    reportsAgedWorkInProgress({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** The same shape as Aged Work in Progress, over unbilled costs alone. Live only. */
+export function readAgedExpenses(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<AgedWorkInProgress>> {
+  return outcome(() =>
+    reportsAgedExpenses({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
 interface PeriodQuery {
   periodStart: string;
   periodEnd: string;
@@ -518,6 +681,70 @@ export function readTimekeeperProductivity(
         periodEnd: query.periodEnd,
         locationId: present(query.locationId),
       },
+    }),
+  );
+}
+
+/** Live only, as Timekeeper Productivity is. */
+export function readDailyTime(
+  fetchImpl: typeof fetch,
+  query: Omit<PeriodQuery, "knownAsOf">,
+): Promise<ApiOutcome<DailyTime>> {
+  return outcome(() =>
+    reportsDailyTime({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Live only, as Timekeeper Productivity is. */
+export function readMatterProductivity(
+  fetchImpl: typeof fetch,
+  query: Omit<PeriodQuery, "knownAsOf">,
+): Promise<ApiOutcome<MatterProductivity>> {
+  return outcome(() =>
+    reportsMatterProductivity({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Live only: the list takes no date. */
+export function readClientList(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<ClientList>> {
+  return outcome(() =>
+    reportsClientList({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** Live only: the counts take no date. */
+export function readTaskWorkload(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<TaskWorkload>> {
+  return outcome(() =>
+    reportsTaskWorkload({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
     }),
   );
 }

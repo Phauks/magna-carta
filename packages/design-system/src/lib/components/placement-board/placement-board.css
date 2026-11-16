@@ -1,0 +1,209 @@
+@layer components {
+  /*
+   * PlacementBoard. A sheet at its true proportion on the raised surface with the control edge, so
+   * it reads as paper lying on the canvas. Things on it are absolutely placed by inline shares of
+   * the board (the component's job); this recipe owns only how they look.
+   *
+   * The forbidden band is the danger register's SUBTLE trio, hatched, under a dashed danger rule:
+   * it must be unmistakable, but it is a fact about the paper, not an alarm. A box is quiet ink in a
+   * hairline frame; the chosen one takes the strong ink edge and its grip; a box that cannot stand
+   * where it is takes the danger edge and tag and nothing else, no words. The tag is the action
+   * pair, the one dark chip a reader's eye finds on a busy picture.
+   */
+  .mc-placement-board {
+    position: relative;
+    container-type: inline-size;
+    overflow: hidden;
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-control);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-raised);
+    box-shadow: var(--mc-elevation-1);
+    user-select: none;
+  }
+  .mc-placement-board-image {
+    position: absolute;
+    inset-block-start: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+    object-fit: fill;
+    pointer-events: none;
+  }
+  .mc-placement-board-band {
+    position: absolute;
+    inset-inline-start: var(--mc-space-0);
+    border-block-start-style: dashed;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-status-danger);
+    background-color: var(--mc-status-danger-subtle);
+    pointer-events: none;
+  }
+  .mc-placement-board-band-hatch {
+    position: absolute;
+    inset-block-start: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+  }
+  .mc-placement-board-band-line {
+    stroke: var(--mc-status-danger-subtle-border);
+    stroke-width: var(--mc-space-4);
+  }
+  .mc-placement-board-band-label {
+    position: absolute;
+    inset-block-start: var(--mc-space-4);
+    inset-inline-end: var(--mc-space-8);
+    color: var(--mc-status-danger-subtle-foreground);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    white-space: nowrap;
+  }
+
+  .mc-placement-board-box {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    padding-block: var(--mc-space-0);
+    padding-inline: var(--mc-space-4);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+    border-radius: var(--mc-radius-sm);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-mono);
+    line-height: var(--mc-leading-tight);
+    cursor: grab;
+    touch-action: none;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-placement-board-box:active {
+    cursor: grabbing;
+  }
+  .mc-placement-board-box[data-selected] {
+    border-color: var(--mc-text-default);
+    box-shadow: var(--mc-elevation-2);
+  }
+  .mc-placement-board-box[data-invalid] {
+    border-color: var(--mc-status-danger);
+  }
+  .mc-placement-board-box:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  .mc-placement-board-box-tag {
+    position: absolute;
+    inset-block-end: 100%;
+    inset-inline-start: var(--mc-space-0);
+    padding-inline: var(--mc-space-4);
+    border-start-start-radius: var(--mc-radius-sm);
+    border-start-end-radius: var(--mc-radius-sm);
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .mc-placement-board-box[data-invalid] .mc-placement-board-box-tag {
+    background-color: var(--mc-status-danger);
+    color: var(--mc-status-danger-foreground);
+  }
+  .mc-placement-board-box-text {
+    flex: auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: start;
+    pointer-events: none;
+  }
+  .mc-placement-board-box-text[data-align="end"] {
+    text-align: end;
+  }
+  .mc-placement-board-box-grip {
+    position: absolute;
+    inset-block-end: var(--mc-space-0);
+    inset-inline-end: var(--mc-space-0);
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-text-default);
+    background-color: var(--mc-surface-overlay);
+    cursor: ew-resize;
+  }
+  .mc-placement-board-box:not([data-selected]) .mc-placement-board-box-grip {
+    display: none;
+  }
+
+  .mc-placement-board-handle {
+    position: absolute;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    padding: var(--mc-space-0);
+    border-style: solid;
+    border-width: var(--mc-focus-ring-width);
+    border-color: var(--mc-surface-raised);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-accent-strong);
+    box-shadow: var(--mc-elevation-2);
+    cursor: grab;
+    touch-action: none;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+  }
+  .mc-placement-board-handle:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+
+  .mc-placement-board-guide {
+    position: absolute;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-display);
+    line-height: var(--mc-leading-tight);
+    pointer-events: none;
+  }
+  .mc-placement-board-guide[data-ruled] {
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-text-muted);
+  }
+  .mc-placement-board-guide-caption {
+    position: absolute;
+    inset-block-end: var(--mc-space-0);
+    white-space: nowrap;
+  }
+  .mc-placement-board-guide-caption[data-placement="before"] {
+    inset-inline-end: 100%;
+    padding-inline-end: var(--mc-space-8);
+  }
+  .mc-placement-board-guide-caption[data-placement="after"] {
+    inset-inline-start: 100%;
+    padding-inline-start: var(--mc-space-8);
+  }
+  .mc-placement-board-guide-caption[data-placement="below"] {
+    inset-block-end: auto;
+    inset-block-start: 100%;
+    inset-inline-start: var(--mc-space-0);
+    inset-inline-end: var(--mc-space-0);
+    text-align: center;
+  }
+
+  .mc-placement-board-outline {
+    position: absolute;
+    inset-block-start: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+    pointer-events: none;
+  }
+  .mc-placement-board-outline-shape {
+    fill: none;
+    stroke: var(--mc-accent-strong);
+    stroke-width: var(--mc-focus-ring-width);
+    vector-effect: non-scaling-stroke;
+  }
+}

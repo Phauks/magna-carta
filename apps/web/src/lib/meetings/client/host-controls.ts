@@ -55,7 +55,7 @@ export const MUTED_BY_HOST_NOTICE = "A host muted you.";
  * between the menu opening and the item being pressed.
  */
 export const NOT_HOSTING_NOTICE =
-  "You are not running this meeting, so that did not happen. Somebody hosting it can hand it to you.";
+  "You aren't running this meeting, so that didn't happen. A host can hand it to you.";
 
 /** Whose microphone a host is closing. The room answers them with `muted`. */
 export function muteDirective(participantId: string): Record<string, unknown> {

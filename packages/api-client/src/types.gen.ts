@@ -1841,6 +1841,47 @@ export type RealizationReport = {
     }>;
 };
 
+export type AgedWorkInProgressReport = {
+    computedAt: string;
+    asOfDate: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    currency: 'USD';
+    completeness: ReportCompleteness;
+    totals: {
+        unbilledMinor: Array<number>;
+        totalMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            unbilledMinor: Array<number>;
+            totalMinor: number;
+        };
+    }>;
+    clients: Array<{
+        clientEntityId: string | null;
+        clientName: string | null;
+        figures: {
+            unbilledMinor: Array<number>;
+            totalMinor: number;
+        };
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+            locationId: string | null;
+            locationName: string | null;
+            figures: {
+                unbilledMinor: Array<number>;
+                totalMinor: number;
+            };
+        }>;
+    }>;
+};
+
 export type TimekeeperProductivityReport = {
     periodStart: string;
     periodEnd: string;
@@ -1938,6 +1979,26 @@ export type OperationalVolumesReport = {
     costs: Array<{
         disbursementClass: 'hard' | 'soft';
         count: number;
+    }>;
+};
+
+export type TaskWorkloadReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        openCount: number;
+        overdueCount: number;
+        undatedCount: number;
+    };
+    people: Array<{
+        assigneeUserId: string | null;
+        assigneeName: string | null;
+        openCount: number;
+        overdueCount: number;
+        undatedCount: number;
     }>;
 };
 
@@ -2153,6 +2214,134 @@ export type MattersListReport = {
         responsibleName: string | null;
         openedAt: string | null;
         closedAt: string | null;
+    }>;
+};
+
+export type DailyTimeReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+        totalMinutes: number;
+        billableShareBasisPoints: number | null;
+    };
+    days: Array<{
+        workDate: string;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+        timekeepers: Array<{
+            timekeeperUserId: string;
+            timekeeperName: string | null;
+            figures: {
+                entryCount: number;
+                billableMinutes: number;
+                nonBillableMinutes: number;
+                totalMinutes: number;
+                billableShareBasisPoints: number | null;
+            };
+        }>;
+    }>;
+    timekeepers: Array<{
+        timekeeperUserId: string;
+        timekeeperName: string | null;
+        dayCount: number;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+    }>;
+};
+
+export type MatterProductivityReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        entryCount: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+        totalMinutes: number;
+        billableShareBasisPoints: number | null;
+    };
+    matters: Array<{
+        matterId: string;
+        matterTitle: string;
+        matterNumber: string | null;
+        clientEntityId: string | null;
+        clientName: string | null;
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            entryCount: number;
+            billableMinutes: number;
+            nonBillableMinutes: number;
+            totalMinutes: number;
+            billableShareBasisPoints: number | null;
+        };
+        timekeepers: Array<{
+            timekeeperUserId: string;
+            timekeeperName: string | null;
+            figures: {
+                entryCount: number;
+                billableMinutes: number;
+                nonBillableMinutes: number;
+                totalMinutes: number;
+                billableShareBasisPoints: number | null;
+            };
+        }>;
+    }>;
+};
+
+export type ClientListReport = {
+    computedAt: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    clientCount: number;
+    totals: {
+        matterCount: number;
+        openCount: number;
+        heldCount: number;
+        closedCount: number;
+    };
+    mattersWithoutClient: number;
+    clients: Array<{
+        clientEntityId: string;
+        entityKind: 'person' | 'organization' | null;
+        displayName: string | null;
+        legalName: string | null;
+        emailAddress: string | null;
+        phoneNumber: string | null;
+        city: string | null;
+        region: string | null;
+        country: string | null;
+        counts: {
+            matterCount: number;
+            openCount: number;
+            heldCount: number;
+            closedCount: number;
+        };
+        locationNames: Array<string | null>;
     }>;
 };
 
@@ -8478,10 +8667,15 @@ export type MeetingMessage = {
     body: string;
     redactedAt: string | null;
     redactedByUserId: string | null;
+    attachedFile: {
+        id: string;
+        name: string;
+    } | null;
 };
 
 export type SendMeetingMessageRequest = {
     body: string;
+    attachedFileId?: string | null;
 };
 
 export type MeetingMessagePage = {
@@ -10725,6 +10919,127 @@ export type TrustFrozenProof = {
     unmatchedLineCount: number;
     unmatchedItemCount: number;
     balanced: boolean;
+};
+
+export type TrustChecksResponse = {
+    nextCheckNumber: number;
+    stock: TrustCheckStock;
+    toPrint: Array<TrustCheckToPrint>;
+    register: Array<TrustCheckRegisterRow>;
+};
+
+export type TrustCheckStock = {
+    trustCheckStockId: string;
+    version: number;
+    name: string;
+    pageLayout: 'check_top' | 'check_middle' | 'check_bottom' | 'three_per_page';
+    fields: Array<TrustCheckField>;
+    shiftXMils: number;
+    shiftYMils: number;
+    startingCheckNumber: number;
+    hasScan: boolean;
+    savedBy: string;
+    savedAt: string;
+} | null;
+
+export type TrustCheckField = {
+    kind: 'date' | 'payee' | 'amount' | 'amount_words' | 'memo' | 'matter' | 'check_number';
+    xMils: number;
+    yMils: number;
+    widthMils: number;
+    sizePoints: number;
+    align: 'start' | 'end';
+};
+
+export type TrustCheckToPrint = {
+    trustMovementId: string;
+    payee: string;
+    amountMinor: number;
+    currency: string;
+    memo: string;
+    effectiveDate: string;
+    authorizedBy: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+    earlierCheckNumbers: Array<number>;
+};
+
+export type TrustCheckRegisterRow = {
+    trustCheckId: string;
+    checkNumber: number;
+    status: 'numbered' | 'printed' | 'spoiled' | 'voided';
+    trustMovementId: string | null;
+    payee: string | null;
+    amountMinor: number | null;
+    currency: string | null;
+    effectiveDate: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+    memo: string | null;
+    numberedBy: string;
+    numberedAt: string;
+    settledReason: string | null;
+    lastEventAt: string | null;
+};
+
+export type PrintTrustChecksResponse = {
+    stock: TrustCheckStock;
+    checks: Array<PrintedTrustCheck>;
+};
+
+export type PrintedTrustCheck = {
+    trustCheckId: string;
+    checkNumber: number;
+    trustMovementId: string;
+    payee: string;
+    amountMinor: number;
+    currency: string;
+    effectiveDate: string;
+    memo: string;
+    matterNumber: string | null;
+    matterTitle: string | null;
+};
+
+export type PrintTrustChecksRequest = {
+    trustAccountId: string;
+    trustMovementIds: Array<string>;
+};
+
+export type TrustCheckAcknowledgement = {
+    recorded: number;
+    checkNumber: number | null;
+};
+
+export type RecordTrustCheckResultsRequest = {
+    trustAccountId: string;
+    results: Array<{
+        trustCheckId: string;
+        outcome: 'printed' | 'spoiled';
+        reason?: string | null;
+    }>;
+};
+
+export type VoidTrustCheckRequest = {
+    trustAccountId: string;
+    reason: string;
+};
+
+export type SaveTrustCheckStockResponse = {
+    stock: TrustCheckStock;
+    nextCheckNumber: number;
+};
+
+export type SaveTrustCheckStockRequest = {
+    trustAccountId: string;
+    name: string;
+    pageLayout: 'check_top' | 'check_middle' | 'check_bottom' | 'three_per_page';
+    fields: Array<TrustCheckField>;
+    shiftXMils: number;
+    shiftYMils: number;
+    startingCheckNumber: number;
+    scan: 'keep' | 'remove' | {
+        imageBase64: string;
+    };
 };
 
 export type TrustOpenFirmFundsAck = {
@@ -16640,6 +16955,92 @@ export type ReportsRealizationResponses = {
 
 export type ReportsRealizationResponse = ReportsRealizationResponses[keyof ReportsRealizationResponses];
 
+export type ReportsAgedWorkInProgressData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/aged-work-in-progress';
+};
+
+export type ReportsAgedWorkInProgressErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters have unbilled work than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsAgedWorkInProgressError = ReportsAgedWorkInProgressErrors[keyof ReportsAgedWorkInProgressErrors];
+
+export type ReportsAgedWorkInProgressResponses = {
+    /**
+     * The work in progress by age now
+     */
+    200: AgedWorkInProgressReport;
+};
+
+export type ReportsAgedWorkInProgressResponse = ReportsAgedWorkInProgressResponses[keyof ReportsAgedWorkInProgressResponses];
+
+export type ReportsAgedExpensesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/aged-expenses';
+};
+
+export type ReportsAgedExpensesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * More matters have unbilled work than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsAgedExpensesError = ReportsAgedExpensesErrors[keyof ReportsAgedExpensesErrors];
+
+export type ReportsAgedExpensesResponses = {
+    /**
+     * Unbilled costs by age now
+     */
+    200: AgedWorkInProgressReport;
+};
+
+export type ReportsAgedExpensesResponse = ReportsAgedExpensesResponses[keyof ReportsAgedExpensesResponses];
+
 export type ReportsTimekeeperProductivityData = {
     body?: never;
     path?: never;
@@ -16730,6 +17131,49 @@ export type ReportsOperationalVolumesResponses = {
 };
 
 export type ReportsOperationalVolumesResponse = ReportsOperationalVolumesResponses[keyof ReportsOperationalVolumesResponses];
+
+export type ReportsTaskWorkloadData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/task-workload';
+};
+
+export type ReportsTaskWorkloadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsTaskWorkloadError = ReportsTaskWorkloadErrors[keyof ReportsTaskWorkloadErrors];
+
+export type ReportsTaskWorkloadResponses = {
+    /**
+     * Each member's open tasks now
+     */
+    200: TaskWorkloadReport;
+};
+
+export type ReportsTaskWorkloadResponse = ReportsTaskWorkloadResponses[keyof ReportsTaskWorkloadResponses];
 
 export type ReportsInvoicesData = {
     body?: never;
@@ -16908,6 +17352,139 @@ export type ReportsMattersListResponses = {
 };
 
 export type ReportsMattersListResponse = ReportsMattersListResponses[keyof ReportsMattersListResponses];
+
+export type ReportsDailyTimeData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/daily-time';
+};
+
+export type ReportsDailyTimeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsDailyTimeError = ReportsDailyTimeErrors[keyof ReportsDailyTimeErrors];
+
+export type ReportsDailyTimeResponses = {
+    /**
+     * The time recorded on each day of this period
+     */
+    200: DailyTimeReport;
+};
+
+export type ReportsDailyTimeResponse = ReportsDailyTimeResponses[keyof ReportsDailyTimeResponses];
+
+export type ReportsMatterProductivityData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/matter-productivity';
+};
+
+export type ReportsMatterProductivityErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:productivity
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, or more time was recorded than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsMatterProductivityError = ReportsMatterProductivityErrors[keyof ReportsMatterProductivityErrors];
+
+export type ReportsMatterProductivityResponses = {
+    /**
+     * The time recorded on each matter in this period
+     */
+    200: MatterProductivityReport;
+};
+
+export type ReportsMatterProductivityResponse = ReportsMatterProductivityResponses[keyof ReportsMatterProductivityResponses];
+
+export type ReportsClientListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/client-list';
+};
+
+export type ReportsClientListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The firm has more matters than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsClientListError = ReportsClientListErrors[keyof ReportsClientListErrors];
+
+export type ReportsClientListResponses = {
+    /**
+     * The firm's clients now
+     */
+    200: ClientListReport;
+};
+
+export type ReportsClientListResponse = ReportsClientListResponses[keyof ReportsClientListResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
@@ -50001,6 +50578,350 @@ export type TrustCloseReconciliationResponses = {
 };
 
 export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
+
+export type TrustChecksData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/checks';
+};
+
+export type TrustChecksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustChecksError = TrustChecksErrors[keyof TrustChecksErrors];
+
+export type TrustChecksResponses = {
+    /**
+     * The checks
+     */
+    200: TrustChecksResponse;
+};
+
+export type TrustChecksResponse2 = TrustChecksResponses[keyof TrustChecksResponses];
+
+export type TrustPrintChecksData = {
+    body: PrintTrustChecksRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/checks/print';
+};
+
+export type TrustPrintChecksErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustPrintChecksError = TrustPrintChecksErrors[keyof TrustPrintChecksErrors];
+
+export type TrustPrintChecksResponses = {
+    /**
+     * The numbered checks
+     */
+    201: PrintTrustChecksResponse;
+};
+
+export type TrustPrintChecksResponse = TrustPrintChecksResponses[keyof TrustPrintChecksResponses];
+
+export type TrustRecordCheckResultsData = {
+    body: RecordTrustCheckResultsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/checks/results';
+};
+
+export type TrustRecordCheckResultsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRecordCheckResultsError = TrustRecordCheckResultsErrors[keyof TrustRecordCheckResultsErrors];
+
+export type TrustRecordCheckResultsResponses = {
+    /**
+     * Recorded
+     */
+    201: TrustCheckAcknowledgement;
+};
+
+export type TrustRecordCheckResultsResponse = TrustRecordCheckResultsResponses[keyof TrustRecordCheckResultsResponses];
+
+export type TrustVoidNextCheckNumberData = {
+    body: VoidTrustCheckRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/checks/void-next-number';
+};
+
+export type TrustVoidNextCheckNumberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustVoidNextCheckNumberError = TrustVoidNextCheckNumberErrors[keyof TrustVoidNextCheckNumberErrors];
+
+export type TrustVoidNextCheckNumberResponses = {
+    /**
+     * Voided
+     */
+    201: TrustCheckAcknowledgement;
+};
+
+export type TrustVoidNextCheckNumberResponse = TrustVoidNextCheckNumberResponses[keyof TrustVoidNextCheckNumberResponses];
+
+export type TrustVoidCheckData = {
+    body: VoidTrustCheckRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/checks/{checkId}/void';
+};
+
+export type TrustVoidCheckErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustVoidCheckError = TrustVoidCheckErrors[keyof TrustVoidCheckErrors];
+
+export type TrustVoidCheckResponses = {
+    /**
+     * Voided
+     */
+    201: TrustCheckAcknowledgement;
+};
+
+export type TrustVoidCheckResponse = TrustVoidCheckResponses[keyof TrustVoidCheckResponses];
+
+export type TrustSaveCheckStockData = {
+    body: SaveTrustCheckStockRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/check-stock';
+};
+
+export type TrustSaveCheckStockErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * The check was already answered, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustSaveCheckStockError = TrustSaveCheckStockErrors[keyof TrustSaveCheckStockErrors];
+
+export type TrustSaveCheckStockResponses = {
+    /**
+     * Saved
+     */
+    201: SaveTrustCheckStockResponse;
+};
+
+export type TrustSaveCheckStockResponse = TrustSaveCheckStockResponses[keyof TrustSaveCheckStockResponses];
+
+export type TrustCheckStockScanData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/check-stock/scan';
+};
+
+export type TrustCheckStockScanErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account or check is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustCheckStockScanError = TrustCheckStockScanErrors[keyof TrustCheckStockScanErrors];
+
+export type TrustCheckStockScanResponses = {
+    /**
+     * The image
+     */
+    200: string;
+};
+
+export type TrustCheckStockScanResponse = TrustCheckStockScanResponses[keyof TrustCheckStockScanResponses];
 
 export type TrustFirmFundsPositionData = {
     body?: never;

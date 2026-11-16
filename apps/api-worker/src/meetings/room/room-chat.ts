@@ -32,12 +32,15 @@ import { broadcast, broadcastPerViewer, type RoomContext } from "./room-state.ts
  *
  * BUILT FOR THE READER: a guest's socket is sent the same message with the firm's user identifiers
  * taken out — who said it is the stay, which the roster names, and who took it back is a member a
- * guest has no business being able to identify.
+ * guest has no business being able to identify. A shared file is taken out too: it is reached
+ * through a member's route, and the line's words already name it.
  */
 export async function relayMessage(room: RoomContext, message: MeetingChatMessage): Promise<void> {
   const recipientCount = broadcastPerViewer(room, (viewer) =>
     messageFrame(
-      viewer === "guest" ? { ...message, userId: null, redactedByUserId: null } : message,
+      viewer === "guest"
+        ? { ...message, userId: null, redactedByUserId: null, attachedFile: null }
+        : message,
     ),
   );
   await recordMessageRelayed(room, undefined, recipientCount, false);

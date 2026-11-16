@@ -28,6 +28,9 @@
       "path": "../database/tsconfig.build.json"
     },
     {
+      "path": "../directory/tsconfig.build.json"
+    },
+    {
       "path": "../identifiers/tsconfig.build.json"
     },
     {
@@ -38,6 +41,9 @@
     },
     {
       "path": "../money/tsconfig.build.json"
+    },
+    {
+      "path": "../tasks/tsconfig.build.json"
     },
     {
       "path": "../timekeeping/tsconfig.build.json"

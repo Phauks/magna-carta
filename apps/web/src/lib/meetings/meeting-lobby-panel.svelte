@@ -196,8 +196,7 @@
 >
   {#snippet fields()}
     <p class="text-sm">
-      Everybody at the door is turned away, and each of them is barred from this meeting while it
-      runs. They can be let in again only from a meeting on a new calendar entry.
+      Everyone waiting at the door is turned away and can't come back while this meeting runs. They can only be let into a meeting on a new calendar entry.
     </p>
   {/snippet}
 </ActionDialog>

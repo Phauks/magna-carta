@@ -159,6 +159,7 @@ describe("problem-type URI registry", () => {
         "meetings-not-configured",
         "meeting-message-not-found",
         "meeting-message-too-long",
+        "meeting-message-file-unavailable",
         "meeting-move-refused",
         "personal-room-changed",
         "personal-room-not-found",

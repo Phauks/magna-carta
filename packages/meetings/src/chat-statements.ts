@@ -1,6 +1,7 @@
 import { keysetClause, type SortCursor } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  FileId,
   MeetingAttendanceId,
   MeetingGuestStayId,
   MeetingId,
@@ -30,7 +31,13 @@ const MESSAGE_COLUMNS =
   `${MEETING_MESSAGE_TABLE}.participant_kind, ${MEETING_MESSAGE_TABLE}.participant_id, ` +
   `${MEETING_MESSAGE_TABLE}.sent_at, ` +
   `${MEETING_MESSAGE_TABLE}.body, ${MEETING_MESSAGE_TABLE}.redacted_at, ` +
-  `${MEETING_MESSAGE_TABLE}.redacted_by_user_id, ${MEETING_ATTENDANCE_TABLE}.user_id AS user_id`;
+  `${MEETING_MESSAGE_TABLE}.redacted_by_user_id, ${MEETING_ATTENDANCE_TABLE}.user_id AS user_id, ` +
+  // The shared file, by its handle and its name now. Withheld once the message is taken back or
+  // the file is deleted: a removed line shows nothing it carried.
+  `CASE WHEN ${MEETING_MESSAGE_TABLE}.redacted_at IS NULL AND attached_file.deleted_at IS NULL ` +
+  `THEN attached_file.id END AS attached_file_id, ` +
+  `CASE WHEN ${MEETING_MESSAGE_TABLE}.redacted_at IS NULL AND attached_file.deleted_at IS NULL ` +
+  `THEN attached_file.name END AS attached_file_name`;
 
 // A LEFT join, and matched on the KIND as well as the handle. The stay a message was said from is a
 // member's attendance row or a guest's own row, and the member table can only answer for the first:
@@ -41,7 +48,8 @@ const MESSAGE_COLUMNS =
 const ATTENDANCE_JOIN =
   `LEFT JOIN ${MEETING_ATTENDANCE_TABLE} ` +
   `ON ${MEETING_MESSAGE_TABLE}.participant_kind = 'member' ` +
-  `AND ${MEETING_ATTENDANCE_TABLE}.id = ${MEETING_MESSAGE_TABLE}.participant_id`;
+  `AND ${MEETING_ATTENDANCE_TABLE}.id = ${MEETING_MESSAGE_TABLE}.participant_id ` +
+  `LEFT JOIN file AS attached_file ON attached_file.id = ${MEETING_MESSAGE_TABLE}.attached_file_id`;
 
 interface MessageColumns {
   readonly id: MeetingMessageId;
@@ -53,6 +61,8 @@ interface MessageColumns {
   readonly body: string;
   readonly redacted_at: string | null;
   readonly redacted_by_user_id: UserId | null;
+  readonly attached_file_id: FileId | null;
+  readonly attached_file_name: string | null;
 }
 
 function toEntry(row: MessageColumns): MeetingMessageEntry {
@@ -66,6 +76,10 @@ function toEntry(row: MessageColumns): MeetingMessageEntry {
     body: row.body,
     redactedAt: row.redacted_at,
     redactedByUserId: row.redacted_by_user_id,
+    attachedFile:
+      row.attached_file_id === null || row.attached_file_name === null
+        ? null
+        : { id: row.attached_file_id, name: row.attached_file_name },
   };
 }
 
@@ -223,6 +237,8 @@ export interface InsertMeetingMessageInput {
   readonly attendanceId: MeetingAttendanceId;
   readonly body: string;
   readonly now: string;
+  /** One of the meeting's matter's files, shared with the line. */
+  readonly attachedFileId?: FileId | null;
 }
 
 // SAYING SOMETHING. An insert and nothing else: there is no update path for a body anywhere in this
@@ -246,10 +262,17 @@ export function insertMeetingMessageStatement(
   return database
     .prepare(
       `INSERT INTO ${MEETING_MESSAGE_TABLE} (id, meeting_id, participant_kind, participant_id, ` +
-        `sent_at, body, redacted_at, redacted_by_user_id, created_at) ` +
-        `VALUES (?1, ?2, 'member', ?3, ?4, ?5, NULL, NULL, ?4)`,
+        `sent_at, body, redacted_at, redacted_by_user_id, created_at, attached_file_id) ` +
+        `VALUES (?1, ?2, 'member', ?3, ?4, ?5, NULL, NULL, ?4, ?6)`,
     )
-    .bind(input.id, input.meetingId, input.attendanceId, input.now, input.body);
+    .bind(
+      input.id,
+      input.meetingId,
+      input.attendanceId,
+      input.now,
+      input.body,
+      input.attachedFileId ?? null,
+    );
 }
 
 // SAID FROM A GUEST'S STAY. The member statement's twin, with the kind a literal for the same reason
@@ -297,4 +320,27 @@ export function redactMeetingMessageStatement(
         `redacted_by_user_id = ?2 WHERE id = ?3 AND redacted_at IS NULL`,
     )
     .bind(input.now, input.redactedByUserId, input.id);
+}
+
+/**
+ * A file this meeting may share in its chat: one of the files of the matter the meeting's event is on,
+ * not deleted. Undefined for a meeting on a firm event, which has no matter and so no files to share,
+ * and for any file that is not the matter's.
+ */
+export async function readShareableMeetingFile(
+  database: SqlDatabase,
+  meetingId: MeetingId,
+  fileId: FileId,
+): Promise<{ readonly id: FileId; readonly name: string } | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT file.id AS id, file.name AS name FROM meeting ` +
+        `JOIN matter_event ON matter_event.id = meeting.matter_event_id ` +
+        `JOIN file ON file.matter_id = matter_event.matter_id ` +
+        `WHERE meeting.id = ?1 AND meeting.event_kind = 'matter' AND file.id = ?2 ` +
+        `AND file.deleted_at IS NULL`,
+    )
+    .bind(meetingId, fileId)
+    .all<{ id: FileId; name: string }>();
+  return results[0];
 }

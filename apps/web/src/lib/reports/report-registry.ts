@@ -34,12 +34,18 @@ import {
 } from "./reports-api.ts";
 import { sampleTrustCompliancePack } from "./trust-compliance-fixture.ts";
 import {
+  presentClientList,
   presentMattersList,
   presentOperationalVolumes,
+  presentDailyTime,
+  presentTaskWorkload,
+  presentMatterProductivity,
   presentTimekeeperProductivity,
 } from "./activity-presenters.ts";
 import {
   presentAccountsReceivableAging,
+  presentAgedExpenses,
+  presentAgedWorkInProgress,
   presentRealization,
   presentWorkInProgress,
 } from "./financial-presenters.ts";
@@ -53,32 +59,49 @@ import {
   OPERATIONAL_REPORTS_PERMISSION,
   PRODUCTIVITY_REPORTS_PERMISSION,
   readAccountsReceivableAging,
+  readAgedExpenses,
+  readAgedWorkInProgress,
   readInvoices,
   readMatterBalances,
+  readClientList,
   readMattersList,
   readOperationalVolumes,
   readPaymentsApplied,
   readRealization,
+  readDailyTime,
+  readTaskWorkload,
+  readMatterProductivity,
   readTimekeeperProductivity,
   readWorkInProgress,
   type AccountsReceivableAging,
+  type AgedWorkInProgress,
   type Invoices,
   type MatterBalances,
+  type ClientList,
   type MattersList,
   type OperationalVolumes,
   type PaymentsApplied,
   type Realization,
+  type DailyTime,
+  type TaskWorkload,
+  type MatterProductivity,
   type TimekeeperProductivity,
   type WorkInProgress,
 } from "./report-reads.ts";
 import {
   sampleAccountsReceivableAging,
+  sampleAgedExpenses,
+  sampleAgedWorkInProgress,
   sampleInvoices,
   sampleMatterBalances,
+  sampleClientList,
   sampleMattersList,
   sampleOperationalVolumes,
   samplePaymentsApplied,
   sampleRealization,
+  sampleDailyTime,
+  sampleTaskWorkload,
+  sampleMatterProductivity,
   sampleTimekeeperProductivity,
   sampleWorkInProgress,
 } from "./report-samples.ts";
@@ -254,6 +277,36 @@ const workInProgress = built<WorkInProgress>({
   samplePayload: sampleWorkInProgress,
 });
 
+const agedWorkInProgress = built<AgedWorkInProgress>({
+  id: "aged-work-in-progress",
+  family: "financial",
+  name: "Aged Work in Progress",
+  answers:
+    "Unbilled time and costs by how long ago the work was done, by matter, client and office, as they stand now.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readAgedWorkInProgress(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentAgedWorkInProgress(payload),
+  samplePayload: sampleAgedWorkInProgress,
+});
+
+const agedExpenses = built<AgedWorkInProgress>({
+  id: "aged-expenses",
+  family: "financial",
+  name: "Aged Expenses",
+  answers:
+    "Unbilled costs by how long ago they were incurred, by matter, client and office, as they stand now.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readAgedExpenses(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentAgedExpenses(payload),
+  samplePayload: sampleAgedExpenses,
+});
+
 const realization = built<Realization>({
   id: "realization",
   family: "financial",
@@ -293,6 +346,61 @@ const timekeeperProductivity = built<TimekeeperProductivity>({
     }),
   present: presentTimekeeperProductivity,
   samplePayload: sampleTimekeeperProductivity,
+});
+
+const dailyTime = built<DailyTime>({
+  id: "daily-time",
+  family: "productivity",
+  name: "Daily Time",
+  answers:
+    "Hours recorded on each day of a period, by timekeeper, billable and non-billable, and how many days each timekeeper recorded time on.",
+  permission: PRODUCTIVITY_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readDailyTime(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      locationId: scope.office,
+    }),
+  present: presentDailyTime,
+  samplePayload: sampleDailyTime,
+});
+
+const matterProductivity = built<MatterProductivity>({
+  id: "matter-productivity",
+  family: "productivity",
+  name: "Matter Productivity",
+  answers:
+    "Hours recorded on each matter in a period, billable and non-billable, and who recorded them.",
+  permission: PRODUCTIVITY_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readMatterProductivity(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      locationId: scope.office,
+    }),
+  present: presentMatterProductivity,
+  samplePayload: sampleMatterProductivity,
+});
+
+const taskWorkload = built<TaskWorkload>({
+  id: "task-workload",
+  family: "productivity",
+  name: "Tasks by Person",
+  answers:
+    "How many open tasks each person has, how many are overdue, and how many have no due date.",
+  permission: PRODUCTIVITY_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readTaskWorkload(fetchImpl, { locationId: scope.office }),
+  present: presentTaskWorkload,
+  samplePayload: sampleTaskWorkload,
 });
 
 const operationalVolumes = built<OperationalVolumes>({
@@ -388,17 +496,38 @@ const mattersList = built<MattersList>({
   samplePayload: sampleMattersList,
 });
 
+const clientList = built<ClientList>({
+  id: "client-list",
+  family: "operational",
+  name: "Client List",
+  answers:
+    "Every client of a matter the firm has opened, with their email, phone and place, and how many of their matters are open, on hold and closed.",
+  permission: OPERATIONAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "none" },
+  read: (fetchImpl, scope) => readClientList(fetchImpl, { locationId: scope.office }),
+  present: (payload) => presentClientList(payload),
+  samplePayload: sampleClientList,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
   workInProgress,
+  agedWorkInProgress,
+  agedExpenses,
   realization,
   invoices,
   paymentsApplied,
   matterBalances,
   timekeeperProductivity,
+  dailyTime,
+  matterProductivity,
+  taskWorkload,
   operationalVolumes,
   mattersList,
+  clientList,
 ] as const satisfies readonly ReportDeclaration[];
 
 /** Every report, in catalogue order. */

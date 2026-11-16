@@ -61,13 +61,19 @@ describe("the report registry", () => {
       ["trust-compliance", { trustAccount: true, office: false, period: "span" }],
       ["accounts-receivable-aging", { trustAccount: false, office: true, period: "date" }],
       ["work-in-progress", { trustAccount: false, office: true, period: "none" }],
+      ["aged-work-in-progress", { trustAccount: false, office: true, period: "none" }],
+      ["aged-expenses", { trustAccount: false, office: true, period: "none" }],
       ["realization", { trustAccount: false, office: true, period: "span" }],
       ["invoices", { trustAccount: false, office: true, period: "span" }],
       ["payments-applied", { trustAccount: false, office: true, period: "span" }],
       ["matter-balances", { trustAccount: false, office: true, period: "none" }],
       ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
+      ["daily-time", { trustAccount: false, office: true, period: "span" }],
+      ["matter-productivity", { trustAccount: false, office: true, period: "span" }],
+      ["task-workload", { trustAccount: false, office: true, period: "none" }],
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
       ["matters-list", { trustAccount: false, office: true, period: "none" }],
+      ["client-list", { trustAccount: false, office: true, period: "none" }],
     ]);
     expect(reportById("trust-compliance")?.permission).toBe("reports:trustCompliance");
   });
@@ -78,13 +84,19 @@ describe("the report registry", () => {
       "trust-compliance": "bitemporal",
       "accounts-receivable-aging": "bitemporal",
       "work-in-progress": "live-only",
+      "aged-work-in-progress": "live-only",
+      "aged-expenses": "live-only",
       realization: "bitemporal",
       invoices: "bitemporal",
       "payments-applied": "bitemporal",
       "matter-balances": "live-only",
       "timekeeper-productivity": "live-only",
+      "daily-time": "live-only",
+      "matter-productivity": "live-only",
+      "task-workload": "live-only",
       "operational-volumes": "bitemporal",
       "matters-list": "live-only",
+      "client-list": "live-only",
     });
   });
 

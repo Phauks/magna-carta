@@ -147,6 +147,54 @@ export const ProductivityTaskCodeRow = z.object({
   figures: ProductivityFigures,
 });
 
+// DAILY TIME. The same figures as Timekeeper Productivity, day by day.
+export const DailyTimeTimekeeperOnDay = z.object({
+  timekeeperUserId: z.string(),
+  timekeeperName: z.string().nullable(),
+  figures: ProductivityFigures,
+});
+
+export const DailyTimeDayRow = z.object({
+  workDate: z.string(),
+  figures: ProductivityFigures,
+  timekeepers: z.array(DailyTimeTimekeeperOnDay),
+});
+
+export const DailyTimeTimekeeperRow = z.object({
+  timekeeperUserId: z.string(),
+  timekeeperName: z.string().nullable(),
+  dayCount: z.number().int(),
+  figures: ProductivityFigures,
+});
+
+// MATTER PRODUCTIVITY. The same figures again, per matter with its timekeepers under it.
+export const MatterProductivityRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: ProductivityFigures,
+  timekeepers: z.array(DailyTimeTimekeeperOnDay),
+});
+
+// TASKS BY PERSON. Counts of open tasks, never a task's words.
+export const TaskWorkloadFigures = z.object({
+  openCount: z.number().int(),
+  overdueCount: z.number().int(),
+  undatedCount: z.number().int(),
+});
+
+export const TaskWorkloadPersonRow = z.object({
+  assigneeUserId: z.string().nullable(),
+  assigneeName: z.string().nullable(),
+  openCount: z.number().int(),
+  overdueCount: z.number().int(),
+  undatedCount: z.number().int(),
+});
+
 // OPERATIONAL VOLUMES. Counts only, never money.
 export const OperationalSections = z.enum(["matters", "billing", "trust", "costs"]);
 
@@ -316,6 +364,21 @@ export const MatterListOfficeRow = z.object({
   counts: MatterStatusCounts,
 });
 
+// CLIENT LIST. The directory's row for each client, and their matters counted by status.
+export const ClientListRow = z.object({
+  clientEntityId: z.string(),
+  entityKind: z.enum(["person", "organization"]).nullable(),
+  displayName: z.string().nullable(),
+  legalName: z.string().nullable(),
+  emailAddress: z.string().nullable(),
+  phoneNumber: z.string().nullable(),
+  city: z.string().nullable(),
+  region: z.string().nullable(),
+  country: z.string().nullable(),
+  counts: MatterStatusCounts,
+  locationNames: z.array(z.string().nullable()),
+});
+
 export const MatterListRow = z.object({
   matterId: z.string(),
   matterNumber: z.string().nullable(),
@@ -330,4 +393,33 @@ export const MatterListRow = z.object({
   responsibleName: z.string().nullable(),
   openedAt: z.string().nullable(),
   closedAt: z.string().nullable(),
+});
+
+// AGED WORK IN PROGRESS. Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days
+// since the work was done.
+export const AgedWorkFigures = z.object({
+  unbilledMinor: z.array(z.number().int()).length(4),
+  totalMinor: z.number().int(),
+});
+
+export const AgedWorkOfficeRow = z.object({
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkMatterRow = z.object({
+  matterId: z.string(),
+  matterTitle: z.string(),
+  matterNumber: z.string().nullable(),
+  locationId: z.string().nullable(),
+  locationName: z.string().nullable(),
+  figures: AgedWorkFigures,
+});
+
+export const AgedWorkClientRow = z.object({
+  clientEntityId: z.string().nullable(),
+  clientName: z.string().nullable(),
+  figures: AgedWorkFigures,
+  matters: z.array(AgedWorkMatterRow),
 });

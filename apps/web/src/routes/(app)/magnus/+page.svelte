@@ -32,5 +32,5 @@
   rail="column"
   showMatter
   emptyTitle="Nothing Asked Yet"
-  emptyDescription="You have not asked Magnus anything. Type a question below to start a conversation."
+  emptyDescription="You haven't asked Magnus anything yet. Type a question below to start."
 />

@@ -135,6 +135,10 @@ export type FirmScopedObjectClass =
   // witness or a counterparty by. Firm-scoped rather than matter-scoped because one record stands on
   // many matters and the picture is the record's, not any one matter's.
   | "directory-photo"
+  // A straightened scan of one BLANK check from a trust account's stock, shown behind the layout
+  // editor and never printed. It belongs to the account, not to any matter.
+  | "check-stock-scan"
+
   // A file a firm gave a record transfer, kept unchanged, and the report of a pass over one. Both
   // belong to the firm and to no matter: a source file is a list of many matters or of none, and
   // a report names rows of such a file.
@@ -175,6 +179,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "export-snapshot",
   "member-photo",
   "directory-photo",
+  "check-stock-scan",
   "transfer-source-file",
   "transfer-pass-report",
 ];
