@@ -4252,6 +4252,22 @@ export type ConversionSubmitRequest = {
     sourceKey: string;
     from: string;
     to: string;
+    options?: ConversionOptions;
+};
+
+export type ConversionOptions = {
+    /**
+     * Shrink the image so its longest side is at most this many pixels. Never enlarges.
+     */
+    maxDimension?: number;
+    /**
+     * JPEG quality from 1 to 100. Only a JPEG target accepts it.
+     */
+    quality?: number;
+    /**
+     * Drop the colour and keep the lightness.
+     */
+    grayscale?: boolean;
 };
 
 export type ConversionStatus = {
@@ -25096,7 +25112,7 @@ export type ConversionsSubmitErrors = {
      */
     404: Problem;
     /**
-     * The requested format conversion is not supported (no conversion path found)
+     * The requested format conversion is not supported (no conversion path found), or an option was given that this conversion cannot honour
      */
     422: Problem;
     /**

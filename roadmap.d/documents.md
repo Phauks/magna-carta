@@ -470,7 +470,7 @@
   scope: Upload-and-submit conversion endpoints in the OpenAPI contract.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/http/routes/documents/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions.
+  evidence: apps/api-worker/src/http/routes/documents/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions. The submit body takes optional options (maxDimension, quality, grayscale; contract in packages/conversion/src/contract.ts), checked against packages/conversion/src/options.ts and refused with 422 unsupported-conversion-option where the conversion's final engine cannot honour one.
   notes: Execution currently limited to the built engine edges (raster, image-to-PDF).
 
 - id: documents.conversion.raster
@@ -479,7 +479,7 @@
   status: shipped
   surface: awaiting-screen
   spec: docs/specs/2026-06-23-slice-2-4d-raster-engine-design.md
-  evidence: containers/raster + apps/convert-worker/src/raster-engine-container.ts + forward-convert.ts.
+  evidence: containers/raster + apps/convert-worker/src/raster-engine-container.ts + forward-convert.ts. Honours per-job options from the x-max-dimension, x-quality and x-grayscale headers (containers/raster/src/convert.rs, ConvertOptions): shrink to a longest side without enlarging, grayscale, and JPEG quality; anything malformed or unhonourable is a 400.
 
 - id: documents.conversion.image-to-pdf
   name: Image to PDF
@@ -545,8 +545,8 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch.
-  notes: The "Convert With Options" entry from the file manager rulings is not built; every target converts with the engine's defaults.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch. Convert with Options (apps/web/src/lib/tools/file-workbench/convert-options-dialog.svelte) is the flyout's last entry and a button on the Convert tab; it picks the target and the settings that target accepts (conversion-options.ts) and runs the same flow.
+  notes: Settings exist only where an engine honours them, which today is the raster engine (image targets, and an image going to PDF). Office, OCR, email and video targets convert with their engine's defaults, and Convert with Options is not offered for a file whose targets take no setting.
 
 - id: documents.pdf
   name: PDF services

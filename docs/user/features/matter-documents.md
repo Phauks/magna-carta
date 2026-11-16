@@ -394,6 +394,8 @@ Right-click a file and open **Convert**. The list shows what that kind of file c
 
 Choose one, and a note above the list follows the file while it is read, sent and converted. The converted copy is then filed in the same folder as the original, through the same upload and safety check as any file you add, so it appears in the upload tray. If the folder already holds a file with that name, both are kept. The original is never changed.
 
+For a picture, the last entry in the list is **Convert with Options**. It opens a short form where you pick the format and, for that format, a **Longest Side** to shrink the picture to, **Grayscale**, and for JPEG a **Quality**. Press **Convert**, and the copy is made and filed beside the original the same way. Documents, emails and videos have no settings, so their list has no **Convert with Options**.
+
 Convert is offered on one file at a time. To convert many files at once, use the **Convert** tab on the File Workbench.
 
 ## Archives

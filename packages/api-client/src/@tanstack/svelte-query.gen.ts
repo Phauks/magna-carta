@@ -5468,7 +5468,7 @@ export const conversionsUploadMutation = (options?: Partial<Options<ConversionsU
 };
 
 /**
- * Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats. Returns 202 with status queued when the job is accepted.
+ * Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats, or if an option is given that the conversion cannot honour (size and grayscale apply to image targets and image-to-PDF; quality to JPEG only). Returns 202 with status queued when the job is accepted.
  */
 export const conversionsSubmitMutation = (options?: Partial<Options<ConversionsSubmitData>>): MutationOptions<ConversionsSubmitResponse, ConversionsSubmitError, Options<ConversionsSubmitData>> => {
     const mutationOptions: MutationOptions<ConversionsSubmitResponse, ConversionsSubmitError, Options<ConversionsSubmitData>> = {

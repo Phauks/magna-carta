@@ -50,6 +50,42 @@ describe("libvips adapter", () => {
     if (!result.ok) expect(result.reason).toBe("adapter-error");
   });
 
+  it("honours a longest-side limit without enlarging, and grayscale", async () => {
+    const png = await makeImage(".png", 40, 20);
+    const shrunk = await libvipsAdapter.convert({
+      bytes: png,
+      from: "png",
+      to: "png",
+      recipeRef: "png",
+      options: { maxDimension: 10, grayscale: true },
+    });
+    expect(shrunk.ok).toBe(true);
+    if (shrunk.ok) expect(await imageSize(shrunk.bytes)).toEqual({ width: 10, height: 5 });
+
+    const untouched = await libvipsAdapter.convert({
+      bytes: png,
+      from: "png",
+      to: "webp",
+      recipeRef: "webp",
+      options: { maxDimension: 400 },
+    });
+    expect(untouched.ok).toBe(true);
+    if (untouched.ok) expect(await imageSize(untouched.bytes)).toEqual({ width: 40, height: 20 });
+  });
+
+  it("writes a JPEG at the asked-for quality", async () => {
+    const png = await makeImage(".png", 32, 32);
+    const result = await libvipsAdapter.convert({
+      bytes: png,
+      from: "png",
+      to: "jpeg",
+      recipeRef: "jpeg",
+      options: { quality: 30 },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.mediaType).toBe("image/jpeg");
+  });
+
   it("returns unsupported-edge for a non-raster target", async () => {
     const png = await makePng();
     const result = await libvipsAdapter.convert({

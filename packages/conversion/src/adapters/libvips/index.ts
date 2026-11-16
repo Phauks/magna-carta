@@ -42,8 +42,19 @@ export const libvipsAdapter: ConversionPort = {
       const v = await vips();
       // newFromBuffer auto-detects the loader; libvips' loaders are the hardened, in-tenant path for
       // untrusted bytes — a malformed buffer raises here and is mapped to adapter-error below.
-      const image = v.Image.newFromBuffer(input.bytes);
-      const out = image.writeToBuffer(output.suffix);
+      let image = v.Image.newFromBuffer(input.bytes);
+      // The member's choices (../../options.ts), honoured the same way the raster engine honours
+      // them: shrink to a longest side without ever enlarging, drop the colour, and a JPEG quality.
+      const options = input.options;
+      const longest = Math.max(image.width, image.height);
+      if (options?.maxDimension !== undefined && longest > options.maxDimension) {
+        image = image.resize(options.maxDimension / longest);
+      }
+      if (options?.grayscale === true) image = image.colourspace("b-w");
+      const out =
+        options?.quality !== undefined && input.to === "jpeg"
+          ? image.writeToBuffer(output.suffix, { Q: options.quality })
+          : image.writeToBuffer(output.suffix);
       return converted(new Uint8Array(out), output.mediaType);
     } catch (error) {
       return adapterError(error instanceof Error ? error.message : "libvips conversion failed");

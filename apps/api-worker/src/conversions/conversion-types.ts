@@ -1,4 +1,5 @@
 import type { FormatId } from "@magna-carta/conversion/format";
+import type { ConversionOptions } from "@magna-carta/conversion/options";
 
 // The job state the coordinator Durable Object persists; the queue message the consumer reads; the DO
 // RPC surface the routes + consumer call. One home so they never drift on field names (bundle-types
@@ -25,6 +26,10 @@ export interface ConversionMessage {
   readonly resultKey: string;
   readonly from: FormatId;
   readonly to: FormatId;
+  // The member's choices for the copy, already checked by the submitting route against what the
+  // path's final engine accepts. Absent on a plain conversion, and on any message sent before
+  // options existed, which therefore still converts exactly as it was asked to.
+  readonly options?: ConversionOptions;
 }
 
 // A request for a video version's playable copy (packages/file-manager/src/playable-copy.ts). It

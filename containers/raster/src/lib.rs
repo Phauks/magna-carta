@@ -8,7 +8,7 @@ use axum::{
 };
 
 pub mod convert;
-pub use convert::{convert, ConvertError};
+pub use convert::{convert, ConvertError, ConvertOptions};
 
 // 256 MiB — an encoded raster source is far smaller than the worker's general
 // 2 GiB ingest cap. axum buffers the full body in RAM before the image::Limits
@@ -34,7 +34,20 @@ async fn handle_convert(headers: HeaderMap, body: Bytes) -> Response {
         None => return StatusCode::BAD_REQUEST.into_response(),
     };
 
-    match convert(&body, &source_format, &target_format, &recipe) {
+    // The member's choices for this job, each optional. A malformed or unhonourable one is a 400:
+    // the caller asked for something specific, and a copy made without it would mislead.
+    let option_header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    let options = match ConvertOptions::parse(
+        option_header("x-max-dimension"),
+        option_header("x-quality"),
+        option_header("x-grayscale"),
+        &target_format,
+    ) {
+        Ok(options) => options,
+        Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+    };
+
+    match convert(&body, &source_format, &target_format, &recipe, &options) {
         Ok((output, mime)) => (
             StatusCode::OK,
             [(axum::http::header::CONTENT_TYPE, mime)],
@@ -44,6 +57,7 @@ async fn handle_convert(headers: HeaderMap, body: Bytes) -> Response {
         Err(ConvertError::UnsupportedFormat) => StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response(),
         Err(ConvertError::Decode) => StatusCode::UNPROCESSABLE_ENTITY.into_response(),
         Err(ConvertError::Encode) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Err(ConvertError::InvalidOption) => StatusCode::BAD_REQUEST.into_response(),
     }
 }
 
@@ -191,6 +205,51 @@ mod tests {
                     .header("x-source-format", "png")
                     .header("x-target-format", "webp")
                     // x-recipe intentionally omitted
+                    .body(axum::body::Body::from(png))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn post_convert_honours_the_option_headers() {
+        let png = png_bytes(400, 100);
+        let response = router()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/convert")
+                    .header("x-source-format", "png")
+                    .header("x-target-format", "jpeg")
+                    .header("x-recipe", "jpeg")
+                    .header("x-max-dimension", "200")
+                    .header("x-quality", "60")
+                    .header("x-grayscale", "true")
+                    .body(axum::body::Body::from(png))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let decoded = image::load_from_memory_with_format(&body, ImageFormat::Jpeg).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (200, 50));
+    }
+
+    #[tokio::test]
+    async fn post_convert_refuses_an_option_the_target_cannot_honour() {
+        let png = png_bytes(4, 4);
+        let response = router()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/convert")
+                    .header("x-source-format", "png")
+                    .header("x-target-format", "webp")
+                    .header("x-recipe", "webp")
+                    .header("x-quality", "60")
                     .body(axum::body::Body::from(png))
                     .unwrap(),
             )

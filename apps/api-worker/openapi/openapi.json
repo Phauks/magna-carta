@@ -18888,6 +18888,9 @@
           "to": {
             "type": "string",
             "minLength": 1
+          },
+          "options": {
+            "$ref": "#/components/schemas/ConversionOptions"
           }
         },
         "required": [
@@ -18896,6 +18899,28 @@
           "from",
           "to"
         ]
+      },
+      "ConversionOptions": {
+        "type": "object",
+        "properties": {
+          "maxDimension": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 40000,
+            "description": "Shrink the image so its longest side is at most this many pixels. Never enlarges."
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "JPEG quality from 1 to 100. Only a JPEG target accepts it."
+          },
+          "grayscale": {
+            "type": "boolean",
+            "description": "Drop the colour and keep the lightness."
+          }
+        },
+        "additionalProperties": false
       },
       "ConversionStatus": {
         "type": "object",
@@ -83261,7 +83286,7 @@
     },
     "/api/v1/conversions": {
       "post": {
-        "description": "Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats. Returns 202 with status queued when the job is accepted.",
+        "description": "Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats, or if an option is given that the conversion cannot honour (size and grayscale apply to image targets and image-to-PDF; quality to JPEG only). Returns 202 with status queued when the job is accepted.",
         "operationId": "conversions.submit",
         "tags": [
           "conversions"
@@ -83331,7 +83356,7 @@
             }
           },
           "422": {
-            "description": "The requested format conversion is not supported (no conversion path found)",
+            "description": "The requested format conversion is not supported (no conversion path found), or an option was given that this conversion cannot honour",
             "content": {
               "application/problem+json": {
                 "schema": {

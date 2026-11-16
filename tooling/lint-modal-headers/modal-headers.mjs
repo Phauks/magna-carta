@@ -70,6 +70,7 @@ export const ACT_VERBS = new Set([
   "close",
   "confirm",
   "continue",
+  "convert",
   "decline",
   "delete",
   "deny",

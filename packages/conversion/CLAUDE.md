@@ -21,5 +21,15 @@ network, no UI.
   crashes the process. Production runtime placement (wasm-vips-in-Worker for small images vs native
   libvips in a Container) is deferred; the adapter is runtime-agnostic.
 
+- **Options are per job and ride the FINAL hop only** (`src/options.ts`). `acceptedOptions(from, to)`
+  answers from the final edge's engine: `libvips` (raster targets) takes `maxDimension` and
+  `grayscale`, plus `quality` when the target is JPEG; `image-pdf` takes `maxDimension` and
+  `grayscale`; every other engine takes none. That table must match what the engine really reads
+  (`containers/raster/src/convert.rs`, `ConvertOptions::parse`, and the libvips adapter here). The
+  submit route refuses an option outside it, so add an option only after the engine honours it.
+  `optionHeaders` is the one spelling of the engine headers on the TypeScript side.
+- `src/contract.ts` is the conversion routes' wire contract, plain zod named with `.meta({ id })`.
+  It is the only file here allowed to import `zod`.
+
 The fitness tests (`test/purity.test.ts`, `test/registry-wellformed.test.ts`) keep the package pure
 and the registry consistent.

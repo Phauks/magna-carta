@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The conversion core stays pure: every import must be a relative path OR `wasm-vips`, and
-// `wasm-vips` is only allowed inside files whose path contains `adapters/libvips`.
+// `wasm-vips` is only allowed inside files whose path contains `adapters/libvips`. The one other
+// external is `zod`, and only in the wire contract (src/contract.ts), which is plain schema.
 const importPattern = /import[^"']*["']([^"']+)["']/g;
 
 function tsFiles(dir: string): string[] {
@@ -28,13 +29,14 @@ describe("purity (fitness)", () => {
     expect(tsFiles(srcDir).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("every import is relative or the one allowed external (wasm-vips in adapters/libvips)", () => {
+  it("every import is relative or an allowed external (wasm-vips in adapters/libvips, zod in the contract)", () => {
     for (const file of tsFiles(srcDir)) {
       const normalizedFile = file.replaceAll("\\", "/");
       for (const specifier of importSpecifiers(file)) {
         const isRelative = specifier.startsWith("./") || specifier.startsWith("../");
         const isAllowedExternal =
-          specifier === "wasm-vips" && normalizedFile.includes("adapters/libvips");
+          (specifier === "wasm-vips" && normalizedFile.includes("adapters/libvips")) ||
+          (specifier === "zod" && normalizedFile.endsWith("src/contract.ts"));
         expect(
           isRelative || isAllowedExternal,
           `${normalizedFile} imports disallowed specifier: "${specifier}"`,
