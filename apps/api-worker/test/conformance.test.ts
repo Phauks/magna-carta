@@ -111,6 +111,8 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "The chat of the one meeting the verified grant names, for a guest who has been admitted into the room, with every firm user identifier removed.",
   "guest.sendMessage":
     "A chat line said from the guest's own admitted stay, on the record like every other; the stay is the one the verified grant names.",
+  "guest.openSharedFile":
+    "A short-lived download address for one file a member said in the chat of the one meeting the verified grant names, for a guest admitted into the room; the file must be live, on that meeting's matter and clean, and every opening is written to the audit log.",
   // AN OUTSIDE SIGNER'S NINE. A signer holds a signed link minted for one signer on one signing
   // request — no session, no member row. Each route rides the chokepoint's signer lane
   // (x-mc-signerLane): the signature is verified before anything is read, the signer's row and the
