@@ -284,7 +284,19 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
           memo: check.memo,
         });
       }
-      return ok({ stock: data.stock, checks: printed });
+      // The server refuses a print with no stock saved, so the gallery never answers one.
+      const stock = data.stock;
+      if (stock === null) {
+        return {
+          kind: "transport",
+          failure: {
+            problem: null,
+            request: "POST /trust/checks/print",
+            failedAt: new Date("2026-11-14T15:02:00.000Z"),
+          },
+        };
+      }
+      return ok({ stock, checks: printed });
     },
     async recordResults(_account, results) {
       await settle();
