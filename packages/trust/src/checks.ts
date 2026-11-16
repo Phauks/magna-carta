@@ -534,7 +534,10 @@ export async function composeTrustCheckPrint(
   }
   const chosen = input.firstCheckNumber ?? null;
   if (chosen !== null && (!Number.isSafeInteger(chosen) || chosen < 1)) {
-    throw new TrustValidationError("check-number-invalid", "a check number is a whole number from 1");
+    throw new TrustValidationError(
+      "check-number-invalid",
+      "a check number is a whole number from 1",
+    );
   }
   const first = chosen ?? (await readNextTrustCheckNumber(database, input.trustAccountId, stock));
   const used = await readUsedTrustCheckNumbers(
@@ -546,7 +549,9 @@ export async function composeTrustCheckPrint(
   if (used.length > 0) {
     throw new TrustValidationError(
       "check-number-used",
-      `check ${used.join(", ")} is already in this account's register, and a check number is never used twice`,
+      used.length === 1
+        ? `Check ${used[0]} is already in this account's register. A check number is never used twice.`
+        : `Checks ${used.slice(0, -1).join(", ")} and ${used.at(-1)} are already in this account's register. A check number is never used twice.`,
     );
   }
   const numberedAt = options.clock.now();

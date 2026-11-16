@@ -45,10 +45,16 @@ export async function printTrustChecks(
   trustAccountId: string,
   trustMovementIds: readonly string[],
   idempotencyKey: string,
+  firstCheckNumber?: number,
 ): Promise<ApiOutcome<PrintTrustChecksResponse>> {
   try {
     const { data } = await trustPrintChecks({
-      body: { trustAccountId, trustMovementIds: [...trustMovementIds] },
+      body: {
+        trustAccountId,
+        trustMovementIds: [...trustMovementIds],
+        // Absent, the server numbers from the account's next number.
+        ...(firstCheckNumber === undefined ? {} : { firstCheckNumber }),
+      },
       headers: { "idempotency-key": idempotencyKey },
       throwOnError: true,
     });

@@ -84,6 +84,41 @@
   </div>
 {/snippet}
 
+{#snippet wholePage()}
+  <div class="flex flex-wrap items-start gap-24">
+    <div class="w-64">
+      <PlacementBoard.Root width={WIDTH} height={11_000} decorative>
+        <PlacementBoard.Region x={0} y={0} width={WIDTH} height={HEIGHT} />
+        <PlacementBoard.Region x={0} y={3_667} width={WIDTH} height={3_666} edge="dashed" />
+        <PlacementBoard.Region x={0} y={7_333} width={WIDTH} height={3_667} edge="dashed" />
+      </PlacementBoard.Root>
+    </div>
+    <div class="w-full max-w-xs">
+      <PlacementBoard.Root width={WIDTH} height={11_000} label="The whole page as it prints">
+        <PlacementBoard.Region x={0} y={0} width={WIDTH} height={HEIGHT} />
+        <PlacementBoard.Mark x={1_150} y={1_330} width={5_150} height={190} textScale={TEXT}>
+          Desert Title Company
+        </PlacementBoard.Mark>
+        <PlacementBoard.Mark x={7_000} y={1_330} width={1_250} height={190} textScale={TEXT} align="end">
+          **3,000.00
+        </PlacementBoard.Mark>
+        <PlacementBoard.Region
+          x={0}
+          y={3_667}
+          width={WIDTH}
+          height={3_666}
+          edge="dashed"
+          caption="Stub"
+          textScale={7 / 612}
+        />
+        <PlacementBoard.Mark x={500} y={4_067} width={6_300} height={190} textScale={10 / 612} strong>
+          10422
+        </PlacementBoard.Mark>
+      </PlacementBoard.Root>
+    </div>
+  </div>
+{/snippet}
+
 {#snippet points()}
   <div class="max-w-xl">
     <PlacementBoard.Root width={850} height={350} label="Mark the four corners">
@@ -129,6 +164,24 @@
       await expect(amountBox).toHaveAttribute("aria-pressed", "true");
       for (let press = 0; press < 15; press += 1) await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}");
       await expect(amountBox).toHaveAttribute("data-invalid");
+    });
+  }}
+/>
+
+<Story
+  name="Whole Page"
+  template={wholePage}
+  play={async ({ canvas, step }) => {
+    await step("A page of regions and marks is a picture, with nothing to press", async () => {
+      await expect(canvas.getByRole("group", { name: "The whole page as it prints" })).toBeVisible();
+      await expect(canvas.queryAllByRole("button")).toHaveLength(0);
+    });
+    await step("Each mark reads what the page will print", async () => {
+      await expect(canvas.getByText("Desert Title Company")).toBeVisible();
+      await expect(canvas.getByText("10422")).toBeVisible();
+    });
+    await step("A decorative miniature has no name of its own", async () => {
+      await expect(canvas.getAllByRole("group")).toHaveLength(1);
     });
   }}
 />
