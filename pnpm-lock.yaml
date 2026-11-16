@@ -2940,6 +2940,9 @@ importers:
       '@magna-carta/meetings':
         specifier: workspace:*
         version: link:../meetings
+      '@magna-carta/signing':
+        specifier: workspace:*
+        version: link:../signing
       '@magna-carta/tasks':
         specifier: workspace:*
         version: link:../tasks
