@@ -1,7 +1,4 @@
 {
-  "apps/web/src/lib/magnus/magnus-disclosure.svelte": {
-    "machinery": 2
-  },
   "apps/web/src/lib/versions/features-model.ts": {
     "em-dash": 10
   }

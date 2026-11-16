@@ -172,6 +172,7 @@ export type { StructuredPhoneNumber } from "./phone-number.ts";
 export {
   linkMatterParty,
   unlinkMatterParty,
+  changeMatterPartyRole,
   readMatterParties,
   readMatterPartiesForEntity,
   createPartyRole,
@@ -179,6 +180,7 @@ export {
 } from "./party.ts";
 export type {
   LinkMatterPartyInput,
+  ChangeMatterPartyRoleInput,
   MatterPartyRow,
   EntityMatterPartyRow,
   CreatePartyRoleInput,

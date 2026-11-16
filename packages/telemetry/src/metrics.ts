@@ -495,6 +495,20 @@ export const communicationsCallerLookup = defineMetric("communications.caller_lo
   "outcome",
 ] as const);
 
+// An engine behind a file tool (text recognition, file repair) answered with an error, so the route
+// told the member it failed. A Container that cannot start shows as status 500 or 503 with code
+// "none"; a file the engine choked on carries the engine's own code. No dimension holds file content.
+//   engine:    ocr | file-repair
+//   operation: recognize | searchable | diagnose | repair | carve
+//   status:    the engine's HTTP status
+//   code:      the engine's error code, or none
+export const filesEngineFailure = defineMetric("files.engine_failure", [
+  "engine",
+  "operation",
+  "status",
+  "code",
+] as const);
+
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 // Task copies the scheduled pass wrote for repeating tasks that fall due by date rather than on
 // completion. A firm with repeating tasks and a flat zero here means the cron pass stopped writing.
@@ -597,6 +611,7 @@ const CATALOG: readonly MetricDefinition[] = [
   downloadsShelfSwept,
   addressesLookup,
   communicationsCallerLookup,
+  filesEngineFailure,
   exportsCopyProduced,
   exportsCopyRequestFailed,
   exportsCopyMalformedPayload,

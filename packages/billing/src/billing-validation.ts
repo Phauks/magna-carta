@@ -25,6 +25,8 @@ export type BillingValidationCode =
   | "application-kind-not-built"
   | "application-amount-not-positive"
   | "application-currency-mismatch"
+  | "application-before-invoice-issued"
+  | "application-reversal-before-original"
   | "earned-fee-invoice-not-final"
   | "earned-fee-invoice-client-mismatch"
   | "earned-fee-invoice-does-not-bill-matter"
