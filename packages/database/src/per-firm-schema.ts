@@ -1942,9 +1942,13 @@ export const integrationConnection = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("integration_connection_principal_category_unique_index").on(
+    // One connection per principal per adapter. A member may connect their own account at more
+    // than one calendar provider, and each provider's account is a connection of its own, so the
+    // adapter is part of what makes a connection the same one.
+    uniqueIndex("integration_connection_principal_category_adapter_unique_index").on(
       table.category,
       table.principalRef,
+      table.adapterId,
     ),
   ],
 );

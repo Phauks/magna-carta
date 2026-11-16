@@ -304,10 +304,35 @@ describe("the reader's own calendar from their connected account", () => {
   });
 
   it("is listed in a folder of its own, and is on from the start, for a reader who did", () => {
-    const folders = calendarFolders({ members: [], resources: [], ownAccount: true });
+    const folders = calendarFolders({ members: [], resources: [], ownAccounts: ["microsoft"] });
     expect(folders.find((folder) => folder.name === "Mine")?.sources).toEqual([
-      { key: "ownAccount", name: "My Outlook Calendar", kind: { kind: "ownAccount" } },
+      {
+        key: "ownAccount",
+        name: "My Outlook Calendar",
+        kind: { kind: "ownAccount", provider: "microsoft" },
+      },
     ]);
     expect(DEFAULT_ON_SOURCE_KEYS).toContain("ownAccount");
+  });
+
+  it("names a Google account's row for Google, and lists both for a reader with both", () => {
+    const google = calendarFolders({ members: [], resources: [], ownAccounts: ["google"] });
+    expect(google.find((folder) => folder.name === "Mine")?.sources).toEqual([
+      {
+        key: "ownAccount:google",
+        name: "My Google Calendar",
+        kind: { kind: "ownAccount", provider: "google" },
+      },
+    ]);
+    const both = calendarFolders({
+      members: [],
+      resources: [],
+      ownAccounts: ["google", "microsoft"],
+    });
+    expect(both.find((folder) => folder.name === "Mine")?.sources.map((s) => s.name)).toEqual([
+      "My Outlook Calendar",
+      "My Google Calendar",
+    ]);
+    expect(DEFAULT_ON_SOURCE_KEYS).toContain("ownAccount:google");
   });
 });
