@@ -15,6 +15,8 @@ import type {
   AgedWorkInProgress,
   ChangeLog,
   ClientList,
+  MatterBillingGuide,
+  MatterBillingTerms,
   MattersList,
   OperationalVolumes,
   PaymentsApplied,
@@ -1006,6 +1008,104 @@ export function sampleRevenue(): Revenue {
         matterCount: 2,
         figures: { billedMinor: 600_000, collectedMinor: 400_000, creditedMinor: 25_000 },
       },
+    ],
+  };
+}
+
+/** Matter Billing Guide: one matter under each kind of agreement, and one with none recorded. */
+export function sampleMatterBillingGuide(): MatterBillingGuide {
+  const terms = (
+    index: number,
+    kind: MatterBillingTerms["kind"],
+    fields: Partial<MatterBillingTerms>,
+    validFrom = "2026-02-03",
+  ): MatterBillingTerms => ({
+    arrangementId: `billingArrangement_sample_${String(index)}`,
+    version: 1,
+    kind,
+    flatFeeAmountMinor: null,
+    contingencyShareE4: null,
+    contingencyBasis: null,
+    retainerTargetMinor: null,
+    retainerThresholdMinor: null,
+    advanceDepositDestination: null,
+    currency: "USD",
+    validFrom,
+    validTo: null,
+    ...fields,
+  });
+  const row = (
+    index: number,
+    office: { locationId: string; locationName: string },
+    arrangement: MatterBillingTerms | null,
+    nextArrangement: MatterBillingTerms | null = null,
+  ) => ({
+    ...matter(index, office),
+    ...client(index),
+    status: index === 3 ? ("hold" as const) : ("open" as const),
+    responsibleName: samplePerson(index).name,
+    arrangement,
+    nextArrangement,
+    rates:
+      index === 0
+        ? [
+            {
+              rateId: "rate_sample_0",
+              rateCardId: "rateCard_sample_standard",
+              rateCardName: "Standard",
+              tier: "matter" as const,
+              rateE4: 4_500_000,
+              currency: "USD",
+              validFrom: "2026-01-01",
+              validTo: null,
+            },
+          ]
+        : [],
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    asOfDate: "2026-08-01",
+    reproducible: false,
+    statement:
+      "This report shows how each open and held matter is billed on 2026-08-01, as recorded when it was produced, at 2026-08-01T15:00:00.000Z. " +
+      "A fee agreement can be amended, a matter moved or closed and a rate card changed, so it is a live report and is not claimed to reproduce.",
+    locationId: null,
+    completeness: { scope: "complete" },
+    totals: {
+      matterCount: 5,
+      hourlyCount: 1,
+      flatFeeCount: 1,
+      contingencyCount: 1,
+      retainerCount: 1,
+      noneRecordedCount: 1,
+    },
+    matters: [
+      row(
+        0,
+        MAIN,
+        terms(0, "hourly", {}),
+        terms(0, "flat_fee", { version: 2, flatFeeAmountMinor: 900_000 }, "2026-09-01"),
+      ),
+      row(
+        1,
+        NORTH,
+        terms(1, "flat_fee", { flatFeeAmountMinor: 250_000, advanceDepositDestination: "trust" }),
+      ),
+      row(
+        2,
+        MAIN,
+        terms(2, "contingency", { contingencyShareE4: 3333, contingencyBasis: "net_after_costs" }),
+      ),
+      row(
+        3,
+        NORTH,
+        terms(3, "retainer", {
+          retainerTargetMinor: 500_000,
+          retainerThresholdMinor: 100_000,
+          advanceDepositDestination: "trust",
+        }),
+      ),
+      row(4, MAIN, null),
     ],
   };
 }

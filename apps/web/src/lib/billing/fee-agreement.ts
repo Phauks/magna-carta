@@ -19,6 +19,21 @@
 import type { ArrangementKind, ArrangementVersion, ContingencyBasis } from "./billing-api.ts";
 import { shareFieldText } from "./amount-entry.ts";
 
+/**
+ * The part of a version its terms are stated from: a report row carries these fields without the
+ * version's file and matter, and states its terms in the same words.
+ */
+export type ArrangementTermsVersion = Pick<
+  ArrangementVersion,
+  | "kind"
+  | "flatFeeAmountMinor"
+  | "contingencyShareE4"
+  | "contingencyBasis"
+  | "retainerTargetMinor"
+  | "retainerThresholdMinor"
+  | "advanceDepositDestination"
+>;
+
 /** What each kind of agreement is called, in the firm's own words. */
 export const ARRANGEMENT_KIND_LABELS: Readonly<Record<ArrangementKind, string>> = {
   hourly: "Hourly",
@@ -76,7 +91,7 @@ export function takesAdvanceDeposit(kind: ArrangementKind): boolean {
  * Money arrives already rendered, because the currency and the locale belong to the surface.
  */
 export function arrangementTerms(
-  version: ArrangementVersion | null,
+  version: ArrangementTermsVersion | null,
   money: (amountMinor: number) => string,
 ): string {
   if (version === null) {
@@ -117,7 +132,7 @@ export function arrangementTerms(
   }
 }
 
-function depositWord(version: ArrangementVersion): string {
+function depositWord(version: ArrangementTermsVersion): string {
   if (version.advanceDepositDestination === null) return "an account nobody recorded";
   return version.advanceDepositDestination === "trust" ? "trust" : "operating";
 }

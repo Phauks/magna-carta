@@ -10705,6 +10705,386 @@
           "responsibleAttorneys"
         ]
       },
+      "MatterBillingGuideReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "matterCount": {
+                "type": "integer"
+              },
+              "hourlyCount": {
+                "type": "integer"
+              },
+              "flatFeeCount": {
+                "type": "integer"
+              },
+              "contingencyCount": {
+                "type": "integer"
+              },
+              "retainerCount": {
+                "type": "integer"
+              },
+              "noneRecordedCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "matterCount",
+              "hourlyCount",
+              "flatFeeCount",
+              "contingencyCount",
+              "retainerCount",
+              "noneRecordedCount"
+            ]
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTitle": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "hold"
+                  ]
+                },
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "responsibleName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "arrangement": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "arrangementId": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "hourly",
+                        "flat_fee",
+                        "contingency",
+                        "retainer"
+                      ]
+                    },
+                    "flatFeeAmountMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyShareE4": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyBasis": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "gross_recovery",
+                        "net_after_costs",
+                        null
+                      ]
+                    },
+                    "retainerTargetMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "retainerThresholdMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "advanceDepositDestination": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "trust",
+                        "operating",
+                        null
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "validFrom": {
+                      "type": "string"
+                    },
+                    "validTo": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "arrangementId",
+                    "version",
+                    "kind",
+                    "flatFeeAmountMinor",
+                    "contingencyShareE4",
+                    "contingencyBasis",
+                    "retainerTargetMinor",
+                    "retainerThresholdMinor",
+                    "advanceDepositDestination",
+                    "currency",
+                    "validFrom",
+                    "validTo"
+                  ]
+                },
+                "nextArrangement": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "arrangementId": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "hourly",
+                        "flat_fee",
+                        "contingency",
+                        "retainer"
+                      ]
+                    },
+                    "flatFeeAmountMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyShareE4": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyBasis": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "gross_recovery",
+                        "net_after_costs",
+                        null
+                      ]
+                    },
+                    "retainerTargetMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "retainerThresholdMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "advanceDepositDestination": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "trust",
+                        "operating",
+                        null
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "validFrom": {
+                      "type": "string"
+                    },
+                    "validTo": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "arrangementId",
+                    "version",
+                    "kind",
+                    "flatFeeAmountMinor",
+                    "contingencyShareE4",
+                    "contingencyBasis",
+                    "retainerTargetMinor",
+                    "retainerThresholdMinor",
+                    "advanceDepositDestination",
+                    "currency",
+                    "validFrom",
+                    "validTo"
+                  ]
+                },
+                "rates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "rateId": {
+                        "type": "string"
+                      },
+                      "rateCardId": {
+                        "type": "string"
+                      },
+                      "rateCardName": {
+                        "type": "string"
+                      },
+                      "tier": {
+                        "type": "string",
+                        "enum": [
+                          "matter",
+                          "client"
+                        ]
+                      },
+                      "rateE4": {
+                        "type": "integer"
+                      },
+                      "currency": {
+                        "type": "string"
+                      },
+                      "validFrom": {
+                        "type": "string"
+                      },
+                      "validTo": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "rateId",
+                      "rateCardId",
+                      "rateCardName",
+                      "tier",
+                      "rateE4",
+                      "currency",
+                      "validFrom",
+                      "validTo"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "matterId",
+                "matterNumber",
+                "matterTitle",
+                "status",
+                "clientEntityId",
+                "clientName",
+                "locationId",
+                "locationName",
+                "responsibleName",
+                "arrangement",
+                "nextArrangement",
+                "rates"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "asOfDate",
+          "reproducible",
+          "statement",
+          "locationId",
+          "completeness",
+          "totals",
+          "matters"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -65128,6 +65508,101 @@
           },
           "422": {
             "description": "The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was billed or applied than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/matter-billing-guide": {
+      "get": {
+        "description": "How every open and held matter is billed today: the fee agreement in force on the day (hourly, flat fee, contingency or retainer, with its terms), any amendment already recorded to start later, and the hourly rates recorded against the matter itself or its client on the firm's rate cards in use. A matter with no agreement is listed with none, which means it bills hourly at the rates each timekeeper's own card gives. Counts matters by kind of agreement. A live report: it takes no date, answers for the UTC day it is produced, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.matterBillingGuide",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.matterBillingGuide",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "How each open and held matter is billed today",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterBillingGuideReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The firm has more matters than one report can list",
             "content": {
               "application/problem+json": {
                 "schema": {
