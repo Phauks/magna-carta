@@ -60,18 +60,18 @@
 {#if field.requiresEntry}
   <div class="flex flex-col gap-4">
     {#if field.valueType !== "date"}
-      <!-- The date control renders its own label (its segmented parts need it wired their way). -->
-      <Label for={controlId}>
-        {field.label}
-        {#if !field.required}
-          <span class="font-regular text-text-muted">(optional)</span>
-        {/if}
-      </Label>
+      <!-- The date control renders its own label, tied to its own input. -->
+      <Label for={controlId} optional={!field.required}>{field.label}</Label>
     {/if}
 
     {#if field.valueType === "date"}
       <!-- DatePicker holds a calendar date; the form's state stays ISO text (see the model). -->
-      <DatePicker label={field.label} value={calendarValue} onValueChange={recordDate} />
+      <DatePicker
+        label={field.label}
+        optional={!field.required}
+        value={calendarValue}
+        onValueChange={recordDate}
+      />
     {:else if field.valueType === "boolean"}
       <RadioGroup.Root
         bind:value

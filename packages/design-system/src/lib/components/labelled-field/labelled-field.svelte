@@ -30,6 +30,7 @@
     label,
     hint,
     error,
+    optional = false,
     class: className,
     children,
   }: {
@@ -39,6 +40,8 @@
     hint?: string;
     /** What is wrong with the value, if anything. Also marks the control invalid. */
     error?: string;
+    /** Says "Optional" after the label: the field may be left empty. */
+    optional?: boolean;
     /** The control's id. Minted when omitted; give one only to point something else at it. */
     id?: string;
     class?: string;
@@ -68,7 +71,7 @@
 </script>
 
 <div class={mergeClasses("mc-labelled-field", className)}>
-  <Label for={identifier}>{label}</Label>
+  <Label for={identifier} {optional}>{label}</Label>
   {@render children({ props: controlProperties })}
   {#if hint !== undefined}
     <p id={hintIdentifier} class="mc-form-description">{hint}</p>
