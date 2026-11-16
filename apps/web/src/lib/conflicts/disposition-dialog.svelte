@@ -248,7 +248,7 @@
       </RadioGroup.Root>
     </div>
 
-    <LabelledField label="Rationale">
+    <LabelledField necessity="required" label="Rationale">
       {#snippet children({ props })}
         <Textarea {...props} rows={4} placeholder="Rationale" disabled={busy} bind:value={rationale} />
       {/snippet}
@@ -258,7 +258,7 @@
       <Separator />
       <!-- The waiver's own record. This is what a firm is asked to produce when a waiver is
            questioned, so it is captured as facts rather than left to the rationale sentence. -->
-      <LabelledField label="Waiver Given By">
+      <LabelledField necessity="required" label="Waiver Given By">
         {#snippet children({ props })}
           <!-- A Directory record, not a typed name: the consenting party has to be somebody a
                reader can look up, which is the difference between a waiver and a claim of one. -->
@@ -295,7 +295,7 @@
         </RadioGroup.Root>
       </div>
 
-      <LabelledField label="Evidencing Document">
+      <LabelledField necessity="optional" label="Evidencing Document">
         {#snippet children({ props })}
           <!-- The filed document that evidences the written confirmation, from the matter's own
                files. A firm asked to produce a client's informed consent has to produce the
@@ -315,7 +315,7 @@
 
       <!-- The date the waiver was GIVEN, which is not the instant this answer is being written.
            The interval between the two is exactly what a reviewer gets asked about. -->
-      <DatePicker label="Waiver Given On" value={givenOnValue} onValueChange={recordGivenOn} />
+      <DatePicker necessity="required" label="Waiver Given On" value={givenOnValue} onValueChange={recordGivenOn} />
 
       {#if shortfallsAhead.length > 0}
         <div class="flex flex-col gap-4 text-xs text-text-muted">

@@ -277,7 +277,7 @@
     <div class="flex flex-col gap-16">
       {#if !matterFixed}
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-matter">Matter</Label>
+          <Label necessity="required" for="{idPrefix}-matter">Matter</Label>
           <MatterPicker
             inputId="{idPrefix}-matter"
             {matters}
@@ -292,16 +292,16 @@
       {/if}
 
       <div class="flex flex-col gap-8">
-        <Label for="{idPrefix}-title">Title</Label>
+        <Label necessity="required" for="{idPrefix}-title">Title</Label>
         <Input id="{idPrefix}-title" disabled={busy} bind:value={draft.title} />
       </div>
 
       <div class="grid gap-16 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <DatePicker label="Due date" value={dueOnValue} onValueChange={recordDueOn} disabled={busy} />
+          <DatePicker necessity="required" label="Due date" value={dueOnValue} onValueChange={recordDueOn} disabled={busy} />
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-due-at-time">Time</Label>
+          <Label necessity="optional" for="{idPrefix}-due-at-time">Time</Label>
           <Input
             id="{idPrefix}-due-at-time"
             type="time"
@@ -357,7 +357,7 @@
           </Select.Root>
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-priority">Priority</Label>
+          <Label necessity="optional" for="{idPrefix}-priority">Priority</Label>
           <Input
             id="{idPrefix}-priority"
             inputmode="numeric"
@@ -369,7 +369,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="{idPrefix}-authority">Authority</Label>
+        <Label necessity="optional" for="{idPrefix}-authority">Authority</Label>
         <Textarea
           id="{idPrefix}-authority"
           rows={2}
@@ -380,7 +380,7 @@
 
       {#if superseding}
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-reason">Reason</Label>
+          <Label necessity="required" for="{idPrefix}-reason">Reason</Label>
           <Textarea id="{idPrefix}-reason" rows={2} disabled={busy} bind:value={reason} />
         </div>
       {/if}

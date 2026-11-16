@@ -601,7 +601,7 @@
     {/if}
 
     <div class="flex flex-col gap-4">
-      <Label for="task-title">Task</Label>
+      <Label necessity="required" for="task-title">Task</Label>
       {#if task === null}
         <Input id="task-title" disabled={saving} bind:value={titleText} />
       {:else}
@@ -619,7 +619,7 @@
     </div>
 
     <div class="flex flex-col gap-4">
-      <Label for="task-body">Detail</Label>
+      <Label necessity="optional" for="task-body">Detail</Label>
       {#if task === null}
         <Textarea id="task-body" rows={4} disabled={saving} bind:value={bodyText} />
       {:else}
@@ -670,7 +670,7 @@
         />
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="task-due-time">Time</Label>
+        <Label necessity="optional" for="task-due-time">Time</Label>
         {#if task === null}
           <Input id="task-due-time" type="time" disabled={saving || dueOn === null} bind:value={dueAtTimeText} />
         {:else}
@@ -850,7 +850,7 @@
 
     <!-- LOCATION: a room, an address, or a meeting link, which gets a Join button. -->
     <section class="flex flex-col gap-4">
-      <Label for="task-location">Location</Label>
+      <Label necessity="optional" for="task-location">Location</Label>
       <div class="flex items-center gap-8">
         {#if task === null}
           <Input id="task-location" class="flex-1" disabled={saving} bind:value={locationText} />

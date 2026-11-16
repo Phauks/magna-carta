@@ -259,12 +259,12 @@
         {/if}
       </div>
 
-      <LabelledField label="Password to Open" hint="Leave empty for a copy that opens without one" error={problems.openPassword}>
+      <LabelledField necessity="optional" label="Password to Open" hint="Leave empty for a copy that opens without one" error={problems.openPassword}>
         {#snippet children({ props })}
           <PasswordInput {...props} autocomplete="new-password" bind:value={() => settings.openPassword, (value) => update({ openPassword: value })} />
         {/snippet}
       </LabelledField>
-      <LabelledField
+      <LabelledField necessity="optional"
         label="Password to Change Permissions"
         hint="Leave empty and one is made for you"
         error={problems.permissionsPassword}

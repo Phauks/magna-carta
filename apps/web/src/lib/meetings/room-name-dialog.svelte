@@ -94,7 +94,7 @@
   {/snippet}
   {#snippet fields()}
     <div class="flex flex-col gap-8">
-      <Label for="room-name">Name</Label>
+      <Label necessity="required" for="room-name">Name</Label>
       <Input id="room-name" bind:value={typed} maxlength={ROOM_NAME_MAXIMUM} autocomplete="off" />
     </div>
     <p class="text-sm text-text-muted">{note}</p>

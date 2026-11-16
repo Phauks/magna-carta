@@ -165,13 +165,13 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <FieldRow>
-        <LabelledField label="Full Name">
+        <LabelledField necessity="required" label="Full Name">
           {#snippet children({ props })}
             <Input {...props} bind:value={fullName} disabled={busy || how !== "typed"} autocomplete="name" />
           {/snippet}
         </LabelledField>
         {#if needsInitials}
-          <LabelledField label="Initials">
+          <LabelledField necessity={needsInitials ? "required" : undefined} label="Initials">
             {#snippet children({ props })}
               <Input {...props} bind:value={initials} disabled={busy || how === "drawn"} maxlength={4} />
             {/snippet}
@@ -231,7 +231,7 @@
         </Tabs.Content>
 
         <Tabs.Content value="uploaded" class="flex flex-col gap-8 pt-16">
-          <Label for="signature-upload">A picture of your signature</Label>
+          <Label necessity="required" for="signature-upload">A picture of your signature</Label>
           <FileInput
             id="signature-upload"
             accept="image/png,image/jpeg"

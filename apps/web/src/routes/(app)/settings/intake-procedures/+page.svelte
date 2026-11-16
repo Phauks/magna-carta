@@ -238,11 +238,11 @@
     {#if composing}
       <div class="flex flex-col gap-12 rounded-md border border-border-strong p-16">
         <div class="flex flex-col gap-4">
-          <Label for="procedure-name">Name</Label>
+          <Label necessity="required" for="procedure-name">Name</Label>
           <Input id="procedure-name" bind:value={draftName} disabled={saving} />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="procedure-description">What this procedure is for</Label>
+          <Label necessity="optional" for="procedure-description">What this procedure is for</Label>
           <Textarea
             id="procedure-description"
             bind:value={draftDescription}
@@ -472,11 +472,11 @@
                           {stepVocabulary.description} {stepVocabulary.answeredBy}
                         </p>
                         <div class="flex flex-col gap-4">
-                          <Label for="step-title">What to do</Label>
+                          <Label necessity="required" for="step-title">What to do</Label>
                           <Input id="step-title" bind:value={stepTitle} disabled={saving} />
                         </div>
                         <div class="flex flex-col gap-4">
-                          <Label for="step-instructions">Instructions</Label>
+                          <Label necessity="optional" for="step-instructions">Instructions</Label>
                           <Textarea
                             id="step-instructions"
                             bind:value={stepInstructions}

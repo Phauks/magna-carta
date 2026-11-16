@@ -113,19 +113,19 @@
         </Select.Content>
       </Select.Root>
     </div>
-    <LabelledField label="Note" hint="Shown to everyone under the reason.">
+    <LabelledField necessity="optional" label="Note" hint="Shown to everyone under the reason.">
       {#snippet children({ props })}
         <Textarea {...props} bind:value={declineNote} rows={3} />
       {/snippet}
     </LabelledField>
   {:else if status === "duplicate"}
-    <LabelledField label="Duplicate Of" hint="The number of the request this repeats.">
+    <LabelledField necessity="optional" label="Duplicate Of" hint="The number of the request this repeats.">
       {#snippet children({ props })}
         <Input {...props} bind:value={duplicateOf} inputmode="numeric" />
       {/snippet}
     </LabelledField>
   {:else if status === "completed"}
-    <LabelledField label="Shipped In" hint="The changelog entry, if there is one.">
+    <LabelledField necessity="optional" label="Shipped In" hint="The changelog entry, if there is one.">
       {#snippet children({ props })}
         <Input {...props} bind:value={changelogAnchor} />
       {/snippet}

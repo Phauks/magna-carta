@@ -85,7 +85,7 @@
       The meeting's calendar entry moves to the matter with everyone on it. The meeting keeps its address, so nobody in the room is interrupted. This can't be undone.
     </p>
     <div class="flex flex-col gap-8">
-      <Label for="move-to-matter-matter">Matter</Label>
+      <Label necessity="required" for="move-to-matter-matter">Matter</Label>
       <MatterPicker
         inputId="move-to-matter-matter"
         matters={context.matters}

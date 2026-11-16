@@ -97,7 +97,7 @@
   {#if choice === PRONOUNS_ANOTHER_SET}
     <div class="grid gap-12 sm:grid-cols-2">
       {#each PRONOUN_FORMS as entry (entry.form)}
-        <LabelledField
+        <LabelledField necessity="required"
           label="{entry.label} ({entry.reading})"
           error={partial && missing.includes(entry.label) ? "Needed for a whole set." : undefined}
         >

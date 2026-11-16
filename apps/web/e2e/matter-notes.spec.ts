@@ -115,8 +115,8 @@ test("New Note opens the record window, states what will be stored, and writes t
   await window
     .getByRole("textbox", { name: "Note" })
     .fill("Left a voicemail for opposing counsel.");
-  await window.getByLabel("Date", { exact: true }).fill("2026-08-28");
-  await window.getByLabel("Time", { exact: true }).fill("14:30");
+  await window.getByLabel(/^Date\b/).fill("2026-08-28");
+  await window.getByLabel(/^Time\b/).fill("14:30");
   await window.getByRole("button", { name: "Save", exact: true }).click();
 
   await expect(page.getByText("Left a voicemail for opposing counsel.")).toBeVisible({

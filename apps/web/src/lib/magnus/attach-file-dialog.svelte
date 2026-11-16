@@ -93,7 +93,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-8">
-      <Label for="magnus-attach-file">File</Label>
+      <Label necessity="required" for="magnus-attach-file">File</Label>
       <MatterDocumentPicker
         bind:value={chosen}
         matterId={conversation?.matterId ?? null}
