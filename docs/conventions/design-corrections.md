@@ -1715,6 +1715,7 @@ The owner, asked to pick one of three directions for the app as a whole:
 - **Capitals, underlines and a gold edge on every list.** Column headers, sidebar groups and
   filter headings were tracked capitals, every matter title was underlined, and the scroll-edge
   rule drew a gold line down the table's side. Promoted to _Data entry_.
+- **An optional field says "Optional" after its label, and a required one says nothing.** `Label`, `LabelledField` and `DatePicker` take `optional`, which adds the word in the label's lighter voice. Never "(optional)" written into the label text, and never a hint line that only says so.
 - **Statuses are a dot and a word, not a tinted pill.** The status tones of `Badge` (neutral, success, warning, danger, info, accent) draw a small disc in the status hue before the word in the reading colour. The `caps` option is retired and changes nothing.
 - **Still to come in later passes:** the top bar, and the near-identical greys.
 
