@@ -26,7 +26,7 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `trust-compliance-presenter.ts` — the pack's presenter; `trust-compliance-fixture.ts` its sample.
 - `report-reads.ts` — the financial, productivity and operational wire shapes and reads.
 - `financial-presenters.ts` (Aged Expenses is Aged Work in Progress's layout under its own words),
-  `billing-presenters.ts` (Invoices, Payments Applied, Matter Balances),
+  `billing-presenters.ts` (Invoices, Payments Applied, Matter Balances), `revenue-presenter.ts` (Revenue),
   `activity-presenters.ts` (Timekeeper Productivity, Daily Time, Matter Productivity, Tasks by Person, operational volumes,
   Matters List, Client List) — their presenters; `report-samples.ts` their
   samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.

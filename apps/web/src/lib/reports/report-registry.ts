@@ -68,6 +68,7 @@ import {
   readOperationalVolumes,
   readPaymentsApplied,
   readRealization,
+  readRevenue,
   readDailyTime,
   readTaskWorkload,
   readMatterProductivity,
@@ -82,6 +83,7 @@ import {
   type OperationalVolumes,
   type PaymentsApplied,
   type Realization,
+  type Revenue,
   type DailyTime,
   type TaskWorkload,
   type MatterProductivity,
@@ -99,6 +101,7 @@ import {
   sampleOperationalVolumes,
   samplePaymentsApplied,
   sampleRealization,
+  sampleRevenue,
   sampleDailyTime,
   sampleTaskWorkload,
   sampleMatterProductivity,
@@ -106,6 +109,7 @@ import {
   sampleWorkInProgress,
 } from "./report-samples.ts";
 import { presentTrustCompliancePack, type ReportCaptions } from "./trust-compliance-presenter.ts";
+import { presentRevenue } from "./revenue-presenter.ts";
 
 export type ReportFamily = "trust-compliance" | "financial" | "productivity" | "operational";
 
@@ -466,6 +470,27 @@ const paymentsApplied = built<PaymentsApplied>({
   samplePayload: samplePaymentsApplied,
 });
 
+const revenue = built<Revenue>({
+  id: "revenue",
+  family: "financial",
+  name: "Revenue",
+  answers:
+    "What was billed and what was collected in a period, by office, by matter type and by responsible attorney.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readRevenue(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentRevenue(payload),
+  samplePayload: sampleRevenue,
+});
+
 const matterBalances = built<MatterBalances>({
   id: "matter-balances",
   family: "financial",
@@ -520,6 +545,7 @@ const REPORT_LIST = [
   realization,
   invoices,
   paymentsApplied,
+  revenue,
   matterBalances,
   timekeeperProductivity,
   dailyTime,

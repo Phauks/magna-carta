@@ -18,6 +18,7 @@ import type {
   OperationalVolumes,
   PaymentsApplied,
   Realization,
+  Revenue,
   TimekeeperProductivity,
   TaskWorkload,
   DailyTime,
@@ -856,4 +857,62 @@ export function sampleTaskWorkload(): TaskWorkload {
 /** Aged Expenses wears Aged Work in Progress's shape; its sample is the costs-only reading of it. */
 export function sampleAgedExpenses(): AgedWorkInProgress {
   return sampleAgedWorkInProgress();
+}
+
+export function sampleRevenue(): Revenue {
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    locationId: null,
+    currency: "USD",
+    ...REPRODUCIBLE_JULY,
+    attributionStatement:
+      "Collected counts payments, transfers from trust and client credits applied to bills in the period, less any reversal of them. Credit notes and write-offs are shown as credited and are not counted as collected. Each matter's money is counted under the matter type and responsible attorney the matter has now.",
+    completeness: { scope: "complete" },
+    totals: { billedMinor: 1_850_000, collectedMinor: 1_200_000, creditedMinor: 75_000 },
+    offices: [
+      {
+        ...MAIN,
+        figures: { billedMinor: 1_300_000, collectedMinor: 850_000, creditedMinor: 50_000 },
+      },
+      {
+        ...NORTH,
+        figures: { billedMinor: 550_000, collectedMinor: 350_000, creditedMinor: 25_000 },
+      },
+    ],
+    matterTypes: [
+      {
+        matterTypeId: "matterType_sample_litigation",
+        matterTypeName: "Litigation",
+        matterCount: 3,
+        figures: { billedMinor: 1_100_000, collectedMinor: 700_000, creditedMinor: 50_000 },
+      },
+      {
+        matterTypeId: "matterType_sample_estates",
+        matterTypeName: "Estates",
+        matterCount: 2,
+        figures: { billedMinor: 600_000, collectedMinor: 400_000, creditedMinor: 25_000 },
+      },
+      {
+        matterTypeId: null,
+        matterTypeName: null,
+        matterCount: 1,
+        figures: { billedMinor: 150_000, collectedMinor: 100_000, creditedMinor: 0 },
+      },
+    ],
+    responsibleAttorneys: [
+      {
+        responsibleMemberId: "user_sample_0",
+        responsibleName: samplePerson(0).name,
+        matterCount: 4,
+        figures: { billedMinor: 1_250_000, collectedMinor: 800_000, creditedMinor: 50_000 },
+      },
+      {
+        responsibleMemberId: "user_sample_1",
+        responsibleName: samplePerson(1).name,
+        matterCount: 2,
+        figures: { billedMinor: 600_000, collectedMinor: 400_000, creditedMinor: 25_000 },
+      },
+    ],
+  };
 }

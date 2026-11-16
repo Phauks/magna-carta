@@ -28,7 +28,10 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   realization, invoices (`invoice-register.ts`) and payments applied (`payments-applied.ts`): billing's per-matter rows added into offices, clients and matters;
   aged work in progress (`aged-work-in-progress.ts`, live): billing's unbilled entries by age, adding
   up to the work-in-progress total, and over cost entries alone as Aged Expenses; and matter balances (`matter-balances.ts`, live): the work-in-progress, aging and trust per-leaf
-  figures moved onto each matter as three columns that are never added to one another
+  figures moved onto each matter as three columns that are never added to one another; and revenue
+  (`revenue.ts`): the Invoices billed figure and the collection kinds of Payments Applied (payments,
+  trust transfers, client credits; credit notes and write-offs apart, as credited) by office, by
+  matter type and by responsible attorney, over billing's `readMatterAttributions`
 - `src/productivity/timekeeper-productivity.ts` — minutes recorded, never money, never a target; `src/productivity/daily-time.ts`
   — the same minutes per day and timekeeper, its totals equal to Timekeeper Productivity's (live); `src/productivity/matter-productivity.ts` — the
   same breakdown per matter with its timekeepers (live); `src/productivity/task-workload.ts` — the

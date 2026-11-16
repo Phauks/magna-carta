@@ -34,6 +34,12 @@ the matters list, and the client list.
 - **Payments Applied** lists everything set against a bill in the period: payments, transfers from
   trust, client credits, credit notes and write-offs. A reversal appears as its own negative line,
   saying what it reverses. It shows what was set against bills, not money arriving in the bank.
+- **Revenue** shows what was billed and what was collected in the period you choose, by office, by
+  matter type and by responsible attorney. Billed is the same figure the Invoices report shows.
+  Collected counts payments, transfers from trust and client credits applied to bills in the
+  period; a reversal takes back what it reverses. Credit notes and write-offs are not collections:
+  they are shown in their own column, "Credited and written off". Each matter counts under the type
+  and responsible attorney it has today. Sort the matter type and attorney tables by any column.
 - **Aged Work in Progress** shows unbilled time and costs by how long ago the work was done: 0 to
   30 days, 31 to 60, 61 to 90, and over 90. Time counts from the day it was worked and a cost from
   the day it was incurred. Work over 90 days old is shown in red. It adds up to the same total as

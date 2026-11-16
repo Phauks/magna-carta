@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload` and `reports.agedExpenses` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses` and `reports.revenue` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -24,6 +24,7 @@ import {
   reportsOperationalVolumes,
   reportsPaymentsApplied,
   reportsRealization,
+  reportsRevenue,
   reportsTaskWorkload,
   reportsTimekeeperProductivity,
   reportsWorkInProgress,
@@ -791,6 +792,56 @@ export function readPaymentsApplied(
 ): Promise<ApiOutcome<PaymentsApplied>> {
   return outcome(() =>
     reportsPaymentsApplied({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Billed and collected; credited (credit notes and write-offs) beside them, never collected. */
+export interface RevenueFigures {
+  billedMinor: number;
+  collectedMinor: number;
+  creditedMinor: number;
+}
+
+export interface Revenue {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  attributionStatement: string;
+  completeness: ReportCompleteness;
+  totals: RevenueFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: RevenueFigures }[];
+  matterTypes: {
+    matterTypeId: string | null;
+    matterTypeName: string | null;
+    matterCount: number;
+    figures: RevenueFigures;
+  }[];
+  responsibleAttorneys: {
+    responsibleMemberId: string;
+    responsibleName: string | null;
+    matterCount: number;
+    figures: RevenueFigures;
+  }[];
+}
+
+export function readRevenue(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<Revenue>> {
+  return outcome(() =>
+    reportsRevenue({
       fetch: fetchImpl,
       throwOnError: true,
       query: {
