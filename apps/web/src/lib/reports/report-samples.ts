@@ -13,6 +13,7 @@ import type {
   Invoices,
   MatterBalances,
   AgedWorkInProgress,
+  ChangeLog,
   ClientList,
   MattersList,
   OperationalVolumes,
@@ -856,4 +857,96 @@ export function sampleTaskWorkload(): TaskWorkload {
 /** Aged Expenses wears Aged Work in Progress's shape; its sample is the costs-only reading of it. */
 export function sampleAgedExpenses(): AgedWorkInProgress {
   return sampleAgedWorkInProgress();
+}
+
+export function sampleChangeLog(): ChangeLog {
+  const one = { actorUserId: "user_sample_one", actorName: samplePerson(0).name };
+  const two = { actorUserId: "user_sample_two", actorName: samplePerson(1).name };
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    computedAt: COMPUTED_AT,
+    reproducible: true,
+    statement:
+      "This report covers changes recorded from 2026-07-01 to 2026-07-31 (UTC days), as the change " +
+      "history stood when it was produced, at 2026-08-01T15:00:00.000Z. The period had ended, and the " +
+      "change history is never edited, so running the same period again returns the same changes. " +
+      "Names are as they stood when this report was produced.",
+    completeness: { scope: "complete" },
+    totals: { directoryCount: 2, matterCount: 3, accountCount: 1, totalCount: 6 },
+    families: [
+      { family: "directory", label: "People and organizations", changeCount: 2 },
+      { family: "matters", label: "Matters", changeCount: 3 },
+      { family: "accounts", label: "Accounts", changeCount: 1 },
+    ],
+    people: [
+      { ...one, directoryCount: 2, matterCount: 1, accountCount: 0, totalCount: 3 },
+      { ...two, directoryCount: 0, matterCount: 1, accountCount: 1, totalCount: 2 },
+      {
+        actorUserId: null,
+        actorName: null,
+        directoryCount: 0,
+        matterCount: 1,
+        accountCount: 0,
+        totalCount: 1,
+      },
+    ],
+    entries: [
+      {
+        ...two,
+        id: "auditLog_sample_six",
+        at: "2026-07-30T16:20:00.000Z",
+        family: "matters",
+        event: "matter.closed",
+        eventLabel: "Matter closed",
+        subjectId: "matter_sample_one",
+      },
+      {
+        ...two,
+        id: "auditLog_sample_five",
+        at: "2026-07-22T10:05:00.000Z",
+        family: "accounts",
+        event: "trust.authorization_policy_changed",
+        eventLabel: "Trust approval rule changed",
+        subjectId: "trustAuthorizationPolicy_sample",
+      },
+      {
+        actorUserId: null,
+        actorName: null,
+        id: "auditLog_sample_four",
+        at: "2026-07-18T03:00:00.000Z",
+        family: "matters",
+        event: "matter.updated",
+        eventLabel: "Matter details changed",
+        subjectId: "matter_sample_two",
+      },
+      {
+        ...one,
+        id: "auditLog_sample_three",
+        at: "2026-07-14T14:45:00.000Z",
+        family: "matters",
+        event: "matter.opened",
+        eventLabel: "Matter opened",
+        subjectId: "matter_sample_two",
+      },
+      {
+        ...one,
+        id: "auditLog_sample_two",
+        at: "2026-07-09T09:30:00.000Z",
+        family: "directory",
+        event: "directory.address.updated",
+        eventLabel: "Address changed",
+        subjectId: "directoryAddress_sample",
+      },
+      {
+        ...one,
+        id: "auditLog_sample_one",
+        at: "2026-07-02T11:00:00.000Z",
+        family: "directory",
+        event: "directory.person.created",
+        eventLabel: "Person added",
+        subjectId: "directoryPerson_sample",
+      },
+    ],
+  };
 }

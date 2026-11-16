@@ -195,6 +195,39 @@ export const TaskWorkloadPersonRow = z.object({
   undatedCount: z.number().int(),
 });
 
+// CHANGE LOG. Counts of the audit log's rows, and each row as event, label, person, record handle
+// and instant; never an audit row's metadata.
+export const ChangeFamily = z.enum(["directory", "matters", "accounts"]);
+
+export const ChangeCounts = z.object({
+  directoryCount: z.number().int(),
+  matterCount: z.number().int(),
+  accountCount: z.number().int(),
+  totalCount: z.number().int(),
+});
+
+export const ChangeFamilyRow = z.object({
+  family: ChangeFamily,
+  label: z.string(),
+  changeCount: z.number().int(),
+});
+
+export const ChangePersonRow = ChangeCounts.extend({
+  actorUserId: z.string().nullable(),
+  actorName: z.string().nullable(),
+});
+
+export const ChangeEntryRow = z.object({
+  id: z.string(),
+  at: z.string(),
+  actorUserId: z.string().nullable(),
+  actorName: z.string().nullable(),
+  family: ChangeFamily,
+  event: z.string(),
+  eventLabel: z.string(),
+  subjectId: z.string().nullable(),
+});
+
 // OPERATIONAL VOLUMES. Counts only, never money.
 export const OperationalSections = z.enum(["matters", "billing", "trust", "costs"]);
 

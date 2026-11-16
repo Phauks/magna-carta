@@ -61,6 +61,7 @@ import {
   readAccountsReceivableAging,
   readAgedExpenses,
   readAgedWorkInProgress,
+  readChangeLog,
   readInvoices,
   readMatterBalances,
   readClientList,
@@ -75,6 +76,7 @@ import {
   readWorkInProgress,
   type AccountsReceivableAging,
   type AgedWorkInProgress,
+  type ChangeLog,
   type Invoices,
   type MatterBalances,
   type ClientList,
@@ -92,6 +94,7 @@ import {
   sampleAccountsReceivableAging,
   sampleAgedExpenses,
   sampleAgedWorkInProgress,
+  sampleChangeLog,
   sampleInvoices,
   sampleMatterBalances,
   sampleClientList,
@@ -106,6 +109,7 @@ import {
   sampleWorkInProgress,
 } from "./report-samples.ts";
 import { presentTrustCompliancePack, type ReportCaptions } from "./trust-compliance-presenter.ts";
+import { presentChangeLog } from "./change-log-presenter.ts";
 
 export type ReportFamily = "trust-compliance" | "financial" | "productivity" | "operational";
 
@@ -511,6 +515,22 @@ const clientList = built<ClientList>({
   samplePayload: sampleClientList,
 });
 
+const changeLog = built<ChangeLog>({
+  id: "change-log",
+  family: "operational",
+  name: "Change Log",
+  answers:
+    "Who added, changed or removed people and organizations, matters and trust account rules in a period, and when.",
+  permission: OPERATIONAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: false, period: "span" },
+  read: (fetchImpl, scope) =>
+    readChangeLog(fetchImpl, { periodStart: scope.period.from, periodEnd: scope.period.to }),
+  present: presentChangeLog,
+  samplePayload: sampleChangeLog,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
@@ -528,6 +548,7 @@ const REPORT_LIST = [
   operationalVolumes,
   mattersList,
   clientList,
+  changeLog,
 ] as const satisfies readonly ReportDeclaration[];
 
 /** Every report, in catalogue order. */

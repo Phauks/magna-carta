@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload` and `reports.agedExpenses` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses` and `reports.changeLog` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -15,6 +15,7 @@ import {
   reportsAccountsReceivableAging,
   reportsAgedExpenses,
   reportsAgedWorkInProgress,
+  reportsChangeLog,
   reportsClientList,
   reportsDailyTime,
   reportsInvoices,
@@ -410,6 +411,41 @@ export interface TaskWorkload {
   people: (TaskWorkloadFigures & { assigneeUserId: string | null; assigneeName: string | null })[];
 }
 
+export type ChangeFamily = "directory" | "matters" | "accounts";
+
+export interface ChangeCounts {
+  directoryCount: number;
+  matterCount: number;
+  accountCount: number;
+  totalCount: number;
+}
+
+/** Who changed the firm's records in a period: counts, then every change. Never what changed. */
+export interface ChangeLog {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  /** True when the period had ended before the report was produced. */
+  reproducible: boolean;
+  statement: string;
+  completeness: ReportCompleteness;
+  totals: ChangeCounts;
+  families: { family: ChangeFamily; label: string; changeCount: number }[];
+  /** Members by most changes, then system changes (actorUserId null). */
+  people: (ChangeCounts & { actorUserId: string | null; actorName: string | null })[];
+  /** Newest first. */
+  entries: {
+    id: string;
+    at: string;
+    actorUserId: string | null;
+    actorName: string | null;
+    family: ChangeFamily;
+    event: string;
+    eventLabel: string;
+    subjectId: string | null;
+  }[];
+}
+
 export type OperationalSection = "matters" | "billing" | "trust" | "costs";
 
 export interface OperationalVolumes {
@@ -745,6 +781,20 @@ export function readTaskWorkload(
       fetch: fetchImpl,
       throwOnError: true,
       query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** Over a period of UTC days; takes no office and no knowledge instant. */
+export function readChangeLog(
+  fetchImpl: typeof fetch,
+  query: { periodStart: string; periodEnd: string },
+): Promise<ApiOutcome<ChangeLog>> {
+  return outcome(() =>
+    reportsChangeLog({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { periodStart: query.periodStart, periodEnd: query.periodEnd },
     }),
   );
 }
