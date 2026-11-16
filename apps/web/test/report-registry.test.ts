@@ -66,6 +66,7 @@ describe("the report registry", () => {
       ["realization", { trustAccount: false, office: true, period: "span" }],
       ["invoices", { trustAccount: false, office: true, period: "span" }],
       ["payments-applied", { trustAccount: false, office: true, period: "span" }],
+      ["revenue", { trustAccount: false, office: true, period: "span" }],
       ["matter-balances", { trustAccount: false, office: true, period: "none" }],
       ["timekeeper-productivity", { trustAccount: false, office: true, period: "span" }],
       ["daily-time", { trustAccount: false, office: true, period: "span" }],
@@ -74,6 +75,7 @@ describe("the report registry", () => {
       ["operational-volumes", { trustAccount: false, office: true, period: "span" }],
       ["matters-list", { trustAccount: false, office: true, period: "none" }],
       ["client-list", { trustAccount: false, office: true, period: "none" }],
+      ["change-log", { trustAccount: false, office: false, period: "span" }],
     ]);
     expect(reportById("trust-compliance")?.permission).toBe("reports:trustCompliance");
   });
@@ -89,6 +91,7 @@ describe("the report registry", () => {
       realization: "bitemporal",
       invoices: "bitemporal",
       "payments-applied": "bitemporal",
+      revenue: "bitemporal",
       "matter-balances": "live-only",
       "timekeeper-productivity": "live-only",
       "daily-time": "live-only",
@@ -97,6 +100,7 @@ describe("the report registry", () => {
       "operational-volumes": "bitemporal",
       "matters-list": "live-only",
       "client-list": "live-only",
+      "change-log": "live-only",
     });
   });
 

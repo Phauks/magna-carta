@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload` and `reports.agedExpenses` in
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses`, `reports.changeLog` and `reports.revenue` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -15,6 +15,7 @@ import {
   reportsAccountsReceivableAging,
   reportsAgedExpenses,
   reportsAgedWorkInProgress,
+  reportsChangeLog,
   reportsClientList,
   reportsDailyTime,
   reportsInvoices,
@@ -24,6 +25,7 @@ import {
   reportsOperationalVolumes,
   reportsPaymentsApplied,
   reportsRealization,
+  reportsRevenue,
   reportsTaskWorkload,
   reportsTimekeeperProductivity,
   reportsWorkInProgress,
@@ -410,6 +412,41 @@ export interface TaskWorkload {
   people: (TaskWorkloadFigures & { assigneeUserId: string | null; assigneeName: string | null })[];
 }
 
+export type ChangeFamily = "directory" | "matters" | "accounts";
+
+export interface ChangeCounts {
+  directoryCount: number;
+  matterCount: number;
+  accountCount: number;
+  totalCount: number;
+}
+
+/** Who changed the firm's records in a period: counts, then every change. Never what changed. */
+export interface ChangeLog {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  /** True when the period had ended before the report was produced. */
+  reproducible: boolean;
+  statement: string;
+  completeness: ReportCompleteness;
+  totals: ChangeCounts;
+  families: { family: ChangeFamily; label: string; changeCount: number }[];
+  /** Members by most changes, then system changes (actorUserId null). */
+  people: (ChangeCounts & { actorUserId: string | null; actorName: string | null })[];
+  /** Newest first. */
+  entries: {
+    id: string;
+    at: string;
+    actorUserId: string | null;
+    actorName: string | null;
+    family: ChangeFamily;
+    event: string;
+    eventLabel: string;
+    subjectId: string | null;
+  }[];
+}
+
 export type OperationalSection = "matters" | "billing" | "trust" | "costs";
 
 export interface OperationalVolumes {
@@ -749,6 +786,20 @@ export function readTaskWorkload(
   );
 }
 
+/** Over a period of UTC days; takes no office and no knowledge instant. */
+export function readChangeLog(
+  fetchImpl: typeof fetch,
+  query: { periodStart: string; periodEnd: string },
+): Promise<ApiOutcome<ChangeLog>> {
+  return outcome(() =>
+    reportsChangeLog({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { periodStart: query.periodStart, periodEnd: query.periodEnd },
+    }),
+  );
+}
+
 export function readOperationalVolumes(
   fetchImpl: typeof fetch,
   query: PeriodQuery,
@@ -791,6 +842,56 @@ export function readPaymentsApplied(
 ): Promise<ApiOutcome<PaymentsApplied>> {
   return outcome(() =>
     reportsPaymentsApplied({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Billed and collected; credited (credit notes and write-offs) beside them, never collected. */
+export interface RevenueFigures {
+  billedMinor: number;
+  collectedMinor: number;
+  creditedMinor: number;
+}
+
+export interface Revenue {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  attributionStatement: string;
+  completeness: ReportCompleteness;
+  totals: RevenueFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: RevenueFigures }[];
+  matterTypes: {
+    matterTypeId: string | null;
+    matterTypeName: string | null;
+    matterCount: number;
+    figures: RevenueFigures;
+  }[];
+  responsibleAttorneys: {
+    responsibleMemberId: string;
+    responsibleName: string | null;
+    matterCount: number;
+    figures: RevenueFigures;
+  }[];
+}
+
+export function readRevenue(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<Revenue>> {
+  return outcome(() =>
+    reportsRevenue({
       fetch: fetchImpl,
       throwOnError: true,
       query: {

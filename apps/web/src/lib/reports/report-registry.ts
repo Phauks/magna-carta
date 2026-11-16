@@ -61,6 +61,7 @@ import {
   readAccountsReceivableAging,
   readAgedExpenses,
   readAgedWorkInProgress,
+  readChangeLog,
   readInvoices,
   readMatterBalances,
   readClientList,
@@ -68,6 +69,7 @@ import {
   readOperationalVolumes,
   readPaymentsApplied,
   readRealization,
+  readRevenue,
   readDailyTime,
   readTaskWorkload,
   readMatterProductivity,
@@ -75,6 +77,7 @@ import {
   readWorkInProgress,
   type AccountsReceivableAging,
   type AgedWorkInProgress,
+  type ChangeLog,
   type Invoices,
   type MatterBalances,
   type ClientList,
@@ -82,6 +85,7 @@ import {
   type OperationalVolumes,
   type PaymentsApplied,
   type Realization,
+  type Revenue,
   type DailyTime,
   type TaskWorkload,
   type MatterProductivity,
@@ -92,6 +96,7 @@ import {
   sampleAccountsReceivableAging,
   sampleAgedExpenses,
   sampleAgedWorkInProgress,
+  sampleChangeLog,
   sampleInvoices,
   sampleMatterBalances,
   sampleClientList,
@@ -99,6 +104,7 @@ import {
   sampleOperationalVolumes,
   samplePaymentsApplied,
   sampleRealization,
+  sampleRevenue,
   sampleDailyTime,
   sampleTaskWorkload,
   sampleMatterProductivity,
@@ -106,6 +112,8 @@ import {
   sampleWorkInProgress,
 } from "./report-samples.ts";
 import { presentTrustCompliancePack, type ReportCaptions } from "./trust-compliance-presenter.ts";
+import { presentChangeLog } from "./change-log-presenter.ts";
+import { presentRevenue } from "./revenue-presenter.ts";
 
 export type ReportFamily = "trust-compliance" | "financial" | "productivity" | "operational";
 
@@ -466,6 +474,27 @@ const paymentsApplied = built<PaymentsApplied>({
   samplePayload: samplePaymentsApplied,
 });
 
+const revenue = built<Revenue>({
+  id: "revenue",
+  family: "financial",
+  name: "Revenue",
+  answers:
+    "What was billed and what was collected in a period, by office, by matter type and by responsible attorney.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readRevenue(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentRevenue(payload),
+  samplePayload: sampleRevenue,
+});
+
 const matterBalances = built<MatterBalances>({
   id: "matter-balances",
   family: "financial",
@@ -511,6 +540,22 @@ const clientList = built<ClientList>({
   samplePayload: sampleClientList,
 });
 
+const changeLog = built<ChangeLog>({
+  id: "change-log",
+  family: "operational",
+  name: "Change Log",
+  answers:
+    "Who added, changed or removed people and organizations, matters and trust account rules in a period, and when.",
+  permission: OPERATIONAL_REPORTS_PERMISSION,
+  temporal: "live-only",
+  stage: "alpha",
+  scope: { trustAccount: false, office: false, period: "span" },
+  read: (fetchImpl, scope) =>
+    readChangeLog(fetchImpl, { periodStart: scope.period.from, periodEnd: scope.period.to }),
+  present: presentChangeLog,
+  samplePayload: sampleChangeLog,
+});
+
 const REPORT_LIST = [
   trustCompliance,
   accountsReceivableAging,
@@ -520,6 +565,7 @@ const REPORT_LIST = [
   realization,
   invoices,
   paymentsApplied,
+  revenue,
   matterBalances,
   timekeeperProductivity,
   dailyTime,
@@ -528,6 +574,7 @@ const REPORT_LIST = [
   operationalVolumes,
   mattersList,
   clientList,
+  changeLog,
 ] as const satisfies readonly ReportDeclaration[];
 
 /** Every report, in catalogue order. */

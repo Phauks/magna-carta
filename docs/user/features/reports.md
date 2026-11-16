@@ -23,10 +23,10 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Sixteen reports run today: the trust compliance report, accounts receivable aging, work in
-progress, aged work in progress, aged expenses, realization, invoices, payments applied, matter balances,
+Eighteen reports run today: the trust compliance report, accounts receivable aging, work in
+progress, aged work in progress, aged expenses, realization, revenue, invoices, payments applied, matter balances,
 timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
-the matters list, and the client list.
+the matters list, the client list, and the change log.
 
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
@@ -34,6 +34,12 @@ the matters list, and the client list.
 - **Payments Applied** lists everything set against a bill in the period: payments, transfers from
   trust, client credits, credit notes and write-offs. A reversal appears as its own negative line,
   saying what it reverses. It shows what was set against bills, not money arriving in the bank.
+- **Revenue** shows what was billed and what was collected in the period you choose, by office, by
+  matter type and by responsible attorney. Billed is the same figure the Invoices report shows.
+  Collected counts payments, transfers from trust and client credits applied to bills in the
+  period; a reversal takes back what it reverses. Credit notes and write-offs are not collections:
+  they are shown in their own column, "Credited and written off". Each matter counts under the type
+  and responsible attorney it has today. Sort the matter type and attorney tables by any column.
 - **Aged Work in Progress** shows unbilled time and costs by how long ago the work was done: 0 to
   30 days, 31 to 60, 61 to 90, and over 90. Time counts from the day it was worked and a cost from
   the day it was incurred. Work over 90 days old is shown in red. It adds up to the same total as
@@ -66,6 +72,14 @@ the matters list, and the client list.
   overdue once its due time has passed in its own time zone; one due today is not overdue until the
   day is out. It shows counts only, never what the tasks say. Choose an office to count only tasks
   on that office's matters.
+- **Change Log** shows who added, changed or removed people and organizations, matters and the
+  trust approval rule in the period you choose. It counts the changes by kind of record and by
+  person, then lists every change, newest first: when it was made, who made it, what it was in plain
+  words, and which record it was on. It never shows what a record said before or after. Days are
+  counted in UTC. Changes the platform made itself are put down to System. A period that has ended
+  always shows the same changes when you run it again. Opening a trust account and setting up the
+  billing accounts are not recorded as changes yet, so they do not appear. The Change Log covers the
+  whole firm and has no office choice.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count
