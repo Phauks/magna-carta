@@ -320,6 +320,10 @@ is usually the fastest way to understand the rule.
   `SegmentedControl`, every option on screen and the chosen one raised; five or more is a Select.
   A choice not built yet stays in the track, refused, with its reason on hover. It takes a row of
   its own when its words would not fit a column. _(app visual refresh, 2026-11-14)_
+- **A segmented control is a pill in a pill.** The track and the chosen tile are both fully round,
+  and the chosen tile stays light and raised rather than filled with ink, so it does not compete
+  with the primary button beside it. A square tile in a rounded track read as a mismatch.
+  _(Magnus sort control, 2026-11-16)_
 - **Creating a record is ONE screen with a left side and a right side.** Not a wizard, not a long
   column: the entry on the left, segmented into tabs where it needs segmenting, and the gate the
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
