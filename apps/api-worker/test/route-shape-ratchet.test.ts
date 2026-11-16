@@ -89,14 +89,18 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "files/downloads-register.ts": { lines: 578, shapes: 7 },
   "files/downloads.ts": { lines: 591, shapes: 3 },
   "files/file-integrity.ts": { lines: 370, shapes: 5 },
-  "files/file-repair.ts": { lines: 711, shapes: 10 },
+  // Raised when each engine failure began to be counted (one call per failing branch, the helper is
+  // in files/engine-failure.ts).
+  "files/file-repair.ts": { lines: 718, shapes: 10 },
   "files/file-scans.ts": { lines: 324, shapes: 5 },
   // Raised from 2161 lines and 21 shapes when main brought in the version-changes route and its
   // three response shapes, which were written before this ledger existed.
   "files/files.ts": { lines: 2293, shapes: 24 },
   "files/folders.ts": { lines: 437, shapes: 7 },
   "files/metadata.ts": { lines: 235, shapes: 5 },
-  "files/ocr.ts": { lines: 320, shapes: 6 },
+  // Raised when each engine failure began to be counted (one call per failing branch, the helper is
+  // in files/engine-failure.ts).
+  "files/ocr.ts": { lines: 324, shapes: 6 },
   "files/recovery.ts": { lines: 450, shapes: 7 },
   "files/uploads.ts": { lines: 1005, shapes: 15 },
   "firm/classification-type-routes.ts": { lines: 426, shapes: 6 },
