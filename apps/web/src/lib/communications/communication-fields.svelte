@@ -252,7 +252,7 @@
   {#if showActivity}
     <!-- The name the caller gave, as somebody heard it. Optional, and never a Directory record:
          choosing who the number belongs to is the Identification panel's, beside the form. -->
-    <LabelledField label="Caller ID (optional)" id="{identity}-caller-id">
+    <LabelledField label="Caller ID" optional id="{identity}-caller-id">
       {#snippet children({ props })}
         <Input
           {...props}
