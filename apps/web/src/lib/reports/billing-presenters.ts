@@ -37,7 +37,7 @@ function totalLabel(locationId: string | null): string {
 }
 
 /** A civil date as the reader reads one, or a dash where there is none. */
-function dateText(date: string | null): string {
+export function dateText(date: string | null): string {
   return date === null ? "-" : formatDate(date);
 }
 
@@ -55,7 +55,7 @@ function invoiceCells(figures: InvoiceFigures): ReportCell[] {
 }
 
 /** A bill as the reader knows it: its number, or "Bill" with its date where it has none yet. */
-function billCaption(bill: {
+export function billCaption(bill: {
   readonly invoiceNumber: string | null;
   readonly issueDate: string;
 }): string {
