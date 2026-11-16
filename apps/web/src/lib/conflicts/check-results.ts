@@ -56,12 +56,16 @@ export function reviewText(hit: HitDetail): string {
   return REVIEW_LABELS[hit.disposition.kind];
 }
 
-/** How strong the evidence is, in a word per tier. Strongest first. */
+/**
+ * How strong the evidence is, in a word per tier. Strongest first. An identifier match is Exact,
+ * and the three name tiers read as a plain High, Medium, Low (owner's ruling, 2026-11-16: the
+ * earlier "Might be" and "Weak" read as judgements rather than as a scale).
+ */
 export const STRENGTH_LABELS: Readonly<Record<EvidenceTier, string>> = {
   1: "Exact",
-  2: "Same name",
-  3: "Might be",
-  4: "Weak",
+  2: "High",
+  3: "Medium",
+  4: "Low",
 };
 
 export type StrengthTone = "danger" | "warning" | "info" | "neutral";

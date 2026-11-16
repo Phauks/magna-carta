@@ -293,7 +293,7 @@ describe("the results section", () => {
   });
 
   it("names strength in words, strongest first, and never a tier number", () => {
-    expect(Object.values(STRENGTH_LABELS)).toEqual(["Exact", "Same name", "Might be", "Weak"]);
+    expect(Object.values(STRENGTH_LABELS)).toEqual(["Exact", "High", "Medium", "Low"]);
     const sorted = filterResults(
       [hit({ id: "weak", evidenceTier: 4 }), hit({ id: "exact", evidenceTier: 1 })],
       NO_FILTER,

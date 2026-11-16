@@ -22,6 +22,7 @@ export const OPERATIONS: readonly string[] = [
   "directory.addName",
   "directory.addPhone",
   "directory.assignCategory",
+  "directory.changeMatterPartyRole",
   "directory.changeName",
   "directory.contactPoints",
   "directory.createCategory",

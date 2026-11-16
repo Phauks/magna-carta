@@ -167,6 +167,12 @@ ADR-0072, ADR-0079.) **Invariants:**
   constructed per request from applications billing already resolved — it is a re-check that trust is
   composing what billing authorized, not a fresh lookup. Never widen the port with an invoice
   reference.
+- **An application never takes effect before its bill, and a reversal never before what it
+  reverses.** `composeInvoiceApplication` takes the bill's `invoiceIssueDate` (and, for a reversal,
+  the original's effective date) and refuses by name (`application-before-invoice-issued`,
+  `application-reversal-before-original`); the correction composers and the trust transfer refuse
+  the same before composing anything. The as-of aging does not know a bill before its issue date, so
+  an earlier application would reduce nothing anyone owed and part every client statement from it.
 - **Every application is append-only and its direction is its KIND.** Amounts are positive; a
   reversal subtracts because it is a reversal. A mistaken application is corrected by a new linked row
   (UNIQUE `reverses_application_id`), never an edit — an edit would move a balance whose money has

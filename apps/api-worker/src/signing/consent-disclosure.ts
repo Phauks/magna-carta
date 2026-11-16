@@ -10,9 +10,10 @@ export interface ConsentDisclosure {
   readonly paragraphs: readonly string[];
 }
 
-// PENDING THE OWNER'S REVIEW: the 2026-11 wording below is a working draft that has not been approved
-// as final. When the approved wording arrives it goes in as a new version beside this one, and
-// CURRENT_CONSENT_VERSION moves to it; consents already recorded under 2026-11 keep reading these words.
+// 2026-11 was a working draft. 2026-12 is the owner's approved plainer wording (2026-11-16); consents
+// already recorded under 2026-11 keep reading those words. Still open with the owner: whether to add
+// whether a paper copy costs anything, how a signer updates their email address, and what
+// withdrawing means, which the federal E-SIGN Act (15 U.S.C. 7001(c)(1)) asks a consumer to be told.
 const DISCLOSURES: Readonly<Record<string, ConsentDisclosure>> = {
   "2026-11": {
     version: "2026-11",
@@ -24,10 +25,20 @@ const DISCLOSURES: Readonly<Record<string, ConsentDisclosure>> = {
       "To view and sign, you need a current web browser and an email account. Keep a copy of the signed document for your records; you will be sent a link to download it.",
     ],
   },
+  "2026-12": {
+    version: "2026-12",
+    title: "Agreement to sign electronically",
+    paragraphs: [
+      "{firm} asked you to sign this document electronically. If you choose Agree, you agree to get and sign it electronically. Your electronic signature is as binding as signing by hand.",
+      "You can ask {sender} for a paper copy, or to sign on paper instead. This may delay the document.",
+      "You can withdraw this agreement before you finish by choosing Decline to Sign.",
+      "You need a current web browser and an email address. You'll get a link to download the signed document. Keep a copy for your records.",
+    ],
+  },
 };
 
 /** The version every new consent is recorded under. */
-export const CURRENT_CONSENT_VERSION = "2026-11";
+export const CURRENT_CONSENT_VERSION = "2026-12";
 
 /** The disclosure at a version, its names filled in; the current one when none is given. */
 export function consentDisclosure(

@@ -178,7 +178,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.t
 // drive determinism at the domain layer, not through the route. The idempotency context (the
 // chokepoint's firm-scoped derived key + request fingerprint) rides the committed batch so a retried
 // mutation dedups instead of duplicating.
-function writeOptions(
+export function writeOptions(
   actorUserId: AppVariables["chokepointUserId"],
   idempotency: DirectoryIdempotencyContext,
 ): DirectoryWriteOptions {
@@ -265,7 +265,7 @@ const identifierTypeParam = z.object({
 
 // ---- shared error responses ----
 
-const authErrors = {
+export const authErrors = {
   400: {
     description: "Missing Idempotency-Key (this operation requires one)",
     content: { "application/problem+json": { schema: Problem } },
@@ -299,7 +299,7 @@ const authErrors = {
 
 // Maps a directory domain refusal to its RFC 9457 problem. Codes — never messages — drive it; an
 // unrecognized throw propagates to the standard error pipeline (a 500).
-function directoryErrorResponse(
+export function directoryErrorResponse(
   c: Context,
   caught: unknown,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
@@ -375,7 +375,7 @@ function directoryErrorResponse(
 
 // ---- route metas ----
 
-function mutationMeta(action: string, permission: RouteMeta["permission"]): RouteMeta {
+export function mutationMeta(action: string, permission: RouteMeta["permission"]): RouteMeta {
   return {
     operationId: `directory.${action}`,
     surface: "app",
@@ -1468,7 +1468,7 @@ const setPersonLifeDatesRoute = defineOpenAPIRoute(
   },
 );
 
-type DirectoryApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
+export type DirectoryApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoint): void {
   // POST /api/v1/directory/persons

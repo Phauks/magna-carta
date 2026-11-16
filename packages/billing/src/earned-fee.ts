@@ -1,6 +1,7 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { InvoiceId, MatterId, TrustLedgerNodeId } from "@magna-carta/identifiers/types";
 import { BillingValidationError } from "./billing-validation.ts";
+import { issueDateOfFinalizedInvoice } from "./application.ts";
 import { readInvoice, readInvoiceMatterBalances } from "./statements.ts";
 
 // THE INVOICE-BACKED EARNED-FEE PRECONDITION — the satisfier for the port in
@@ -53,6 +54,8 @@ export interface ResolvedEarnedFeeApplication {
   readonly amountMinor: number;
   readonly currency: string;
   readonly unpaidMinor: number;
+  // The bill's issue date: the transfer's effective date may not precede it.
+  readonly invoiceIssueDate: string;
 }
 
 export interface ResolvedEarnedFeeApplications {
@@ -169,6 +172,7 @@ export async function resolveEarnedFeeApplications(
       amountMinor: requested.amountMinor,
       currency: invoice.currency,
       unpaidMinor,
+      invoiceIssueDate: issueDateOfFinalizedInvoice(invoice),
     });
   }
 

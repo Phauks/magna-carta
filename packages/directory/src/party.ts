@@ -217,6 +217,70 @@ export async function unlinkMatterParty(
   }));
 }
 
+// What a party's link is changed to: a new role, and the capacity that goes with it.
+export interface ChangeMatterPartyRoleInput {
+  readonly role: string;
+  readonly capacity?: string | null;
+}
+
+// Changes the role (and capacity) a party plays on a matter. Returns the id of the link that now
+// carries it, or null when no live link carried the id.
+//
+// A ROLE CHANGE IS A SEVER AND A NEW LINK, IN ONE BATCH, rather than an UPDATE of the row. The link
+// is evidence for the same reason unlinkMatterParty soft-deletes: a conflicts report run last month
+// named this party in the role it then had, and rewriting the row would rewrite what that report
+// can reproduce. So the old link is closed and a new one opened in the new role, atomically, and
+// the reader sees one row whose role changed.
+//
+// The new link announces itself the way any link does, because a party moving from co-defendant to
+// opposing party can turn a clean matter into a conflicted one.
+export async function changeMatterPartyRole(
+  database: BatchDatabase,
+  matterPartyId: MatterPartyId,
+  input: ChangeMatterPartyRoleInput,
+  options: DirectoryWriteOptions,
+): Promise<MatterPartyId | null> {
+  const { results } = await database
+    .prepare(`SELECT matter_id, entity_id FROM matter_party WHERE id = ?1 AND deleted_at IS NULL`)
+    .bind(matterPartyId)
+    .all<{ matter_id: string; entity_id: string }>();
+  const current = results[0];
+  if (current === undefined) return null;
+
+  const replacementId = newIdentifier("matterParty", options.randomSource);
+  const now = options.clock.now();
+
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      softDeleteMatterPartyStatement(database, { id: matterPartyId, deletedAt: now }),
+      directoryAuditStatement(database, options, "directory.matter_party.unlinked", matterPartyId),
+      insertMatterPartyStatement(database, {
+        id: replacementId,
+        matterId: current.matter_id,
+        entityId: current.entity_id,
+        role: input.role,
+        capacity: input.capacity ?? null,
+        createdAt: now,
+      }),
+      directoryAuditStatement(database, options, "directory.matter_party.linked", replacementId),
+    ],
+    outboxMessages: [
+      {
+        topic: MATTER_PARTY_LINKED_TOPIC,
+        payload: {
+          matterPartyId: replacementId,
+          matterId: current.matter_id,
+          entityId: current.entity_id,
+        },
+      },
+    ],
+    responseCode: 200,
+    responseBody: { id: replacementId },
+    value: replacementId,
+    fromBody: (body) => (body as { id: MatterPartyId }).id,
+  }));
+}
+
 // One correspondent's address matched to a matter it plays a role on.
 export interface MatterPartyAddressMatch {
   readonly matterId: string;
