@@ -1037,7 +1037,6 @@ async function resolveCaptureValues(
 
   const rate = await resolveRate(database, {
     matterId: input.matterId,
-    clientId: null,
     timekeeperUserId: input.timekeeperUserId,
     roleId: rateRole.roleId,
     parentRoleId: rateRole.parentRoleId,
@@ -1642,7 +1641,6 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
             );
             const resolved = await resolveRate(firm.firmDatabase, {
               matterId: ownerRow.matter_id,
-              clientId: null,
               timekeeperUserId: ownerRow.timekeeper_user_id,
               roleId: rateRole.roleId,
               parentRoleId: rateRole.parentRoleId,

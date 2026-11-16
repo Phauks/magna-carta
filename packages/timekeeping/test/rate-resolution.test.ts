@@ -5,6 +5,7 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { appendRate, createRateCard } from "../src/rate-service.ts";
 import {
+  readMatterClientId,
   readTimekeeperRateRole,
   resolveRate,
   type RateResolutionContext,
@@ -398,5 +399,88 @@ describe("readTimekeeperRateRole", () => {
       roleId: null,
       parentRoleId: null,
     });
+  });
+});
+
+describe("the client a matter's time is priced for", () => {
+  async function seedMatter(
+    database: BatchDatabase,
+    parties: readonly { entityId: string; role: string; deletedAt?: string }[],
+  ): Promise<string> {
+    const matterId = `matter_${parties.length}_${Math.random().toString(36).slice(2)}`;
+    await database.batch([
+      database
+        .prepare(
+          "INSERT OR IGNORE INTO member (user_id, display_name, status, created_at) VALUES ('user_partner', 'Partner', 'active', ?1)",
+        )
+        .bind(clock.now()),
+      database
+        .prepare(
+          "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'A matter', 'open', 'user_partner', ?2, ?2)",
+        )
+        .bind(matterId, clock.now()),
+      ...parties.map((party, index) =>
+        database
+          .prepare(
+            "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?6)",
+          )
+          .bind(
+            `${matterId}_party_${index}`,
+            matterId,
+            party.entityId,
+            party.role,
+            clock.now(),
+            party.deletedAt ?? null,
+          ),
+      ),
+    ]);
+    return matterId;
+  }
+
+  it("is the matter's client party, so a client-tier rate prices its time", async () => {
+    const database = freshDatabase();
+    const rateCardId = await makeCard(database);
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: null,
+      rateE4: 3_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    await seedRate(database, {
+      rateCardId,
+      tier: "client",
+      scopedId: "directoryOrganization_acme",
+      rateE4: 2_500_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    const matterId = await seedMatter(database, [
+      { entityId: "directoryPerson_witness", role: "witness" },
+      { entityId: "directoryOrganization_acme", role: "client" },
+    ]);
+
+    const clientId = await readMatterClientId(database, matterId);
+    expect(clientId).toBe("directoryOrganization_acme");
+    expect(
+      await resolveRate(database, { ...baseContext(rateCardId), matterId, clientId }),
+    ).toMatchObject({ rateSource: "client", rateE4: 2_500_000 });
+
+    // A capture path names no client: the engine reads the matter's own.
+    const { clientId: _named, ...withoutClient } = baseContext(rateCardId);
+    expect(await resolveRate(database, { ...withoutClient, matterId })).toMatchObject({
+      rateSource: "client",
+      rateE4: 2_500_000,
+    });
+  });
+
+  it("is none for a matter with no client party, or one whose client was removed", async () => {
+    const database = freshDatabase();
+    expect(await readMatterClientId(database, await seedMatter(database, []))).toBeNull();
+    const removed = await seedMatter(database, [
+      { entityId: "directoryOrganization_gone", role: "client", deletedAt: clock.now() },
+    ]);
+    expect(await readMatterClientId(database, removed)).toBeNull();
   });
 });
