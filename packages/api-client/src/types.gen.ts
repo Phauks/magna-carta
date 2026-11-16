@@ -11212,6 +11212,7 @@ export type PrintedTrustCheck = {
 export type PrintTrustChecksRequest = {
     trustAccountId: string;
     trustMovementIds: Array<string>;
+    firstCheckNumber?: number | null;
 };
 
 export type TrustCheckAcknowledgement = {

@@ -73,9 +73,12 @@ number is not a `@magna-carta/sequence-numbering` scheme: the register's schemes
 firm writes, counters the platform owns, and draft holds a panel gives back, and none of the three
 fits a number fixed by a box of paper. The rule here is instead:
 
-- The **next number** for an account is the greater of the stock's `starting_check_number` and one
-  more than the highest number on the account. Setting a new starting number (a new box) is saving
-  the stock; a starting number below a used one is ignored, so a number is never reused.
+- The number is in the person's hands (owner ruling 2026-11-16). The **next number** for an account
+  is the first number at or after the stock's `starting_check_number` that no check on the account
+  carries, so a firm that loads a box numbered lower than its last check says so and prints from it.
+  The confirm-print step shows the first number and lets the person change it for that batch; a
+  batch that would land on a used number is refused (`check-number-used`), so a number is still
+  never reused.
 - A print batch reads the next number and inserts consecutive rows. The unique index on
   `(trust_account_id, check_number)` refuses a second batch that read the same number, and the route
   retries once on that conflict.

@@ -48875,6 +48875,13 @@
             },
             "minItems": 1,
             "maxItems": 100
+          },
+          "firstCheckNumber": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
           }
         },
         "required": [

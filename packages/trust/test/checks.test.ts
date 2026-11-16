@@ -238,7 +238,7 @@ describe("check printing", () => {
       [10_423, "spoiled"],
       [10_422, "printed"],
     ]);
-    expect(register[1]?.settledReason).toBe("Spoiled in printing");
+    expect(register[1]?.settledReason).toBe("Misprinted");
     expect(await readTrustPaymentsWithTwoLiveChecks(database)).toEqual([]);
   });
 
@@ -316,12 +316,39 @@ describe("check printing", () => {
       options,
     );
     await commit(database, stock.effect);
-    // A starting number below a used one never reuses it.
+    // The person may move the number anywhere, lower included; only a used number is skipped.
     expect(
       await readNextTrustCheckNumber(database, trustAccountId, {
         startingCheckNumber: 100,
       } as never),
+    ).toBe(100);
+    expect(
+      await readNextTrustCheckNumber(database, trustAccountId, {
+        startingCheckNumber: 500,
+      } as never),
     ).toBe(501);
+  });
+
+  it("prints from the number the person sets, and refuses one already used", async () => {
+    const setup = await fundedAccount();
+    await saveStock(setup);
+    const first = await pay(setup, 300_000, "Desert Title Company");
+    const second = await pay(setup, 125_000, "Jordan Smith");
+    const { database, trustAccountId } = setup.fixture;
+    const printed = await composeTrustCheckPrint(
+      database,
+      { trustAccountId, movementIds: [first], firstCheckNumber: 2_001, numberedBy: RECORDER },
+      options,
+    );
+    await commit(database, printed.effect);
+    expect(printed.checks[0]?.checkNumber).toBe(2_001);
+    await expect(
+      composeTrustCheckPrint(
+        database,
+        { trustAccountId, movementIds: [second], firstCheckNumber: 2_001, numberedBy: RECORDER },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "check-number-used" });
   });
 
   it("refuses a stock with a field in the MICR band", async () => {
