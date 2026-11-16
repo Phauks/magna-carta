@@ -18,7 +18,7 @@ The name opens their Directory record in a window over the table, with their rol
 shown beside it; closing it leaves you on the matter where you were.
 
 One person can hold more than one role on the same matter. An executor who is also a beneficiary is
-two rows, and each is removed on its own.
+two rows, and each is deleted or changed on its own.
 
 ## Counsel and their firm
 
@@ -34,7 +34,7 @@ firm recorded in the Directory"; add the link on their Directory record and come
 
 ## Adding a party
 
-1. Press **Add…**.
+1. Press **New Party** at the top of the matter.
 2. Start typing the name. After three characters the Directory is searched, and the matches appear
    in the firm's own order of relevance. Pick the one you mean. If the search found more than it can
    show, it says so; keep typing to narrow it.
@@ -50,15 +50,21 @@ what keeps one client from ending up in the book twice under two spellings.
 The page tells you when the person you picked is already on this matter and in which roles, and
 it will not add the same person in the same role a second time.
 
-## Removing a party
+## Changing a party's role
 
-Press **Remove** at the end of the row and confirm. This removes the role from this matter
+The **Role** column is a choice field. Pick the new role and it is saved straight away; the
+capacity stays as it was. Earlier conflicts reports still show the role the party had when they
+ran.
+
+## Deleting a party
+
+Press **Delete** at the end of the row and confirm. This deletes the role from this matter
 and nothing else: the person stays in the Directory with everything recorded about them, their other
 roles on this matter are untouched, and a conflicts report that named them stays reproducible.
 
 ## Who can change the parties
 
-Reading a matter's parties needs only access to the matter. Adding or removing one needs the
+Reading a matter's parties needs only access to the matter. Adding, changing or deleting one needs the
 Directory edit permission. Without it the controls stay visible and say what would change the answer.
 
 ## Related

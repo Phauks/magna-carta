@@ -320,6 +320,54 @@ describe("conflicts check routes", () => {
     );
   });
 
+  it("changes a party's role on a matter, keeping the old link as evidence", async () => {
+    const matter = await post("/api/v1/matters", {
+      title: "A party changes sides",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "Role Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+    const partyId = await createPerson("Changing", "Sides");
+    const linked = await post("/api/v1/directory/matter-parties", {
+      matterId,
+      entityId: partyId,
+      role: "witness",
+    });
+    const { id: linkId } = (await linked.json()) as { id: string };
+
+    const changed = await SELF.fetch(
+      `https://example.com/api/v1/directory/matter-parties/${linkId}`,
+      {
+        method: "PATCH",
+        headers: authHeaders(ownerCookie, true),
+        body: JSON.stringify({ role: "opposing_party" }),
+      },
+    );
+    expect(changed.status, await changed.clone().text()).toBe(200);
+    const { id: newLinkId } = (await changed.json()) as { id: string };
+    expect(newLinkId).not.toBe(linkId);
+
+    const list = await get(`/api/v1/directory/matter-parties?matterId=${matterId}`);
+    const { parties } = (await list.json()) as {
+      parties: Array<{ id: string; entityId: string; role: string }>;
+    };
+    const mine = parties.filter((party) => party.entityId === partyId);
+    expect(mine.map((party) => [party.id, party.role])).toEqual([[newLinkId, "opposing_party"]]);
+
+    // The old link is closed: changing it again finds nothing live.
+    const again = await SELF.fetch(
+      `https://example.com/api/v1/directory/matter-parties/${linkId}`,
+      {
+        method: "PATCH",
+        headers: authHeaders(ownerCookie, true),
+        body: JSON.stringify({ role: "client" }),
+      },
+    );
+    expect(again.status).toBe(404);
+  });
+
   it("holds a draft number for the panel, gives it back on cancel, and opens the check under it", async () => {
     const hold = async (token?: string) => {
       const response = await post(

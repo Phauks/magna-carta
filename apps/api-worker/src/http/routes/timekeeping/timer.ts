@@ -583,7 +583,6 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
 
       const rateResolution = await resolveRate(firm.firmDatabase, {
         matterId,
-        clientId: null,
         timekeeperUserId: userId,
         roleId: rateRole.roleId,
         parentRoleId: rateRole.parentRoleId,

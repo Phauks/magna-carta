@@ -32,6 +32,7 @@ const resolution: ResolvedEarnedFeeApplications = {
       amountMinor: 500_00,
       currency: "USD",
       unpaidMinor: 500_00,
+      invoiceIssueDate: "2026-08-01",
     },
   ],
 };

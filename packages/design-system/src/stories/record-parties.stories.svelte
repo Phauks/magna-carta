@@ -18,6 +18,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
   import { expect, userEvent, waitFor, within } from "storybook/test";
+  import Button from "../lib/components/button/button.svelte";
   import RecordParties from "../lib/components/record-parties/record-parties.svelte";
   import type { PartyLink, PartyRole, RecordParty } from "../lib/components/record-parties/types.ts";
   import type {
@@ -192,6 +193,7 @@
   let opened = $state<string>("nothing");
   let lastLink = $state<PartyLink | null>(null);
   let retried = $state<number>(0);
+  let headerAddTab = $state<ReturnType<typeof RecordParties> | null>(null);
 
   /** What the last link asked for, in one line a play function can read back. */
   const linkedLine = $derived(
@@ -260,17 +262,16 @@
       for (const stamp of stamps) await expect(stamp).toBeVisible();
     });
 
-    await step("Removing asks first, names the person, and says where they will still be", async () => {
-      await userEvent.click(canvas.getByRole("button", { name: /^Remove Jonathan Hale/ }));
+    await step("Deleting asks first, names the person, and says where they will still be", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: /^Delete Jonathan Hale/ }));
       const confirmation = await body.findByRole("alertdialog");
       await waitFor(() => expect(confirmation).toBeVisible());
-      await expect(confirmation).toHaveAccessibleName("Remove This Party?");
+      await expect(confirmation).toHaveAccessibleName("Delete This Party?");
       await expect(confirmation).toHaveTextContent(
-        "Jonathan Hale stops being linked to this record as Opposing Party.",
+        "Jonathan Hale as Opposing Party is deleted from this record.",
       );
       await expect(confirmation).toHaveTextContent(/They stay in the directory/);
-      // The word the reader must never see here is Delete: this destroys nothing.
-      await expect(confirmation).not.toHaveTextContent(/delete/i);
+      // What is deleted is the place on this record, never the person: the dialog says so.
     });
 
     await step("The record keeps them until it is committed", async () => {
@@ -281,11 +282,11 @@
     });
 
     await step("Committing ends the association and leaves the rest alone", async () => {
-      const remove = canvas.getByRole("button", { name: /^Remove Jonathan Hale/ });
+      const remove = canvas.getByRole("button", { name: /^Delete Jonathan Hale/ });
       await waitFor(() => expect(remove).not.toHaveStyle({ pointerEvents: "none" }));
       await userEvent.click(remove);
       await body.findByRole("alertdialog");
-      await userEvent.click(body.getByRole("button", { name: "Remove" }));
+      await userEvent.click(body.getByRole("button", { name: "Delete" }));
       await waitFor(() => expect(canvas.queryByText("Jonathan Hale")).toBeNull());
       await expect(canvas.getByText("Meridian Holdings LLC")).toBeVisible();
     });
@@ -389,6 +390,40 @@
   }}
 />
 
+{#snippet headerAddTemplate(args: RecordPartiesStoryArgs)}
+  <div class="max-w-sm">
+    <Button variant="secondary" onclick={() => headerAddTab?.openAddRow()}>New Party</Button>
+    <RecordParties
+      bind:this={headerAddTab}
+      {...args}
+      parties={LINKED}
+      roles={ROLES}
+      search={fixtureSearch}
+      addControl={false}
+      formatInstant={pinnedInstant}
+      onLink={() => undefined}
+      onUnlink={() => undefined}
+    />
+  </div>
+{/snippet}
+
+<Story
+  name="AddedFromTheScreen"
+  template={headerAddTemplate}
+  play={async ({ canvas, step }) => {
+    await step("A screen with its own New control turns the tab's Add off", async () => {
+      await expect(canvas.queryByRole("button", { name: "Add…" })).toBeNull();
+    });
+
+    await step("The screen's control opens the same add row", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "New Party" }));
+      await expect(
+        await canvas.findByRole("combobox", { name: "Person or organization" }),
+      ).toBeVisible();
+    });
+  }}
+/>
+
 {#snippet failedTemplate(args: RecordPartiesStoryArgs)}
   <div class="max-w-sm">
     <RecordParties
@@ -444,7 +479,7 @@
   play={async ({ canvas, step }) => {
     await step("The controls stay where they are, refused rather than absent", async () => {
       const remove = canvas.getByRole("button", {
-        name: "Remove Meridian Holdings LLC as Client: This matter is closed, so who is on it is fixed.",
+        name: "Delete Meridian Holdings LLC as Client: This matter is closed, so who is on it is fixed.",
       });
       await expect(remove).toBeDisabled();
       await expect(canvas.getByRole("button", { name: "Add…" })).toBeDisabled();
@@ -482,7 +517,7 @@
   template={denseTemplate}
   play={async ({ canvas, step }) => {
     await step("A record carries as many parties as the matter has", async () => {
-      await expect(canvas.getAllByRole("button", { name: /^Remove / }).length).toBe(14);
+      await expect(canvas.getAllByRole("button", { name: /^Delete / }).length).toBe(14);
     });
 
     await step("The way to add one stays reachable beneath the whole list", async () => {
