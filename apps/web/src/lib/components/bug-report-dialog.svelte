@@ -228,7 +228,7 @@
 <<<<<<< HEAD
         hint="Colleagues who should see this report. They ride the filed report once it carries recipients"
 =======
-        hint="Optional. Staff who should also see this report."
+        hint="Staff who should also see this report."
 >>>>>>> origin/main
       >
         {#snippet children({ props })}
