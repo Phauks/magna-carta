@@ -2383,6 +2383,51 @@ export type ChangeLogReport = {
     }>;
 };
 
+export type RevenueReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    attributionStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        billedMinor: number;
+        collectedMinor: number;
+        creditedMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            billedMinor: number;
+            collectedMinor: number;
+            creditedMinor: number;
+        };
+    }>;
+    matterTypes: Array<{
+        matterTypeId: string | null;
+        matterTypeName: string | null;
+        matterCount: number;
+        figures: {
+            billedMinor: number;
+            collectedMinor: number;
+            creditedMinor: number;
+        };
+    }>;
+    responsibleAttorneys: Array<{
+        responsibleMemberId: string;
+        responsibleName: string | null;
+        matterCount: number;
+        figures: {
+            billedMinor: number;
+            collectedMinor: number;
+            creditedMinor: number;
+        };
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -17576,6 +17621,52 @@ export type ReportsChangeLogResponses = {
 };
 
 export type ReportsChangeLogResponse = ReportsChangeLogResponses[keyof ReportsChangeLogResponses];
+
+export type ReportsRevenueData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/revenue';
+};
+
+export type ReportsRevenueErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was billed or applied than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsRevenueError = ReportsRevenueErrors[keyof ReportsRevenueErrors];
+
+export type ReportsRevenueResponses = {
+    /**
+     * What was billed and collected in this period
+     */
+    200: RevenueReport;
+};
+
+export type ReportsRevenueResponse = ReportsRevenueResponses[keyof ReportsRevenueResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
