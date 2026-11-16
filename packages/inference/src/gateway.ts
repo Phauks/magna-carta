@@ -1,3 +1,4 @@
+import { isStreamBody, readConversationStream } from "./conversation-stream.ts";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
@@ -176,10 +177,16 @@ function responseText(response: unknown): string {
     }
   }
   // Anthropic Messages shape
+  // A model that thought answers with its thinking block(s) first and its text after, so the text is
+  // every block that carries `text`, in order, never just the first block.
   const content = r["content"];
   if (Array.isArray(content) && content.length > 0) {
-    const first = content[0] as Record<string, unknown>;
-    if (typeof first["text"] === "string") return first["text"];
+    const texts = content.flatMap((block: unknown): string[] => {
+      if (block === null || typeof block !== "object") return [];
+      const text = (block as Record<string, unknown>)["text"];
+      return typeof text === "string" ? [text] : [];
+    });
+    if (texts.length > 0) return texts.join("");
   }
   // OpenAI-compatible shape
   const choices = r["choices"];
@@ -611,6 +618,11 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
       messages,
       ...length,
       ...(input.effort === undefined ? {} : { output_config: { effort: input.effort } }),
+      // A caller that listens for the thinking gets the answer streamed, with a readable summary of
+      // the thinking: on current models the thinking text is omitted unless the summary is asked for.
+      ...(input.onThinking === undefined
+        ? {}
+        : { stream: true, thinking: { type: "adaptive", display: "summarized" } }),
     };
   }
 
@@ -638,6 +650,10 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
       const gateway = gatewayOptions(input.firmId, entry.slot, env);
       try {
         const response = await ai.run(input.modelId, conversationRequestBody(input), { gateway });
+        if (isStreamBody(response)) {
+          const streamed = await readConversationStream(response, input.onThinking);
+          return ok({ text: streamed.text, usage: streamed.usage, snapshotId: entry.snapshotId });
+        }
         return ok({
           text: responseText(response),
           usage: extractUsage(response),

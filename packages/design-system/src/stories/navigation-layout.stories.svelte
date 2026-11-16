@@ -25,7 +25,7 @@
     component: NavigationLayout,
     args: { navigationWidth: "standard", contentScrolls: true },
     argTypes: {
-      navigationWidth: { control: "select", options: ["standard", "narrow"] },
+      navigationWidth: { control: "select", options: ["standard", "narrow", "wide"] },
     },
     parameters: {
       controls: { include: ["navigationLabel", "navigationWidth", "contentScrolls"] },
@@ -200,6 +200,52 @@
       await expect(navigation).toHaveAccessibleName("Conversations");
       expect(navigation.scrollHeight).toBeGreaterThan(navigation.clientHeight);
     });
+  }}
+>
+  {#snippet template(args: NavigationLayoutStoryArgs)}
+    {#snippet rail()}
+      <div class="flex flex-col gap-8">
+        <Select.Root type="single" value="recent" items={[{ value: "recent", label: "Most recent" }]}>
+          <Select.Trigger aria-label="Sort conversations">
+            <Select.Value placeholder="Sort" />
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="recent" label="Most recent" />
+            <Select.Item value="name" label="Name" />
+          </Select.Content>
+        </Select.Root>
+        <ul class="flex flex-col gap-4">
+          {#each CONVERSATIONS as conversation (conversation)}
+            <li>
+              <a href="#{conversation}" class="flex items-center rounded-md px-12 py-4 text-sm text-text-muted"
+                >{conversation}</a
+              >
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/snippet}
+    {#snippet inner()}
+      <NavigationLayout {...args} navigationLabel="Conversations" navigation={rail}>
+        {@render prose()}
+      </NavigationLayout>
+    {/snippet}
+    {@render canvas(inner)}
+  {/snippet}
+</Story>
+
+<!-- The wide width: rows that carry a name over a line, the Magnus conversation rail. -->
+<Story
+  name="Wide"
+  args={{ navigationWidth: "wide" }}
+  play={async ({ canvasElement, step }) => {
+    const { navigation } = columnsOf(canvasElement);
+
+    await step("The wide column is the record-aside measure plus a space-16 gutter a side", async () => {
+      const expected = tokenPixels("--mc-size-record-aside") + 2 * tokenPixels("--mc-space-16");
+      await waitFor(() => expect(navigation.getBoundingClientRect().width).toBeCloseTo(expected, 0));
+    });
+
   }}
 >
   {#snippet template(args: NavigationLayoutStoryArgs)}

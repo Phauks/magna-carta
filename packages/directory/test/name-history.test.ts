@@ -4,7 +4,7 @@ import { seededRandomSource } from "@magna-carta/identifiers/random";
 import { expect, test } from "vitest";
 import { createOrganization, readOrganization } from "../src/organization.ts";
 import { createPerson, readPerson } from "../src/person.ts";
-import { addName, changeName } from "../src/name-history.ts";
+import { addName, changeName, readNames } from "../src/name-history.ts";
 
 // Fixed clock for deterministic tests.
 const clock = { now: () => "2026-06-17T00:00:00.000Z" };
@@ -45,6 +45,53 @@ test("changeName preserves history and keeps exactly one current name", async ()
   const former = rows.find((row) => row.is_current === 0);
   expect(former?.name_role).toBe("former");
   expect(former?.valid_to).not.toBeNull();
+});
+
+test("a correction retires the mistyped name instead of keeping it as a former name", async () => {
+  const database = freshDatabase();
+  const personId = await createPerson(
+    database,
+    { given: "Mary", family: "Jnoes" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("t7-fix-a") },
+  );
+
+  await changeName(
+    database,
+    personId,
+    { given: "Mary", family: "Jones" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("t7-fix-b") },
+    "correction",
+  );
+
+  // The record reads one name, the corrected one: the typo is not offered as a name they held.
+  const page = await readNames(database, personId);
+  expect(page.data.map((name) => [name.family, name.isCurrent])).toEqual([["Jones", true]]);
+
+  // The mistyped row is still there, retired, so the history of what was on file survives.
+  const { results: rows } = await database
+    .prepare(
+      "SELECT name_family, is_current, deleted_at, valid_to FROM directory_name WHERE entity_id = ?1 ORDER BY created_at",
+    )
+    .bind(personId)
+    .all<{
+      name_family: string;
+      is_current: number;
+      deleted_at: string | null;
+      valid_to: string | null;
+    }>();
+  const retired = rows.find((row) => row.name_family === "Jnoes");
+  expect(retired?.is_current).toBe(0);
+  expect(retired?.deleted_at).not.toBeNull();
+  expect(retired?.valid_to).not.toBeNull();
+
+  // The entity row reads the corrected name, and the act is audited as a correction.
+  const person = await readPerson(database, personId);
+  expect(person?.family).toBe("Jones");
+  const { results: audits } = await database
+    .prepare("SELECT event FROM audit_log WHERE subject_id = ?1")
+    .bind(personId)
+    .all<{ event: string }>();
+  expect(audits.map((row) => row.event)).toContain("directory.entity.name_corrected");
 });
 
 test("the former name still produces phonetic codes (conflicts corpus)", async () => {

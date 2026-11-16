@@ -55,12 +55,28 @@ describe("the reporting package stays pure and read-only", () => {
     ["a wall-clock read", /Date\.now\(\)|new Date\(\)/],
   ];
 
+  // The one exception: src/contract.ts is the wire shape of the report responses, which the routes in
+  // apps/api-worker build over. It parses no request and is imported by nothing else here, so zod
+  // stays out of every module that reads or assembles (held by the test after this loop).
+  const isContract = (file: string) => file === join(sourceRoot, "contract.ts");
+
   for (const [label, pattern] of forbidden) {
     it(`imports no ${label}`, () => {
-      const offenders = files.filter((file) => pattern.test(readFileSync(file, "utf8")));
+      const offenders = files.filter(
+        (file) =>
+          !(label === "zod request schemas" && isContract(file)) &&
+          pattern.test(readFileSync(file, "utf8")),
+      );
       expect(offenders, `${label} reached ${offenders.join(", ")}`).toEqual([]);
     });
   }
+
+  it("keeps the wire contract out of every module that reads or assembles", () => {
+    const offenders = files.filter(
+      (file) => !isContract(file) && /from\s+"[^"]*contract(\.ts)?"/.test(codeOf(file)),
+    );
+    expect(offenders, `the wire contract reached ${offenders.join(", ")}`).toEqual([]);
+  });
 
   it("contains no INSERT, UPDATE, DELETE or REPLACE", () => {
     const offenders = files.filter((file) =>

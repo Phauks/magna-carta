@@ -7,7 +7,6 @@ import {
   openedRunBody,
   parseRunProgress,
   parseStoredRunRequest,
-  previewNextCheckNumber,
   readNumberedCheckByAnyId,
   readLatestNumberedCheckForMatter,
   readRunsForCheck,
@@ -15,7 +14,7 @@ import {
   askedScopeOf,
   reportedRunStatus,
   reportedStatusOrNull,
-  subjectEntityIdsOf,
+  searchedEntityIdsOf,
   subjectPartiesOf,
   RUN_STAGES,
   settleStaleRuns,
@@ -80,6 +79,7 @@ import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { ConflictsCheckId, UserId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { identifierPathParam, idempotencyKeyHeader } from "../../contracts/common.ts";
+import { numberReservationField } from "../../contracts/number-reservation.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
@@ -283,6 +283,7 @@ const CreateCheckRequest = z
     matterId: identifierField("matter").optional(),
     subjectEntityIds: z.array(z.string().regex(directoryEntityIdPattern)).max(MAX_SUBJECT_ENTITIES),
     scope: ScopeRequest,
+    numberReservation: numberReservationField,
   })
   .openapi("CreateConflictsCheckRequest");
 
@@ -296,10 +297,6 @@ const OpenedCheckResponse = z
     ordinal: z.number().int(),
   })
   .openapi("OpenedConflictsCheckResponse");
-
-const NextCheckNumberResponse = z
-  .object({ checkNumber: z.string() })
-  .openapi("NextConflictsCheckNumberResponse");
 
 const FileCheckOnMatterRequest = z
   .object({ matterId: identifierField("matter") })
@@ -960,24 +957,6 @@ const runCheckRoute = defineOpenAPIRoute(mutationMeta("runCheck", "conflicts:run
   },
 });
 
-const nextCheckNumberRoute = defineOpenAPIRoute(readMeta("nextCheckNumber", "conflicts:read"), {
-  method: "get",
-  path: "/api/v1/conflicts/checks/next-number",
-  description:
-    "The number the next check this firm opens would draw. A preview rather than a reservation: " +
-    "two members opening a check at the same moment both see it, and one of them draws the number " +
-    "after it. Shown on the New Check panel so a check is identified before it is saved.",
-  responses: {
-    200: {
-      description: "The next check number",
-      content: { "application/json": { schema: NextCheckNumberResponse } },
-    },
-    401: authErrors[401],
-    403: authErrors[403],
-    429: authErrors[429],
-  },
-});
-
 const rerunCheckRoute = defineOpenAPIRoute(mutationMeta("rerunCheck", "conflicts:run"), {
   method: "post",
   path: "/api/v1/conflicts/checks/{checkId}/runs",
@@ -1341,7 +1320,10 @@ function runSummary(
     cancelledByUserId: run.cancelled_by_user_id,
     askedScope: askedScopeOf(run.request_json),
     hitCount: run.status === "completed" ? (hitCounts.get(run.id) ?? 0) : null,
-    subjectParties: subjectPartiesOf(subjectEntityIdsOf(run.request_json), names),
+    subjectParties: subjectPartiesOf(
+      searchedEntityIdsOf(run.searched_parties_json, run.request_json),
+      names,
+    ),
   };
 }
 
@@ -1507,7 +1489,12 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         // log as "the row does not say what started it", beside an actor it does in fact name.
         const opened = await openCheckRun(
           context.database,
-          { request: stored, triggerSource: "manual", under: null },
+          {
+            request: stored,
+            triggerSource: "manual",
+            under: null,
+            numberReservation: request.numberReservation,
+          },
           {
             clock: context.clock,
             actorUserId: context.actorUserId,
@@ -1522,17 +1509,6 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       } catch (caught) {
         return conflictsErrorResponse(c, caught);
       }
-    },
-  );
-
-  // GET /api/v1/conflicts/checks/next-number — registered before the {checkId} read so the literal
-  // segment is matched as itself rather than refused as a malformed handle.
-  app.openapi(
-    { ...nextCheckNumberRoute, middleware: chokepointMiddleware(chokepoint, nextCheckNumberRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const checkNumber = await previewNextCheckNumber(firm.firmDatabase, nowInstant());
-      return c.json({ checkNumber } as z.infer<typeof NextCheckNumberResponse>, 200);
     },
   );
 
@@ -1556,7 +1532,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       // One set-valued Directory read for the whole page, never one per row.
       const names = await readEntityDisplayNames(
         firm.firmDatabase,
-        rows.flatMap((row) => subjectEntityIdsOf(row.request_json)),
+        rows.flatMap((row) => searchedEntityIdsOf(row.searched_parties_json, row.request_json)),
       );
       return c.json(
         {
@@ -1576,7 +1552,10 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
             strictness: row.strictness,
             floorRaised: row.floor_raised === null ? null : row.floor_raised === 1,
             hitCount: row.hit_count,
-            subjectParties: subjectPartiesOf(subjectEntityIdsOf(row.request_json), names),
+            subjectParties: subjectPartiesOf(
+              searchedEntityIdsOf(row.searched_parties_json, row.request_json),
+              names,
+            ),
           })),
           // Keyed on the same (created_at, id) pair the statement orders by, so the walk can
           // neither skip a check nor show one twice.
@@ -1792,7 +1771,7 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
         selected.status === "completed" ? await readRecord(firm.firmDatabase, selected.id) : null;
       const names = await readEntityDisplayNames(
         firm.firmDatabase,
-        runs.flatMap((run) => subjectEntityIdsOf(run.request_json)),
+        runs.flatMap((run) => searchedEntityIdsOf(run.searched_parties_json, run.request_json)),
       );
       return c.json(
         {

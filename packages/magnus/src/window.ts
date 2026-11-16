@@ -152,6 +152,18 @@ function hasContent(turn: TurnRow): turn is TurnRow & { readonly content: string
   );
 }
 
+// An answer whose question its author removed. The answer stays readable in the transcript, but the
+// model is not handed a reply to a question it can no longer see.
+function answersARemovedQuestion(ordered: readonly TurnRow[], index: number): boolean {
+  const turn = ordered[index];
+  if (turn === undefined || turn.speaker !== "magnus") return false;
+  for (let earlier = index - 1; earlier >= 0; earlier--) {
+    const candidate = ordered[earlier];
+    if (candidate?.speaker === "member") return candidate.removedAt !== null;
+  }
+  return false;
+}
+
 export interface ConversationWindowOptions {
   // True when the caller's own read of the conversation hit ITS limit, so turns older than the ones
   // handed in certainly exist. Without it a window that fits its caps exactly is indistinguishable
@@ -180,7 +192,10 @@ export function buildConversationWindow(
   options: ConversationWindowOptions = {},
 ): ConversationWindow {
   const ordered = [...turns].sort((left, right) => left.sequence - right.sequence);
-  const eligible = ordered.filter(hasContent);
+  const eligible = ordered.filter(
+    (turn, index): turn is TurnRow & { readonly content: string } =>
+      hasContent(turn) && !answersARemovedQuestion(ordered, index),
+  );
 
   // The window must end on the member's newest turn — the question being answered. Anything after it
   // (an already-answered Magnus turn from a redelivery, say) is not part of this request.

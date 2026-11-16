@@ -32,6 +32,7 @@
     "lint:secrets": "node tooling/lint-secrets/index.mjs",
     "lint:containers": "node tooling/lint-containers/index.mjs",
     "lint:native-builds": "node tooling/lint-native-builds/index.mjs",
+    "lint:single-vite": "node tooling/lint-single-vite/index.mjs",
     "lint:cargo-licenses": "node tooling/license-policy/cargo.mjs",
     "lint:status": "node tooling/lint-status.mjs",
     "lint:roadmap": "node tooling/lint-roadmap.mjs",

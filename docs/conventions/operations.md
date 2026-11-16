@@ -781,9 +781,9 @@ Four settings, all of which must be **off**, verified on the gateway rather than
 
 **Queues.** The conversational assistant declares `…-magnus` and `…-magnus-deadletter`; create both before deploying (the §3 note applies — a missing queue aborts the deploy).
 
-**Turning the assistant on is three deliberate acts, in this order.** Nothing here happens by deploying the code: the shipped default reaches no provider at all.
+**Turning the assistant on is three acts.** The first is in the code; the other two are each firm's.
 
-1. Set the Worker variable `MAGNUS_INFERENCE_ADAPTER=gateway`. Absent — or any other value — resolves to the deterministic stub, which reaches no provider and returns obviously-fake answers.
+1. The Worker variable `MAGNUS_INFERENCE_ADAPTER` is `"gateway"` in `apps/api-worker/wrangler.jsonc` (the owner's ruling of 2026-11-14), because a value set only in the dashboard is replaced by the next deploy, and production answered every question with the stub for that reason. `.dev.vars` sets `stub` for the local run and the test pool. Any other value, or none, selects no port: the question is settled as unanswered and the misconfiguration is reported, never answered with fake text. The answers go through the AI Gateway `magna-carta-inference` (section 17), which must exist with the models' provider reachable from it.
 2. Open the firm's general AI-processing setting (`inference.aiProcessingEligibility`). Default closed.
 3. Open the firm's assistant setting (`magnus.enabled`). Default closed.
 

@@ -250,7 +250,7 @@ describe("what a batch at the door came to", () => {
         },
         "admitted",
       ),
-    ).toBe("2 people did not get in: the room is full.");
+    ).toBe("2 people didn't get in. The room is full.");
   });
 
   it("says the same thing about a batch that was turned away", () => {

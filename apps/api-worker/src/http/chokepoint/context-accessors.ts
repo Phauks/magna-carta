@@ -20,7 +20,7 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../bindings.ts";
 import { problemJson, type ProblemResponse } from "../contracts/problem.ts";
-import type { ChokepointGuestGrant } from "./chokepoint.ts";
+import type { ChokepointGuestGrant, ChokepointSignerGrant } from "./chokepoint.ts";
 import type { AppVariables, FirmContext } from "./ports.ts";
 import type { SessionContext } from "../session-context.ts";
 
@@ -125,6 +125,14 @@ export function assertAlsoHasPermission(
 export function requireChokepointGuestGrant(c: AppContext): ChokepointGuestGrant {
   const grant = c.get("chokepointGuestGrant");
   if (grant === undefined) throw chokepointContextError("chokepointGuestGrant");
+  return grant;
+}
+
+// The signing link the chokepoint's signer lane verified, or a throw if absent: stashed ONLY on a
+// route declaring `signerLane`, so a signer handler pointed at any other route fails loudly.
+export function requireChokepointSignerGrant(c: AppContext): ChokepointSignerGrant {
+  const grant = c.get("chokepointSignerGrant");
+  if (grant === undefined) throw chokepointContextError("chokepointSignerGrant");
   return grant;
 }
 

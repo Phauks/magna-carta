@@ -95,6 +95,7 @@ async function get(
 interface StartedMeeting {
   id: string;
   created: boolean;
+  joinCode: string | null;
 }
 interface JoinedMeeting {
   participantId: string;
@@ -286,7 +287,9 @@ describe("starting a meeting on an event", () => {
     const second = await post("/api/v1/meetings", ownerCookie, { eventKind: "matter", eventId });
     expect(second.status).toBe(200);
     const found = await readJson<StartedMeeting>(second);
-    expect(found).toEqual({ id: opened.id, created: false });
+    expect(found).toEqual({ id: opened.id, created: false, joinCode: opened.joinCode });
+    // The nine digits come back with the room, so Start opens /meeting/482-917-305 directly.
+    expect(opened.joinCode).toMatch(/^[1-9]\d{8}$/);
   });
 
   it("starts a CALL when one is asked for, and keeps it a call when somebody asks for video", async () => {
@@ -297,7 +300,7 @@ describe("starting a meeting on an event", () => {
       medium: "audio",
     });
     expect(started.status).toBe(201);
-    const meetingId = (await readJson<StartedMeeting>(started)).id;
+    const { id: meetingId, joinCode } = await readJson<StartedMeeting>(started);
     expect(
       (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${meetingId}`, ownerCookie)))
         .medium,
@@ -311,7 +314,11 @@ describe("starting a meeting on an event", () => {
       medium: "video",
     });
     expect(again.status).toBe(200);
-    expect(await readJson<StartedMeeting>(again)).toEqual({ id: meetingId, created: false });
+    expect(await readJson<StartedMeeting>(again)).toEqual({
+      id: meetingId,
+      created: false,
+      joinCode,
+    });
     expect(
       (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${meetingId}`, ownerCookie)))
         .medium,

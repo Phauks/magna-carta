@@ -237,6 +237,8 @@ Two things are outside them. Deleting a **folder** cannot be undone; when you de
 says so and points you at **Deleted Files**, where the documents it held can still be brought back
 one by one. And undo does not survive a reload: it is for the change you just made.
 
+A deleted file waits in **Deleted Files** for as long as your firm has chosen, 30 days unless it chose otherwise, and the **Leaves Trash** column says when that is. After it the file moves to cheaper archive storage and the column says **Archived**, but it can still be brought back the same way. Nothing in Deleted Files is ever destroyed. See [Deleted files](../admin/deleted-files.md).
+
 ### Where you are in the folders
 
 The strip above the list is the path to the folder you are in, starting at the home icon. Home is
@@ -370,6 +372,29 @@ you give it one that works.
 
 Renaming a row in the list itself works the same way: press **F2**, or choose **Rename** from the
 row's right-click menu.
+
+## Downloading several files as one bundle
+
+Select the files and folders you want, right-click the selection and choose **Download as Bundle**. To bundle the whole matter, right-click the empty space under the list and choose **Download Matter as Bundle**.
+
+The panel asks how the bundle should be made. The defaults suit most bundles, so **Build Bundle** is usually the only press:
+
+- **Format**: Zip, which every computer opens, or 7z, which is smaller and can be split.
+- **Compression**: None, Normal or Smallest. Smallest takes longer to build.
+- **Password**: leave it empty for an ordinary bundle. With a password the bundle is encrypted with AES-256, and a 7z bundle hides the file names too. The password is not stored anywhere, so keep it somewhere safe and send it separately.
+- **Split Into Parts Of**: for a 7z bundle that has to fit an email or a disc. A password-protected bundle comes as one file, so it cannot also be split.
+- **Folders**: **Keep** puts the files in their folders; **Flatten** puts them all at the top.
+- **Include a contents list with each file's hash**: adds a list of every file with its fingerprint, so whoever receives the bundle can check nothing changed on the way.
+
+A small bundle downloads straight away. A large one is built in the background: a note above the list says so, it downloads when it is ready, and it is in the download tray at the top of the screen in the meantime. Documents edited in the browser go into the bundle with every tracked change accepted, the same as a single download.
+
+## Converting a document to another format
+
+Right-click a file and open **Convert**. The list shows what that kind of file can become, by its ending: **To pdf**, **To odt**, **To txt** and so on. Where one ending covers two kinds, the second says which, as in **To pdf (Searchable PDF)**.
+
+Choose one, and a note above the list follows the file while it is read, sent and converted. The converted copy is then filed in the same folder as the original, through the same upload and safety check as any file you add, so it appears in the upload tray. If the folder already holds a file with that name, both are kept. The original is never changed.
+
+Convert is offered on one file at a time. To convert many files at once, use the **Convert** tab on the File Workbench.
 
 ## Archives
 

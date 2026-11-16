@@ -69,7 +69,7 @@
   }
 </script>
 
-<div class="flex items-center gap-8 px-24 pt-8" role="search" aria-label="Find in this conversation">
+<div class="flex min-w-0 flex-1 items-center gap-8" role="search" aria-label="Find in this conversation">
   <Search class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
   <Input
     bind:ref={field}

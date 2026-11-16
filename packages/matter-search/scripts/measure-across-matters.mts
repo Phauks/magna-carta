@@ -118,9 +118,80 @@ for (let index = 0; index < RECORDS; index += 1) {
     INSTANT,
   );
 }
+
+// The three places that answer across matters by reading their own table: parties, invoice lines
+// and custody packets. Sized against the same record count, at the proportions a firm's book has:
+// a party row for every four records over half as many people, an invoice line for every record
+// at ten lines to an invoice, and a packet for every two hundred.
+const PARTIES = Math.floor(RECORDS / 4);
+const PEOPLE = Math.max(1, Math.floor(PARTIES / 2));
+const INVOICE_LINES = RECORDS;
+const LINES_PER_INVOICE = 10;
+const PACKETS = Math.max(1, Math.floor(RECORDS / 200));
+const insertPerson = raw.prepare(
+  `INSERT INTO directory_person (id, display_name, deceased, status, needs_review, created_at, updated_at) ` +
+    `VALUES (?, ?, 0, 'active', 0, ?, ?)`,
+);
+const insertParty = raw.prepare(
+  `INSERT INTO matter_party (id, matter_id, entity_id, role, capacity, created_at, updated_at) ` +
+    `VALUES (?, ?, ?, 'witness', NULL, ?, ?)`,
+);
+const insertInvoice = raw.prepare(
+  `INSERT INTO invoice (id, client_entity_id, currency, status, created_at, updated_at) ` +
+    `VALUES (?, ?, 'USD', 'draft', ?, ?)`,
+);
+const insertInvoiceLine = raw.prepare(
+  `INSERT INTO invoice_line (id, invoice_id, line_index, matter_id, kind, description, amount_minor, ` +
+    `currency, created_at) VALUES (?, ?, ?, ?, 'fee', ?, 12500, 'USD', ?)`,
+);
+const insertPacket = raw.prepare(
+  `INSERT INTO custody_packet (id, custody_number, number_source, name, status, matter_id, ` +
+    `created_at, updated_at) VALUES (?, ?, 'manual', ?, 'held', ?, ?, ?)`,
+);
+function personId(index: number): string {
+  return `directoryPerson_${String(index).padStart(12, "0")}`;
+}
+for (let index = 0; index < PEOPLE; index += 1) {
+  insertPerson.run(personId(index), `${word()} ${word()} ${String(index)}`, INSTANT, INSTANT);
+}
+for (let index = 0; index < PARTIES; index += 1) {
+  const matter = matterIds[Math.floor(random() * MATTERS)] ?? matterIds[0]!;
+  insertParty.run(
+    `matterParty_${String(index).padStart(12, "0")}`,
+    matter,
+    personId(Math.floor(random() * PEOPLE)),
+    INSTANT,
+    INSTANT,
+  );
+}
+for (let index = 0; index < INVOICE_LINES; index += 1) {
+  const invoice = `invoice_${String(Math.floor(index / LINES_PER_INVOICE)).padStart(12, "0")}`;
+  if (index % LINES_PER_INVOICE === 0) insertInvoice.run(invoice, personId(0), INSTANT, INSTANT);
+  const matter = matterIds[Math.floor(random() * MATTERS)] ?? matterIds[0]!;
+  insertInvoiceLine.run(
+    `invoiceLine_${String(index).padStart(12, "0")}`,
+    invoice,
+    index % LINES_PER_INVOICE,
+    matter,
+    sentence(index),
+    INSTANT,
+  );
+}
+for (let index = 0; index < PACKETS; index += 1) {
+  const matter = matterIds[Math.floor(random() * MATTERS)] ?? matterIds[0]!;
+  insertPacket.run(
+    `custodyPacket_${String(index).padStart(12, "0")}`,
+    `CUS-${String(index).padStart(7, "0")}`,
+    `${word()} ${word()} originals`,
+    matter,
+    INSTANT,
+    INSTANT,
+  );
+}
 raw.exec("COMMIT");
 console.log(
-  `built ${String(RECORDS)} indexed records and ${String(RECORDS)} files over ${String(MATTERS)} matters ` +
+  `built ${String(RECORDS)} indexed records and ${String(RECORDS)} files over ${String(MATTERS)} matters, ` +
+    `with ${String(PARTIES)} parties, ${String(INVOICE_LINES)} invoice lines and ${String(PACKETS)} packets, ` +
     `in ${((performance.now() - started) / 1000).toFixed(1)} s`,
 );
 
@@ -194,6 +265,21 @@ console.log("\nfile and folder names (a read of the file table):");
 await time("a name no file has", "zzzzzz", ["files"], 2000);
 await time("a syllable in many names", "ba", ["files"], 2000);
 await time("a number in one name", "199999.pdf", ["files"], 2000);
+
+console.log("\nparties, invoice lines and custody packets (a read of each one's own table):");
+await time("parties: a name nobody has", "zzzzzz", ["parties"], 2000);
+await time("parties: a syllable in many names", "ba", ["parties"], 2000);
+await time("invoice lines: a word no line has", "zzzzzz", ["billing"], 2000);
+await time("invoice lines: a word in 1 line in 100", "percentile", ["billing"], 2000);
+await time("invoice lines: a word in every line", "everywhere", ["billing"], 2000);
+await time("custody packets: a name no packet has", "zzzzzz", ["custody"], 2000);
+await time("custody packets: a syllable in many names", "ba", ["custody"], 2000);
+await time(
+  "all three with the names of files",
+  "zzzzzz",
+  ["files", "parties", "billing", "custody"],
+  2000,
+);
 
 // A search its reader narrowed. Up to the number of matters one question names, the matters are
 // named to the index and the cap is over their records; past it the index is asked the firm-wide

@@ -17,7 +17,6 @@
  * it lands and an earlier page is prepended.
  */
 import {
-  ANSWER_SLOW_AFTER_MILLISECONDS,
   readConversation,
   editTurn,
   readTurn,
@@ -78,20 +77,10 @@ export class ConversationSession {
   sending = $state(false);
   /** True while an earlier page is in flight. */
   loadingEarlier = $state(false);
-  /**
-   * True once a pending answer has been waiting longer than an ordinary one takes.
-   *
-   * It is not a loading flag and it drives no placeholder: the turn is on the record, and this is
-   * the surface owing its reader the same promise a stalled read makes, in the turn's own words.
-   * It clears the moment the turn settles, and again whenever the conversation changes.
-   */
-  answerIsSlow = $state(false);
-
   readonly #fetchImpl: typeof fetch;
   #conversationId: string | null = null;
   readonly #latest = new LatestOnly();
   #timer: ReturnType<typeof setTimeout> | undefined;
-  #slowTimer: ReturnType<typeof setTimeout> | undefined;
   #consecutivePollFailures = 0;
 
   constructor(fetchImpl: typeof fetch) {
@@ -362,12 +351,7 @@ export class ConversationSession {
     this.#clearPollTimer();
     const pending = this.pendingTurn;
     const conversationId = this.#conversationId;
-    // Nothing is pending, so nothing is being waited on: the wait ends with the turn it timed.
-    if (pending === null || conversationId === null) {
-      this.#stopSlowWatch();
-      return;
-    }
-    this.#startSlowWatch();
+    if (pending === null || conversationId === null) return;
     const attempt = this.#latest.attempt();
     this.#timer = setTimeout(() => {
       void this.#poll(conversationId, pending.id, attempt);
@@ -416,37 +400,19 @@ export class ConversationSession {
             content: progress.content ?? turn.content,
             failureLabel: progress.failureLabel ?? turn.failureLabel,
             contextTruncated: progress.truncatedContext ?? turn.contextTruncated,
+            thinking: progress.thinking ?? turn.thinking,
           }
         : turn,
     );
   }
 
-  /** Stop the poll AND the wait it was timing. Every path that leaves a conversation calls this. */
+  /** Stop the poll. Every path that leaves a conversation calls this. */
   #stopPolling(): void {
     this.#clearPollTimer();
-    this.#stopSlowWatch();
   }
 
   #clearPollTimer(): void {
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = undefined;
-  }
-
-  /**
-   * Start timing the wait, once. It is deliberately NOT restarted on each poll: the reader is
-   * waiting on one answer, and a timer that reset every second would never reach its threshold.
-   */
-  #startSlowWatch(): void {
-    if (this.#slowTimer !== undefined || this.answerIsSlow) return;
-    this.#slowTimer = setTimeout(() => {
-      this.#slowTimer = undefined;
-      this.answerIsSlow = true;
-    }, ANSWER_SLOW_AFTER_MILLISECONDS);
-  }
-
-  #stopSlowWatch(): void {
-    if (this.#slowTimer !== undefined) clearTimeout(this.#slowTimer);
-    this.#slowTimer = undefined;
-    this.answerIsSlow = false;
   }
 }

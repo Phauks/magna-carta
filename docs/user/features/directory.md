@@ -95,9 +95,10 @@ A record answers the questions the firm keeps an answer to:
   Jr. and Esq. is recorded as both. Only the first name is required: a person who has one name is
   recorded under it, with a note on screen saying that is what the firm will file and search them
   under. On a record, **Edit Name** opens the name's fields right there in the Names section, filled
-  in with the current name, so you change only the part that changed; **Save Name** keeps the old
-  name as a former name. **Add Other Name** opens the same fields for a maiden name or an alias,
-  with its kind. When you record a new person, **Add Other Name** opens a second full set of name fields
+  in with the current name, so you change only the part that changed. **Save Name** replaces the
+  name, as you would fix a typing mistake; the old spelling stays only in the record's history. To
+  keep an old name findable, such as a maiden name after a marriage, add it with **Add Other Name**,
+  which opens the same fields with its kind (for example Former). When you record a new person, **Add Other Name** opens a second full set of name fields
   (prefix, first, middle and last name, suffixes) for a maiden name or an alias, with its kind beside
   it; add as many as you need, and one left empty is ignored.
 - **Contact**: one line per way to reach them: email addresses, telephone numbers and fax numbers,

@@ -78,6 +78,9 @@ export interface TurnRow {
   readonly contextTruncated: boolean;
   // The effort the answer was asked for, or null where none was sent.
   readonly effort: string | null;
+  // A readable summary of the model's thinking on a Magnus turn, written while it is pending; null on
+  // a member turn and where the model returned none.
+  readonly thinking: string | null;
   // When the author removed this turn (with its pair) from the conversation; the text is kept.
   readonly removedAt: string | null;
   // When an edit of an earlier member turn set this turn aside; the text is kept.

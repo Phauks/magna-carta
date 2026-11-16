@@ -8,6 +8,11 @@
  */
 import {
   meetingsArriveAtRoom,
+  meetingsCreateSharedRoom,
+  meetingsOpenRoomAtAddress,
+  meetingsRetireSharedRoom,
+  meetingsUpdateSharedRoom,
+  type SharedRoomsResponse,
   meetingsEnsurePersonalRoom,
   meetingsMoveToMatter,
   meetingsOpenPersonalRoom,
@@ -50,6 +55,8 @@ export function ensurePersonalRoom(): Promise<MeetingWrite<PersonalRoomResponse>
 
 /** Change what the caller's room opens its sessions with. */
 export function updatePersonalRoom(change: {
+  /** A name for the room, or null to call it by the owner's name again. */
+  title?: string | null;
   medium?: MeetingMedium;
   lobby?: MeetingLobbyMode;
 }): Promise<MeetingWrite<PersonalRoomResponse>> {
@@ -109,6 +116,57 @@ export function moveMeetingToMatter(
     meetingsMoveToMatter({
       path: { meetingId },
       body: { matterId },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/** Open a session in the room at an address: the caller's own, or one of the firm's shared rooms. */
+export function openRoomAtAddress(
+  addressName: string,
+): Promise<MeetingWrite<OpenPersonalRoomResponse>> {
+  return write(() =>
+    meetingsOpenRoomAtAddress({
+      path: { linkCode: addressName },
+      body: { timeZone: readerTimeZone() || "UTC", matterId: null },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/** Set up a room the firm shares, such as a conference room. Answers with the whole list. */
+export function createSharedRoom(title: string): Promise<MeetingWrite<SharedRoomsResponse>> {
+  return write(() =>
+    meetingsCreateSharedRoom({
+      body: { title },
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/** Rename a shared room, or change what its sessions open with. */
+export function updateSharedRoom(
+  roomId: string,
+  change: { title?: string; medium?: MeetingMedium; lobby?: MeetingLobbyMode },
+): Promise<MeetingWrite<SharedRoomsResponse>> {
+  return write(() =>
+    meetingsUpdateSharedRoom({
+      path: { roomId },
+      body: change,
+      headers: { "idempotency-key": newWriteKey() },
+      throwOnError: true,
+    }),
+  );
+}
+
+/** Take a shared room off the firm's list; its link stops working. */
+export function retireSharedRoom(roomId: string): Promise<MeetingWrite<SharedRoomsResponse>> {
+  return write(() =>
+    meetingsRetireSharedRoom({
+      path: { roomId },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
     }),

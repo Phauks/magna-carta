@@ -175,7 +175,7 @@
     if (outcome.kind === "problem") attemptKey = null;
     formFailure = stated(
       outcome.failure,
-      editing === null ? "The event type was not added." : "The change was not saved.",
+      editing === null ? "The event type was not added." : "The change wasn't saved.",
       "Couldn't connect. Nothing changed. Try again.",
     );
     return "refused";
@@ -318,14 +318,14 @@
         </p>
       {:else}
         <div class="flex flex-col gap-4">
-          <Label for="event-type-name">Name</Label>
+          <Label necessity="required" for="event-type-name">Name</Label>
           <Input id="event-type-name" bind:value={draft.name} />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="event-type-code">Code</Label>
+          <Label necessity="optional" for="event-type-code">Code</Label>
           <Input id="event-type-code" autocapitalize="characters" bind:value={draft.code} />
           <p class="text-xs text-text-muted">
-            A short code in capitals, used for calendar colors. Optional.
+            A short code in capitals, used for calendar colors.
           </p>
         </div>
       {/if}

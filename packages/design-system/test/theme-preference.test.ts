@@ -75,7 +75,7 @@ describe("readThemePreference", () => {
       density: "comfortable",
       contrast: "system",
       scrollEdgeHints: "shown",
-      typeface: "atkinson",
+      typeface: "inter",
       textSize: 100,
     });
   });
@@ -126,9 +126,16 @@ describe("readThemePreference", () => {
     expect(readThemePreference().scrollEdgeHints).toBe("shown");
   });
 
-  it("falls back to the Atkinson reading face when the stored typeface is not recognized", () => {
+  it("falls back to the Inter reading face when the stored typeface is not recognized", () => {
     localStorage.setItem(TYPEFACE_STORAGE_KEY, "comic-sans");
-    expect(readThemePreference().typeface).toBe("atkinson");
+    expect(readThemePreference().typeface).toBe("inter");
+  });
+
+  it("reads the old Atkinson default as the Inter default, not as a choice of Atkinson", () => {
+    localStorage.setItem(TYPEFACE_STORAGE_KEY, "atkinson");
+    expect(readThemePreference().typeface).toBe("inter");
+    localStorage.setItem(TYPEFACE_STORAGE_KEY, "atkinson-hyperlegible");
+    expect(readThemePreference().typeface).toBe("atkinson-hyperlegible");
   });
 
   it("falls back to the default text size when the stored size is not recognized", () => {
@@ -177,9 +184,9 @@ describe("applyTypefaceToDocument", () => {
     },
   );
 
-  it("removes data-typeface for the Atkinson default, which needs no overlay", () => {
+  it("removes data-typeface for the Inter default, which needs no overlay", () => {
     applyTypefaceToDocument("lexend");
-    applyTypefaceToDocument("atkinson");
+    applyTypefaceToDocument("inter");
     expect(document.documentElement.dataset.typeface).toBeUndefined();
   });
 

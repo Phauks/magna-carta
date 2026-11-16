@@ -29,6 +29,10 @@
    * limits are about what leaves, and nothing leaves here) and what is read is shown to them alone,
    * which the plate says in so many words. A calendar they can only read is offered like any other.
    *
+   * A MEMBER WITH AN ACCOUNT AT BOTH PROVIDERS CHOOSES WHICH ONE THE PAGE IS ABOUT, at the top.
+   * Each account has its own rules, its own shown calendars and its own questions, and every plate
+   * below is the chosen account's. A member with one account never meets the choice.
+   *
    * WHEN THE PROVIDER CANNOT BE ASKED the page still shows what is saved, with each rule's
    * calendar under the name it had when saved, and offers no change: a rule can only be saved
    * against the account's calendars as they stand.
@@ -39,6 +43,7 @@
     calendarSyncListMyIssuesQueryKey,
     calendarSyncReadMineOptions,
     calendarSyncReadMineQueryKey,
+    connectedAccountsListOptions,
     type CalendarSyncIssue,
     type CalendarSyncIssueList,
     type CalendarSyncSettings,
@@ -50,6 +55,7 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Label from "@magna-carta/design-system/label";
   import Switch from "@magna-carta/design-system/switch";
+  import * as Tabs from "@magna-carta/design-system/tabs";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { issueKey, syncIssueColumns } from "$lib/calendar-sync/sync-issues.ts";
   import {
@@ -76,7 +82,11 @@
     type ShownCalendarChoice,
     type SyncScope,
   } from "$lib/calendar-sync/sync-settings.ts";
-  import { providerNames } from "$lib/calendar-sync/connected-accounts.ts";
+  import {
+    CALENDAR_PROVIDERS,
+    providerNames,
+    type CalendarProvider,
+  } from "$lib/calendar-sync/connected-accounts.ts";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
@@ -85,13 +95,43 @@
   import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
 
   const queryClient = useQueryClient();
-  const settings = createQuery(() => calendarSyncReadMineOptions());
+  // The member's accounts, to know whether there is a choice to offer. In the order the
+  // Connected Accounts page lists the providers.
+  const connectedAccounts = createQuery(() => connectedAccountsListOptions());
+  const connectedProviders = $derived(
+    CALENDAR_PROVIDERS.filter((provider) =>
+      connectedAccounts.data?.accounts.some((entry) => entry.provider === provider),
+    ),
+  );
+  let chosenProvider = $state<CalendarProvider | null>(null);
+  // The account the page is about: the one chosen, while it is still connected, or the first.
+  const activeProvider = $derived(
+    chosenProvider !== null && connectedProviders.includes(chosenProvider)
+      ? chosenProvider
+      : connectedProviders[0],
+  );
+  // Sent with every read and write below, so each is about the same account. Nothing is named
+  // for a member with no account, and the server answers that there is none.
+  const accountChoice = $derived(
+    activeProvider === undefined ? undefined : { provider: activeProvider },
+  );
+  const readOptions = $derived(accountChoice === undefined ? {} : { query: accountChoice });
+
+  const settings = createQuery(() => ({
+    ...calendarSyncReadMineOptions(readOptions),
+    // Waits for the list of accounts, so the first read is already about the right one.
+    enabled: !connectedAccounts.isPending,
+  }));
 
   const account = $derived(settings.data?.account ?? null);
   // The member's own calendar as they call it. With no account connected there is no provider to
   // name, and the page says "your calendar".
   const product = $derived(
     account === null ? "Your Calendar" : providerNames(account.provider).product,
+  );
+  // The row on the calendar this account's own events appear under.
+  const ownCalendar = $derived(
+    providerNames(account?.provider ?? "microsoft").ownCalendar,
   );
   const calendars = $derived(settings.data?.calendars ?? null);
   // A change needs the account's calendars as they stand now, so without them nothing is offered.
@@ -128,16 +168,23 @@
     shownRefusal = null;
     const outcome = await saveMyShownCalendars(
       shownIdsWithChange(shownChoices, calendars, choice.remoteId, shown),
+      accountChoice,
     );
     showing = null;
     if (outcome.kind === "refused") {
-      shownRefusal = outcome.detail ?? "The change was not saved. Nothing changed.";
+      shownRefusal = outcome.detail ?? "The change wasn't saved. Nothing changed.";
       return;
     }
-    queryClient.setQueryData<CalendarSyncSettings>(calendarSyncReadMineQueryKey(), outcome.value);
+    queryClient.setQueryData<CalendarSyncSettings>(
+      calendarSyncReadMineQueryKey(readOptions),
+      outcome.value,
+    );
   }
 
-  const issues = createQuery(() => calendarSyncListMyIssuesOptions());
+  const issues = createQuery(() => ({
+    ...calendarSyncListMyIssuesOptions(readOptions),
+    enabled: !connectedAccounts.isPending,
+  }));
   const openIssues = $derived(issues.data?.issues ?? []);
   const issueGrid = $derived(
     DataTable.createDataTableGrid<CalendarSyncIssue>({
@@ -154,14 +201,14 @@
   async function answer(issue: CalendarSyncIssue, choice: "putBack" | "leave"): Promise<void> {
     answering = issueKey(issue);
     answerRefusal = null;
-    const outcome = await answerSyncIssue(issue, choice);
+    const outcome = await answerSyncIssue(issue, choice, accountChoice);
     answering = null;
     if (outcome.kind === "refused") {
       answerRefusal = outcome.detail ?? "Your answer was not saved. Nothing changed.";
       return;
     }
     queryClient.setQueryData<CalendarSyncIssueList>(
-      calendarSyncListMyIssuesQueryKey(),
+      calendarSyncListMyIssuesQueryKey(readOptions),
       outcome.value,
     );
   }
@@ -203,12 +250,16 @@
         calendarRemoteId: destination,
         scope,
       }),
+      accountChoice,
     );
     if (outcome.kind === "refused") {
-      refusal = outcome.detail ?? "The change was not saved. Nothing changed.";
+      refusal = outcome.detail ?? "The change wasn't saved. Nothing changed.";
       return "refused";
     }
-    queryClient.setQueryData<CalendarSyncSettings>(calendarSyncReadMineQueryKey(), outcome.value);
+    queryClient.setQueryData<CalendarSyncSettings>(
+      calendarSyncReadMineQueryKey(readOptions),
+      outcome.value,
+    );
     return "committed";
   }
 </script>
@@ -274,6 +325,21 @@
 />
 
 <SettingsScrollRegion>
+  {#if connectedProviders.length > 1 && activeProvider !== undefined}
+    <Tabs.Root
+      bind:value={
+        () => activeProvider,
+        (next) => (chosenProvider = CALENDAR_PROVIDERS.find((entry) => entry === next) ?? null)
+      }
+    >
+      <Tabs.List aria-label="Which account">
+        {#each connectedProviders as provider (provider)}
+          <Tabs.Trigger value={provider}>{providerNames(provider).product}</Tabs.Trigger>
+        {/each}
+      </Tabs.List>
+    </Tabs.Root>
+  {/if}
+
   {#if openIssues.length > 0}
     <SettingsPlate heading="Different in {product}">
       <SettingsDescription>
@@ -295,7 +361,7 @@
     </SettingsDescription>
 
     <LoadingRegion
-      loading={settings.isPending}
+      loading={settings.isPending || connectedAccounts.isPending}
       failed={settings.isError}
       label="Reading your calendar sync settings"
       onRetry={() => void settings.refetch()}
@@ -353,7 +419,7 @@
   {#if account !== null && shownChoices.length > 0}
     <SettingsPlate heading="From {product} to Magna Carta">
       <SettingsDescription>
-        Events from the calendars you turn on below appear on your Magna Carta calendar under My Outlook Calendar. Only you see them. Nothing changes in {product}, and they aren't added to any matter.
+        Events from the calendars you turn on below appear on your Magna Carta calendar under {ownCalendar}. Only you see them. Nothing changes in {product}, and they aren't added to any matter.
       </SettingsDescription>
       {#if shownRefusal !== null}
         <Alert.Root variant="danger">

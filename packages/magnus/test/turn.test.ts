@@ -306,6 +306,7 @@ describe("changing a member's own message", () => {
       outputTokens: null,
       contextTruncated: false,
       effort: null,
+      thinking: null,
       removedAt: null,
       supersededAt: null,
       replacesTurnId: null,
@@ -315,16 +316,15 @@ describe("changing a member's own message", () => {
     };
   }
 
-  it("refuses an answer, a turn already gone, and any change while an answer is pending", () => {
-    expect(turnChangeRefusal(memberTurn(), false)).toBeNull();
-    expect(turnChangeRefusal(memberTurn({ speaker: "magnus" }), false)).toBe("not-yours");
-    expect(turnChangeRefusal(memberTurn({ removedAt: "2026-08-06T01:00:00.000Z" }), false)).toBe(
+  it("refuses an answer and a turn already gone, and never refuses for a pending answer", () => {
+    expect(turnChangeRefusal(memberTurn())).toBeNull();
+    expect(turnChangeRefusal(memberTurn({ speaker: "magnus" }))).toBe("not-yours");
+    expect(turnChangeRefusal(memberTurn({ removedAt: "2026-08-06T01:00:00.000Z" }))).toBe(
       "already-gone",
     );
-    expect(turnChangeRefusal(memberTurn({ supersededAt: "2026-08-06T01:00:00.000Z" }), false)).toBe(
+    expect(turnChangeRefusal(memberTurn({ supersededAt: "2026-08-06T01:00:00.000Z" }))).toBe(
       "already-gone",
     );
-    expect(turnChangeRefusal(memberTurn(), true)).toBe("answer-pending");
   });
 
   it("an edit sets aside the message and everything after it, then records the new message naming it", () => {
@@ -347,7 +347,7 @@ describe("changing a member's own message", () => {
     expect(inserts[0]?.bindings).toContain(MEMBER_TURN);
   });
 
-  it("a removal hides the pair without touching its words, guarded against a pair already gone", () => {
+  it("a removal hides the message alone without touching its words, guarded against one already gone", () => {
     const { database, recorded } = recordingDatabase();
     const effect = removeTurn(database, context(), {
       conversationId: CONVERSATION,
@@ -359,11 +359,6 @@ describe("changing a member's own message", () => {
     const update = recorded.find((statement) => statement.sql.startsWith("UPDATE magnus_turn"));
     expect(update?.sql).toContain("SET removed_at = ?2");
     expect(update?.sql).not.toContain("content");
-    expect(update?.bindings).toEqual([
-      CONVERSATION,
-      "2026-08-06T12:00:00.000Z",
-      MEMBER_TURN,
-      MAGNUS_TURN,
-    ]);
+    expect(update?.bindings).toEqual([CONVERSATION, "2026-08-06T12:00:00.000Z", MEMBER_TURN]);
   });
 });

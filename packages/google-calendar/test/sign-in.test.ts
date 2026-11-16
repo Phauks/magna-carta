@@ -3,10 +3,12 @@ import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
 import {
   GOOGLE_CALENDAR_SCOPES,
   authorizationUrl,
+  checkApplicationCredentials,
   grantsCalendar,
   readSignedInAccount,
   redeemAuthorizationCode,
   refreshAccessToken,
+  revokeGrant,
   type GoogleApplication,
 } from "../src/sign-in.ts";
 
@@ -198,5 +200,57 @@ describe("naming the account", () => {
       ok: false,
       problem: { category: "validation" },
     });
+  });
+});
+
+describe("checkApplicationCredentials", () => {
+  it("reads a refused made-up refresh token as the application being accepted", async () => {
+    const { http, sent } = answering(400, { error: "invalid_grant", error_description: "Bad" });
+    expect(await checkApplicationCredentials(http, application)).toBe("accepted");
+    expect(sent[0]?.url).toBe("https://oauth2.googleapis.com/token");
+    const body = new URLSearchParams(sent[0]?.body);
+    expect(body.get("grant_type")).toBe("refresh_token");
+    expect(body.get("client_id")).toBe("client-1");
+    // No member's token and no authorization code is ever sent by the check.
+    expect(body.get("code")).toBeNull();
+  });
+
+  it("reads an unknown application or a wrong secret as refused", async () => {
+    expect(
+      await checkApplicationCredentials(
+        answering(401, { error: "invalid_client" }).http,
+        application,
+      ),
+    ).toBe("refused");
+    expect(
+      await checkApplicationCredentials(
+        answering(400, { error: "unauthorized_client" }).http,
+        application,
+      ),
+    ).toBe("refused");
+  });
+
+  it("reads a fault, an unreadable answer or no answer as unreachable", async () => {
+    expect(await checkApplicationCredentials(answering(503, {}).http, application)).toBe(
+      "unreachable",
+    );
+    const offline: HttpClient = { request: () => Promise.reject(new Error("offline")) };
+    expect(await checkApplicationCredentials(offline, application)).toBe("unreachable");
+  });
+});
+
+describe("revokeGrant", () => {
+  it("sends Google the refresh token and nothing else, and answers that it was withdrawn", async () => {
+    const { http, sent } = answering(200, {});
+    expect(await revokeGrant(http, "refresh-1")).toBe(true);
+    expect(sent[0]?.method).toBe("POST");
+    expect(sent[0]?.url).toBe("https://oauth2.googleapis.com/revoke");
+    expect(sent[0]?.body).toBe("token=refresh-1");
+  });
+
+  it("answers no for a refusal or no answer, and never throws", async () => {
+    expect(await revokeGrant(answering(400, { error: "invalid_token" }).http, "gone")).toBe(false);
+    const offline: HttpClient = { request: () => Promise.reject(new Error("offline")) };
+    expect(await revokeGrant(offline, "refresh-1")).toBe(false);
   });
 });

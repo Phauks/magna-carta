@@ -32,7 +32,8 @@ import { broadcast, broadcastPerViewer, type RoomContext } from "./room-state.ts
  *
  * BUILT FOR THE READER: a guest's socket is sent the same message with the firm's user identifiers
  * taken out — who said it is the stay, which the roster names, and who took it back is a member a
- * guest has no business being able to identify.
+ * guest has no business being able to identify. A shared file stays: a guest in the room opens
+ * it through the guest lane's own route, which checks the line and the stay again.
  */
 export async function relayMessage(room: RoomContext, message: MeetingChatMessage): Promise<void> {
   const recipientCount = broadcastPerViewer(room, (viewer) =>

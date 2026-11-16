@@ -544,6 +544,20 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // How long a deleted file waits in its matter's Trash, and whether it then moves to archive
+    // storage. Server-backed over GET/PATCH /api/v1/firm/deleted-file-policy, which the daily
+    // tiering sweep reads. Its edit right is `matters:manageRetention`, the same as File Retention,
+    // because both are the firm deciding how long it keeps what.
+    id: "deleted-files",
+    label: "Deleted Files",
+    href: "/settings/deleted-files",
+    group: "documents",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "retention",
+    shipped: true,
+  },
+  {
     // The firm's editing policy: whether every document opened in the browser editor records its
     // changes. Server-backed over GET/PATCH /api/v1/firm/editing-policy — the same policy the WOPI
     // host reads on every open, so a save here reaches the next document opened. Draft mode, not

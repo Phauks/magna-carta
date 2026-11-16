@@ -6,7 +6,12 @@
  */
 import { z } from "@hono/zod-openapi";
 import { VERSION_ROUTE_PATH } from "@magna-carta/build-identity/version-route";
+import { fetchHttpClient, type HttpClient } from "@magna-carta/integrations/http";
 import type { Bindings } from "../bindings.ts";
+import {
+  probeCalendarProviders,
+  type CalendarProviderStatusBindings,
+} from "../calendar-sync/provider-status.ts";
 import {
   type ConnectedServiceStatusReport,
   probeRealtimeService,
@@ -130,7 +135,8 @@ async function probeService(
 export type ServiceVersionBindings = Partial<
   Record<(typeof SERVICE_VERSION_ROSTER)[number]["binding"], Fetcher>
 > &
-  Partial<Pick<Bindings, "REALTIME_SFU_APP_ID" | "REALTIME_SFU_APP_SECRET">>;
+  Partial<Pick<Bindings, "REALTIME_SFU_APP_ID" | "REALTIME_SFU_APP_SECRET">> &
+  CalendarProviderStatusBindings;
 
 /** Probe every rostered service binding in parallel, each under its own short timeout. */
 export async function collectServiceVersions(
@@ -153,6 +159,12 @@ let cachedServiceVersions: {
   services: ServiceVersionReport[];
   connectedServices: ConnectedServiceStatusReport[];
 } | null = null;
+
+// Test seam: the transport the calendar provider checks use, so no test reaches Google or Microsoft.
+let calendarProviderHttp: HttpClient | null = null;
+export function setCalendarProviderHttpForTests(http: HttpClient | null): void {
+  calendarProviderHttp = http;
+}
 
 /** Test seam: drop the per-isolate cache so a test starts from a cold read. */
 export function resetServiceVersionsCache(): void {
@@ -177,15 +189,20 @@ export async function readServiceVersionsThroughCache(
   }
   // A forced read still WRITES the cache: the probe it just paid for is the freshest observation
   // there is, so the next cached read serves it rather than an older one.
-  const [services, realtime] = await Promise.all([
+  const [services, realtime, calendarProviders] = await Promise.all([
     collectServiceVersions(env),
     probeRealtimeService(env, PROBE_TIMEOUT_MILLISECONDS),
+    probeCalendarProviders(
+      env,
+      calendarProviderHttp ?? fetchHttpClient(),
+      PROBE_TIMEOUT_MILLISECONDS,
+    ),
   ]);
   cachedServiceVersions = {
     observedAt: new Date(now).toISOString(),
     freshUntilEpochMilliseconds: now + CACHE_TIME_TO_LIVE_MILLISECONDS,
     services,
-    connectedServices: [realtime],
+    connectedServices: [realtime, ...calendarProviders],
   };
   return cachedServiceVersions;
 }

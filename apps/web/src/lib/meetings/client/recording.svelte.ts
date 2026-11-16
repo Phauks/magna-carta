@@ -202,8 +202,8 @@ export interface MeetingRecordingRefusal {
  */
 const RECORDING_REFUSALS: Readonly<Record<string, MeetingRecordingRefusal>> = Object.freeze({
   "meeting-recording-not-configured": {
-    title: "Recording Is Not Switched On",
-    sentence: "Recording is not switched on for this firm yet.",
+    title: "Recording Isn't Turned On",
+    sentence: "Recording isn't turned on for this firm yet.",
   },
   "meeting-recording-already-running": {
     title: "Already Recording",
@@ -211,27 +211,27 @@ const RECORDING_REFUSALS: Readonly<Record<string, MeetingRecordingRefusal>> = Ob
   },
   "meeting-recording-not-running": {
     title: "Not Recording",
-    sentence: "This meeting is not being recorded, so there was nothing to stop.",
+    sentence: "This meeting isn't being recorded, so there was nothing to stop.",
   },
   "meeting-recording-needs-matter": {
-    title: "This Meeting Cannot Be Recorded",
-    sentence: "Only a meeting on a matter can be recorded, and this one is on a firm event.",
+    title: "This Meeting Can't Be Recorded",
+    sentence: "Only a meeting on a matter can be recorded. This one is on a firm event.",
   },
   "meeting-recording-too-many-tracks": {
     title: "Too Many People to Record",
-    sentence: "There are more people speaking in this room than one recording can hold.",
+    sentence: "Too many people are speaking in this room for one recording.",
   },
   "meeting-recording-not-permitted": {
-    title: "You Cannot Stop This Recording",
-    sentence: "Stopping a recording takes the right to record, or hosting this meeting.",
+    title: "You Can't Stop This Recording",
+    sentence: "Only a host or someone allowed to record can stop a recording.",
   },
   "meeting-not-host": {
-    title: "You Are Not Hosting This Meeting",
-    sentence: "Only somebody hosting this meeting can start a recording.",
+    title: "You Aren't Hosting This Meeting",
+    sentence: "Only a host can start a recording.",
   },
   "meeting-already-ended": {
     title: "This Meeting Has Ended",
-    sentence: "There is nobody left in the room to record.",
+    sentence: "Nobody is left in the room to record.",
   },
 });
 
@@ -245,8 +245,8 @@ export function recordingRefusal(
     if (type === meetingProblemType(slug)) return refusal;
   }
   return act === "start"
-    ? { title: "Nothing Changed", sentence: "The recording did not start." }
-    : { title: "Nothing Changed", sentence: "The recording did not stop." };
+    ? { title: "Nothing Changed", sentence: "The recording didn't start." }
+    : { title: "Nothing Changed", sentence: "The recording didn't stop." };
 }
 
 export class MeetingRecording {

@@ -281,18 +281,84 @@ describe("conflicts check routes", () => {
     );
   });
 
-  it("previews the number the next check would draw, before anything is saved", async () => {
-    const preview = await get("/api/v1/conflicts/checks/next-number");
-    expect(preview.status, await preview.clone().text()).toBe(200);
-    const { checkNumber } = (await preview.json()) as { checkNumber: string };
-    expect(checkNumber).toMatch(/^CC\d{4}-\d{5,}$/);
+  it("names a matter's own parties as searched, though the request names nobody", async () => {
+    const matter = await post("/api/v1/matters", {
+      title: "Searched through its parties",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "Parties Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+    const partyId = await createPerson("Linked", "Party");
+    const linked = await post("/api/v1/directory/matter-parties", {
+      matterId,
+      entityId: partyId,
+      role: "client",
+    });
+    expect(linked.status, await linked.clone().text()).toBeLessThan(300);
 
-    const { opened } = await openAndSettle({
-      trigger: "preliminary",
-      subjectEntityIds: [await createPerson("Next", "Number")],
+    const response = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [],
       scope: PARTY_SCOPE,
     });
-    expect(opened.checkNumber).toBe(checkNumber);
+    expect(response.status, await response.clone().text()).toBe(202);
+    const opened = (await response.json()) as OpenedCheck;
+
+    const read = await readSettled(opened.id);
+    // The matter's party was searched, so the run and the log both name them.
+    const names = read.run.subjectParties.map((subject) => subject.party?.displayName);
+    expect(names).toContain("Linked Party");
+    const log = await get(`/api/v1/conflicts/checks?matterId=${matterId}`);
+    const page = (await log.json()) as {
+      data: Array<{ id: string; subjectParties: RunSummary["subjectParties"] }>;
+    };
+    expect(page.data.find((row) => row.id === opened.id)?.subjectParties).toEqual(
+      read.run.subjectParties,
+    );
+  });
+
+  it("holds a draft number for the panel, gives it back on cancel, and opens the check under it", async () => {
+    const hold = async (token?: string) => {
+      const response = await post(
+        "/api/v1/number-reservations",
+        { purpose: "conflicts_check", ...(token === undefined ? {} : { token }) },
+        ownerCookie,
+        false,
+      );
+      expect(response.status, await response.clone().text()).toBe(200);
+      return (await response.json()) as { token: string; number: string; expiresAt: string };
+    };
+    const first = await hold();
+    expect(first.number).toMatch(/^CC\d{4}-\d{5,}$/);
+    // Asking again with the token keeps the same number.
+    expect((await hold(first.token)).number).toBe(first.number);
+
+    // Cancelled: the number goes back, and the next panel is given it.
+    const released = await SELF.fetch(
+      `https://example.com/api/v1/number-reservations/${first.token}`,
+      {
+        method: "DELETE",
+        headers: authHeaders(ownerCookie, false),
+      },
+    );
+    expect(released.status).toBe(204);
+    const second = await hold();
+    expect(second.number).toBe(first.number);
+
+    // A panel that saves takes exactly the number it holds, even with a later one held beside it.
+    const third = await hold();
+    const response = await post("/api/v1/conflicts/checks", {
+      trigger: "preliminary",
+      subjectEntityIds: [await createPerson("Held", "Number")],
+      scope: PARTY_SCOPE,
+      numberReservation: second.token,
+    });
+    expect(response.status, await response.clone().text()).toBe(202);
+    expect(((await response.json()) as OpenedCheck).checkNumber).toBe(second.number);
+    expect(third.number).not.toBe(second.number);
   });
 
   it("runs a check again under the same number, and the check's history gains an entry", async () => {
@@ -927,7 +993,6 @@ describe("conflicts contract", () => {
     expect(operationIds.has("conflicts.rerunCheck")).toBe(true);
     expect(operationIds.has("conflicts.cancelRun")).toBe(true);
     expect(operationIds.has("conflicts.fileCheckOnMatter")).toBe(true);
-    expect(operationIds.has("conflicts.nextCheckNumber")).toBe(true);
     expect(operationIds.has("conflicts.getCheck")).toBe(true);
     expect(operationIds.has("conflicts.matterPosture")).toBe(true);
     expect(operationIds.has("conflicts.recordDisposition")).toBe(true);

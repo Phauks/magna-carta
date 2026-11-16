@@ -158,7 +158,12 @@ export async function createMeeting(
   database: SqlDatabase,
   input: CreateMeetingInput,
   options: MeetingServiceOptions,
-): Promise<{ meetingId: MeetingId; created: boolean; effect: EffectWrite }> {
+): Promise<{
+  meetingId: MeetingId;
+  joinCode: string | null;
+  created: boolean;
+  effect: EffectWrite;
+}> {
   // THE EVENT IS READ FIRST, AND THROUGH THE GATE. An event that does not exist and one on a matter
   // the member may not see are the same refusal: telling them apart would make this an existence
   // oracle for walled matters — ask about an id, learn from the wording whether it is real.
@@ -181,6 +186,7 @@ export async function createMeeting(
   if (existing !== undefined) {
     return {
       meetingId: existing.id,
+      joinCode: existing.joinCode,
       created: false,
       effect: { statements: [], outboxMessages: [] },
     };
@@ -219,13 +225,15 @@ export function openMeetingOnEvent(
     readonly personalRoomId?: MeetingPersonalRoomId;
   },
   options: MeetingServiceOptions,
-): { meetingId: MeetingId; effect: EffectWrite } {
+): { meetingId: MeetingId; joinCode: string; effect: EffectWrite } {
   const now = options.clock.now();
   const meetingId = newIdentifier("meeting", options.randomSource);
   const medium = input.medium ?? DEFAULT_MEETING_MEDIUM;
   const lobby = input.lobby ?? DEFAULT_MEETING_LOBBY;
+  const joinCode = newMeetingJoinCode(options.randomSource);
   return {
     meetingId,
+    joinCode,
     effect: {
       statements: [
         insertMeetingStatement(database, {
@@ -238,7 +246,7 @@ export function openMeetingOnEvent(
           createdByUserId: options.actorUserId,
           personalRoomId: input.personalRoomId ?? null,
           encrypted: input.encrypted ?? false,
-          joinCode: newMeetingJoinCode(options.randomSource),
+          joinCode,
           now,
         }),
         // THE STARTER IS THE HOST, written in the same batch as the room.

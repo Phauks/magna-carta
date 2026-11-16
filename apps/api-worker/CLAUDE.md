@@ -110,7 +110,7 @@ routes requests through the chokepoint into those packages.
   what belongs in somebody's calendar. `calendar-providers.ts` is the one place that knows there is
   more than one provider (Microsoft and Google): it hands a sign-in, a pass or a route the
   provider's application in one shape, found from the connection's `adapter_id`, and a third
-  provider is a package and an entry there. A member holds one calendar account, at one provider.
+  provider is a package and an entry there. A member may hold one calendar account at each provider; every sync table is keyed by the connection, so each account has its own rules, copies and pass, and a member route takes an optional `provider` query that names which account it is about (absent, the one connected first).
   All of it returns early in a deployment registered with no provider
 - `src/progress/` — push progress for job coordinators: the WebSocket frame contract
   (`job-progress-protocol.ts`) and the hibernation-aware socket helper (`job-progress-sockets.ts`)
@@ -168,6 +168,23 @@ Worker.
   or sits anywhere but `surface: "app"` / `resource: "firm"`, and a guest credential presented to any
   other route is answered the reserved 404 before a session is looked for. The routes are
   `src/http/routes/communications/meetings-guest.ts`; the credential format is `meetings/guest-token.ts`.
+- **An outside signer has a lane of its own, built the way the guest lane is.** A route declaring
+  `signerLane: "link"` is admitted by the signed link in the `x-signing-link` header INSTEAD of the
+  session, member-active and permission steps; the handler reads the firm, request and signer through
+  `requireChokepointSignerGrant`, and a signing link sent to any other route is answered 404. The
+  link carries a secret derived from `AUTH_SECRET`, the signer, and the secret's version
+  (`src/signing/signer-link.ts`), so a reminder re-mails the same link; the row stores only its
+  SHA-256 and the version, and bumping the version kills every older link. The token, the secret and
+  an access code are never logged, counted, echoed or written to an activity line, and the address
+  and browser on every act are read from the request, never from the body. The routes are
+  `src/http/routes/documents/signers.ts`.
+- **A colleague signs through the same handlers on a member lane.** The routes in
+  `src/http/routes/documents/my-signing-routes.ts` are ordinary session routes (`esign:sign`); the
+  member lane in `signer-lanes.ts` finds the session's user on the request as a firm-authenticated
+  signer, and answers a request that names them any other way 404. It runs the link lane's closed
+  checks (cancelled, expired, already signed) and answers those 410 the way the link does. A member
+  is never mailed a link; their turn is an outbox message (`src/signing/member-turn.ts`) committed
+  in the batch that asks them, which raises the `documents.signing.memberTurn` notification.
 - **A `files:*` capability binds to `resource: "matter"`** (file objects are matter-rooted), enforced by
   the conformance suite — even for a firm-scoped read like the bundle-status poll.
 - **Every object written into a firm's bucket carries its dimensions.** Build them with

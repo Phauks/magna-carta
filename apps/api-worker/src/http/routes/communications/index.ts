@@ -6,12 +6,15 @@ import { registerMeetingsRoutes } from "./meetings.ts";
 import { registerMeetingByCodeRoutes } from "./meeting-by-code.ts";
 import { registerMeetingChatRoutes } from "./meeting-chat.ts";
 import { registerMeetingPersonalRoomRoutes } from "./meeting-personal-rooms.ts";
+import { registerMeetingSharedRoomRoutes } from "./meeting-shared-rooms.ts";
 import { registerMeetingHostingRoutes } from "./meeting-hosting.ts";
 import { registerMeetingInspectRoutes } from "./meeting-inspect.ts";
 import { registerMeetingLobbyRoutes } from "./meeting-lobby.ts";
 import { registerMeetingPollRoutes } from "./meeting-polls.ts";
 import { registerMeetingQuestionRoutes } from "./meeting-questions.ts";
 import { registerMeetingGuestRoutes } from "./meetings-guest.ts";
+import { registerMeetingGuestCrashRoute } from "./meetings-guest-crash.ts";
+import { registerMeetingGuestFileRoutes } from "./meeting-guest-files.ts";
 import { registerMeetingGuestByAddressRoutes } from "./meeting-guest-by-address.ts";
 import { registerMeetingSettingsRoutes } from "./meeting-settings.ts";
 import { registerMeetingSummaryRoutes } from "./meeting-summary.ts";
@@ -42,6 +45,7 @@ export function mountCommunications(
   // Ahead of the meeting routes so its literal paths (`/meetings/personal-room`, `/meetings/rooms/…`)
   // are matched before the meeting-id pattern beside them.
   registerMeetingPersonalRoomRoutes(domain, chokepoint);
+  registerMeetingSharedRoomRoutes(domain, chokepoint);
   // A meeting by its nine-digit address, ahead of the meeting-id pattern for the same reason.
   registerMeetingByCodeRoutes(domain, chokepoint);
   registerMeetingsRoutes(domain, chokepoint);
@@ -85,6 +89,11 @@ export function mountCommunications(
     deps.meetingGuestMail ?? emailAdapterForEnv,
   );
   registerMeetingGuestRoutes(domain, chokepoint, deps.meetingGuestMail ?? emailAdapterForEnv);
+  // A crash on a guest's page, kept against its client_ Error ID on the guest's own link.
+  registerMeetingGuestCrashRoute(domain, chokepoint);
+  // A file shared in the chat, opened by a guest who is in the room: the guest lane again, reaching
+  // only a file a line of that meeting points at.
+  registerMeetingGuestFileRoutes(domain, chokepoint);
   // The operator's read into one live room, behind the platform-operator guard rather than the
   // firm door every other meeting route goes through: a meeting holds no rows and deletes its own
   // state as it goes, so from outside it there is nothing to look at when one goes wrong.

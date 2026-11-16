@@ -371,8 +371,8 @@ export function doorDecisionStatement(
   const full = missed.filter((decision) => decision.outcome === "room-full").length;
   if (full > 0) {
     return full === 1
-      ? "1 person did not get in: the room is full."
-      : `${full} people did not get in: the room is full.`;
+      ? "1 person didn't get in. The room is full."
+      : `${full} people didn't get in. The room is full.`;
   }
   return missed.length === 1
     ? "1 person was no longer waiting, so nothing changed for them."
@@ -425,15 +425,21 @@ export function readMeetingMessages(
   );
 }
 
-/** Say something in the room. Refused for a member with no open stay in it. */
+/**
+ * Say something in the room. Refused for a member with no open stay in it.
+ *
+ * A message may point at one of the meeting's matter's files; the body may then be empty, and the
+ * record says the file's name in its place.
+ */
 export function sendMeetingMessage(
   meetingId: string,
   body: string,
+  attachedFileId: string | null = null,
 ): Promise<MeetingWrite<MeetingMessage>> {
   return write(() =>
     meetingsSendMessage({
       path: { meetingId },
-      body: { body },
+      body: attachedFileId === null ? { body } : { body, attachedFileId },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
     }),

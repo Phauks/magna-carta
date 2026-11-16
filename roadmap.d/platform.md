@@ -655,5 +655,5 @@
   surface: internal
   adrs: ADR-0021
   spec: docs/specs/2026-11-10-record-transfer-framework-design.md
-  evidence: packages/record-transfer (runs, source files, the delimited-text reader, mapping rules and loaders for people, organizations and matters, the pass and its report); apps/api-worker/src/http/routes/record-transfer (start a run, upload a file, ask for a pass) and apps/api-worker/src/background/record-transfer/pass-consumer.ts (the pass on the queue). No screen, no money, no documents, no trust gate yet
+  evidence: packages/record-transfer (runs, source files, the delimited-text reader, mapping rules and loaders for people, organizations and matters, the pass and its report); apps/api-worker/src/http/routes/record-transfer (start a run, upload a file, ask for a pass) and apps/api-worker/src/background/record-transfer/pass-consumer.ts (the pass on the queue); apps/web/src/routes/(app)/record-transfer (the list of runs and a run's file-by-file workspace: upload, columns, report, sample). No money, no documents, no trust gate, no accepting a run yet
   notes: First slice only. The legacy identifier it provides is tracked at directory.legacy-id.

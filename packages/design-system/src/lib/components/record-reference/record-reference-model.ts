@@ -3,24 +3,19 @@
  * than inferred from a rendered panel — the same division ../action-dialog/action-dialog-model.ts
  * draws between what a story shows and what a test pins.
  *
- * The table is the argument. A reader can see at a glance that a preview says it is a preview, that
+ * The table is the argument. A reader can see at a glance that a draft number is marked as one, that
  * a tentative number is shown as plainly as a permanent one (it is a real number the record really
- * carries), and that a missing number is never silence. None of that was true of the panels this
- * replaces, where the wording existed in one file and the other thirty showed nothing.
+ * carries), and that a missing number still names the kind of record.
  */
 import type { RecordReference, RecordSubject } from "./types.ts";
 
 /**
- * What a preview is, said beside the number rather than instead of it.
- *
+ * What a draft number is, said on the number itself rather than beside it: the line keeps one
+ * format for every kind of record, the number in italics, and this is its accessible description.
  * One string, here, so the wording is a thing a test can pin and a ruling can change in one edit.
- * It states plainly that nothing has been taken: a number shown before the save is what the next
- * record would draw, so a record saved first takes it and this one moves on.
  */
-export const PREVIEW_NOTE = "drawn when this is saved";
-
-/** What a panel says when the number does not exist yet and will be drawn by the save. */
-export const AWAITING_NUMBER_SENTENCE = "A number is drawn when this is saved.";
+export const DRAFT_NUMBER_DESCRIPTION =
+  "Draft number. It is held for this record until it is saved, and given back if it is cancelled.";
 
 /**
  * The mark between the reference and each fact beside it. ONE separator for the product.
@@ -32,35 +27,28 @@ export const SUBJECT_SEPARATOR = "·";
 
 /** How a reference resolves for rendering. */
 export type RenderedReference =
-  /** The number exists. `note` carries the preview's own words, where it is one. */
+  /** The number exists. `draft` marks one held for a record still being created. */
   | {
       readonly shape: "identified";
       readonly kind: string;
       readonly number: string;
-      readonly note: string | null;
+      readonly draft: boolean;
     }
-  /** A number is coming, and the save is what draws it. */
-  | { readonly shape: "awaiting"; readonly sentence: string }
   /**
-   * There is no number to show and none is promised. The kind alone is still an honest answer —
-   * the reader is told WHAT is being acted on, just not which one — and it is what a record whose
-   * number has not loaded yet reads as, rather than a panel claiming a save would draw one.
+   * There is no number to show. The kind alone is still an honest answer — the reader is told WHAT
+   * is being acted on, just not which one — and it is what a record whose number has not loaded
+   * yet, or a draft whose number is still being held, reads as.
    */
   | { readonly shape: "unnumbered"; readonly kind: string };
 
 /** What this reference reads as. */
 export function renderReference(reference: RecordReference): RenderedReference {
-  const standing = reference.standing ?? "drawn";
-  if (reference.number === null) {
-    return standing === "preview"
-      ? { shape: "awaiting", sentence: AWAITING_NUMBER_SENTENCE }
-      : { shape: "unnumbered", kind: reference.kind };
-  }
+  if (reference.number === null) return { shape: "unnumbered", kind: reference.kind };
   return {
     shape: "identified",
     kind: reference.kind,
     number: reference.number,
-    note: standing === "preview" ? PREVIEW_NOTE : null,
+    draft: (reference.standing ?? "drawn") === "draft",
   };
 }
 

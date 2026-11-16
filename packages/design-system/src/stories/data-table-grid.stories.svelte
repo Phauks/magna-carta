@@ -384,27 +384,27 @@
       await closeMenu();
     });
 
-    await step("The date range filter narrows by the work date, typed into the segments", async () => {
+    await step("The date range filter narrows by the work date, typed into the field", async () => {
       await openFilter("Date");
-      // The date bound is the platform's DatePicker, not a native date input: a group of editable
-      // segments named by aria-label, since a range's two boxes have no room for a visible one.
-      const from = await body.findByLabelText("From");
-      await expect(from).toHaveAttribute("role", "group");
-      within(from).getAllByRole("spinbutton")[0]!.focus();
-      // en-US order: month, day, year. Bits advances to the next segment as each one fills.
-      await userEvent.keyboard("08102026");
+      // The date bound is the platform's DatePicker, not a native date input: a typed date named
+      // by aria-label, since a range's two boxes have no room for a visible one.
+      const from = await body.findByRole("textbox", { name: "From" });
+      from.focus();
+      await userEvent.keyboard("8/10/2026{Enter}");
       await waitFor(() => expect(bodyRows(table)).toHaveLength(6));
-      // A field inside a menu keeps its own keys — the digits did not run the menu's typeahead,
+      // A field inside a menu keeps its own keys: the digits did not run the menu's typeahead,
       // which would have taken focus out of the field and onto an item.
-      await expect(from).toContainElement(document.activeElement as HTMLElement);
+      await expect(from).toHaveFocus();
     });
 
     await step("Its calendar opens INSIDE the menu, and neither layer dismisses the other", async () => {
       // The sibling column filter records that a calendar nested in ITS popover crashed the
       // floating layer, so this is asserted rather than assumed: the popover opens, the filter
       // submenu survives it, and picking a day reaches the filter underneath.
-      const from = await body.findByLabelText("From");
-      await userEvent.click(within(from).getByRole("button", { name: "Open calendar" }));
+      const from = await body.findByRole("textbox", { name: "From" });
+      await userEvent.click(
+        within(from.parentElement as HTMLElement).getByRole("button", { name: "Open calendar" }),
+      );
       const grid = await body.findByRole("grid");
       // Focus really moved into the calendar. In a browser a member is using, that arrival is a
       // `focusin` the submenu's layer hears and used to answer by closing — and unmounting the
@@ -423,7 +423,7 @@
       // bound forward two days and takes two more rows out.
       await userEvent.click(within(grid).getByText("12"));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(4));
-      await expect(body.getByLabelText("From")).toHaveTextContent("12");
+      await expect(body.getByRole("textbox", { name: "From" })).toHaveValue("Wed, Aug 12, 2026");
       await expect(body.getByLabelText("To")).toBeVisible();
       await userEvent.click(body.getByRole("menuitem", { name: /Clear This Filter/ }));
       await waitFor(() => expect(bodyRows(table)).toHaveLength(12));

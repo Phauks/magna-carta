@@ -19,6 +19,13 @@
     font-variant-numeric: tabular-nums;
   }
   /*
+   * A draft number is the same number in italics: the one mark the product uses, everywhere, for a
+   * number held for a record that is still being created.
+   */
+  .mc-record-subject-draft {
+    font-style: italic;
+  }
+  /*
    * The separator is given room on both sides rather than being padded into the strings around it,
    * so no call site has to remember the spaces — the mistake the hand-written lines made most.
    */

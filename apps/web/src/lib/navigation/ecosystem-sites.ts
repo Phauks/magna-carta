@@ -1,6 +1,7 @@
 /*
  * The ecosystem-site registry — the one home for Magna Carta's associated websites (the status
- * page, forums, the public magna-carta.com site, API documentation, the public changelog). These
+ * page, the community board, the public magna-carta.com site, API documentation, the public
+ * changelog). These
  * are SIDE sites, deliberately outside the destination registry (destinations.ts): they leave the
  * app, so they live behind the profile menu (src/lib/components/profile-menu.svelte), never in
  * the sidebar.
@@ -12,11 +13,9 @@
  * (src/lib/components/command-palette.svelte) — extend the palette from THIS registry when the
  * first site ships; never hand-list a site there.
  *
- * `route` is the in-application stand-in. A site whose content the application already renders for
- * itself names that screen here, and while its `href` is still null the menu and the palette take
- * the member there instead of showing a disabled "Soon" — the content is real, only its public
- * address is not. Once the site goes live, `href` wins and the entry leaves the app as every other
- * site does.
+ * A site the application also has a copy of still opens the public site, never the copy: there is
+ * one changelog, on the community board, and the menu, the palette and the About window all lead
+ * to it.
  */
 import type { Component } from "svelte";
 import Activity from "@lucide/svelte/icons/activity";
@@ -36,11 +35,6 @@ export interface EcosystemSite {
   readonly description?: string;
   /** Absolute URL once the site is live; null until wired (renders disabled, marked "Soon"). */
   readonly href: string | null;
-  /**
-   * An in-application screen that already renders this site's content, used while `href` is null.
-   * Absent for a site the application has no copy of.
-   */
-  readonly route?: string;
   /**
    * An in-application window that stands in for this site while `href` is null, opened by calling
    * it. Absent for a site the application has no window for.
@@ -64,7 +58,9 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     id: "forums",
     label: "Forums",
     description: "Community discussion and answers",
-    href: null,
+    // The community board: feature requests, questions, known issues and the roadmap. Its own
+    // Sign In button brings a member back through the app's one-minute sign-in link.
+    href: "https://community.magnacarta.esq",
     icon: MessagesSquare,
   },
   {
@@ -95,10 +91,8 @@ export const ECOSYSTEM_SITES: readonly EcosystemSite[] = [
     id: "changelog",
     label: "Changelog",
     description: "What shipped, release by release",
-    // The public changelog page at magnacarta.esq/changelog is not deployed yet; the application's
-    // own Changelog screen renders the same document, built into the bundle, in the meantime.
-    href: null,
-    route: "/updates",
+    // The public changelog lives on the community board.
+    href: "https://community.magnacarta.esq/changelog",
     icon: ScrollText,
   },
   {

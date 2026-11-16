@@ -9,6 +9,9 @@
    */
   .mc-masthead {
     display: flex;
+    /* When the title and the actions cannot share a row, the actions drop beneath the title rather
+       than being drawn over it. */
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: var(--mc-space-16);
   }
@@ -64,7 +67,12 @@
   }
   .mc-masthead-actions {
     display: flex;
-    flex: none;
+    /* On a row of its own and still too wide (a phone), the actions wrap among themselves rather
+       than pushing the page sideways. */
+    flex: initial;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-inline-size: var(--mc-space-0);
     align-items: center;
     gap: var(--mc-space-8);
     margin-inline-start: auto;

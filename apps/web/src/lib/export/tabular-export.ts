@@ -29,12 +29,37 @@ export interface TabularExportSection {
    * and spreadsheet software aligns real numbers itself); the server-rendered document formats do.
    */
   readonly endAlignedColumns?: readonly number[];
+  /**
+   * What sets each row apart, by position: `total` is the payload's total under the rows, `child`
+   * a part of the row above it (a client's matter). Only the PDF consumes it. A child row's first
+   * cell still carries `CHILD_ROW_INDENT`, so the text, CSV, spreadsheet and Word files, which
+   * draw no row styles, show the nesting the same way they always have.
+   */
+  readonly rowKinds?: readonly ("total" | "child" | null)[];
+}
+
+/** The leading spaces a child row's first cell carries in the files that draw no row styles. */
+export const CHILD_ROW_INDENT = "    ";
+
+/** A figure the document opens with: the report's own total, formatted. Only the PDF prints it. */
+export interface TabularExportFigure {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string;
+  /** A figure a reader should not pass over, such as debt over ninety days. */
+  readonly alert?: true;
 }
 
 export interface TabularExportDocument {
   readonly title: string;
   readonly generatedAt: Date;
   readonly sections: readonly TabularExportSection[];
+  /**
+   * The row of totals, where the report opens with one. Neither this nor `rowKinds` is kept on
+   * the download shelf, whose stored shape the server validates; a re-download prints the plain
+   * rows, which still read correctly.
+   */
+  readonly summary?: readonly TabularExportFigure[];
 }
 
 /**

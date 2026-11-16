@@ -45,7 +45,7 @@ export const AUTHORIZERS_DEFINITION: SettingDefinition = {
   plateLabel: "The Trust Compliance Report",
   label: "Who Authorized Each Payment",
   description:
-    "Whether the ledgers and the journal name the member who authorized money leaving a client ledger.",
+    "Whether ledgers and the journal name the staff member who approved money leaving a client ledger.",
   kind: "select",
   options: [
     { value: "include", label: "Named" },

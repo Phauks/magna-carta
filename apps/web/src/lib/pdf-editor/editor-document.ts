@@ -38,7 +38,7 @@ export async function openEditorDocument(
   if (!pdfWorkerAvailable()) {
     return {
       kind: "refused",
-      message: "This browser cannot run the background worker the editor draws pages in.",
+      message: "This browser can't run the editor's background worker.",
     };
   }
   const outcome = await readDocumentBytes(fetch, file.id, file.sizeBytes, PDF_VIEWER_MAX_BYTES);
@@ -47,8 +47,8 @@ export async function openEditorDocument(
       kind: "refused",
       message:
         outcome.kind === "too-large"
-          ? "This document is larger than the editor opens. Download it to work on it elsewhere."
-          : "The document could not be read. Try again.",
+          ? "This document is too large for the editor. Download it to work on it elsewhere."
+          : "Couldn't read the document. Try again.",
     };
   }
   const original = outcome.bytes.slice(0);
@@ -61,7 +61,7 @@ export async function openEditorDocument(
       message:
         reason === "encrypted" || reason === "wrong-password"
           ? lockedAdvice
-          : "This document could not be opened in the editor.",
+          : "Couldn't open this document in the editor.",
     };
   }
   return { kind: "ready", source, original, pages: source.pages };

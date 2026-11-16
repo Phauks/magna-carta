@@ -311,6 +311,8 @@ export interface MeetingChatMessage {
   readonly body: string;
   readonly redactedAt: string | null;
   readonly redactedByUserId: string | null;
+  /** A file shared with the line, by its handle and its name; null on an ordinary line. */
+  readonly attachedFile?: { readonly id: string; readonly name: string } | null;
 }
 
 /** One option's standing on a poll: where it sits, what it says, and how many chose it. */

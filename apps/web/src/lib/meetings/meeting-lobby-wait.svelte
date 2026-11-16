@@ -41,7 +41,7 @@
 </script>
 
 <EmptyState title="Waiting to Be Let In">
-  A host has to let you into {title}{when === null ? "" : `, ${when}`}. Nothing is being sent from
+  A host has to let you into {title}{when === null ? "" : `, ${when}`}. Nothing is sent from
   your microphone or camera while you wait, and nobody in the room can see or hear you.{#if ahead !== null}&nbsp;{ahead}{/if}
   {#snippet actions()}
     <Button variant="secondary" disabled={leaving} onclick={onLeave}>Leave</Button>

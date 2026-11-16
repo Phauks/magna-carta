@@ -7,12 +7,18 @@ import {
   RequestTransferPassRequest,
   TransferPassReportResponse,
   TransferPassResponse,
+  TransferPassStatedResponse,
   type TransferPassBody,
   type TransferPassReportResponseBody,
+  type TransferPassStatedResponseBody,
 } from "@magna-carta/record-transfer/contract";
 import type { MatterMappingRules } from "@magna-carta/record-transfer/matter-mapping";
-import { statedTransferPassJson } from "@magna-carta/record-transfer/requested-pass";
 import {
+  statedTransferPassJson,
+  statedTransferPassOf,
+} from "@magna-carta/record-transfer/requested-pass";
+import {
+  assertTransferPassRecordKind,
   selectTransferPassStatement,
   type TransferPassRow,
 } from "@magna-carta/record-transfer/transfer-pass-statements";
@@ -126,6 +132,24 @@ const reportRoute = defineOpenAPIRoute(readMeta("recordTransfer.getPassReport"),
   },
 });
 
+const statedRoute = defineOpenAPIRoute(readMeta("recordTransfer.getPassRules"), {
+  method: "get",
+  path: "/api/v1/record-transfer/runs/{runId}/passes/{passId}/rules",
+  description:
+    "What was stated when the pass was asked for: the record kind, the key column, the delimiter and the mapping rules. The rules name columns and the source's own codes for matter types and staff; they hold no row of the file.",
+  request: { params: passParam },
+  responses: {
+    200: {
+      description: "The pass as it was asked for",
+      content: { "application/json": { schema: TransferPassStatedResponse } },
+    },
+    401: errors[401],
+    403: errors[403],
+    404: errors[404],
+    429: errors[429],
+  },
+});
+
 const NOTHING_YET: TransferPassReportResponseBody = { report: null, failure: null };
 
 export function registerTransferPassRoutes(app: AppRouter, chokepoint: Chokepoint): void {
@@ -219,6 +243,25 @@ export function registerTransferPassRoutes(app: AppRouter, chokepoint: Chokepoin
       const pass = await readPass(firm.firmDatabase, runId, passId);
       if (pass === null) return notFound(c, "pass");
       return c.json({ pass: transferPassBody(pass, new Date().toISOString()) }, 200);
+    },
+  );
+
+  app.openapi(
+    { ...statedRoute, middleware: chokepointMiddleware(chokepoint, statedRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { runId, passId } = c.req.valid("param");
+      const pass = await readPass(firm.firmDatabase, runId, passId);
+      const stated = pass === null ? null : statedTransferPassOf(pass.rules_json);
+      if (pass === null || stated === null) return notFound(c, "pass");
+      const body: TransferPassStatedResponseBody = {
+        recordKind: assertTransferPassRecordKind(pass.record_kind),
+        sourceKind: pass.source_kind,
+        keyColumn: stated.keyColumn,
+        delimiter: stated.delimiter ?? null,
+        rules: (stated.rules ?? {}) as Record<string, unknown>,
+      };
+      return c.json(body, 200);
     },
   );
 

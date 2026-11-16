@@ -170,7 +170,7 @@
         </DefinitionList.Row>
       </DefinitionList.Root>
 
-      <LabelledField
+      <LabelledField necessity="required"
         label="To Matter"
         hint="It must be another matter of this same client. Any other is refused."
         error={destinationRefusal}
@@ -193,7 +193,7 @@
       {/if}
 
       <div class="grid gap-12 @sm:grid-cols-2">
-        <LabelledField
+        <LabelledField necessity="required"
           label="Amount"
           hint="Dollars and cents. It cannot exceed what is available."
           error={fieldRefusal(serverProblem, "amountMinor")}
@@ -204,7 +204,7 @@
         </LabelledField>
 
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Effective Date"
             value={civilDateValue(effectiveDate)}
             onValueChange={(next) => (effectiveDate = civilDateTextOrEmpty(next))}
@@ -219,7 +219,7 @@
         </div>
       </div>
 
-      <LabelledField
+      <LabelledField necessity="required"
         label="Purpose"
         hint="Why the money is moving. It is the line both matters' ledger entries read."
         error={fieldRefusal(serverProblem, "purpose")}

@@ -2,7 +2,10 @@
  * The financial, productivity and operational reads.
  *
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
- * `reports.timekeeperProductivity` and `reports.operationalVolumes` in
+ * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
+ * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses`, `reports.changeLog`, `reports.revenue`,
+ * `reports.matterBillingGuide` and `reports.clientStatement` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
  *
@@ -11,8 +14,22 @@
  */
 import {
   reportsAccountsReceivableAging,
+  reportsAgedExpenses,
+  reportsAgedWorkInProgress,
+  reportsChangeLog,
+  reportsClientList,
+  reportsClientStatement,
+  reportsDailyTime,
+  reportsInvoices,
+  reportsMatterBalances,
+  reportsMatterBillingGuide,
+  reportsMatterProductivity,
+  reportsMattersList,
   reportsOperationalVolumes,
+  reportsPaymentsApplied,
   reportsRealization,
+  reportsRevenue,
+  reportsTaskWorkload,
   reportsTimekeeperProductivity,
   reportsWorkInProgress,
 } from "@magna-carta/api-client";
@@ -115,6 +132,200 @@ export interface WorkInProgress {
   }[];
 }
 
+/** Three facts per matter, never added to one another. */
+export interface MatterBalanceFigures {
+  unbilledMinor: number;
+  owedMinor: number;
+  trustMinor: number;
+}
+
+export interface MatterBalances {
+  computedAt: string;
+  asOfDate: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  currency: "USD";
+  completeness: ReportCompleteness;
+  totals: MatterBalanceFigures;
+  offices: {
+    locationId: string | null;
+    locationName: string | null;
+    figures: MatterBalanceFigures;
+  }[];
+  clients: {
+    clientEntityId: string | null;
+    clientName: string | null;
+    figures: MatterBalanceFigures;
+    matters: {
+      matterId: string;
+      matterTitle: string;
+      matterNumber: string | null;
+      locationId: string | null;
+      locationName: string | null;
+      figures: MatterBalanceFigures;
+    }[];
+  }[];
+}
+
+export interface MatterStatusCounts {
+  matterCount: number;
+  openCount: number;
+  heldCount: number;
+  closedCount: number;
+}
+
+export interface ClientListRow {
+  clientEntityId: string;
+  /** Null where the directory no longer holds the record live. */
+  entityKind: "person" | "organization" | null;
+  displayName: string | null;
+  legalName: string | null;
+  emailAddress: string | null;
+  phoneNumber: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  counts: MatterStatusCounts;
+  locationNames: (string | null)[];
+}
+
+export interface ClientList {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  clientCount: number;
+  totals: MatterStatusCounts;
+  mattersWithoutClient: number;
+  clients: ClientListRow[];
+}
+
+export interface MatterListRow {
+  matterId: string;
+  matterNumber: string | null;
+  matterTitle: string;
+  status: "open" | "hold" | "closed";
+  matterTypeName: string | null;
+  clientEntityId: string | null;
+  clientName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  responsibleMemberId: string;
+  responsibleName: string | null;
+  openedAt: string | null;
+  closedAt: string | null;
+}
+
+export interface MattersList {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: MatterStatusCounts;
+  offices: { locationId: string | null; locationName: string | null; counts: MatterStatusCounts }[];
+  matters: MatterListRow[];
+}
+
+/** A fee agreement's own terms, as the Matter Billing Guide carries them. */
+export interface MatterBillingTerms {
+  arrangementId: string;
+  version: number;
+  kind: "hourly" | "flat_fee" | "contingency" | "retainer";
+  flatFeeAmountMinor: number | null;
+  /** The share of a recovery at the rate scale: 3333 is 33.33%. */
+  contingencyShareE4: number | null;
+  contingencyBasis: "gross_recovery" | "net_after_costs" | null;
+  retainerTargetMinor: number | null;
+  retainerThresholdMinor: number | null;
+  advanceDepositDestination: "trust" | "operating" | null;
+  currency: string;
+  validFrom: string;
+  validTo: string | null;
+}
+
+/** A rate recorded against the matter or its client, in force today. */
+export interface MatterBillingRate {
+  rateId: string;
+  rateCardId: string;
+  rateCardName: string;
+  tier: "matter" | "client";
+  /** Per hour, at scale 4: 4500000 is 450.00. */
+  rateE4: number;
+  currency: string;
+  validFrom: string;
+  validTo: string | null;
+}
+
+export interface MatterBillingGuideRow {
+  matterId: string;
+  matterNumber: string | null;
+  matterTitle: string;
+  status: "open" | "hold";
+  clientEntityId: string | null;
+  clientName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  responsibleName: string | null;
+  /** Null: no agreement is recorded, and the matter bills hourly by absence. */
+  arrangement: MatterBillingTerms | null;
+  nextArrangement: MatterBillingTerms | null;
+  rates: MatterBillingRate[];
+}
+
+export interface MatterBillingKindCounts {
+  matterCount: number;
+  hourlyCount: number;
+  flatFeeCount: number;
+  contingencyCount: number;
+  retainerCount: number;
+  noneRecordedCount: number;
+}
+
+export interface MatterBillingGuide {
+  computedAt: string;
+  asOfDate: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: MatterBillingKindCounts;
+  matters: MatterBillingGuideRow[];
+}
+
+/** Four buckets in a fixed order: 0 to 30, 31 to 60, 61 to 90 and over 90 days since the work. */
+export interface AgedWorkFigures {
+  unbilledMinor: number[];
+  totalMinor: number;
+}
+
+export interface AgedWorkInProgress {
+  computedAt: string;
+  asOfDate: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  currency: "USD";
+  completeness: ReportCompleteness;
+  totals: AgedWorkFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: AgedWorkFigures }[];
+  clients: {
+    clientEntityId: string | null;
+    clientName: string | null;
+    figures: AgedWorkFigures;
+    matters: {
+      matterId: string;
+      matterTitle: string;
+      matterNumber: string | null;
+      locationId: string | null;
+      locationName: string | null;
+      figures: AgedWorkFigures;
+    }[];
+  }[];
+}
+
 export interface RealizationFigures {
   standardValueMinor: number;
   billedMinor: number;
@@ -199,6 +410,112 @@ export interface TimekeeperProductivity {
   }[];
 }
 
+export interface DailyTime {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: ProductivityFigures;
+  /** Every day with time on it, oldest first. */
+  days: {
+    workDate: string;
+    figures: ProductivityFigures;
+    timekeepers: {
+      timekeeperUserId: string;
+      timekeeperName: string | null;
+      figures: ProductivityFigures;
+    }[];
+  }[];
+  timekeepers: {
+    timekeeperUserId: string;
+    timekeeperName: string | null;
+    dayCount: number;
+    figures: ProductivityFigures;
+  }[];
+}
+
+export interface MatterProductivity {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: ProductivityFigures;
+  /** The matters with the most time first. */
+  matters: {
+    matterId: string;
+    matterTitle: string;
+    matterNumber: string | null;
+    clientEntityId: string | null;
+    clientName: string | null;
+    locationId: string | null;
+    locationName: string | null;
+    figures: ProductivityFigures;
+    timekeepers: {
+      timekeeperUserId: string;
+      timekeeperName: string | null;
+      figures: ProductivityFigures;
+    }[];
+  }[];
+}
+
+export interface TaskWorkloadFigures {
+  openCount: number;
+  overdueCount: number;
+  undatedCount: number;
+}
+
+export interface TaskWorkload {
+  computedAt: string;
+  reproducible: false;
+  statement: string;
+  locationId: string | null;
+  completeness: ReportCompleteness;
+  totals: TaskWorkloadFigures;
+  /** Members by name, then the open tasks nobody is assigned to (assigneeUserId null). */
+  people: (TaskWorkloadFigures & { assigneeUserId: string | null; assigneeName: string | null })[];
+}
+
+export type ChangeFamily = "directory" | "matters" | "accounts";
+
+export interface ChangeCounts {
+  directoryCount: number;
+  matterCount: number;
+  accountCount: number;
+  totalCount: number;
+}
+
+/** Who changed the firm's records in a period: counts, then every change. Never what changed. */
+export interface ChangeLog {
+  periodStart: string;
+  periodEnd: string;
+  computedAt: string;
+  /** True when the period had ended before the report was produced. */
+  reproducible: boolean;
+  statement: string;
+  completeness: ReportCompleteness;
+  totals: ChangeCounts;
+  families: { family: ChangeFamily; label: string; changeCount: number }[];
+  /** Members by most changes, then system changes (actorUserId null). */
+  people: (ChangeCounts & { actorUserId: string | null; actorName: string | null })[];
+  /** Newest first. */
+  entries: {
+    id: string;
+    at: string;
+    actorUserId: string | null;
+    actorName: string | null;
+    family: ChangeFamily;
+    event: string;
+    eventLabel: string;
+    subjectId: string | null;
+  }[];
+}
+
 export type OperationalSection = "matters" | "billing" | "trust" | "costs";
 
 export interface OperationalVolumes {
@@ -234,6 +551,153 @@ export interface OperationalVolumes {
     count: number;
   }[];
   costs: { disbursementClass: "hard" | "soft"; count: number }[];
+}
+
+export interface InvoiceFigures {
+  invoiceCount: number;
+  billedMinor: number;
+  creditedMinor: number;
+  appliedMinor: number;
+  unpaidMinor: number;
+}
+
+export interface InvoiceRow {
+  invoiceId: string;
+  invoiceNumber: string | null;
+  issueDate: string;
+  dueDate: string | null;
+  figures: InvoiceFigures;
+  matters: {
+    matterId: string;
+    matterTitle: string;
+    matterNumber: string | null;
+    locationId: string | null;
+    locationName: string | null;
+    figures: InvoiceFigures;
+  }[];
+}
+
+export interface Invoices {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  completeness: ReportCompleteness;
+  totals: InvoiceFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: InvoiceFigures }[];
+  clients: {
+    clientEntityId: string;
+    clientName: string | null;
+    figures: InvoiceFigures;
+    invoices: InvoiceRow[];
+  }[];
+}
+
+export type ApplicationKind =
+  | "trust_transfer"
+  | "payment"
+  | "credit_note"
+  | "client_credit"
+  | "write_off"
+  | "reversal";
+
+export interface AppliedFigures {
+  entryCount: number;
+  paymentMinor: number;
+  trustTransferMinor: number;
+  clientCreditMinor: number;
+  creditNoteMinor: number;
+  writeOffMinor: number;
+  reversalMinor: number;
+  totalMinor: number;
+}
+
+export interface AppliedEntry {
+  applicationId: string;
+  kind: ApplicationKind;
+  reversesKind: Exclude<ApplicationKind, "reversal"> | null;
+  effectiveDate: string;
+  amountMinor: number;
+  reason: string | null;
+  invoiceId: string;
+  invoiceNumber: string | null;
+  clientEntityId: string;
+  clientName: string | null;
+  matterId: string;
+  matterTitle: string;
+  matterNumber: string | null;
+  locationId: string | null;
+  locationName: string | null;
+}
+
+export interface PaymentsApplied {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  completeness: ReportCompleteness;
+  totals: AppliedFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: AppliedFigures }[];
+  clients: { clientEntityId: string; clientName: string | null; figures: AppliedFigures }[];
+  entries: AppliedEntry[];
+}
+
+/** A matter as a client statement names it. */
+export interface ClientStatementMatter {
+  matterId: string;
+  matterTitle: string;
+  matterNumber: string | null;
+}
+
+/** One line of a client statement: a bill charges, an application is set against a bill. */
+export interface ClientStatementLine {
+  kind: "invoice" | ApplicationKind;
+  reversesKind: Exclude<ApplicationKind, "reversal"> | null;
+  date: string;
+  invoiceId: string;
+  invoiceNumber: string | null;
+  applicationId: string | null;
+  matters: ClientStatementMatter[];
+  reason: string | null;
+  chargedMinor: number | null;
+  /** Negative on a reversal. */
+  appliedMinor: number | null;
+  balanceMinor: number;
+}
+
+export interface ClientStatement {
+  periodStart: string;
+  periodEnd: string;
+  clientEntityId: string;
+  clientName: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  completeness: ReportCompleteness;
+  totals: {
+    openingMinor: number;
+    billedMinor: number;
+    invoiceCount: number;
+    appliedMinor: number;
+    applicationCount: number;
+    closingMinor: number;
+  };
+  activity: ClientStatementLine[];
+  unpaidInvoices: {
+    invoiceId: string;
+    invoiceNumber: string | null;
+    issueDate: string;
+    dueDate: string | null;
+    matters: ClientStatementMatter[];
+    agingBucket: "current" | "1-30" | "31-60" | "61-90" | "90+";
+    billedMinor: number;
+    paidAndCreditedMinor: number;
+    unpaidMinor: number;
+  }[];
 }
 
 /** A null filter is left off the query: the contract reads an absent parameter as "the whole firm". */
@@ -285,6 +749,73 @@ export function readWorkInProgress(
   );
 }
 
+export function readMatterBalances(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<MatterBalances>> {
+  return outcome(() =>
+    reportsMatterBalances({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+export function readMattersList(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<MattersList>> {
+  return outcome(() =>
+    reportsMattersList({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** How each open and held matter is billed today. Live only. */
+export function readMatterBillingGuide(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<MatterBillingGuide>> {
+  return outcome(() =>
+    reportsMatterBillingGuide({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+export function readAgedWorkInProgress(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<AgedWorkInProgress>> {
+  return outcome(() =>
+    reportsAgedWorkInProgress({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** The same shape as Aged Work in Progress, over unbilled costs alone. Live only. */
+export function readAgedExpenses(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<AgedWorkInProgress>> {
+  return outcome(() =>
+    reportsAgedExpenses({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
 interface PeriodQuery {
   periodStart: string;
   periodEnd: string;
@@ -328,6 +859,84 @@ export function readTimekeeperProductivity(
   );
 }
 
+/** Live only, as Timekeeper Productivity is. */
+export function readDailyTime(
+  fetchImpl: typeof fetch,
+  query: Omit<PeriodQuery, "knownAsOf">,
+): Promise<ApiOutcome<DailyTime>> {
+  return outcome(() =>
+    reportsDailyTime({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Live only, as Timekeeper Productivity is. */
+export function readMatterProductivity(
+  fetchImpl: typeof fetch,
+  query: Omit<PeriodQuery, "knownAsOf">,
+): Promise<ApiOutcome<MatterProductivity>> {
+  return outcome(() =>
+    reportsMatterProductivity({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Live only: the list takes no date. */
+export function readClientList(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<ClientList>> {
+  return outcome(() =>
+    reportsClientList({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** Live only: the counts take no date. */
+export function readTaskWorkload(
+  fetchImpl: typeof fetch,
+  query: { locationId: string | null },
+): Promise<ApiOutcome<TaskWorkload>> {
+  return outcome(() =>
+    reportsTaskWorkload({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { locationId: present(query.locationId) },
+    }),
+  );
+}
+
+/** Over a period of UTC days; takes no office and no knowledge instant. */
+export function readChangeLog(
+  fetchImpl: typeof fetch,
+  query: { periodStart: string; periodEnd: string },
+): Promise<ApiOutcome<ChangeLog>> {
+  return outcome(() =>
+    reportsChangeLog({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: { periodStart: query.periodStart, periodEnd: query.periodEnd },
+    }),
+  );
+}
+
 export function readOperationalVolumes(
   fetchImpl: typeof fetch,
   query: PeriodQuery,
@@ -341,6 +950,118 @@ export function readOperationalVolumes(
         periodEnd: query.periodEnd,
         knownAsOf: present(query.knownAsOf),
         locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+export function readInvoices(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<Invoices>> {
+  return outcome(() =>
+    reportsInvoices({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+export function readPaymentsApplied(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<PaymentsApplied>> {
+  return outcome(() =>
+    reportsPaymentsApplied({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** Billed and collected; credited (credit notes and write-offs) beside them, never collected. */
+export interface RevenueFigures {
+  billedMinor: number;
+  collectedMinor: number;
+  creditedMinor: number;
+}
+
+export interface Revenue {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  attributionStatement: string;
+  completeness: ReportCompleteness;
+  totals: RevenueFigures;
+  offices: { locationId: string | null; locationName: string | null; figures: RevenueFigures }[];
+  matterTypes: {
+    matterTypeId: string | null;
+    matterTypeName: string | null;
+    matterCount: number;
+    figures: RevenueFigures;
+  }[];
+  responsibleAttorneys: {
+    responsibleMemberId: string;
+    responsibleName: string | null;
+    matterCount: number;
+    figures: RevenueFigures;
+  }[];
+}
+
+export function readRevenue(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<Revenue>> {
+  return outcome(() =>
+    reportsRevenue({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** The client is required: a statement is always one client's, never the firm's. */
+export interface ClientStatementQuery {
+  readonly clientEntityId: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly knownAsOf: string | null;
+}
+
+export function readClientStatement(
+  fetchImpl: typeof fetch,
+  query: ClientStatementQuery,
+): Promise<ApiOutcome<ClientStatement>> {
+  return outcome(() =>
+    reportsClientStatement({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        clientEntityId: query.clientEntityId,
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
       },
     }),
   );

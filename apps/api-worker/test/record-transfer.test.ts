@@ -218,6 +218,17 @@ describe("a record transfer over its routes", () => {
       .all();
     expect(queued.results).toHaveLength(1);
 
+    const stated = await SELF.fetch(`${BASE}/${runId}/passes/${pass.id}/rules`, {
+      headers: { cookie: ownerCookie },
+    });
+    expect(await stated.json()).toEqual({
+      recordKind: "person",
+      sourceKind: "card",
+      keyColumn: "Id",
+      delimiter: null,
+      rules: { given: "First", family: "Last" },
+    });
+
     const reportUrl = `${BASE}/${runId}/passes/${pass.id}/report`;
     const before = await SELF.fetch(reportUrl, { headers: { cookie: ownerCookie } });
     expect(await before.json()).toEqual({ report: null, failure: null });

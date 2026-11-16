@@ -22,8 +22,10 @@ import { loadEffectivePermissions } from "../../effective-permissions.ts";
 import type {
   ChokepointGuestGrant,
   ChokepointPorts,
+  ChokepointSignerGrant,
   GuestLanePort,
   ResolvedSession,
+  SignerLanePort,
 } from "./chokepoint.ts";
 import { resolveSupportSession } from "../resolve-support-session.ts";
 import { resolveSupportPermissions } from "../../support/tier-permissions.ts";
@@ -34,6 +36,10 @@ import { meetingGuestRefused } from "@magna-carta/telemetry/events";
 import { constantTimeStringEquals } from "../../constant-time.ts";
 import { readGuestCredential } from "../../meetings/guest-token.ts";
 import { guestLinkRefusalFor } from "../../meetings/guest-refusals.ts";
+import { hashSignerSecret, readSignerLink } from "../../signing/signer-link.ts";
+import { signerLinkRefusal, signerLinkRefusalFor } from "../../signing/signer-refusals.ts";
+import { readSignerLinkState } from "../../signing/signer-statements.ts";
+import type { SigningRequestId, SigningSignerId } from "@magna-carta/identifiers/types";
 
 // What resolveFirmContext returns and the chokepoint threads to loadPermissions and the handler:
 // the session firm's per-firm database handle, an on-demand reader for its name, and its bucket.
@@ -103,6 +109,9 @@ export type AppVariables = ChokepointVariables & {
   // verified, without the secret. A guest route stashes this, the firm id and the firm context — and
   // never chokepointUserId, which is what keeps a guest out of every member handler structurally.
   chokepointGuestGrant?: ChokepointGuestGrant;
+  // Set by the chokepoint's signer lane and on no other path: the signing link it verified, without
+  // the secret. Like a guest, a signer is never given a chokepointUserId.
+  chokepointSignerGrant?: ChokepointSignerGrant;
   // Set by problemJson (and, first, by the error boundary): the problem this request answered, for
   // the telemetry middleware to keep in the error record once the response is out.
   answeredProblem?: import("../contracts/problem.ts").AnsweredProblem;
@@ -408,6 +417,72 @@ function makeGuestLane(): GuestLanePort<FirmContext> {
   };
 }
 
+// AN OUTSIDE SIGNER'S LANE (chokepoint.ts step 0), over the deployment's signing key, the control
+// plane's firm row and the signer's own row. The guest lane's shape and order; nothing here logs,
+// counts or echoes the link.
+async function resolveFirmForLane(c: Context, firmId: FirmId): Promise<FirmContext | null> {
+  const env = (c as Context<{ Bindings: Bindings }>).env;
+  const firmRow = await env.DB_CONTROL.prepare(
+    "SELECT name, display_name, bucket_name FROM firm WHERE id = ?1",
+  )
+    .bind(firmId)
+    .first<{ name: string; display_name: string | null; bucket_name: string | null }>();
+  if (firmRow === null) return null;
+  return {
+    firmDatabase: firmDatabaseFor(env.FIRM_DATABASE, firmId),
+    migrationState: () => firmDatabaseMigrationStateFor(env.FIRM_DATABASE, firmId),
+    readFirmName: () => Promise.resolve(firmRow.display_name ?? firmRow.name),
+    bucketName: firmRow.bucket_name,
+  };
+}
+
+function makeSignerLane(): SignerLanePort<FirmContext> {
+  return {
+    verifySignerLink: async (c, presented) => {
+      if (presented === null) return null;
+      const env = (c as Context<{ Bindings: Bindings }>).env;
+      const read = await readSignerLink(env.AUTH_SECRET, presented, Math.floor(Date.now() / 1000));
+      if (read === null) return null;
+      const grant: ChokepointSignerGrant = {
+        firmId: read.link.firmId,
+        requestId: read.link.requestId,
+        signerId: read.link.signerId,
+        secretVersion: read.link.secretVersion,
+      };
+      if (read.outcome === "expired") return { refusal: signerLinkRefusalFor("expired"), grant };
+      return { ...grant, secret: read.link.secret };
+    },
+
+    resolveSignerFirmContext: async (c, grant) => await resolveFirmForLane(c, grant.firmId),
+
+    // THE ROW IS THE AUTHORITY: a corrected link, a cancelled, declined or finished request, or one
+    // past its last day refuses a perfectly-signed link here, with a sentence its holder can act on.
+    confirmSignerLinkIsLive: async (_c, firmContext, link) => {
+      const state = await readSignerLinkState(
+        firmContext.firmDatabase,
+        link.requestId as SigningRequestId,
+        link.signerId as SigningSignerId,
+      );
+      const storedHash = state?.tokenSecretHash ?? null;
+      const secretMatches =
+        storedHash === null
+          ? false
+          : await constantTimeStringEquals(await hashSignerSecret(link.secret), storedHash);
+      const code = signerLinkRefusal({
+        found: state !== undefined,
+        secretMatches,
+        storedVersion: state?.secretVersion ?? -1,
+        presentedVersion: link.secretVersion,
+        requestStatus: state?.requestStatus ?? "draft",
+        expiresAt: state?.expiresAt ?? new Date(0).toISOString(),
+        signerStatus: state?.signerStatus ?? "waiting",
+        now: new Date().toISOString(),
+      });
+      return code === null ? null : signerLinkRefusalFor(code);
+    },
+  };
+}
+
 // Assembles the production ports MINUS the idempotency port (app.ts adds createChokepointIdempotency
 // — it lives in its own module to avoid a value-import cycle through this one). The rate limiter is
 // injected because app.ts owns its lifetime: one per worker isolate, never one per request.
@@ -421,5 +496,6 @@ export function createChokepointPorts(
     loadPermissions: makeLoadPermissions(),
     rateLimiter,
     guestLane: makeGuestLane(),
+    signerLane: makeSignerLane(),
   };
 }

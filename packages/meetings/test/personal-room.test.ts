@@ -5,14 +5,23 @@ import { createMeeting, endMeeting, joinMeeting, leaveMeeting } from "../src/mee
 import { readMeeting, readMeetingSummaryByJoinCode } from "../src/meeting-statements.ts";
 import {
   arriveAtPersonalRoom,
+  createSharedRoom,
   ensurePersonalRoom,
   moveSessionToMatter,
   openPersonalRoom,
+  openRoomAtAddress,
   readPersonalRoomAtLink,
+  renameRoom,
   replacePersonalRoomLink,
+  retireSharedRoom,
   updatePersonalRoomDefaults,
+  updateSharedRoomDefaults,
 } from "../src/personal-room-service.ts";
-import { readPersonalRoomForOwner } from "../src/personal-room-statements.ts";
+import {
+  listSharedRooms,
+  readPersonalRoomForOwner,
+  readRoomById,
+} from "../src/personal-room-statements.ts";
 import {
   isPersonalRoomLinkCode,
   MeetingPersonalRoomRefusedError,
@@ -399,5 +408,161 @@ describe("ending a session", () => {
     await commit(database.database, ended.effect);
     const after = database.raw.prepare(`SELECT * FROM firm_event WHERE id = ?`).get(FIRM_EVENT);
     expect(after).toEqual(before);
+  });
+});
+
+async function makeSharedRoom(database: Fixture, title: string, serviceOptions = options) {
+  const { roomId, effect } = await createSharedRoom(database.database, { title }, serviceOptions);
+  await commit(database.database, effect);
+  const room = await readRoomById(database.database, roomId);
+  if (room === undefined) throw new Error("the shared room was not made");
+  return room;
+}
+
+describe("renaming a member's room", () => {
+  it("moves the address with the name, retires the old link, and resets to the owner's name", async () => {
+    const database = fresh();
+    const room = await makeRoom(database);
+    const renamed = await renameRoom(database.database, "own", "  Trial Prep  ", options);
+    await commit(database.database, renamed.effect);
+
+    const after = await readPersonalRoomForOwner(database.database, HOST);
+    expect(after?.title).toBe("Trial Prep");
+    expect(after?.address_name).toBe("trial-prep");
+    await expect(
+      readPersonalRoomAtLink(database.database, room.address_name ?? "", optionsFor(GUEST)),
+    ).rejects.toMatchObject({ code: "personal-room-unknown" });
+    const arrival = await readPersonalRoomAtLink(
+      database.database,
+      "trial-prep",
+      optionsFor(GUEST),
+    );
+    expect(arrival.roomName).toBe("Trial Prep");
+    expect(arrival.kind).toBe("personal");
+    expect(arrival.mayOpen).toBe(false);
+
+    const reset = await renameRoom(database.database, "own", null, options);
+    await commit(database.database, reset.effect);
+    const back = await readPersonalRoomForOwner(database.database, HOST);
+    expect(back?.title).toBeNull();
+    expect(back?.address_name).toBe(room.address_name);
+  });
+
+  it("refuses an empty name and writes nothing for the name it already has", async () => {
+    const database = fresh();
+    await makeRoom(database);
+    await expect(renameRoom(database.database, "own", "   ", options)).rejects.toMatchObject({
+      code: "personal-room-invalid-title",
+    });
+    await expect(
+      renameRoom(database.database, "own", "x".repeat(81), options),
+    ).rejects.toMatchObject({ code: "personal-room-invalid-title" });
+    const same = await renameRoom(database.database, "own", null, options);
+    expect(same.effect.statements).toHaveLength(0);
+  });
+});
+
+describe("a room the firm shares", () => {
+  it("is named for the place, addressed by that name, and listed with the firm's rooms", async () => {
+    const database = fresh();
+    const room = await makeSharedRoom(database, "Red Room");
+    expect(room.kind).toBe("shared");
+    expect(room.title).toBe("Red Room");
+    expect(room.address_name).toBe("red-room");
+    expect(room.lobby).toBe("on");
+
+    const second = await makeSharedRoom(database, "Red Room");
+    expect(second.address_name).not.toBe("red-room");
+
+    const listed = await listSharedRooms(database.database);
+    expect(listed.map((row) => row.title)).toEqual(["Red Room", "Red Room"]);
+    // A member's own room is unaffected: one each, beside any number of shared rooms.
+    const own = await makeRoom(database);
+    expect(own.kind).toBe("personal");
+  });
+
+  it("is opened by any member who may host, titled with the room's name", async () => {
+    const database = fresh();
+    const room = await makeSharedRoom(database, "Large Conference Room");
+    const address = room.address_name ?? "";
+
+    await expect(
+      openRoomAtAddress(
+        database.database,
+        address,
+        { timeZone: ZONE },
+        {
+          ...optionsFor(GUEST),
+          mayHost: false,
+        },
+      ),
+    ).rejects.toMatchObject({ code: "personal-room-not-owner" });
+
+    const opened = await openRoomAtAddress(
+      database.database,
+      address,
+      { timeZone: ZONE },
+      { ...optionsFor(GUEST), mayHost: true },
+    );
+    await commit(database.database, opened.effect);
+    expect(opened.created).toBe(true);
+    expect(firmEventOf(database, opened.meetingId)?.["title"]).toBe("Large Conference Room");
+
+    const arrival = await readPersonalRoomAtLink(database.database, address, {
+      ...options,
+      mayHost: true,
+    });
+    expect(arrival.kind).toBe("shared");
+    expect(arrival.mayOpen).toBe(true);
+    expect(arrival.state).toBe("open");
+  });
+
+  it("takes a new name and new defaults, and keeps a name always", async () => {
+    const database = fresh();
+    const room = await makeSharedRoom(database, "Red Room");
+    const renamed = await renameRoom(database.database, room.id, "Blue Room", optionsFor(GUEST));
+    await commit(database.database, renamed.effect);
+    const defaults = await updateSharedRoomDefaults(
+      database.database,
+      room.id,
+      { lobby: "off", medium: "audio" },
+      optionsFor(GUEST),
+    );
+    await commit(database.database, defaults.effect);
+
+    const after = await readRoomById(database.database, room.id);
+    expect(after?.title).toBe("Blue Room");
+    expect(after?.address_name).toBe("blue-room");
+    expect(after?.lobby).toBe("off");
+    expect(after?.medium).toBe("audio");
+    await expect(renameRoom(database.database, room.id, null, options)).rejects.toMatchObject({
+      code: "personal-room-invalid-title",
+    });
+  });
+
+  it("gives up its address when removed, so the link names nothing and the name is free", async () => {
+    const database = fresh();
+    const room = await makeSharedRoom(database, "Red Room");
+    const retired = await retireSharedRoom(database.database, room.id, options);
+    await commit(database.database, retired.effect);
+
+    await expect(
+      readPersonalRoomAtLink(database.database, "red-room", optionsFor(GUEST)),
+    ).rejects.toMatchObject({ code: "personal-room-unknown" });
+    expect(await listSharedRooms(database.database)).toHaveLength(0);
+    await expect(retireSharedRoom(database.database, room.id, options)).rejects.toMatchObject({
+      code: "personal-room-unknown",
+    });
+
+    const again = await makeSharedRoom(database, "Red Room");
+    expect(again.address_name).toBe("red-room");
+  });
+
+  it("is not a member's own room to rename through their own room", async () => {
+    const database = fresh();
+    const own = await makeRoom(database);
+    await expect(renameRoom(database.database, own.id, "Mine", options)).rejects.toMatchObject({
+      code: "personal-room-unknown",
+    });
   });
 });

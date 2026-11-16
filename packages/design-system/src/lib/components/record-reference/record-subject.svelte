@@ -16,18 +16,23 @@
    * fact is noise in the one line a reader is listening for the number in. Sighted readers get the
    * mark, screen readers get the facts.
    */
-  import { renderReference, SUBJECT_SEPARATOR } from "./record-reference-model.ts";
+  import {
+    DRAFT_NUMBER_DESCRIPTION,
+    renderReference,
+    SUBJECT_SEPARATOR,
+  } from "./record-reference-model.ts";
   import type { RecordSubject } from "./types.ts";
 
   let { subject }: { subject: RecordSubject } = $props();
 
   const reference = $derived(subject.reference ? renderReference(subject.reference) : null);
   const facts = $derived(subject.facts ?? []);
-  /* The preview's own words ride the fact run, so the separator between them is the shared one. */
-  const trailing = $derived(
-    reference !== null && reference.shape === "identified" && reference.note !== null
-      ? [reference.note, ...facts]
-      : [...facts],
+  const trailing = $derived([...facts]);
+  /* A reference with no words in it — a draft whose number is still being held, with no kind —
+     renders nothing, so no separator is drawn in front of the first fact. */
+  const referenceShown = $derived(
+    reference !== null &&
+      (reference.kind !== "" || reference.shape === "identified"),
   );
 </script>
 
@@ -39,17 +44,24 @@
   {#if reference !== null}
     {#if reference.shape === "identified"}
       <span class="mc-record-subject-reference">
-        {reference.kind}
-        <span class="mc-record-subject-number">{reference.number}</span>
+        {#if reference.kind !== ""}{reference.kind}{/if}
+        {#if reference.draft}
+          <!-- The product's one mark for a number a record does not carry yet: italics, with the
+               reason on the number for a pointer. -->
+          <em
+            class="mc-record-subject-number mc-record-subject-draft"
+            title={DRAFT_NUMBER_DESCRIPTION}>{reference.number}</em
+          >
+        {:else}
+          <span class="mc-record-subject-number">{reference.number}</span>
+        {/if}
       </span>
-    {:else if reference.shape === "awaiting"}
-      <span class="mc-record-subject-reference">{reference.sentence}</span>
-    {:else}
+    {:else if reference.kind !== ""}
       <span class="mc-record-subject-reference">{reference.kind}</span>
     {/if}
   {/if}
   {#each trailing as fact, index (index)}
-    {#if index > 0 || reference !== null}{@render separator()}{/if}
+    {#if index > 0 || referenceShown}{@render separator()}{/if}
     <span>{fact}</span>
   {/each}
 </span>

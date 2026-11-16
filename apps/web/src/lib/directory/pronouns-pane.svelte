@@ -129,7 +129,7 @@
   <div class="grid grid-cols-2 gap-16">
     {#each PRONOUN_FORMS as entry (entry.form)}
       <div class="flex flex-col gap-8">
-        <Label for="pronoun-{entry.form}">{entry.label} ({entry.reading})</Label>
+        <Label necessity="required" for="pronoun-{entry.form}">{entry.label} ({entry.reading})</Label>
         <!-- A function binding, because the field is chosen by the loop: the rendered value always
              re-reads the draft rather than the control keeping a copy of its own. -->
         <Input

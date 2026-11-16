@@ -3969,6 +3969,7 @@ describe("a guest in the room — somebody from outside the firm, on a link", ()
       body: "The exhibits are in the shared folder.",
       redactedAt: null,
       redactedByUserId: null,
+      attachedFile: { id: "file_guestRelayExhibits", name: "Exhibits.pdf" },
     } as const;
 
     await stub.messageSent(said);
@@ -3977,6 +3978,7 @@ describe("a guest in the room — somebody from outside the firm, on a link", ()
     expect(lastFrame(guest, "message")).toEqual({
       v: 1,
       type: "message",
+      // The shared file stays: a guest in the room opens it through the guest lane's own route.
       message: { ...said, userId: null },
     });
     // The member's copy is the record's.

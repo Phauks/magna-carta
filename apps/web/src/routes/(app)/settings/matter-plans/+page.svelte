@@ -193,11 +193,11 @@
     {#if composing}
       <div class="flex flex-col gap-12 rounded-md border border-border-strong p-16">
         <div class="flex flex-col gap-4">
-          <Label for="plan-name">Name</Label>
+          <Label necessity="required" for="plan-name">Name</Label>
           <Input id="plan-name" bind:value={draftName} disabled={saving} />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="plan-description">What this plan is for</Label>
+          <Label necessity="optional" for="plan-description">What this plan is for</Label>
           <Textarea id="plan-description" bind:value={draftDescription} rows={2} disabled={saving} />
         </div>
         <div class="flex justify-end">
@@ -371,11 +371,11 @@
                     {#if composingStep}
                       <div class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
                         <div class="flex flex-col gap-4">
-                          <Label for="step-title">What to do</Label>
+                          <Label necessity="required" for="step-title">What to do</Label>
                           <Input id="step-title" bind:value={stepTitle} disabled={saving} />
                         </div>
                         <div class="flex flex-col gap-4">
-                          <Label for="step-body">Detail</Label>
+                          <Label necessity="optional" for="step-body">Detail</Label>
                           <Textarea id="step-body" bind:value={stepBody} rows={2} disabled={saving} />
                         </div>
                         <div class="flex flex-wrap items-end gap-16">
@@ -396,7 +396,7 @@
                           </div>
                           {#if stepAnchor !== "none"}
                             <div class="flex flex-col gap-4">
-                              <Label for="step-offset">Days</Label>
+                              <Label necessity="optional" for="step-offset">Days</Label>
                               <Input
                                 id="step-offset"
                                 type="number"
@@ -425,7 +425,7 @@
                             </div>
                           </div>
                           <div class="flex flex-col gap-4">
-                            <Label for="step-role">Give it to (role)</Label>
+                            <Label necessity="optional" for="step-role">Give it to (role)</Label>
                             <Input
                               id="step-role"
                               bind:value={stepRole}

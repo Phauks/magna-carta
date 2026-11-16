@@ -1,6 +1,7 @@
 import { z } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { TransferSourceFileId } from "@magna-carta/identifiers/types";
 import {
   TransferSourceFilePreviewResponse,
@@ -175,7 +176,10 @@ export function registerTransferSourceFileRoutes(app: AppRouter, chokepoint: Cho
       const objectKey = transferSourceFileObjectKey(run.id, id);
       const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
       const now = new Date().toISOString();
-      await bucket.put(objectKey, bytes);
+      await bucket.put(objectKey, bytes, {
+        sha256: contentSha256,
+        customMetadata: firmScopedObjectDimensions("transfer-source-file"),
+      });
       try {
         await commitEffectBatch(
           firm.firmDatabase,

@@ -60,7 +60,7 @@
 ## Dependencies & contracts
 
 - Depends on `@magna-carta/data-access` for the `SqlDatabase` / `SqlStatement` surface, the audit statement and the effect batch, on `@magna-carta/identifiers` for its identifier types, on `@magna-carta/directory` for the compose functions and input types a transferred person or organization is written with, on `@magna-carta/matters` for `composeTransferredMatter`, and on `@magna-carta/civil-time` to turn a file's day into a stored instant.
-- Called by `apps/api-worker`: the routes in `src/http/routes/record-transfer/` and the queue consumer in `src/background/record-transfer/pass-consumer.ts`. No screen calls the routes yet.
+- Called by `apps/api-worker`: the routes in `src/http/routes/record-transfer/` and the queue consumer in `src/background/record-transfer/pass-consumer.ts`. The screens that call the routes are `apps/web/src/routes/(app)/record-transfer/`, with their parts in `apps/web/src/lib/record-transfer/`; the words shown for each rejection, finding and failure code are in `transfer-run-view.ts` there, so a new code is added in both places.
 
 ## Gotchas
 

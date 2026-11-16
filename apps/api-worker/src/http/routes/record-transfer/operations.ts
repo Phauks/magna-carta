@@ -5,6 +5,7 @@ export const OPERATIONS: readonly string[] = [
   "recordTransfer.addSourceFile",
   "recordTransfer.getPass",
   "recordTransfer.getPassReport",
+  "recordTransfer.getPassRules",
   "recordTransfer.getRun",
   "recordTransfer.listRuns",
   "recordTransfer.previewSourceFile",

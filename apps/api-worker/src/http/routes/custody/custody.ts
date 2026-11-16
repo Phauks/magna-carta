@@ -100,6 +100,7 @@ import {
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { identifierPathParam, idempotencyKeyHeader } from "../../contracts/common.ts";
+import { numberReservationField } from "../../contracts/number-reservation.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
 import { capped, cursorQuery, paginated } from "@magna-carta/data-access/pagination-contract";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
@@ -548,6 +549,7 @@ const CreateCustodyPacketRequest = z
     // A number carried in from a paper deeds register or a prior system. It touches no counter, so a
     // firm migrating thirty years of physical labels does not have to re-label a safe.
     manualCustodyNumber: z.string().min(1).max(64).optional(),
+    numberReservation: numberReservationField,
   })
   .openapi("CreateCustodyPacketRequest");
 
@@ -2210,24 +2212,12 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       try {
-        const created = await createCustodyPacket(
-          firm.firmDatabase,
-          {
-            name: request.name,
-            owners: request.owners,
-            currentLocationId: request.currentLocationId,
-            matterId: request.matterId,
-            depositorEntityId: request.depositorEntityId,
-            depositedAt: request.depositedAt,
-            notes: request.notes,
-            manualCustodyNumber: request.manualCustodyNumber,
-          },
-          {
-            ...serviceOptions(c),
-            responsibleMemberId: requireChokepointUserId(c),
-            idempotency,
-          },
-        );
+        // The request body is the service's input, field for field.
+        const created = await createCustodyPacket(firm.firmDatabase, request, {
+          ...serviceOptions(c),
+          responsibleMemberId: requireChokepointUserId(c),
+          idempotency,
+        });
         return c.json(
           {
             id: created.packetId,

@@ -68,8 +68,32 @@ export interface MeetingPersonalRoomRow {
   // The room's address by name (/room/trevor). Every room has one; null only in a row read before
   // the column was filled.
   readonly address_name: string | null;
+  // A member's own room, or one the firm shares; see `MEETING_ROOM_KINDS`.
+  readonly kind: MeetingRoomKind;
+  // The room's own name; null for a member's room they have not named.
+  readonly title: string | null;
+  // When a shared room was taken off the list; null while it is in use.
+  readonly retired_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+// A MEMBER'S OWN ROOM OR ONE THE FIRM SHARES. A member has at most one room of their own, which only
+// they open. A shared room ("Red Room", "Large Conference Room") is set up by anybody who may host
+// meetings, and opened by anybody who may: it stands for a place, not a person.
+export const MEETING_ROOM_KINDS = ["personal", "shared"] as const;
+export type MeetingRoomKind = (typeof MEETING_ROOM_KINDS)[number];
+
+/** The longest name a room may be given, as the database holds it. */
+export const MEETING_ROOM_TITLE_MAXIMUM = 80;
+
+/** What a room is called: its own name, or for a member's room they have not named, theirs. */
+export function roomDisplayName(
+  room: { readonly kind: MeetingRoomKind; readonly title: string | null },
+  ownerDisplayName: string,
+): string {
+  if (room.title !== null) return room.title;
+  return room.kind === "shared" ? "Shared room" : `${ownerDisplayName}'s Room`;
 }
 
 /** A room as a link reads it: the room, its owner's name, and whether the owner is still a member. */
@@ -81,6 +105,8 @@ export interface PersonalRoomAtLink extends MeetingPersonalRoomRow {
 /** The session a room has open, with what deciding whether it is still in use needs. */
 export interface PersonalRoomOpenSession {
   readonly id: MeetingId;
+  // The nine digits the session is addressed by: /meeting/482-917-305.
+  readonly join_code: string | null;
   readonly status: MeetingStatus;
   readonly event_kind: MeetingEventKind;
   readonly matter_event_id: MatterEventId | null;
@@ -100,6 +126,15 @@ export function personalRoomEventTitle(ownerDisplayName: string): string {
   return `${ownerDisplayName}'s room`;
 }
 
+/**
+ * A room's name as a member typed it: the spaces at either end taken off and runs of space made one.
+ * Undefined where nothing is left or it is too long, which the service refuses.
+ */
+export function cleanRoomTitle(typed: string): string | undefined {
+  const cleaned = typed.replaceAll(/\s+/g, " ").trim();
+  return cleaned.length === 0 || cleaned.length > MEETING_ROOM_TITLE_MAXIMUM ? undefined : cleaned;
+}
+
 // THE PERSONAL ROOM'S OWN REFUSALS, as a vocabulary of their own on the recording's precedent: only
 // these routes raise them, and the room's one switch over `MeetingValidationCode` stays as it is.
 export type MeetingPersonalRoomRefusalCode =
@@ -109,6 +144,8 @@ export type MeetingPersonalRoomRefusalCode =
   // Opening, or changing, a room that is not the caller's. Only its owner opens it, so a room is never
   // in use without the person whose room it is.
   | "personal-room-not-owner"
+  // A room name that is empty, or longer than `MEETING_ROOM_TITLE_MAXIMUM`.
+  | "personal-room-invalid-title"
   // Moving a meeting onto a matter that cannot be moved: it is not a personal-room session, it is
   // already on a matter, or the caller is neither the room's owner nor running the session.
   | "meeting-move-refused";
@@ -132,11 +169,24 @@ export function refusePersonalRoom(code: MeetingPersonalRoomRefusalCode, message
  * one up, and the session it has open with how many people are in it. A member with no room is a
  * row with nulls, so the list can say "No room set up" rather than leave them out.
  */
+/** One shared room as the firm's list shows it, with the session it has open. */
+export interface SharedRoomRow {
+  readonly id: MeetingPersonalRoomId;
+  readonly title: string | null;
+  readonly address_name: string | null;
+  readonly medium: MeetingMedium;
+  readonly lobby: MeetingLobbyMode;
+  readonly set_up_by: string;
+  readonly open_meeting_id: MeetingId | null;
+  readonly live_count: number;
+}
+
 export interface FirmRoomRow {
   readonly user_id: UserId;
   readonly display_name: string;
   readonly link_code: string | null;
   readonly address_name: string | null;
+  readonly title: string | null;
   readonly medium: MeetingMedium | null;
   readonly open_meeting_id: MeetingId | null;
   readonly live_count: number;

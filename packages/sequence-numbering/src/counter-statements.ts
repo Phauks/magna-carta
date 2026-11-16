@@ -20,6 +20,10 @@ export interface SequenceNumberingTables {
   // The allocation column carrying the handle of the row this draw numbered (a matter, an invoice).
   // A foreign key, which is why the allocation statement is composed AFTER the row's own write.
   readonly ownerColumn: string;
+  // Set for a run that writes no allocation row because its rendered number carries its whole scope
+  // (the call and text log): the column on `allocationTable` holding that rendered number, which is
+  // then how a held value is checked for having been taken already.
+  readonly renderedNumberColumn?: string;
 }
 
 // Creates the counter at its start value if absent; a no-op if the row already exists (never

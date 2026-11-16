@@ -515,6 +515,22 @@ export function flipCurrentNameToFormerStatement(
     .bind(entityId, validTo);
 }
 
+// A name that was a typing mistake leaves the record rather than becoming a former name: it stops
+// being current and is soft-deleted, which takes it out of every search and conflicts channel (each
+// reads `deleted_at IS NULL`) while the row and the audit log still show what it said.
+// fitness:unguarded-write — matches a set rather than one row, so zero is an empty set rather than a refusal
+export function retireMistypedCurrentNameStatement(
+  database: SqlDatabase,
+  entityId: string,
+  retiredAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_NAME_TABLE} SET is_current = 0, valid_to = ?2, deleted_at = ?2, updated_at = ?2 WHERE entity_id = ?1 AND is_current = 1`,
+    )
+    .bind(entityId, retiredAt);
+}
+
 // The new name columns to write onto the person entity row when a person's name changes. This is
 // the denormalized projection kept on the entity row for fast list/display reads; the authoritative
 // record is in directory_name.

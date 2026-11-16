@@ -21,6 +21,11 @@
   .mc-navigation-layout-navigation-narrow {
     padding-inline: var(--mc-space-16);
   }
+  /* Wide: the record-aside measure holds the rows, with the narrow gutter a side. */
+  .mc-navigation-layout-navigation-wide {
+    inline-size: var(--mc-size-record-aside);
+    padding-inline: var(--mc-space-16);
+  }
   /*
    * The content column as the page's scroll region: it carries the canvas gutter INSIDE the scroll
    * area, so the scrollbar sits at the canvas's true edge, and reserves the gutter so a page that

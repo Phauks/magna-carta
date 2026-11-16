@@ -73,14 +73,14 @@ export const JOINING_STEPS: readonly JoiningStep[] = [
     label: "Read the Terms of Service and the Privacy Policy",
     reach: "partial",
     behaviour:
-      "Both acknowledgements gate the submit, so nobody registers without ticking them. Neither document is published yet, so the two links have no page to open, and no route records that the acknowledgement was given — the gate is in the browser only.",
+      "Both acknowledgements gate the submit, so nobody registers without ticking them. Neither document is published yet, so the two links have no page to open, and nothing records that the acknowledgement was given. The check is in the browser only.",
   },
   {
     id: "choose-credential",
     label: "Choose a passkey or a password while registering",
     reach: "partial",
     behaviour:
-      "Neither is chosen here. There is no passkey route to register a credential against, and a password is set afterwards through the emailed link rather than on this form — which is also what proves the mailbox belongs to the person filling it in.",
+      "Neither is chosen here. There is no passkey route to register a credential against, and a password is set afterwards through the emailed link not on this form. The link also proves the mailbox belongs to the person filling it in.",
   },
 ];
 

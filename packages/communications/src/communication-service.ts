@@ -71,6 +71,10 @@ export interface CommunicationServiceOptions {
 const ROUTABLE_STATUSES: ReadonlySet<string> = new Set(["intake", "consultation", "open", "hold"]);
 
 export interface LogCommunicationInput {
+  // The draft number the panel that composed this request was shown and holds
+  // (@magna-carta/sequence-numbering/reservation). Where the hold is still this scope's, the record is
+  // saved under exactly that number; otherwise the draw takes the next free one.
+  readonly numberReservation?: string;
   readonly channel: CommunicationChannel;
   readonly direction: CommunicationDirection;
   // Nullable, and an unnumbered matter counts. `matter.matter_number` is null until the status
@@ -151,9 +155,15 @@ export async function logCommunication(
   // draw safe go into the same batch as the insert. A losing draw aborts the whole batch on the
   // partial unique index over the rendered number, and the caller's bounded retry re-runs this with
   // the advanced counter (numbering.ts).
-  const plan = await planSchemeDraw(database, "communication", COMMUNICATION_NUMBERING_TABLES, {
-    openedDate: communicationNumberDate(occurredAt),
-  });
+  const plan = await planSchemeDraw(
+    database,
+    "communication",
+    COMMUNICATION_NUMBERING_TABLES,
+    {
+      openedDate: communicationNumberDate(occurredAt),
+    },
+    { reservationToken: input.numberReservation, now },
+  );
   options.observeDraw?.({
     scopeKey: plan.scopeKey,
     observedValue: plan.observedValue,

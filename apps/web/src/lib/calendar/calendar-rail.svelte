@@ -120,7 +120,7 @@
         />
         <!-- The name IS the disclosure, at the full width of what is left, so the target is the
              heading rather than a chevron somebody has to hit. A folder heads a group of calendars,
-             so it keeps the product's small-caps register. -->
+             so it keeps the product's label voice. -->
         <button
           type="button"
           class="mc-field-label group flex min-w-0 flex-1 items-center gap-4 text-start"

@@ -351,6 +351,15 @@
   awaiting-owner: The PDF import path is designed and unbuilt behind four calls about a firm's money. Whether a statement whose rows do not foot to its parsed closing balance is refused outright, or imported with the discrepancy recorded — refusing sends a firm with an irregular statement back to typing the month by hand, allowing it puts a difference into the bank leg of the proof that nobody can attribute to a trust problem or a parse error. Whether a scanned statement may produce stored lines at all, or recognition may only assist a person typing, which costs the firms with paper statements the most. Whether one statement line may match several ledger entries — a single deposit slip covering three cheques reads today as one match plus two items outstanding, so a firm that batches deposits has a period that can never balance, and this is the one flag the design makes no recommendation on. And how long the source PDF is kept, given it is a client's bank activity by name and amount, and whether a subject erasure request reaches it while the trust-record retention obligation runs. Trust PDF statement import design, flags S1, S2, S4 and S5.
   notes: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration.
 
+- id: financial.trust.check-printing
+  name: Trust check printing
+  scope: Print checks for trust disbursements paid by check, on the firm's own check stock placed over a scan of a blank check; number them from the account's next number, confirm printed or spoiled, void with the number kept, and print a test page.
+  status: partial
+  surface: screen
+  slices: 3-2-trust-accounting-jurisdiction-compliance
+  evidence: packages/trust/src/checks.ts (the queue, the register, numbering, results and voids over the append-only trust_check, trust_check_event and trust_check_stock tables of the 20261114T013558_trust-check-printing per-firm migration) and src/check-layout.ts (positions, the MICR band refusal, amount in words), behind apps/api-worker/src/http/routes/trust/trust-checks.ts; the PDF is composed in the browser by apps/web/src/lib/trust/checks/check-document.ts through the composer's placed-text block in crates/pdf-compose-core
+  notes: Operating-account checks, printing the MICR line on blank stock, printed signatures and positive-pay export are not built. Design: docs/specs/2026-11-14-trust-check-printing-design.md.
+
 - id: financial.trust.close-rule
   name: Zero-balance close precondition
   scope: Registers "all bills paid, no remaining balance" on the matter close-precondition hook.

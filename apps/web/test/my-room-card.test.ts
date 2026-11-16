@@ -20,6 +20,8 @@ const ROOM = {
   id: "meetingPersonalRoom_1",
   linkCode: "abcdefghjk",
   addressName: "trevor",
+  name: "Trevor Goldsmith's Room",
+  title: null,
   medium: "video",
   lobby: "on",
   openMeetingId: null,
@@ -102,6 +104,8 @@ describe("the My Room card", () => {
     await settle();
 
     expect(target.textContent).toContain("/room/trevor");
+    // The room is called by its name: the owner's until they give it one of its own.
+    expect(target.textContent).toContain("Trevor Goldsmith's Room");
     expect(button("Open My Room")).toBeDefined();
     expect(button("Copy Link")).toBeDefined();
     // The settings are changed rarely, so they are behind "..." rather than on the card's face.

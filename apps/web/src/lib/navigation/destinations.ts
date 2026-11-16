@@ -58,6 +58,7 @@ import MessageSquare from "@lucide/svelte/icons/message-square";
 import Video from "@lucide/svelte/icons/video";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import ChartPie from "@lucide/svelte/icons/chart-pie";
+import FolderInput from "@lucide/svelte/icons/folder-input";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
@@ -605,6 +606,23 @@ const DESTINATION_LIST = [
     stage: "alpha",
     defaultShown: true,
     permission: assertPermission("tools:firmUsage"),
+  },
+  {
+    /*
+     * Bringing the firm's records in from the practice system it is leaving. It is the firm's own
+     * act, done a handful of times in its life, so it sits in the Firm group and only a member who
+     * may transfer records sees the row: a run's files are every client the firm has.
+     */
+    id: "record-transfer",
+    label: "Record Transfer",
+    href: "/record-transfer",
+    icon: FolderInput,
+    description: "Bring the firm's records in from the system it is leaving.",
+    group: "firm",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+    permission: assertPermission("firm:transferRecords"),
   },
   {
     id: "settings",

@@ -25,6 +25,7 @@ function turn(
     snapshotId: null,
     contextTruncated: false,
     effort: null,
+    thinking: null,
     removedAt: null,
     supersededAt: null,
     replacesTurnId: null,

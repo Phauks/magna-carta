@@ -401,7 +401,7 @@ export function presentTrustCompliancePack(
       formatInstant(hold.placedAt),
       optional(hold.placedBy, captions.member),
     ]),
-    whenEmpty: "No hold was in force at the knowledge instant.",
+    whenEmpty: "No hold was in place as of the report date.",
   });
 
   const atProduction = `As at ${formatInstant(exceptions.atProduction.computedAt)}, not bounded by the knowledge instant.`;

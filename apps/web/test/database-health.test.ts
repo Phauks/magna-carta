@@ -296,9 +296,10 @@ describe("the panel's two folding sections", () => {
     // block and the loading region. Each was written out longhand in the panel before, which is
     // how two carets end up disagreeing about aria-expanded, and how two identical failures end up
     // worded differently.
-    // Deployment, Features, Workers, Connected services, Database and Upload readiness.
+    // Deployment, Features, Database and Upload readiness. The fleet and the outside services sit
+    // beside the features they power, in System Status's one table, rather than in sections.
     const renders = chip.match(/<VersionPanelSection/g) ?? [];
-    expect(renders).toHaveLength(6);
+    expect(renders).toHaveLength(4);
     expect(chip).not.toContain("<VersionSectionHeading");
     expect(panelSection).toContain("<VersionSectionHeading");
     expect(heading).toContain("aria-expanded={!collapsed}");
@@ -315,7 +316,7 @@ describe("the panel's two folding sections", () => {
     // the fault somebody opened the panel to find. The keys are DERIVED from the section ids now,
     // so a section cannot ship with its key spelled a second, different way.
     const registered = preferences.match(/createSectionFold\("[a-z]+"\)/g) ?? [];
-    expect(new Set(registered).size).toBe(6);
+    expect(new Set(registered).size).toBe(4);
     expect(preferences).toContain("`magna-carta.version-panel-${sectionId}`");
     expect(preferences).toMatch(/\["expanded", "collapsed"\],\s*"expanded",/);
     expect(preferences).toContain("followAcrossTabs()");
@@ -331,15 +332,11 @@ describe("the panel's two folding sections", () => {
   });
 
   it("makes each shut heading speak for exactly what its own fold hides", () => {
-    // This once required Deployment's badge to count every Worker in the read, which was right
-    // while the fleet was a drawer INSIDE Deployment: collapsing Deployment took the fleet down
-    // with it. Workers is its own section now, so that same count would have both headings
-    // claiming the same silent Worker — and a reader who folded only Workers would see Deployment
-    // wearing a warning about rows still on screen. Each heading counts its own half.
+    // Deployment's heading counts only the pair it shows. The rest of the fleet reads beside the
+    // features it powers (feature-dependencies-model.ts), so a count over the whole read here would
+    // claim Workers the Deployment fold does not hold.
     expect(chip).toContain("pills={deploymentPills}");
     expect(chip).toMatch(/deploymentPills = \$derived\([\s\S]*?deploymentRows\.front/);
-    expect(chip).toContain("pills={workersPills}");
-    expect(chip).toMatch(/workersPills = \$derived\([\s\S]*?deploymentRows\.rest/);
     expect(chip).not.toContain("summarizeSilentWorkers(value.services)");
   });
 

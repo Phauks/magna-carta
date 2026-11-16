@@ -124,6 +124,8 @@ export interface RunCheckRequest {
   matterId?: string;
   subjectEntityIds: string[];
   scope: ScopeRequest;
+  /** The draft number the panel holds, so the check is opened under exactly that number. */
+  numberReservation?: string;
 }
 
 /** What opening a check, or a further run of one, answers. The search has not run yet. */
@@ -650,13 +652,6 @@ export function openConflictsCheck(
     body: request,
     idempotencyKey,
   });
-}
-
-/** The number the next check would draw. A preview, never a reservation. */
-export function readNextConflictsCheckNumber(
-  fetchImpl: typeof fetch,
-): Promise<ApiOutcome<{ checkNumber: string }>> {
-  return requestJson(fetchImpl, "/api/v1/conflicts/checks/next-number");
 }
 
 /** Run a check again: a further run under the same number, with the check's search as it stands. */

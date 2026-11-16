@@ -16,6 +16,10 @@
  */
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
+import {
+  recordBackgroundFailures,
+  settleBackgroundFailureRecords,
+} from "./system-status/background-error-record.ts";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp } from "./http/app.ts";
 import type { Bindings } from "./bindings.ts";
@@ -48,6 +52,7 @@ import { meetingTranscriptQueue } from "./meetings/transcript-consumer.ts";
 import type { MagnusTurnJob } from "./magnus/magnus-types.ts";
 import { runIdleCheckoutSweep } from "./background/editing/idle-checkout-sweep.ts";
 import { runRecurringTaskPass } from "./background/tasks/recurring-task-pass.ts";
+import { runSigningPass } from "./background/documents/signing-pass.ts";
 import { runTieringSweep } from "./background/editing/tiering-sweep.ts";
 import { runDimensionBackfillSweep } from "./background/files/dimension-backfill-sweep.ts";
 import { recoveryQueue } from "./background/recovery/recovery-consumer.ts";
@@ -175,6 +180,9 @@ export async function runScheduledPass(
   controller: ScheduledController,
   env: Bindings,
 ): Promise<void> {
+  // A pass's failures are kept in the error record as well as logged; wait for those writes before
+  // the pass returns, because what is still running when it does may be cancelled.
+  recordBackgroundFailures(env);
   const pass =
     controller.cron === RECONCILIATION_CRON
       ? {
@@ -289,6 +297,13 @@ export async function runScheduledPass(
                     caught,
                   );
                 }
+                // Signing requests are expired and reminded on the same hour, wrapped for the same
+                // reason: one pass failing never costs another its turn.
+                try {
+                  await runSigningPass(env);
+                } catch (caught) {
+                  logOperationFailed(createWorkersLogger(env.TELEMETRY), "cron:signing", caught);
+                }
                 await runNotificationDigestPass(env);
               },
             }
@@ -303,10 +318,23 @@ export async function runScheduledPass(
   await pass.run().catch((caught: unknown) => {
     logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);
   });
+  await settleBackgroundFailureRecords();
 }
 
-/** One queue batch: route it by queue name to its consumer. */
-export function routeQueueBatch(batch: MessageBatch, env: Bindings): void | Promise<void> {
+/**
+ * One queue batch: route it by queue name to its consumer, keeping the consumer's failures in the
+ * error record and waiting for those writes before the batch returns (see runScheduledPass).
+ */
+export async function routeQueueBatch(batch: MessageBatch, env: Bindings): Promise<void> {
+  recordBackgroundFailures(env);
+  try {
+    await routeQueueBatchToConsumer(batch, env);
+  } finally {
+    await settleBackgroundFailureRecords();
+  }
+}
+
+function routeQueueBatchToConsumer(batch: MessageBatch, env: Bindings): void | Promise<void> {
   // The bundle-build queue routes to the async bulk-download consumer (R2 -> client-zip -> R2).
   if (batch.queue === BUNDLE_BUILD_QUEUE) {
     return bundleBuildQueue(batch as MessageBatch<BundleBuildMessage>, env);

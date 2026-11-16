@@ -237,7 +237,7 @@
         saving = false;
         saveFailure = stated(
           updated.failure,
-          "The change was not saved.",
+          "The change wasn't saved.",
           "Couldn't connect. Nothing changed.",
         );
         return;
@@ -617,18 +617,18 @@
         </Tabs.List>
 
         <Tabs.Content value="office" class="flex flex-col gap-12">
-          <LabelledField label="Name">
+          <LabelledField necessity="required" label="Name">
             {#snippet children({ props })}
               <Input {...props} bind:value={draft.name} disabled={saving} />
             {/snippet}
           </LabelledField>
           <div class="grid gap-12 sm:grid-cols-2">
-            <LabelledField label="Jurisdiction" hint="The jurisdiction whose trust rules the office keeps, as the firm names it.">
+            <LabelledField necessity="optional" label="Jurisdiction" hint="The jurisdiction whose trust rules the office keeps, as the firm names it.">
               {#snippet children({ props })}
                 <Input {...props} bind:value={draft.jurisdiction} disabled={saving} />
               {/snippet}
             </LabelledField>
-            <LabelledField label="Numbering Code" hint="The short code a location segment of the firm's matter numbers prints.">
+            <LabelledField necessity="optional" label="Numbering Code" hint="The short code a location segment of the firm's matter numbers prints.">
               {#snippet children({ props })}
                 <Input {...props} bind:value={draft.numberCode} disabled={saving} />
               {/snippet}
@@ -645,7 +645,7 @@
               />
             {/snippet}
           </LabelledField>
-          <LabelledField label="Email">
+          <LabelledField necessity="optional" label="Email">
             {#snippet children({ props })}
               <Input {...props} type="email" bind:value={draft.email} disabled={saving} />
             {/snippet}
@@ -674,17 +674,17 @@
         </Tabs.Content>
 
         <Tabs.Content value="letterhead" class="flex flex-col gap-12">
-          <LabelledField label="Address Block" hint="The lines a letterhead prints under the mark, as they should read.">
+          <LabelledField necessity="optional" label="Address Block" hint="The lines a letterhead prints under the mark, as they should read.">
             {#snippet children({ props })}
               <Textarea {...props} rows={3} resizable={false} bind:value={draft.addressBlock} disabled={saving} />
             {/snippet}
           </LabelledField>
-          <LabelledField label="Footer">
+          <LabelledField necessity="optional" label="Footer">
             {#snippet children({ props })}
               <Textarea {...props} rows={2} resizable={false} bind:value={draft.footer} disabled={saving} />
             {/snippet}
           </LabelledField>
-          <LabelledField label="Remit To" hint="Where a bill on this office's matters says to send payment.">
+          <LabelledField necessity="optional" label="Remit To" hint="Where a bill on this office's matters says to send payment.">
             {#snippet children({ props })}
               <Textarea {...props} rows={2} resizable={false} bind:value={draft.remitTo} disabled={saving} />
             {/snippet}
@@ -795,7 +795,7 @@
     {#if canManage}
       <!-- The entry row: the last row of the list, under the same rule as every other row. -->
       <div class="flex flex-col gap-8">
-        <LabelledField label="Member" id="office-member-pick">
+        <LabelledField necessity="required" label="Member" id="office-member-pick">
           {#snippet children({ props })}
             <MemberPicker
               members={firmRoster.members ?? []}
@@ -874,7 +874,7 @@
       {/if}
     </DefinitionList.Root>
     {#if canManage}
-      <LabelledField label="Logo" hint="A PNG or JPEG. Its height is set by its proportions.">
+      <LabelledField necessity="required" label="Logo" hint="A PNG or JPEG. Its height is set by its proportions.">
         {#snippet children({ props })}
           <FileInput
             {...props}
@@ -884,7 +884,7 @@
           />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Printed Width (points)">
+      <LabelledField necessity="required" label="Printed Width (points)">
         {#snippet children({ props })}
           <Input {...props} inputmode="decimal" bind:value={printedWidthText} disabled={logoBusy} class="tabular-nums" />
         {/snippet}

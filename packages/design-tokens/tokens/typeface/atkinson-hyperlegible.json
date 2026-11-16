@@ -1,0 +1,19 @@
+{
+  "$description": "Typeface axis — ATKINSON HYPERLEGIBLE: the legibility-engineered reading face, the default until 2026-11-14 and now a choice beside the Inter default. Re-points font.sans ONLY; the display serif, the blackletter mark and the monospace face never follow the reading face.",
+  "font": {
+    "sans": {
+      "$type": "fontFamily",
+      "$value": [
+        "Atkinson Hyperlegible Next Variable",
+        "Atkinson Hyperlegible Next",
+        "Atkinson Hyperlegible",
+        "system-ui",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ]
+    }
+  }
+}

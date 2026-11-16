@@ -14,11 +14,12 @@ export const repairCapability: CapabilityModule = {
   label: "Repair",
   icon: Wrench,
   permission: assertPermission("tools:fileRepair"),
-  stage: "soon",
+  stage: "alpha",
   timing: "on-request",
   scope: "single",
   description: "Repair and salvage a damaged or corrupted file.",
-  awaiting: "file repair",
+  // Served: the panel sends the file to the repair engine when asked, and the engine keeps nothing.
+  awaiting: null,
   applies: () => APPLIES,
   pendingAction: "Repair a Copy",
 };

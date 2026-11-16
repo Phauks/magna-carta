@@ -382,13 +382,13 @@
   >
     Record a call
   </button>
-  <!-- A record quoted out loud is identified BEFORE it is saved. The number is what the NEXT record
-       would draw, not one held for this panel, and the shell says which it is in one place. -->
+  <!-- A record quoted out loud is identified BEFORE it is saved. The number is a draft, held for this
+       panel until it saves or is cancelled, and the shell marks it in italics in one place. -->
   <ActionDialog
     {...acting(args)}
     heading="Record a Call"
     subtitle={{
-      reference: { kind: "Call", number: "2026-09-08-0042", standing: "preview" },
+      reference: { kind: "Call", number: "2026-09-08-0042", standing: "draft" },
     }}
     commitLabel="Record It"
     bind:open={showing.previewed}

@@ -12,7 +12,9 @@
     "./purposes": "./src/purposes.ts",
     "./scheme-statements": "./src/scheme-statements.ts",
     "./scheme-service": "./src/scheme-service.ts",
-    "./scheme-draw": "./src/scheme-draw.ts"
+    "./scheme-draw": "./src/scheme-draw.ts",
+    "./reservation": "./src/reservation.ts",
+    "./reservation-statements": "./src/reservation-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

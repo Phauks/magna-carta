@@ -1,5 +1,9 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
-import { CalendarSyncIssueList } from "@magna-carta/calendar/sync-contract";
+import {
+  CalendarSyncAccountChoice,
+  CalendarSyncIssueList,
+  type CalendarProvider,
+} from "@magna-carta/calendar/sync-contract";
 import {
   deleteSyncIssueStatement,
   leaveSyncIssueStatement,
@@ -14,11 +18,9 @@ import {
   SYNC_LOCAL_KINDS,
   type SyncLinkKey,
 } from "@magna-carta/calendar/sync-link-statements";
-import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { selectConnectionStatement } from "@magna-carta/data-access/integration-connection-statements";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
@@ -32,6 +34,7 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import type { ConnectedAccountsRouteDeps } from "./connected-accounts.ts";
+import { memberAccount } from "./member-account.ts";
 
 // COPIES A MEMBER CHANGED IN THEIR OWN CALENDAR, AND THE TWO ANSWERS THEY CAN GIVE.
 //
@@ -97,6 +100,7 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   description:
     "The copies in the session member's own calendar that no longer match what was sent, or are " +
     "gone, and that the member has not yet answered.",
+  request: { query: CalendarSyncAccountChoice },
   responses: {
     200: {
       description: "The member's open questions",
@@ -128,7 +132,7 @@ const putBackRoute = defineOpenAPIRoute(putBackMeta, {
     "Has the copy written to the member's calendar again as the firm's calendar has the event: a " +
     "changed copy is overwritten, a deleted one is made again, and an event the provider would " +
     "not take is tried again. The firm's event is not changed.",
-  request: { params: issueParams },
+  request: { params: issueParams, query: CalendarSyncAccountChoice },
   responses: answerResponses,
 });
 
@@ -139,7 +143,7 @@ const leaveRoute = defineOpenAPIRoute(leaveMeta, {
   description:
     "Keeps the copy in the member's calendar as they made it, or leaves it deleted, and closes " +
     "the question. The copy is written again only when the firm's event next changes.",
-  request: { params: issueParams },
+  request: { params: issueParams, query: CalendarSyncAccountChoice },
   responses: answerResponses,
 });
 
@@ -168,12 +172,12 @@ export function registerCalendarSyncIssueRoutes(
 ): void {
   const now = deps.now ?? (() => new Date());
 
-  async function memberConnectionId(c: SyncIssuesContext): Promise<IntegrationConnectionId | null> {
-    const row = await selectConnectionStatement(
-      requireChokepointFirmContext(c).firmDatabase,
-      CALENDAR_SYNC_CATEGORY,
-      requireChokepointUserId(c),
-    ).first<{ id: string }>();
+  // The account the questions are about: the provider named, or the member's first account.
+  async function memberConnectionId(
+    c: SyncIssuesContext,
+    provider: CalendarProvider | undefined,
+  ): Promise<IntegrationConnectionId | null> {
+    const row = await memberAccount(c, provider);
     return row === null ? null : (row.id as IntegrationConnectionId);
   }
 
@@ -182,8 +186,9 @@ export function registerCalendarSyncIssueRoutes(
   async function openIssue(
     c: SyncIssuesContext,
     params: z.infer<typeof issueParams>,
+    provider: CalendarProvider | undefined,
   ): Promise<{ key: SyncLinkKey; row: SyncIssueRow } | null> {
-    const connectionId = await memberConnectionId(c);
+    const connectionId = await memberConnectionId(c, provider);
     if (connectionId === null) return null;
     const key: SyncLinkKey = {
       connectionId,
@@ -209,7 +214,7 @@ export function registerCalendarSyncIssueRoutes(
   app.openapi(
     { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
     async (c) => {
-      const connectionId = await memberConnectionId(c);
+      const connectionId = await memberConnectionId(c, c.req.valid("query").provider);
       const database = requireChokepointFirmContext(c).firmDatabase;
       return c.json(
         { issues: connectionId === null ? [] : await openIssues(database, connectionId) },
@@ -222,7 +227,7 @@ export function registerCalendarSyncIssueRoutes(
   app.openapi(
     { ...putBackRoute, middleware: chokepointMiddleware(chokepoint, putBackRoute) },
     async (c) => {
-      const found = await openIssue(c, c.req.valid("param"));
+      const found = await openIssue(c, c.req.valid("param"), c.req.valid("query").provider);
       if (found === null) return noSuchIssue(c);
       const database = requireChokepointFirmContext(c).firmDatabase;
       const instant = now().toISOString();
@@ -257,7 +262,7 @@ export function registerCalendarSyncIssueRoutes(
   app.openapi(
     { ...leaveRoute, middleware: chokepointMiddleware(chokepoint, leaveRoute) },
     async (c) => {
-      const found = await openIssue(c, c.req.valid("param"));
+      const found = await openIssue(c, c.req.valid("param"), c.req.valid("query").provider);
       if (found === null) return noSuchIssue(c);
       const database = requireChokepointFirmContext(c).firmDatabase;
       const instant = now().toISOString();

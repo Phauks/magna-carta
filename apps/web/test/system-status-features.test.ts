@@ -20,6 +20,14 @@ import {
   sortFeatures,
 } from "../src/lib/versions/features-model.ts";
 import {
+  FEATURE_OUTSIDE_SERVICES,
+  featureDependencyChips,
+  outsideServiceChip,
+  workerChip,
+  workersOutsideFeatures,
+  type DependencyChip,
+} from "../src/lib/versions/feature-dependencies-model.ts";
+import {
   describeBackgroundState,
   describeRecentErrorsState,
   recentErrorsTile,
@@ -208,3 +216,147 @@ describe("feature flags", () => {
     expect(flagValueLabel(null)).toBe("Not resolved");
   });
 });
+
+describe("what each feature runs on", () => {
+  const rosterSource = read("apps/api-worker/src/system-status/feature-roster.ts");
+  const row = (
+    service: string,
+    state: "reported" | "unbound" | "unreachable" | "unreported",
+    latencyMilliseconds: number | null = 40,
+  ) => ({
+    id: service,
+    service,
+    state,
+    commit: state === "reported" ? "a81467c" : null,
+    commitTime: null,
+    buildTime: null,
+    latencyMilliseconds,
+  });
+
+  it("names only settings the API roster requires", () => {
+    for (const [id, services] of Object.entries(FEATURE_OUTSIDE_SERVICES)) {
+      expect(Object.keys(FEATURE_WORDS), id).toContain(id);
+      for (const service of services) {
+        for (const name of service.settings) {
+          expect(rosterSource.includes(`"${name}"`), `${id}: ${name}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("reads a Worker's health and build off its row", () => {
+    expect(workerChip("magna-carta-scan", row("magna-carta-scan", "reported"))).toMatchObject({
+      tone: "healthy",
+      status: "Answering",
+      detail: "a81467c · answered in 40 ms",
+    });
+    expect(workerChip("magna-carta-scan", row("magna-carta-scan", "reported", 1400)).tone).toBe(
+      "attention",
+    );
+    expect(workerChip("magna-carta-scan", row("magna-carta-scan", "unreachable")).tone).toBe(
+      "fault",
+    );
+    expect(workerChip("magna-carta-email", row("magna-carta-email", "unbound")).status).toBe(
+      "Not bound",
+    );
+    expect(workerChip("magna-carta-email", undefined).status).toBe("Not reported");
+  });
+
+  it("puts the Worker first, then the outside services", () => {
+    const chips = featureDependencyChips(
+      { id: "addressSuggestions", state: "working" },
+      {
+        services: [row("magna-carta-address", "unbound")],
+        connectedServices: [],
+        requirements: undefined,
+      },
+    );
+    expect(chips.map((chip) => chip.name)).toEqual([
+      "magna-carta-address",
+      "Google Places",
+      "Smarty",
+    ]);
+  });
+
+  it("reports a live check where one ran, and never calls a set key a connection", () => {
+    expect(meetings("connected")).toMatchObject({ status: "Connected", tone: "healthy" });
+    expect(meetings("refused")).toMatchObject({ status: "Refused the key", tone: "fault" });
+
+    const telnyx = outsideServiceChip(FEATURE_OUTSIDE_SERVICES.callerLookup?.[0] ?? never(), {
+      featureState: "working",
+      connectedServices: [],
+      requirements: {
+        id: "callerLookup",
+        alternatives: [[{ name: "TELNYX_API_KEY", present: true, source: "worker" }]],
+      },
+    });
+    expect(telnyx).toMatchObject({ status: "Key set" });
+    expect(telnyx.detail).toContain("Not checked live");
+  });
+
+  it("names what an operator still has to set, and shows a member only the state", () => {
+    const service = FEATURE_OUTSIDE_SERVICES.outlookCalendarSync?.[0] ?? never();
+    expect(
+      outsideServiceChip(service, {
+        featureState: "not-set-up",
+        connectedServices: [],
+        requirements: {
+          id: "outlookCalendarSync",
+          alternatives: [
+            [
+              { name: "MICROSOFT_CLIENT_ID", present: true, source: null },
+              { name: "MICROSOFT_CLIENT_SECRET", present: false, source: null },
+            ],
+          ],
+        },
+      }).detail,
+    ).toBe("Needs MICROSOFT_CLIENT_SECRET");
+    expect(
+      outsideServiceChip(service, {
+        featureState: "not-set-up",
+        connectedServices: [],
+        requirements: undefined,
+      }),
+    ).toMatchObject({ status: "Not set up", detail: null });
+  });
+
+  it("shows the GPU rung of password recovery as not set up", () => {
+    const gpu = featureDependencyChips(
+      { id: "passwordRecovery", state: "working" },
+      {
+        services: [row("magna-carta-recovery", "reported")],
+        connectedServices: [],
+        requirements: undefined,
+      },
+    ).find((chip) => chip.kind === "service");
+    expect(gpu?.status).toBe("Not set up");
+  });
+
+  it("lists the Workers no feature names, leaving out the web Worker", () => {
+    expect(
+      workersOutsideFeatures(
+        [
+          row("web", "reported"),
+          row("magna-carta-status", "reported"),
+          row("magna-carta-scan", "reported"),
+        ],
+        "web",
+      ).map((service) => service.service),
+    ).toEqual(["magna-carta-status"]);
+  });
+});
+
+function meetings(state: "connected" | "refused"): DependencyChip | undefined {
+  return featureDependencyChips(
+    { id: "meetings", state: "working" },
+    {
+      services: [],
+      connectedServices: [{ id: "realtime", state, latencyMilliseconds: 210 }],
+      requirements: undefined,
+    },
+  )[0];
+}
+
+function never(): never {
+  throw new Error("expected a roster entry");
+}

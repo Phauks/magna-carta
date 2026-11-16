@@ -23,8 +23,70 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Six reports run today: the trust compliance report, accounts receivable aging, work in progress,
-realization, timekeeper productivity, and operational volumes.
+Nineteen reports run today: the trust compliance report, accounts receivable aging, work in
+progress, aged work in progress, aged expenses, realization, revenue, invoices, payments applied, matter balances, the matter billing guide,
+timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
+the matters list, the client list, and the change log.
+
+- **Invoices** lists every bill issued in the period you choose, by office and by client. For each
+  bill it shows what was billed, what was credited or written off, what was applied against it by
+  the last day of the period, and what was still unpaid then. Open a client to see their bills.
+- **Payments Applied** lists everything set against a bill in the period: payments, transfers from
+  trust, client credits, credit notes and write-offs. A reversal appears as its own negative line,
+  saying what it reverses. It shows what was set against bills, not money arriving in the bank.
+- **Revenue** shows what was billed and what was collected in the period you choose, by office, by
+  matter type and by responsible attorney. Billed is the same figure the Invoices report shows.
+  Collected counts payments, transfers from trust and client credits applied to bills in the
+  period; a reversal takes back what it reverses. Credit notes and write-offs are not collections:
+  they are shown in their own column, "Credited and written off". Each matter counts under the type
+  and responsible attorney it has today. Sort the matter type and attorney tables by any column.
+- **Aged Work in Progress** shows unbilled time and costs by how long ago the work was done: 0 to
+  30 days, 31 to 60, 61 to 90, and over 90. Time counts from the day it was worked and a cost from
+  the day it was incurred. Work over 90 days old is shown in red. It adds up to the same total as
+  Work in Progress.
+- **Aged Expenses** is the same report for costs alone: unbilled costs by how long ago they were
+  incurred, so money the firm has paid out and not yet billed stands out. Its total is the costs
+  figure in Work in Progress.
+- **Matter Balances** shows where each matter stands right now: its unbilled time and costs, what
+  its bills still owe, and what is held for it in trust. The three figures are shown side by side
+  and never added together. It always shows the present, so it has no date to choose; choose an
+  office to narrow it. Open a client to see their matters.
+- **Matter Billing Guide** shows how each open and on-hold matter is billed today: its fee
+  agreement (hourly, flat fee, contingency or evergreen retainer) with its terms, and any hourly
+  rates set on a rate card for that matter or for its client. A matter with no fee agreement shows
+  "None recorded", which means it is billed hourly at each person's usual rates. If a change to the
+  agreement is already recorded to start later, the guide says what it is and when it starts. The
+  tiles count the matters under each kind of agreement. It always shows the present; choose an
+  office to narrow it, and sort the list by any column.
+- **Matters List** lists every matter the firm has opened, open, on hold or closed, with its client,
+  type, office, responsible attorney and the days it opened and closed, and counts them by office.
+  Enquiries and consultations are not listed. It always shows the present; choose an office to
+  narrow it, and sort the list by any column.
+- **Client List** lists every client of a matter the firm has opened, in name order, with their
+  email, phone number and town as their Directory record gives them, the office their matters are
+  in, and how many of their matters are open, on hold and closed. It always shows the present;
+  choose an office to see only the clients with matters there.
+- **Daily Time** shows how many hours were recorded on each day of the period you choose, billable
+  and non-billable. Open a day to see who recorded the time. A second table shows each person's
+  hours over the whole period and how many days they recorded time on. It adds up to the same
+  totals as Timekeeper Productivity. Hours only, never money.
+- **Matter Productivity** shows how many hours were recorded on each matter in the period you
+  choose, billable and non-billable, the matters with the most time first. Open a matter to see who
+  recorded the time on it. It adds up to the same totals as Timekeeper Productivity. Hours only,
+  never money.
+- **Tasks by Person** counts each person's open tasks right now, how many of them are overdue, and
+  how many have no due date. Open tasks nobody is assigned to have a row of their own. A task is
+  overdue once its due time has passed in its own time zone; one due today is not overdue until the
+  day is out. It shows counts only, never what the tasks say. Choose an office to count only tasks
+  on that office's matters.
+- **Change Log** shows who added, changed or removed people and organizations, matters and the
+  trust approval rule in the period you choose. It counts the changes by kind of record and by
+  person, then lists every change, newest first: when it was made, who made it, what it was in plain
+  words, and which record it was on. It never shows what a record said before or after. Days are
+  counted in UTC. Changes the platform made itself are put down to System. A period that has ended
+  always shows the same changes when you run it again. Opening a trust account and setting up the
+  billing accounts are not recorded as changes yet, so they do not appear. The Change Log covers the
+  whole firm and has no office choice.
 
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count

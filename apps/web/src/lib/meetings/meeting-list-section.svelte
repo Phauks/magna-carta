@@ -141,7 +141,7 @@
            summary carries the fact, so walking a reader through the room screen to be refused there
            would be two screens spent saying what one word says. Disabled and not absent — the door
            opens again the moment a host unlocks it. -->
-      <Button variant="secondary" size="sm" disabled title="A host has locked this room, so nobody else can come in.">
+      <Button variant="secondary" size="sm" disabled title="A host locked this room, so nobody else can join.">
         <Lock class="size-16" aria-hidden="true" />
         Locked
       </Button>
@@ -175,8 +175,8 @@
     <FailureNotice
       failure={failure}
       subject="These meetings"
-      fallback="This part of the list could not be read."
-      whenSilent="Nothing answered. This part of the list could not be read."
+      fallback="Couldn't load this part of the list."
+      whenSilent="Couldn't connect. Couldn't load this part of the list. Try again."
       {onRetry}
     />
   {:else}

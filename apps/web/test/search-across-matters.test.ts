@@ -94,21 +94,21 @@ function overviewOf(
     reach: EVERYTHING,
     matters: { rows: [matter("matter_a")], more: false, standing: "answered" },
     people: { rows: [], more: false, standing: "answered" },
-    records: { query: "easement", broad: false, groups },
+    records: { query: "easement", broad: false, fewMattersLimit: 25, groups },
     ...overrides,
   };
 }
 
 const REGISTRY_ANSWER: AcrossMattersGroup[] = [
   group("files"),
-  group("file-contents", { skipped: "one-matter-only" }),
+  group("file-contents", { answerShape: "ranked" }),
   group("time"),
   group("costs"),
-  group("billing", { skipped: "one-matter-only" }),
-  group("parties", { skipped: "one-matter-only" }),
+  group("billing"),
+  group("parties"),
   group("calendar", { skipped: "one-matter-only" }),
   group("notes", { hits: [hit("note_1"), hit("note_2")], hasMore: true }),
-  group("custody", { skipped: "one-matter-only" }),
+  group("custody"),
   group("communications"),
 ];
 
@@ -210,9 +210,13 @@ describe("the places beside the results", () => {
       MATTERS_PLACE,
       PEOPLE_PLACE,
       "files",
+      "file-contents",
       "time",
       "costs",
+      "billing",
+      "parties",
       "notes",
+      "custody",
       "communications",
     ]);
     expect(places.map((place) => place.label)).toEqual([
@@ -220,9 +224,13 @@ describe("the places beside the results", () => {
       "Matters",
       "People",
       "Files",
+      "Inside Files",
       "Time",
       "Costs",
+      "Billing",
+      "Parties",
       "Notes",
+      "Custodian",
       "Messaging",
     ]);
   });
@@ -263,13 +271,47 @@ describe("what the search did not look at", () => {
   it("names the places searched only inside a matter, from the server's own answer", () => {
     const unsearched = unsearchedPlaces(overviewOf(REGISTRY_ANSWER));
     expect(unsearched.map((place) => [place.label, place.mark])).toEqual([
-      ["Inside Files", "In A Matter"],
-      ["Billing", "In A Matter"],
-      ["Parties", "In A Matter"],
       ["Calendar", "In A Matter"],
-      ["Custodian", "In A Matter"],
       ["Discovery Sets", "Never"],
     ]);
+  });
+
+  it("says a place asked one matter at a time needs fewer matters, with the server's number", () => {
+    const overview = overviewOf([group("file-contents", { skipped: "too-many-matters" })]);
+    const [insideFiles] = unsearchedPlaces(overview);
+    expect(insideFiles).toMatchObject({
+      label: "Inside Files",
+      mark: "Fewer Matters",
+      // Written under the list, because the mark alone does not say how few or where to choose.
+      writtenOut: true,
+    });
+    expect(insideFiles?.reason).toBe(
+      "Inside Files is searched when a search reaches 25 matters or fewer. " +
+        "Choose fewer matters under Search In, or open a matter and use its own search.",
+    );
+    // It is a place the search did not read, so it is not offered beside the results.
+    expect(railPlaces(overview).map((place) => place.key)).not.toContain("file-contents");
+  });
+
+  it.each([
+    ["not-indexed", "Off", "turned off for this firm"],
+    ["engine-not-connected", "Soon", "not switched on yet"],
+    ["engine-unavailable", "Unavailable", "could not be searched just now"],
+  ] as const)(
+    "names a place whose index is %s as not searched, and why",
+    (skipped, mark, words) => {
+      const overview = overviewOf([group("file-contents", { skipped })]);
+      const [insideFiles] = unsearchedPlaces(overview);
+      expect(insideFiles).toMatchObject({ label: "Inside Files", mark });
+      expect(insideFiles?.reason).toContain(words);
+      expect(railPlaces(overview).map((place) => place.key)).not.toContain("file-contents");
+    },
+  );
+
+  it("keeps a place the question is too short for beside the results", () => {
+    const overview = overviewOf([group("notes", { skipped: "query-too-short" })]);
+    expect(railPlaces(overview).find((place) => place.key === "notes")?.shown).toBeNull();
+    expect(unsearchedPlaces(overview).map((place) => place.key)).toEqual(["discovery-sets"]);
   });
 
   it("names a place the reader's role does not reach, and says so instead of an empty result", () => {
@@ -329,6 +371,7 @@ describe("one question, three reads", () => {
   const records: AcrossMattersAnswer = {
     query: "easement",
     broad: false,
+    fewMattersLimit: 25,
     groups: REGISTRY_ANSWER,
   };
 

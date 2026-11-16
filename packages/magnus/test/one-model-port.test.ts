@@ -125,11 +125,15 @@ describe("seeding the permissions turns nothing on (fitness)", () => {
     }
   });
 
-  it("the committed deploy configuration does not set the adapter switch", () => {
+  // The owner turned real answers on in the deploy configuration (2026-11-14), because a value set
+  // only in the dashboard is replaced by the next deploy. The stub is chosen by name, locally only.
+  it("the committed deploy configuration selects the gateway, and only the local file selects the stub", () => {
     const wrangler = readFileSync(
       join(repositoryRoot, "apps", "api-worker", "wrangler.jsonc"),
       "utf8",
     );
-    expect(wrangler.includes("MAGNUS_INFERENCE_ADAPTER")).toBe(false);
+    expect(wrangler).toContain('"MAGNUS_INFERENCE_ADAPTER": "gateway"');
+    const devVars = readFileSync(join(repositoryRoot, "apps", "api-worker", ".dev.vars"), "utf8");
+    expect(devVars).toContain("MAGNUS_INFERENCE_ADAPTER=stub");
   });
 });

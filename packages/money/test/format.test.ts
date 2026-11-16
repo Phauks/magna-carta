@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { money, USD } from "../src/money.ts";
-import { format } from "../src/format.ts";
+import { money, rate, USD } from "../src/money.ts";
+import { format, formatRate } from "../src/format.ts";
 
 describe("format", () => {
   it("formats Money with explicit currency via Intl", () => {
@@ -16,5 +16,15 @@ describe("format", () => {
     // Number() can misprint the last digits. The package promises exactness up to 2^53.
     expect(format(money(9007199254740991, USD))).toBe("$90,071,992,547,409.91");
     expect(format(money(9007199254740987, USD))).toBe("$90,071,992,547,409.87");
+  });
+});
+
+describe("formatRate", () => {
+  it("prints a rate in whole cents as money", () => {
+    expect(formatRate(rate(4_500_000, USD))).toBe("$450.00");
+  });
+
+  it("keeps the finer places a rate card holds", () => {
+    expect(formatRate(rate(4_500_125, USD))).toBe("$450.0125");
   });
 });

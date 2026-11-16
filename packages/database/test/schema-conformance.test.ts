@@ -183,7 +183,10 @@ describe("schema conformance (fitness functions)", () => {
     // caller_identity is keyed by (country_calling_code, national_number) — the network's answer
     // about one number, and the number IS the row. A handle would let two answers exist for one
     // number, and the write is an upsert on this key so a second paid lookup replaces the first.
+    // number_reservation is keyed by (purpose, scope_key, drawn_value) — a held or given-back counter
+    // value IS that triple, the same reasoning as the allocation tables beside it.
     const compositeKeyTables = new Set([
+      "number_reservation",
       "caller_identity",
       "file_version_participant",
       "file_version_change",
@@ -252,6 +255,8 @@ describe("schema conformance (fitness functions)", () => {
       // numerically: '10' before '2' would read a document backwards.
       "file_version_change.sequence",
       "matter_number_allocation.drawn_value",
+      // A held counter value is the same counter value an allocation records, and is taken lowest first.
+      "number_reservation.drawn_value",
       "custody_number_allocation.drawn_value",
       "invoice_number_allocation.drawn_value",
       "time_entry_number_allocation.drawn_value",

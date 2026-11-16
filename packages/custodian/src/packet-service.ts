@@ -80,6 +80,10 @@ export interface CustodyOwnerInput {
 }
 
 export interface CreateCustodyPacketInput {
+  // The draft number the panel that composed this request was shown and holds
+  // (@magna-carta/sequence-numbering/reservation). Where the hold is still this scope's, the record is
+  // saved under exactly that number; otherwise the draw takes the next free one.
+  readonly numberReservation?: string;
   readonly name: string;
   readonly owners: readonly CustodyOwnerInput[];
   readonly currentLocationId: CustodyLocationId;
@@ -200,6 +204,7 @@ export async function createCustodyPacket(
               "custody_packet",
               CUSTODY_NUMBERING_TABLES,
               numberContext,
+              { reservationToken: input.numberReservation, now },
             );
             // Report the draw so a losing attempt can advance this counter out of band. Only the
             // drawn branch reports: a manual number consumed no counter value, so there is nothing

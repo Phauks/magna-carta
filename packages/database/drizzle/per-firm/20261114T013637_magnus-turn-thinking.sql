@@ -1,0 +1,1 @@
+ALTER TABLE `magnus_turn` ADD `thinking` text;

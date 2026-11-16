@@ -705,6 +705,9 @@ export function readDirectoryIdentifierRecords(
  * conflicts corpus with its phonetic codes intact and stamped with the date it stopped being used,
  * which is what keeps a twenty-year-old file tied to the living person it names. Appending a name
  * the entity ALSO answers to, without displacing the current one, is `addDirectoryName`.
+ *
+ * With `correction: true` the name on file was a typing mistake: it is retired rather than kept as
+ * a former name, and survives only in the record's history.
  */
 export function changeDirectoryName(
   fetchImpl: typeof fetch,
@@ -717,6 +720,7 @@ export function changeDirectoryName(
     suffix?: string | null;
     legalName?: string;
     displayName?: string | null;
+    correction?: boolean;
   },
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ ok: boolean }>> {

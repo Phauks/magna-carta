@@ -3,9 +3,12 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
+import { insertIndexSplitStatement } from "@magna-carta/data-access/index-split-statements";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { FirmId, IndexSplitId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import { searchIndexingEnabledDefinition } from "@magna-carta/search/settings";
 import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -311,9 +314,48 @@ describe("the answer says what it did not look at", () => {
       answer.groups
         .filter((entry) => entry.skipped === "one-matter-only")
         .map((entry) => entry.source),
-    ).toEqual(["file-contents", "billing", "parties", "calendar", "custody"]);
+    ).toEqual(["calendar"]);
     for (const entry of answer.groups) {
       if (entry.skipped === "one-matter-only") expect(entry.hits).toEqual([]);
+    }
+  });
+
+  it("says why the words inside files did not answer, and never that nothing matched", async () => {
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const setIndexing = (enabled: boolean) =>
+      writeFirmSettingStatement(
+        database,
+        searchIndexingEnabledDefinition,
+        enabled,
+        "2026-11-14T00:00:00.000Z",
+      ).run();
+    // A firm starts with file indexing off, and is told so.
+    expect(group(await search("easement"), "file-contents").skipped).toBe("not-indexed");
+    try {
+      await setIndexing(true);
+      // On, with no file indexed on any matter this search reaches: no index holds anything to
+      // ask, and that is an answer with nothing in it.
+      const nothingIndexed = group(await search("easement"), "file-contents");
+      expect(nothingIndexed.skipped).toBeNull();
+      expect(nothingIndexed.hits).toEqual([]);
+      // A matter with something indexed is asked. The test pool's search service refuses every
+      // operation, which is an engine that did not answer.
+      await insertIndexSplitStatement(database, {
+        id: "indexSplit_acrossMattersRoute0001" as IndexSplitId,
+        matterId: firstMatterId as MatterId,
+        corpusKind: "matter",
+        corpusId: firstMatterId,
+        documentId: null,
+        version: null,
+        objectKey: `search/${firstMatterId}/splits/route.split`,
+        documentCount: 1,
+        sizeBytes: 1,
+        schemaGeneration: 2,
+        createdAt: "2026-11-14T00:00:00.000Z",
+      }).run();
+      expect(group(await search("easement"), "file-contents").skipped).toBe("engine-unavailable");
+    } finally {
+      await setIndexing(false);
     }
   });
 
@@ -416,6 +458,35 @@ describe("a member narrows the search to matters they chose", () => {
       .run();
   });
 
+  it("finds a party on the matter they are on, and not once the matter is narrowed away", async () => {
+    const now = new Date().toISOString();
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    await database
+      .prepare(
+        "INSERT INTO directory_person (id, display_name, deceased, status, needs_review, created_at, updated_at) VALUES (?1, 'Ottoline Farrant', 0, 'active', 0, ?2, ?2)",
+      )
+      .bind("directoryPerson_acrossMattersWitness", now)
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at) VALUES (?1, ?2, ?3, 'witness', ?4, ?4)",
+      )
+      .bind(
+        newIdentifier("matterParty"),
+        colleagueMatterId,
+        "directoryPerson_acrossMattersWitness",
+        now,
+      )
+      .run();
+    const everywhere = group(await search("farrant"), "parties");
+    expect(everywhere.skipped).toBeNull();
+    expect(everywhere.hits.map((hit) => [hit.title, hit.matter.id])).toEqual([
+      ["Ottoline Farrant", colleagueMatterId],
+    ]);
+    // The owner's own matters do not include the colleague's, so the party is not in the answer.
+    expect(group(await search("farrant", "&mine=true"), "parties").hits).toEqual([]);
+  });
+
   it("answers from every matter until it is narrowed", async () => {
     expect(noteMatters(await search("culvert"))).toEqual(
       [firstMatterId, colleagueMatterId].toSorted(),
@@ -427,7 +498,7 @@ describe("a member narrows the search to matters they chose", () => {
     expect(noteMatters(answer)).toEqual([firstMatterId]);
     expect(answer.broad).toBe(false);
     // The places that are not searched across matters still say so.
-    expect(group(answer, "parties").skipped).toBe("one-matter-only");
+    expect(group(answer, "calendar").skipped).toBe("one-matter-only");
   });
 
   it("answers from one client's matters alone when asked for those", async () => {

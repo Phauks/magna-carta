@@ -80,6 +80,35 @@ describe("composeExportDocument", () => {
     expect(composeExportDocument(aging).page?.landscape).toBe(true);
   });
 
+  it("opens a report with its totals as figures and sets totals and matters apart in the tables", () => {
+    const presentation = presentAccountsReceivableAging(sampleAccountsReceivableAging());
+    const composed = composeExportDocument(reportExportDocument(presentation, GENERATED_AT));
+    const figuresBlock = composed.blocks.find((block) => block.type === "figures");
+    expect(figuresBlock?.figures.map((figure) => figure.value)).toEqual(
+      presentation.summary?.map((tile) => tile.value),
+    );
+    const attention = presentation.summary?.filter((tile) => tile.tone === "attention") ?? [];
+    expect(figuresBlock?.figures.filter((figure) => figure.alert === true)).toHaveLength(
+      attention.length,
+    );
+    const tables = composed.blocks.filter((block) => block.type === "table");
+    const styles = tables.flatMap((table) => table.rowStyles ?? []);
+    expect(styles).toContain("total");
+    expect(styles).toContain("child");
+    for (const table of tables) {
+      table.rows.forEach((row, rowIndex) => {
+        if (table.rowStyles?.[rowIndex] === "child") expect(row[0]?.startsWith(" ")).toBe(false);
+      });
+    }
+    const byOffice = presentation.sections.find((section) => section.totalRow !== undefined);
+    const totalTable = tables.find((table) => table.rowStyles?.at(-1) === "total");
+    expect(totalTable?.rows.at(-1)?.[1]).toBe(
+      typeof byOffice?.totalRow?.[1] === "string"
+        ? byOffice.totalRow[1]
+        : byOffice?.totalRow?.[1]?.text,
+    );
+  });
+
   it("composes a report into a real PDF with the platform's composer", async () => {
     const require = createRequire(import.meta.url);
     const wasmPath = require.resolve("@magna-carta/pdf-compose/src/pkg/pdf_compose_core_bg.wasm");

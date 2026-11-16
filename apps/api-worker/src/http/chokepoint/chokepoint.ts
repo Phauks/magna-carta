@@ -96,7 +96,46 @@ export interface ChokepointPorts<FirmContext> {
   // Step 0, and only for a route declaring `guestLane`: the meeting guest's lane (see below). Absent,
   // a guest route answers the reserved 404 — fail closed rather than fall through to the session path.
   guestLane?: GuestLanePort<FirmContext>;
+  // Step 0, and only for a route declaring `signerLane`: an outside signer's lane. Absent, a signer
+  // route answers the reserved 404.
+  signerLane?: SignerLanePort<FirmContext>;
 }
+
+// AN OUTSIDE SIGNER'S LANE: the guest lane's shape, for a signing link. A signer holds no session and
+// no capability; what is stashed is the firm and the link's names, never the secret it carried, never
+// a user id and never a permission set.
+
+/** What a verified signing link names, stashed for the handler WITHOUT its secret. */
+export interface ChokepointSignerGrant {
+  readonly firmId: FirmId;
+  readonly requestId: string;
+  readonly signerId: string;
+  readonly secretVersion: number;
+}
+
+/** The three questions, asked in the guest lane's order and refused on the guest lane's terms. */
+export interface SignerLanePort<FirmContext> {
+  verifySignerLink: (
+    c: Context,
+    presented: string | null,
+  ) => Promise<
+    | (ChokepointSignerGrant & { readonly secret: string })
+    | { readonly refusal: GuestLaneRefusal; readonly grant: ChokepointSignerGrant }
+    | null
+  >;
+  resolveSignerFirmContext: (
+    c: Context,
+    grant: ChokepointSignerGrant,
+  ) => Promise<FirmContext | null>;
+  confirmSignerLinkIsLive: (
+    c: Context,
+    firmContext: FirmContext,
+    link: ChokepointSignerGrant & { readonly secret: string },
+  ) => Promise<GuestLaneRefusal | null>;
+}
+
+/** The header a signer's page carries its link in; never the address, which is logged. */
+export const SIGNER_LINK_CREDENTIAL_HEADER = "x-signing-link";
 
 // THE MEETING GUEST'S LANE, as the chokepoint sees it.
 //
@@ -358,6 +397,55 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
     return await continueToHandler();
   }
 
+  // The signer's lane, on the guest lane's order: the signature first (no read), then the firm, then
+  // the row. A stranger's guess is answered the reserved absence and spends the client's bucket; a
+  // holder of a real link is keyed by their signer.
+  async function admitSigner(
+    c: Context,
+    meta: RouteMeta,
+    continueToHandler: () => Promise<Response | void>,
+  ): Promise<Response | void> {
+    const reservedAbsence = () =>
+      problemJson(c, {
+        type: "not-found",
+        status: 404,
+        title: "Not found",
+        detail: "No such resource in this firm.",
+      });
+    const port = ports.signerLane;
+    if (port === undefined) return reservedAbsence();
+    const header = c.req.header(SIGNER_LINK_CREDENTIAL_HEADER);
+    const link = await port.verifySignerLink(
+      c,
+      header === undefined || header === "" ? null : header,
+    );
+    if (link === null) {
+      const verdict = await ports.rateLimiter.check(meta.rateLimit, clientRateLimitKey(c));
+      return verdict.allowed ? reservedAbsence() : rateLimitedResponse(c, verdict);
+    }
+    if ("refusal" in link) {
+      const verdict = await ports.rateLimiter.check(
+        meta.rateLimit,
+        `signer:${link.grant.signerId}`,
+      );
+      return verdict.allowed ? problemJson(c, link.refusal) : rateLimitedResponse(c, verdict);
+    }
+    const grant: ChokepointSignerGrant = {
+      firmId: link.firmId,
+      requestId: link.requestId,
+      signerId: link.signerId,
+      secretVersion: link.secretVersion,
+    };
+    const firmContext = await port.resolveSignerFirmContext(c, grant);
+    if (firmContext === null) return reservedAbsence();
+    const refusal = await port.confirmSignerLinkIsLive(c, firmContext, link);
+    if (refusal !== null) return problemJson(c, refusal);
+    c.set("chokepointSignerGrant", grant);
+    c.set("chokepointFirmId", grant.firmId);
+    c.set("chokepointFirmContext", firmContext);
+    return await continueToHandler();
+  }
+
   function forRoute(meta: RouteMeta): MiddlewareHandler {
     if (meta === undefined || meta === null) {
       throw new Error(
@@ -401,6 +489,8 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           // A GUEST is keyed by the INVITATION rather than by the firm: one shared link is one
           // bucket however many people hold it, and a guest's traffic cannot spend the firm's.
           const guestGrant = c.get("chokepointGuestGrant") as ChokepointGuestGrant | undefined;
+          // A SIGNER is keyed by their own signer row, for the same reason.
+          const signerGrant = c.get("chokepointSignerGrant") as ChokepointSignerGrant | undefined;
           // A MEMBER-SCOPED bucket is keyed by the session's own user within its firm, for an act
           // whose abuse is one person's: a member looping on it meets their own ceiling and leaves
           // the firm's budget to everybody else. Both halves come from the resolved session.
@@ -408,11 +498,13 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           const rateLimitKey =
             guestGrant !== undefined
               ? `guest:${guestGrant.invitationId}`
-              : firmId !== undefined
-                ? MEMBER_SCOPED_BUCKETS.has(meta.rateLimit) && userId !== undefined
-                  ? `member:${firmId}:${userId}`
-                  : `firm:${firmId}`
-                : clientRateLimitKey(c);
+              : signerGrant !== undefined
+                ? `signer:${signerGrant.signerId}`
+                : firmId !== undefined
+                  ? MEMBER_SCOPED_BUCKETS.has(meta.rateLimit) && userId !== undefined
+                    ? `member:${firmId}:${userId}`
+                    : `firm:${firmId}`
+                  : clientRateLimitKey(c);
           const verdict = await ports.rateLimiter.check(meta.rateLimit, rateLimitKey);
           if (!verdict.allowed) {
             // Inside this tail closure (an idempotency-middleware next() OR the direct path) the
@@ -459,7 +551,12 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
       // session is even looked for — so a guest page that called a member route, or a browser holding
       // a member's cookie and a guest's link at once, meets one answer rather than a session path
       // deciding what to make of a credential it was never built to read.
-      if (carriesGuestCredential(c)) {
+      if (meta.signerLane !== undefined) {
+        return await admitSigner(c, meta, runIdempotencyAndHandler);
+      }
+      // A signing link is never a key to anything else either.
+      const signerHeader = c.req.header(SIGNER_LINK_CREDENTIAL_HEADER);
+      if (carriesGuestCredential(c) || (signerHeader !== undefined && signerHeader !== "")) {
         return problemJson(c, {
           type: "not-found",
           status: 404,

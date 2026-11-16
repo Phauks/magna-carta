@@ -13,11 +13,17 @@ Connecting copies nothing. No event moves in either direction until you choose w
 sync and to which of your Google calendars. That is done on the Calendar Sync page, described in
 [Choosing what syncs to your calendar](choosing-what-syncs-to-your-calendar.md).
 
-## Outlook or Google, one at a time
+## Outlook and Google together
 
-You connect one calendar account: Outlook or Google. While one is connected, the other shows that
-it cannot be connected until you disconnect the first. Disconnecting does not remove the copies
-already in that calendar.
+You can connect an Outlook account, a Google account, or one of each. Each has its own settings on
+the Calendar Sync page, where a row at the top lets you choose which account you are setting up.
+
+An event you send to both is still one event in Magna Carta. If you change it in one of your
+calendars and you are allowed to edit the firm calendar, the change is carried to Magna Carta and
+from there to your other calendar. Your two calendars never talk to each other directly.
+
+Events you made yourself in Outlook or Google are shown to you in Magna Carta, and are not copied
+from one of your accounts to the other.
 
 ## Connecting
 
@@ -39,18 +45,20 @@ contacts or your files.
 - **Google Calendar was not connected.** Google did not grant access to the calendar. This also
   happens if you untick one of the two items on Google's screen. If you did not cancel it yourself,
   your organization's Google Workspace administrator may need to allow it.
-- **You already have a calendar account connected.** Disconnect it first, then connect this one.
 - **The sign-in ran out of time.** Start again from Connected Accounts.
 - **Google Calendar could not be connected.** Google did not complete the sign-in, or the calendar
   could not be read afterwards. Try again; nothing was stored.
 
 ## Disconnecting
 
-Press **Disconnect** on Connected Accounts. Magna Carta deletes its stored sign-in to the account.
-Nothing in your Google Calendar is changed. To connect again you sign in to Google again.
+Press **Disconnect** on Connected Accounts. Magna Carta deletes its stored sign-in to the account
+and tells Google the access is over, so Magna Carta no longer appears in your Google account's list
+of apps with access. Nothing in your Google Calendar is changed, and an Outlook account you also
+connected stays connected. To connect again you sign in to Google again.
 
-You can also remove Magna Carta's access from the Google side at any time, in your Google account's
-list of apps with access to your account.
+If Google cannot be reached at that moment the account is still disconnected here, and you can
+remove Magna Carta's access from the Google side yourself, in your Google account's list of apps
+with access to your account.
 
 ## Who can connect
 

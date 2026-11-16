@@ -10,9 +10,9 @@
    * NOTHING IS MADE BY LOOKING. A member who has never had a room sees what one is and a Set Up
    * control, because a read that wrote a record would hand every host a link they never asked for.
    *
-   * THE ADDRESS IS THE OWNER'S NAME (/room/trevor), made with the room and never changed, so there
-   * is no Get a New Link here: the room's older code address still works, and the server can still
-   * replace it, but nothing a member copies today names it.
+   * THE ADDRESS IS THE ROOM'S NAME: the owner's (/room/trevor) until they give the room one of its
+   * own under "...", Rename Room (/room/trevors-office). Renaming moves the address, and the dialog
+   * says the old link stops working; Use My Name puts both back.
    *
    * THE SETTINGS LIVE BEHIND "...", beside the card's title. They are changed once and rarely, so
    * the card's face is kept for what a member does every day: copy the link and go in.
@@ -30,6 +30,7 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import { toast } from "@magna-carta/design-system/toast";
   import { reserveMeetingTab } from "./meeting-tab.ts";
+  import RoomNameDialog from "./room-name-dialog.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { failureOf } from "$lib/api/api-client.ts";
   import { MEETING_LOBBY_LABEL } from "$lib/calendar/event-draft.ts";
@@ -78,13 +79,22 @@
     busy = false;
   }
 
+  let renaming = $state(false);
+
+  async function rename(title: string | null): Promise<Failure | null> {
+    const outcome = await updatePersonalRoom({ title });
+    if (outcome.kind !== "ok") return outcome.failure;
+    await read.refetch();
+    return null;
+  }
+
   async function copyLink(): Promise<void> {
     try {
       await navigator.clipboard.writeText(address);
       toast.success("Room link copied.");
     } catch {
       // Some locked-down browsers refuse the clipboard; the address is on the screen to select.
-      toast.error("Your browser would not copy it. Select the address and copy it instead.");
+      toast.error("Your browser couldn't copy it. Select the address and copy it instead.");
     }
   }
 
@@ -107,7 +117,7 @@
       writeFailure = outcome.failure;
       return;
     }
-    tab.open(outcome.value.meetingId);
+    tab.open(outcome.value.meetingId, outcome.value.joinCode);
   }
 
 </script>
@@ -117,8 +127,8 @@
     {failure}
     subject="Your room"
     title="Nothing Changed"
-    fallback="That did not happen."
-    whenSilent="Nothing answered, so nothing changed for your room."
+    fallback="That didn't happen."
+    whenSilent="Couldn't connect. Nothing changed for your room. Try again."
   />
 {/snippet}
 
@@ -136,6 +146,8 @@
             <Ellipsis class="size-16" aria-hidden="true" />
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end">
+            <DropdownMenu.Item onSelect={() => (renaming = true)}>Rename Room</DropdownMenu.Item>
+            <DropdownMenu.Separator />
             <DropdownMenu.CheckboxItem
               checked={room.lobby === "on"}
               closeOnSelect={false}
@@ -155,8 +167,7 @@
       {/if}
     </div>
     <Card.Description>
-      A standing link colleagues can use whenever you are in. Each time you open it, the meeting is
-      put on your calendar, and you can move it onto a matter during the meeting or after it.
+      A standing link staff can use whenever you're in. Each time you open it, the meeting goes on your calendar. You can move it to a matter during or after the meeting.
     </Card.Description>
   </Card.Header>
   <Card.Content class="flex flex-col gap-16">
@@ -169,6 +180,7 @@
         <Button onclick={setUp} disabled={busy}>{busy ? "Setting Up" : "Set Up My Room"}</Button>
       </div>
     {:else}
+      <p class="text-sm font-medium">{room.name}</p>
       <div class="flex flex-wrap items-center gap-8">
         <code class="min-w-0 break-all rounded-sm bg-surface-sunken px-8 py-4 text-sm">{address}</code>
         <Button variant="secondary" size="sm" onclick={copyLink}>
@@ -190,3 +202,15 @@
     </Card.Footer>
   {/if}
 </Card.Root>
+
+{#if room !== null}
+  <RoomNameDialog
+    bind:open={renaming}
+    heading="Rename My Room"
+    currentName={room.name}
+    note="The room's link changes to match the new name, and the old link stops working."
+    resetLabel={room.title === null ? undefined : "Use My Name"}
+    onSave={(name) => rename(name)}
+    onReset={() => rename(null)}
+  />
+{/if}

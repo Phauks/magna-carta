@@ -41,6 +41,21 @@ export interface MatterFileContentsSearcher {
     // How many passages to return at most.
     readonly limit: number;
   }): Promise<FileContentsAnswer>;
+  // The same question asked of several matters, each of its own index and of no other, and
+  // answered as one list, best first. There is no index of every matter's files to ask instead, so
+  // the cost is one question a matter, which is why a caller names the matters and names few. An
+  // empty list asks no index and still says whether there is one to ask, so a caller that has no
+  // matters to name can tell "nothing to ask" from "nowhere to ask it".
+  //
+  // The scores the lists are merged by come from separate indexes and are not on one scale. They
+  // are close enough to put the strongest passages first, and no more is claimed of the order.
+  //
+  // Optional, because a searcher that answers for one matter is still a searcher.
+  queryMatters?(input: {
+    readonly matterIds: readonly MatterId[];
+    readonly queryText: string;
+    readonly limit: number;
+  }): Promise<FileContentsAnswer>;
   // The sentence each of these files is quoted by: for each file, an excerpt of the passage named,
   // where the reader's words are. Asked only for files the search's own statement has already
   // returned, so nothing is quoted from a file the database refused. A file is simply absent from
@@ -173,4 +188,33 @@ export async function quoteCandidates(
     const excerpt = excerpts.get(row.row_id);
     return excerpt === undefined ? row : { ...row, snippet: excerpt };
   });
+}
+
+// The same, for rows from several matters. Each matter's rows are quoted by that matter's own read,
+// which checks each file against the matter it is filed on, so a file is quoted only where the
+// database says it is. The matters are the ones on the rows: what the search's own statement
+// returned, never what the index said.
+export async function quoteCandidatesAcrossMatters(
+  rows: readonly MatterSearchRawRow[],
+  candidates: readonly FileContentsCandidate[],
+  request: { readonly readerText: string; readonly searcher: MatterFileContentsSearcher },
+): Promise<MatterSearchRawRow[]> {
+  const byMatter = new Map<string, MatterSearchRawRow[]>();
+  for (const row of rows) {
+    const onMatter = byMatter.get(row.matter_id);
+    if (onMatter === undefined) byMatter.set(row.matter_id, [row]);
+    else onMatter.push(row);
+  }
+  const quoted = await Promise.all(
+    Array.from(byMatter, ([matterId, onMatter]) =>
+      quoteCandidates(onMatter, candidates, {
+        matterId: matterId as MatterId,
+        readerText: request.readerText,
+        searcher: request.searcher,
+      }),
+    ),
+  );
+  const byId = new Map(quoted.flat().map((row) => [row.row_id, row]));
+  // The order the rows came in, which is the index's.
+  return rows.map((row) => byId.get(row.row_id) ?? row);
 }

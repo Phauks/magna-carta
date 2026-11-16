@@ -34,6 +34,7 @@ export const COMMUNICATION_NUMBERING_TABLES: SequenceNumberingTables = {
   counterTable: "communication_number_counter",
   allocationTable: COMMUNICATION_TABLE,
   ownerColumn: "id",
+  renderedNumberColumn: "reference_number",
 };
 
 /**

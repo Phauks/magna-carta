@@ -40,8 +40,8 @@
     }
     failure = stated(
       outcome.failure,
-      "The folder was not removed.",
-      "Nothing answered. The folder was not removed and is unchanged.",
+      "The folder wasn't removed.",
+      "Couldn't connect. The folder wasn't removed. Try again.",
     );
     return "refused";
   }
@@ -71,8 +71,7 @@
 
   {#snippet fields()}
     <p class="text-sm">
-      The conversations in this folder move to General. No conversation is deleted. A folder made
-      again later is a new, empty folder.
+      Conversations in this folder move to General. No conversation is deleted.
     </p>
   {/snippet}
 </ActionDialog>

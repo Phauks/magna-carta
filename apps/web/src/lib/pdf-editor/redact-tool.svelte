@@ -123,7 +123,7 @@
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
       file,
-      "This document is locked with a password. Unlock it in the File Workbench, save the unlocked copy, and redact that.",
+      "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and redact that.",
     );
     if (gone) {
       if (opened.kind === "ready") opened.source.close();
@@ -248,7 +248,7 @@
         kind: "downloadOnly",
         url: filed.url,
         name,
-        why: "The redacted copy was made but could not be filed on the matter. Download it now; nothing was saved.",
+        why: "The redacted copy was made but couldn't be saved to the matter. Download it now; nothing was saved.",
       };
       return;
     }
@@ -274,7 +274,7 @@
 {:else if phase.kind === "refused"}
   <div class="p-24">
     <Alert.Root variant="warning">
-      <Alert.Title>This Document Cannot Be Redacted Here</Alert.Title>
+      <Alert.Title>This Document Can't Be Redacted Here</Alert.Title>
       <Alert.Description>{phase.message}</Alert.Description>
     </Alert.Root>
   </div>

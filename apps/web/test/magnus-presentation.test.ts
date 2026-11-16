@@ -14,7 +14,6 @@
 import { describe, expect, it } from "vitest";
 import { railDateGroup, railRowLine } from "../src/lib/magnus/magnus-vocabulary.ts";
 import {
-  ANSWER_SLOW_AFTER_MILLISECONDS,
   CONVERSATION_SORTS,
   TURN_FAILURE_LABELS,
   TURN_FAILURE_SENTENCES,
@@ -63,6 +62,7 @@ function turn(overrides: Partial<MagnusTurn> = {}): MagnusTurn {
     snapshotId: null,
     contextTruncated: false,
     effort: null,
+    thinking: null,
     removedAt: null,
     supersededAt: null,
     replacesTurnId: null,
@@ -143,7 +143,7 @@ describe("what the composer says about what leaves the platform", () => {
 
   it("inside a matter, still says the matter itself is not read", () => {
     const line = composerDisclosureLine({ onMatter: true, attachmentCount: 2 });
-    expect(line).toContain("does not let Magnus read the matter");
+    expect(line).toContain("Magnus can't read the rest of the matter");
   });
 
   it("says so when the conversation also reads the author's other conversations on the matter", () => {
@@ -157,9 +157,9 @@ describe("what the composer says about what leaves the platform", () => {
 
   it("names the model that answers, and says when the firm's choice is gone", () => {
     expect(answeringModelLine({ modelId: "anthropic/model", zeroDataRetention: true })).toBe(
-      "Answered by anthropic/model, which keeps nothing that is sent to it.",
+      "Answered by anthropic/model, which keeps nothing sent to it.",
     );
-    expect(answeringModelLine(null)).toContain("no longer carried");
+    expect(answeringModelLine(null)).toContain("no longer offers");
     expect(answeringModelLine(undefined)).toBe("");
   });
 });
@@ -195,12 +195,6 @@ describe("what an attachment says about what the model saw", () => {
     const deleted = attachment("unreadable", { name: null });
     expect(attachmentName(deleted)).toBe("A deleted file");
     expect(attachmentStatusSentence(deleted)).toContain("deleted");
-  });
-});
-
-describe("how long a pending answer waits before it says so", () => {
-  it("is longer than a read's stall, because a model answer takes seconds", () => {
-    expect(ANSWER_SLOW_AFTER_MILLISECONDS).toBeGreaterThan(15_000);
   });
 });
 

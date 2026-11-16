@@ -95,9 +95,9 @@
   } = $props();
 
   function composerKeydown(event: KeyboardEvent): void {
-    // Enter writes a newline, because a question worth asking often runs past one line. The visible
-    // way to send is the button beside the field; this is the shortcut for a reader who prefers it.
-    if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
+    // Enter sends and Shift+Enter starts a new line (owner ruling, 2026-11-14). A key pressed while
+    // an input method is still composing a word belongs to that word, so it never sends.
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
     onSend();
   }
@@ -115,14 +115,13 @@
      the end side. What Magnus reads sits behind the Info control rather than over the field, and the
      allowance still says itself when it is about to bind. -->
 <Conversation.Composer class="border-t-0 pt-8 pb-16">
-  <div class="mx-auto flex w-full max-w-3xl flex-col gap-8">
+  <div class="mx-auto flex w-full max-w-5xl flex-col gap-8">
     {#if editing}
       <p
         class="flex flex-wrap items-center justify-between gap-8 rounded-md border border-border-default bg-surface-sunken px-12 py-8 text-sm"
       >
         <span>
-          Editing your message. Sending it asks Magnus again from there; the replies after it are
-          set aside.
+          Editing your message. Sending it asks Magnus again from here and sets aside the replies after it.
         </span>
         <Button variant="ghost" size="sm" onclick={() => onCancelEdit?.()}>Cancel Edit</Button>
       </p>
@@ -233,8 +232,7 @@
     </div>
     {#if allowanceSpent}
       <p class="text-sm text-text-muted">
-        The firm&rsquo;s daily allowance for Magnus is spent. It resets tomorrow, and an
-        administrator can raise it in the firm&rsquo;s settings.
+        The firm&rsquo;s daily allowance for Magnus is spent. It resets tomorrow. An administrator can raise it in the firm&rsquo;s settings.
       </p>
     {:else if allowanceWorthSaying && remainingDailyTurns !== undefined}
       <p class="text-sm text-text-muted">

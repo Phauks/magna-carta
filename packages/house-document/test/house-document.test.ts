@@ -5,6 +5,8 @@ import {
   clock,
   composeReadable,
   contentSize,
+  coverSheet,
+  figures,
   groupedCode,
   houseDocument,
   housePictures,
@@ -14,6 +16,8 @@ import {
   pageHeading,
   pageList,
   pictureWidth,
+  signatureLines,
+  styledTable,
   tablePages,
 } from "../src/index.ts";
 
@@ -136,6 +140,75 @@ describe("the builders", () => {
     expect(pictureWidth(png(4000, 200), 36, 200)).toBe(200);
     // What is not a PNG does not say its size here: half the widest.
     expect(pictureWidth(new Uint8Array([1, 2, 3]), 36, 200)).toBe(100);
+  });
+});
+
+describe("what a report and a cover sheet are made of", () => {
+  it("marks a table's totals, parts and withdrawn rows by position", () => {
+    expect(
+      styledTable(COLUMNS, [
+        ["May", "Rivera"],
+        { cells: ["", "Deposition"], kind: "child" },
+        { cells: ["April", "Withdrawn"], kind: "muted" },
+        { cells: ["", "Total"], kind: "total" },
+      ]),
+    ).toEqual({
+      type: "table",
+      columns: COLUMNS,
+      rows: [
+        ["May", "Rivera"],
+        ["", "Deposition"],
+        ["April", "Withdrawn"],
+        ["", "Total"],
+      ],
+      rowStyles: [null, "child", "muted", "total"],
+    });
+  });
+
+  it("writes a table of plain rows as the plain table", () => {
+    expect(styledTable(COLUMNS, [["May", "Rivera"]])).toEqual({
+      type: "table",
+      columns: COLUMNS,
+      rows: [["May", "Rivera"]],
+    });
+  });
+
+  it("sets summary figures and signature lines as blocks of their own", () => {
+    const overdue = {
+      label: "Overdue",
+      value: "45.00",
+      note: "Past 30 days",
+      alert: true,
+    } as const;
+    expect(figures([{ label: "Billed", value: "160.00" }, overdue])).toEqual({
+      type: "figures",
+      figures: [{ label: "Billed", value: "160.00" }, overdue],
+    });
+    expect(signatureLines("Signature", "Date")).toEqual({
+      type: "signatureLines",
+      lines: ["Signature", "Date"],
+    });
+  });
+
+  it("sets a cover sheet's label a little above the middle of the page", () => {
+    const [label, ...lines] = coverSheet("EXHIBIT 4", ["Rivera v. Stone", "No. 26-0042"], {
+      letterhead: false,
+    });
+    const height = contentSize("letter", false).height;
+    expect(label).toEqual({ type: "display", text: "EXHIBIT 4", spaceAbove: 258 });
+    // The label and its two lines together stand above the middle, never below it.
+    const block = 48 + 2 * 15;
+    expect(258 + block / 2).toBeLessThan(height / 2);
+    expect(258 + block / 2).toBeGreaterThan(height / 3);
+    expect(lines).toEqual([
+      { type: "paragraph", text: "Rivera v. Stone", alignment: "center" },
+      { type: "paragraph", text: "No. 26-0042", alignment: "center" },
+    ]);
+    // A taller paper sets it further down, and a letterhead leaves less room to set it in.
+    const a4 = coverSheet("EXHIBIT 4", [], { paper: "a4", letterhead: false })[0];
+    const headed = coverSheet("EXHIBIT 4")[0];
+    expect(a4).toMatchObject({ spaceAbove: 291 });
+    expect(headed).toMatchObject({ spaceAbove: 245 });
   });
 });
 

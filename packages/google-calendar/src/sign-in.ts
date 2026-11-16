@@ -1,9 +1,12 @@
 import { z } from "zod";
 import type { HttpClient } from "@magna-carta/integrations/http";
-import type {
-  AccountOutcome,
-  TokenOutcome,
-  TokenRequestDependencies,
+import {
+  applicationCredentialCheckFrom,
+  CREDENTIAL_CHECK_REFRESH_TOKEN,
+  type AccountOutcome,
+  type ApplicationCredentialCheck,
+  type TokenOutcome,
+  type TokenRequestDependencies,
 } from "@magna-carta/integrations/oauth-sign-in";
 import { integrationProblem } from "@magna-carta/integrations/problem";
 
@@ -28,6 +31,7 @@ export interface GoogleApplication {
 
 const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const REVOCATION_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 const CALENDAR_ORIGIN = "https://www.googleapis.com";
 
 export interface AuthorizationRequest {
@@ -254,4 +258,58 @@ export async function readSignedInAccount(
     };
   }
   return { ok: true, address: parsed.data.id };
+}
+
+// Withdraws the member's grant at Google, so the application no longer appears among the apps
+// with access to their account and the refresh token stops working there, not only here. Answers
+// whether Google said it was done. A caller disconnecting an account does not wait on a yes: the
+// token is deleted on this side either way.
+export async function revokeGrant(http: HttpClient, refreshToken: string): Promise<boolean> {
+  try {
+    const response = await http.request({
+      method: "POST",
+      url: REVOCATION_ENDPOINT,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: refreshToken }).toString(),
+    });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+// Asks Google whether it accepts this deployment's application identifier and secret, without
+// any member's account: a refresh request with a refresh token that was never issued. Issues no
+// token and changes nothing at Google.
+export async function checkApplicationCredentials(
+  http: HttpClient,
+  application: GoogleApplication,
+): Promise<ApplicationCredentialCheck> {
+  let response;
+  try {
+    response = await http.request({
+      method: "POST",
+      url: TOKEN_ENDPOINT,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: application.clientId,
+        client_secret: application.clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: CREDENTIAL_CHECK_REFRESH_TOKEN,
+      }).toString(),
+    });
+  } catch {
+    return "unreachable";
+  }
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    json = undefined;
+  }
+  const failure = tokenErrorSchema.safeParse(json);
+  return applicationCredentialCheckFrom(
+    response.status,
+    failure.success ? failure.data.error : undefined,
+  );
 }

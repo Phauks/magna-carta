@@ -44,6 +44,8 @@ export const TurnDetail = z
     contextTruncated: z.boolean(),
     // The effort the answer was asked for (low, medium, high, xhigh or max), or null where none was.
     effort: z.string().nullable(),
+    // A readable summary of the model's thinking on an answer, or null where there is none.
+    thinking: z.string().nullable(),
     // When the author removed this message and its answer. The text is kept on the record and
     // withheld from the author, who took it back; a supervisor's read still shows it.
     removedAt: z.string().nullable(),
@@ -65,6 +67,8 @@ export const TurnProgress = z
       .enum(["model-unavailable", "not-eligible", "ceiling-reached", "too-large", "cancelled"])
       .optional(),
     truncatedContext: z.boolean().optional(),
+    // The summary of the model's thinking so far, present once the model has returned some.
+    thinking: z.string().optional(),
   })
   .meta({ id: "MagnusTurnProgress" });
 

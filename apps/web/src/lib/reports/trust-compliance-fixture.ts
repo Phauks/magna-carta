@@ -44,7 +44,7 @@ export function sampleTrustCompliancePack(): TrustCompliancePack {
         jurisdiction: "US-NV",
         refusalCode: "jurisdiction-not-verified",
         refusalDetail:
-          "The rules for US-NV are encoded but have not been reviewed by an attorney, so no citation is quoted.",
+          "The rules for US-NV aren't reviewed by an attorney yet, so no citation is quoted.",
       },
       bankChargeCarveOutOpen: false,
       reproducibility: {
@@ -107,7 +107,7 @@ export function sampleTrustCompliancePack(): TrustCompliancePack {
     ],
     reconciliationNote: null,
     proofAtProductionNote:
-      "The comparison beside each attestation is the ledger as it stands now, not as at the knowledge instant.",
+      "Each reconciliation is compared with the ledger as it is now, not as of the report date.",
     clientLedgers: [
       {
         clientEntityId: SAMPLE_CLIENT_ID,

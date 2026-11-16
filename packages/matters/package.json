@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./operational-counts": "./src/operational-counts.ts",
+    "./matter-register": "./src/matter-register.ts",
     "./numbering/counter-statements": "./src/numbering/counter-statements.ts",
     "./numbering/sequences": "./src/numbering/sequences.ts",
     "./matter-statements": "./src/matter-statements.ts",

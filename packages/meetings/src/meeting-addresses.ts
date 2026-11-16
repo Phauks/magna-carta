@@ -8,8 +8,9 @@ import { cryptoRandomSource, type RandomSource } from "@magna-carta/identifiers/
  * three groups.
  *
  * A personal room's address is its owner's first name in lower case (/room/trevor), then the first
- * and last names joined, then a number, until one is free. It is made with the room and never
- * changed, because a link that moves is a link that stops working.
+ * and last names joined, then a number, until one is free. A room given a name of its own ("Red
+ * Room") is addressed by that name instead (/room/red-room), and renaming a room moves its address
+ * with it: the old address stops working, which is the owner's ruling (no legacy addresses).
  */
 
 export const MEETING_JOIN_CODE_LENGTH = 9;
@@ -65,6 +66,23 @@ export function roomAddressNames(displayName: string): readonly string[] {
   if (first === undefined) return [];
   const last = words.length > 1 ? plainWord(words.at(-1) ?? "") : undefined;
   return last === undefined ? [first] : [first, `${first}-${last}`];
+}
+
+/**
+ * The address a room's own name is tried as: its words in lower case joined by hyphens, with
+ * anything but plain letters and digits dropped (an accented letter is dropped, not guessed at).
+ * Empty where nothing is left, and the caller falls back as it does for a member's name.
+ */
+export function roomAddressFromTitle(title: string): readonly string[] {
+  const slug = title
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.replaceAll(/[^a-z0-9]/g, ""))
+    .filter((word) => word.length > 0)
+    .join("-")
+    .slice(0, ROOM_ADDRESS_NAME_MAXIMUM - 4)
+    .replace(/-+$/, "");
+  return slug === "" ? [] : [slug];
 }
 
 /**

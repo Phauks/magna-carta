@@ -25,7 +25,8 @@ export const REACH_CHOICES: readonly { readonly value: ReachChoice; readonly lab
 
 /** What the page says it is searching, under the field. */
 export function reachSentence(reach: SearchReach): string {
-  const records = "the notes, time, costs, calls and file names";
+  const records =
+    "the notes, time, costs, invoices, parties, calls, custody packets and file names";
   if (reach.kind === "mine") {
     return (
       `Searches the matters you are responsible for or assigned to: matters by name, and ` +

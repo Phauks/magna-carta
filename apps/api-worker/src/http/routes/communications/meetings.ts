@@ -321,6 +321,8 @@ const StartedMeeting = z
     // pressing Start on the same hearing is the ordinary case and not a race to be punished — what
     // they want is to be in the same room.
     created: z.boolean(),
+    // The nine digits the room is addressed by, so Start opens /meeting/482-917-305 directly.
+    joinCode: z.string().nullable(),
   })
   .openapi("StartedMeeting");
 
@@ -1828,7 +1830,11 @@ export function registerMeetingsRoutes(
               serviceOptions(userId),
             );
             return {
-              value: { id: started.meetingId, created: started.created },
+              value: {
+                id: started.meetingId,
+                created: started.created,
+                joinCode: started.joinCode,
+              },
               // The code carries the answer a caller branches on, and it is stored with the body, so a
               // retry of the request that opened the room still reads 201.
               responseCode: started.created ? 201 : 200,
@@ -1852,7 +1858,7 @@ export function registerMeetingsRoutes(
         // Nothing to hand back means the constraint was not the one this read can see through — the
         // fault is real and belongs on the error pipeline rather than dressed as a success.
         if (existing === undefined) throw caught;
-        return c.json({ id: existing.id, created: false }, 200);
+        return c.json({ id: existing.id, created: false, joinCode: existing.joinCode }, 200);
       }
       if (!outcome.ok) return outcome.problem;
       return outcome.responseCode === 201 ? c.json(outcome.value, 201) : c.json(outcome.value, 200);

@@ -5,9 +5,9 @@ import { transferPassStateOf } from "./transfer-requests.ts";
 import type { TransferRunRow } from "./transfer-run-statements.ts";
 import type { TransferSourceFileRow } from "./transfer-source-file-statements.ts";
 
-// A stored row as the routes answer it. Three things never leave: a file's object key and a pass's
-// report key, which are where bytes are kept and no caller's business, and a pass's stored rules,
-// which a screen that wants them asks for by the pass.
+// A stored row as the routes answer it. Two things never leave: a file's object key and a pass's
+// report key, which are where bytes are kept and no caller's business. A pass's stated rules are
+// left out of these answers too; a screen that wants them asks for them by the pass.
 
 export function transferRunBody(row: TransferRunRow): TransferRunBody {
   return {

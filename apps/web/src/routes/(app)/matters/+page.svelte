@@ -230,7 +230,7 @@
     <!-- Tabular figures: matter numbers are read down a column and have to align. -->
     <span class="tabular-nums">{text}</span>
   {:else if column.id === "title"}
-    <a class="underline underline-offset-2" href="/matters/{row.id}">{row.title}</a>
+    <a class="underline-offset-2 hover:underline" href="/matters/{row.id}">{row.title}</a>
   {:else if column.id === "status"}
     {@const seal = matterStatusPresentation(row.status)}
     <Badge variant={seal.variant}>{seal.label}</Badge>

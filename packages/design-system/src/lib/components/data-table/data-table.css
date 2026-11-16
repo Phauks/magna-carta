@@ -35,19 +35,17 @@
     font-size: var(--mc-font-size-xs);
     text-align: start;
   }
-  /* Header cells: a sunken fill with an uppercase, tracked, small-caps-weight label — the column
-     header reads as structural chrome, distinct from the data, not just bold body text. */
+  /* Header cells: a sunken fill with the label voice (small, medium, muted, in the column's own
+     case). The fill and the rule make it structure; capitals were a second, louder way of saying
+     the same thing (app visual refresh, 2026-11-14). */
   .mc-table-head {
     block-size: var(--mc-density-control-height);
     padding-inline: var(--mc-density-gutter);
     background-color: var(--mc-surface-sunken);
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
-    color: var(--mc-text-subtle);
-    font-size: var(--mc-font-size-xs);
-    font-weight: var(--mc-weight-semibold);
-    /* The letterspaced-caps label voice — headers are structure, and uppercase needs the air. */
-    letter-spacing: var(--mc-tracking-caps);
-    text-transform: uppercase;
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
     text-align: start;
     white-space: nowrap;
     vertical-align: middle;
@@ -255,11 +253,9 @@
   .mc-table-filter-heading {
     margin: var(--mc-space-0);
     color: var(--mc-text-muted);
-    font-size: var(--mc-font-size-xs);
-    font-weight: var(--mc-weight-semibold);
-    text-transform: uppercase;
-    /* The letterspaced-caps label voice, same as the column headers this heading filters. */
-    letter-spacing: var(--mc-tracking-caps);
+    font-size: var(--mc-font-size-sm);
+    /* The label voice, same as the column headers this heading filters. */
+    font-weight: var(--mc-weight-medium);
   }
   .mc-table-filter-field {
     display: flex;
@@ -827,10 +823,8 @@
     z-index: var(--mc-z-overlay);
   }
   .mc-table-grid-scope {
-    text-transform: uppercase;
-    letter-spacing: var(--mc-tracking-caps);
     font-size: var(--mc-font-size-xs);
-    font-weight: var(--mc-weight-semibold);
+    font-weight: var(--mc-weight-medium);
     color: var(--mc-text-muted);
   }
   .mc-table-grid-scope[data-filtered="true"] {

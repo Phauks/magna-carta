@@ -9,7 +9,8 @@ document on it is the Certificate of Completion (`packages/signing/src/certifica
 ## Key files / entry points
 
 - `src/index.ts` — `houseDocument`, `housePictures`, the builders (`card`, `noteLine`,
-  `instantFields`, `groupedCode`, `pictureWidth`, `pageHeading`, `pageList`), paging (`tablePages`,
+  `instantFields`, `groupedCode`, `pictureWidth`, `pageHeading`, `pageList`), what a report and an
+  exhibit list add (`figures`, `styledTable`, `coverSheet`, `signatureLines`), paging (`tablePages`,
   `pagedTable`, `contentSize`) and `composeReadable`.
 - `src/brand-lockup.ts` — the lockup as a PNG, the first picture of every house document.
 - `test/house-document.test.ts` — every builder as a value.
@@ -32,12 +33,18 @@ document on it is the Certificate of Completion (`packages/signing/src/certifica
 ## Dependencies & contracts
 
 - The numbers in `src/index.ts` that describe the composer (the letterhead's 60 points, the
-  footer's 28, a card's title bar, a compact row's height) mirror constants in
+  footer's 28, a card's title bar, a compact row's height, the cover label's and the body's line) mirror constants in
   `crates/pdf-compose-core/src/layout.rs` and `src/model.rs`. Change both together.
 - Pictures are named by position: the lockup is 0, a document's own follow in the order it passes
   them to `housePictures`.
 
 ## Gotchas
+
+- **A cover sheet does not break the page itself.** `coverSheet` returns the label and its lines.
+  Put a `pageBreak` after it, and before it unless it opens the document: a page break as the
+  first block prints an empty sheet.
+- **`pagedTable` takes plain rows.** A table with a totals row is one `styledTable`, which the
+  composer carries over pages itself with its heading repeated.
 
 - **Row heights are estimated, not measured.** `tablePages` counts characters against a column's
   share of the width, assuming text a little wider than it usually is. A page of unusually wide

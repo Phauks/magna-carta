@@ -2,8 +2,8 @@
   /*
    * Removing one of your own messages.
    *
-   * A removal takes the message and Magnus's answer to it out of the conversation and out of what
-   * Magnus reads, and leaves a marker where they were. It does NOT erase them: a transcript is the
+   * A removal takes the message out of the conversation and leaves a marker where it was. Magnus's
+   * answer stays readable, and neither is read by Magnus again. It does NOT erase them: a transcript is the
    * firm's work product, erased only when the whole conversation is deleted. The dialog says both
    * halves, because a member who expects the words to be gone has to learn otherwise before pressing.
    */
@@ -37,8 +37,8 @@
         ? null
         : stated(
             outcome.failure,
-            "The message was not removed.",
-            "Nothing answered. The message was not removed and is unchanged.",
+            "The message wasn't removed.",
+            "Couldn't connect. The message wasn't removed. Try again.",
           );
     return "refused";
   }
@@ -66,13 +66,17 @@
   {/snippet}
 
   {#snippet fields()}
+    {#if session.pendingTurn !== null}
+      <p class="text-sm">
+        Your message is removed from this conversation, and a note marks where it was. Magnus is still answering, and removing the message stops that answer. Magnus won't read the message again.
+      </p>
+    {:else}
+      <p class="text-sm">
+        Your message is removed from this conversation, and a note marks where it was. Magnus&rsquo;s answer stays visible, but Magnus won&rsquo;t read either one again.
+      </p>
+    {/if}
     <p class="text-sm">
-      Your message and Magnus&rsquo;s answer to it leave this conversation, and Magnus does not read
-      them again. A note shows where they were.
-    </p>
-    <p class="text-sm">
-      They are not erased. They stay on the firm&rsquo;s record, where a colleague allowed to read
-      every conversation can still see them, until the whole conversation is deleted.
+      Neither is deleted. They stay on the firm&rsquo;s record until the whole conversation is deleted, and staff allowed to read every conversation can still see them.
     </p>
   {/snippet}
 </ActionDialog>

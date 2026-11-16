@@ -1,5 +1,5 @@
 /*
- * Every pull request merged to `main`, as the Changelog screen reads it.
+ * Every pull request merged to `main`, as the System Status page reads it.
  *
  * GENERATED, NEVER WRITTEN HERE. The rows come from docs/pull-request-ledger.json, which
  * tooling/doc-fragments/build-pull-request-ledger.mjs rebuilds from git history on `main` (the
@@ -7,13 +7,13 @@
  * one squash-merged pull request: its number, its commit, the day it landed, the parts of the
  * application its changed paths fall in, and the changelog fragment its author wrote, if any.
  *
- * Every merged pull request is here, not only the ones written up for members: the screen is a
- * ledger of what changed, so a reader can find when a part of the application last moved. A
- * pull request whose fragment was marked `audience: public` is flagged as one members see.
+ * Every merged pull request is here, not only the ones written up for members, so a deployed
+ * commit can always be named. A pull request whose fragment was marked `audience: public` is
+ * flagged as one members see.
  *
- * The document travels inside the build, like the public changelog before it, so the screen needs
- * no read and can only describe the build it is part of. Only the Changelog screen imports this
- * module, so its text is fetched with that screen's chunk rather than with the shell.
+ * The document travels inside the build, so it needs no read and can only describe the build it is
+ * part of. Only src/lib/versions/pull-request-lookup.ts imports this module, through a dynamic
+ * import, so its text is never fetched with the shell.
  */
 import { CHANGELOG_CATEGORIES, type ChangelogCategory } from "@magna-carta/product-updates/schema";
 import { parseChangelogText, type ChangelogParagraph } from "./changelog-text.ts";

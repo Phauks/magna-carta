@@ -8,7 +8,7 @@
 - **A pass never runs on the request.** `passes.ts` records the request and its outbox message in one idempotent batch and answers 202. The work is `src/background/record-transfer/pass-consumer.ts`, reached through the shared per-firm queue's dispatch table.
 - **The upload stores the bytes first and the row second**, and takes the object back when the row is refused. It asks for no Idempotency-Key: the file's digest is what refuses the same bytes twice, with 409.
 - **The preview is the only route that answers values from a file.** It reads three rows from the stored object when asked and stores nothing. Do not add file values to any other answer, to a log line or to a problem's detail: a reader's fault is a fixed sentence, and a refusal names identifiers from the request.
-- **An object key never leaves.** `transfer-views.ts` in the package builds every answer, and leaves out a file's object key, a pass's report key and a pass's stored rules.
+- **An object key never leaves.** `transfer-views.ts` in the package builds every answer, and leaves out a file's object key and a pass's report key. A pass's stated rules are answered by their own read (`recordTransfer.getPassRules`) and by no list.
 - **A run that has ended takes no file and no pass.** Both writes read the run first and answer 409.
 
 ## Gotchas

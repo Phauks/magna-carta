@@ -44,6 +44,7 @@
   import RecordingList from "$lib/meetings/screen/recording-list.svelte";
   import MyRoomCard from "$lib/meetings/my-room-card.svelte";
   import FirmRoomsCard from "$lib/meetings/firm-rooms-card.svelte";
+  import SharedRoomsCard from "$lib/meetings/shared-rooms-card.svelte";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import type { MeetingScope, MeetingSectionState } from "$lib/meetings/meeting-list.ts";
   import type { MeetingSummary } from "@magna-carta/api-client";
@@ -168,7 +169,7 @@
     {#snippet actions()}
       <CreateControl
         noun="Meeting"
-        title="Schedule a meeting or a call. It is recorded on the calendar as an event."
+        title="Schedule a meeting or a call. It's saved to the calendar as an event."
         refusal={scheduleRefusal}
         onpress={() => (scheduleOpen = true)}
       />
@@ -182,6 +183,7 @@
         <MyRoomCard />
       {/if}
       <FirmRoomsCard />
+      <SharedRoomsCard {canHost} />
     </div>
   {/if}
   <MeetingsScreen

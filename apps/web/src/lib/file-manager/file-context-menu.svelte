@@ -36,6 +36,7 @@
     onAddDocumentType,
     onPickColor,
     onPickIcon,
+    onPickConversion,
     onOpenChange,
     children,
   }: {
@@ -49,6 +50,8 @@
     onAddDocumentType: (name: string) => void;
     onPickColor: (color: FolderColorName) => void;
     onPickIcon: (icon: FolderIconName) => void;
+    /** A Convert target was chosen, by the conversion graph's format id. */
+    onPickConversion: (formatId: string) => void;
     onOpenChange?: (open: boolean) => void;
     children: Snippet;
   } = $props();
@@ -187,20 +190,13 @@
         </ContextMenu.Sub>
       {:else}
         <ContextMenu.Sub>
-          <ContextMenu.SubTrigger disabled={entry.disabledReason !== undefined}>
+          <ContextMenu.SubTrigger disabled={entry.disabledReason !== undefined} title={entry.disabledReason}>
             {entry.label}
-            {#if entry.soon === true}
-              <Badge variant="neutral" class="ms-auto">Soon</Badge>
-            {/if}
           </ContextMenu.SubTrigger>
-          <ContextMenu.SubContent>
-            <!-- The conversion targets read as extensions, never as our category names. Each is
-                 disabled with the same dependency the parent states. -->
-            {#each ["pdf", "docx", "txt", "png"] as target (target)}
-              <ContextMenu.Item disabled title={entry.disabledReason}>
-                To {target}
-                <Badge variant="neutral" class="ms-auto">Soon</Badge>
-              </ContextMenu.Item>
+          <ContextMenu.SubContent class="mc-scrollbar overflow-y-auto">
+            <!-- The targets read as extensions, never as our category names (file-menu-model.ts). -->
+            {#each entry.formats ?? [] as format (format.id)}
+              <ContextMenu.Item onSelect={() => onPickConversion(format.id)}>{format.label}</ContextMenu.Item>
             {/each}
           </ContextMenu.SubContent>
         </ContextMenu.Sub>

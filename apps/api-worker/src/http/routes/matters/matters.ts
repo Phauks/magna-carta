@@ -68,6 +68,7 @@ import {
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierPathParam } from "../../contracts/common.ts";
+import { numberReservationField } from "../../contracts/number-reservation.ts";
 import { identifierField } from "@magna-carta/identifiers/field";
 import { Problem, problemJson, type ProblemResponse } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
@@ -100,6 +101,7 @@ const CreateMatterRequest = z
     // a consultation; a consultation recorded outright draws its consultation number; an open matter
     // draws its matter number. Closed is somewhere a matter arrives, never somewhere it starts.
     status: z.enum(["intake", "consultation", "open"]),
+    numberReservation: numberReservationField,
     description: z.string().nullable().optional(),
     matterTypeId: identifierField("matterType").nullable().optional(),
     locationId: identifierField("location").nullable().optional(),
@@ -1159,6 +1161,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
+      const { numberReservation } = request;
       const numberContext =
         request.status === "open"
           ? await assembleNumberContext(firm.firmDatabase, {
@@ -1184,7 +1187,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
             clientEntityId: request.clientEntityId ?? null,
             numberContext,
           },
-          { clock: serviceClock(), actorUserId: userId, idempotency },
+          { clock: serviceClock(), actorUserId: userId, idempotency, numberReservation },
         );
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json(

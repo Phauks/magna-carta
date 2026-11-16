@@ -45,7 +45,7 @@
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="reset-password-email">Email Address</Label>
+        <Label necessity="required" for="reset-password-email">Email Address</Label>
         <Input
           bind:ref={emailFieldReference}
           id="reset-password-email"

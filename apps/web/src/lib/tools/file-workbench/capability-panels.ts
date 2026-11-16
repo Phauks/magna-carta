@@ -23,6 +23,9 @@ import UnlockPanel from "./panels/unlock-panel.svelte";
 import EmailPanel from "./panels/email-panel.svelte";
 import MetadataPanel from "./panels/metadata-panel.svelte";
 import MalwareScanPanel from "./panels/malware-scan-panel.svelte";
+import RepairPanel from "./panels/repair-panel.svelte";
+import TextRecognitionPanel from "./panels/text-recognition-panel.svelte";
+import { TEXT_RECOGNITION_CAPABILITY } from "./capabilities/text-recognition.ts";
 
 const PANELS: Readonly<Record<string, Component<CapabilityPanelProps>>> = {
   [OVERVIEW_CAPABILITY]: OverviewPanel,
@@ -33,6 +36,8 @@ const PANELS: Readonly<Record<string, Component<CapabilityPanelProps>>> = {
   email: EmailPanel,
   metadata: MetadataPanel,
   [MALWARE_SCAN_CAPABILITY]: MalwareScanPanel,
+  repair: RepairPanel,
+  [TEXT_RECOGNITION_CAPABILITY]: TextRecognitionPanel,
 };
 
 /** The panel for a capability, or null where it has none yet. */

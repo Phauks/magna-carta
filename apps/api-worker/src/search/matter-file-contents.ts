@@ -1,9 +1,12 @@
 import { listQuotableIndexedVersions } from "@magna-carta/file-manager/queries";
 import type { FileId, FirmId } from "@magna-carta/identifiers/types";
-import type { MatterFileContentsSearcher } from "@magna-carta/matter-search/file-contents";
+import type {
+  FileContentsAnswer,
+  MatterFileContentsSearcher,
+} from "@magna-carta/matter-search/file-contents";
 import { corpusOfMatter } from "@magna-carta/search/corpus";
 import { keywordExcerpt } from "@magna-carta/search/keyword-excerpt";
-import type { SearchIndexPort } from "@magna-carta/search/port";
+import type { SearchIndexPort, SearchQueryResult } from "@magna-carta/search/port";
 import { readSearchIndexingEnabled } from "@magna-carta/search/settings";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
@@ -11,7 +14,7 @@ import type { Bindings } from "../bindings.ts";
 import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { readExtractedPassageFromBucket } from "./extracted-text-store.ts";
-import { runKeywordSearch } from "./keyword-search.ts";
+import { runKeywordSearch, runKeywordSearchOverMatters } from "./keyword-search.ts";
 import { resolveSearchIndexPort } from "./search-engine.ts";
 
 // How a matter's search reaches the index of the words inside its files: this matter's corpus and no
@@ -38,40 +41,91 @@ import { resolveSearchIndexPort } from "./search-engine.ts";
 //
 // A quote that cannot be read is never a failed search. Whatever goes wrong is reported once, with
 // no word of the question or the document, and the files are answered for without it.
+// How long a search across matters waits for the file contents index before it answers without it.
+//
+// Inside a matter the reader asked about that matter's files and waits for them. Across matters the
+// files are one place of ten in one answer, and an engine that is starting from cold would hold the
+// notes, the time and the parties back with it. So the wait is bounded, a late engine is reported as
+// one that could not be searched just now, and the question it was sent has by then started it for
+// the next search. The figure is a starting point and not a measurement: the engine cannot run in a
+// cloud session, so it is to be set against a warm engine's real answers once a firm has files
+// indexed on many matters.
+const ACROSS_MATTERS_DEADLINE_MILLISECONDS = 5000;
+
 export function matterFileContentsSearcherFor(
   env: Bindings,
   firmId: FirmId,
-  options: { readonly logger?: Logger; readonly port?: SearchIndexPort } = {},
+  options: {
+    readonly logger?: Logger;
+    readonly port?: SearchIndexPort;
+    readonly acrossMattersDeadlineMilliseconds?: number;
+  } = {},
 ): MatterFileContentsSearcher {
   const port =
     options.port ?? (env.SEARCH_SERVICE === undefined ? undefined : resolveSearchIndexPort(env));
+  function answerFrom(result: SearchQueryResult): FileContentsAnswer {
+    if (!result.ok) {
+      // The reason and nothing else. The engine's own detail can repeat the question it was
+      // asked, and what a member searched a client's files for is privileged.
+      if (result.reason === "engine-not-implemented") return { kind: "not-connected" };
+      if (options.logger !== undefined) {
+        logOperationFailed(
+          options.logger,
+          "matterSearch.fileContents",
+          new Error(`The file contents index did not answer: ${result.reason}`),
+        );
+      }
+      return { kind: "unavailable" };
+    }
+    return {
+      kind: "passages",
+      passages: result.hits.map((hit) => ({ fileId: hit.documentId, chunkId: hit.chunkId })),
+    };
+  }
   return {
     async query({ matterId, queryText, limit }) {
       if (port === undefined) return { kind: "not-connected" };
       const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
       if (!(await readSearchIndexingEnabled(database))) return { kind: "off" };
-      const result = await runKeywordSearch(
-        env,
-        { firmId, corpus: corpusOfMatter(matterId), text: queryText, limit },
-        port,
+      return answerFrom(
+        await runKeywordSearch(
+          env,
+          { firmId, corpus: corpusOfMatter(matterId), text: queryText, limit },
+          port,
+        ),
       );
-      if (!result.ok) {
-        // The reason and nothing else. The engine's own detail can repeat the question it was
-        // asked, and what a member searched a client's files for is privileged.
-        if (result.reason === "engine-not-implemented") return { kind: "not-connected" };
+    },
+    // A search across matters. The same checks in the same order, then each matter's own corpus
+    // asked apart (keyword-search.ts). Named no matters, it still answers the first two checks, so
+    // its caller can tell a firm with indexing off from a search with nothing to ask.
+    async queryMatters({ matterIds, queryText, limit }) {
+      if (port === undefined) return { kind: "not-connected" };
+      const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+      if (!(await readSearchIndexingEnabled(database))) return { kind: "off" };
+      if (matterIds.length === 0) return { kind: "passages", passages: [] };
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<"late">((resolve) => {
+        timer = setTimeout(
+          () => resolve("late"),
+          options.acrossMattersDeadlineMilliseconds ?? ACROSS_MATTERS_DEADLINE_MILLISECONDS,
+        );
+      });
+      const result = await Promise.race([
+        runKeywordSearchOverMatters(env, { firmId, matterIds, text: queryText, limit }, port),
+        late,
+      ]);
+      clearTimeout(timer);
+      if (result === "late") {
         if (options.logger !== undefined) {
           logOperationFailed(
             options.logger,
             "matterSearch.fileContents",
-            new Error(`The file contents index did not answer: ${result.reason}`),
+            new Error("The file contents index did not answer a search across matters in time"),
           );
         }
         return { kind: "unavailable" };
       }
-      return {
-        kind: "passages",
-        passages: result.hits.map((hit) => ({ fileId: hit.documentId, chunkId: hit.chunkId })),
-      };
+      return answerFrom(result);
     },
     async excerpts({ matterId, readerText, files }) {
       const excerpts = new Map<string, string>();

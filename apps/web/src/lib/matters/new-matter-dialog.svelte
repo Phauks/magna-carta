@@ -54,7 +54,16 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
+  import { untrack } from "svelte";
+  import {
+    DraftNumber,
+    type RecordSubject,
+  } from "@magna-carta/design-system/record-reference";
+  import {
+    draftNumberKeeper,
+    type DraftNumberHints,
+    type DraftNumberPurpose,
+  } from "$lib/records/draft-number-keeper.ts";
   import * as Select from "@magna-carta/design-system/select";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
@@ -314,29 +323,57 @@
   const heading = $derived(purpose === "intake" ? "New Intake" : "New Matter");
 
   /*
-   * The number this file will be called by, stated before it exists.
+   * The number this file will be called by, held for the window as a draft and given back if it
+   * closes without saving.
    *
    * WHICH NUMBER DEPENDS ON WHAT IS BEING STARTED, and the three answers are genuinely different
    * files, each with a run of its own: an intake draws an intake number, a consultation draws its
    * TENTATIVE number, an open matter draws the matter number. Each survives every later rung rather
-   * than being replaced, so a note filed under any of them still resolves — which is why the panel
-   * names the one THIS act will draw rather than the one the file will end up wearing.
+   * than being replaced, so a note filed under any of them still resolves — which is why the window
+   * holds the one THIS act will draw rather than the one the file will end up wearing. Changing the
+   * choice gives the old run's number back and holds one from the new run.
    *
-   * None is previewed with a value yet: nothing serves the next number on any of the three runs, and
-   * a panel that invented one would be making a promise about a counter it has not asked. What the
-   * reader is told is the honest half — that a number is drawn by the save, and which kind of number
-   * it will be — which is what the shell renders for a preview with nothing in it. When a read
-   * exists, this is the one line that changes (@magna-carta/design-system/record-reference).
+   * A matter number may be shaped from the client and the practice area, so the window sends what
+   * it knows of both; until the firm's scheme can render from what has been chosen, the line names
+   * the kind of file alone.
    */
+  const number = new DraftNumber("");
+  let saved = false;
+  const numberPurpose = $derived<DraftNumberPurpose>(
+    startingStatus === "open" ? "matter" : startingStatus,
+  );
+  const numberHints = $derived<DraftNumberHints>({
+    context: {
+      ...(client === null ? {} : { clientName: client.name }),
+      ...(() => {
+        const code = matterTypes.find((type) => type.id === matterTypeId)?.code ?? null;
+        return code === null ? {} : { matterTypeCode: code };
+      })(),
+    },
+  });
+  $effect(() => {
+    const showing = open;
+    const run = numberPurpose;
+    // Read so a matter scheme shaped from the client or the practice area is asked again.
+    const hints = numberHints;
+    untrack(() => {
+      if (!showing) {
+        if (saved) number.taken();
+        else number.release();
+        saved = false;
+        return;
+      }
+      void number.hold(draftNumberKeeper(run, () => hints));
+    });
+  });
   const subtitle = $derived<RecordSubject>({
     reference: {
+      ...number.reference,
       // The rung's own word, from the status register rather than typed here — the register is
       // where a status word is given its label, and a second copy of one drifts the moment either
       // is corrected. An open matter is the exception: what it draws is called a MATTER number, and
       // the register calls that rung "Active", which is its status and not the name of its number.
       kind: startingStatus === "open" ? "Matter" : matterStatusLabel(startingStatus),
-      number: null,
-      standing: "preview",
     },
   });
 
@@ -435,8 +472,13 @@
     numberingHint = false;
     // A retried submit must not open a second matter, so every attempt carries its own key and the
     // server answers the repeat with the first result.
-    const outcome = await createMatter(fetch, request, crypto.randomUUID());
+    const outcome = await createMatter(
+      fetch,
+      { ...request, numberReservation: number.token },
+      crypto.randomUUID(),
+    );
     if (outcome.kind === "ok") {
+      saved = true;
       // The team is a second write, one per person, against the matter that now exists. A person
       // who does not land is reported BY NAME against a matter that did: saying "the matter was not
       // opened" would be false, and saying nothing would leave somebody off a file they were put on.
@@ -497,7 +539,7 @@
       <Tabs.Content value="matter" class="flex flex-col gap-16">
         <div class="grid gap-16 sm:grid-cols-2">
           <div class="flex flex-col gap-8">
-            <Label for="new-matter-title">Title</Label>
+            <Label necessity="required" for="new-matter-title">Title</Label>
             <Input id="new-matter-title" bind:value={title} disabled={busy} />
           </div>
           {#if purpose === "matter"}
@@ -550,7 +592,7 @@
 
         <div class="grid gap-16 sm:grid-cols-2">
           <div class="flex flex-col gap-8">
-            <Label for="new-matter-practice-area">Practice Area</Label>
+            <Label necessity="optional" for="new-matter-practice-area">Practice Area</Label>
             <PracticeAreaPicker
               {matterTypes}
               bind:value={matterTypeId}
@@ -561,7 +603,7 @@
             />
           </div>
           <div class="flex flex-col gap-8">
-            <Label for="new-matter-location">Location</Label>
+            <Label necessity="optional" for="new-matter-location">Location</Label>
             <!-- The office the matter is RUN OUT OF, picked by the one piece that picks an office
                  anywhere in the product — so what a firm's offices are is answered in one place
                  and a matter's office is the same record the Offices screen manages. Where the
@@ -578,7 +620,7 @@
         </div>
 
         <div class="flex flex-col gap-8">
-          <Label for="new-matter-description">Description</Label>
+          <Label necessity="optional" for="new-matter-description">Description</Label>
           <Textarea
             id="new-matter-description"
             bind:value={description}
@@ -591,7 +633,7 @@
       <!-- ---------- People ---------- -->
       <Tabs.Content value="people" class="flex flex-col gap-16">
         <div class="flex flex-col gap-8">
-          <Label for="new-matter-responsible">Responsible Attorney</Label>
+          <Label necessity="required" for="new-matter-responsible">Responsible Attorney</Label>
           <MemberPicker
             members={roster}
             value={team.responsibleMemberId}
@@ -614,7 +656,7 @@
         <div class="grid gap-16 sm:grid-cols-2">
           {#each SEATS as seat (seat.id)}
             <div class="flex flex-col gap-8">
-              <Label for="new-matter-{seat.id}">{seat.label}</Label>
+              <Label necessity="optional" for="new-matter-{seat.id}">{seat.label}</Label>
               <MemberPicker
                 members={roster}
                 exclude={teamMemberIds(team)}
@@ -652,7 +694,7 @@
   {#snippet context({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="new-matter-client">Client</Label>
+        <Label necessity="required" for="new-matter-client">Client</Label>
         <!-- From the directory, never typed: a name typed here is how one client ends up in the
              book twice. Someone the directory does not hold yet is added there first. -->
         <DirectoryEntityPicker

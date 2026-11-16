@@ -58,11 +58,12 @@ properties; off-token values are machine-rejected.
   request states only what it grants
 - `src/lib/components/record-reference/` — what a modal's SUBTITLE is allowed to say. `types.ts` is
   the contract (`RecordSubject` = an optional `RecordReference` plus short facts; a reference is
-  `kind`, `number` and a standing of `drawn | tentative | preview`), `record-reference-model.ts` is
-  the table that resolves a reference to what it reads as, `record-subject.svelte` renders the line,
-  and `previewed-number.svelte.ts` holds the number a record will take before the record exists —
-  the ticketed read that stops a stale answer landing on a newer one. It takes a reader answering a
-  number or nothing, so the app's transport and failure model stay in the app. EntityIdentity names
+  `kind`, `number` and a standing of `drawn | tentative | draft`), `record-reference-model.ts` is
+  the table that resolves a reference to what it reads as, `record-subject.svelte` renders the line
+  (a draft number in italics, the product's one format for it), and `draft-number.svelte.ts` holds
+  the draft number a record being created will be saved under — held for the panel, renewed while it
+  is open, given back on cancel, with a ticket that stops a stale answer landing on a newer one. It
+  takes a keeper that holds and releases, so the app's transport and failure model stay in the app. EntityIdentity names
   a PERSON OR ORGANIZATION from elsewhere; this names the RECORD a panel is acting on, by the number
   somebody quotes. Asserted at the call sites by `pnpm run lint:modal-headers`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:

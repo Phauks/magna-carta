@@ -13,7 +13,8 @@ import { sfuClientForEnv } from "./sfu-client.ts";
 
 export const ConnectedServiceStatus = z
   .object({
-    id: z.enum(["realtime"]),
+    // Cloudflare Realtime, and the two calendar providers (src/calendar-sync/provider-status.ts).
+    id: z.enum(["realtime", "googleCalendar", "microsoftCalendar"]),
     state: z.enum(["connected", "not-configured", "refused", "unreachable"]),
     // What the probe cost, in milliseconds; null where nothing was asked.
     latencyMilliseconds: z.number().nullable(),

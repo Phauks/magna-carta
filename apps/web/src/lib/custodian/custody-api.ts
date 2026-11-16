@@ -269,6 +269,8 @@ export interface CreateCustodyPacketRequest {
   depositedAt?: string;
   notes?: string | null;
   manualCustodyNumber?: string;
+  /** The draft number the panel holds, so the packet is logged under exactly that number. */
+  numberReservation?: string;
 }
 
 /** What the register answers with once the packet exists, including the number it drew. */

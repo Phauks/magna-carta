@@ -301,7 +301,7 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     deployQueueHeading: null,
   },
   recentErrors: {
-    name: "Background errors",
+    name: "Other Workers' background errors",
     group: "platform",
     steps: [
       "Create a Cloudflare API token with only Account > Workers Observability > Read.",
@@ -328,6 +328,7 @@ export const FEATURE_WORKERS: Record<string, string> = {
   discoveryProcessing: "magna-carta-discovery",
   fileContentsSearch: "magna-carta-search",
   addressSuggestions: "magna-carta-address",
+  communitySignIn: "magna-carta-community",
 };
 
 export function featureSteps(id: string): readonly string[] {

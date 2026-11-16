@@ -503,7 +503,7 @@
     if (outcome.kind !== "ok") {
       saveFailure = stated(
         outcome.failure,
-        "The change was not saved.",
+        "The change wasn't saved.",
         "Couldn't connect. The change wasn't saved.",
       );
       return;
@@ -652,7 +652,7 @@
     if (failure !== null) {
       return verbRefused(
         failure,
-        "The change was not saved.",
+        "The change wasn't saved.",
         "Couldn't connect. The change wasn't saved and the series is unchanged.",
       );
     }
@@ -1164,7 +1164,7 @@
         {#if record?.kind === "event" && eventDraft !== null}
           {@const draft = eventDraft}
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-title">Title</Label>
+            <Label necessity="required" for="{idPrefix}-title">Title</Label>
             <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
           </div>
           <EventTypeSelect
@@ -1190,7 +1190,7 @@
           />
           <div class="grid gap-12 @md:grid-cols-2">
             <div class="flex flex-col gap-4">
-              <Label for="{idPrefix}-location">Location</Label>
+              <Label necessity="optional" for="{idPrefix}-location">Location</Label>
               <LocationPicker
                 inputId="{idPrefix}-location"
                 {locations}
@@ -1200,7 +1200,7 @@
               />
             </div>
             <div class="flex flex-col gap-4">
-              <Label for="{idPrefix}-court-reference">Court reference</Label>
+              <Label necessity="optional" for="{idPrefix}-court-reference">Court reference</Label>
               <Input
                 id="{idPrefix}-court-reference"
                 disabled={readOnly}
@@ -1211,7 +1211,7 @@
           <!-- Where it is JOINED, where it is online: its own field, because a setting can be in a
                room and on a call at once. -->
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-conference-url">Conference link</Label>
+            <Label necessity="optional" for="{idPrefix}-conference-url">Conference link</Label>
             <Input
               id="{idPrefix}-conference-url"
               type="url"
@@ -1223,7 +1223,7 @@
             />
           </div>
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-description">Description</Label>
+            <Label necessity="optional" for="{idPrefix}-description">Description</Label>
             <Textarea
               id="{idPrefix}-description"
               class="resize-none"
@@ -1235,12 +1235,12 @@
         {:else if record?.kind === "deadline" && deadlineDraft !== null}
           {@const draft = deadlineDraft}
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-title">Title</Label>
+            <Label necessity="required" for="{idPrefix}-title">Title</Label>
             <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
           </div>
           <div class="grid gap-12 @md:grid-cols-2">
             <div class="flex flex-col gap-4">
-              <DatePicker
+              <DatePicker necessity="required"
                 label="Due"
                 value={civilDateValue(draft.dueOn)}
                 disabled={readOnly}
@@ -1248,7 +1248,7 @@
               />
             </div>
             <div class="flex flex-col gap-4">
-              <Label for="{idPrefix}-time">Time</Label>
+              <Label necessity="optional" for="{idPrefix}-time">Time</Label>
               <Input
                 id="{idPrefix}-time"
                 inputmode="numeric"
@@ -1271,7 +1271,7 @@
               />
             </div>
             <div class="flex flex-col gap-4">
-              <Label for="{idPrefix}-priority">Priority</Label>
+              <Label necessity="optional" for="{idPrefix}-priority">Priority</Label>
               <Input
                 id="{idPrefix}-priority"
                 inputmode="numeric"
@@ -1283,7 +1283,7 @@
             </div>
           </div>
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-authority">Authority</Label>
+            <Label necessity="optional" for="{idPrefix}-authority">Authority</Label>
             <Input
               id="{idPrefix}-authority"
               title="The rule, statute or order this comes from, in the firm's own words"
@@ -1317,7 +1317,7 @@
         {:else if record?.kind === "firmEvent" && firmEventDraft !== null}
           {@const draft = firmEventDraft}
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-title">Title</Label>
+            <Label necessity="required" for="{idPrefix}-title">Title</Label>
             <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
           </div>
           <EventTypeSelect
@@ -1369,7 +1369,7 @@
             </div>
           </div>
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-location">Location</Label>
+            <Label necessity="optional" for="{idPrefix}-location">Location</Label>
             <LocationPicker
               inputId="{idPrefix}-location"
               {locations}
@@ -1381,7 +1381,7 @@
           <!-- Where it is JOINED, where it is online: its own field, because a setting can be in a
                room and on a call at once. -->
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-conference-url">Conference link</Label>
+            <Label necessity="optional" for="{idPrefix}-conference-url">Conference link</Label>
             <Input
               id="{idPrefix}-conference-url"
               type="url"
@@ -1393,7 +1393,7 @@
             />
           </div>
           <div class="flex flex-col gap-4">
-            <Label for="{idPrefix}-description">Description</Label>
+            <Label necessity="optional" for="{idPrefix}-description">Description</Label>
             <Textarea
               id="{idPrefix}-description"
               class="resize-none"
@@ -1739,7 +1739,7 @@
       {@render scopeQuestion("entry-cancel-scope", cancelScope, (value) => (cancelScope = value), busy)}
     {/if}
     <div class="flex flex-col gap-4">
-      <Label for="entry-cancel-reason">Reason</Label>
+      <Label necessity="optional" for="entry-cancel-reason">Reason</Label>
       <Textarea id="entry-cancel-reason" rows={2} disabled={busy} bind:value={cancelReason} />
     </div>
   {/snippet}
@@ -1757,7 +1757,7 @@
 >
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-4">
-      <Label for="entry-satisfy-note">Note</Label>
+      <Label necessity="optional" for="entry-satisfy-note">Note</Label>
       <Textarea id="entry-satisfy-note" rows={2} disabled={busy} bind:value={satisfyNote} />
     </div>
   {/snippet}
@@ -1776,7 +1776,7 @@
 >
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-4">
-      <Label for="entry-vacate-reason">Reason</Label>
+      <Label necessity="required" for="entry-vacate-reason">Reason</Label>
       <Textarea id="entry-vacate-reason" rows={2} disabled={busy} bind:value={vacateReason} />
     </div>
   {/snippet}
@@ -1805,7 +1805,7 @@
       />
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-continue-location">Location</Label>
+          <Label necessity="optional" for="{idPrefix}-continue-location">Location</Label>
           <LocationPicker
             inputId="{idPrefix}-continue-location"
             {locations}
@@ -1815,7 +1815,7 @@
           />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-continue-court-reference">Court reference</Label>
+          <Label necessity="optional" for="{idPrefix}-continue-court-reference">Court reference</Label>
           <Input
             id="{idPrefix}-continue-court-reference"
             disabled={busy}
@@ -1824,7 +1824,7 @@
         </div>
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-continue-conference-url">Conference link</Label>
+        <Label necessity="optional" for="{idPrefix}-continue-conference-url">Conference link</Label>
         <Input
           id="{idPrefix}-continue-conference-url"
           type="url"
@@ -1836,7 +1836,7 @@
         />
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-continue-reason">Reason</Label>
+        <Label necessity="optional" for="{idPrefix}-continue-reason">Reason</Label>
         <Textarea
           id="{idPrefix}-continue-reason"
           rows={2}

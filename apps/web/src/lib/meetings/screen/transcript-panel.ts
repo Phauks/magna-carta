@@ -209,7 +209,7 @@ export function transcriptGapSentence(
   const length = spanLengthWords(line.endedMs - line.startedMs);
   const name = line.speaker?.displayName.trim() ?? "";
   if (line.speaker === null) return `Nothing was heard for ${length}.`;
-  if (name === "") return `Somebody's audio is missing for ${length}.`;
+  if (name === "") return `Someone's audio is missing for ${length}.`;
   return `${name}'s audio is missing for ${length}.`;
 }
 

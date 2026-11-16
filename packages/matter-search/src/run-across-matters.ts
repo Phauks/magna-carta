@@ -4,6 +4,7 @@ import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
 import { countRecordIndexMatchesUpToStatement } from "@magna-carta/search/record-index-statements";
+import type { MatterFileContentsSearcher } from "./file-contents.ts";
 import { withMarks } from "./marks.ts";
 import {
   narrowedMatterIdsStatement,
@@ -60,6 +61,11 @@ export const ACROSS_MATTERS_CANDIDATE_CAP = 2000;
 // records, and a search of one client's matters is answered in full where the same words across
 // the firm are not. A narrowing that reaches more matters than that is asked the firm-wide way and
 // says `broad` when the cap decided it. The list is for the index alone and decides nothing.
+//
+// THE WORDS INSIDE FILES ARE ASKED ONE MATTER AT A TIME, so that source needs the same list, and
+// needs it whether or not the reader narrowed: a reader who may see few matters reaches few. The
+// one read serves both. Where the search reaches more matters than the list holds, the source says
+// so and is not run.
 
 export interface RunSearchAcrossMattersInput {
   readonly database: SqlDatabase;
@@ -74,6 +80,9 @@ export interface RunSearchAcrossMattersInput {
   readonly permissions: ReadonlySet<Permission>;
   readonly limit: number;
   readonly candidateCap?: number;
+  // How the words inside files are reached. Supplied by the application, which holds the service
+  // binding; absent, the source that needs it reports the index as not connected.
+  readonly fileContents?: MatterFileContentsSearcher | null;
 }
 
 function group(
@@ -115,16 +124,17 @@ async function isBroad(
   return (results[0]?.matched ?? 0) > cap;
 }
 
-// The matters a narrowed search names to the index, or undefined where it names none: the search
-// is not narrowed, or it reaches more matters than one question may name.
-async function indexMatterIdsFor(
+// The matters a search reaches, or undefined where it reaches more than one question may name. One
+// number serves the record index and the file contents index alike, so a reader is told one thing
+// about how few matters "few" is.
+async function reachedMatterIdsFor(
   database: SqlDatabase,
-  narrowed: VisibleMatterPredicate,
+  visibility: VisibleMatterPredicate,
 ): Promise<readonly MatterId[] | undefined> {
   // One past the limit is the measure of "too many to name".
   const { results } = await narrowedMatterIdsStatement(
     database,
-    narrowed,
+    visibility,
     RECORD_QUERY_MATTERS_LIMIT + 1,
   ).all<{ id: MatterId }>();
   if (results.length > RECORD_QUERY_MATTERS_LIMIT) return undefined;
@@ -160,11 +170,18 @@ export async function runSearchAcrossMatters(
     input.narrowing === undefined
       ? input.visibility
       : narrowedVisibility(input.visibility, input.narrowing);
-  // Read only where it has a use: a narrowed search with a source that reads the index.
-  const indexMatterIds =
-    input.narrowing !== undefined && readsRecordIndex
-      ? await indexMatterIdsFor(input.database, visibility)
+  const readsFileContents = runnable.some(
+    ({ declaration }) => declaration.reads === "file-contents",
+  );
+  // Read only where it has a use: a narrowed search with a source that reads the record index, or
+  // any search with a source that asks one matter at a time.
+  const reachedMatterIds =
+    (input.narrowing !== undefined && readsRecordIndex) || readsFileContents
+      ? await reachedMatterIdsFor(input.database, visibility)
       : undefined;
+  // The record index is named matters only by a narrowed search. Asked firm-wide it already reads
+  // every matter, and naming the few a reader may see would cost it a list to walk for nothing.
+  const indexMatterIds = input.narrowing === undefined ? undefined : reachedMatterIds;
 
   const request: AcrossMattersSearchRequest = {
     database: input.database,
@@ -173,6 +190,8 @@ export async function runSearchAcrossMatters(
     limit: input.limit,
     candidateCap,
     ...(indexMatterIds === undefined ? {} : { indexMatterIds }),
+    ...(reachedMatterIds === undefined ? {} : { reachedMatterIds }),
+    ...(input.fileContents === undefined ? {} : { fileContents: input.fileContents }),
   };
 
   const [broad, answered] = await Promise.all([
@@ -181,24 +200,35 @@ export async function runSearchAcrossMatters(
       : Promise.resolve(false),
     Promise.all(
       runnable.map(async ({ source, declaration }): Promise<AcrossMattersGroup> => {
-        const statements = declaration.buildStatements(request);
+        // A source that asks an index outside the database does that first, as in a matter's own
+        // search. What comes back is a reason it could not, or candidates its own statement then
+        // re-reads under the visible-matter predicate like every other source's.
+        const prepared =
+          declaration.prepare === undefined ? null : await declaration.prepare(request);
+        if (prepared?.kind === "skipped") return skipped(source, prepared.reason);
+        const statements =
+          prepared === null ? declaration.buildStatements(request) : prepared.statements;
         const results = await Promise.all(
           statements.map((statement) => statement.all<MatterSearchRawRow>()),
         );
-        const rows: MatterSearchRawRow[] = [];
+        let rows: MatterSearchRawRow[] = [];
         for (const result of results) rows.push(...result.results);
         // Each statement sorted its own rows and stopped at its own limit. A source answering from
         // two statements is merged on the key they both sorted by before the limit is applied, so
         // the second statement's newest row is not pushed out by the first having filled the limit
         // by itself. Descending, the order every source declared across matters reads in.
-        if (results.length > 1) {
+        if (prepared !== null) {
+          // The outside index's order, restored: the statement returned its rows in the table's.
+          rows = prepared.arrange(rows);
+        } else if (results.length > 1) {
           rows.sort((left, right) =>
             left.sort_key < right.sort_key ? 1 : left.sort_key > right.sort_key ? -1 : 0,
           );
         }
         // One row past the limit was read, and is the measure of "there is more".
         const hasMore = rows.length > input.limit;
-        const kept = hasMore ? rows.slice(0, input.limit) : rows;
+        const cut = hasMore ? rows.slice(0, input.limit) : rows;
+        const kept = prepared?.quote === undefined ? cut : await prepared.quote(cut);
         return group(source, declaration.matchedFields, {
           // Projected, then marked, as in a matter's own search: the last step, on the rows the
           // limit kept, by the rule the source declared for the texts it shows.
@@ -216,5 +246,5 @@ export async function runSearchAcrossMatters(
   const order = new Map(input.registry.all().map((source, index) => [source.key, index]));
   groups.sort((left, right) => (order.get(left.source) ?? 0) - (order.get(right.source) ?? 0));
 
-  return { query, broad, groups };
+  return { query, broad, fewMattersLimit: RECORD_QUERY_MATTERS_LIMIT, groups };
 }

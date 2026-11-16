@@ -112,21 +112,21 @@
     {#each list.statuses as status (status.id)}
       {@const column = cards.filter((task) => task.statusId === status.id)}
       <section
-        class="flex w-64 shrink-0 flex-col gap-8 rounded-md bg-surface-sunken p-8 transition-opacity"
+        class="flex min-w-3xs flex-1 basis-0 flex-col gap-8 rounded-md bg-surface-sunken p-8 transition-opacity"
         class:opacity-40={faded(status.id)}
         aria-label={status.name}
         {...{ [ITEM_DROP_KEY_ATTRIBUTE]: status.id }}
       >
-        <header class="flex items-center gap-8 px-4 pt-4">
+        <header class="flex min-w-0 items-center gap-8 px-4 pt-4">
           <span class="mc-palette-pip" data-palette-color={STATUS_PALETTE[status.colour]} aria-hidden="true"
           ></span>
-          <h3 class="text-sm font-semibold">{status.name}</h3>
-          <span class="text-xs text-text-muted">{column.length}</span>
+          <h3 class="truncate text-sm font-semibold" title={status.name}>{status.name}</h3>
+          <span class="shrink-0 rounded-full bg-surface-default px-8 text-xs text-text-muted">{column.length}</span>
           {#if faded(status.id)}
-            <span class="ms-auto text-xs text-text-muted">Not a next step</span>
+            <span class="ms-auto shrink-0 text-xs text-text-muted">Not a next step</span>
           {/if}
         </header>
-        <ul class="mc-scrollbar flex min-h-16 flex-col gap-8 overflow-y-auto">
+        <ul class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto">
           {#each column as task (task.id)}
             {@const people = assigneeNames(task, context)}
             {@const subtasks = subtaskCount(task)}
@@ -191,12 +191,14 @@
                 </span>
               </button>
             </li>
+          {:else}
+            <li class="px-4 py-8 text-sm text-text-muted">No tasks</li>
           {/each}
         </ul>
       </section>
     {/each}
     <section
-      class="flex w-48 shrink-0 flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed border-border-default p-12 text-center text-text-muted"
+      class="flex w-3xs shrink-0 flex-col items-center justify-center gap-4 rounded-md border-2 border-dashed border-border-default p-12 text-center text-text-muted"
       aria-label="Mark Complete"
       {...{ [ITEM_DROP_KEY_ATTRIBUTE]: COMPLETE_KEY }}
     >

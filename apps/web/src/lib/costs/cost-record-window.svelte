@@ -22,6 +22,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import { WriteIntent } from "$lib/api/write-intent.ts";
   import * as Select from "@magna-carta/design-system/select";
+  import * as SegmentedControl from "@magna-carta/design-system/segmented-control";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EventRail from "@magna-carta/design-system/event-rail";
@@ -224,9 +225,6 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
   const billable = $derived(billingChoice === "billable");
   const amountMinor = $derived(parseAmountMinor(amountText));
 
-  const billingChoiceLabel = $derived(
-    BILLING_CHOICES.find((choice) => choice.value === billingChoice)?.label ?? "",
-  );
   const expenseCodeLabel = $derived(
     expenseCodeId === ""
       ? "None"
@@ -443,7 +441,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
       <!-- First, because a cost is a fact about a matter before it is a fact about an amount, and
            because the refusal that names it leads the others. -->
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-matter">Matter</Label>
+        <Label necessity="required" for="{fieldPrefix}-matter">Matter</Label>
         <MatterPicker
           {matters}
           value={chosenMatterId}
@@ -458,46 +456,40 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
 
     <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
-        <DatePicker
+        <DatePicker necessity="required"
           label="Date Incurred"
           value={civilDateValue(incurredDateText)}
           onValueChange={(next) => (incurredDateText = civilDateTextOrEmpty(next))}
           disabled={readOnly}
         />
       </div>
+    </div>
 
-      <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-billing">Billing</Label>
-        {#if readOnly}
-          <Input id="{fieldPrefix}-billing" value={billingSentence(billable)} disabled />
-        {:else}
-          <Select.Root
-            type="single"
-            items={[...BILLING_CHOICES]}
-            allowDeselect={false}
-            bind:value={() => billingChoice, (next) => (billingChoice = next as string)}
-          >
-            <Select.Trigger
-              id="{fieldPrefix}-billing"
-              aria-label="Billing"
-              class="w-full"
-              title="Whether the client may be asked for this cost. Absorbing it is the firm's decision, kept visible in the totals."
-            >
-              <Select.Value placeholder={billingChoiceLabel} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each BILLING_CHOICES as choice (choice.value)}
-                <Select.Item value={choice.value} label={choice.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        {/if}
-      </div>
+    <div class="flex flex-col gap-4">
+      <span id="{fieldPrefix}-billing" class="mc-label">Billing</span>
+      {#if readOnly}
+        <Input
+          aria-labelledby="{fieldPrefix}-billing"
+          value={billingSentence(billable)}
+          disabled
+        />
+      {:else}
+        <SegmentedControl.Root
+          aria-labelledby="{fieldPrefix}-billing"
+          title="Whether the client may be asked for this cost. Absorbing it is the firm's decision, kept visible in the totals."
+          value={billingChoice}
+          onValueChange={(next) => (billingChoice = next)}
+        >
+          {#each BILLING_CHOICES as choice (choice.value)}
+            <SegmentedControl.Item value={choice.value}>{choice.label}</SegmentedControl.Item>
+          {/each}
+        </SegmentedControl.Root>
+      {/if}
     </div>
 
     <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-payee">Payee</Label>
+        <Label necessity="optional" for="{fieldPrefix}-payee">Payee</Label>
         {#if readOnly}
           <Input
             id="{fieldPrefix}-payee"
@@ -517,7 +509,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
       </div>
 
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-expense-code">Expense Code</Label>
+        <Label necessity="optional" for="{fieldPrefix}-expense-code">Expense Code</Label>
         {#if readOnly}
           <Input id="{fieldPrefix}-expense-code" value={expenseCodeLabel} disabled />
         {:else if expenseCodes.pickerRefusal !== null}
@@ -554,7 +546,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
     <div class="flex flex-col gap-8">
       <div class="flex flex-wrap items-end gap-12">
         <div class="flex min-w-0 flex-1 flex-col gap-4">
-          <Label for="{fieldPrefix}-amount">Amount</Label>
+          <Label necessity="required" for="{fieldPrefix}-amount">Amount</Label>
           <Input
             id="{fieldPrefix}-amount"
             placeholder="Amount"
@@ -581,7 +573,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
       by the same person, and the fields they share should not move between them.
     -->
     <div class="flex flex-col gap-4">
-      <Label for="{fieldPrefix}-description">Description</Label>
+      <Label necessity="required" for="{fieldPrefix}-description">Description</Label>
       <Textarea
         id="{fieldPrefix}-description"
         class="resize-none"

@@ -143,11 +143,13 @@ export const SearchAcrossMattersGroup = z
     // Measured by reading one row past the limit, never estimated.
     hasMore: z.boolean(),
     // Why this place contributed nothing, or null when it answered. `one-matter-only` is a place
-    // that is searched inside a matter and not across them; the rest mean what they mean in a
-    // matter's own search.
+    // that is searched inside a matter and not across them. `too-many-matters` is a place that is
+    // asked one matter at a time and so only where the search reaches few of them. The rest mean
+    // what they mean in a matter's own search.
     skipped: z
       .enum([
         "one-matter-only",
+        "too-many-matters",
         "permission",
         "query-too-short",
         "engine-unavailable",
@@ -165,6 +167,10 @@ export const SearchAcrossMattersAnswer = z
     // hold the most recent records with those words, and a group with no hits has not shown that
     // its place holds none.
     broad: z.boolean(),
+    // How many matters "few" is. A search reaching at most this many is answered from those
+    // matters' own records, and is the only kind a place skipped as `too-many-matters` answers.
+    // On the wire so the page says the number the server holds and keeps no copy of it.
+    fewMattersLimit: z.number().int(),
     // One group per place, in the order a matter's own sections read in.
     groups: z.array(SearchAcrossMattersGroup),
   })

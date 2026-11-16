@@ -119,8 +119,7 @@ const CAPABILITIES: readonly Capability[] = [
   {
     id: "convert",
     label: "Convert a file to another format",
-    reach: "waiting",
-    waitingOn: "the conversion engine.",
+    reach: "served",
   },
   {
     id: "share",

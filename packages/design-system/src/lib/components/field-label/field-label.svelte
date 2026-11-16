@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * FieldLabel — the small-caps label naming what sits beneath it (Tier 1: a native element, no
+   * FieldLabel — the label naming the read-only fact beneath it (Tier 1: a native element, no
    * Bits UI). Styling is the mc-field-label recipe (field-label.css); mergeClasses is the single
    * class seam, so a consumer `class` still wins last.
    *

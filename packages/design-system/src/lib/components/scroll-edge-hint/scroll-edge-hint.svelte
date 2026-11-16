@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * ScrollEdgeHint — the gilt scroll-edge affordance, in one home. A thin gold rule DRAWS in at an
+   * ScrollEdgeHint — the scroll-edge affordance, in one home. A thin neutral rule DRAWS in at an
    * edge of a scroll area while there is more content that way, and leaves instantly by unmount
    * once there is not. It says "there is more this way" where a scrollbar either is not there to
    * say it (the sidebar's nav list hides its own — chrome is one clean plane) or cannot say it on

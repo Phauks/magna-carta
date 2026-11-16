@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { backgroundMenu, rowMenu } from "../src/lib/file-manager/file-menu-model.ts";
-import type { FileMenuEntry, FileMenuItem } from "../src/lib/file-manager/file-menu-model.ts";
+import type {
+  FileMenuEntry,
+  FileMenuFlyout,
+  FileMenuItem,
+} from "../src/lib/file-manager/file-menu-model.ts";
 import { fileKey, folderKey, type FileManagerRow } from "../src/lib/file-manager/file-rows.ts";
 import type { MatterFile } from "../src/lib/file-manager/matter-file-api.ts";
 
@@ -162,5 +166,43 @@ describe("backgroundMenu", () => {
     }
     // Select All still works: it is about what is on screen, not about where to write.
     expect(itemFor(menu, "selectAll")?.disabledReason).toBeUndefined();
+  });
+});
+
+describe("the Convert flyout", () => {
+  const convertOf = (entries: readonly FileMenuEntry[]): FileMenuFlyout | undefined =>
+    entries.find(
+      (entry): entry is FileMenuFlyout => entry.kind === "flyout" && entry.command === "convert",
+    );
+
+  it("offers the formats a Word file can become, read as extensions", () => {
+    const menu = rowMenu({
+      ...base,
+      rows: [
+        file("letter", {
+          name: "letter.docx",
+          sniffedContentType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }),
+      ],
+    });
+    const flyout = convertOf(menu);
+    expect(flyout?.disabledReason).toBeUndefined();
+    const labels = flyout?.formats?.map((format) => format.label) ?? [];
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) expect(label).toMatch(/^To [a-z0-9]+( \(.+\))?$/);
+  });
+
+  it("is disabled with its reason when nothing converts from the file", () => {
+    const menu = rowMenu({
+      ...base,
+      rows: [file("blob", { name: "blob.unknownthing", sniffedContentType: null })],
+    });
+    expect(convertOf(menu)?.disabledReason).toBe("Nothing converts from this kind of file.");
+  });
+
+  it("is disabled for a file with no committed version", () => {
+    const menu = rowMenu({ ...base, rows: [file("pending", { currentVersionId: null })] });
+    expect(convertOf(menu)?.disabledReason).toMatch(/no committed version/);
   });
 });

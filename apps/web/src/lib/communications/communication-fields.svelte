@@ -252,7 +252,7 @@
   {#if showActivity}
     <!-- The name the caller gave, as somebody heard it. Optional, and never a Directory record:
          choosing who the number belongs to is the Identification panel's, beside the form. -->
-    <LabelledField label="Caller ID (optional)" id="{identity}-caller-id">
+    <LabelledField label="Caller ID" necessity="optional" id="{identity}-caller-id">
       {#snippet children({ props })}
         <Input
           {...props}
@@ -268,7 +268,7 @@
   {/if}
 
   {#if showContact}
-    <LabelledField label="Contact" id="{identity}-contact">
+    <LabelledField necessity="optional" label="Contact" id="{identity}-contact">
       {#snippet children({ props })}
         <!-- The Directory record at the other end. Optional: a number nobody has recorded is
              exactly the case the queue exists for, and demanding a contact first would put a lookup
@@ -291,7 +291,7 @@
        rather than at the bottom of the form. On a text it is the message, on a call it is what the
        member wrote down; the record keeps the two in different columns, and the label says which. -->
   <div class="flex flex-col gap-8">
-    <Label for="{identity}-description">{text ? "What the text said" : "Notes"}</Label>
+    <Label necessity={text ? "required" : "optional"} for="{identity}-description">{text ? "What the text said" : "Notes"}</Label>
     <Textarea
       id="{identity}-description"
       class="resize-none"
@@ -311,7 +311,7 @@
              track of its own rather than a LabelledField: its label and its field are siblings and a
              grid would split them. -->
         <div class="flex flex-col gap-8">
-          <DatePicker
+          <DatePicker necessity="required"
             label="Date"
             value={civilDateValue(draft.occurredDate)}
             onValueChange={(next) => (draft.occurredDate = civilDateTextOrEmpty(next))}
@@ -319,13 +319,13 @@
           />
         </div>
 
-        <LabelledField label="Start" id="{identity}-start">
+        <LabelledField necessity="required" label="Start" id="{identity}-start">
           {#snippet children({ props })}
             <Input {...props} type="time" disabled={busy} bind:value={draft.occurredTime} />
           {/snippet}
         </LabelledField>
 
-        <LabelledField label="End" id="{identity}-end">
+        <LabelledField necessity="optional" label="End" id="{identity}-end">
           {#snippet children({ props })}
             <Input
               {...props}
@@ -340,7 +340,7 @@
           {/snippet}
         </LabelledField>
 
-        <LabelledField label="Length" id="{identity}-duration">
+        <LabelledField necessity="optional" label="Length" id="{identity}-duration">
           {#snippet children({ props })}
             <!-- Typed, and free: "20", "1h 5m" and "1:20" all read as the same length. It is filled
                  from the end when it is empty and never against what somebody wrote. -->
@@ -370,7 +370,7 @@
             </Button>
           </div>
         </div>
-        <LabelledField label="Length" id="{identity}-duration">
+        <LabelledField necessity="optional" label="Length" id="{identity}-duration">
           {#snippet children({ props })}
             <Input
               {...props}
@@ -391,7 +391,7 @@
   </div>
 
   {#if showAnchor && !matterFixed && !(showActivity && draft.outcome === "spam")}
-    <LabelledField label="Belongs to" id="{identity}-anchor">
+    <LabelledField necessity="optional" label="Belongs to" id="{identity}-anchor">
       {#snippet children({ props })}
         <!-- One field, every answer: a matter — including the unnumbered ones, since an intake and
              a consultation are where a first contact lands — or a reason there is no matter, or

@@ -287,7 +287,7 @@
 
       {#if draft.kind === "email"}
         {@const email = draft}
-        <LabelledField label="Address" class="min-w-0 flex-auto" error={fieldError}>
+        <LabelledField necessity="required" label="Address" class="min-w-0 flex-auto" error={fieldError}>
           {#snippet children({ props })}
             <Input
               {...props}

@@ -32,10 +32,13 @@
    * PRESSING RUN OPENS THE CHECK; IT DOES NOT WAIT FOR THE SEARCH. The server draws the check's
    * number, queues the first run and answers at once, and the panel hands the surface the check's
    * handle so the reader lands on the check's own screen and watches the run there. The number the
-   * check will draw is previewed on the panel, so a member can quote it before pressing anything.
+   * check will be opened under is held for the panel as a draft, so a member can quote it before
+   * pressing anything; cancelling gives it back.
    */
+  import { untrack } from "svelte";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
-  import { PreviewedNumber } from "@magna-carta/design-system/record-reference";
+  import { DraftNumber } from "@magna-carta/design-system/record-reference";
+  import { draftNumberKeeper } from "$lib/records/draft-number-keeper.ts";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -43,7 +46,7 @@
   import CheckSubject from "./check-subject.svelte";
   import { CheckDraft } from "./check-draft.svelte.ts";
   import { composeCheck, type CheckSurface } from "./check-request.ts";
-  import { openConflictsCheck, readNextConflictsCheckNumber } from "./conflicts-api.ts";
+  import { openConflictsCheck } from "./conflicts-api.ts";
 
   let {
     open = $bindable(false),
@@ -77,23 +80,25 @@
   let draft = $state(new CheckDraft());
 
   let failure = $state<StatedFailure | null>(null);
-  /** The number the next check would draw. A preview, never a reservation: two panels may show it. */
   /*
-   * The number this check will be filed under, said before it exists. Held by the shared seam, so
-   * the wording, the guard against a stale read landing on a newer one, and the reset are the ones
-   * every panel that previews a number uses.
+   * The number this check will be opened under, held for the panel while it is open and given back
+   * if it closes without opening the check. Held on EVERY opening: a check opened from another
+   * panel in between takes the number this one would otherwise have shown.
    */
-  const previewed = new PreviewedNumber("Check");
+  const number = new DraftNumber("Check");
+  const keeper = draftNumberKeeper("conflicts_check");
+  let opened = false;
 
-  // The number is read on EVERY opening: a check opened from another panel in between draws it.
   $effect(() => {
-    if (!open) {
-      previewed.clear();
-      return;
-    }
-    void previewed.read(async () => {
-      const outcome = await readNextConflictsCheckNumber(fetch);
-      return outcome.kind === "ok" ? outcome.value.checkNumber : null;
+    const showing = open;
+    untrack(() => {
+      if (!showing) {
+        if (opened) number.taken();
+        else number.release();
+        opened = false;
+        return;
+      }
+      void number.hold(keeper);
     });
   });
 
@@ -112,8 +117,13 @@
     if (asked === null) return "refused";
     failure = null;
     // A retried submit must not open a second check under a second number.
-    const outcome = await openConflictsCheck(fetch, asked, crypto.randomUUID());
+    const outcome = await openConflictsCheck(
+      fetch,
+      { ...asked, numberReservation: number.token },
+      crypto.randomUUID(),
+    );
     if (outcome.kind === "ok") {
+      opened = true;
       onRan(outcome.value.id);
       return "committed";
     }
@@ -131,7 +141,7 @@
 <ActionDialog
   bind:open
   heading="New Check"
-  subtitle={{ reference: previewed.reference }}
+  subtitle={{ reference: number.reference }}
   commitLabel="Run Check"
   commitBusyLabel="Opening"
   commitRefusal={composed.refusal ?? undefined}

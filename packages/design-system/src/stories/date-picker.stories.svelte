@@ -1,10 +1,10 @@
 <script module lang="ts">
   /*
-   * DatePicker — Tier 4 (Bits UI), composition-heavy: a segmented date field (editable spinbutton
-   * parts) paired with a popover calendar. Holds a date VALUE, so it is an Input (catalog taxonomy).
-   * Bits owns segment editing/keyboard, the popover, and the a11y; the popover calendar reuses the
-   * mc-calendar-* recipes. Values are @internationalized/date CalendarDate; a fixed placeholder month
-   * keeps the story deterministic for the visual-regression matrix. svelte-csf v5.
+   * DatePicker — a date typed the way it is said ("Nov 13", "11/13", "today", "fri") or picked from
+   * a popover calendar, shown in words with its weekday once the field is left. Holds a date VALUE,
+   * so it is an Input (catalog taxonomy). The reading of typed text is `typed-date.ts`, tested on its
+   * own; these stories prove the field around it. Values are @internationalized/date CalendarDate; a
+   * fixed placeholder month keeps the story deterministic for the visual-regression matrix.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -39,23 +39,50 @@
   name="Single"
   play={async ({ canvas, step }) => {
     const body = within(document.body);
+    const field = canvas.getByRole("textbox", { name: "Closing date" });
 
     await step("Renders the labelled date field", async () => {
       await expect(canvas.getByText("Closing date")).toBeVisible();
-      await expect(canvas.getByRole("group", { name: "Closing date" })).toBeVisible();
+      await expect(field).toBeVisible();
     });
 
-    await step("The trigger opens the calendar", async () => {
+    await step("A typed date is read and shown in words when the field is left", async () => {
+      await userEvent.click(field);
+      await userEvent.type(field, "6/15/2026");
+      await userEvent.tab();
+      await expect(field).toHaveValue("Mon, Jun 15, 2026");
+    });
+
+    await step("Text that names no day is refused with a red edge, and Escape puts it back", async () => {
+      await userEvent.clear(field);
+      await userEvent.type(field, "soon{Enter}");
+      await expect(field).toHaveAttribute("aria-invalid", "true");
+      await expect(field.title).toMatch(/Not a date/);
+      await userEvent.keyboard("{Escape}");
+      await expect(field).toHaveValue("Mon, Jun 15, 2026");
+      await expect(field).not.toHaveAttribute("aria-invalid");
+    });
+
+    await step("Up and Down move a day", async () => {
+      await userEvent.keyboard("{ArrowUp}");
+      await expect(field).toHaveValue("Tue, Jun 16, 2026");
+      await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+      await expect(field).toHaveValue("Sun, Jun 14, 2026");
+    });
+
+    await step("Picking a day in the calendar fills the field and closes the calendar", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Open calendar" }));
-      await body.findByRole("grid");
+      const grid = within(await body.findByRole("grid"));
+      await userEvent.click(grid.getByText("20"));
+      await waitFor(() => expect(body.queryByRole("grid")).toBeNull());
+      await expect(field).toHaveValue("Sat, Jun 20, 2026");
+      await expect(field).toHaveFocus();
     });
 
-    await step("Picking a day fills the field and closes the calendar", async () => {
-      const grid = within(body.getByRole("grid"));
-      await userEvent.click(grid.getByText("15"));
-      await waitFor(() => expect(body.queryByRole("grid")).toBeNull());
-      // The segmented field now reflects the chosen date.
-      await expect(canvas.getByRole("group", { name: "Closing date" })).toHaveTextContent("2026");
+    await step("Clearing the box clears the date", async () => {
+      await userEvent.clear(field);
+      await userEvent.tab();
+      await expect(field).toHaveValue("");
     });
   }}
 >
@@ -84,7 +111,17 @@
       await expect(grid.getByText("20")).not.toHaveAttribute("data-disabled");
       await userEvent.click(grid.getByText("20"));
       await waitFor(() => expect(body.queryByRole("grid")).toBeNull());
-      await expect(canvas.getByRole("group", { name: "Deadline" })).toHaveTextContent("20");
+      await expect(canvas.getByRole("textbox", { name: "Deadline" })).toHaveValue(
+        "Sat, Jun 20, 2026",
+      );
+    });
+
+    await step("A typed date before the minimum is refused", async () => {
+      const field = canvas.getByRole("textbox", { name: "Deadline" });
+      await userEvent.clear(field);
+      await userEvent.type(field, "6/5/2026{Enter}");
+      await expect(field).toHaveAttribute("aria-invalid", "true");
+      await expect(field.title).toMatch(/earliest date allowed/);
     });
   }}
 >
@@ -129,22 +166,21 @@
   {/snippet}
 </Story>
 
-<!-- Named without a visible label. The segmented field is a group, and the group's accessible name
-     normally comes from the primitive's own Label; where a surface has no room for one — the data
-     table's per-column From/To range, two fields inside a menu — `aria-label` supplies it instead.
-     It is a declared prop rather than part of the spread because the spread goes to the primitive's
-     Root, which renders no DOM, so an aria-label written the obvious way disappears silently. -->
+<!-- Named without a visible label. Where a surface has no room for one — the data table's
+     per-column From/To range, two fields inside a menu — `aria-label` names the input instead. -->
 <Story
   name="Named without a label"
   args={{ label: undefined, size: "sm" }}
   play={async ({ canvas, step }) => {
     await step("The field carries its name with no label rendered", async () => {
-      await expect(canvas.getByRole("group", { name: "From" })).toBeVisible();
+      await expect(canvas.getByRole("textbox", { name: "From" })).toBeVisible();
       await expect(canvas.queryByText("From")).toBeNull();
     });
 
     await step("The compact size is the Input's own, so the two can share a row", async () => {
-      await expect(canvas.getByRole("group", { name: "From" })).toHaveClass("mc-date-field-sm");
+      await expect(canvas.getByRole("textbox", { name: "From" }).parentElement).toHaveClass(
+        "mc-date-field-sm",
+      );
     });
   }}
 >

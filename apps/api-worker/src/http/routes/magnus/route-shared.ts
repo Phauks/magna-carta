@@ -209,6 +209,7 @@ export function turnBody(turn: TurnRow, authorReading: boolean) {
     snapshotId: turn.snapshotId,
     contextTruncated: turn.contextTruncated,
     effort: turn.effort,
+    thinking: turn.thinking,
     removedAt: turn.removedAt,
     supersededAt: turn.supersededAt,
     replacesTurnId: turn.replacesTurnId,
