@@ -19,6 +19,8 @@ import {
   MATTERS_PLACE,
   MY_MATTERS,
   PEOPLE_PLACE,
+  daysFromAddress,
+  daysKey,
   isNarrowed,
   isRecordPlace,
   placeFromAddress,
@@ -92,6 +94,7 @@ function overviewOf(
   return {
     query: "easement",
     reach: EVERYTHING,
+    days: null,
     matters: { rows: [matter("matter_a")], more: false, standing: "answered" },
     people: { rows: [], more: false, standing: "answered" },
     records: { query: "easement", broad: false, fewMattersLimit: 25, groups },
@@ -153,6 +156,30 @@ describe("the address is the page's state", () => {
     expect(isNarrowed(EVERYTHING)).toBe(false);
     expect(isNarrowed(MY_MATTERS)).toBe(true);
     expect(reachKey(ONE_CLIENT)).not.toBe(reachKey({ kind: "client", entityId: "another" }));
+  });
+});
+
+describe("the days an address carries", () => {
+  it("carries the days and the question as typed beside the words", () => {
+    expect(
+      searchAddress("hargrove", "billing", EVERYTHING, {
+        days: { from: "2026-06-01" },
+        asked: "hargrove invoices since june",
+      }),
+    ).toBe("/search?q=hargrove&in=billing&from=2026-06-01&asked=hargrove+invoices+since+june");
+  });
+
+  it("leaves out a question as typed that is the words themselves", () => {
+    expect(searchAddress("easement", ALL_PLACES, EVERYTHING, { asked: "easement" })).toBe(
+      "/search?q=easement",
+    );
+  });
+
+  it("reads the days back, and anything that is not a real day as no day", () => {
+    expect(daysFromAddress("2026-06-01", null)).toEqual({ from: "2026-06-01" });
+    expect(daysFromAddress(null, "2026-06-30")).toEqual({ to: "2026-06-30" });
+    expect(daysFromAddress("2026-02-30", "june")).toBeNull();
+    expect(daysKey(null)).not.toBe(daysKey({ from: "2026-06-01" }));
   });
 });
 
@@ -411,6 +438,34 @@ describe("one question, three reads", () => {
     await search.run(fetchImpl, "easement", MATTERS_PLACE);
     expect(calls).toEqual([]);
     expect(search.place).toBeNull();
+  });
+
+  it("holds a search to some days, and asks for no matters or people by name", async () => {
+    const calls: string[] = [];
+    const search = new SearchAcrossMatters();
+    const days = { from: "2026-06-01", to: "2026-06-30" };
+    await search.run(answering(calls, records), "easement", ALL_PLACES, EVERYTHING, days);
+    expect(calls).toEqual([
+      `/api/v1/search?q=easement&limit=${OVERVIEW_LIMIT}&from=2026-06-01&to=2026-06-30`,
+    ]);
+    expect(search.overview?.days).toEqual(days);
+    const unsearched = unsearchedPlaces(search.overview).map((place) => [place.key, place.mark]);
+    expect(unsearched).toContainEqual([MATTERS_PLACE, "By Name"]);
+    expect(unsearched).toContainEqual([PEOPLE_PLACE, "By Name"]);
+    expect(railPlaces(search.overview).map((place) => place.key)).not.toContain(MATTERS_PLACE);
+  });
+
+  it("asks again when the days change, and not when they stay", async () => {
+    const calls: string[] = [];
+    const search = new SearchAcrossMatters();
+    const fetchImpl = answering(calls, records);
+    await search.run(fetchImpl, "easement", ALL_PLACES, EVERYTHING, { from: "2026-06-01" });
+    calls.length = 0;
+    await search.run(fetchImpl, "easement", "notes", EVERYTHING, { from: "2026-06-01" });
+    expect(calls).toEqual(["/api/v1/search?q=easement&in=notes&limit=50&from=2026-06-01"]);
+    calls.length = 0;
+    await search.run(fetchImpl, "easement", ALL_PLACES, EVERYTHING, { from: "2026-07-01" });
+    expect(calls.some((call) => call.includes("from=2026-07-01"))).toBe(true);
   });
 
   it("asks the reader's own matters of the search and the matters list, and no people", async () => {

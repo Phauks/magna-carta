@@ -26780,6 +26780,8 @@ export type SearchAcrossMattersData = {
         q: string;
         in?: string | Array<string>;
         limit?: number;
+        from?: string;
+        to?: string;
         mine?: 'true';
         clientEntityId?: string;
     };

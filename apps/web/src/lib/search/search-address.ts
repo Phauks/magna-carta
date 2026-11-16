@@ -1,11 +1,14 @@
 /*
  * The Search page's address: one question, in one place, over the matters its reader chose.
- * `?q=` is the question, `?in=` the place, and `?scope=` or `?client=` what the search reaches.
- * Together they are the whole of the page's state.
+ * `?q=` is the words searched for, `?in=` the place, `?scope=` or `?client=` what the search
+ * reaches, and `?from=` and `?to=` the days. Where those were read out of a question the reader
+ * typed, `?asked=` keeps the question as typed, so the field shows it and the reader can search
+ * its words alone. Together they are the whole of the page's state.
  *
- * A module of its own, with no imports, because the top bar's palette builds this address for the
- * text a reader typed and must not pull the page's reads into the shell to do it.
+ * A module of its own, importing only the shape of a day, because the top bar's palette builds this
+ * address for the text a reader typed and must not pull the page's reads into the shell to do it.
  */
+import { isCivilDate } from "@magna-carta/civil-time/civil-date";
 
 /** No place chosen: a few results from each. */
 export const ALL_PLACES = "all";
@@ -55,11 +58,45 @@ export function isNarrowed(reach: SearchReach): boolean {
   return reach.kind !== "everything";
 }
 
-/** The address of one question in one place, over the matters chosen. */
+/** A span of days a search is held to, both ends included. Either end may be open. */
+export interface SearchDays {
+  readonly from?: string;
+  readonly to?: string;
+}
+
+/** What an address carries beside the words, the place and the matters. */
+export interface SearchAddressExtras {
+  /** The days, or absent for any day. */
+  readonly days?: SearchDays | null;
+  /** The question as typed, where a reading of it took something out of the words. */
+  readonly asked?: string | null;
+}
+
+/**
+ * The days an address names, or null for any day. A value that is not a real day is left out
+ * rather than refused, as an unknown reach is.
+ */
+export function daysFromAddress(from: string | null, to: string | null): SearchDays | null {
+  const first = isCivilDate(from) ? from : undefined;
+  const last = isCivilDate(to) ? to : undefined;
+  if (first === undefined && last === undefined) return null;
+  return {
+    ...(first === undefined ? {} : { from: first }),
+    ...(last === undefined ? {} : { to: last }),
+  };
+}
+
+/** One span of days as one string, for telling two apart. */
+export function daysKey(days: SearchDays | null): string {
+  return days === null ? "" : `${days.from ?? ""}..${days.to ?? ""}`;
+}
+
+/** The address of one question in one place, over the matters and days chosen. */
 export function searchAddress(
   query: string,
   place: string = ALL_PLACES,
   reach: SearchReach = EVERYTHING,
+  extras: SearchAddressExtras = {},
 ): string {
   const parameters = new URLSearchParams();
   const trimmed = query.trim();
@@ -67,6 +104,10 @@ export function searchAddress(
   if (place !== ALL_PLACES) parameters.set("in", place);
   if (reach.kind === "mine") parameters.set("scope", "mine");
   if (reach.kind === "client") parameters.set("client", reach.entityId);
+  if (extras.days?.from !== undefined) parameters.set("from", extras.days.from);
+  if (extras.days?.to !== undefined) parameters.set("to", extras.days.to);
+  const asked = extras.asked?.trim() ?? "";
+  if (asked !== "" && asked !== trimmed) parameters.set("asked", asked);
   const suffix = parameters.toString();
   return suffix === "" ? "/search" : `/search?${suffix}`;
 }

@@ -269,6 +269,7 @@ export function visibleMattersSearchSelect(
 ): SqlStatement {
   const { request } = spec;
   const conditions = [...spec.conditions, request.visibility.fragmentFor(spec.matterExpression)];
+  const dateBindings = dateConditions(spec, conditions);
   const sql =
     `SELECT ${projectedColumns(spec)} ` +
     `FROM ${spec.from} ` +
@@ -281,8 +282,34 @@ export function visibleMattersSearchSelect(
       ...(spec.fromBindings ?? []),
       ...spec.bindings,
       ...request.visibility.bindings,
+      ...dateBindings,
       request.limit + 1,
     );
+}
+
+// THE READER'S DAYS, composed into the WHERE clause before the limit like everything else that
+// decides whether a row is in the answer. They are held against the expression the place is
+// listed by, which across matters is always a date or a moment, newest first: the order a reader
+// reads "since June" against. A place listed in alphabetical order has no date to hold, and is
+// refused here rather than answered as though the days had been applied.
+function dateConditions(spec: VisibleMattersSearchSelectSpec, conditions: string[]): unknown[] {
+  const dates = spec.request.dates;
+  if (dates === undefined || (dates.from === undefined && dates.before === undefined)) return [];
+  if (spec.ascending === true) {
+    throw new Error(
+      "A place listed in alphabetical order cannot be held to a range of days; list it by a date.",
+    );
+  }
+  const bindings: unknown[] = [];
+  if (dates.from !== undefined) {
+    conditions.push(`${spec.sortExpression} >= ?`);
+    bindings.push(dates.from);
+  }
+  if (dates.before !== undefined) {
+    conditions.push(`${spec.sortExpression} < ?`);
+    bindings.push(dates.before);
+  }
+  return bindings;
 }
 
 // The deep link a person follows to see the row itself, in the section that owns it and behind that

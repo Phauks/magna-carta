@@ -10,7 +10,7 @@ still finds the application's own screens, settings and tools first. Its last ro
 Every Matter For** and whatever you typed: choose it, or press Enter when it is the only row, and
 the Search page opens with your words already in it.
 
-The page's address holds your words, the place you chose and the matters you chose to search, so
+The page's address holds your words, the place you chose, the matters you chose and any dates, so
 you can reload it, go back to an earlier search with the browser's Back button, or send the link
 to a colleague. They see what _they_ are allowed to see, which may be less than you do.
 
@@ -37,6 +37,35 @@ whole firm and not to a matter. It is listed under **Not Searched** as **Firm-Wi
 **Everything I Can See** to search people by name.
 
 Your choice stays as you type a new question. Changing it starts again at **All Places**.
+
+## Asking in your own words
+
+You can type a question the way you would say it, such as **hargrove invoices since june**. The
+page reads three things out of it and searches the rest as words:
+
+- **A place**, when you name one: invoices or bills (Billing), notes, time entries or hours (Time),
+  costs or expenses, calls, texts or messages (Messaging), files or documents, parties, custody
+  packets, matters or cases, people or contacts. Name two places and both are searched as words.
+- **Your own matters**: **my matters**, **my cases** or **mine**.
+- **Dates**: **today**, **yesterday**, **this week**, **last week**, **this month**, **last
+  month**, **this year**, **last year**, **last 30 days**, **since june**, **after 2025**,
+  **before march 2026**, **in 2025**, **between may 1 and june 30**, or a day such as
+  **6/5/2026** or **june 5, 2026**. A month with no year is the most recent one. A month or a year
+  on its own, with no word such as **since** or **in** before it, is searched as a word, because
+  "May" and "March" are names too.
+
+What the page read shows under the search box as **Understood as**, one chip for each. Click a chip
+to take it away and search without it. **Search the Words Only** searches what you typed exactly
+as you typed it. Words inside quotation marks are never read as a place or a date.
+
+A date holds each place to its own date: a note's date, a time entry's work date, a cost's date,
+when a call happened, when an invoice line or a file was added, when a party was added to the
+matter. A file found by the words inside it is held to when it was added. **Matters** and
+**People** are found by name, and a name has no date, so a search with a date lists them under
+**Not Searched** as **By Name**.
+
+A place or a date is not a search on its own. A question read down to no words, such as **invoices
+since june**, asks you to add a word to look for, such as a name.
 
 ## What is searched
 
@@ -106,6 +135,8 @@ Under **Not Searched** the page lists the places it did not look, and why:
 - **Soon** means the part of the application that reads inside files is not switched on yet, and
   **Unavailable** means it did not answer just now. File and folder names were still searched.
 - **No Access** means your role does not include reading that place.
+- **By Name** means the place is found by name and your search has a date. Today that is
+  Matters and People. Take the date chip away to search them.
 - **Firm-Wide** means the place belongs to the whole firm and is searched only when **Search In**
   reads **Everything I Can See**. Today that is People.
 - **Discovery Sets** are never searched from here. A discovery review set is searched only from

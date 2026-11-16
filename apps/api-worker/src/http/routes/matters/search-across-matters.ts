@@ -1,9 +1,11 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { addCalendarDays, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import type { MatterNarrowing } from "@magna-carta/matter-search/narrowing";
 import { runSearchAcrossMatters } from "@magna-carta/matter-search/run-across-matters";
 import { matterSearchSources } from "@magna-carta/matter-search/sources";
+import type { SearchDateRange } from "@magna-carta/matter-search/registry";
 import type { AcrossMattersSearchAnswer } from "@magna-carta/matter-search/types";
 import { readMattersByIds } from "@magna-carta/matters/queries";
 import {
@@ -62,14 +64,33 @@ const DEFAULT_HITS_PER_SOURCE = 5;
 // bindings in one statement, and a full answer can name more matters than that.
 const MATTERS_PER_READ = 80;
 
+// A day as the page sends it. The pattern alone accepts 2026-02-30, so the day has to exist too.
+const civilDay = z.string().refine(isCivilDate, "A real day, written YYYY-MM-DD");
+
 const searchQuery = z.object({
   q: z.string().min(1).max(200),
   // Repeatable. The places to search; absent means every place the member may read.
   in: z.union([z.string(), z.array(z.string())]).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_HITS_PER_SOURCE).optional(),
+  // The first and last day the member asked about, both included. Either may be left out.
+  from: civilDay.optional(),
+  to: civilDay.optional(),
   // The member's own narrowing of the reach: their own matters, one client's, or both at once.
   ...matterNarrowingQuery,
 });
+
+// The days as the builder holds them: from the first, and before the day after the last. Two days
+// given the wrong way round ("between June and March") are the same range read in order, not an
+// empty one.
+function datesOf(from: string | undefined, to: string | undefined): SearchDateRange | undefined {
+  if (from === undefined && to === undefined) return undefined;
+  const [first, last] =
+    from !== undefined && to !== undefined && from > to ? [to, from] : [from, to];
+  return {
+    ...(first === undefined ? {} : { from: first }),
+    ...(last === undefined ? {} : { before: addCalendarDays(last, 1) }),
+  };
+}
 
 const searchMeta: RouteMeta = {
   operationId: "search.acrossMatters",
@@ -100,7 +121,9 @@ const searchRoute = defineOpenAPIRoute(searchMeta, {
     "`titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the " +
     "search to the matters the member is responsible for or currently assigned to, and " +
     "`clientEntityId` to the matters one person or organization is a client on; neither reaches a " +
-    "matter the member may not see.",
+    "matter the member may not see. `from` and `to` (days, both included) hold every place to " +
+    "the days it is listed by: a note's date, a time entry's work date, a call's moment, a file's " +
+    "upload. A moment is held to its day in UTC.",
   request: { query: searchQuery },
   responses: {
     200: {
@@ -218,7 +241,8 @@ export function registerSearchAcrossMattersRoutes(
     { ...searchRoute, middleware: chokepointMiddleware(chokepoint, searchRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { q, in: places, limit, ...narrowed } = c.req.valid("query");
+      const { q, in: places, limit, from, to, ...narrowed } = c.req.valid("query");
+      const dates = datesOf(from, to);
       const logger = c.get("logger");
       const narrowing = narrowingOf(matterNarrowingsOf(requireChokepointUserId(c), narrowed));
       const answer = await runSearchAcrossMatters({
@@ -231,6 +255,7 @@ export function registerSearchAcrossMattersRoutes(
         // What the member chose to look inside, composed within the predicate above and never in
         // its place. Whose matters "mine" means is the session's member, not a value in the request.
         ...(narrowing === undefined ? {} : { narrowing }),
+        ...(dates === undefined ? {} : { dates }),
         sourceKeys: sourceKeysFrom(places),
         permissions: requireChokepointPermissions(c),
         limit: limit ?? DEFAULT_HITS_PER_SOURCE,

@@ -16,6 +16,7 @@ import type {
   AcrossMattersSearchRequest,
   MatterSearchSource,
   MatterSearchSourceRegistry,
+  SearchDateRange,
 } from "./sources/registry.ts";
 import type {
   AcrossMattersGroup,
@@ -83,6 +84,9 @@ export interface RunSearchAcrossMattersInput {
   // How the words inside files are reached. Supplied by the application, which holds the service
   // binding; absent, the source that needs it reports the index as not connected.
   readonly fileContents?: MatterFileContentsSearcher | null;
+  // The days the reader asked about. Absent for any day. Every place answers inside them, because
+  // every place answers across matters newest first by a date it is listed by.
+  readonly dates?: SearchDateRange;
 }
 
 function group(
@@ -192,6 +196,7 @@ export async function runSearchAcrossMatters(
     ...(indexMatterIds === undefined ? {} : { indexMatterIds }),
     ...(reachedMatterIds === undefined ? {} : { reachedMatterIds }),
     ...(input.fileContents === undefined ? {} : { fileContents: input.fileContents }),
+    ...(input.dates === undefined ? {} : { dates: input.dates }),
   };
 
   const [broad, answered] = await Promise.all([

@@ -17,6 +17,11 @@
  * of places beside it still says where else the words were found. The overview is asked once per
  * question, not once per place.
  *
+ * THE READER MAY HOLD IT TO SOME DAYS. Days come from the reader's question (question-reading.ts)
+ * and go to the search across matters, which holds every place to the date it is listed by.
+ * Matters and people are found by name, and a name has no date, so a search held to days does
+ * not ask for them and says so.
+ *
  * NO TOTALS. Every count here is a count of what is on screen, with a "+" where the server
  * measured that there is more. Nothing counts the whole answer, so nothing claims to.
  */
@@ -41,9 +46,11 @@ import {
   EVERYTHING,
   MATTERS_PLACE,
   PEOPLE_PLACE,
+  daysKey,
   isNarrowed,
   isRecordPlace,
   reachKey,
+  type SearchDays,
   type SearchReach,
 } from "./search-address.ts";
 
@@ -76,6 +83,8 @@ export interface SearchOverview {
   readonly query: string;
   /** The matters the question was asked of. */
   readonly reach: SearchReach;
+  /** The days the question was held to, or null for any day. */
+  readonly days: SearchDays | null;
   readonly matters: NameGroup<MatterSummary>;
   readonly people: NameGroup<DirectorySearchHit>;
   /** Null where the search across matters failed; `failure` on the model says how. */
@@ -137,6 +146,16 @@ const PEOPLE_NOT_SEARCHED: NameGroup<DirectorySearchHit> = {
   standing: "not-searched",
 };
 
+/** Why a search held to some days does not look for matters or people by name. */
+export const NAMES_NOT_DATED_REASON =
+  "Matters and people are found by name, and a name has no date. Take the date away to find them.";
+
+const MATTERS_NOT_SEARCHED: NameGroup<MatterSummary> = {
+  rows: [],
+  more: false,
+  standing: "not-searched",
+};
+
 /**
  * Whether a group is a place this search read, as opposed to one it names and says why not. A
  * question too short for a place is still a place that was asked: typing more answers it.
@@ -172,12 +191,17 @@ export function railPlaces(overview: SearchOverview | null): readonly RailPlace[
   if (overview === null) return [];
   const records = (overview.records?.groups ?? []).filter(answersAcrossMatters);
   const named: RailPlace[] = [
-    {
-      key: MATTERS_PLACE,
-      label: "Matters",
-      shown: shownOf(overview.matters),
-      more: overview.matters.more,
-    },
+    // Matters are left to `unsearchedPlaces` where the search was held to some days.
+    ...(overview.matters.standing === "not-searched"
+      ? []
+      : [
+          {
+            key: MATTERS_PLACE,
+            label: "Matters",
+            shown: shownOf(overview.matters),
+            more: overview.matters.more,
+          },
+        ]),
     // People are left to `unsearchedPlaces` where the reader's choice of matters set them aside.
     ...(overview.people.standing === "not-searched"
       ? []
@@ -271,18 +295,31 @@ export function unsearchedPlaces(overview: SearchOverview | null): readonly Unse
   });
   // The directory is the firm's and is not divided by matter, so a search of some matters has no
   // part of it to read. Named, so a reader does not take its absence for nobody by that name.
+  const dated = (overview?.days ?? null) !== null;
+  const matters: UnsearchedPlace[] =
+    overview?.matters.standing === "not-searched"
+      ? [{ key: MATTERS_PLACE, label: "Matters", mark: "By Name", reason: NAMES_NOT_DATED_REASON }]
+      : [];
   const people: UnsearchedPlace[] =
     overview?.people.standing === "not-searched"
       ? [
-          {
-            key: PEOPLE_PLACE,
-            label: "People",
-            mark: "Firm-Wide",
-            reason: PEOPLE_NOT_SEARCHED_REASON,
-          },
+          dated
+            ? {
+                key: PEOPLE_PLACE,
+                label: "People",
+                mark: "By Name",
+                reason: NAMES_NOT_DATED_REASON,
+              }
+            : {
+                key: PEOPLE_PLACE,
+                label: "People",
+                mark: "Firm-Wide",
+                reason: PEOPLE_NOT_SEARCHED_REASON,
+              },
         ]
       : [];
   return [
+    ...matters,
     ...people,
     ...skipped,
     {
@@ -323,6 +360,7 @@ export class SearchAcrossMatters {
     query: string,
     place: string,
     reach: SearchReach = EVERYTHING,
+    days: SearchDays | null = null,
   ): Promise<void> {
     const question = query.trim();
     if (question === "") {
@@ -341,6 +379,7 @@ export class SearchAcrossMatters {
       this.overview !== null &&
       this.overview.query === question &&
       reachKey(this.overview.reach) === reachKey(reach) &&
+      daysKey(this.overview.days) === daysKey(days) &&
       this.overview.records !== null
         ? this.overview
         : null;
@@ -354,17 +393,23 @@ export class SearchAcrossMatters {
         ? Promise.all([
             // The matters list narrows by the same two choices the search does, resolved to the
             // same matters on the server, so the matters named here are the ones searched.
-            listMatters(fetchImpl, {
-              scope: "caseload",
-              search: question,
-              ...(reach.kind === "mine" ? { mine: true } : {}),
-              ...(reach.kind === "client" ? { clientEntityId: reach.entityId } : {}),
-            }),
-            isNarrowed(reach) ? null : readDirectoryNameMatches(fetchImpl, question),
+            // A name has no date, so a search held to some days asks for neither.
+            days !== null
+              ? null
+              : listMatters(fetchImpl, {
+                  scope: "caseload",
+                  search: question,
+                  ...(reach.kind === "mine" ? { mine: true } : {}),
+                  ...(reach.kind === "client" ? { clientEntityId: reach.entityId } : {}),
+                }),
+            isNarrowed(reach) || days !== null
+              ? null
+              : readDirectoryNameMatches(fetchImpl, question),
             searchAcrossMatters(fetchImpl, question, {
               sources: [],
               limit: OVERVIEW_LIMIT,
               reach,
+              days,
               signal: controller.signal,
             }),
           ])
@@ -374,6 +419,7 @@ export class SearchAcrossMatters {
           sources: [place],
           limit: PLACE_LIMIT,
           reach,
+          days,
           signal: controller.signal,
         })
       : null;
@@ -390,7 +436,8 @@ export class SearchAcrossMatters {
       this.overview = {
         query: question,
         reach,
-        matters: mattersGroup(matters),
+        days,
+        matters: matters === null ? MATTERS_NOT_SEARCHED : mattersGroup(matters),
         people: people === null ? PEOPLE_NOT_SEARCHED : peopleGroup(people),
         records: records.kind === "ok" ? records.value : null,
       };

@@ -37,6 +37,7 @@
   import type { AcrossMattersGroup } from "$lib/search/search-across-matters-api.ts";
   import {
     OVERVIEW_LIMIT,
+    NAMES_NOT_DATED_REASON,
     PEOPLE_NOT_SEARCHED_REASON,
     PLACE_LIMIT,
     tooManyMattersLine,
@@ -57,6 +58,7 @@
     chosen,
     failure,
     busy,
+    asked = null,
     onRetry,
   }: {
     overview: SearchOverview | null;
@@ -66,8 +68,15 @@
     chosen: string;
     failure: StatedFailure | null;
     busy: boolean;
+    /** The question as typed, where a reading of it took something out of the words. */
+    asked?: string | null;
     onRetry?: () => void;
   } = $props();
+
+  // A place's own address, keeping everything the reader chose for this question.
+  function placeHref(searched: SearchOverview, place: string): string {
+    return searchAddress(searched.query, place, searched.reach, { days: searched.days, asked });
+  }
 
   const everyPlace = $derived(chosen === ALL_PLACES);
   const nameLimit = $derived(everyPlace ? OVERVIEW_LIMIT : PLACE_LIMIT);
@@ -119,7 +128,11 @@
 
   function nameStandingLine(standing: NameGroup<unknown>["standing"], what: string): string {
     if (standing === "no-access") return `Your role does not include reading ${what}.`;
-    if (standing === "not-searched") return PEOPLE_NOT_SEARCHED_REASON;
+    if (standing === "not-searched") {
+      // Two reasons a name is not asked: the search was held to some days, which a name has
+      // none of, or (people only) the reader chose some matters and the directory is the firm's.
+      return overview?.days != null ? NAMES_NOT_DATED_REASON : PEOPLE_NOT_SEARCHED_REASON;
+    }
     return `${what.charAt(0).toUpperCase()}${what.slice(1)} could not be searched just now.`;
   }
 
@@ -262,7 +275,7 @@
           "Matched on title, number and client",
           mattersBody,
           everyPlace && (matters.rows.length > OVERVIEW_LIMIT || matters.more)
-            ? searchAddress(overview.query, MATTERS_PLACE, overview.reach)
+            ? placeHref(overview, MATTERS_PLACE)
             : null,
         )}
       {/if}
@@ -302,7 +315,7 @@
           "Matched on every name the directory holds, current and former",
           peopleBody,
           everyPlace && (people.rows.length > OVERVIEW_LIMIT || people.more)
-            ? searchAddress(overview.query, PEOPLE_PLACE, overview.reach)
+            ? placeHref(overview, PEOPLE_PLACE)
             : null,
         )}
       {/if}
@@ -371,7 +384,7 @@
             : null,
           recordsBody,
           everyPlace && group.hasMore
-            ? searchAddress(overview.query, group.source, overview.reach)
+            ? placeHref(overview, group.source)
             : null,
         )}
       {/each}

@@ -620,19 +620,63 @@ leaves off while no firm has indexing on.
 beside each split of which words it holds, read from the firm's database, so that a firm-wide
 question asks only the matters that can answer it.
 
+### 4.6 A question read for a place, the reader's matters and days
+
+The owner's direction of 2026-11-16: records first, then the words inside documents, and both
+available; the Search page shows what it understood as chips under the field (mockup option A in
+the project files, `natural-language-search/`).
+
+**The question is read by rule, in the browser, before it is searched.**
+`apps/web/src/lib/search/question-reading.ts` takes out three readings and leaves the rest as the
+words: one place, where the question names exactly one ("invoices", "notes", "calls"); the reader's
+own matters ("my matters", "mine"); and days ("last month", "since june", "between may 1 and june
+30", "in 2025"). A lone month or year is read as days only after a word that makes it one, because
+"May" and "March" are words people search for, and a matter number is never a day. Quoted words are
+never read. Joining words ("the", "for", "about") are taken out only when something else was read,
+because every word typed must be in a record for it to answer. No model reads the question; a
+model-assisted reading, behind the firm's switch for AI processing, would fill the same three
+readings and is not built.
+
+**Every reading is an ordinary parameter, so nothing about access rests on it.** A place is `in`,
+the reader's matters are `scope=mine`, the days are `from` and `to`. The question as typed rides in
+`asked`, so the field shows it and Search the Words Only can search it as typed. A reading never
+widens a search: it narrows exactly as the same choice made by hand would.
+
+**Days are held in the statement, before the limit, against the date each place is listed by.**
+`visibleMattersSearchSelect` composes `sort >= from` and `sort < the day after to` beside the
+visible-matter predicate (`packages/matter-search/src/sources/build.ts`). Every place that answers
+across matters is listed newest first by a date or a moment (a note's own date, a time entry's work
+date, a call's moment, a file's upload, a party's joining), so the comparison is the place's own
+reading of "when". A day and a stored instant both compare as text against a day's first
+characters, so one comparison serves both; an instant is held to its day in UTC, which can differ
+from the reader's own day for a record made late in the evening. A place listed alphabetically has
+no date to hold, and the builder refuses a range for one rather than answering as though it had
+applied it.
+
+Two limits, stated so nobody finds them later. A place that reads the record index draws on the
+newest 2,000 matches before the days are applied (section 4.2), so a question about an old span
+with a common word can come back short, and the answer says `broad` only about the words. And Inside
+Files asks its engine for the best passages first and holds them to the days afterwards, so a span
+can thin that place below its limit. Matters and people are found by name, which has no date, so a
+search held to days does not ask for them and names them under Not Searched as By Name.
+
+Not built: a client named in the question (it needs the directory, and "hargrove" is as often a
+word as a client), a status ("unpaid"), an amount, and a question read down to no words, which the
+page answers by asking for a word to look for.
+
 ## 5. Build order
 
-| Step | What                                                                                        | State                                                                                         |
-| ---- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 1    | This specification and its decision record                                                  | Built                                                                                         |
-| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                         |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index              |
-| 4    | Search across matters from the top bar, snippets shown                                      | Built for nine places (inside files where few matters are reached), Search In (4.2-4.5)       |
-| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                         |
-| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers for a firm that has turned indexing on                                         |
-| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; bound 2026-11-13; two checks left in [`../deploy-queue.md`](../deploy-queue.md) |
-| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                              |
-| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                                     |
+| Step | What                                                                                        | State                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1    | This specification and its decision record                                                  | Built                                                                                              |
+| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                              |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index                   |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for nine places (inside files where few matters are reached), Search In, questions (4.2-4.6) |
+| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                              |
+| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers for a firm that has turned indexing on                                              |
+| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; bound 2026-11-13; two checks left in [`../deploy-queue.md`](../deploy-queue.md)      |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                                   |
+| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                                          |
 
 ## 6. Open with the owner
 

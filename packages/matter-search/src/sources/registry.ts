@@ -139,6 +139,20 @@ export interface AcrossMattersSearchRequest {
   // How a source reaches the index of the words inside files, which lives outside the firm's
   // database. Supplied by the application; absent wherever nothing supplied one.
   readonly fileContents?: MatterFileContentsSearcher | null;
+  // The days the reader asked about, or absent for any day. Applied by the across-matters builder
+  // to the date each place is listed by, before the limit (build.ts).
+  readonly dates?: SearchDateRange;
+}
+
+// A range of days a search across matters is held to: on or after `from`, and before `before`.
+// Both are civil dates (YYYY-MM-DD) and either may be absent. `before` is exclusive, so a whole
+// last day is "before the day after it", which is the one comparison that holds for a place
+// listed by a day (a time entry's work date) and a place listed by a moment (a call's instant)
+// alike: both compare as text against a day's first characters. A moment is held to its day in
+// UTC, the day it is stored in.
+export interface SearchDateRange {
+  readonly from?: string;
+  readonly before?: string;
 }
 
 // HOW A SOURCE ANSWERS ACROSS MATTERS, declared separately from how it answers inside one.

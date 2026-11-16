@@ -17,6 +17,12 @@
    * their own matters or to one client's. One matter is that matter's own search, which reaches
    * more of it, so choosing a matter goes there with the question.
    *
+   * A QUESTION IS READ BEFORE IT IS SEARCHED. "hargrove invoices since june" is words, a place
+   * and some days; question-reading.ts takes the place and the days out by rule and the rest is
+   * searched. Every reading is a chip under the field the reader can take away, and the question
+   * as typed rides in `?asked=` so the field shows it and "Search the Words Only" can search it
+   * as typed.
+   *
    * WHAT IT REACHES IS DECIDED BY THE SERVER, per reader. A record is here only where the reader
    * may see its matter and holds the permission its own section asks for, and a matter the reader
    * cannot see contributes nothing to any result or any count.
@@ -24,8 +30,17 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import Badge from "@magna-carta/design-system/badge";
+  import { formatDate } from "@magna-carta/design-system/formatters";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { todayCivil } from "$lib/calendar/calendar-window.ts";
+  import { presentationFor } from "$lib/matters/matter-search-presentation.ts";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import {
+    readAnything,
+    readQuestion,
+    understoodChips,
+    type UnderstoodChip,
+  } from "$lib/search/question-reading.ts";
   import SearchAcrossMattersResults from "$lib/search/search-across-matters-results.svelte";
   import {
     SearchAcrossMatters,
@@ -34,6 +49,12 @@
   } from "$lib/search/search-across-matters.svelte.ts";
   import {
     ALL_PLACES,
+    EVERYTHING,
+    MATTERS_PLACE,
+    MY_MATTERS,
+    PEOPLE_PLACE,
+    daysFromAddress,
+    daysKey,
     placeFromAddress,
     reachFromAddress,
     reachKey,
@@ -41,6 +62,7 @@
     type SearchReach,
   } from "$lib/search/search-address.ts";
   import SearchReachControl from "$lib/search/search-reach-control.svelte";
+  import UnderstoodChips from "$lib/search/understood-chips.svelte";
   import { reachFieldLabel, reachSentence } from "$lib/search/search-reach.ts";
 
   const search = new SearchAcrossMatters();
@@ -64,42 +86,103 @@
     );
   });
 
+  // The question as typed, where a reading took something out of it.
+  const addressAsked = $derived(page.url.searchParams.get("asked"));
+  // Held by its key, like the reach, so a new address naming the same days does not ask again.
+  const addressDaysKey = $derived(
+    daysKey(daysFromAddress(page.url.searchParams.get("from"), page.url.searchParams.get("to"))),
+  );
+  const addressDays = $derived.by(() => {
+    void addressDaysKey;
+    return daysFromAddress(page.url.searchParams.get("from"), page.url.searchParams.get("to"));
+  });
+  // What the field shows: the question as the reader typed it.
+  const shownQuestion = $derived(addressAsked ?? addressQuery);
+
   let field = $state("");
   $effect(() => {
-    field = addressQuery;
+    field = shownQuestion;
   });
 
   $effect(() => {
-    void search.run(fetch, addressQuery, addressPlace, addressReach);
+    void search.run(fetch, addressQuery, addressPlace, addressReach, addressDays);
   });
 
   function retrySearch(): void {
-    void search.run(fetch, addressQuery, addressPlace, addressReach);
+    void search.run(fetch, addressQuery, addressPlace, addressReach, addressDays);
+  }
+
+  function placeName(place: string): string {
+    if (place === MATTERS_PLACE) return "Matters";
+    if (place === PEOPLE_PLACE) return "People";
+    return presentationFor(place).heading;
+  }
+
+  const chips = $derived(
+    understoodChips({
+      asked: addressAsked,
+      place: addressPlace,
+      mine: addressReach.kind === "mine",
+      days: addressDays,
+      today: todayCivil(),
+      placeName,
+      formatDay: (day) => formatDate(day),
+    }),
+  );
+
+  // Taking a reading away searches without it, and keeps the rest of what was read.
+  function removeReading(key: UnderstoodChip["key"]): void {
+    const place = key === "place" ? ALL_PLACES : addressPlace;
+    const reach = key === "mine" ? EVERYTHING : addressReach;
+    const days = key === "days" ? null : addressDays;
+    void goto(searchAddress(addressQuery, place, reach, { days, asked: addressAsked }), {
+      keepFocus: true,
+    });
+  }
+
+  // The question as typed, searched as words with nothing read out of it. A choice of matters the
+  // reader made by hand stays; the one the question named goes with the other readings.
+  function searchWordsOnly(): void {
+    if (addressAsked === null) return;
+    const reach = chips.some((chip) => chip.key === "mine") ? EVERYTHING : addressReach;
+    void goto(searchAddress(addressAsked, ALL_PLACES, reach), { keepFocus: true });
   }
 
   // Typing rewrites the address, which re-runs the search through the effect above. One path, so
   // the field and the address can never say different things. A new question starts over at every
   // place: the place a reader had chosen was chosen for the last question's results. The matters
   // chosen stay, because they were chosen for the reader and not for a question.
+  //
+  // The question is read first. What it named (a place, the reader's own matters, some days) goes
+  // into the address beside the words, and the question as typed goes with them.
   function submit(next: string): void {
-    if (next.trim() === addressQuery.trim()) return;
-    void goto(searchAddress(next, ALL_PLACES, addressReach), {
-      replaceState: true,
-      keepFocus: true,
-    });
+    if (next.trim() === shownQuestion.trim()) return;
+    const reading = readQuestion(next, todayCivil());
+    const address = readAnything(reading)
+      ? searchAddress(
+          reading.words,
+          reading.place ?? ALL_PLACES,
+          reading.mine ? MY_MATTERS : addressReach,
+          { days: reading.days, asked: next },
+        )
+      : searchAddress(next, ALL_PLACES, addressReach);
+    void goto(address, { replaceState: true, keepFocus: true });
   }
 
   // A different choice of matters is a different search of the same question, and starts over at
   // every place for the reason a new question does. It is a step the back button returns from.
   function chooseReach(next: SearchReach): void {
     if (reachKey(next) === addressReachKey) return;
-    void goto(searchAddress(field, ALL_PLACES, next), { keepFocus: true });
+    void goto(
+      searchAddress(addressQuery, ALL_PLACES, next, { days: addressDays, asked: addressAsked }),
+      { keepFocus: true },
+    );
   }
 
   // One matter is searched by that matter's own search, which carries the question in its address
   // the same way.
   function searchOneMatter(matterId: string): void {
-    const question = field.trim();
+    const question = addressQuery.trim();
     const suffix = question === "" ? "" : `?${new URLSearchParams({ q: question }).toString()}`;
     void goto(`/matters/${matterId}/search${suffix}`);
   }
@@ -107,6 +190,8 @@
   const places = $derived(railPlaces(search.overview));
   const unsearched = $derived(unsearchedPlaces(search.overview));
   const asked = $derived(addressQuery.trim() !== "");
+  // A question read down to no words: a place or some days with nothing to look for in them.
+  const nothingLeft = $derived(!asked && (addressAsked ?? "").trim() !== "");
 </script>
 
 <svelte:head>
@@ -127,11 +212,20 @@
       onsearch={submit}
     />
     <SearchReachControl reach={addressReach} onReach={chooseReach} onMatter={searchOneMatter} />
+    <UnderstoodChips
+      {chips}
+      onRemove={removeReading}
+      {...addressAsked === null ? {} : { onWordsOnly: searchWordsOnly }}
+    />
     <p class="text-xs text-text-muted">{reachSentence(addressReach)}</p>
   </div>
 
   <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
-    {#if !asked}
+    {#if nothingLeft}
+      <p class="text-sm text-text-muted">
+        Add a word to look for, such as a name. A place and a date narrow a search; they are not a search on their own.
+      </p>
+    {:else if !asked}
       <p class="text-sm text-text-muted">
         Type a name, a number or a few words. To search inside a matter's files, open the matter and use its search.
       </p>
@@ -144,7 +238,10 @@
                 {@const current = place.key === addressPlace}
                 <li>
                   <a
-                    href={searchAddress(addressQuery, place.key, addressReach)}
+                    href={searchAddress(addressQuery, place.key, addressReach, {
+                      days: addressDays,
+                      asked: addressAsked,
+                    })}
                     aria-current={current ? "page" : undefined}
                     class={[
                       "flex items-center justify-between gap-8 rounded-sm px-12 py-8 text-sm",
@@ -199,6 +296,7 @@
             chosen={addressPlace}
             failure={search.failure}
             busy={search.busy}
+            asked={addressAsked}
             onRetry={retrySearch}
           />
         </div>
