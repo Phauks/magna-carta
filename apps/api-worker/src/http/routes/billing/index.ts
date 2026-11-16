@@ -9,6 +9,7 @@ import { registerFinancialReportsRoutes } from "./financial-reports.ts";
 import { registerMatterReportsRoutes } from "./matter-reports.ts";
 import { registerReceivablesReportsRoutes } from "./receivables-reports.ts";
 import { registerReportsRoutes } from "./reports.ts";
+import { registerRevenueReportRoutes } from "./revenue-report.ts";
 
 // The invoice spine, costs, and the read-only reporting projections with their exports.
 //
@@ -29,6 +30,7 @@ export function mountBilling(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   registerReceivablesReportsRoutes(domain, chokepoint);
   registerMatterReportsRoutes(domain, chokepoint);
   registerChangeLogReportRoutes(domain, chokepoint);
+  registerRevenueReportRoutes(domain, chokepoint);
   // Billing — the invoice spine: draft, claim work-in-progress, review the lines, finalize (the one
   // batch that draws the number, locks the work, and posts the receivable), and the reads over it.
   registerBillingRoutes(domain, chokepoint);

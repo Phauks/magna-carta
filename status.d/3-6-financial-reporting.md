@@ -45,3 +45,5 @@ blocked-by:
 **Aged Expenses (2026-11-14).** Live, on `reports:financial`: the aged work-in-progress report over cost entries alone, from billing's same rows; its total is proved equal to the costs in Work in Progress.
 
 **Change Log (2026-11-16).** On `reports:operational`: who added, changed or removed people and organizations, matters and the trust approval rule in a period, read from the audit log through `readAuditChanges` in the data-access layer, never an audit row's metadata. One axis only, because an audit row is never edited or backdated; the report says whether its period had ended.
+
+**Revenue (2026-11-16).** Bitemporal, on `reports:financial`: what was billed, collected, and credited or written off in a period, by office, matter type and responsible attorney. Billed is the Invoices report's figure and collected plus credited is Payments Applied's total, both proved in the agreement test; a reversal lands in the column of what it reverses. Matter type and responsible attorney are the matter's current values, because neither keeps history, and the report says so. Billing gained one read, `readMatterAttributions`.
