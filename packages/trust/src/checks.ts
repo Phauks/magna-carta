@@ -242,14 +242,36 @@ export async function readNextTrustCheckNumber(
   trustAccountId: TrustAccountId,
   stock: TrustCheckStockSnapshot | null,
 ): Promise<number> {
+  // The number is the person's to set: the stock's starting number is where they said the paper
+  // in the printer begins. The next number is the first one at or after it that no check on the
+  // account has used, so a number is still never reused, but a firm that loads a box numbered
+  // below its last check can say so and print from it.
+  const from = stock?.startingCheckNumber ?? 1;
+  // `from` when it is free; otherwise one past the end of the run of used numbers that starts
+  // there, which is the smallest used number at or after it with no check on the number after.
   const { results } = await database
     .prepare(
-      `SELECT MAX(check_number) AS highest FROM ${TRUST_CHECK_TABLE} WHERE trust_account_id = ?1`,
+      `SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM ${TRUST_CHECK_TABLE} WHERE trust_account_id = ?1 AND check_number = ?2) THEN ?2 ELSE (SELECT MIN(c.check_number) + 1 FROM ${TRUST_CHECK_TABLE} c WHERE c.trust_account_id = ?1 AND c.check_number >= ?2 AND NOT EXISTS (SELECT 1 FROM ${TRUST_CHECK_TABLE} following WHERE following.trust_account_id = ?1 AND following.check_number = c.check_number + 1)) END AS next_number`,
     )
-    .bind(trustAccountId)
-    .all<{ highest: number | null }>();
-  const highest = results[0]?.highest ?? 0;
-  return Math.max(stock?.startingCheckNumber ?? 1, highest + 1);
+    .bind(trustAccountId, from)
+    .all<{ next_number: number }>();
+  return results[0]?.next_number ?? from;
+}
+
+/** The numbers in `[first, first + count)` that a check on the account already carries. */
+async function readUsedTrustCheckNumbers(
+  database: SqlDatabase,
+  trustAccountId: TrustAccountId,
+  first: number,
+  count: number,
+): Promise<number[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT check_number FROM ${TRUST_CHECK_TABLE} WHERE trust_account_id = ?1 AND check_number >= ?2 AND check_number < ?3 ORDER BY check_number`,
+    )
+    .bind(trustAccountId, first, first + count)
+    .all<{ check_number: number }>();
+  return results.map((row) => row.check_number);
 }
 
 // ---- the queue -----------------------------------------------------------------------------------------
@@ -443,6 +465,11 @@ async function readRegisterRowsById(
 export interface TrustCheckPrintInput {
   readonly trustAccountId: TrustAccountId;
   readonly movementIds: readonly TrustMovementId[];
+  /**
+   * The number on the first sheet in the printer, when the person sets it for this batch. Absent,
+   * the batch starts at the account's next number.
+   */
+  readonly firstCheckNumber?: number | null;
   readonly numberedBy: UserId;
 }
 
@@ -505,7 +532,28 @@ export async function composeTrustCheckPrint(
       );
     }
   }
-  const first = await readNextTrustCheckNumber(database, input.trustAccountId, stock);
+  const chosen = input.firstCheckNumber ?? null;
+  if (chosen !== null && (!Number.isSafeInteger(chosen) || chosen < 1)) {
+    throw new TrustValidationError(
+      "check-number-invalid",
+      "a check number is a whole number from 1",
+    );
+  }
+  const first = chosen ?? (await readNextTrustCheckNumber(database, input.trustAccountId, stock));
+  const used = await readUsedTrustCheckNumbers(
+    database,
+    input.trustAccountId,
+    first,
+    input.movementIds.length,
+  );
+  if (used.length > 0) {
+    throw new TrustValidationError(
+      "check-number-used",
+      used.length === 1
+        ? `Check ${used[0]} is already in this account's register. A check number is never used twice.`
+        : `Checks ${used.slice(0, -1).join(", ")} and ${used.at(-1)} are already in this account's register. A check number is never used twice.`,
+    );
+  }
   const numberedAt = options.clock.now();
   const checks: NumberedTrustCheck[] = input.movementIds.map((movementId, index) => ({
     checkId: newIdentifier("trustCheck", options.randomSource),
@@ -582,7 +630,7 @@ function eventStatement(
 }
 
 /** The default reason a spoiled check carries when the person gives none. */
-export const SPOILED_IN_PRINTING = "Spoiled in printing";
+export const SPOILED_IN_PRINTING = "Misprinted";
 
 /**
  * The answer to "did they print?": each check numbered in a batch is confirmed printed or spoiled. A

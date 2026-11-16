@@ -3,7 +3,9 @@ import { STANDARD_CHECK_FIELDS } from "@magna-carta/trust/check-layout";
 import {
   checkBatchDocument,
   checkDateText,
+  checkPage,
   checkTestPageDocument,
+  samplePageChecks,
   SAMPLE_CHECK,
 } from "../src/lib/trust/checks/check-document.ts";
 
@@ -67,5 +69,30 @@ describe("check document", () => {
     );
     // The check's own edge plus each field.
     expect(outlined).toHaveLength(STANDARD_CHECK_FIELDS.length + 1);
+  });
+
+  it("draws the page preview from the same lines the PDF sets, shift included", () => {
+    const shifted = { ...stock, shiftXMils: 100, shiftYMils: -50 };
+    const page = checkPage(shifted, samplePageChecks("check_top"));
+    expect(page.checkTops).toEqual([0]);
+    expect(page.stubTops).toEqual([3_667, 7_333]);
+    const document = checkBatchDocument(shifted, [SAMPLE_CHECK]);
+    const placed = document.blocks.filter((block) => block.type === "placed");
+    expect(placed).toHaveLength(page.lines.length);
+    page.lines.forEach((line, index) => {
+      expect(placed[index]).toMatchObject({ text: line.text, x: (line.xMils * 72) / 1_000 });
+    });
+    const payee = page.lines.find((line) => line.text === "Desert Title Company");
+    expect(payee).toMatchObject({ xMils: 1_250, yMils: 1_280 });
+  });
+
+  it("previews three numbered checks and no stubs on three-up stock", () => {
+    const page = checkPage(
+      { ...stock, pageLayout: "three_per_page" },
+      samplePageChecks("three_per_page"),
+    );
+    expect(page.checkTops).toEqual([0, 3_667, 7_333]);
+    expect(page.stubTops).toEqual([]);
+    expect(page.lines.filter((line) => line.text === "Desert Title Company")).toHaveLength(3);
   });
 });

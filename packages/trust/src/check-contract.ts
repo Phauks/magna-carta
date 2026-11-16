@@ -90,6 +90,8 @@ export const PrintRequest = z
       .array(identifierField("trustMovement"))
       .min(1)
       .max(MAX_TRUST_CHECKS_PER_BATCH),
+    // The number on the first sheet in the printer, when the person sets it for this batch.
+    firstCheckNumber: z.number().int().min(1).nullish(),
   })
   .meta({ id: "PrintTrustChecksRequest" });
 

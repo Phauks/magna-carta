@@ -1,15 +1,19 @@
 <script lang="ts">
   /*
-   * After the paper comes out: which checks printed, and which were spoiled.
+   * After the paper comes out: which checks printed right, and which were misprinted.
    *
-   * EVERY CHECK STARTS AS PRINTED, because that is what nearly every check does, and a spoiled one
-   * is the exception the reader marks. The line under the list says what the answers will do, from
+   * EVERY CHECK STARTS AS PRINTED RIGHT, because that is what nearly every check does, and a
+   * misprinted one is the exception the reader marks. The line under the list says what the answers will do, from
    * the answers themselves, so it changes as a choice changes and cannot describe one thing and
    * send another.
    *
    * CANCEL ANSWERS NOTHING, AND LOSES NOTHING. The checks stay numbered and wait in the Printed
    * list, where Answer opens this again. So leaving with every check still Printed asks no
-   * question; leaving with one marked Spoiled does, because that mark is work.
+   * question; leaving with one marked Misprinted does, because that mark is work.
+   *
+   * A MISPRINT IS PRINTED AGAIN IN ONE STEP. Recording voids the misprinted numbers (the server's
+   * word for the outcome is "spoiled"; the reader never sees it) and puts their payments back in To
+   * Print, and `onRecorded` hands those payments up so the screen opens Confirm Print for them.
    *
    * THE KEY IS MINTED WHEN THE PANEL OPENS and reused on every retry of the same answers, so a
    * confirmation that timed out is retried rather than recorded twice.
@@ -24,7 +28,12 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { TrustChecksService } from "./checks-service.ts";
-  import { answerConsequence, type CheckToAnswer, type PrintOutcome } from "./checks-model.ts";
+  import {
+    answerConsequence,
+    paymentsToReprint,
+    type CheckToAnswer,
+    type PrintOutcome,
+  } from "./checks-model.ts";
 
   let {
     open = $bindable(false),
@@ -41,7 +50,8 @@
     service: TrustChecksService;
     /** The batch's PDF, where it was made here, to open again if the browser held the tab back. */
     pdf?: Blob | null;
-    onRecorded: () => void;
+    /** Recorded. `reprint` holds the misprinted checks' payments, in number order. */
+    onRecorded: (reprint: readonly string[]) => void;
   } = $props();
 
   let outcomes = $state<Record<string, PrintOutcome>>({});
@@ -54,7 +64,7 @@
     failure = null;
   }
 
-  const anySpoiled = $derived(Object.values(outcomes).some((outcome) => outcome === "spoiled"));
+  const anyMisprinted = $derived(Object.values(outcomes).some((outcome) => outcome === "spoiled"));
   const consequence = $derived(answerConsequence(checks, outcomes));
 
   const first = $derived(checks[0]?.checkNumber);
@@ -77,7 +87,7 @@
       submissionKey,
     );
     if (outcome.kind === "ok") {
-      onRecorded();
+      onRecorded(paymentsToReprint(checks, outcomes));
       return "committed";
     }
     failure = stated(
@@ -95,10 +105,10 @@
   width="wide"
   {heading}
   {subtitle}
-  commitLabel="Record Results"
+  commitLabel={anyMisprinted ? "Record and Print Again" : "Record Results"}
   commitBusyLabel="Recording"
   commitRefusal={checks.length === 0 ? "No check is waiting for an answer." : undefined}
-  unsavedChanges={anySpoiled}
+  unsavedChanges={anyMisprinted}
   onOpen={opened}
   onCommit={record}
 >
@@ -141,13 +151,13 @@
                   aria-label={`How check ${check.checkNumber} printed`}
                   disabled={busy}
                   class="w-full"
-                  value={outcomes[check.trustCheckId] ?? "printed"}
+                  value={outcomes[check.trustCheckId] === "spoiled" ? "misprinted" : "printed"}
                   onValueChange={(next) => {
-                    outcomes[check.trustCheckId] = next === "spoiled" ? "spoiled" : "printed";
+                    outcomes[check.trustCheckId] = next === "misprinted" ? "spoiled" : "printed";
                   }}
                 >
-                  <SegmentedControl.Item value="printed">Printed</SegmentedControl.Item>
-                  <SegmentedControl.Item value="spoiled">Spoiled</SegmentedControl.Item>
+                  <SegmentedControl.Item value="printed">Printed Right</SegmentedControl.Item>
+                  <SegmentedControl.Item value="misprinted">Misprinted</SegmentedControl.Item>
                 </SegmentedControl.Root>
               </DataTable.Cell>
             </DataTable.Row>

@@ -280,9 +280,10 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   signed, because a trust bank account really can be overdrawn and refusing to record that would
   refuse to record the condition reconciliation exists to catch.
 - **Clock injection.** No wall-clock reads — `ClockPort` only.
-- **A check number follows the paper, and a check's history is events.** The next number is the
-  greater of the stock's starting number and one past the highest used on the account; a number is
-  never reused, and `trust_check_account_number_unique_index` is what separates two prints that read
+- **A check number follows the paper, and a check's history is events.** The number is the person's: the
+  next number is the first unused one at or after the stock's starting number, and a print may name
+  its own first number; a number is never reused (a print over a used one refuses
+  `check-number-used`), and `trust_check_account_number_unique_index` is what separates two prints that read
   the same one. A check's status is its `trust_check_event` rows (a trigger holds the sequences), and
   a payment's one LIVE check is `liveTrustCheckPredicate`. Printing and voiding never touch the
   ledger: voiding a check does not reverse the payment. Because `trust_movement` is append-only, a

@@ -8,10 +8,17 @@
    * Each chosen row previews the number it will print on, in the order shown, so the reader can
    * check the paper in the printer against the screen before pressing Print.
    *
-   * PRINTING IS THREE STEPS AND ONE OF THEM IS A QUESTION. The server numbers the batch, the
-   * browser composes the PDF off the main thread and hands it to a new tab, and then the reader
-   * says which checks came out right. Leaving that question unanswered loses nothing: the checks
-   * wait in Printed as Not Answered, and Answer asks it again.
+   * PRINTING IS FOUR STEPS AND TWO OF THEM ARE QUESTIONS. Confirm Print lists the checks in the
+   * order they will come out and the number on the first sheet, which the reader may change for
+   * the batch; only then does the server number it, the browser compose the PDF off the main
+   * thread and hand it to a new tab, and the reader say which checks came out right. Leaving that
+   * question unanswered loses nothing: the checks wait in Printed as Not Answered, and Answer asks
+   * it again. A check marked Misprinted is voided and its payment goes straight back into Confirm
+   * Print, on the next number, so a reprint is one step; a check already recorded as printed is
+   * reprinted from its row with Void and Reprint.
+   *
+   * THE CHECK NUMBER IS THE READER'S. The header's Change sets the account's next number at any
+   * point, higher or lower, and Confirm Print sets the first number of one batch.
    *
    * VOIDING NEVER MOVES MONEY, and the panel that does it says so. What the screen can do is read
    * off the session once by the route and handed in as one refusal, the same sentence on every
@@ -34,6 +41,7 @@
   import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
   import Printer from "@lucide/svelte/icons/printer";
   import Ban from "@lucide/svelte/icons/ban";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Settings2 from "@lucide/svelte/icons/settings-2";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { withAccount, type BackDestination } from "$lib/screen/screen-header.ts";
@@ -65,6 +73,8 @@
     type CheckToAnswer,
     type ChecksView,
   } from "./checks-model.ts";
+  import CheckConfirmPrintDialog from "./check-confirm-print-dialog.svelte";
+  import CheckNextNumberDialog from "./check-next-number-dialog.svelte";
   import CheckPrintResultsDialog from "./check-print-results-dialog.svelte";
   import CheckVoidDialog from "./check-void-dialog.svelte";
 
@@ -75,6 +85,7 @@
     service,
     memberName,
     manageRefusal,
+    opening,
   }: {
     trustAccountId: string;
     /** Where the screen was entered from; the account is added to it. */
@@ -86,6 +97,15 @@
     memberName: (identifier: string) => string;
     /** Why this reader may not print, answer or void, or undefined where they may. */
     manageRefusal: string | undefined;
+    /**
+     * A panel to open once the first read lands, for the developer gallery's screenshots of states
+     * a reader reaches only by printing: Confirm Print for the waiting payments, the answer panel
+     * for the unanswered checks, or Confirm Print again for payments back after a misprint.
+     */
+    opening?:
+      | { readonly panel: "print" }
+      | { readonly panel: "answer" }
+      | { readonly panel: "reprint"; readonly trustMovementIds: readonly string[] };
   } = $props();
 
   // ---- the read ----------------------------------------------------------------------------------
@@ -93,6 +113,8 @@
   let data = $state<TrustChecksResponse | null>(null);
   let failure = $state<Failure | null>(null);
   let chosenOnce = false;
+  /** The payments the last read listed, so a later read can tell which have just arrived. */
+  let seen = new Set<string>();
 
   async function load(): Promise<void> {
     failure = null;
@@ -102,13 +124,25 @@
       return;
     }
     data = outcome.value;
-    // Every waiting payment starts chosen on the first read; later reads keep the reader's choice.
+    // Every waiting payment starts chosen on the first read; later reads keep the reader's choice,
+    // and a payment that has arrived since (a misprint back from the printer) starts chosen too.
+    const keys = outcome.value.toPrint.map((row) => row.trustMovementId);
     if (!chosenOnce) {
       chosenOnce = true;
-      const keys = outcome.value.toPrint.map((row) => row.trustMovementId);
       chosen = new Set(keys);
+    } else {
+      const arrived = keys.filter((key) => !seen.has(key));
+      if (arrived.length > 0) chosen = new Set([...chosen, ...arrived]);
+    }
+    seen = new Set(keys);
+    if (opening !== undefined && !opened) {
+      opened = true;
+      if (opening.panel === "print") void askToPrint();
+      else if (opening.panel === "answer") answerWaiting();
+      else askToPrintAgain(opening.trustMovementIds);
     }
   }
+  let opened = false;
 
   let started = false;
   $effect(() => {
@@ -229,31 +263,63 @@
   let printing = $state(false);
   let printKey = "";
   let printKeyFor = "";
-  let printFailure = $state<Failure | null>(null);
   let pdfFailure = $state<Failure | null>(null);
   let lastBatch = $state<PrintTrustChecksResponse | null>(null);
   let lastPdf = $state<Blob | null>(null);
 
-  async function print(): Promise<void> {
+  // ---- confirm print -----------------------------------------------------------------------------
+
+  /** The payments Confirm Print is asking about, in print order, and whether it is a reprint. */
+  let confirming = $state<{ payments: readonly TrustCheckToPrint[]; again: boolean }>({
+    payments: [],
+    again: false,
+  });
+  let confirmOpen = $state(false);
+
+  async function askToPrint(): Promise<void> {
     if (data === null || chosenCount === 0) return;
     if (data.stock === null) {
       await goto(stockHref);
       return;
     }
-    // One key per set of payments: pressing again for the same set after a failure is a retry.
-    const set = chosenInOrder.join(",");
-    if (printKeyFor !== set) {
+    const byIdentifier = new Map(toPrint.map((row) => [row.trustMovementId, row]));
+    confirming = {
+      payments: chosenInOrder.flatMap((identifier) => {
+        const row = byIdentifier.get(identifier);
+        return row === undefined ? [] : [row];
+      }),
+      again: false,
+    };
+    confirmOpen = true;
+  }
+
+  /** Confirm Print again, for payments back in To Print after a misprint or a void. */
+  function askToPrintAgain(trustMovementIds: readonly string[]): void {
+    const byIdentifier = new Map(toPrint.map((row) => [row.trustMovementId, row]));
+    const payments = trustMovementIds.flatMap((identifier) => {
+      const row = byIdentifier.get(identifier);
+      return row === undefined ? [] : [row];
+    });
+    if (payments.length === 0) return;
+    confirming = { payments, again: true };
+    confirmOpen = true;
+  }
+
+  /** Number the batch from `first`, make its PDF, and ask how it printed. */
+  async function print(first: number): Promise<Failure | null> {
+    const identifiers = confirming.payments.map((row) => row.trustMovementId);
+    // One key per batch and first number: pressing again for the same after a failure is a retry.
+    const batch = `${first}:${identifiers.join(",")}`;
+    if (printKeyFor !== batch) {
       printKey = crypto.randomUUID();
-      printKeyFor = set;
+      printKeyFor = batch;
     }
     printing = true;
-    printFailure = null;
     pdfFailure = null;
-    const outcome = await service.print(trustAccountId, chosenInOrder, printKey);
+    const outcome = await service.print(trustAccountId, identifiers, printKey, first);
     if (outcome.kind !== "ok") {
       printing = false;
-      printFailure = outcome.failure;
-      return;
+      return outcome.failure;
     }
     printKeyFor = "";
     lastBatch = outcome.value;
@@ -264,10 +330,17 @@
       checkNumber: check.checkNumber,
       payee: check.payee,
       amountText: money(check.amountMinor),
+      trustMovementId: check.trustMovementId,
     }));
     answerOpen = true;
     chosenOnce = false;
     void load();
+    return null;
+  }
+
+  async function recorded(reprint: readonly string[]): Promise<void> {
+    await load();
+    askToPrintAgain(reprint);
   }
 
   async function composeBatch(batch: PrintTrustChecksResponse): Promise<void> {
@@ -310,6 +383,7 @@
       checkNumber: row.checkNumber,
       payee: row.payee ?? "",
       amountText: money(row.amountMinor),
+      trustMovementId: row.trustMovementId,
     }));
     answerOpen = true;
   }
@@ -323,22 +397,36 @@
         checkNumber: number;
         payee: string;
         amountText: string;
+        trustMovementId: string | null;
+        reprint: boolean;
       }
     | { kind: "next"; checkNumber: number }
     | null
   >(null);
   let voidOpen = $state(false);
 
-  function voidCheck(row: TrustCheckRegisterRow): void {
+  function voidCheck(row: TrustCheckRegisterRow, reprint: boolean): void {
     voiding = {
       kind: "check",
       trustCheckId: row.trustCheckId,
       checkNumber: row.checkNumber,
       payee: row.payee ?? "",
       amountText: money(row.amountMinor),
+      trustMovementId: row.trustMovementId,
+      reprint,
     };
     voidOpen = true;
   }
+
+  async function afterVoid(reprint: string | null): Promise<void> {
+    await load();
+    if (reprint !== null) askToPrintAgain([reprint]);
+  }
+
+  // ---- the next number ---------------------------------------------------------------------------
+
+  let nextNumberOpen = $state(false);
+  const usedNumbers = $derived((data?.register ?? []).map((row) => row.checkNumber));
 
   function voidNextNumber(): void {
     if (data === null) return;
@@ -407,9 +495,17 @@
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
           <DropdownMenu.Item
+            disabled={manageRefusal !== undefined || row.trustMovementId === null}
+            title={manageRefusal}
+            onSelect={() => voidCheck(row, true)}
+          >
+            <RotateCcw class="size-16 shrink-0" aria-hidden="true" />
+            Void and Reprint
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
             disabled={manageRefusal !== undefined}
             title={manageRefusal}
-            onSelect={() => voidCheck(row)}
+            onSelect={() => voidCheck(row, false)}
           >
             <Ban class="size-16 shrink-0" aria-hidden="true" />
             Void
@@ -444,7 +540,19 @@
   <ScreenHeader title={accountName ?? "Checks"} back={trustBack} {pageMenu}>
     {#snippet meta()}
       {#if data !== null}
-        <span class="tabular-nums">Next check number {data.nextCheckNumber}</span>
+        <span class="inline-flex items-center gap-4">
+          <span class="tabular-nums">Next check number {data.nextCheckNumber}</span>
+          {#if manageRefusal === undefined && data.stock !== null}
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Change the next check number, now ${data.nextCheckNumber}`}
+              onclick={() => (nextNumberOpen = true)}
+            >
+              Change
+            </Button>
+          {/if}
+        </span>
         {#if data.stock !== null}
           <Masthead.MetaSeparator />
           <span>{data.stock.name}</span>
@@ -459,7 +567,7 @@
         variant="primary"
         disabled={printRefusal !== undefined || printing}
         title={data?.stock === null ? "Set up this account's check stock first." : printRefusal}
-        onclick={() => void print()}
+        onclick={() => void askToPrint()}
       >
         <Printer class="size-16" aria-hidden="true" />
         {printing ? "Printing" : printLabel}
@@ -475,15 +583,6 @@
       onRetry={() => void load()}
     />
   {:else}
-    {#if printFailure !== null}
-      <FailureNotice
-        failure={printFailure}
-        title="The Checks Were Not Numbered"
-        fallback="No number was used. The payments are still waiting to be printed."
-        whenSilent="Couldn't connect. No number was used, and trying again won't number them twice."
-        onRetry={() => void print()}
-      />
-    {/if}
     {#if pdfFailure !== null && lastBatch !== null}
       <FailureNotice
         failure={pdfFailure}
@@ -550,7 +649,7 @@
           grid={voidedGrid}
           cell={registerCell}
           class="min-h-0 flex-1"
-          caption="Check numbers spoiled or voided on this account"
+          caption="Check numbers misprinted or voided on this account"
           loading={data === null}
         />
         <DataTable.GridFooter grid={voidedGrid} />
@@ -565,7 +664,28 @@
   checks={answering}
   {service}
   pdf={lastPdf}
-  onRecorded={() => void load()}
+  onRecorded={(reprint) => void recorded(reprint)}
+/>
+
+<CheckConfirmPrintDialog
+  bind:open={confirmOpen}
+  payments={confirming.payments}
+  again={confirming.again}
+  suggestedFirst={data?.nextCheckNumber ?? 1}
+  {accountName}
+  money={(amountMinor) => money(amountMinor)}
+  {manageRefusal}
+  onPrint={print}
+/>
+
+<CheckNextNumberDialog
+  bind:open={nextNumberOpen}
+  {trustAccountId}
+  stock={data?.stock ?? null}
+  nextCheckNumber={data?.nextCheckNumber ?? 1}
+  {usedNumbers}
+  {service}
+  onSaved={() => void load()}
 />
 
 <CheckVoidDialog
@@ -573,5 +693,5 @@
   {trustAccountId}
   subject={voiding}
   {service}
-  onVoided={() => void load()}
+  onVoided={(reprint) => void afterVoid(reprint)}
 />
