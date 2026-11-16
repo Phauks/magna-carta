@@ -60,7 +60,7 @@ export const DOCUMENT_LOOP_STEPS: readonly LoopStep[] = [
     label: "Edit a word-processing document in the browser",
     reach: "deployed-only",
     behaviour:
-      "Opening the document from the file manager starts a real editing session in a new tab — the document moves to co-editing, the open is audited, and a signed single-document token is posted to the editor. The editor itself is served by a per-document container in the magna-carta-edit worker, which is a deploy step; on a developer's machine that origin answers nothing, so the frame stays empty.",
+      "Opening the document from the file manager starts a real editing session in a new tab. The document moves to co-editing, the open is audited, and a signed single-document token is posted to the editor. The editor itself is served by a per-document container in the magna-carta-edit worker, which is a deploy step; on a developer's machine that origin answers nothing, so the frame stays empty.",
   },
   {
     id: "edit-text",

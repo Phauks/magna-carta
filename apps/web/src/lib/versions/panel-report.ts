@@ -194,7 +194,7 @@ function environmentSection(state: PanelReportState): ReportSection | null {
 function deploymentSection(state: PanelReportState): ReportSection | null {
   if (!state.readsAggregate) {
     return section(DEPLOYMENT_SECTION_LABEL, [
-      entry("read", "not attempted — this panel is signed out"),
+      entry("read", "not tried: this panel is signed out"),
     ]);
   }
   const { value, failure } = state.deployment;
@@ -287,7 +287,7 @@ function readinessSection(state: PanelReportState): ReportSection | null {
   const { permitted, report, failure } = state.readiness;
   if (!permitted) {
     return section(UPLOAD_READINESS_SECTION_LABEL, [
-      entry("check", "not run — this account may not run it"),
+      entry("check", "not run: this account can't run it"),
     ]);
   }
   const rows: (ReportEntry | null)[] = [];

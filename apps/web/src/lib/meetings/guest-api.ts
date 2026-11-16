@@ -20,6 +20,7 @@
  * prefetcher never makes.
  */
 import {
+  guestOpenSharedFile,
   guestArrive,
   guestDepart,
   guestListMessages,
@@ -229,6 +230,25 @@ export function guestChatSeams(grant: () => string | null): MeetingChatSeams {
       return () => clearInterval(ticking);
     },
   };
+}
+
+/**
+ * Where to fetch a file shared in the chat, for a guest who is in the room: a signed address good for
+ * a few minutes. Asked for at the press rather than drawn as a link, because the grant travels in a
+ * header and a link cannot carry one.
+ */
+export function openGuestSharedFile(
+  grant: string,
+  fileId: string,
+): Promise<MeetingWrite<{ url: string; name: string }>> {
+  return outcomeOf(() =>
+    guestOpenSharedFile({
+      query: { fileId },
+      headers: guestHeader(grant),
+      ...GUEST_REQUEST,
+      throwOnError: true,
+    }),
+  );
 }
 
 /*

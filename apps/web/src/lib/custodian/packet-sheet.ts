@@ -37,7 +37,7 @@ export function locationBreadcrumb(packet: CustodyPacketDetail): string {
 /** One item's line: what it is, its own state, and the instrument's own date where it has one. */
 function itemLine(description: string, status: CustodyItemStatus, instrumentDate: string | null) {
   const dated = instrumentDate === null ? "" : ` dated ${instrumentDate}`;
-  return `${description}${dated} — ${itemStatusEntry(status).label}`;
+  return `${description}${dated}: ${itemStatusEntry(status).label}`;
 }
 
 /**

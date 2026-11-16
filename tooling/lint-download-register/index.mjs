@@ -73,6 +73,11 @@ const NOT_A_MEMBER_DOWNLOAD = new Map([
       "every editing session would bury the downloads somebody is actually looking for",
   ],
   [
+    "apps/api-worker/src/http/routes/communications/meeting-guest-files.ts",
+    "hands a meeting GUEST a file shared in the chat: a guest is not a member and has no register " +
+      "to come back to, and the download is recorded on the firm's audit trail instead",
+  ],
+  [
     "apps/api-worker/src/files/presign.ts",
     "the presigner wiring itself — a seam every caller reaches through, which hands nothing to " +
       "anybody on its own",

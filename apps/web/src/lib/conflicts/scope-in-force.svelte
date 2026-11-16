@@ -181,7 +181,7 @@
           {/each}
         {/if}
         {@render fact(
-          toClosure ? "The Platform's Ceiling" : "Closure Cap",
+          toClosure ? "Magna Carta's Limit" : "Closure Cap",
           count(scope.traversal.closureCap),
           toClosure
             ? "The most records one relationship search can reach. This is a fixed limit, not a setting, and the check says if it was reached."

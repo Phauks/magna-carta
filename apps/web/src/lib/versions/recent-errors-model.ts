@@ -71,7 +71,7 @@ export function describeBackgroundState(state: BackgroundErrorsState): string | 
     case "refused":
       return "Background failures are not shown: Cloudflare did not accept the log-read token.";
     case "unreachable":
-      return "Background failures are not shown: Workers Logs did not answer in time.";
+      return "Background failures aren't shown. Couldn't connect to the error log in time.";
   }
 }
 

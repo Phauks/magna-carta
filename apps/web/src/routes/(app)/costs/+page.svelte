@@ -265,7 +265,7 @@
       <a
         href="/matters/{row.matterId}/costs"
         class="block truncate underline-offset-2 hover:underline"
-        title="Open {named} — this matter's own cost record"
+        title="Open the cost record for {named}"
         onclick={(event) => event.stopPropagation()}
       >
         {named}
