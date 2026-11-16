@@ -14,18 +14,18 @@ The owner's top rule for copy (2026-11-16): **call a thing what people already c
 - **No acronyms or abbreviations** unless the reader says them out loud every day (PDF, IOLTA). Spell everything else out.
 - **Don't invent a name.** If you are combining words to describe a feature, there is almost always a plain word for it already.
 
-| Write          | Not                                                |
-| -------------- | -------------------------------------------------- |
-| Save           | Save Point, Save Changes Now                       |
-| History        | Every Change, Change Log, Activity Trail           |
-| Undo           | Revert Last Action                                 |
-| Notes          | Commentary, Remarks Thread                         |
-| Files          | Attached Documents, Supporting Material            |
-| Difference     | Unexplained Amount, Variance Remaining             |
-| Restore        | Roll Back to Restore Point                         |
-| Search         | Find Records                                       |
-| Settings       | Preferences and Configuration                      |
-| Print          | Generate Printable Output                          |
+| Write      | Not                                      |
+| ---------- | ---------------------------------------- |
+| Save       | Save Point, Save Changes Now             |
+| History    | Every Change, Change Log, Activity Trail |
+| Undo       | Revert Last Action                       |
+| Notes      | Commentary, Remarks Thread               |
+| Files      | Attached Documents, Supporting Material  |
+| Difference | Unexplained Amount, Variance Remaining   |
+| Restore    | Roll Back to Restore Point               |
+| Search     | Find Records                             |
+| Settings   | Preferences and Configuration            |
+| Print      | Generate Printable Output                |
 
 ## Rules
 
