@@ -25,4 +25,9 @@
     color: var(--mc-text-subtle);
     font-weight: var(--mc-weight-regular);
   }
+
+  /* The word "Optional" is set in italics, which reads as an aside rather than a second name. */
+  .mc-label-necessity[data-necessity="optional"] {
+    font-style: italic;
+  }
 }
