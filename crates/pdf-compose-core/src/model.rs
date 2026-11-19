@@ -26,6 +26,9 @@ pub struct ComposedDocument {
     pub compact: bool,
     /// A band drawn in the top margin of every page, and a rule above the footer to match.
     pub letterhead: Option<Letterhead>,
+    /// A word set large, pale and on a slant across the middle of every page, under the
+    /// content: "DRAFT" on a report that may still change.
+    pub watermark: Option<String>,
     /// Drawn in the top margin of every page.
     pub header: Option<RunningLine>,
     /// Drawn in the bottom margin of every page.

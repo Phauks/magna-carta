@@ -315,6 +315,32 @@ pub(crate) fn render(
                     *thickness,
                     fill(*ink, accent),
                 ),
+                Mark::TurnedText {
+                    center_x,
+                    center_y,
+                    cos,
+                    sin,
+                    x,
+                    baseline,
+                    face,
+                    size,
+                    ink,
+                    text,
+                } => {
+                    surface.push_transform(&Transform::from_row(
+                        *cos, *sin, -*sin, *cos, *center_x, *center_y,
+                    ));
+                    surface.set_fill(fill(*ink, accent));
+                    surface.draw_text(
+                        Point::from_xy(*x, *baseline),
+                        fonts.get(*face),
+                        *size,
+                        text,
+                        false,
+                        TextDirection::Auto,
+                    );
+                    surface.pop();
+                }
                 Mark::Image {
                     index,
                     x,

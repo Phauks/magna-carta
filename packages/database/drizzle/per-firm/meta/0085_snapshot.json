@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e2a8a485-82de-45c3-9178-1e95c9250f0d",
+  "id": "e48aaf40-3220-4400-9823-6dd69ec5989e",
   "prevId": "ac6c0590-a928-428a-b705-eacfb66e1918",
   "tables": {
     "account_balance": {
@@ -26189,89 +26189,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "payment_receipt": {
-      "name": "payment_receipt",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "application_id": {
-          "name": "application_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "method": {
-          "name": "method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reference": {
-          "name": "reference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "payment_receipt_application_unique_index": {
-          "name": "payment_receipt_application_unique_index",
-          "columns": [
-            "application_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "payment_receipt_application_id_invoice_application_id_fk": {
-          "name": "payment_receipt_application_id_invoice_application_id_fk",
-          "tableFrom": "payment_receipt",
-          "tableTo": "invoice_application",
-          "columnsFrom": [
-            "application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "payment_receipt_method_check": {
-          "name": "payment_receipt_method_check",
-          "value": "\"payment_receipt\".\"method\" IN ('check', 'cash', 'bank_transfer', 'card_terminal')"
-        },
-        "payment_receipt_reference_nonempty_check": {
-          "name": "payment_receipt_reference_nonempty_check",
-          "value": "\"payment_receipt\".\"reference\" IS NULL OR length(trim(\"payment_receipt\".\"reference\")) > 0"
-        }
-      }
-    },
     "picklist_option": {
       "name": "picklist_option",
       "columns": {
@@ -31749,6 +31666,880 @@
         "trust_authorization_policy_version_positive_check": {
           "name": "trust_authorization_policy_version_positive_check",
           "value": "\"trust_authorization_policy\".\"version\" > 0"
+        }
+      }
+    },
+    "trust_bank_reconciliation": {
+      "name": "trust_bank_reconciliation",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "trust_account_id": {
+          "name": "trust_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_balance_minor": {
+          "name": "start_balance_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_carried_over": {
+          "name": "start_carried_over",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "started_by": {
+          "name": "started_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "finished_by": {
+          "name": "finished_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_end_date": {
+          "name": "finished_end_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_end_balance_minor": {
+          "name": "finished_end_balance_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_cleared_balance_minor": {
+          "name": "finished_cleared_balance_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_deposited_minor": {
+          "name": "finished_deposited_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_withdrawn_minor": {
+          "name": "finished_withdrawn_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_difference_minor": {
+          "name": "finished_difference_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_bank_reconciliation_account_index": {
+          "name": "trust_bank_reconciliation_account_index",
+          "columns": [
+            "trust_account_id",
+            "start_date"
+          ],
+          "isUnique": false
+        },
+        "trust_bank_reconciliation_one_open_unique_index": {
+          "name": "trust_bank_reconciliation_one_open_unique_index",
+          "columns": [
+            "trust_account_id"
+          ],
+          "isUnique": true,
+          "where": "\"trust_bank_reconciliation\".\"finished_at\" IS NULL"
+        }
+      },
+      "foreignKeys": {
+        "trust_bank_reconciliation_trust_account_id_trust_account_id_fk": {
+          "name": "trust_bank_reconciliation_trust_account_id_trust_account_id_fk",
+          "tableFrom": "trust_bank_reconciliation",
+          "tableTo": "trust_account",
+          "columnsFrom": [
+            "trust_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_bank_reconciliation_currency_check": {
+          "name": "trust_bank_reconciliation_currency_check",
+          "value": "length(\"trust_bank_reconciliation\".\"currency\") = 3"
+        },
+        "trust_bank_reconciliation_start_date_shape_check": {
+          "name": "trust_bank_reconciliation_start_date_shape_check",
+          "value": "\"trust_bank_reconciliation\".\"start_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "trust_bank_reconciliation_end_date_shape_check": {
+          "name": "trust_bank_reconciliation_end_date_shape_check",
+          "value": "\"trust_bank_reconciliation\".\"finished_end_date\" IS NULL OR \"trust_bank_reconciliation\".\"finished_end_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "trust_bank_reconciliation_carried_over_check": {
+          "name": "trust_bank_reconciliation_carried_over_check",
+          "value": "\"trust_bank_reconciliation\".\"start_carried_over\" IN (0, 1)"
+        },
+        "trust_bank_reconciliation_finish_shape_check": {
+          "name": "trust_bank_reconciliation_finish_shape_check",
+          "value": "(\"trust_bank_reconciliation\".\"finished_at\" IS NULL AND \"trust_bank_reconciliation\".\"finished_by\" IS NULL AND \"trust_bank_reconciliation\".\"finished_end_date\" IS NULL AND \"trust_bank_reconciliation\".\"finished_end_balance_minor\" IS NULL AND \"trust_bank_reconciliation\".\"finished_cleared_balance_minor\" IS NULL AND \"trust_bank_reconciliation\".\"finished_deposited_minor\" IS NULL AND \"trust_bank_reconciliation\".\"finished_withdrawn_minor\" IS NULL AND \"trust_bank_reconciliation\".\"finished_difference_minor\" IS NULL)\n        OR (\"trust_bank_reconciliation\".\"finished_at\" IS NOT NULL AND \"trust_bank_reconciliation\".\"finished_by\" IS NOT NULL AND \"trust_bank_reconciliation\".\"finished_end_date\" >= \"trust_bank_reconciliation\".\"start_date\" AND \"trust_bank_reconciliation\".\"finished_end_balance_minor\" IS NOT NULL AND \"trust_bank_reconciliation\".\"finished_cleared_balance_minor\" IS NOT NULL AND \"trust_bank_reconciliation\".\"finished_deposited_minor\" >= 0 AND \"trust_bank_reconciliation\".\"finished_withdrawn_minor\" >= 0 AND \"trust_bank_reconciliation\".\"finished_difference_minor\" IS NOT NULL)"
+        }
+      }
+    },
+    "trust_bank_reconciliation_change": {
+      "name": "trust_bank_reconciliation_change",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reconciliation_id": {
+          "name": "reconciliation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "interest_id": {
+          "name": "interest_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "end_balance_minor": {
+          "name": "end_balance_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cause": {
+          "name": "cause",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reverts_change_id": {
+          "name": "reverts_change_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "restore_point_id": {
+          "name": "restore_point_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "changed_by": {
+          "name": "changed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_bank_reconciliation_change_sequence_unique_index": {
+          "name": "trust_bank_reconciliation_change_sequence_unique_index",
+          "columns": [
+            "reconciliation_id",
+            "sequence"
+          ],
+          "isUnique": true
+        },
+        "trust_bank_reconciliation_change_entry_index": {
+          "name": "trust_bank_reconciliation_change_entry_index",
+          "columns": [
+            "reconciliation_id",
+            "entry_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "trust_bank_reconciliation_change_reconciliation_id_trust_bank_reconciliation_id_fk": {
+          "name": "trust_bank_reconciliation_change_reconciliation_id_trust_bank_reconciliation_id_fk",
+          "tableFrom": "trust_bank_reconciliation_change",
+          "tableTo": "trust_bank_reconciliation",
+          "columnsFrom": [
+            "reconciliation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "trust_bank_reconciliation_change_entry_id_ledger_entry_id_fk": {
+          "name": "trust_bank_reconciliation_change_entry_id_ledger_entry_id_fk",
+          "tableFrom": "trust_bank_reconciliation_change",
+          "tableTo": "ledger_entry",
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "trust_bank_reconciliation_change_interest_id_trust_bank_reconciliation_interest_id_fk": {
+          "name": "trust_bank_reconciliation_change_interest_id_trust_bank_reconciliation_interest_id_fk",
+          "tableFrom": "trust_bank_reconciliation_change",
+          "tableTo": "trust_bank_reconciliation_interest",
+          "columnsFrom": [
+            "interest_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_bank_reconciliation_change_sequence_check": {
+          "name": "trust_bank_reconciliation_change_sequence_check",
+          "value": "\"trust_bank_reconciliation_change\".\"sequence\" > 0"
+        },
+        "trust_bank_reconciliation_change_kind_check": {
+          "name": "trust_bank_reconciliation_change_kind_check",
+          "value": "\"trust_bank_reconciliation_change\".\"kind\" IN ('cleared', 'uncleared', 'end_date', 'end_balance')"
+        },
+        "trust_bank_reconciliation_change_cause_check": {
+          "name": "trust_bank_reconciliation_change_cause_check",
+          "value": "\"trust_bank_reconciliation_change\".\"cause\" IN ('edit', 'undo', 'redo', 'history', 'restore')"
+        },
+        "trust_bank_reconciliation_change_end_date_shape_check": {
+          "name": "trust_bank_reconciliation_change_end_date_shape_check",
+          "value": "\"trust_bank_reconciliation_change\".\"end_date\" IS NULL OR \"trust_bank_reconciliation_change\".\"end_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "trust_bank_reconciliation_change_shape_check": {
+          "name": "trust_bank_reconciliation_change_shape_check",
+          "value": "(\"trust_bank_reconciliation_change\".\"kind\" IN ('cleared', 'uncleared') AND ((\"trust_bank_reconciliation_change\".\"entry_id\" IS NULL) <> (\"trust_bank_reconciliation_change\".\"interest_id\" IS NULL)) AND \"trust_bank_reconciliation_change\".\"end_date\" IS NULL AND \"trust_bank_reconciliation_change\".\"end_balance_minor\" IS NULL)\n        OR (\"trust_bank_reconciliation_change\".\"kind\" = 'end_date' AND \"trust_bank_reconciliation_change\".\"entry_id\" IS NULL AND \"trust_bank_reconciliation_change\".\"interest_id\" IS NULL AND \"trust_bank_reconciliation_change\".\"end_date\" IS NOT NULL AND \"trust_bank_reconciliation_change\".\"end_balance_minor\" IS NULL)\n        OR (\"trust_bank_reconciliation_change\".\"kind\" = 'end_balance' AND \"trust_bank_reconciliation_change\".\"entry_id\" IS NULL AND \"trust_bank_reconciliation_change\".\"interest_id\" IS NULL AND \"trust_bank_reconciliation_change\".\"end_date\" IS NULL AND \"trust_bank_reconciliation_change\".\"end_balance_minor\" IS NOT NULL)"
+        },
+        "trust_bank_reconciliation_change_cause_shape_check": {
+          "name": "trust_bank_reconciliation_change_cause_shape_check",
+          "value": "(\"trust_bank_reconciliation_change\".\"cause\" = 'edit' AND \"trust_bank_reconciliation_change\".\"reverts_change_id\" IS NULL AND \"trust_bank_reconciliation_change\".\"restore_point_id\" IS NULL)\n        OR (\"trust_bank_reconciliation_change\".\"cause\" IN ('undo', 'redo', 'history') AND \"trust_bank_reconciliation_change\".\"reverts_change_id\" IS NOT NULL AND \"trust_bank_reconciliation_change\".\"restore_point_id\" IS NULL)\n        OR (\"trust_bank_reconciliation_change\".\"cause\" = 'restore' AND \"trust_bank_reconciliation_change\".\"reverts_change_id\" IS NULL AND \"trust_bank_reconciliation_change\".\"restore_point_id\" IS NOT NULL)"
+        }
+      }
+    },
+    "trust_bank_reconciliation_cleared": {
+      "name": "trust_bank_reconciliation_cleared",
+      "columns": {
+        "reconciliation_id": {
+          "name": "reconciliation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_bank_reconciliation_cleared_reconciliation_index": {
+          "name": "trust_bank_reconciliation_cleared_reconciliation_index",
+          "columns": [
+            "reconciliation_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "trust_bank_reconciliation_cleared_reconciliation_id_trust_bank_reconciliation_id_fk": {
+          "name": "trust_bank_reconciliation_cleared_reconciliation_id_trust_bank_reconciliation_id_fk",
+          "tableFrom": "trust_bank_reconciliation_cleared",
+          "tableTo": "trust_bank_reconciliation",
+          "columnsFrom": [
+            "reconciliation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "trust_bank_reconciliation_cleared_entry_id_ledger_entry_id_fk": {
+          "name": "trust_bank_reconciliation_cleared_entry_id_ledger_entry_id_fk",
+          "tableFrom": "trust_bank_reconciliation_cleared",
+          "tableTo": "ledger_entry",
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "trust_bank_reconciliation_file": {
+      "name": "trust_bank_reconciliation_file",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reconciliation_id": {
+          "name": "reconciliation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "removes_file_id": {
+          "name": "removes_file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recorded_by": {
+          "name": "recorded_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_bank_reconciliation_file_reconciliation_index": {
+          "name": "trust_bank_reconciliation_file_reconciliation_index",
+          "columns": [
+            "reconciliation_id"
+          ],
+          "isUnique": false
+        },
+        "trust_bank_reconciliation_file_removes_unique_index": {
+          "name": "trust_bank_reconciliation_file_removes_unique_index",
+          "columns": [
+            "removes_file_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "trust_bank_reconciliation_file_reconciliation_id_trust_bank_reconciliation_id_fk": {
+          "name": "trust_bank_reconciliation_file_reconciliation_id_trust_bank_reconciliation_id_fk",
+          "tableFrom": "trust_bank_reconciliation_file",
+          "tableTo": "trust_bank_reconciliation",
+          "columnsFrom": [
+            "reconciliation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_bank_reconciliation_file_name_check": {
+          "name": "trust_bank_reconciliation_file_name_check",
+          "value": "length(\"trust_bank_reconciliation_file\".\"name\") > 0"
+        },
+        "trust_bank_reconciliation_file_size_check": {
+          "name": "trust_bank_reconciliation_file_size_check",
+          "value": "\"trust_bank_reconciliation_file\".\"size_bytes\" >= 0"
+        }
+      }
+    },
+    "trust_bank_reconciliation_interest": {
+      "name": "trust_bank_reconciliation_interest",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reconciliation_id": {
+          "name": "reconciliation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "posted_on": {
+          "name": "posted_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "removes_interest_id": {
+          "name": "removes_interest_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recorded_by": {
+          "name": "recorded_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_bank_reconciliation_interest_reconciliation_index": {
+          "name": "trust_bank_reconciliation_interest_reconciliation_index",
+          "columns": [
+            "reconciliation_id"
+          ],
+          "isUnique": false
+        },
+        "trust_bank_reconciliation_interest_removes_unique_index": {
+          "name": "trust_bank_reconciliation_interest_removes_unique_index",
+          "columns": [
+            "removes_interest_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "trust_bank_reconciliation_interest_reconciliation_id_trust_bank_reconciliation_id_fk": {
+          "name": "trust_bank_reconciliation_interest_reconciliation_id_trust_bank_reconciliation_id_fk",
+          "tableFrom": "trust_bank_reconciliation_interest",
+          "tableTo": "trust_bank_reconciliation",
+          "columnsFrom": [
+            "reconciliation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_bank_reconciliation_interest_kind_check": {
+          "name": "trust_bank_reconciliation_interest_kind_check",
+          "value": "\"trust_bank_reconciliation_interest\".\"kind\" IN ('credited', 'swept')"
+        },
+        "trust_bank_reconciliation_interest_posted_on_shape_check": {
+          "name": "trust_bank_reconciliation_interest_posted_on_shape_check",
+          "value": "\"trust_bank_reconciliation_interest\".\"posted_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "trust_bank_reconciliation_interest_amount_check": {
+          "name": "trust_bank_reconciliation_interest_amount_check",
+          "value": "\"trust_bank_reconciliation_interest\".\"amount_minor\" > 0"
+        },
+        "trust_bank_reconciliation_interest_description_check": {
+          "name": "trust_bank_reconciliation_interest_description_check",
+          "value": "length(\"trust_bank_reconciliation_interest\".\"description\") > 0"
+        }
+      }
+    },
+    "trust_bank_reconciliation_note": {
+      "name": "trust_bank_reconciliation_note",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reconciliation_id": {
+          "name": "reconciliation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "interest_id": {
+          "name": "interest_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "written_by": {
+          "name": "written_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "written_at": {
+          "name": "written_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_bank_reconciliation_note_reconciliation_index": {
+          "name": "trust_bank_reconciliation_note_reconciliation_index",
+          "columns": [
+            "reconciliation_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "trust_bank_reconciliation_note_reconciliation_id_trust_bank_reconciliation_id_fk": {
+          "name": "trust_bank_reconciliation_note_reconciliation_id_trust_bank_reconciliation_id_fk",
+          "tableFrom": "trust_bank_reconciliation_note",
+          "tableTo": "trust_bank_reconciliation",
+          "columnsFrom": [
+            "reconciliation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "trust_bank_reconciliation_note_entry_id_ledger_entry_id_fk": {
+          "name": "trust_bank_reconciliation_note_entry_id_ledger_entry_id_fk",
+          "tableFrom": "trust_bank_reconciliation_note",
+          "tableTo": "ledger_entry",
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "trust_bank_reconciliation_note_interest_id_trust_bank_reconciliation_interest_id_fk": {
+          "name": "trust_bank_reconciliation_note_interest_id_trust_bank_reconciliation_interest_id_fk",
+          "tableFrom": "trust_bank_reconciliation_note",
+          "tableTo": "trust_bank_reconciliation_interest",
+          "columnsFrom": [
+            "interest_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_bank_reconciliation_note_kind_check": {
+          "name": "trust_bank_reconciliation_note_kind_check",
+          "value": "\"trust_bank_reconciliation_note\".\"kind\" IN ('note', 'needs_review', 'resolved')"
+        },
+        "trust_bank_reconciliation_note_line_check": {
+          "name": "trust_bank_reconciliation_note_line_check",
+          "value": "(\"trust_bank_reconciliation_note\".\"entry_id\" IS NULL) <> (\"trust_bank_reconciliation_note\".\"interest_id\" IS NULL)"
+        },
+        "trust_bank_reconciliation_note_body_check": {
+          "name": "trust_bank_reconciliation_note_body_check",
+          "value": "(\"trust_bank_reconciliation_note\".\"kind\" = 'note' AND length(\"trust_bank_reconciliation_note\".\"body\") > 0) OR (\"trust_bank_reconciliation_note\".\"kind\" <> 'note' AND \"trust_bank_reconciliation_note\".\"body\" IS NULL)"
+        }
+      }
+    },
+    "trust_bank_reconciliation_restore_point": {
+      "name": "trust_bank_reconciliation_restore_point",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reconciliation_id": {
+          "name": "reconciliation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at_sequence": {
+          "name": "at_sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "automatic": {
+          "name": "automatic",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "saved_by": {
+          "name": "saved_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "trust_bank_reconciliation_restore_point_reconciliation_index": {
+          "name": "trust_bank_reconciliation_restore_point_reconciliation_index",
+          "columns": [
+            "reconciliation_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "trust_bank_reconciliation_restore_point_reconciliation_id_trust_bank_reconciliation_id_fk": {
+          "name": "trust_bank_reconciliation_restore_point_reconciliation_id_trust_bank_reconciliation_id_fk",
+          "tableFrom": "trust_bank_reconciliation_restore_point",
+          "tableTo": "trust_bank_reconciliation",
+          "columnsFrom": [
+            "reconciliation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "trust_bank_reconciliation_restore_point_name_check": {
+          "name": "trust_bank_reconciliation_restore_point_name_check",
+          "value": "length(\"trust_bank_reconciliation_restore_point\".\"name\") > 0"
+        },
+        "trust_bank_reconciliation_restore_point_sequence_check": {
+          "name": "trust_bank_reconciliation_restore_point_sequence_check",
+          "value": "\"trust_bank_reconciliation_restore_point\".\"at_sequence\" >= 0"
+        },
+        "trust_bank_reconciliation_restore_point_automatic_check": {
+          "name": "trust_bank_reconciliation_restore_point_automatic_check",
+          "value": "\"trust_bank_reconciliation_restore_point\".\"automatic\" IN (0, 1)"
         }
       }
     },

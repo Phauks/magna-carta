@@ -11252,6 +11252,232 @@ export type TrustFrozenProof = {
     balanced: boolean;
 };
 
+export type TrustBankReconciliationList = {
+    reconciliations: Array<TrustBankReconciliationSummary>;
+    nextStart: {
+        startDate: string;
+        startBalanceMinor: number;
+    } | null;
+};
+
+export type TrustBankReconciliationSummary = {
+    reconciliation: TrustBankReconciliationHeader;
+    endDate: string;
+    endBalanceMinor: number | null;
+    depositedMinor: number;
+    withdrawnMinor: number;
+    clearedBalanceMinor: number;
+    differenceMinor: number | null;
+    fileCount: number;
+    noteCount: number;
+    needsReviewCount: number;
+    interestCreditedMinor: number;
+    interestSweptMinor: number;
+};
+
+export type TrustBankReconciliationHeader = {
+    trustBankReconciliationId: string;
+    trustAccountId: string;
+    currency: string;
+    startDate: string;
+    startBalanceMinor: number;
+    startCarriedOver: boolean;
+    startedBy: string;
+    startedByName: string | null;
+    startedAt: string;
+    finishedBy: string | null;
+    finishedByName: string | null;
+    finishedAt: string | null;
+};
+
+export type StartTrustBankReconciliationResponse = {
+    trustBankReconciliationId: string;
+};
+
+export type StartTrustBankReconciliationRequest = {
+    trustAccountId: string;
+    startDate?: string | null;
+    startBalanceMinor?: number | null;
+    endDate: string;
+    endBalanceMinor?: number | null;
+};
+
+export type TrustBankReconciliationDetail = {
+    reconciliation: TrustBankReconciliationHeader;
+    endDate: string;
+    endBalanceMinor: number | null;
+    figures: TrustBankReconciliationFigures;
+    items: Array<TrustBankReconciliationItem>;
+    interest: Array<TrustBankReconciliationInterest>;
+    notes: Array<TrustBankReconciliationNote>;
+    files: Array<TrustBankReconciliationFile>;
+    changes: Array<TrustBankReconciliationChange>;
+    restorePoints: Array<TrustBankReconciliationRestorePoint>;
+    undoChangeId: string | null;
+    redoChangeId: string | null;
+    version: number;
+};
+
+export type TrustBankReconciliationFigures = {
+    startBalanceMinor: number;
+    depositedMinor: number;
+    withdrawnMinor: number;
+    clearedBalanceMinor: number;
+    endBalanceMinor: number | null;
+    differenceMinor: number | null;
+    depositCount: number;
+    depositClearedCount: number;
+    withdrawalCount: number;
+    withdrawalClearedCount: number;
+};
+
+export type TrustBankReconciliationItem = {
+    entryId: string;
+    effectiveDate: string;
+    description: string;
+    amountMinor: number;
+    type: 'check' | 'cash' | 'wire' | 'electronic_transfer' | 'card' | 'internal' | 'transfer' | 'bank_charge' | 'other';
+    number: string | null;
+    payeeOrFrom: string | null;
+    purpose: string | null;
+    matterId: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+    firmFunds: boolean;
+    movementId: string | null;
+    transferId: string | null;
+    recordedAt: string;
+    isNew: boolean;
+    cleared: boolean;
+};
+
+export type TrustBankReconciliationInterest = {
+    interestId: string;
+    kind: 'credited' | 'swept';
+    postedOn: string;
+    amountMinor: number;
+    description: string;
+    cleared: boolean;
+    recordedBy: string;
+    recordedAt: string;
+};
+
+export type TrustBankReconciliationNote = {
+    noteId: string;
+    line: TrustBankReconciliationLine;
+    kind: 'note' | 'needs_review' | 'resolved';
+    body: string | null;
+    writtenBy: string;
+    writtenByName: string | null;
+    writtenAt: string;
+};
+
+export type TrustBankReconciliationLine = {
+    kind: 'entry';
+    entryId: string;
+} | {
+    kind: 'interest';
+    interestId: string;
+};
+
+export type TrustBankReconciliationFile = {
+    fileId: string;
+    name: string;
+    contentType: string;
+    sizeBytes: number;
+    recordedBy: string;
+    recordedAt: string;
+};
+
+export type TrustBankReconciliationChange = {
+    changeId: string;
+    sequence: number;
+    kind: 'cleared' | 'uncleared' | 'end_date' | 'end_balance';
+    line: {
+        kind: 'entry';
+        entryId: string;
+    } | {
+        kind: 'interest';
+        interestId: string;
+    } | null;
+    endDate: string | null;
+    endBalanceMinor: number | null;
+    cause: 'edit' | 'undo' | 'redo' | 'history' | 'restore';
+    revertsChangeId: string | null;
+    restorePointId: string | null;
+    changedBy: string;
+    changedByName: string | null;
+    changedAt: string;
+    canRevert: boolean;
+};
+
+export type TrustBankReconciliationRestorePoint = {
+    restorePointId: string;
+    name: string;
+    atSequence: number;
+    automatic: boolean;
+    savedBy: string;
+    savedByName: string | null;
+    savedAt: string;
+};
+
+export type TrustBankReconciliationAcknowledgement = {
+    ok: true;
+};
+
+export type TrustBankReconciliationEditsRequest = {
+    edits: Array<TrustBankReconciliationEdit>;
+};
+
+export type TrustBankReconciliationEdit = {
+    kind: 'tick';
+    line: TrustBankReconciliationLine;
+    cleared: boolean;
+} | {
+    kind: 'end_date';
+    endDate: string;
+} | {
+    kind: 'end_balance';
+    endBalanceMinor: number;
+};
+
+export type TrustBankReconciliationRevertRequest = {
+    kind: 'undo';
+} | {
+    kind: 'redo';
+} | {
+    kind: 'history';
+    changeId: string;
+};
+
+export type TrustBankReconciliationSaveRequest = {
+    name: string;
+};
+
+export type TrustBankReconciliationRestoreRequest = {
+    restorePointId: string;
+};
+
+export type TrustBankReconciliationInterestRequest = {
+    kind: 'credited' | 'swept';
+    postedOn: string;
+    amountMinor: number;
+    description: string;
+    alsoSweep?: boolean;
+};
+
+export type TrustBankReconciliationNoteRequest = {
+    line: TrustBankReconciliationLine;
+    kind: 'note' | 'needs_review' | 'resolved';
+    body?: string | null;
+};
+
+export type TrustBankReconciliationFileRequest = {
+    name: string;
+    contentType: string;
+    dataBase64: string;
+};
+
 export type TrustChecksResponse = {
     nextCheckNumber: number;
     stock: TrustCheckStock | null;
@@ -52187,6 +52413,742 @@ export type TrustCloseReconciliationResponses = {
 };
 
 export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
+
+export type TrustListBankReconciliationsData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/bank-reconciliations';
+};
+
+export type TrustListBankReconciliationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListBankReconciliationsError = TrustListBankReconciliationsErrors[keyof TrustListBankReconciliationsErrors];
+
+export type TrustListBankReconciliationsResponses = {
+    /**
+     * The reconciliations
+     */
+    200: TrustBankReconciliationList;
+};
+
+export type TrustListBankReconciliationsResponse = TrustListBankReconciliationsResponses[keyof TrustListBankReconciliationsResponses];
+
+export type TrustStartBankReconciliationData = {
+    body: StartTrustBankReconciliationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations';
+};
+
+export type TrustStartBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustStartBankReconciliationError = TrustStartBankReconciliationErrors[keyof TrustStartBankReconciliationErrors];
+
+export type TrustStartBankReconciliationResponses = {
+    /**
+     * Started
+     */
+    201: StartTrustBankReconciliationResponse;
+};
+
+export type TrustStartBankReconciliationResponse = TrustStartBankReconciliationResponses[keyof TrustStartBankReconciliationResponses];
+
+export type TrustGetBankReconciliationData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}';
+};
+
+export type TrustGetBankReconciliationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustGetBankReconciliationError = TrustGetBankReconciliationErrors[keyof TrustGetBankReconciliationErrors];
+
+export type TrustGetBankReconciliationResponses = {
+    /**
+     * The reconciliation
+     */
+    200: TrustBankReconciliationDetail;
+};
+
+export type TrustGetBankReconciliationResponse = TrustGetBankReconciliationResponses[keyof TrustGetBankReconciliationResponses];
+
+export type TrustEditBankReconciliationData = {
+    body: TrustBankReconciliationEditsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/changes';
+};
+
+export type TrustEditBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustEditBankReconciliationError = TrustEditBankReconciliationErrors[keyof TrustEditBankReconciliationErrors];
+
+export type TrustEditBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustEditBankReconciliationResponse = TrustEditBankReconciliationResponses[keyof TrustEditBankReconciliationResponses];
+
+export type TrustRevertBankReconciliationChangeData = {
+    body: TrustBankReconciliationRevertRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/revert';
+};
+
+export type TrustRevertBankReconciliationChangeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRevertBankReconciliationChangeError = TrustRevertBankReconciliationChangeErrors[keyof TrustRevertBankReconciliationChangeErrors];
+
+export type TrustRevertBankReconciliationChangeResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRevertBankReconciliationChangeResponse = TrustRevertBankReconciliationChangeResponses[keyof TrustRevertBankReconciliationChangeResponses];
+
+export type TrustSaveBankReconciliationData = {
+    body: TrustBankReconciliationSaveRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/restore-points';
+};
+
+export type TrustSaveBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustSaveBankReconciliationError = TrustSaveBankReconciliationErrors[keyof TrustSaveBankReconciliationErrors];
+
+export type TrustSaveBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustSaveBankReconciliationResponse = TrustSaveBankReconciliationResponses[keyof TrustSaveBankReconciliationResponses];
+
+export type TrustRestoreBankReconciliationData = {
+    body: TrustBankReconciliationRestoreRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/restore';
+};
+
+export type TrustRestoreBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRestoreBankReconciliationError = TrustRestoreBankReconciliationErrors[keyof TrustRestoreBankReconciliationErrors];
+
+export type TrustRestoreBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRestoreBankReconciliationResponse = TrustRestoreBankReconciliationResponses[keyof TrustRestoreBankReconciliationResponses];
+
+export type TrustAddBankReconciliationInterestData = {
+    body: TrustBankReconciliationInterestRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/interest';
+};
+
+export type TrustAddBankReconciliationInterestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAddBankReconciliationInterestError = TrustAddBankReconciliationInterestErrors[keyof TrustAddBankReconciliationInterestErrors];
+
+export type TrustAddBankReconciliationInterestResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustAddBankReconciliationInterestResponse = TrustAddBankReconciliationInterestResponses[keyof TrustAddBankReconciliationInterestResponses];
+
+export type TrustRemoveBankReconciliationInterestData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+        interestId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/interest/{interestId}/removal';
+};
+
+export type TrustRemoveBankReconciliationInterestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRemoveBankReconciliationInterestError = TrustRemoveBankReconciliationInterestErrors[keyof TrustRemoveBankReconciliationInterestErrors];
+
+export type TrustRemoveBankReconciliationInterestResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRemoveBankReconciliationInterestResponse = TrustRemoveBankReconciliationInterestResponses[keyof TrustRemoveBankReconciliationInterestResponses];
+
+export type TrustAddBankReconciliationNoteData = {
+    body: TrustBankReconciliationNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/notes';
+};
+
+export type TrustAddBankReconciliationNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAddBankReconciliationNoteError = TrustAddBankReconciliationNoteErrors[keyof TrustAddBankReconciliationNoteErrors];
+
+export type TrustAddBankReconciliationNoteResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustAddBankReconciliationNoteResponse = TrustAddBankReconciliationNoteResponses[keyof TrustAddBankReconciliationNoteResponses];
+
+export type TrustAttachBankReconciliationFileData = {
+    body: TrustBankReconciliationFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/files';
+};
+
+export type TrustAttachBankReconciliationFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAttachBankReconciliationFileError = TrustAttachBankReconciliationFileErrors[keyof TrustAttachBankReconciliationFileErrors];
+
+export type TrustAttachBankReconciliationFileResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustAttachBankReconciliationFileResponse = TrustAttachBankReconciliationFileResponses[keyof TrustAttachBankReconciliationFileResponses];
+
+export type TrustRemoveBankReconciliationFileData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/files/{fileId}/removal';
+};
+
+export type TrustRemoveBankReconciliationFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRemoveBankReconciliationFileError = TrustRemoveBankReconciliationFileErrors[keyof TrustRemoveBankReconciliationFileErrors];
+
+export type TrustRemoveBankReconciliationFileResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRemoveBankReconciliationFileResponse = TrustRemoveBankReconciliationFileResponses[keyof TrustRemoveBankReconciliationFileResponses];
+
+export type TrustBankReconciliationFileData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/files/{fileId}';
+};
+
+export type TrustBankReconciliationFileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustBankReconciliationFileError = TrustBankReconciliationFileErrors[keyof TrustBankReconciliationFileErrors];
+
+export type TrustBankReconciliationFileResponses = {
+    /**
+     * The file
+     */
+    200: Blob | File;
+};
+
+export type TrustBankReconciliationFileResponse = TrustBankReconciliationFileResponses[keyof TrustBankReconciliationFileResponses];
+
+export type TrustFinishBankReconciliationData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/finish';
+};
+
+export type TrustFinishBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustFinishBankReconciliationError = TrustFinishBankReconciliationErrors[keyof TrustFinishBankReconciliationErrors];
+
+export type TrustFinishBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustFinishBankReconciliationResponse = TrustFinishBankReconciliationResponses[keyof TrustFinishBankReconciliationResponses];
 
 export type TrustChecksData = {
     body?: never;

@@ -600,8 +600,15 @@
     {
       "idx": 85,
       "version": "6",
-      "when": 1795120349306,
-      "tag": "20261119T203229_payments-recorded-by-hand",
+      "when": 1795115498532,
+      "tag": "20261119T202327_trust-bank-reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "6",
+      "when": 1795120742577,
+      "tag": "20261119T203902_payments-recorded-by-hand",
       "breakpoints": true
     }
   ]
