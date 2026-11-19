@@ -556,7 +556,7 @@ export type ErrorLookupResponse = {
 export type ErrorRecord = {
     errorId: string;
     recordedAt: string;
-    source: 'server' | 'browser';
+    source: 'server' | 'browser' | 'background';
     service: string | null;
     operation: string | null;
     status: number | null;
@@ -590,6 +590,54 @@ export type ReportIncidentRequest = {
         clientAt: string;
         deployment?: string;
     };
+};
+
+export type IncidentList = {
+    incidents: Array<IncidentSummary>;
+};
+
+export type IncidentSummary = {
+    id: string;
+    createdAt: string;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    statusChangedAt: string | null;
+    reportedBy: string;
+    reporterName: string | null;
+    summary: string | null;
+    route: string | null;
+    errorIdCount: number;
+    hasScreenshot: boolean;
+};
+
+export type IncidentDetail = {
+    id: string;
+    createdAt: string;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    statusChangedAt: string | null;
+    answeredByName: string | null;
+    statusNote: string | null;
+    reportedBy: string;
+    reporterName: string | null;
+    description: string | null;
+    errorIds: Array<string>;
+    breadcrumbs: Array<{
+        at: string;
+        action: string;
+        route: string;
+    }>;
+    route: string | null;
+    appVersion: string | null;
+    deployment: string | null;
+    hasScreenshot: boolean;
+};
+
+export type AttachIncidentScreenshotRequest = {
+    imageBase64: string;
+};
+
+export type AnswerIncidentRequest = {
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    note?: string | null;
 };
 
 export type RecordClientErrorResponse = {
@@ -13466,6 +13514,43 @@ export type PlatformErrorLookupResponses = {
 
 export type PlatformErrorLookupResponse = PlatformErrorLookupResponses[keyof PlatformErrorLookupResponses];
 
+export type IncidentsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents';
+};
+
+export type IncidentsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsListError = IncidentsListErrors[keyof IncidentsListErrors];
+
+export type IncidentsListResponses = {
+    /**
+     * The reports
+     */
+    200: IncidentList;
+};
+
+export type IncidentsListResponse = IncidentsListResponses[keyof IncidentsListResponses];
+
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
     path?: never;
@@ -13506,6 +13591,289 @@ export type IncidentsReportResponses = {
 };
 
 export type IncidentsReportResponse = IncidentsReportResponses[keyof IncidentsReportResponses];
+
+export type IncidentsListMineData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents/mine';
+};
+
+export type IncidentsListMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsListMineError = IncidentsListMineErrors[keyof IncidentsListMineErrors];
+
+export type IncidentsListMineResponses = {
+    /**
+     * The member's reports
+     */
+    200: IncidentList;
+};
+
+export type IncidentsListMineResponse = IncidentsListMineResponses[keyof IncidentsListMineResponses];
+
+export type IncidentsGetMineData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/mine/{incidentId}';
+};
+
+export type IncidentsGetMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsGetMineError = IncidentsGetMineErrors[keyof IncidentsGetMineErrors];
+
+export type IncidentsGetMineResponses = {
+    /**
+     * The report
+     */
+    200: IncidentDetail;
+};
+
+export type IncidentsGetMineResponse = IncidentsGetMineResponses[keyof IncidentsGetMineResponses];
+
+export type IncidentsScreenshotMineData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/mine/{incidentId}/screenshot';
+};
+
+export type IncidentsScreenshotMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsScreenshotMineError = IncidentsScreenshotMineErrors[keyof IncidentsScreenshotMineErrors];
+
+export type IncidentsScreenshotMineResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type IncidentsScreenshotMineResponse = IncidentsScreenshotMineResponses[keyof IncidentsScreenshotMineResponses];
+
+export type IncidentsAttachScreenshotData = {
+    body: AttachIncidentScreenshotRequest;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/mine/{incidentId}/screenshot';
+};
+
+export type IncidentsAttachScreenshotErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * The report already has a screenshot
+     */
+    409: Problem;
+    /**
+     * Not a PNG or JPEG, or too large
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsAttachScreenshotError = IncidentsAttachScreenshotErrors[keyof IncidentsAttachScreenshotErrors];
+
+export type IncidentsAttachScreenshotResponses = {
+    /**
+     * Attached
+     */
+    204: void;
+};
+
+export type IncidentsAttachScreenshotResponse = IncidentsAttachScreenshotResponses[keyof IncidentsAttachScreenshotResponses];
+
+export type IncidentsGetData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incidentId}';
+};
+
+export type IncidentsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsGetError = IncidentsGetErrors[keyof IncidentsGetErrors];
+
+export type IncidentsGetResponses = {
+    /**
+     * The report
+     */
+    200: IncidentDetail;
+};
+
+export type IncidentsGetResponse = IncidentsGetResponses[keyof IncidentsGetResponses];
+
+export type IncidentsAnswerData = {
+    body: AnswerIncidentRequest;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incidentId}';
+};
+
+export type IncidentsAnswerErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsAnswerError = IncidentsAnswerErrors[keyof IncidentsAnswerErrors];
+
+export type IncidentsAnswerResponses = {
+    /**
+     * The answered report
+     */
+    200: IncidentDetail;
+};
+
+export type IncidentsAnswerResponse = IncidentsAnswerResponses[keyof IncidentsAnswerResponses];
+
+export type IncidentsScreenshotData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incidentId}/screenshot';
+};
+
+export type IncidentsScreenshotErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsScreenshotError = IncidentsScreenshotErrors[keyof IncidentsScreenshotErrors];
+
+export type IncidentsScreenshotResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type IncidentsScreenshotResponse = IncidentsScreenshotResponses[keyof IncidentsScreenshotResponses];
 
 export type ClientErrorsRecordData = {
     body: RecordClientErrorRequest;

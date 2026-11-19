@@ -277,6 +277,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   esign: "firm",
   shipping: "firm",
   tools: "firm",
+  // incidents:* governs reading and answering the problem reports a firm's members send; a report
+  // belongs to the firm that received it and to no matter.
+  incidents: "firm",
   // custody:* governs the register of physical client originals a firm holds. It binds the FIRM
   // rather than the matter — a deliberate call against the files:* precedent: a custody packet may
   // have no matter at all by construction (a will held for a client whose last matter closed eleven

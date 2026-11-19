@@ -1006,8 +1006,10 @@
       expect(within(panel).getByText("2026-09-08-0042")).toBeVisible();
     });
 
-    await step("And says it is drawn by the save rather than held for this panel", () => {
-      expect(within(panel).getByText("drawn when this is saved")).toBeVisible();
+    await step("And marks it a draft: in italics, with the reason on the number itself", () => {
+      const number = within(panel).getByText("2026-09-08-0042");
+      expect(number.tagName).toBe("EM");
+      expect(number.getAttribute("title")).toMatch(/held for this record until it is saved/);
     });
 
     await step("The figures are tabular, so two references stack digit under digit", () => {
