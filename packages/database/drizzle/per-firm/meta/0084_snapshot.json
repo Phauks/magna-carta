@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d3e4f655-ca80-4bcd-ab84-153915e90fb5",
+  "id": "ac6c0590-a928-428a-b705-eacfb66e1918",
   "prevId": "60c1ab6d-39a4-4786-b325-b5c865180f44",
   "tables": {
     "account_balance": {
@@ -481,220 +481,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "bates_range": {
-      "name": "bates_range",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "prefix": {
-          "name": "prefix",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "digits": {
-          "name": "digits",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "first_number": {
-          "name": "first_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_number": {
-          "name": "last_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "purpose": {
-          "name": "purpose",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_file_id": {
-          "name": "source_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "exhibit_set_id": {
-          "name": "exhibit_set_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "stamped_file_id": {
-          "name": "stamped_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "stamped_file_saved_at": {
-          "name": "stamped_file_saved_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "bates_range_matter_prefix_first_unique_index": {
-          "name": "bates_range_matter_prefix_first_unique_index",
-          "columns": [
-            "matter_id",
-            "prefix",
-            "first_number"
-          ],
-          "isUnique": true
-        },
-        "bates_range_matter_created_index": {
-          "name": "bates_range_matter_created_index",
-          "columns": [
-            "matter_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "bates_range_source_file_index": {
-          "name": "bates_range_source_file_index",
-          "columns": [
-            "source_file_id"
-          ],
-          "isUnique": false
-        },
-        "bates_range_stamped_file_index": {
-          "name": "bates_range_stamped_file_index",
-          "columns": [
-            "stamped_file_id"
-          ],
-          "isUnique": false
-        },
-        "bates_range_exhibit_set_index": {
-          "name": "bates_range_exhibit_set_index",
-          "columns": [
-            "exhibit_set_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "bates_range_matter_id_matter_id_fk": {
-          "name": "bates_range_matter_id_matter_id_fk",
-          "tableFrom": "bates_range",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "bates_range_source_file_id_file_id_fk": {
-          "name": "bates_range_source_file_id_file_id_fk",
-          "tableFrom": "bates_range",
-          "tableTo": "file",
-          "columnsFrom": [
-            "source_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "bates_range_exhibit_set_id_exhibit_set_id_fk": {
-          "name": "bates_range_exhibit_set_id_exhibit_set_id_fk",
-          "tableFrom": "bates_range",
-          "tableTo": "exhibit_set",
-          "columnsFrom": [
-            "exhibit_set_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "bates_range_stamped_file_id_file_id_fk": {
-          "name": "bates_range_stamped_file_id_file_id_fk",
-          "tableFrom": "bates_range",
-          "tableTo": "file",
-          "columnsFrom": [
-            "stamped_file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "bates_range_purpose_check": {
-          "name": "bates_range_purpose_check",
-          "value": "\"bates_range\".\"purpose\" IN ('pdfEditor', 'exhibitPackage')"
-        },
-        "bates_range_numbers_check": {
-          "name": "bates_range_numbers_check",
-          "value": "\"bates_range\".\"first_number\" >= 0 AND \"bates_range\".\"last_number\" >= \"bates_range\".\"first_number\""
-        },
-        "bates_range_digits_check": {
-          "name": "bates_range_digits_check",
-          "value": "\"bates_range\".\"digits\" BETWEEN 1 AND 12"
-        },
-        "bates_range_prefix_length_check": {
-          "name": "bates_range_prefix_length_check",
-          "value": "length(\"bates_range\".\"prefix\") <= 40"
-        },
-        "bates_range_saved_shape_check": {
-          "name": "bates_range_saved_shape_check",
-          "value": "(\"bates_range\".\"stamped_file_id\" IS NULL) = (\"bates_range\".\"stamped_file_saved_at\" IS NULL)"
-        }
-      }
     },
     "calendar_event_link": {
       "name": "calendar_event_link",
@@ -12601,6 +12387,27 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'open'"
+        },
+        "status_note_ciphertext": {
+          "name": "status_note_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status_changed_at": {
+          "name": "status_changed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status_changed_by": {
+          "name": "status_changed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "reported_by": {
           "name": "reported_by",

@@ -1,3 +1,9 @@
+import {
+  INCIDENT_ANSWERED_TOPIC,
+  INCIDENT_CREATED_TOPIC,
+  INCIDENT_STATUSES,
+  isIncidentStatus,
+} from "@magna-carta/data-access/incident-statements";
 import type { KnownPermission } from "@magna-carta/access-control/registry";
 import {
   CALENDAR_DEADLINE_DUE_EMISSION_POINT,
@@ -506,11 +512,7 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     audience: "capability-holders",
     audienceCapability: "firm:manageMembers",
     includeActor: false,
-    // The only registered topic whose producer is a worker route rather than a domain package, so
-    // there is no package constant to import here. apps/api-worker/test/notifications-routes.test.ts
-    // pins this spelling against the route's own exported constant, which is the same guarantee the
-    // imports above give by construction.
-    subscribesTo: "incident.created",
+    subscribesTo: INCIDENT_CREATED_TOPIC,
     subjectKind: "incident",
     subjectPayloadKey: "incidentId",
     // An incident is filed against the firm, not a matter — the route's own resource binding. It is
@@ -529,7 +531,66 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     escalation: "digest",
     channels: ["in_app", "email"],
     emailContent: "category-count",
-    deepLink: (subjectId) => `/support/incidents/${subjectId}`,
+    deepLink: (subjectId) => `/settings/problem-reports/${subjectId}`,
+  },
+  // The other side of the same filing: the person who sent the report hears that it arrived, and
+  // then each time somebody answers it. Both reach ONE member, named by the payload, because a
+  // report is one person's account of what went wrong for them and its answer is addressed to them.
+  {
+    key: "system.incident.received",
+    category: "system",
+    severity: "informational",
+    mandatory: false,
+    audience: "named-recipient",
+    audiencePayloadKey: "reportedBy",
+    // The receipt goes to the person who filed, who is the actor of the filing: that is the point.
+    includeActor: true,
+    subscribesTo: INCIDENT_CREATED_TOPIC,
+    subjectKind: "incident",
+    subjectPayloadKey: "incidentId",
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    facts: { errorIdCount: { kind: "integer" } },
+    buildFacts: (payload) => {
+      const count = payload["errorIdCount"];
+      return { errorIdCount: typeof count === "number" ? count : 0 };
+    },
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/settings/my-reports/${subjectId}`,
+  },
+  {
+    key: "system.incident.answered",
+    category: "system",
+    severity: "informational",
+    mandatory: false,
+    audience: "named-recipient",
+    audiencePayloadKey: "reportedBy",
+    // An admin who answers a report they sent themselves still hears the answer, like any sender.
+    includeActor: true,
+    subscribesTo: INCIDENT_ANSWERED_TOPIC,
+    subjectKind: "incident",
+    subjectPayloadKey: "incidentId",
+    matterAnchored: false,
+    matterResolution: { kind: "none" },
+    // The status it moved to, and whether a note came with it. NOT the note: it is somebody's words
+    // about somebody's problem, sealed under the firm key, and read on the report itself.
+    facts: {
+      status: { kind: "enum", labels: INCIDENT_STATUSES },
+      noted: { kind: "boolean" },
+    },
+    buildFacts: (payload) => {
+      const status = payload["status"];
+      return {
+        status: isIncidentStatus(status) ? status : "open",
+        noted: payload["noted"] === true,
+      };
+    },
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (subjectId) => `/settings/my-reports/${subjectId}`,
   },
   {
     key: "calendar.event.scheduled",

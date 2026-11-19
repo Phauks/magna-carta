@@ -18,6 +18,17 @@ export const incidentDescription = protectedField({
   permission: assertPermission("incidents:viewDescription"),
 });
 
+// The answerer's note to the reporter that rides an incident's status, sealed under the firm key on
+// the description's terms: someone's words about somebody's problem, which may name what they were
+// working on. Read with the same audited permission; the reporter's own read of their report is
+// granted it for that one row by the route, never by a role.
+export const incidentStatusNote = protectedField({
+  table: "incident",
+  column: "status_note_ciphertext",
+  purpose: "pii",
+  permission: assertPermission("incidents:viewDescription"),
+});
+
 // The per-firm named-secret store's value column, sealed under the firm secrets key and readable
 // only with firm:manageSecrets (an audited decrypt). The secrets store (secret-statements.ts) is its
 // reader/writer; the AAD binds each value to its firm_secret row id, so a secret cannot be replayed
@@ -83,6 +94,7 @@ export const matterAssetIdentifierValue = protectedField({
 // Every protected-field declaration the chokepoint enforces. Order is not significant.
 export const PROTECTED_FIELD_DECLARATIONS: readonly ProtectedFieldDeclaration[] = [
   incidentDescription,
+  incidentStatusNote,
   firmSecretValue,
   integrationCredentialValue,
   directoryIdentifierValue,

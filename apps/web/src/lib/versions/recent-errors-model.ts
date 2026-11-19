@@ -108,7 +108,7 @@ export function describeErrorWhat(group: RecentErrorGroup): string {
 export interface ErrorRecordValue {
   readonly errorId: string;
   readonly recordedAt: string;
-  readonly source: "server" | "browser";
+  readonly source: RecentErrorSource;
   readonly service: string | null;
   readonly operation: string | null;
   readonly status: number | null;
@@ -156,7 +156,15 @@ export function errorRecordRows(
   const add = (label: string, value: string | null, mono = false) => {
     if (value !== null && value !== "") rows.push({ label, value, mono });
   };
-  add(record.source === "browser" ? "App route" : "Request", record.operation, true);
+  add(
+    record.source === "browser"
+      ? "App route"
+      : record.source === "background"
+        ? "Background work"
+        : "Request",
+    record.operation,
+    true,
+  );
   add(
     "Answer",
     record.status === null
