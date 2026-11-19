@@ -24,6 +24,9 @@
       "path": "../../packages/ai-detection/tsconfig.build.json"
     },
     {
+      "path": "../../packages/bates/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/billing/tsconfig.build.json"
     },
     {

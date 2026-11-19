@@ -323,6 +323,9 @@ importers:
       '@magna-carta/ai-detection':
         specifier: workspace:*
         version: link:../../packages/ai-detection
+      '@magna-carta/bates':
+        specifier: workspace:*
+        version: link:../../packages/bates
       '@magna-carta/billing':
         specifier: workspace:*
         version: link:../../packages/billing
@@ -1267,6 +1270,31 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
 
+  packages/bates:
+    dependencies:
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
   packages/billing:
     dependencies:
       '@magna-carta/billing-core':
@@ -2097,6 +2125,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/house-document':
+        specifier: workspace:*
+        version: link:../house-document
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
