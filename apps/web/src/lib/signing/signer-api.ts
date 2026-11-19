@@ -32,16 +32,20 @@ import {
   signerOpen,
   signerReadDocument,
   signerReadRequest,
+  signerReadSignedCopy,
+  signerReadSignedCopyCertificate,
+  signerReadSignedCopyDocument,
   signerSendAccessCode,
   type SignerAccessCodeSent,
   type SignerAdoption,
   type SignerOutcome,
   type SignerRequestView,
+  type SignedCopyView,
 } from "@magna-carta/api-client";
 import { failureOf } from "$lib/api/api-client.ts";
 import type { Failure } from "$lib/api/problem.ts";
 
-export type { SignerAdoption, SignerOutcome, SignerRequestView };
+export type { SignedCopyView, SignerAdoption, SignerOutcome, SignerRequestView };
 
 /** The header the link travels in. The server's twin is in the worker's signing directory. */
 export const SIGNER_LINK_HEADER = "x-signing-link";
@@ -78,6 +82,26 @@ export function readSigning(token: string): Promise<SignerCall<SignerRequestView
 export function readSigningDocument(token: string): Promise<SignerCall<ArrayBuffer>> {
   return outcomeOf(async () => {
     const answer = await signerReadDocument({ ...asSigner(token), parseAs: "arrayBuffer" });
+    return { data: answer.data as unknown as ArrayBuffer };
+  });
+}
+
+/** What the link in the completion email opens: the title, the sender, and when it was sealed. */
+export function readSignedCopy(token: string): Promise<SignerCall<SignedCopyView>> {
+  return outcomeOf(() => signerReadSignedCopy(asSigner(token)));
+}
+
+/** The sealed, signed copy, or its Certificate of Completion, as bytes to save. */
+export function readSignedCopyFile(
+  token: string,
+  which: "document" | "certificate",
+): Promise<SignerCall<ArrayBuffer>> {
+  return outcomeOf(async () => {
+    const options = { ...asSigner(token), parseAs: "arrayBuffer" } as const;
+    const answer =
+      which === "document"
+        ? await signerReadSignedCopyDocument(options)
+        : await signerReadSignedCopyCertificate(options);
     return { data: answer.data as unknown as ArrayBuffer };
   });
 }

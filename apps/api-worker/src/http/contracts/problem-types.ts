@@ -827,6 +827,9 @@ export const PROBLEM_TYPES = {
   "signing-link-not-valid": "signing-link-not-valid",
   "signing-link-expired": "signing-link-expired",
   "signing-request-closed": "signing-request-closed",
+  // A link to a signed copy that arrived before the copy was sealed (HTTP 410). Trying again in a
+  // few minutes is the answer; the copy link's other refusals reuse the two types above.
+  "signed-copy-not-ready": "signed-copy-not-ready",
   // The signer is ahead of their own steps: not yet their turn, the code not yet entered, the
   // agreement to sign electronically not yet given, or a field left empty (HTTP 409 or 422).
   "signing-step-refused": "signing-step-refused",

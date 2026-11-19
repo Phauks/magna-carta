@@ -47,7 +47,8 @@
   slices: 2-7-exhibits
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
   evidence: packages/exhibits/src/scheme.ts and presets.ts: five sequences, both overflow forms, prefix and start-at as per-set values, and copyable presets at /api/v1/matters/{matterId}/exhibit-scheme-presets, edited in apps/web/src/lib/exhibits/numbering-dialog.svelte.
-  awaiting-owner: Which letter form follows Z — doubled (AA, BB, CC) or bijective (AA, AB, AC). The surveyed trial-practice guidance says double letters and that is the recommendation, but a label goes into filed documents and is frozen onto the member row at issue, so changing the form after the first set has gone out is a migration over records nobody may rewrite. Beside it and unsettled: which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flags E1 and E4.
+  awaiting-owner: Which starter presets ship, if any — the two candidates read from primary text are numbers-for-plaintiff with letters-for-defendant, and plaintiff-from-1 with defendant-from-500, and both are current practice in the same courthouse, so shipping both means shipping two conflicting readings of one court. Exhibits design flag E4.
+  notes: Owner ruling 2026-11-19 on flag E1: the letter form after Z is the member's choice per set, which the numbering dialog already offers (doubled by default, or running AA, AB).
 
 - id: exhibits.references
   name: In-text exhibit references

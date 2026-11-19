@@ -66,7 +66,6 @@ export type TrustValidationCode =
   | "check-number-invalid"
   | "check-number-used"
   | "check-not-waiting"
-  | "check-result-empty"
   | "check-already-answered"
   | "check-void-reason-missing"
   | "unknown-trust-check"

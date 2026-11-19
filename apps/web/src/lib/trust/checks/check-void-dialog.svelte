@@ -1,19 +1,13 @@
 <script lang="ts">
   /*
-   * Voiding a check number: a check already printed (lost, stale, stopped), or the next number on
-   * the account for a sheet wasted outside the product, so the numbers keep matching the paper.
-   *
-   * VOIDING MOVES NO MONEY, AND THE PANEL SAYS SO WHERE THE FEAR IS. The money left the client's
-   * ledger when the payment was approved; voiding the check records what happened to the paper and
-   * returns the payment to To Print for a replacement. A reader who wants the payment itself undone
-   * is told that is a deposit back to the ledger, not this.
-   *
-   * VOID AND REPRINT is the same act with one more step after it: the screen opens Confirm Print for
-   * the payment, so a check that came out wrong after it was recorded as printed is reprinted from
-   * its row. `onVoided` hands the payment up when the reader asked for that.
+   * Void Next Number: the next number on the account, for a sheet wasted outside Magna Carta (torn
+   * in the printer, written on by hand), so the numbers on screen keep matching the paper.
    *
    * THE REASON IS REQUIRED, because a voided number with no reason is the first thing an examiner
    * asks about. An empty reason refuses the commit; the field says nothing, the refusal does.
+   *
+   * A printed check is not voided here: its row's Return to List does that, in
+   * check-return-dialog.svelte, and puts its payment back on To Print.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
@@ -28,32 +22,16 @@
   let {
     open = $bindable(false),
     trustAccountId,
-    subject,
+    checkNumber,
     service,
     onVoided,
   }: {
     open?: boolean;
     trustAccountId: string;
-    /**
-     * What is being voided: one printed check, or the account's next number. Null while closed.
-     */
-    subject:
-      | {
-          readonly kind: "check";
-          readonly trustCheckId: string;
-          readonly checkNumber: number;
-          readonly payee: string;
-          readonly amountText: string;
-          /** The payment the check pays. */
-          readonly trustMovementId: string | null;
-          /** Whether the payment is printed again once the check is voided. */
-          readonly reprint: boolean;
-        }
-      | { readonly kind: "next"; readonly checkNumber: number }
-      | null;
+    /** The account's next number, the one being voided. Null while closed. */
+    checkNumber: number | null;
     service: TrustChecksService;
-    /** Voided. `reprint` is the payment to print again, where the reader asked for that. */
-    onVoided: (reprint: string | null) => void;
+    onVoided: () => void;
   } = $props();
 
   let reason = $state("");
@@ -66,36 +44,19 @@
     failure = null;
   }
 
-  const reprinting = $derived(subject?.kind === "check" && subject.reprint);
-  const heading = $derived(
-    subject === null
-      ? "Void Check"
-      : reprinting
-        ? `Void and Reprint Check ${subject.checkNumber}`
-        : `Void Check ${subject.checkNumber}`,
-  );
-  const dialogSubtitle = $derived<RecordSubject>({
-    facts:
-      subject === null
-        ? []
-        : subject.kind === "check"
-          ? [subject.payee, subject.amountText]
-          : ["The next number, unprinted"],
-  });
+  const heading = $derived(checkNumber === null ? "Void Next Number" : `Void Check ${checkNumber}`);
+  const dialogSubtitle: RecordSubject = { facts: ["The next number, unprinted"] };
 
   const refusal = $derived(
-    subject === null ? "No check is chosen." : reason.trim() === "" ? "Give a reason." : undefined,
+    checkNumber === null ? "No number is chosen." : reason.trim() === "" ? "Give a reason." : undefined,
   );
 
   async function commit(): Promise<ActionOutcome> {
-    if (subject === null) return "refused";
+    if (checkNumber === null) return "refused";
     failure = null;
-    const outcome =
-      subject.kind === "check"
-        ? await service.voidCheck(trustAccountId, subject.trustCheckId, reason.trim(), submissionKey)
-        : await service.voidNextNumber(trustAccountId, reason.trim(), submissionKey);
+    const outcome = await service.voidNextNumber(trustAccountId, reason.trim(), submissionKey);
     if (outcome.kind === "ok") {
-      onVoided(subject.kind === "check" && subject.reprint ? subject.trustMovementId : null);
+      onVoided();
       return "committed";
     }
     failure = stated(
@@ -112,7 +73,7 @@
   kind="destructive"
   {heading}
   subtitle={dialogSubtitle}
-  commitLabel={reprinting ? "Void and Reprint" : "Void Check"}
+  commitLabel="Void Check"
   commitBusyLabel="Voiding"
   commitRefusal={refusal}
   unsavedChanges={reason.trim() !== ""}
@@ -139,15 +100,7 @@
       </LabelledField>
       <DefinitionList.Root>
         <DefinitionList.Row term="What Changes">
-          {subject?.kind === "next"
-            ? "The number is kept on the Voided list, and the next check prints on the number after it."
-            : reprinting
-              ? "The number is kept on the Voided list, and the payment is ready to print again on a new number."
-              : "The number is kept on the Voided list, and the payment goes back to To Print for a new check."}
-        </DefinitionList.Row>
-        <DefinitionList.Row term="Money">
-          Voiding does not move money. To undo the payment itself, record a deposit back to the
-          client's ledger.
+          The number is kept on the Voided list, and the next check prints on the number after it.
         </DefinitionList.Row>
       </DefinitionList.Root>
     </div>

@@ -24,6 +24,19 @@ import { mintSignedToken, verifySignedToken } from "../signed-token.ts";
 /** The `typ` of the link a signer's email carries. */
 export const SIGNER_LINK_TOKEN_TYPE = "signing-request-signer";
 
+/**
+ * The `typ` of the link the completion email carries: the same signer and secret, but a different
+ * kind of token, so it opens the signed copy and nothing else, and a signing link opens nothing of
+ * the copy's. It lives for a fixed time after sealing rather than until the request's last day.
+ */
+export const SIGNED_COPY_TOKEN_TYPE = "signing-signed-copy";
+
+/** How long the link to a signed copy works after the copy is sealed. */
+export const SIGNED_COPY_LIFETIME_DAYS = 30;
+
+/** Where the page that hands a signer their signed copy lives, beside the signing page. */
+export const SIGNED_COPY_SCREEN_PATH = "/sign/copy";
+
 /** The header a signer's page sends the link in. Never the address: an address is logged. */
 export const SIGNER_LINK_HEADER = "x-signing-link";
 
@@ -111,6 +124,27 @@ export async function mintSignerLink(
   });
 }
 
+/** Mint the link to a signer's signed copy; it lives for a fixed time from the sealing. */
+export async function mintSignedCopyLink(
+  key: string,
+  facts: SignerLinkFacts & { readonly sealedAt: string },
+): Promise<string> {
+  const expires = Date.parse(facts.sealedAt) + SIGNED_COPY_LIFETIME_DAYS * 24 * 60 * 60 * 1000;
+  return await mintSignedToken(key, SIGNED_COPY_TOKEN_TYPE, {
+    firmId: facts.firmId,
+    requestId: facts.requestId,
+    signerId: facts.signerId,
+    secretVersion: facts.secretVersion,
+    exp: Math.floor(expires / 1000),
+    secret: await signerLinkSecret(key, facts.firmId, facts.signerId, facts.secretVersion),
+  });
+}
+
+/** The page that hands a signer their signed copy, for one link. */
+export function signedCopyPageLink(origin: string, token: string): string {
+  return `${origin}${SIGNED_COPY_SCREEN_PATH}/${encodeURIComponent(token)}`;
+}
+
 /** The signer's page for one link, on the origin the request that sent it arrived at. */
 export function signerPageLink(origin: string, token: string): string {
   return `${origin}${SIGNER_SCREEN_PATH}/${encodeURIComponent(token)}`;
@@ -126,11 +160,12 @@ export async function readSignerLink(
   key: string,
   presented: string,
   nowSeconds: number,
+  tokenType: typeof SIGNER_LINK_TOKEN_TYPE | typeof SIGNED_COPY_TOKEN_TYPE = SIGNER_LINK_TOKEN_TYPE,
 ): Promise<{
   readonly outcome: "verified" | "expired";
   readonly link: SignerLinkFacts & { readonly secret: string };
 } | null> {
-  const payload = await verifySignedToken(key, presented, SIGNER_LINK_TOKEN_TYPE);
+  const payload = await verifySignedToken(key, presented, tokenType);
   if (payload === null) return null;
   const { firmId, requestId, signerId, secretVersion, exp, secret } = payload;
   if (

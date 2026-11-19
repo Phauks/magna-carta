@@ -33,7 +33,7 @@ An outside service is an API somebody else runs, such as Cloudflare Realtime for
 
 A platform operator sees more on the **Features and Workers** tab. A feature that is not set up names the settings it still needs and opens to a short list of steps that turn it on, with a link to the full steps in the deployment guide. A feature that is not working offers a link to the service in the hosting console. The page only ever says whether a setting is present. It never shows a setting's value to anyone.
 
-The **Recent Errors** tab shows failed requests, app crashes (a meeting guest's included) and failures in the platform's background work (scheduled passes and queues) without any setup. Background failures in the other Workers, the ones that run document editing, scanning and conversion, come from the hosting provider's logs, which need one read-only token. Until it is set, the tab says so, and **Other Workers' background errors** appears as a not-set-up row on the Features and Workers tab with the steps to add it.
+The **Recent Errors** tab shows failed requests, app crashes (a meeting guest's included), failures in the platform's background work (scheduled passes and queues), and failures in the document editor and the community forum, all without any setup. Scanning, conversion and the other services report their failures through the main server, so those appear too. The hosting provider's logs can fill in the rare failure that could not be recorded, such as one from before recording began; that needs one read-only token. Until it is set, the tab says so, and **Errors from Workers Logs** appears as a not-set-up row on the Features and Workers tab with the steps to add it.
 
 ## What it does
 

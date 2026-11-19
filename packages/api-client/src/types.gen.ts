@@ -4161,6 +4161,15 @@ export type MySigningRequestsOnFile = {
     requestIds: Array<string>;
 };
 
+export type SignedCopyView = {
+    title: string;
+    firmName: string;
+    senderName: string;
+    sealedAt: string;
+    documentFileName: string;
+    certificateFileName: string;
+};
+
 export type SessionLaunchResponse = {
     editorUrl: string;
     editorOrigin: string;
@@ -11260,15 +11269,6 @@ export type PrintTrustChecksRequest = {
 export type TrustCheckAcknowledgement = {
     recorded: number;
     checkNumber: number | null;
-};
-
-export type RecordTrustCheckResultsRequest = {
-    trustAccountId: string;
-    results: Array<{
-        trustCheckId: string;
-        outcome: 'printed' | 'spoiled';
-        reason?: string | null;
-    }>;
 };
 
 export type VoidTrustCheckRequest = {
@@ -24844,6 +24844,105 @@ export type SigningDeclineMyPartResponses = {
 };
 
 export type SigningDeclineMyPartResponse = SigningDeclineMyPartResponses[keyof SigningDeclineMyPartResponses];
+
+export type SignerReadSignedCopyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/signed-copy';
+};
+
+export type SignerReadSignedCopyErrors = {
+    /**
+     * Not a link this deployment made, or the copy is no longer held
+     */
+    404: Problem;
+    /**
+     * The link expired or was replaced, or the copy is not sealed yet
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadSignedCopyError = SignerReadSignedCopyErrors[keyof SignerReadSignedCopyErrors];
+
+export type SignerReadSignedCopyResponses = {
+    /**
+     * The signed copy's details
+     */
+    200: SignedCopyView;
+};
+
+export type SignerReadSignedCopyResponse = SignerReadSignedCopyResponses[keyof SignerReadSignedCopyResponses];
+
+export type SignerReadSignedCopyDocumentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/signed-copy/document';
+};
+
+export type SignerReadSignedCopyDocumentErrors = {
+    /**
+     * Not a link this deployment made, or the copy is no longer held
+     */
+    404: Problem;
+    /**
+     * The link expired or was replaced, or the copy is not sealed yet
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadSignedCopyDocumentError = SignerReadSignedCopyDocumentErrors[keyof SignerReadSignedCopyDocumentErrors];
+
+export type SignerReadSignedCopyDocumentResponses = {
+    /**
+     * The signed copy
+     */
+    200: Blob | File;
+};
+
+export type SignerReadSignedCopyDocumentResponse = SignerReadSignedCopyDocumentResponses[keyof SignerReadSignedCopyDocumentResponses];
+
+export type SignerReadSignedCopyCertificateData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/signed-copy/certificate';
+};
+
+export type SignerReadSignedCopyCertificateErrors = {
+    /**
+     * Not a link this deployment made, or the copy is no longer held
+     */
+    404: Problem;
+    /**
+     * The link expired or was replaced, or the copy is not sealed yet
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadSignedCopyCertificateError = SignerReadSignedCopyCertificateErrors[keyof SignerReadSignedCopyCertificateErrors];
+
+export type SignerReadSignedCopyCertificateResponses = {
+    /**
+     * The certificate
+     */
+    200: Blob | File;
+};
+
+export type SignerReadSignedCopyCertificateResponse = SignerReadSignedCopyCertificateResponses[keyof SignerReadSignedCopyCertificateResponses];
 
 export type DocumentsEditSessionData = {
     body?: never;
@@ -51732,58 +51831,6 @@ export type TrustPrintChecksResponses = {
 };
 
 export type TrustPrintChecksResponse = TrustPrintChecksResponses[keyof TrustPrintChecksResponses];
-
-export type TrustRecordCheckResultsData = {
-    body: RecordTrustCheckResultsRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/trust/checks/results';
-};
-
-export type TrustRecordCheckResultsErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the capability
-     */
-    403: Problem;
-    /**
-     * The trust account or check is unknown
-     */
-    404: Problem;
-    /**
-     * The check was already answered, or the Idempotency-Key is still in progress
-     */
-    409: Problem;
-    /**
-     * The trust rules refuse this
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type TrustRecordCheckResultsError = TrustRecordCheckResultsErrors[keyof TrustRecordCheckResultsErrors];
-
-export type TrustRecordCheckResultsResponses = {
-    /**
-     * Recorded
-     */
-    201: TrustCheckAcknowledgement;
-};
-
-export type TrustRecordCheckResultsResponse = TrustRecordCheckResultsResponses[keyof TrustRecordCheckResultsResponses];
 
 export type TrustVoidNextCheckNumberData = {
     body: VoidTrustCheckRequest;
