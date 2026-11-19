@@ -96,7 +96,8 @@ import aMemberConnectsMoreThanOneCalendarAccountSql from "@magna-carta/database/
 import aDeletedDayOfARepeatingEventIsAQuestionSql from "@magna-carta/database/drizzle/per-firm/20261119T191608_a-deleted-day-of-a-repeating-event-is-a-question.sql";
 import problemReportsAreAnsweredSql from "@magna-carta/database/drizzle/per-firm/20261119T193530_problem-reports-are-answered.sql";
 import trustBankReconciliationSql from "@magna-carta/database/drizzle/per-firm/20261119T202327_trust-bank-reconciliation.sql";
-import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261119T203902_payments-recorded-by-hand.sql";
+import batesNumbersSql from "@magna-carta/database/drizzle/per-firm/20261119T202542_bates-numbers.sql";
+import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261119T204926_payments-recorded-by-hand.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -197,7 +198,8 @@ export function perFirmMigrations(): Migration[] {
       aDeletedDayOfARepeatingEventIsAQuestionSql,
     "20261119T193530_problem-reports-are-answered": problemReportsAreAnsweredSql,
     "20261119T202327_trust-bank-reconciliation": trustBankReconciliationSql,
-    "20261119T203902_payments-recorded-by-hand": paymentsRecordedByHandSql,
+    "20261119T202542_bates-numbers": batesNumbersSql,
+    "20261119T204926_payments-recorded-by-hand": paymentsRecordedByHandSql,
   });
 }
 

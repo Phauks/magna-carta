@@ -6140,6 +6140,65 @@ export type ContinueExhibitSetRequest = {
     name: string;
 };
 
+export type BatesPrefixList = {
+    data: Array<BatesPrefixSummary>;
+    capped: boolean;
+};
+
+export type BatesPrefixSummary = {
+    prefix: string;
+    digits: number;
+    nextNumber: number;
+    rangeCount: number;
+    pagesStamped: number;
+    lastStampedAt: string;
+};
+
+export type BatesRangeList = {
+    data: Array<BatesRange>;
+    nextCursor: string | null;
+};
+
+export type BatesRange = {
+    id: string;
+    prefix: string;
+    digits: number;
+    firstNumber: number;
+    lastNumber: number;
+    pageCount: number;
+    purpose: 'pdfEditor' | 'exhibitPackage';
+    sourceFileId: string | null;
+    sourceFileName: string | null;
+    exhibitSetId: string | null;
+    stampedFileId: string | null;
+    stampedFileName: string | null;
+    stampedFileSavedAt: string | null;
+    createdBy: string | null;
+    createdAt: string;
+};
+
+export type TakenBatesRange = {
+    id: string;
+    prefix: string;
+    digits: number;
+    firstNumber: number;
+    lastNumber: number;
+};
+
+export type TakeBatesRangeRequest = {
+    prefix: string;
+    digits: number;
+    pageCount: number;
+    firstNumber?: number;
+    purpose: 'pdfEditor' | 'exhibitPackage';
+    sourceFileId?: string | null;
+    exhibitSetId?: string | null;
+};
+
+export type RecordBatesStampedFileRequest = {
+    fileId: string;
+};
+
 export type CreatedDirectoryEntityResponse = {
     id: string;
 };
@@ -31568,6 +31627,198 @@ export type ExhibitsContinueExhibitSetResponses = {
 };
 
 export type ExhibitsContinueExhibitSetResponse = ExhibitsContinueExhibitSetResponses[keyof ExhibitsContinueExhibitSetResponses];
+
+export type BatesListBatesPrefixesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-prefixes';
+};
+
+export type BatesListBatesPrefixesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesListBatesPrefixesError = BatesListBatesPrefixesErrors[keyof BatesListBatesPrefixesErrors];
+
+export type BatesListBatesPrefixesResponses = {
+    /**
+     * The matter's Bates prefixes
+     */
+    200: BatesPrefixList;
+};
+
+export type BatesListBatesPrefixesResponse = BatesListBatesPrefixesResponses[keyof BatesListBatesPrefixesResponses];
+
+export type BatesListBatesRangesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        prefix?: string;
+    };
+    url: '/api/v1/matters/{matterId}/bates-ranges';
+};
+
+export type BatesListBatesRangesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesListBatesRangesError = BatesListBatesRangesErrors[keyof BatesListBatesRangesErrors];
+
+export type BatesListBatesRangesResponses = {
+    /**
+     * The matter's Bates ranges
+     */
+    200: BatesRangeList;
+};
+
+export type BatesListBatesRangesResponse = BatesListBatesRangesResponses[keyof BatesListBatesRangesResponses];
+
+export type BatesTakeBatesRangeData = {
+    body: TakeBatesRangeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-ranges';
+};
+
+export type BatesTakeBatesRangeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesTakeBatesRangeError = BatesTakeBatesRangeErrors[keyof BatesTakeBatesRangeErrors];
+
+export type BatesTakeBatesRangeResponses = {
+    /**
+     * The range taken
+     */
+    201: TakenBatesRange;
+};
+
+export type BatesTakeBatesRangeResponse = BatesTakeBatesRangeResponses[keyof BatesTakeBatesRangeResponses];
+
+export type BatesRecordBatesStampedFileData = {
+    body: RecordBatesStampedFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        rangeId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-ranges/{rangeId}/stamped-file';
+};
+
+export type BatesRecordBatesStampedFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesRecordBatesStampedFileError = BatesRecordBatesStampedFileErrors[keyof BatesRecordBatesStampedFileErrors];
+
+export type BatesRecordBatesStampedFileResponses = {
+    /**
+     * The copy is recorded
+     */
+    200: {
+        id: string;
+    };
+};
+
+export type BatesRecordBatesStampedFileResponse = BatesRecordBatesStampedFileResponses[keyof BatesRecordBatesStampedFileResponses];
 
 export type DirectoryCreatePersonData = {
     body: CreateDirectoryPersonRequest;

@@ -15,6 +15,7 @@ import { civilDateShape } from "./date-shape-checks.ts";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  BatesRangeId,
   BillingArrangementId,
   CalendarEventLinkId,
   ClientCreditId,
@@ -14351,6 +14352,65 @@ export const signingEvent = sqliteTable(
     check(
       "signing_event_kind_check",
       sql`${table.kind} IN ('created', 'sent', 'delivered', 'viewed', 'identity-verified', 'consented', 'signed', 'declined', 'reassigned', 'reminded', 'voided', 'completed', 'sealed')`,
+    ),
+  ],
+);
+
+// Bates numbers. One row per run of page numbers a stamp took from the matter's register under one
+// prefix. The register is these rows and nothing else: the next number under a prefix is one past
+// the highest last_number, and ranges under one prefix never overlap, because the insert that takes
+// a range is guarded on no row overlapping it (packages/bates/src/range-statements.ts). A range is
+// never deleted or renumbered, so a number once stamped is never handed out again, even when the
+// stamped copy was never saved.
+export const batesRange = sqliteTable(
+  "bates_range",
+  {
+    id: text("id").primaryKey().$type<BatesRangeId>(), // batesRange_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    prefix: text("prefix").notNull(),
+    // How many digits the number is padded to when stamped. A floor, not a ceiling.
+    digits: integer("digits").notNull(),
+    firstNumber: integer("first_number").notNull(),
+    lastNumber: integer("last_number").notNull(),
+    // What took the range: a stamp in the PDF Editor, or an exhibit package.
+    purpose: text("purpose", { enum: ["pdfEditor", "exhibitPackage"] }).notNull(),
+    sourceFileId: text("source_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    exhibitSetId: text("exhibit_set_id")
+      .$type<ExhibitSetId>()
+      .references(() => exhibitSet.id),
+    // The stamped copy, once it is saved to the matter's files. Written once.
+    stampedFileId: text("stamped_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    stampedFileSavedAt: text("stamped_file_saved_at"),
+    createdBy: text("created_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("bates_range_matter_prefix_first_unique_index").on(
+      table.matterId,
+      table.prefix,
+      table.firstNumber,
+    ),
+    index("bates_range_matter_created_index").on(table.matterId, table.createdAt),
+    index("bates_range_source_file_index").on(table.sourceFileId),
+    index("bates_range_stamped_file_index").on(table.stampedFileId),
+    index("bates_range_exhibit_set_index").on(table.exhibitSetId),
+    check("bates_range_purpose_check", sql`${table.purpose} IN ('pdfEditor', 'exhibitPackage')`),
+    check(
+      "bates_range_numbers_check",
+      sql`${table.firstNumber} >= 0 AND ${table.lastNumber} >= ${table.firstNumber}`,
+    ),
+    check("bates_range_digits_check", sql`${table.digits} BETWEEN 1 AND 12`),
+    check("bates_range_prefix_length_check", sql`length(${table.prefix}) <= 40`),
+    check(
+      "bates_range_saved_shape_check",
+      sql`(${table.stampedFileId} IS NULL) = (${table.stampedFileSavedAt} IS NULL)`,
     ),
   ],
 );

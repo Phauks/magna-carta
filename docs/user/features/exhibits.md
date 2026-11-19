@@ -85,10 +85,39 @@ it has in each set it belongs to.
 ## Who Can Do What
 
 Starting sets, adding, ordering and numbering exhibits needs the **Manage exhibits** permission.
+Saving an exhibit list or package to the matter's files needs permission to upload files there.
 Marking a set as filed and withdrawing an exhibit needs the **Issue exhibits** permission. Anyone who
 can open the matter can see its exhibits.
 
+## Exhibit List
+
+Press **Exhibit List** above the table to make the set's exhibit list as a PDF. It has the matter's
+name and case number at the top, then a table of every exhibit with its label, its title, its Bates
+range when it has one, and its page count. Withdrawn exhibits stay on the list, greyed and marked
+withdrawn. Labels print as the set numbers them, so a set numbered 1, 2, 3 prints "1", "2", "3".
+
+The list is saved to the set's folder, or to the top of the matter's files when the set has no
+folder. A message at the top of the screen says when it is saved; press **Open** to see it.
+
+## Exhibit Package
+
+Press **Package** to make one PDF of the whole set: the exhibit list, then for each exhibit a cover
+sheet ("EXHIBIT A" or "EXHIBIT 1", with its title) followed by the exhibit's pages. Withdrawn
+exhibits are on the list but not in the package.
+
+**Stamp Bates Numbers** is on to begin with. Every page of the package, the list and cover sheets
+included, is numbered in the bottom right, carrying on from the last number used on the matter. Type
+a **Prefix** (for example "SMITH-") and the number of **Digits** if you want them. The list inside the
+package shows where each exhibit's pages fall. Turn the box off to make the package without numbers.
+
+Press **Save Package**. The package is saved beside the list, named after the set and its number
+range. Only PDFs can go in a package. An exhibit that is not a PDF is left out, its line on the list
+says "Not included", and the message after saving names it so you can convert it and make the
+package again.
+
+Bates numbers taken for a package are logged on the matter like any other, so the PDF Editor's
+Bates tab and the next package carry on after them.
+
 ## Not Yet Available
 
-The printed exhibit list, cover sheets, the compiled package with Bates numbers, and references to
-exhibits in documents that update themselves are still to come.
+References to exhibits in documents that update themselves when the order changes are still to come.

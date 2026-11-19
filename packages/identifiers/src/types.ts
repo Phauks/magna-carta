@@ -224,6 +224,7 @@ export type ExhibitSetId = Identifier<"exhibitSet">;
 export type ExhibitSetMemberId = Identifier<"exhibitSetMember">;
 export type ExhibitReferenceId = Identifier<"exhibitReference">;
 export type ExhibitPackageId = Identifier<"exhibitPackage">;
+export type BatesRangeId = Identifier<"batesRange">;
 export type MatterAssetIdentifierId = Identifier<"matterAssetIdentifier">;
 export type MatterAssignmentId = Identifier<"matterAssignment">;
 export type MatterCourtCaseId = Identifier<"matterCourtCase">;

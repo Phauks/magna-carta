@@ -607,8 +607,15 @@
     {
       "idx": 86,
       "version": "6",
-      "when": 1795120742577,
-      "tag": "20261119T203902_payments-recorded-by-hand",
+      "when": 1795115305920,
+      "tag": "20261119T202542_bates-numbers",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "6",
+      "when": 1795121366179,
+      "tag": "20261119T204926_payments-recorded-by-hand",
       "breakpoints": true
     }
   ]
