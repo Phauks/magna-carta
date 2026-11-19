@@ -69,6 +69,18 @@ export type TrustValidationCode =
   | "check-already-answered"
   | "check-void-reason-missing"
   | "unknown-trust-check"
+  // Bank reconciliation, the tick-to-clear screen
+  | "unknown-trust-bank-reconciliation"
+  | "bank-reconciliation-invalid"
+  | "bank-reconciliation-start-required"
+  | "bank-reconciliation-in-progress"
+  | "bank-reconciliation-finished"
+  | "bank-reconciliation-unknown-line"
+  | "bank-reconciliation-unknown-file"
+  | "bank-reconciliation-unknown-restore-point"
+  | "bank-reconciliation-nothing-to-revert"
+  | "bank-reconciliation-end-balance-required"
+  | "bank-reconciliation-too-large"
   // Bank statements — the one external input
   | "unknown-trust-bank-statement"
   | "unknown-trust-bank-statement-line"

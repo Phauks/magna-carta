@@ -402,6 +402,13 @@ export const PROBLEM_TYPES = {
   // Two print batches read the same next check number and the retry lost too (HTTP 409). Retryable:
   // the caller prints again and gets the following numbers.
   "trust-check-number-taken": "trust-check-number-taken",
+  // Something the bank reconciliation rules refuse (HTTP 422): an end date before the start, a line
+  // that is not part of the period, nothing left to undo. DISTINCT from `validation`: the request is
+  // well-formed, the change it asks for is not one the rules permit.
+  "trust-bank-reconciliation-refused": "trust-bank-reconciliation-refused",
+  // A bank reconciliation that cannot change now (HTTP 409): it is finished, another is already in
+  // progress on the account, or someone changed it between the read and a finish.
+  "trust-bank-reconciliation-conflict": "trust-bank-reconciliation-conflict",
   // Something the reconciliation has already accounted for (HTTP 409): a statement line or a ledger
   // entry that is already matched in this reconciliation, a match that was already withdrawn, or a
   // bank statement that has already been superseded by a correction. One line clears one entry, so
