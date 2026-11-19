@@ -83,7 +83,7 @@ const NOT_A_MEMBER_DOWNLOAD = new Map([
       "anybody on its own",
   ],
   [
-    "apps/api-worker/src/http/routes/developer/dev-seed.ts",
+    "apps/api-worker/src/files/dev-sample-files.ts",
     "development seeding, compiled out of a deployment; there is no member on the other end",
   ],
   [

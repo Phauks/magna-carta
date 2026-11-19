@@ -307,7 +307,7 @@
   </div>
 {:else}
   <div class="flex min-h-0 flex-1">
-    <aside aria-label="Bates numbering" class="mc-scrollbar flex min-h-0 w-352 shrink-0 flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
+    <aside aria-label="Bates numbering" class="mc-scrollbar flex min-h-0 w-full shrink-0 md:w-sm flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
       <FieldRow columns={2}>
         <LabelledField necessity="optional" label="Prefix" error={problems.prefix}>
           {#snippet children({ props })}
@@ -408,8 +408,8 @@
 
       <p class="text-sm">
         {sizes.length === 1 ? "1 page" : `${sizes.length} pages`}, numbered
-        <span class="font-semibold tabular-nums">{range.first}</span>
-        {#if sizes.length > 1}to <span class="font-semibold tabular-nums">{range.last}</span>{/if}.
+        <span class="font-semibold tabular-nums">{range.first}</span>{#if sizes.length > 1}
+          to <span class="font-semibold tabular-nums">{range.last}</span>{/if}.
       </p>
 
       <div class="mt-auto flex flex-col gap-8">
@@ -449,7 +449,7 @@
       </div>
     </aside>
 
-    <div class="mc-scrollbar flex min-h-0 min-w-0 flex-1 items-start justify-center gap-24 overflow-auto bg-surface-sunken p-24">
+    <div class="mc-scrollbar hidden min-h-0 min-w-0 flex-1 items-start justify-center md:flex gap-24 overflow-auto bg-surface-sunken p-24">
       {#if sizes[0] !== undefined}
         {@render preview(sizes[0], 0, range.first)}
       {/if}

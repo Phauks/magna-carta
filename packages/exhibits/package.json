@@ -25,7 +25,8 @@
     "./withdrawal-service": "./src/withdrawal-service.ts",
     "./correction-service": "./src/correction-service.ts",
     "./supersession-service": "./src/supersession-service.ts",
-    "./contract": "./src/contract.ts"
+    "./contract": "./src/contract.ts",
+    "./list-document": "./src/list-document.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -34,6 +35,7 @@
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/house-document": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "zod": "catalog:"
   },
