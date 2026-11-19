@@ -248,6 +248,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent integration_connection; holds the copy as sent to the member and as their calendar has it",
   },
+  // One day of a repeating event a member deleted from their own calendar. It names a person only
+  // through its connection, and holds that day of the event as it was sent to them.
+  {
+    table: "connection_sync_day_issue",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; holds one day of an event as sent to the member",
+  },
   // Which of their own calendars a member chose to be shown. It names a person only through its
   // connection, and holds the calendar's name as their provider gives it.
   {

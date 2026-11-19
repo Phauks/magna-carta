@@ -19,7 +19,10 @@ random bytes, so every branch runs in a test with no network.
   that identifier orphans every copy already written. `graphRecurrenceOf` converts a series' rule and
   returns null for a rule Graph is not documented to put on the same days; a null is refused before
   any request, never approximated. `listSeriesChangedDays` reads a series' `exceptionOccurrences`
-  and leaves out any day that does not say when it originally began
+  and leaves out any day that does not say when it originally began. `listSeriesDeletedDays` reads
+  the series' `cancelledOccurrences`, for which Graph gives no format: only a trailing
+  `.yyyy-mm-dd` is read and anything else is passed over. Graph documents no way to put one such
+  day back, so the days carry no handle and `restoreSeriesDay` is declared unsupported
 
 - `src/change-notices.ts` — reads what Graph posts to a subscription's address into the calendar's
   `ProviderNotice`: the secret and whether the notice is about the subscription itself. Which event
