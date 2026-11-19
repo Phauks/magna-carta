@@ -75,7 +75,9 @@ export const RegisterRow = z
 export const ChecksResponse = z
   .object({
     nextCheckNumber: z.number().int(),
-    stock: CheckStock.nullable(),
+    // A union, not `.nullable()`: a nullable copy of a named component carries its name, and the
+    // contract would then hold two shapes under "TrustCheckStock".
+    stock: z.union([CheckStock, z.null()]),
     toPrint: z.array(CheckToPrint),
     register: z.array(RegisterRow),
   })
@@ -88,6 +90,8 @@ export const PrintRequest = z
       .array(identifierField("trustMovement"))
       .min(1)
       .max(MAX_TRUST_CHECKS_PER_BATCH),
+    // The number on the first sheet in the printer, when the person sets it for this batch.
+    firstCheckNumber: z.number().int().min(1).nullish(),
   })
   .meta({ id: "PrintTrustChecksRequest" });
 

@@ -44,6 +44,7 @@ import {
   type SigningRequestRow,
   type SigningSignerRow,
 } from "./statements.ts";
+import { memberTurnMessages } from "./member-turn.ts";
 
 // What a member does to a signing request: start a draft, save it, send it, remind, and cancel.
 // Each returns the writes for the caller to commit, plus what the caller must do outside the database
@@ -354,7 +355,10 @@ export async function sendRequest(
     ),
   ];
   statements.push(...deliveredStatements(database, id, notify, options.now));
-  return { effect: { statements, outboxMessages: [] }, notify };
+  return {
+    effect: { statements, outboxMessages: memberTurnMessages(detail.request, notify) },
+    notify,
+  };
 }
 
 /** Each signer whose turn has come is marked asked, with an activity line saying how. */
@@ -452,5 +456,8 @@ export async function remindSigners(
       ),
     );
   }
-  return { effect: { statements, outboxMessages: [] }, remind };
+  return {
+    effect: { statements, outboxMessages: memberTurnMessages(detail.request, remind) },
+    remind,
+  };
 }

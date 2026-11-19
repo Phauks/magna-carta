@@ -13,11 +13,16 @@ import type {
   Invoices,
   MatterBalances,
   AgedWorkInProgress,
+  ChangeLog,
   ClientList,
+  MatterBillingGuide,
+  MatterBillingTerms,
+  ClientStatement,
   MattersList,
   OperationalVolumes,
   PaymentsApplied,
   Realization,
+  Revenue,
   TimekeeperProductivity,
   TaskWorkload,
   DailyTime,
@@ -660,6 +665,134 @@ export function samplePaymentsApplied(): PaymentsApplied {
   };
 }
 
+export function sampleClientStatement(): ClientStatement {
+  const { matterId, matterTitle, matterNumber } = matter(0, MAIN);
+  const matters = [{ matterId, matterTitle, matterNumber }];
+  const line = (
+    index: number,
+    values: Pick<
+      ClientStatement["activity"][number],
+      "kind" | "date" | "invoiceNumber" | "chargedMinor" | "appliedMinor" | "balanceMinor"
+    > &
+      Partial<ClientStatement["activity"][number]>,
+  ): ClientStatement["activity"][number] => ({
+    reversesKind: null,
+    invoiceId: `invoice_sample_${values.invoiceNumber ?? "draft"}`,
+    applicationId: values.kind === "invoice" ? null : `invoiceApplication_sample_${String(index)}`,
+    matters,
+    reason: null,
+    ...values,
+  });
+  const bill = (number: string, chargedMinor: number, date: string, balanceMinor: number) =>
+    line(0, {
+      kind: "invoice",
+      date,
+      invoiceNumber: number,
+      chargedMinor,
+      appliedMinor: null,
+      balanceMinor,
+    });
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    ...client(0),
+    currency: "USD",
+    ...REPRODUCIBLE_JULY,
+    completeness: { scope: "complete" },
+    totals: {
+      openingMinor: 420_000,
+      billedMinor: 1_245_000,
+      invoiceCount: 3,
+      appliedMinor: 900_000,
+      applicationCount: 5,
+      closingMinor: 765_000,
+    },
+    activity: [
+      line(1, {
+        kind: "payment",
+        date: "2026-07-03",
+        invoiceNumber: "00038",
+        chargedMinor: null,
+        appliedMinor: 420_000,
+        balanceMinor: 0,
+      }),
+      bill("00041", 845_000, "2026-07-10", 845_000),
+      bill("00042", 320_000, "2026-07-10", 1_165_000),
+      line(2, {
+        kind: "credit_note",
+        date: "2026-07-18",
+        invoiceNumber: "00042",
+        chargedMinor: null,
+        appliedMinor: 60_000,
+        balanceMinor: 1_105_000,
+      }),
+      line(3, {
+        kind: "write_off",
+        date: "2026-07-20",
+        invoiceNumber: "00041",
+        chargedMinor: null,
+        appliedMinor: 10_000,
+        balanceMinor: 1_095_000,
+        reason: "Courtesy discount",
+      }),
+      line(4, {
+        kind: "reversal",
+        reversesKind: "write_off",
+        date: "2026-07-22",
+        invoiceNumber: "00041",
+        chargedMinor: null,
+        appliedMinor: -10_000,
+        balanceMinor: 1_105_000,
+        reason: "Discount withdrawn",
+      }),
+      line(5, {
+        kind: "trust_transfer",
+        date: "2026-07-24",
+        invoiceNumber: "00041",
+        chargedMinor: null,
+        appliedMinor: 420_000,
+        balanceMinor: 685_000,
+      }),
+      bill("00047", 80_000, "2026-07-31", 765_000),
+    ],
+    unpaidInvoices: [
+      {
+        invoiceId: "invoice_sample_00041",
+        invoiceNumber: "00041",
+        issueDate: "2026-07-10",
+        dueDate: "2026-08-09",
+        matters,
+        agingBucket: "current",
+        billedMinor: 845_000,
+        paidAndCreditedMinor: 420_000,
+        unpaidMinor: 425_000,
+      },
+      {
+        invoiceId: "invoice_sample_00042",
+        invoiceNumber: "00042",
+        issueDate: "2026-07-10",
+        dueDate: "2026-08-09",
+        matters,
+        agingBucket: "current",
+        billedMinor: 320_000,
+        paidAndCreditedMinor: 60_000,
+        unpaidMinor: 260_000,
+      },
+      {
+        invoiceId: "invoice_sample_00047",
+        invoiceNumber: "00047",
+        issueDate: "2026-07-31",
+        dueDate: "2026-08-30",
+        matters,
+        agingBucket: "current",
+        billedMinor: 80_000,
+        paidAndCreditedMinor: 0,
+        unpaidMinor: 80_000,
+      },
+    ],
+  };
+}
+
 export function sampleMatterBalances(): MatterBalances {
   const figures = (unbilledMinor: number, owedMinor: number, trustMinor: number) => ({
     unbilledMinor,
@@ -856,4 +989,252 @@ export function sampleTaskWorkload(): TaskWorkload {
 /** Aged Expenses wears Aged Work in Progress's shape; its sample is the costs-only reading of it. */
 export function sampleAgedExpenses(): AgedWorkInProgress {
   return sampleAgedWorkInProgress();
+}
+
+export function sampleChangeLog(): ChangeLog {
+  const one = { actorUserId: "user_sample_one", actorName: samplePerson(0).name };
+  const two = { actorUserId: "user_sample_two", actorName: samplePerson(1).name };
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    computedAt: COMPUTED_AT,
+    reproducible: true,
+    statement:
+      "This report covers changes recorded from 2026-07-01 to 2026-07-31 (UTC days), as the change " +
+      "history stood when it was produced, at 2026-08-01T15:00:00.000Z. The period had ended, and the " +
+      "change history is never edited, so running the same period again returns the same changes. " +
+      "Names are as they stood when this report was produced.",
+    completeness: { scope: "complete" },
+    totals: { directoryCount: 2, matterCount: 3, accountCount: 1, totalCount: 6 },
+    families: [
+      { family: "directory", label: "People and organizations", changeCount: 2 },
+      { family: "matters", label: "Matters", changeCount: 3 },
+      { family: "accounts", label: "Accounts", changeCount: 1 },
+    ],
+    people: [
+      { ...one, directoryCount: 2, matterCount: 1, accountCount: 0, totalCount: 3 },
+      { ...two, directoryCount: 0, matterCount: 1, accountCount: 1, totalCount: 2 },
+      {
+        actorUserId: null,
+        actorName: null,
+        directoryCount: 0,
+        matterCount: 1,
+        accountCount: 0,
+        totalCount: 1,
+      },
+    ],
+    entries: [
+      {
+        ...two,
+        id: "auditLog_sample_six",
+        at: "2026-07-30T16:20:00.000Z",
+        family: "matters",
+        event: "matter.closed",
+        eventLabel: "Matter closed",
+        subjectId: "matter_sample_one",
+      },
+      {
+        ...two,
+        id: "auditLog_sample_five",
+        at: "2026-07-22T10:05:00.000Z",
+        family: "accounts",
+        event: "trust.authorization_policy_changed",
+        eventLabel: "Trust approval rule changed",
+        subjectId: "trustAuthorizationPolicy_sample",
+      },
+      {
+        actorUserId: null,
+        actorName: null,
+        id: "auditLog_sample_four",
+        at: "2026-07-18T03:00:00.000Z",
+        family: "matters",
+        event: "matter.updated",
+        eventLabel: "Matter details changed",
+        subjectId: "matter_sample_two",
+      },
+      {
+        ...one,
+        id: "auditLog_sample_three",
+        at: "2026-07-14T14:45:00.000Z",
+        family: "matters",
+        event: "matter.opened",
+        eventLabel: "Matter opened",
+        subjectId: "matter_sample_two",
+      },
+      {
+        ...one,
+        id: "auditLog_sample_two",
+        at: "2026-07-09T09:30:00.000Z",
+        family: "directory",
+        event: "directory.address.updated",
+        eventLabel: "Address changed",
+        subjectId: "directoryAddress_sample",
+      },
+      {
+        ...one,
+        id: "auditLog_sample_one",
+        at: "2026-07-02T11:00:00.000Z",
+        family: "directory",
+        event: "directory.person.created",
+        eventLabel: "Person added",
+        subjectId: "directoryPerson_sample",
+      },
+    ],
+  };
+}
+
+export function sampleRevenue(): Revenue {
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    locationId: null,
+    currency: "USD",
+    ...REPRODUCIBLE_JULY,
+    attributionStatement:
+      "Collected counts payments, transfers from trust and client credits applied to bills in the period, less any reversal of them. Credit notes and write-offs are shown as credited and are not counted as collected. Each matter's money is counted under the matter type and responsible attorney the matter has now.",
+    completeness: { scope: "complete" },
+    totals: { billedMinor: 1_850_000, collectedMinor: 1_200_000, creditedMinor: 75_000 },
+    offices: [
+      {
+        ...MAIN,
+        figures: { billedMinor: 1_300_000, collectedMinor: 850_000, creditedMinor: 50_000 },
+      },
+      {
+        ...NORTH,
+        figures: { billedMinor: 550_000, collectedMinor: 350_000, creditedMinor: 25_000 },
+      },
+    ],
+    matterTypes: [
+      {
+        matterTypeId: "matterType_sample_litigation",
+        matterTypeName: "Litigation",
+        matterCount: 3,
+        figures: { billedMinor: 1_100_000, collectedMinor: 700_000, creditedMinor: 50_000 },
+      },
+      {
+        matterTypeId: "matterType_sample_estates",
+        matterTypeName: "Estates",
+        matterCount: 2,
+        figures: { billedMinor: 600_000, collectedMinor: 400_000, creditedMinor: 25_000 },
+      },
+      {
+        matterTypeId: null,
+        matterTypeName: null,
+        matterCount: 1,
+        figures: { billedMinor: 150_000, collectedMinor: 100_000, creditedMinor: 0 },
+      },
+    ],
+    responsibleAttorneys: [
+      {
+        responsibleMemberId: "user_sample_0",
+        responsibleName: samplePerson(0).name,
+        matterCount: 4,
+        figures: { billedMinor: 1_250_000, collectedMinor: 800_000, creditedMinor: 50_000 },
+      },
+      {
+        responsibleMemberId: "user_sample_1",
+        responsibleName: samplePerson(1).name,
+        matterCount: 2,
+        figures: { billedMinor: 600_000, collectedMinor: 400_000, creditedMinor: 25_000 },
+      },
+    ],
+  };
+}
+
+/** Matter Billing Guide: one matter under each kind of agreement, and one with none recorded. */
+export function sampleMatterBillingGuide(): MatterBillingGuide {
+  const terms = (
+    index: number,
+    kind: MatterBillingTerms["kind"],
+    fields: Partial<MatterBillingTerms>,
+    validFrom = "2026-02-03",
+  ): MatterBillingTerms => ({
+    arrangementId: `billingArrangement_sample_${String(index)}`,
+    version: 1,
+    kind,
+    flatFeeAmountMinor: null,
+    contingencyShareE4: null,
+    contingencyBasis: null,
+    retainerTargetMinor: null,
+    retainerThresholdMinor: null,
+    advanceDepositDestination: null,
+    currency: "USD",
+    validFrom,
+    validTo: null,
+    ...fields,
+  });
+  const row = (
+    index: number,
+    office: { locationId: string; locationName: string },
+    arrangement: MatterBillingTerms | null,
+    nextArrangement: MatterBillingTerms | null = null,
+  ) => ({
+    ...matter(index, office),
+    ...client(index),
+    status: index === 3 ? ("hold" as const) : ("open" as const),
+    responsibleName: samplePerson(index).name,
+    arrangement,
+    nextArrangement,
+    rates:
+      index === 0
+        ? [
+            {
+              rateId: "rate_sample_0",
+              rateCardId: "rateCard_sample_standard",
+              rateCardName: "Standard",
+              tier: "matter" as const,
+              rateE4: 4_500_000,
+              currency: "USD",
+              validFrom: "2026-01-01",
+              validTo: null,
+            },
+          ]
+        : [],
+  });
+  return {
+    computedAt: COMPUTED_AT,
+    asOfDate: "2026-08-01",
+    reproducible: false,
+    statement:
+      "This report shows how each open and held matter is billed on 2026-08-01, as recorded when it was produced, at 2026-08-01T15:00:00.000Z. " +
+      "A fee agreement can be amended, a matter moved or closed and a rate card changed, so it is a live report and is not claimed to reproduce.",
+    locationId: null,
+    completeness: { scope: "complete" },
+    totals: {
+      matterCount: 5,
+      hourlyCount: 1,
+      flatFeeCount: 1,
+      contingencyCount: 1,
+      retainerCount: 1,
+      noneRecordedCount: 1,
+    },
+    matters: [
+      row(
+        0,
+        MAIN,
+        terms(0, "hourly", {}),
+        terms(0, "flat_fee", { version: 2, flatFeeAmountMinor: 900_000 }, "2026-09-01"),
+      ),
+      row(
+        1,
+        NORTH,
+        terms(1, "flat_fee", { flatFeeAmountMinor: 250_000, advanceDepositDestination: "trust" }),
+      ),
+      row(
+        2,
+        MAIN,
+        terms(2, "contingency", { contingencyShareE4: 3333, contingencyBasis: "net_after_costs" }),
+      ),
+      row(
+        3,
+        NORTH,
+        terms(3, "retainer", {
+          retainerTargetMinor: 500_000,
+          retainerThresholdMinor: 100_000,
+          advanceDepositDestination: "trust",
+        }),
+      ),
+      row(4, MAIN, null),
+    ],
+  };
 }

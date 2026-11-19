@@ -1,6 +1,6 @@
 /*
  * The Checks screen and the stock editor, as pure functions: what a number previews as, what a
- * status is called, what answering "spoiled" will do, and the inch arithmetic the editor's fields
+ * status is called, what answering "misprinted" will do, and the inch arithmetic the editor's fields
  * speak. Kept apart from the components so each rule has one test.
  */
 import {
@@ -25,7 +25,7 @@ export function printedRows(register: readonly TrustCheckRegisterRow[]): TrustCh
   return register.filter((row) => row.status === "printed" || row.status === "numbered");
 }
 
-/** Voided holds every number taken out of use: spoiled in the printer, or voided afterwards. */
+/** Voided holds every number taken out of use: misprinted, or voided afterwards. */
 export function voidedRows(register: readonly TrustCheckRegisterRow[]): TrustCheckRegisterRow[] {
   return register.filter((row) => row.status === "spoiled" || row.status === "voided");
 }
@@ -44,7 +44,7 @@ export function checkStatusLabel(status: TrustCheckRegisterRow["status"]): strin
     case "printed":
       return "Printed";
     case "spoiled":
-      return "Spoiled";
+      return "Misprinted";
     case "voided":
       return "Voided";
   }
@@ -65,6 +65,21 @@ export function checkStatusTone(
 }
 
 /**
+ * What the Voided list says a number was taken out of use for. A misprint recorded before the
+ * reason read "Misprinted" carried the older wording, and reads the same as one recorded since.
+ */
+export function settledReasonText(
+  row: Pick<TrustCheckRegisterRow, "status" | "settledReason">,
+): string | null {
+  if (row.status === "spoiled") {
+    return row.settledReason === null || /spoil/i.test(row.settledReason)
+      ? "Misprinted"
+      : row.settledReason;
+  }
+  return row.settledReason;
+}
+
+/**
  * The number each chosen payment will print on, in the order they will be numbered: the order the
  * screen shows them, from the account's next number.
  */
@@ -82,8 +97,45 @@ export function matterLabel(row: Pick<TrustCheckToPrint, "matterNumber" | "matte
     .join(" ");
 }
 
+// ---- the check numbers ----------------------------------------------------------------------------
+
+/**
+ * The first number at or after `from` that no check on the account carries: what the next check
+ * will print on once the next number is set to `from`. The server answers the same way.
+ */
+export function nextUnusedNumber(from: number, used: Iterable<number>): number {
+  const taken = new Set(used);
+  let candidate = from;
+  while (taken.has(candidate)) candidate += 1;
+  return candidate;
+}
+
+/** A typed check number, or null when it is not a whole number from 1. */
+export function typedCheckNumber(text: string): number | null {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const value = Number(trimmed);
+  return Number.isSafeInteger(value) && value >= 1 ? value : null;
+}
+
+/** "check 10422" or "checks 10422 to 10424", as a run of numbers reads in a sentence. */
+export function checkRunText(first: number, count: number): string {
+  return count <= 1 ? `check ${first}` : `checks ${first} to ${first + count - 1}`;
+}
+
+/** The one line that tells the reader which paper to put in the printer. */
+export function loadPaperLine(first: number, count: number): string {
+  return `Load ${checkRunText(first, count)} in the printer, facing the way your printer takes ${count <= 1 ? "it" : "them"}.`;
+}
+
+/** Whether a refusal from the server is the one that says a number in the batch is already used. */
+export function numberAlreadyUsed(detail: string | undefined): boolean {
+  return detail !== undefined && /already in this account's register/.test(detail);
+}
+
 // ---- answering a print ----------------------------------------------------------------------------
 
+/** How a check came out of the printer. The server's own word for a misprint is "spoiled". */
 export type PrintOutcome = "printed" | "spoiled";
 
 export interface AnsweredCheck {
@@ -95,6 +147,8 @@ export interface AnsweredCheck {
 /** A check in the answer panel, with its amount already worded in the account's currency. */
 export interface CheckToAnswer extends AnsweredCheck {
   readonly amountText: string;
+  /** The payment the check pays, which goes back to To Print if the check is misprinted. */
+  readonly trustMovementId: string | null;
 }
 
 /** Names joined as a sentence reads them: "A", "A and B", "A, B and C". */
@@ -104,23 +158,32 @@ export function joinedNames(names: readonly string[]): string {
 }
 
 /**
- * What confirming the answers will do, in one sentence composed from the answers themselves, so the
+ * What recording the answers will do, in one sentence composed from the answers themselves, so the
  * line can never describe one thing and send another.
  */
 export function answerConsequence(
   checks: readonly AnsweredCheck[],
   outcomes: Readonly<Record<string, PrintOutcome>>,
 ): string {
-  const spoiled = checks.filter((check) => outcomes[check.trustCheckId] === "spoiled");
-  if (spoiled.length === 0) {
+  const misprinted = checks.filter((check) => outcomes[check.trustCheckId] === "spoiled");
+  if (misprinted.length === 0) {
     return checks.length === 1
       ? `${checks[0]?.checkNumber ?? ""} will be recorded as printed.`
       : `All ${checks.length} will be recorded as printed.`;
   }
-  const numbers = joinedNames(spoiled.map((check) => String(check.checkNumber)));
-  const payees = joinedNames([...new Set(spoiled.map((check) => check.payee))]);
-  const verb = spoiled.length === 1 ? "goes" : "go";
-  return `${numbers} will be voided, and ${payees} ${verb} back to To Print.`;
+  const numbers = joinedNames(misprinted.map((check) => String(check.checkNumber)));
+  const payees = joinedNames([...new Set(misprinted.map((check) => check.payee))]);
+  return `${numbers} will be voided as misprinted, and you can print ${payees} again on the next number.`;
+}
+
+/** The payments to print again: the misprinted checks', in the order they were numbered. */
+export function paymentsToReprint(
+  checks: readonly CheckToAnswer[],
+  outcomes: Readonly<Record<string, PrintOutcome>>,
+): string[] {
+  return checks
+    .filter((check) => outcomes[check.trustCheckId] === "spoiled")
+    .flatMap((check) => (check.trustMovementId === null ? [] : [check.trustMovementId]));
 }
 
 // ---- the editor's inches -------------------------------------------------------------------------

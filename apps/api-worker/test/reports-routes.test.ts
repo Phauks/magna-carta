@@ -1,4 +1,4 @@
-import { civilDateOf } from "@magna-carta/civil-time/civil-date";
+import { civilDateOf, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
@@ -443,6 +443,36 @@ describe("GET /api/v1/reports/matters-list", () => {
   });
 });
 
+describe("GET /api/v1/reports/matter-billing-guide", () => {
+  const url = "https://example.com/api/v1/reports/matter-billing-guide";
+
+  it("answers the Owner with a live guide whose kind counts cover every matter listed", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: ownerCookie } });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      asOfDate: string;
+      totals: { matterCount: number };
+      matters: unknown[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(isCivilDate(report.asOfDate)).toBe(true);
+    expect(report.matters).toHaveLength(report.totals.matterCount);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url, { headers: { cookie: noPermissionCookie } });
+    expect(response.status).toBe(403);
+  });
+
+  it("refuses an office that is not a location identifier", async () => {
+    const response = await SELF.fetch(`${url}?locationId=not-an-identifier`, {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+});
+
 describe("GET /api/v1/reports/client-list", () => {
   const url = "https://example.com/api/v1/reports/client-list";
 
@@ -600,6 +630,48 @@ describe("GET /api/v1/reports/daily-time", () => {
   });
 });
 
+describe("GET /api/v1/reports/change-log", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/change-log?${query}`;
+
+  it("answers the Owner with the period's changes, whose families and people add up to the whole", async () => {
+    // A period that has not ended, so whatever the firm's setup recorded is in it.
+    const response = await SELF.fetch(url("periodStart=2000-01-01&periodEnd=2099-12-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const report = (await response.json()) as {
+      reproducible: boolean;
+      totals: { totalCount: number };
+      families: { changeCount: number }[];
+      people: { totalCount: number }[];
+      entries: { event: string; eventLabel: string }[];
+    };
+    expect(report.reproducible).toBe(false);
+    expect(report.families.reduce((sum, family) => sum + family.changeCount, 0)).toBe(
+      report.totals.totalCount,
+    );
+    expect(report.people.reduce((sum, person) => sum + person.totalCount, 0)).toBe(
+      report.totals.totalCount,
+    );
+    expect(report.entries).toHaveLength(report.totals.totalCount);
+    expect(JSON.stringify(report)).not.toContain("metadata");
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:operational at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
 describe("GET /api/v1/reports/matter-productivity", () => {
   const url = (query: string) => `https://example.com/api/v1/reports/matter-productivity?${query}`;
 
@@ -711,4 +783,90 @@ describe("GET /api/v1/reports/invoices and /payments-applied", () => {
       expect(response.status).toBe(403);
     });
   }
+});
+
+describe("GET /api/v1/reports/revenue", () => {
+  const url = (query: string) => `https://example.com/api/v1/reports/revenue?${query}`;
+
+  it("answers the Owner with a stamped revenue report and its three breakdowns", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      reproducibilityStatement: string;
+      attributionStatement: string;
+      totals: { billedMinor: number; collectedMinor: number; creditedMinor: number };
+      matterTypes: unknown[];
+      responsibleAttorneys: unknown[];
+    };
+    expect(body.reproducibilityStatement.length).toBeGreaterThan(0);
+    expect(body.attributionStatement.length).toBeGreaterThan(0);
+    expect(typeof body.totals.collectedMinor).toBe("number");
+    expect(Array.isArray(body.matterTypes)).toBe(true);
+    expect(Array.isArray(body.responsibleAttorneys)).toBe(true);
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-31&periodEnd=2026-07-01"), {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(url("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("GET /api/v1/reports/client-statement", () => {
+  const client = newIdentifier("directoryOrganization");
+  const url = (query: string) => `https://example.com/api/v1/reports/client-statement?${query}`;
+
+  it("answers the Owner with a stamped statement for one client", async () => {
+    const response = await SELF.fetch(
+      url(`clientEntityId=${client}&periodStart=2026-07-01&periodEnd=2026-07-31`),
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      clientEntityId: string;
+      reproducibilityStatement: string;
+      totals: { openingMinor: number; closingMinor: number };
+      activity: unknown[];
+    };
+    expect(body.clientEntityId).toBe(client);
+    expect(body.reproducibilityStatement.length).toBeGreaterThan(0);
+    expect(body.totals).toMatchObject({ openingMinor: 0, closingMinor: 0 });
+    expect(body.activity).toEqual([]);
+  });
+
+  it("refuses a client handle that is not a directory person or organization", async () => {
+    for (const malformed of ["entity_webb", newIdentifier("matter")]) {
+      const response = await SELF.fetch(
+        url(`clientEntityId=${malformed}&periodStart=2026-07-01&periodEnd=2026-07-31`),
+        { headers: { cookie: ownerCookie } },
+      );
+      expect(response.status).toBe(422);
+    }
+  });
+
+  it("refuses a period that ends before it starts", async () => {
+    const response = await SELF.fetch(
+      url(`clientEntityId=${client}&periodStart=2026-07-31&periodEnd=2026-07-01`),
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a member without reports:financial at the chokepoint", async () => {
+    const response = await SELF.fetch(
+      url(`clientEntityId=${client}&periodStart=2026-07-01&periodEnd=2026-07-31`),
+      { headers: { cookie: noPermissionCookie } },
+    );
+    expect(response.status).toBe(403);
+  });
 });

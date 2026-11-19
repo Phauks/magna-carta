@@ -1124,6 +1124,7 @@ describe("the contract", () => {
     );
     expect(guestPaths.toSorted()).toEqual([
       "/api/v1/guest/arrivals",
+      "/api/v1/guest/client-errors",
       "/api/v1/guest/departures",
       "/api/v1/guest/meeting",
       "/api/v1/guest/meeting/files",
@@ -1205,5 +1206,54 @@ describe("inviting a guest by name and address", () => {
       emailAddress: "not an address",
     });
     expect(refused.status).toBe(422);
+  });
+});
+
+describe("a crash on the guest's page", () => {
+  const crash = (errorId: string) => ({
+    errorId,
+    route: "/join/should-not-be-kept",
+    errorName: "TypeError",
+    message: "Cannot read properties of undefined (reading 'tracks')",
+    location: "guest-meeting.svelte:88:12",
+    build: "main 1234567",
+  });
+
+  it("is kept against its client_ Error ID on the link, under the page's template and no user", async () => {
+    const { token } = await meetingWithAGuest();
+    const errorId = "client_7K2M9QXA";
+    const response = await guestRequest("/api/v1/guest/client-errors", token, {
+      method: "POST",
+      body: crash(errorId),
+    });
+    expect(response.status).toBe(201);
+    const row = await env.DB_CONTROL.prepare("SELECT * FROM error_record WHERE id = ?1")
+      .bind(errorId)
+      .first();
+    expect(row).toMatchObject({
+      source: "browser",
+      service: "web",
+      operation: "/join/[token]",
+      error_name: "TypeError",
+      message_head: "Cannot read properties of undefined (reading 'tracks')",
+      firm_id: firmId,
+      user_id: null,
+    });
+    // The link is a credential: no column of the record holds it.
+    expect(JSON.stringify(row)).not.toContain(token);
+  });
+
+  it("answers the flat 404 without a link, and keeps nothing", async () => {
+    await meetingWithAGuest();
+    const errorId = "client_8M3N0RYB";
+    const response = await guestRequest("/api/v1/guest/client-errors", null, {
+      method: "POST",
+      body: crash(errorId),
+    });
+    expect(response.status).toBe(404);
+    const row = await env.DB_CONTROL.prepare("SELECT id FROM error_record WHERE id = ?1")
+      .bind(errorId)
+      .first();
+    expect(row).toBeNull();
   });
 });

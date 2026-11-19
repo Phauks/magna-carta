@@ -3,9 +3,10 @@
  * stock editor drawn over fixtures a local firm never has, in each state a reviewer needs to see.
  *
  * IT KEEPS THE SERVER'S RULES THAT THE SCREENS SHOW. Printing numbers the chosen payments from the
- * next number and takes them off the queue; answering spoiled voids the number and puts the payment
- * back; voiding a printed check does the same; the next number is the greater of the stock's
- * starting number and one past the highest used. The PDF is composed for real, in the Worker.
+ * first number the reader confirmed and takes them off the queue, and refuses a batch over a number
+ * already used; answering misprinted voids the number and puts the payment back; voiding a printed
+ * check does the same; the next number is the first unused one at or after the stock's starting
+ * number. The PDF is composed for real, in the Worker.
  */
 import { STANDARD_CHECK_FIELDS } from "@magna-carta/trust/check-layout";
 import type { ApiOutcome } from "$lib/api/request.ts";
@@ -16,9 +17,18 @@ import type {
 } from "./checks-api.ts";
 import type { TrustChecksService } from "./checks-service.ts";
 import { composeCheckPdf, openPdf } from "./check-pdf.ts";
+import { nextUnusedNumber } from "./checks-model.ts";
 
-export type ChecksGalleryState = "ready" | "no-stock" | "empty" | "waiting" | "loading" | "failed";
+export type ChecksGalleryState =
+  | "ready"
+  | "no-stock"
+  | "empty"
+  | "waiting"
+  | "reprint"
+  | "loading"
+  | "failed";
 
+/** The situations the gallery's buttons switch between, in the order they are offered. */
 export const CHECKS_GALLERY_STATES: readonly ChecksGalleryState[] = [
   "ready",
   "waiting",
@@ -27,6 +37,9 @@ export const CHECKS_GALLERY_STATES: readonly ChecksGalleryState[] = [
   "loading",
   "failed",
 ];
+
+/** The payment the reprint fixture has just had misprinted, back in To Print. */
+export const GALLERY_REPRINT_PAYMENT = "trustMovement_henderson";
 
 export const GALLERY_ACCOUNT_ID = "trustAccount_gallery";
 export const GALLERY_ACCOUNT_NAME = "IOLTA Client Trust";
@@ -142,7 +155,7 @@ function initial(state: ChecksGalleryState): TrustChecksResponse {
       61_500,
       "26-0110",
       "Reyes Deposition",
-      "Jammed in the printer",
+      "Misprinted",
     ),
     registerRow(10_421, "printed", "Nevada Court Reporters", 61_500, "26-0110", "Reyes Deposition"),
   ];
@@ -166,9 +179,36 @@ function initial(state: ChecksGalleryState): TrustChecksResponse {
       ),
     );
   }
-  const highest = Math.max(...register.map((row) => row.checkNumber));
+  if (state === "reprint") {
+    register.push(
+      registerRow(
+        10_422,
+        "spoiled",
+        "Henderson Medical Group",
+        230_000,
+        "26-0098",
+        "Smith v. Clearwater Logistics",
+        "Misprinted",
+      ),
+    );
+    toPrint.unshift(
+      queueRow(
+        GALLERY_REPRINT_PAYMENT,
+        "Henderson Medical Group",
+        230_000,
+        "Medical lien",
+        "26-0098",
+        "Smith v. Clearwater Logistics",
+        "2026-10-30",
+        [10_422],
+      ),
+    );
+  }
   return {
-    nextCheckNumber: highest + 1,
+    nextCheckNumber: nextUnusedNumber(
+      10_422,
+      register.map((row) => row.checkNumber),
+    ),
     stock:
       state === "no-stock"
         ? null
@@ -180,7 +220,7 @@ function initial(state: ChecksGalleryState): TrustChecksResponse {
             fields: STANDARD_CHECK_FIELDS.map((field) => ({ ...field })),
             shiftXMils: 0,
             shiftYMils: 0,
-            startingCheckNumber: 10_401,
+            startingCheckNumber: 10_422,
             hasScan: false,
             savedBy: "user_whitfield",
             savedAt: SAVED_AT,
@@ -203,10 +243,28 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
   const data = initial(state);
   /** The payment each numbered check was printed for, so a spoiled one can go back. */
   const printedFrom = new Map<string, TrustCheckToPrint>();
+  // The checks already waiting for an answer were printed for payments too.
+  for (const row of data.register) {
+    if (row.status !== "numbered" || row.trustMovementId === null) continue;
+    printedFrom.set(
+      row.trustCheckId,
+      queueRow(
+        row.trustMovementId,
+        row.payee ?? "",
+        row.amountMinor ?? 0,
+        row.memo ?? "",
+        row.matterNumber ?? "",
+        row.matterTitle ?? "",
+        row.effectiveDate ?? "2026-10-31",
+      ),
+    );
+  }
 
   function nextNumber(): number {
-    const highest = Math.max(0, ...data.register.map((row) => row.checkNumber));
-    return Math.max(data.stock?.startingCheckNumber ?? 0, highest + 1);
+    return nextUnusedNumber(
+      data.stock?.startingCheckNumber ?? 1,
+      data.register.map((row) => row.checkNumber),
+    );
   }
 
   function takeOutOfUse(trustCheckId: string, status: "spoiled" | "voided", reason: string): void {
@@ -244,12 +302,34 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
       }
       return ok(structuredClone({ ...data, nextCheckNumber: nextNumber() }));
     },
-    async print(_account, trustMovementIds) {
+    async print(_account, trustMovementIds, _key, firstCheckNumber) {
       await settle();
+      const first = firstCheckNumber ?? nextNumber();
+      const used = data.register
+        .map((row) => row.checkNumber)
+        .filter((number) => number >= first && number < first + trustMovementIds.length)
+        .toSorted((left, right) => left - right);
+      if (used.length > 0) {
+        const problem = {
+          status: 422,
+          type: "https://api.magnacarta.esq/problems/trust-check-refused",
+          title: "Trust check refused",
+          detail: `Check ${used.join(", ")} is already in this account's register. A check number is never used twice.`,
+        };
+        return {
+          kind: "problem",
+          problem,
+          failure: {
+            problem,
+            request: "POST /api/v1/trust/checks/print",
+            failedAt: new Date(),
+          },
+        };
+      }
       const checks = trustMovementIds.flatMap((identifier, index) => {
         const payment = data.toPrint.find((row) => row.trustMovementId === identifier);
         if (payment === undefined) return [];
-        const checkNumber = nextNumber() + index;
+        const checkNumber = first + index;
         return [{ payment, checkNumber }];
       });
       const printed = checks.map(({ payment, checkNumber }) => {
@@ -284,13 +364,25 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
           memo: check.memo,
         });
       }
-      return ok({ stock: data.stock, checks: printed });
+      // The server refuses a print with no stock saved, so the gallery never answers one.
+      const stock = data.stock;
+      if (stock === null) {
+        return {
+          kind: "transport",
+          failure: {
+            problem: null,
+            request: "POST /trust/checks/print",
+            failedAt: new Date("2026-11-14T15:02:00.000Z"),
+          },
+        };
+      }
+      return ok({ stock, checks: printed });
     },
     async recordResults(_account, results) {
       await settle();
       for (const result of results) {
         if (result.outcome === "spoiled") {
-          takeOutOfUse(result.trustCheckId, "spoiled", "Spoiled in the printer");
+          takeOutOfUse(result.trustCheckId, "spoiled", "Misprinted");
           continue;
         }
         const index = data.register.findIndex((row) => row.trustCheckId === result.trustCheckId);

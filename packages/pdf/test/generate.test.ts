@@ -5,6 +5,7 @@ import {
   ensureReady,
   loadDocument,
   mergeDocuments,
+  placeMarks,
   rotatePages,
   splitDocument,
   watermarkDocument,
@@ -66,6 +67,18 @@ describe("generate primitives", () => {
       placement: "tiled",
     });
     expect(await pageCount(pdf)).toBeGreaterThan(0);
+  });
+
+  it("placeMarks draws a signature, a name and a tick, and refuses a page past the end", async () => {
+    const { pdf } = await placeMarks(w9, [
+      { page: 1, rect: [72, 100, 252, 130], content: { kind: "image", bytes: png } },
+      { page: 1, rect: [300, 100, 450, 120], content: { kind: "text", text: "Jordan Smith" } },
+      { page: 1, rect: [72, 200, 86, 214], content: { kind: "check" } },
+    ]);
+    expect(await pageCount(pdf)).toBe(await pageCount(w9));
+    await expect(
+      placeMarks(w9, [{ page: 99, rect: [0, 0, 10, 10], content: { kind: "check" } }]),
+    ).rejects.toThrow();
   });
 
   it("watermarkDocument (image) produces a loadable document", async () => {

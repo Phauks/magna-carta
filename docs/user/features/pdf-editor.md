@@ -160,8 +160,16 @@ The document sent is the file's current version. Its fingerprint is recorded whe
 
 **Following a request.** After sending, the tab shows who has signed, who is next, and everything
 that has happened and when. **Send Reminder** emails whoever is waiting now. **Cancel Request**
-stops the links working; signatures already given stay on the record. Saving the signed copy and
-its Certificate of Completion beside the original when everyone has signed is coming next.
+stops the links working; signatures already given stay on the record.
+
+**When everyone has signed.** Magna Carta draws each signature, set of initials, name, date and
+tick into the box it belongs in, seals the document so any later change to it shows, and saves the
+signed copy as the document's newest version. Its **Certificate of Completion**, which lists each
+signer, how they proved who they were, and every step with its time and address, is saved beside it
+as its own file. This takes a few minutes; the Signature tab says **Being Sealed** until it is done,
+then **Signed and Sealed** with a button to open the certificate. Dates are written as the day in
+the time zone of the matter's office. A name in a script other than Western European letters is
+left off the page and printed on the certificate.
 
 **What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
 link opens a page with your firm's name, the document's title and your message. If you chose
@@ -177,5 +185,9 @@ by themselves every so many days to whoever's turn it is, and a request past its
 as expired. A link stops working when the
 request is cancelled, declined or past its last day, and the page says which.
 
-Colleagues you add as signers cannot sign inside Magna Carta yet, so a request with a colleague as
-a signer waits at their turn until that arrives.
+**When a colleague signs.** A colleague you add as a signer is not emailed a link. When it is their
+turn, a notification tells them a document is waiting for their signature, and opening it takes
+them to the signing page inside Magna Carta. They can also open the document in the PDF Editor,
+where the Signature tab shows **Sign Now** while the request waits on them. They agree, adopt a
+signature and finish the same way an outside signer does, without a code, because they are already
+signed in. A reminder reaches them as another notification.

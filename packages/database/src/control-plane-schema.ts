@@ -749,7 +749,7 @@ export const errorRecord = sqliteTable(
   {
     id: text("id").primaryKey(), // the Error ID: error_… (minted by a Worker) or client_… (by the app)
     recordedAt: text("recorded_at").notNull(), // ISO-8601 instant
-    source: text("source").notNull(), // server | browser
+    source: text("source").notNull(), // server | browser | background
     service: text("service"), // the minting Worker's code (api, edt, …) or "web"
     operation: text("operation"), // "POST /api/v1/meetings/:meetingId/join", or the page route
     status: integer("status"), // the HTTP status answered; null for a browser crash

@@ -1,10 +1,16 @@
 import type { FormatId } from "./format.ts";
+import type { ConversionOptions } from "./options.ts";
 
 export interface ConversionInput {
   readonly bytes: Uint8Array;
   readonly from: FormatId;
   readonly to: FormatId;
   readonly recipeRef: string;
+  /**
+   * The member's choices for this hop (./options.ts). Only the final hop of a path carries them,
+   * and only the options its engine accepts; an engine that reads none never receives any.
+   */
+  readonly options?: ConversionOptions;
 }
 
 // A typed outcome, never a thrown error (the integrations Dispatch pattern). `engine-not-implemented`

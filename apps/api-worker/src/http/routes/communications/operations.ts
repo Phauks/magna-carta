@@ -23,6 +23,7 @@ export const OPERATIONS: readonly string[] = [
   "guest.meetingSocket",
   "guest.meetingSummary",
   "guest.openSharedFile",
+  "guest.recordCrash",
   "guest.sendMessage",
   "meetings.admitToLobby",
   "meetings.answerPoll",

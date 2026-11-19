@@ -26,6 +26,7 @@
     width,
     height,
     label,
+    decorative = false,
     image,
     band,
     class: className,
@@ -36,8 +37,14 @@
     width: number;
     /** The board's height, in the same units. */
     height: number;
-    /** The board's accessible name. */
-    label: string;
+    /** The board's accessible name. Omitted only on a decorative board. */
+    label?: string;
+    /**
+     * Whether the board is a picture beside words that already say what it shows, such as a
+     * miniature inside a choice that names it. A decorative board is hidden from assistive
+     * technology and carries no name of its own.
+     */
+    decorative?: boolean;
     /** A picture laid under everything, stretched to the board (already straightened). */
     image?: string | null;
     /** A band from `from` to the bottom edge where nothing may be placed, named by `label`. */
@@ -60,8 +67,9 @@
 
 <div
   bind:this={element}
-  role="group"
-  aria-label={label}
+  role={decorative ? undefined : "group"}
+  aria-label={decorative ? undefined : label}
+  aria-hidden={decorative ? "true" : undefined}
   class={mergeClasses("mc-placement-board w-full", className)}
   style="aspect-ratio: {width} / {height}"
   {...restProps}

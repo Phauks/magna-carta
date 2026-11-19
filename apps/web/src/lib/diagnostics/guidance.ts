@@ -95,10 +95,29 @@ function remedyFor(problem: Problem): Remedy {
   }
   // A server fault, a timeout, or a conflict a moment may resolve. Everything else is an answer:
   // retrying a 403 or a 422 produces the same refusal and teaches the member nothing.
-  if (problem.status >= 500 || problem.status === 408 || problem.status === 409) {
-    return { kind: "retry" };
-  }
+  if (problem.status >= 500 || problem.status === 408) return { kind: "retry" };
+  if (problem.status === 409 && isPassingConflict(problem)) return { kind: "retry" };
   return { kind: "none" };
+}
+
+/**
+ * The conflicts that pass: the same request asked again can succeed. Most 409s are a STATE the
+ * record is in (a cost already on a finalized bill, a hold in force, a check already printed), and
+ * a Retry there refuses identically, which is a dead control. The ones listed here say in their own
+ * definition (apps/api-worker/src/http/contracts/problem-types.ts) that the answer changes: the
+ * first request is still running, the copies are still being made, or the set moved under the
+ * write. A 409 with no registered type is unknown, and keeps the retry it always had.
+ */
+const PASSING_CONFLICT_TYPES: ReadonlySet<string> = new Set([
+  "idempotency-key-conflict",
+  "export-copies-pending",
+  "exhibit-set-changed",
+]);
+
+function isPassingConflict(problem: Problem): boolean {
+  if (problem.type === undefined) return true;
+  const slug = problem.type.slice(problem.type.lastIndexOf("/") + 1);
+  return PASSING_CONFLICT_TYPES.has(slug);
 }
 
 /**

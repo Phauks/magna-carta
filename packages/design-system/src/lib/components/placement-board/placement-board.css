@@ -206,4 +206,49 @@
     stroke-width: var(--mc-focus-ring-width);
     vector-effect: non-scaling-stroke;
   }
+  /*
+   * A region is a part of the sheet, outlined: solid for the part worked on, dashed for a part
+   * that comes along with it. A mark is printed text, still: the box's ink without its frame.
+   */
+  .mc-placement-board-region {
+    position: absolute;
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+    background-color: var(--mc-surface-default);
+    pointer-events: none;
+  }
+  .mc-placement-board-region[data-edge="dashed"] {
+    border-style: dashed;
+    border-color: var(--mc-border-control);
+    background-color: transparent;
+  }
+  .mc-placement-board-region-caption {
+    position: absolute;
+    inset-block-start: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+    padding-inline: var(--mc-space-4);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    line-height: var(--mc-leading-tight);
+    white-space: nowrap;
+  }
+  .mc-placement-board-mark {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    overflow: hidden;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-mono);
+    line-height: var(--mc-leading-tight);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .mc-placement-board-mark[data-align="end"] {
+    justify-content: flex-end;
+  }
+  .mc-placement-board-mark[data-strong] {
+    font-weight: var(--mc-weight-semibold);
+  }
 }

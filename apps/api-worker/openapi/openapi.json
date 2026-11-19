@@ -10319,6 +10319,1043 @@
           "clients"
         ]
       },
+      "ChangeLogReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "computedAt": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "directoryCount": {
+                "type": "integer"
+              },
+              "matterCount": {
+                "type": "integer"
+              },
+              "accountCount": {
+                "type": "integer"
+              },
+              "totalCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "directoryCount",
+              "matterCount",
+              "accountCount",
+              "totalCount"
+            ]
+          },
+          "families": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "family": {
+                  "type": "string",
+                  "enum": [
+                    "directory",
+                    "matters",
+                    "accounts"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "changeCount": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "family",
+                "label",
+                "changeCount"
+              ]
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "directoryCount": {
+                  "type": "integer"
+                },
+                "matterCount": {
+                  "type": "integer"
+                },
+                "accountCount": {
+                  "type": "integer"
+                },
+                "totalCount": {
+                  "type": "integer"
+                },
+                "actorUserId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "actorName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "directoryCount",
+                "matterCount",
+                "accountCount",
+                "totalCount",
+                "actorUserId",
+                "actorName"
+              ]
+            }
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "actorUserId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "actorName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "family": {
+                  "type": "string",
+                  "enum": [
+                    "directory",
+                    "matters",
+                    "accounts"
+                  ]
+                },
+                "event": {
+                  "type": "string"
+                },
+                "eventLabel": {
+                  "type": "string"
+                },
+                "subjectId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "at",
+                "actorUserId",
+                "actorName",
+                "family",
+                "event",
+                "eventLabel",
+                "subjectId"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "computedAt",
+          "reproducible",
+          "statement",
+          "completeness",
+          "totals",
+          "families",
+          "people",
+          "entries"
+        ]
+      },
+      "RevenueReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "attributionStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "billedMinor": {
+                "type": "integer"
+              },
+              "collectedMinor": {
+                "type": "integer"
+              },
+              "creditedMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "billedMinor",
+              "collectedMinor",
+              "creditedMinor"
+            ]
+          },
+          "offices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "collectedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "billedMinor",
+                    "collectedMinor",
+                    "creditedMinor"
+                  ]
+                }
+              },
+              "required": [
+                "locationId",
+                "locationName",
+                "figures"
+              ]
+            }
+          },
+          "matterTypes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterTypeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTypeName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterCount": {
+                  "type": "integer"
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "collectedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "billedMinor",
+                    "collectedMinor",
+                    "creditedMinor"
+                  ]
+                }
+              },
+              "required": [
+                "matterTypeId",
+                "matterTypeName",
+                "matterCount",
+                "figures"
+              ]
+            }
+          },
+          "responsibleAttorneys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "responsibleMemberId": {
+                  "type": "string"
+                },
+                "responsibleName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterCount": {
+                  "type": "integer"
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "collectedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "billedMinor",
+                    "collectedMinor",
+                    "creditedMinor"
+                  ]
+                }
+              },
+              "required": [
+                "responsibleMemberId",
+                "responsibleName",
+                "matterCount",
+                "figures"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "locationId",
+          "currency",
+          "reproducibility",
+          "reproducibilityStatement",
+          "attributionStatement",
+          "completeness",
+          "totals",
+          "offices",
+          "matterTypes",
+          "responsibleAttorneys"
+        ]
+      },
+      "MatterBillingGuideReport": {
+        "type": "object",
+        "properties": {
+          "computedAt": {
+            "type": "string"
+          },
+          "asOfDate": {
+            "type": "string"
+          },
+          "reproducible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "matterCount": {
+                "type": "integer"
+              },
+              "hourlyCount": {
+                "type": "integer"
+              },
+              "flatFeeCount": {
+                "type": "integer"
+              },
+              "contingencyCount": {
+                "type": "integer"
+              },
+              "retainerCount": {
+                "type": "integer"
+              },
+              "noneRecordedCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "matterCount",
+              "hourlyCount",
+              "flatFeeCount",
+              "contingencyCount",
+              "retainerCount",
+              "noneRecordedCount"
+            ]
+          },
+          "matters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTitle": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "hold"
+                  ]
+                },
+                "clientEntityId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "locationName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "responsibleName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "arrangement": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "arrangementId": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "hourly",
+                        "flat_fee",
+                        "contingency",
+                        "retainer"
+                      ]
+                    },
+                    "flatFeeAmountMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyShareE4": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyBasis": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "gross_recovery",
+                        "net_after_costs",
+                        null
+                      ]
+                    },
+                    "retainerTargetMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "retainerThresholdMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "advanceDepositDestination": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "trust",
+                        "operating",
+                        null
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "validFrom": {
+                      "type": "string"
+                    },
+                    "validTo": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "arrangementId",
+                    "version",
+                    "kind",
+                    "flatFeeAmountMinor",
+                    "contingencyShareE4",
+                    "contingencyBasis",
+                    "retainerTargetMinor",
+                    "retainerThresholdMinor",
+                    "advanceDepositDestination",
+                    "currency",
+                    "validFrom",
+                    "validTo"
+                  ]
+                },
+                "nextArrangement": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "arrangementId": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "hourly",
+                        "flat_fee",
+                        "contingency",
+                        "retainer"
+                      ]
+                    },
+                    "flatFeeAmountMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyShareE4": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "contingencyBasis": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "gross_recovery",
+                        "net_after_costs",
+                        null
+                      ]
+                    },
+                    "retainerTargetMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "retainerThresholdMinor": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "advanceDepositDestination": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "trust",
+                        "operating",
+                        null
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "validFrom": {
+                      "type": "string"
+                    },
+                    "validTo": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "arrangementId",
+                    "version",
+                    "kind",
+                    "flatFeeAmountMinor",
+                    "contingencyShareE4",
+                    "contingencyBasis",
+                    "retainerTargetMinor",
+                    "retainerThresholdMinor",
+                    "advanceDepositDestination",
+                    "currency",
+                    "validFrom",
+                    "validTo"
+                  ]
+                },
+                "rates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "rateId": {
+                        "type": "string"
+                      },
+                      "rateCardId": {
+                        "type": "string"
+                      },
+                      "rateCardName": {
+                        "type": "string"
+                      },
+                      "tier": {
+                        "type": "string",
+                        "enum": [
+                          "matter",
+                          "client"
+                        ]
+                      },
+                      "rateE4": {
+                        "type": "integer"
+                      },
+                      "currency": {
+                        "type": "string"
+                      },
+                      "validFrom": {
+                        "type": "string"
+                      },
+                      "validTo": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "rateId",
+                      "rateCardId",
+                      "rateCardName",
+                      "tier",
+                      "rateE4",
+                      "currency",
+                      "validFrom",
+                      "validTo"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "matterId",
+                "matterNumber",
+                "matterTitle",
+                "status",
+                "clientEntityId",
+                "clientName",
+                "locationId",
+                "locationName",
+                "responsibleName",
+                "arrangement",
+                "nextArrangement",
+                "rates"
+              ]
+            }
+          }
+        },
+        "required": [
+          "computedAt",
+          "asOfDate",
+          "reproducible",
+          "statement",
+          "locationId",
+          "completeness",
+          "totals",
+          "matters"
+        ]
+      },
+      "ClientStatementReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "clientEntityId": {
+            "type": "string"
+          },
+          "clientName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "openingMinor": {
+                "type": "integer"
+              },
+              "billedMinor": {
+                "type": "integer"
+              },
+              "invoiceCount": {
+                "type": "integer"
+              },
+              "appliedMinor": {
+                "type": "integer"
+              },
+              "applicationCount": {
+                "type": "integer"
+              },
+              "closingMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "openingMinor",
+              "billedMinor",
+              "invoiceCount",
+              "appliedMinor",
+              "applicationCount",
+              "closingMinor"
+            ]
+          },
+          "activity": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "invoice",
+                    "trust_transfer",
+                    "payment",
+                    "credit_note",
+                    "client_credit",
+                    "write_off",
+                    "reversal"
+                  ]
+                },
+                "reversesKind": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "trust_transfer",
+                    "payment",
+                    "credit_note",
+                    "client_credit",
+                    "write_off",
+                    null
+                  ]
+                },
+                "date": {
+                  "type": "string"
+                },
+                "invoiceId": {
+                  "type": "string"
+                },
+                "invoiceNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "applicationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "matterTitle": {
+                        "type": "string"
+                      },
+                      "matterNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "matterId",
+                      "matterTitle",
+                      "matterNumber"
+                    ]
+                  }
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "chargedMinor": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "appliedMinor": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "balanceMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "reversesKind",
+                "date",
+                "invoiceId",
+                "invoiceNumber",
+                "applicationId",
+                "matters",
+                "reason",
+                "chargedMinor",
+                "appliedMinor",
+                "balanceMinor"
+              ]
+            }
+          },
+          "unpaidInvoices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "invoiceId": {
+                  "type": "string"
+                },
+                "invoiceNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "issueDate": {
+                  "type": "string"
+                },
+                "dueDate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "matterId": {
+                        "type": "string"
+                      },
+                      "matterTitle": {
+                        "type": "string"
+                      },
+                      "matterNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "matterId",
+                      "matterTitle",
+                      "matterNumber"
+                    ]
+                  }
+                },
+                "agingBucket": {
+                  "type": "string",
+                  "enum": [
+                    "current",
+                    "1-30",
+                    "31-60",
+                    "61-90",
+                    "90+"
+                  ]
+                },
+                "billedMinor": {
+                  "type": "integer"
+                },
+                "paidAndCreditedMinor": {
+                  "type": "integer"
+                },
+                "unpaidMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "invoiceNumber",
+                "issueDate",
+                "dueDate",
+                "matters",
+                "agingBucket",
+                "billedMinor",
+                "paidAndCreditedMinor",
+                "unpaidMinor"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "clientEntityId",
+          "clientName",
+          "currency",
+          "reproducibility",
+          "reproducibilityStatement",
+          "completeness",
+          "totals",
+          "activity",
+          "unpaidInvoices"
+        ]
+      },
       "BillingInvoiceAck": {
         "type": "object",
         "properties": {
@@ -16815,6 +17852,18 @@
               "null"
             ]
           },
+          "signedFileVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "certificateFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "voidedReason": {
             "type": [
               "string",
@@ -17029,6 +18078,8 @@
           "sentAt",
           "completedAt",
           "sealedAt",
+          "signedFileVersionId",
+          "certificateFileId",
           "voidedReason",
           "signers",
           "fields",
@@ -17471,6 +18522,20 @@
           "reason"
         ]
       },
+      "MySigningRequestsOnFile": {
+        "type": "object",
+        "properties": {
+          "requestIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "requestIds"
+        ]
+      },
       "SessionLaunchResponse": {
         "type": "object",
         "properties": {
@@ -17837,6 +18902,9 @@
           "to": {
             "type": "string",
             "minLength": 1
+          },
+          "options": {
+            "$ref": "#/components/schemas/ConversionOptions"
           }
         },
         "required": [
@@ -17845,6 +18913,28 @@
           "from",
           "to"
         ]
+      },
+      "ConversionOptions": {
+        "type": "object",
+        "properties": {
+          "maxDimension": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 40000,
+            "description": "Shrink the image so its longest side is at most this many pixels. Never enlarges."
+          },
+          "quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "JPEG quality from 1 to 100. Only a JPEG target accepts it."
+          },
+          "grayscale": {
+            "type": "boolean",
+            "description": "Drop the colour and keep the lightness."
+          }
+        },
+        "additionalProperties": false
       },
       "ConversionStatus": {
         "type": "object",
@@ -28297,6 +29387,24 @@
           }
         }
       },
+      "ChangeMatterPartyRoleRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "capacity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The capacity the party acts in, in its new role. Left out, it has none."
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
       "DirectoryEntityPhotoResponse": {
         "type": "object",
         "properties": {
@@ -33136,9 +34244,9 @@
           "shownCalendars": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CalendarSyncShownCalendar"
+              "$ref": "#/components/schemas/CalendarSyncAccountShownCalendar"
             },
-            "description": "The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them."
+            "description": "The calendars these events are read from, across every account the member connected: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them."
           },
           "events": {
             "type": "array",
@@ -33157,12 +34265,45 @@
           "truncated"
         ]
       },
+      "CalendarSyncAccountShownCalendar": {
+        "type": "object",
+        "properties": {
+          "calendarRemoteId": {
+            "type": "string"
+          },
+          "calendarName": {
+            "type": "string",
+            "description": "The calendar's name when it was chosen, shown when the provider is unreachable."
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "microsoft",
+              "google"
+            ],
+            "description": "Which of the member's accounts holds it."
+          }
+        },
+        "required": [
+          "calendarRemoteId",
+          "calendarName",
+          "provider"
+        ]
+      },
       "CalendarSyncAccountEvent": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "description": "The provider's own identifier for the event."
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "microsoft",
+              "google"
+            ],
+            "description": "Which of the member's accounts the event was read from."
           },
           "calendarRemoteId": {
             "type": "string"
@@ -33215,6 +34356,7 @@
         },
         "required": [
           "id",
+          "provider",
           "calendarRemoteId",
           "calendarName",
           "title",
@@ -47443,7 +48585,14 @@
             "type": "integer"
           },
           "stock": {
-            "$ref": "#/components/schemas/TrustCheckStock"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrustCheckStock"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "toPrint": {
             "type": "array",
@@ -47466,10 +48615,7 @@
         ]
       },
       "TrustCheckStock": {
-        "type": [
-          "object",
-          "null"
-        ],
+        "type": "object",
         "properties": {
           "trustCheckStockId": {
             "type": "string"
@@ -47820,6 +48966,13 @@
             },
             "minItems": 1,
             "maxItems": 100
+          },
+          "firstCheckNumber": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
           }
         },
         "required": [
@@ -64519,6 +65672,457 @@
         }
       }
     },
+    "/api/v1/reports/change-log": {
+      "get": {
+        "description": "Who added, changed or removed the firm's people and organizations, matters and trust account rules in a period (UTC days), counted by kind of record and by person, with every change listed newest first: when, who, what in plain words, and the handle of the record. Never the details of a change. The change history is never edited, so a period that has ended returns the same changes every time; the response says whether it had. Takes no knowledge instant.",
+        "operationId": "reports.changeLog",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.changeLog",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:operational",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The changes recorded in this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeLogReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:operational",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not a pair of calendar dates in order, or holds more changes than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/revenue": {
+      "get": {
+        "description": "What was billed and what was collected in a period, by office, by matter type and by responsible attorney. Billed is every bill issued in the period, as the Invoices report counts it. Collected is payments, transfers from trust and client credits applied to bills in the period, less any reversal of them; credit notes and write-offs are shown beside it as credited and never counted as collected. Each matter's money is counted under the type and responsible attorney the matter has now. Give a knowledge instant and every figure re-derives from records that can never change; omit it and the answer covers everything known now, which is stamped and not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.revenue",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.revenue",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What was billed and collected in this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was billed or applied than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/matter-billing-guide": {
+      "get": {
+        "description": "How every open and held matter is billed today: the fee agreement in force on the day (hourly, flat fee, contingency or retainer, with its terms), any amendment already recorded to start later, and the hourly rates recorded against the matter itself or its client on the firm's rate cards in use. A matter with no agreement is listed with none, which means it bills hourly at the rates each timekeeper's own card gives. Counts matters by kind of agreement. A live report: it takes no date, answers for the UTC day it is produced, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.matterBillingGuide",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.matterBillingGuide",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "How each open and held matter is billed today",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterBillingGuideReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The firm has more matters than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/client-statement": {
+      "get": {
+        "description": "One client's statement of account over a period: what the client owed at the end of the day before it starts, every bill issued to the client in it and everything set against the client's bills in it (payments, transfers from trust, client credits, credit notes, write-offs, and the reversal of any of them as its own line naming what it reverses), each with the balance after it, what the client owed at the period's last day, and the bills still unpaid then. The balances are the aging's, so the closing balance is the client's total in the Accounts Receivable Aging report at that date. Give a knowledge instant and every figure re-derives from records that can never change; omit it and the answer covers everything known now, which is stamped and not claimed to reproduce.",
+        "operationId": "reports.clientStatement",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.clientStatement",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^directoryPerson_[A-Za-z0-9_-]{21}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^directoryOrganization_[A-Za-z0-9_-]{21}$"
+                }
+              ]
+            },
+            "required": true,
+            "name": "clientEntityId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The client's statement of account for this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientStatementReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The client is not a directory person or organization handle, the period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or the client has more bills or applications than one statement can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/billing/invoices": {
       "post": {
         "description": "Opens a draft invoice for one client. A draft is a working document: nothing has been asserted to anybody, no number has been drawn, and no work is locked. It becomes a financial record only when it is finalized.",
@@ -80101,6 +81705,917 @@
         }
       }
     },
+    "/api/v1/files/{id}/my-signing-requests": {
+      "get": {
+        "description": "The requests on a file that name the signed-in member as a signer and are still out with their part unfinished, newest first. Empty when nothing waits on them.",
+        "operationId": "signing.listMyRequests",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.listMyRequests",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySigningRequestsOnFile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part": {
+      "get": {
+        "description": "The signed-in member's own part of a request: who sent it, the document's title and message, the agreement to sign electronically, their own fields, and where they stand. Writes nothing.",
+        "operationId": "signing.readMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.readMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/document": {
+      "get": {
+        "description": "The exact PDF version that was sent for signature, for the member to read.",
+        "operationId": "signing.readMyDocument",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.readMyDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The document",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/opening": {
+      "post": {
+        "description": "Records that the member opened the request, the first time only.",
+        "operationId": "signing.openMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.openMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/consent": {
+      "post": {
+        "description": "Records that the member agreed to sign electronically, under the disclosure version they were shown.",
+        "operationId": "signing.consentMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.consentMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/adoption": {
+      "post": {
+        "description": "Keeps the signature (and initials) the member adopted, as PNG images in the firm's own storage.",
+        "operationId": "signing.adoptMySignature",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.adoptMySignature",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerAdoption"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerRequestView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/finish": {
+      "post": {
+        "description": "Signs: every one of the member's fields is checked, their answers recorded, and the request moves on to the next signer or to complete.",
+        "operationId": "signing.finishMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.finishMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerFinish"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerOutcome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signing-requests/{requestId}/my-part/declining": {
+      "post": {
+        "description": "Declines to sign, which ends the request for everyone; the reason is kept on its record.",
+        "operationId": "signing.declineMyPart",
+        "tags": [
+          "signing"
+        ],
+        "x-mc-operationId": "signing.declineMyPart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:sign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^signingRequest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignerDecline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Declined",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignerOutcome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks the permission this route names",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such request naming this member as a signer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A step before this one is not done, or it is not this member's turn",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The request is no longer out for signing, or this member already signed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/documents/{fileId}/edit-session": {
       "post": {
         "description": "Launch an editing session for a document: joins the live co-editing session (or starts one), returns the editor URL to iframe, the editor origin, and a short-lived WOPI edit token.",
@@ -80792,7 +83307,7 @@
     },
     "/api/v1/conversions": {
       "post": {
-        "description": "Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats. Returns 202 with status queued when the job is accepted.",
+        "description": "Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats, or if an option is given that the conversion cannot honour (size and grayscale apply to image targets and image-to-PDF; quality to JPEG only). Returns 202 with status queued when the job is accepted.",
         "operationId": "conversions.submit",
         "tags": [
           "conversions"
@@ -80862,7 +83377,7 @@
             }
           },
           "422": {
-            "description": "The requested format conversion is not supported (no conversion path found)",
+            "description": "The requested format conversion is not supported (no conversion path found), or an option was given that this conversion cannot honour",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -97286,6 +99801,138 @@
             }
           }
         }
+      },
+      "patch": {
+        "description": "Changes the role (and capacity) of one party link. The old link is severed and kept as evidence and a new link opened in the new role, in one batch, so a conflicts report that named the party in its old role stays reproducible. Answers the id of the new link; a link that is not live reports 404.",
+        "operationId": "directory.changeMatterPartyRole",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.changeMatterPartyRole",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterParty_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeMatterPartyRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The link that now carries the role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterPartyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entity is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or a merge conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/directory/entities/{id}/contact-points": {
@@ -106052,6 +108699,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The member's calendar sync settings",
@@ -106126,6 +108789,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -106406,6 +109085,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -106502,7 +109197,7 @@
     },
     "/api/v1/me/calendar-sync/account-events": {
       "get": {
-        "description": "The session member's own events inside a window, as last read from the calendars of their account they chose to be shown. Only ever the session member's. Empty when they have no account or chose no calendar. Copies of the firm's own events are left out.",
+        "description": "The session member's own events inside a window, as last read from the calendars of their accounts they chose to be shown. Only ever the session member's. Empty when they have no account or chose no calendar. Copies of the firm's own events are left out.",
         "operationId": "calendarSync.listMyAccountEvents",
         "tags": [
           "calendarSync"
@@ -106626,6 +109321,22 @@
           "calendarSync"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The member's open questions",
@@ -106723,6 +109434,20 @@
             "required": true,
             "name": "localId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
           }
         ],
         "responses": {
@@ -106822,6 +109547,20 @@
             "required": true,
             "name": "localId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "microsoft",
+                "google"
+              ],
+              "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first."
+            },
+            "required": false,
+            "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
+            "name": "provider",
+            "in": "query"
           }
         ],
         "responses": {
@@ -124028,6 +126767,113 @@
           },
           "429": {
             "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/guest/client-errors": {
+      "post": {
+        "description": "Keeps a crash on a meeting guest's page against the client_ Error ID its crash screen shows, so the ID can be looked up in System Status. The same facts a member's crash carries; the route is filed as the guest page's template, never the address, which holds the link. A second send of one ID is a no-op.",
+        "operationId": "guest.recordCrash",
+        "tags": [
+          "guest"
+        ],
+        "x-mc-operationId": "guest.recordCrash",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "client-error",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-guestLane": "invitation",
+        "x-mc-tags": [
+          "guest"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "The link the guest's page was opened from."
+            },
+            "required": false,
+            "description": "The link the guest's page was opened from.",
+            "name": "x-meeting-guest",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordClientErrorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The crash is recorded (or already was)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordClientErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource: the answer to a missing or unverifiable link",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The meeting has ended or the link is used up",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link has expired, was withdrawn, or was replaced by a newer one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -53,6 +53,9 @@ pub use generate::{merge, rotate, split, GenerateError, PageRange, PageSelection
 mod watermark;
 pub use watermark::{watermark, WatermarkContent, WatermarkOptions, WatermarkPlacement};
 
+mod marks;
+pub use marks::{place_marks, Mark, MarkContent, MAX_MARKS};
+
 mod searchable;
 pub use searchable::{write_searchable_text_layer, PageTextLayer, TextRun};
 

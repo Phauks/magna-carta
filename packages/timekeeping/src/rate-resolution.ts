@@ -1,13 +1,15 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { RATE_TABLE, type RateTier } from "./rate-statements.ts";
+import { RATE_CARD_TABLE, RATE_TABLE, type RateTier } from "./rate-statements.ts";
 
-// The capture-time inputs the rate engine needs. clientId is derived from the matter and roleId from
+// The capture-time inputs the rate engine needs. clientId is derived from the matter (left out, the
+// engine reads the matter's client party itself, which is what every capture path does) and roleId from
 // the timekeeper's member record at the call site (re-derivable for an audit of rate_source, not
 // snapshotted separately). rateCardId names which card resolves the rate (a matter may be on a capped
 // card); overrideE4 is a per-entry manual rate that sits above every stored tier.
 export interface RateResolutionContext {
   readonly matterId: string;
-  readonly clientId: string | null;
+  // Left out: the matter's client party (`readMatterClientId`). Null: price with no client tier.
+  readonly clientId?: string | null;
   readonly timekeeperUserId: string;
   readonly roleId: string | null;
   // The parent of roleId where roleId is a sub-role (Partner under Attorney), so a card that prices
@@ -38,7 +40,7 @@ interface Candidate {
 function candidatesFor(context: RateResolutionContext): Candidate[] {
   const candidates: Candidate[] = [];
   candidates.push({ tier: "matter", scopedId: context.matterId, source: "matter" });
-  if (context.clientId !== null) {
+  if (context.clientId !== undefined && context.clientId !== null) {
     candidates.push({ tier: "client", scopedId: context.clientId, source: "client" });
   }
   candidates.push({ tier: "timekeeper", scopedId: context.timekeeperUserId, source: "timekeeper" });
@@ -52,6 +54,15 @@ function candidatesFor(context: RateResolutionContext): Candidate[] {
   return candidates;
 }
 
+// The one statement of "this rate version is in force on that date", over the parameter that holds
+// the date: valid_from inclusive, valid_to exclusive, an open row open-ended. The prefix names the
+// table alias where the statement joins.
+function rateInForceOn(dateParameter: string, columnPrefix = ""): string {
+  const from = `${columnPrefix}valid_from`;
+  const to = `${columnPrefix}valid_to`;
+  return `${from} <= ${dateParameter} AND (${to} IS NULL OR ${to} > ${dateParameter})`;
+}
+
 // Resolution filters rate rows to the one version whose [valid_from, valid_to) contains work_date:
 // valid_from is inclusive, valid_to is exclusive (an open row has valid_to NULL). PlainDate strings
 // (YYYY-MM-DD) compare correctly under lexical ordering, so the interval test is a string comparison.
@@ -63,7 +74,7 @@ async function resolveTier(
 ): Promise<{ rateE4: number; currency: string } | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT rate_e4, currency FROM ${RATE_TABLE} WHERE rate_card_id = ?1 AND tier = ?2 AND scoped_id IS ?3 AND valid_from <= ?4 AND (valid_to IS NULL OR valid_to > ?4) LIMIT 1`,
+      `SELECT rate_e4, currency FROM ${RATE_TABLE} WHERE rate_card_id = ?1 AND tier = ?2 AND scoped_id IS ?3 AND ${rateInForceOn("?4")} LIMIT 1`,
     )
     .bind(rateCardId, candidate.tier, candidate.scopedId, workDate)
     .all<{ rate_e4: number; currency: string }>();
@@ -79,6 +90,12 @@ export async function resolveRate(
   // no card is treated the same — the override is only meaningful as a rate ON a card.
   if (context.rateCardId === undefined) return { noRate: true };
   const rateCardId = context.rateCardId;
+  if (context.clientId === undefined) {
+    return resolveRate(database, {
+      ...context,
+      clientId: await readMatterClientId(database, context.matterId),
+    });
+  }
 
   if (context.overrideE4 !== undefined) {
     // An override sits above every stored tier; it carries no stored currency, so it inherits the
@@ -122,6 +139,25 @@ async function firstInForce(
   return undefined;
 }
 
+/**
+ * The client a matter's time is priced for: the matter's client party, read from `matter_party`, the
+ * one home for that link, ignoring a party since removed. The client-tier rate is scoped to this directory entity, so every capture
+ * path passes it to `resolveRate`. A matter with two client parties takes the lowest identifier, the
+ * same choice every report makes; a matter with none resolves no client tier.
+ */
+export async function readMatterClientId(
+  database: SqlDatabase,
+  matterId: string,
+): Promise<string | null> {
+  const { results } = await database
+    .prepare(
+      "SELECT MIN(entity_id) AS client_entity_id FROM matter_party WHERE matter_id = ?1 AND role = 'client' AND deleted_at IS NULL",
+    )
+    .bind(matterId)
+    .all<{ client_entity_id: string | null }>();
+  return results[0]?.client_entity_id ?? null;
+}
+
 /** The role a timekeeper's rate is priced by, and its parent where it is a sub-role. */
 export interface TimekeeperRateRole {
   readonly roleId: string | null;
@@ -151,4 +187,58 @@ export async function readTimekeeperRateRole(
   return row === undefined
     ? { roleId: null, parentRoleId: null }
     : { roleId: row.roleId, parentRoleId: row.parentRoleId };
+}
+
+/** A matter-tier or client-tier rate version in force on one date, with the card it is on. */
+export interface ScopedRateInForce {
+  readonly rateId: string;
+  readonly rateCardId: string;
+  readonly rateCardName: string;
+  readonly tier: "matter" | "client";
+  readonly scopedId: string;
+  readonly rateE4: number;
+  readonly currency: string;
+  readonly validFrom: string;
+  readonly validTo: string | null;
+}
+
+// Every rate recorded against a particular matter or client and in force on one date, across the
+// firm's cards that are not archived (an archived card is never the one capture falls back to).
+// These are the two tiers that name a matter or its client; the timekeeper and role tiers price a
+// person, not a matter, and are not here. Ordered so a reader's list is stable: card, tier, scope.
+export async function readMatterAndClientRatesInForce(
+  database: SqlDatabase,
+  date: string,
+): Promise<ScopedRateInForce[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT r.id, r.rate_card_id, c.name AS rate_card_name, r.tier, r.scoped_id, r.rate_e4, r.currency, r.valid_from, r.valid_to
+         FROM ${RATE_TABLE} r JOIN ${RATE_CARD_TABLE} c ON c.id = r.rate_card_id
+        WHERE r.tier IN ('matter', 'client') AND r.scoped_id IS NOT NULL AND c.archived_at IS NULL
+          AND ${rateInForceOn("?1", "r.")}
+        ORDER BY c.name, r.rate_card_id, r.tier, r.scoped_id`,
+    )
+    .bind(date)
+    .all<{
+      id: string;
+      rate_card_id: string;
+      rate_card_name: string;
+      tier: "matter" | "client";
+      scoped_id: string;
+      rate_e4: number;
+      currency: string;
+      valid_from: string;
+      valid_to: string | null;
+    }>();
+  return results.map((row) => ({
+    rateId: row.id,
+    rateCardId: row.rate_card_id,
+    rateCardName: row.rate_card_name,
+    tier: row.tier,
+    scopedId: row.scoped_id,
+    rateE4: row.rate_e4,
+    currency: row.currency,
+    validFrom: row.valid_from,
+    validTo: row.valid_to,
+  }));
 }

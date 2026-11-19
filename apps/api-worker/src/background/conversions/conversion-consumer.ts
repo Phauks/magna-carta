@@ -40,7 +40,13 @@ async function convertOne(
   // resolveEngines(env) is a per-engineId resolver, so each hop of a multi-hop path reaches the
   // service that runs its engine (the convert worker, or the OCR service for the searchable-PDF hop);
   // a hop whose engine is not wired yet fails typed (engine-not-implemented) and stops the chain.
-  const result = await runConversion(message.from, message.to, bytes, resolveEngines(env));
+  const result = await runConversion(
+    message.from,
+    message.to,
+    bytes,
+    resolveEngines(env),
+    message.options,
+  );
   if (!result.ok) {
     await coordinator.markFailed(result.reason); // typed, terminal
     return;

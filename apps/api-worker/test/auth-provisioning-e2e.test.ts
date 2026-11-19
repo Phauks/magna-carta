@@ -664,6 +664,8 @@ const GUEST_LANE_OPERATIONS: ReadonlySet<string> = new Set([
   "guest.depart",
   "guest.listMessages",
   "guest.sendMessage",
+  "guest.openSharedFile",
+  "guest.recordCrash",
 ]);
 
 /**

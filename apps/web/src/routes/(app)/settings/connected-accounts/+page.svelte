@@ -10,7 +10,10 @@
    * copied to or from it from this page; what syncs is decided elsewhere, per event type, and the
    * page says so the moment an account connects, because "connected" otherwise reads as "syncing".
    *
-   * ONE ACCOUNT, ONE PAGE FOR IT. What is done WITH the account lives on that feature's own page.
+   * ONE ACCOUNT AT EACH PROVIDER, if the member wants both. An event sent to both is still one
+   * event in Magna Carta: a change made in either account is carried to it, and from it to the other.
+   *
+   * ONE PAGE FOR THE ACCOUNTS. What is done WITH the account lives on that feature's own page.
    * The owner ruled the two apart: calendar and mail have different consequences, so neither's
    * settings are on the page that merely holds the account they share.
    */
@@ -48,9 +51,11 @@
   const queryClient = useQueryClient();
   const accounts = createQuery(() => connectedAccountsListOptions());
 
-  // A member holds one calendar account, at one provider. Whichever it is, the other provider's
-  // plate says so instead of offering a second connection.
-  const connected = $derived(accounts.data?.accounts[0] ?? null);
+  // A member may hold an account at each provider. Each plate stands alone: connecting or
+  // disconnecting one changes nothing about the other.
+  function accountAt(provider: CalendarProvider) {
+    return accounts.data?.accounts.find((entry) => entry.provider === provider) ?? null;
+  }
   // What the return from the provider said, and which provider it was, read from the address the
   // member was sent back to. A return naming no provider is one from before there were two.
   const returned = $derived.by(() => {
@@ -70,10 +75,16 @@
   let asking = $state(false);
   let askingProvider = $state<CalendarProvider>("microsoft");
   let confirmingDisconnect = $state(false);
+  let disconnectingProvider = $state<CalendarProvider>("microsoft");
   let refused = $state(false);
 
   const request = $derived(calendarRequestFor(askingProvider));
-  const connectedNames = $derived(providerNames(connected?.provider ?? "microsoft"));
+  const connectedNames = $derived(providerNames(disconnectingProvider));
+
+  function askToDisconnect(provider: CalendarProvider): void {
+    disconnectingProvider = provider;
+    confirmingDisconnect = true;
+  }
 
   function ask(provider: CalendarProvider): void {
     askingProvider = provider;
@@ -94,8 +105,9 @@
   }
 
   async function disconnect(): Promise<"committed" | "refused"> {
+    const connected = accountAt(disconnectingProvider);
     if (connected === null) return "committed";
-    const { product } = providerNames(connected.provider);
+    const { product } = providerNames(disconnectingProvider);
     if (!(await disconnectAccount(connected.id))) {
       toast.error("The account could not be disconnected.");
       return "refused";
@@ -113,7 +125,7 @@
 <SettingsScrollRegion>
   {#each CALENDAR_PROVIDERS as provider (provider)}
     {@const names = providerNames(provider)}
-    {@const account = connected?.provider === provider ? connected : null}
+    {@const account = accountAt(provider)}
     <SettingsPlate heading={names.product}>
       <SettingsDescription>
         Your own {names.account}. Connect it to send your Magna Carta events to your {names.product}. Only you can see or use this connection.
@@ -154,15 +166,10 @@
                 Connect Again
               </Button>
             {/if}
-            <Button variant="secondary" size="sm" onclick={() => (confirmingDisconnect = true)}>
+            <Button variant="secondary" size="sm" onclick={() => askToDisconnect(provider)}>
               Disconnect
             </Button>
           </div>
-        {:else if connected !== null}
-          <p class="text-sm text-text-muted">
-            Your {providerNames(connected.provider).product} account is connected. Disconnect it to
-            connect {names.product} instead.
-          </p>
         {:else if available(provider)}
           <div class="flex items-center gap-12">
             <span class="me-auto text-sm text-text-muted">

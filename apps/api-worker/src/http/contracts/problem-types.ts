@@ -41,6 +41,11 @@ export const PROBLEM_TYPES = {
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.
   "unsupported-conversion": "unsupported-conversion",
+  // A conversion option the conversion cannot honour (HTTP 422): a JPEG quality asked of a lossless
+  // target, or any option on a path whose final engine reads none. DISTINCT from
+  // `unsupported-conversion` — the pair converts; only the option is refused, so the client can
+  // drop it and convert plainly.
+  "unsupported-conversion-option": "unsupported-conversion-option",
   // An archive-browse of a file that is not a zip (HTTP 422): the sniffed type says other bytes, or
   // the bytes carry no readable zip end structures. DISTINCT from `validation` (request-shape) —
   // the request is well-formed; the file's content is not a browsable archive.

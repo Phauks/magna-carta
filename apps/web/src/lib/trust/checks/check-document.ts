@@ -83,32 +83,48 @@ export function checkFieldText(kind: CheckFieldKind, check: PrintableCheck): str
   }
 }
 
-function checkBlocks(
+/**
+ * One line of text at its place on the page, in thousandths of an inch from the page's top-left
+ * corner. The PDF and the editor's page preview are both drawn from these, so the preview cannot
+ * show a line anywhere the paper will not.
+ */
+export interface PlacedLine {
+  readonly xMils: number;
+  readonly yMils: number;
+  readonly widthMils: number;
+  readonly sizePoints: number;
+  readonly align: "start" | "end";
+  readonly bold: boolean;
+  readonly text: string;
+  /** A character repeated after the text to the end of the line. */
+  readonly fill?: string;
+}
+
+/** The check's fields, for a check whose top edge is `topMils` down the page. */
+export function checkLines(
   stock: CheckStockLayout,
   check: PrintableCheck,
   topMils: number,
-  outline: boolean,
-): ComposeBlock[] {
+): PlacedLine[] {
   return stock.fields.map((field) => ({
-    type: "placed" as const,
-    x: points(field.xMils + stock.shiftXMils),
-    y: points(topMils + field.yMils + stock.shiftYMils),
-    width: points(field.widthMils),
-    size: field.sizePoints,
-    alignment: field.align,
+    xMils: field.xMils + stock.shiftXMils,
+    yMils: topMils + field.yMils + stock.shiftYMils,
+    widthMils: field.widthMils,
+    sizePoints: field.sizePoints,
+    align: field.align,
+    bold: false,
     text: checkFieldText(field.kind, check),
     // Asterisks to the end of the line, so nothing can be written in after the amount.
     ...(field.kind === "amount_words" ? { fill: "*" } : {}),
-    ...(outline ? { outline: true } : {}),
   }));
 }
 
 /** The voucher stub: the same check's particulars, for the firm's file copy and the payee's. */
-function stubBlocks(
+export function stubLines(
   stock: CheckStockLayout,
   check: PrintableCheck,
   topMils: number,
-): ComposeBlock[] {
+): PlacedLine[] {
   const left = 500 + stock.shiftXMils;
   const top = topMils + 400 + stock.shiftYMils;
   const rows: [string, string][] = [
@@ -118,25 +134,92 @@ function stubBlocks(
     ["Matter", matterText(check)],
     ["Memo", check.memo],
   ];
-  return rows.flatMap(([label, value], index): ComposeBlock[] => [
+  return rows.flatMap(([label, value], index): PlacedLine[] => [
     {
-      type: "placed",
-      x: points(left),
-      y: points(top + index * 300),
-      width: points(1_100),
-      size: 9,
+      xMils: left,
+      yMils: top + index * 300,
+      widthMils: 1_100,
+      sizePoints: 9,
+      align: "start",
+      bold: false,
       text: label,
     },
     {
-      type: "placed",
-      x: points(left + 1_200),
-      y: points(top + index * 300),
-      width: points(6_300),
-      size: 10,
+      xMils: left + 1_200,
+      yMils: top + index * 300,
+      widthMils: 6_300,
+      sizePoints: 10,
+      align: "start",
       bold: index === 0,
       text: value,
     },
   ]);
+}
+
+/**
+ * One printed page: where its checks and stubs sit and every line on it. `checks` are the checks on
+ * this page, in order; a page holds one with its stubs, or three on three-up stock.
+ */
+export function checkPage(
+  stock: CheckStockLayout,
+  checks: readonly PrintableCheck[],
+): {
+  readonly checkTops: readonly number[];
+  readonly stubTops: readonly number[];
+  readonly lines: readonly PlacedLine[];
+} {
+  const positions = checkPagePositions(stock.pageLayout);
+  const checkTops = positions.checks.slice(0, Math.max(1, checks.length));
+  const lines: PlacedLine[] = [];
+  checks.slice(0, positions.checks.length).forEach((check, slot) => {
+    lines.push(...checkLines(stock, check, positions.checks[slot] ?? 0));
+  });
+  const first = checks[0];
+  if (positions.checks.length === 1 && first !== undefined) {
+    for (const stubTop of positions.stubs) lines.push(...stubLines(stock, first, stubTop));
+  }
+  return { checkTops, stubTops: positions.stubs, lines };
+}
+
+/** The sample checks a whole page of this layout holds: one, or three numbered in a run. */
+export function samplePageChecks(layout: CheckPageLayout): PrintableCheck[] {
+  const count = checkPagePositions(layout).checks.length;
+  return Array.from({ length: count }, (_, index) => ({
+    ...SAMPLE_CHECK,
+    checkNumber: SAMPLE_CHECK.checkNumber + index,
+  }));
+}
+
+function placedBlock(line: PlacedLine, outline: boolean): ComposeBlock {
+  return {
+    type: "placed",
+    x: points(line.xMils),
+    y: points(line.yMils),
+    width: points(line.widthMils),
+    size: line.sizePoints,
+    ...(line.align === "end" ? { alignment: "end" as const } : { alignment: "start" as const }),
+    ...(line.bold ? { bold: true } : {}),
+    text: line.text,
+    ...(line.fill === undefined ? {} : { fill: line.fill }),
+    ...(outline ? { outline: true } : {}),
+  };
+}
+
+function checkBlocks(
+  stock: CheckStockLayout,
+  check: PrintableCheck,
+  topMils: number,
+  outline: boolean,
+): ComposeBlock[] {
+  return checkLines(stock, check, topMils).map((line) => placedBlock(line, outline));
+}
+
+function stubBlocks(
+  stock: CheckStockLayout,
+  check: PrintableCheck,
+  topMils: number,
+): ComposeBlock[] {
+  return stubLines(stock, check, topMils).map((line) => placedBlock(line, false));
 }
 
 const LETTER_PAGE = {

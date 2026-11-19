@@ -2,6 +2,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import {
   CalendarSyncFirmLimits,
   CalendarSyncFirmLimitsSet,
+  CalendarSyncAccountChoice,
   CalendarSyncRulesReplace,
   CalendarSyncSettings,
 } from "@magna-carta/calendar/sync-contract";
@@ -131,6 +132,7 @@ const readMineRoute = defineOpenAPIRoute(readMineMeta, {
     "The session member's calendar sync settings: their connected account, that account's " +
     "calendars, every event type with the firm's limit on it, and the member's own rules. " +
     "Nothing syncs for a subject that has no rule.",
+  request: { query: CalendarSyncAccountChoice },
   responses: {
     200: {
       description: "The member's calendar sync settings",
@@ -151,6 +153,7 @@ const replaceMineRoute = defineOpenAPIRoute(replaceMineMeta, {
     "set is not synced. Refused when a rule names a subject the firm does not let leave, or a " +
     "calendar the member's account does not have or cannot write to.",
   request: {
+    query: CalendarSyncAccountChoice,
     body: { content: { "application/json": { schema: CalendarSyncRulesReplace } }, required: true },
   },
   responses: {
@@ -244,7 +247,7 @@ export function registerCalendarSyncSettingsRoutes(
   app.openapi(
     { ...readMineRoute, middleware: chokepointMiddleware(chokepoint, readMineRoute) },
     async (c) => {
-      const connection = await memberConnection(c);
+      const connection = await memberConnection(c, c.req.valid("query").provider);
       const calendars = connection === null ? null : await memberCalendars(c, connection);
       return c.json(await settingsBody(c, connection, calendars), 200);
     },
@@ -257,7 +260,7 @@ export function registerCalendarSyncSettingsRoutes(
       const userId = requireChokepointUserId(c);
       const firm = requireChokepointFirmContext(c);
       const { rules } = c.req.valid("json");
-      const connection = await memberConnection(c);
+      const connection = await memberConnection(c, c.req.valid("query").provider);
       if (connection === null) {
         return problemJson(c, {
           type: "conflict",

@@ -25,7 +25,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import DrawingPad from "./drawing-pad.svelte";
-  import { adoptSignature, type SignerAdoption } from "./signer-api.ts";
+  import type { SignerAdoption, SigningSession } from "./signer-api.ts";
   import { initialsFrom } from "./signer-walk.ts";
   import {
     TYPED_STYLES,
@@ -45,13 +45,13 @@
 
   let {
     open = $bindable(false),
-    token,
+    session,
     signerName,
     needsInitials,
     onAdopted,
   }: {
     open?: boolean;
-    token: string;
+    session: SigningSession;
     signerName: string;
     needsInitials: boolean;
     onAdopted: (marks: AdoptedMarks) => void;
@@ -123,7 +123,7 @@
           : "Couldn't make your mark. Try again.";
       return "refused";
     }
-    const outcome = await adoptSignature(token, { how, signaturePng, initialsPng });
+    const outcome = await session.adopt({ how, signaturePng, initialsPng });
     if (outcome.kind === "failed") {
       failure = stated(outcome.failure, "Your signature wasn't adopted.");
       return "refused";

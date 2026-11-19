@@ -8,6 +8,10 @@
    * returns the payment to To Print for a replacement. A reader who wants the payment itself undone
    * is told that is a deposit back to the ledger, not this.
    *
+   * VOID AND REPRINT is the same act with one more step after it: the screen opens Confirm Print for
+   * the payment, so a check that came out wrong after it was recorded as printed is reprinted from
+   * its row. `onVoided` hands the payment up when the reader asked for that.
+   *
    * THE REASON IS REQUIRED, because a voided number with no reason is the first thing an examiner
    * asks about. An empty reason refuses the commit; the field says nothing, the refusal does.
    */
@@ -40,11 +44,16 @@
           readonly checkNumber: number;
           readonly payee: string;
           readonly amountText: string;
+          /** The payment the check pays. */
+          readonly trustMovementId: string | null;
+          /** Whether the payment is printed again once the check is voided. */
+          readonly reprint: boolean;
         }
       | { readonly kind: "next"; readonly checkNumber: number }
       | null;
     service: TrustChecksService;
-    onVoided: () => void;
+    /** Voided. `reprint` is the payment to print again, where the reader asked for that. */
+    onVoided: (reprint: string | null) => void;
   } = $props();
 
   let reason = $state("");
@@ -57,8 +66,13 @@
     failure = null;
   }
 
+  const reprinting = $derived(subject?.kind === "check" && subject.reprint);
   const heading = $derived(
-    subject === null ? "Void Check" : `Void Check ${subject.checkNumber}`,
+    subject === null
+      ? "Void Check"
+      : reprinting
+        ? `Void and Reprint Check ${subject.checkNumber}`
+        : `Void Check ${subject.checkNumber}`,
   );
   const dialogSubtitle = $derived<RecordSubject>({
     facts:
@@ -81,7 +95,7 @@
         ? await service.voidCheck(trustAccountId, subject.trustCheckId, reason.trim(), submissionKey)
         : await service.voidNextNumber(trustAccountId, reason.trim(), submissionKey);
     if (outcome.kind === "ok") {
-      onVoided();
+      onVoided(subject.kind === "check" && subject.reprint ? subject.trustMovementId : null);
       return "committed";
     }
     failure = stated(
@@ -98,7 +112,7 @@
   kind="destructive"
   {heading}
   subtitle={dialogSubtitle}
-  commitLabel="Void Check"
+  commitLabel={reprinting ? "Void and Reprint" : "Void Check"}
   commitBusyLabel="Voiding"
   commitRefusal={refusal}
   unsavedChanges={reason.trim() !== ""}
@@ -127,7 +141,9 @@
         <DefinitionList.Row term="What Changes">
           {subject?.kind === "next"
             ? "The number is kept on the Voided list, and the next check prints on the number after it."
-            : "The number is kept on the Voided list, and the payment goes back to To Print for a new check."}
+            : reprinting
+              ? "The number is kept on the Voided list, and the payment is ready to print again on a new number."
+              : "The number is kept on the Voided list, and the payment goes back to To Print for a new check."}
         </DefinitionList.Row>
         <DefinitionList.Row term="Money">
           Voiding does not move money. To undo the payment itself, record a deposit back to the

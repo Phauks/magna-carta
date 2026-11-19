@@ -420,6 +420,24 @@ export async function listRequestsForFile(
 }
 
 /**
+ * The requests on a file still waiting on one member's own signature, newest first: out for
+ * signing, naming them as a colleague who signs in the firm, and their part asked and unfinished.
+ */
+export async function listWaitingOnMember(
+  database: SqlDatabase,
+  fileId: FileId,
+  userId: UserId,
+): Promise<SigningRequestId[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT request.id AS id FROM ${SIGNING_REQUEST_TABLE} AS request JOIN ${SIGNING_SIGNER_TABLE} AS signer ON signer.request_id = request.id WHERE request.file_id = ? AND request.status = 'sent' AND signer.attribution_level = 'firm-authenticated' AND signer.user_id = ? AND signer.status IN ('notified', 'opened') ORDER BY request.sent_at DESC, request.id DESC LIMIT 20`,
+    )
+    .bind(fileId, userId)
+    .all<{ id: string }>();
+  return results.map((row) => row.id as SigningRequestId);
+}
+
+/**
  * The requests still out for signing, oldest deadline first, for the sweep that reminds and
  * expires them. Bounded: a firm with more than this many open is caught up over the next passes.
  */
@@ -638,4 +656,66 @@ export async function readMemberName(database: SqlDatabase, userId: UserId): Pro
     .bind(userId)
     .all<{ display_name: string }>();
   return results[0]?.display_name ?? "A firm member";
+}
+
+/**
+ * Record the seal: the version the signed copy was filed as and the certificate beside it. Guarded
+ * on the request still being completed and unsealed, so a second sealing of the same request
+ * changes nothing.
+ */
+export function markSealedStatement(
+  database: SqlDatabase,
+  id: SigningRequestId,
+  signedFileVersionId: FileVersionId,
+  certificateFileId: FileId,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${SIGNING_REQUEST_TABLE} SET sealed_at = ?, signed_file_version_id = ?, certificate_file_id = ?, updated_at = ? WHERE id = ? AND status = 'completed' AND sealed_at IS NULL`,
+    )
+    .bind(now, signedFileVersionId, certificateFileId, now, id);
+}
+
+/**
+ * The completed requests still waiting for their seal, oldest first, completed before `before`. The
+ * hourly pass seals them when the prompt sealing at completion did not, so it leaves the newest
+ * alone while that is still under way.
+ */
+export async function listUnsealedCompleted(
+  database: SqlDatabase,
+  before: string,
+  limit = 20,
+): Promise<SigningRequestId[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id FROM ${SIGNING_REQUEST_TABLE} WHERE status = 'completed' AND sealed_at IS NULL AND completed_at < ? ORDER BY completed_at ASC, id ASC LIMIT ?`,
+    )
+    .bind(before, Math.min(Math.max(limit, 1), 100))
+    .all<{ id: string }>();
+  return results.map((row) => row.id as SigningRequestId);
+}
+
+/** Where a signed copy is filed and which zone its dates are written in. */
+export interface SealPlacement {
+  readonly fileName: string;
+  readonly folderId: string | null;
+  /** The matter's office's zone, or null when the office records none. */
+  readonly timeZone: string | null;
+}
+
+export async function readSealPlacement(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<SealPlacement | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT f.name AS name, f.folder_id AS folder_id, l.time_zone AS time_zone FROM ${FILE_TABLE} f JOIN matter m ON m.id = f.matter_id LEFT JOIN location l ON l.id = m.location_id WHERE f.id = ? AND f.deleted_at IS NULL LIMIT 1`,
+    )
+    .bind(fileId)
+    .all<{ name: string; folder_id: string | null; time_zone: string | null }>();
+  const row = results[0];
+  return row === undefined
+    ? undefined
+    : { fileName: row.name, folderId: row.folder_id, timeZone: row.time_zone };
 }

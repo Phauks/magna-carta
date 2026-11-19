@@ -31,6 +31,7 @@ export interface GoogleApplication {
 
 const AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const REVOCATION_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 const CALENDAR_ORIGIN = "https://www.googleapis.com";
 
 export interface AuthorizationRequest {
@@ -257,6 +258,24 @@ export async function readSignedInAccount(
     };
   }
   return { ok: true, address: parsed.data.id };
+}
+
+// Withdraws the member's grant at Google, so the application no longer appears among the apps
+// with access to their account and the refresh token stops working there, not only here. Answers
+// whether Google said it was done. A caller disconnecting an account does not wait on a yes: the
+// token is deleted on this side either way.
+export async function revokeGrant(http: HttpClient, refreshToken: string): Promise<boolean> {
+  try {
+    const response = await http.request({
+      method: "POST",
+      url: REVOCATION_ENDPOINT,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: refreshToken }).toString(),
+    });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
 }
 
 // Asks Google whether it accepts this deployment's application identifier and secret, without

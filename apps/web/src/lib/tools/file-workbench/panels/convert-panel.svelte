@@ -9,21 +9,27 @@
    * the selection cannot become, then failing partway, is worse than not offering it.
    *
    * Pressing a format sends each file to the firm's conversion engine in turn and lists how each
-   * one went. The original is never replaced: every copy is new, and is offered to save or to put
+   * one went. Convert With Options asks for the format and its settings (a size, grayscale, a JPEG
+   * quality) first, then runs the same way. The original is never replaced: every copy is new, and is offered to save or to put
    * on the bench beside the original.
    */
   import Download from "@lucide/svelte/icons/download";
   import FilePlus from "@lucide/svelte/icons/file-plus";
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import Badge from "@magna-carta/design-system/badge";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
   import type { Format } from "@magna-carta/conversion/format";
+  import { getFormat } from "@magna-carta/conversion/registry";
+  import type { ConversionOptions } from "@magna-carta/conversion/options";
   import { saveToTarget } from "$lib/export/save-target.ts";
   import FactTable, { type Fact } from "../parts/fact-table.svelte";
   import Absence from "../parts/absence.svelte";
   import SectionHeading from "../parts/section-heading.svelte";
   import { sharedConversionTargets, conversionTargetsFor, formatIdForLabel } from "../conversion-targets.ts";
   import { browserConversionPorts, convertedName, runConversion, type ConversionStage } from "../conversion-run.ts";
+  import { anySettingsFor } from "../conversion-options.ts";
+  import ConvertOptionsDialog from "../convert-options-dialog.svelte";
   import { describeType, detectedLabelOf } from "../file-facts.ts";
   import type { WorkbenchFile } from "../workbench-file.ts";
   import type { CapabilityPanelProps } from "../capability.ts";
@@ -54,6 +60,22 @@
   const withoutTargets = $derived(
     files.filter((file) => conversionTargetsFor(detectedLabelOf(file)).length === 0),
   );
+  // The graph's name for each file's format. Convert With Options offers only the settings that
+  // every one of them accepts, and only appears when some target accepts one.
+  const sources = $derived(
+    files.flatMap((file) => {
+      const from = formatIdForLabel(detectedLabelOf(file));
+      return from === null ? [] : [from];
+    }),
+  );
+  const offersOptions = $derived(
+    sources.length === files.length &&
+      anySettingsFor(
+        sources,
+        targets.map((format) => format.id),
+      ),
+  );
+  let optionsOpen = $state(false);
 
   const facts = $derived.by((): Fact[] => [
     {
@@ -72,7 +94,7 @@
     converting: "Converting",
   };
 
-  async function convertTo(target: Format): Promise<void> {
+  async function convertTo(target: Format, options?: ConversionOptions): Promise<void> {
     const chosen = [...files];
     run = {
       target,
@@ -89,9 +111,16 @@
         continue;
       }
       current.rows[file.id] = { kind: "working", stage: "uploading" };
-      const outcome = await runConversion(ports, await file.readBytes(), from, target.id, (stage) => {
-        current.rows[file.id] = { kind: "working", stage };
-      });
+      const outcome = await runConversion(
+        ports,
+        await file.readBytes(),
+        from,
+        target.id,
+        (stage) => {
+          current.rows[file.id] = { kind: "working", stage };
+        },
+        options,
+      );
       current.rows[file.id] =
         outcome.kind === "converted"
           ? {
@@ -194,6 +223,12 @@
             {format.label}
           </Button>
         {/each}
+        {#if offersOptions}
+          <Button variant="ghost" size="sm" disabled={running} onclick={() => (optionsOpen = true)}>
+            <SlidersHorizontal class="size-16" aria-hidden="true" />
+            Convert with Options
+          </Button>
+        {/if}
         {#if convertedCopies.length > 1 && onAddFiles !== undefined && !running}
           <Button variant="primary" size="sm" onclick={() => onAddFiles(convertedCopies)}>
             <FilePlus class="size-16" aria-hidden="true" />
@@ -216,3 +251,16 @@
     {/if}
   </div>
 </div>
+
+<ConvertOptionsDialog
+  bind:open={optionsOpen}
+  summary={files.length === 1 ? (files[0]?.name ?? "") : `${files.length} files`}
+  targets={targets.map((format) => ({ id: format.id, label: format.label }))}
+  {sources}
+  onConfirm={async (targetId, options) => {
+    const target = getFormat(targetId);
+    if (target === undefined) return "refused";
+    void convertTo(target, options);
+    return "committed";
+  }}
+/>

@@ -4,6 +4,7 @@ import {
   type EffectWrite,
 } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type {
   SigningFieldId,
   SigningRequestId,
@@ -15,10 +16,13 @@ import {
   isComplete,
   open,
   sign,
+  SIGNING_COMPLETED_TOPIC,
   type FieldAnswers,
+  type SigningCompletedPayload,
   type SigningFieldKind,
 } from "@magna-carta/signing/request";
 import { CURRENT_CONSENT_VERSION } from "./consent-disclosure.ts";
+import { memberTurnMessages } from "./member-turn.ts";
 import {
   SIGNING_GUARD,
   SigningRequestRefusal,
@@ -407,7 +411,23 @@ export function finishSigning(
       insertEventStatement(database, event(requestId, "completed", observed.now)),
     );
   }
-  return { effect: write(statements), notify, completed };
+  return {
+    effect: {
+      statements,
+      outboxMessages: [
+        ...memberTurnMessages(view.detail.request, notify),
+        ...(completed ? [sealMessage(requestId)] : []),
+      ],
+    },
+    notify,
+    completed,
+  };
+}
+
+/** The outbox row that asks for the seal once the last signer has finished. */
+function sealMessage(requestId: SigningRequestId): OutboxMessage {
+  const payload: SigningCompletedPayload = { requestId };
+  return { topic: SIGNING_COMPLETED_TOPIC, payload, aggregateKey: requestId };
 }
 
 /** Declining ends the request for everyone; the reason is kept on the record. */

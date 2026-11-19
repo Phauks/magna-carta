@@ -437,6 +437,7 @@ describe("declining", () => {
       "/documents/[id]/edit",
       "/documents/[id]/view",
       "/documents/[id]/pdf",
+      "/documents/[id]/sign",
       "/documents/[id]/watch",
       "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",
     ]);

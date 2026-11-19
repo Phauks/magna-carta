@@ -1538,6 +1538,9 @@ importers:
       wasm-vips:
         specifier: 'catalog:'
         version: 0.0.19
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
@@ -2940,6 +2943,9 @@ importers:
       '@magna-carta/meetings':
         specifier: workspace:*
         version: link:../meetings
+      '@magna-carta/signing':
+        specifier: workspace:*
+        version: link:../signing
       '@magna-carta/tasks':
         specifier: workspace:*
         version: link:../tasks

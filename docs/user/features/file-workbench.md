@@ -17,7 +17,7 @@ Some of this is read the moment a file lands, without being asked, because it is
 - **Type** — what the file actually is, read from its own first bytes rather than from its name, and whether the name agrees. A file called `invoice.pdf` whose contents are a Windows program is named on this tab, in those words.
 - **Hash** — the file's fingerprints, and a box to paste in a fingerprint somebody sent you so you can see at a glance whether they match.
 - **Malware Scan** — what the scanner made of it, and what in the file can act on its own: scripts, macros, actions that run when it opens, embedded objects, links it fetches without asking. A disarmed copy with all of that taken out is one click away.
-- **Metadata** — the properties a document carries that nobody typed on purpose: the author, the firm, the revision count, a scanner's model number.
+- **Metadata**: the properties a document carries that nobody typed on purpose, with their values: who wrote it and who last saved it, who changed or commented on what and when, the hidden text itself, and where and on what camera a photo was taken.
 - **Email** — for a saved message, its headers, the route it took, and what it carried, and a copy of it as a PDF.
 
 The rest wait until you ask, because each one either writes a new file, costs money, or sends something outside the firm:
@@ -54,6 +54,18 @@ That is deliberate. A file you are unsure about is the whole reason to bring it 
 2. Select them: click the first, then shift-click the last for a run of files, or hold Ctrl (Cmd on a Mac) and click to pick out individual ones. The bar under the list says how many files there are and how many are selected.
 3. Open the **Convert** tab. It offers only the formats **every** selected file can become, so a conversion cannot fail halfway through. If a format you expected is missing, one of the files in the selection cannot reach it; narrow the selection and it comes back.
 4. Press the format. Each file is sent to the firm's conversion engine in turn, and the table lists how each one went. A converted copy can be saved, or put on the bench beside the original; with several, **Put All on the Bench** takes every copy at once. The originals are never changed.
+
+**Convert with settings**
+
+For pictures, **Convert with Options** sits after the formats on the **Convert** tab. It opens a short form:
+
+1. **Convert To** picks the format.
+2. **Longest Side** shrinks the picture so its longer edge is no more than the size you pick, for a portal or an email that limits file size. A picture already smaller keeps its size.
+3. **Quality** appears for JPEG only. Lower makes a smaller file.
+4. **Grayscale** removes the color.
+5. Press **Convert**. The files convert the same way as pressing a format, and the originals are never changed.
+
+The settings shown are the ones the chosen format can use for every selected file. Documents, emails and videos have no settings, so the button only appears when one of the formats offered has some.
 
 **Read a saved email and keep it as a PDF**
 
@@ -98,6 +110,7 @@ Each row has a **⋮** menu with **Discard** in it, along with **Copy Name** and
 
 - **The fingerprints are calculated on your own computer.** They are the right figure for checking a file against one somebody sent you. A fingerprint that goes into a court record is calculated by Magna Carta's servers over the file they received, which is a different guarantee, and the tab says which one you are looking at.
 - **Some files have no preview.** An archive, a program, and an encrypted document have nothing to show, and the workbench says so rather than holding an empty frame open. **Hide Preview** at the top right closes the picture on every tab and gives the readings the width; **Show Preview** brings it back, and the button beside it moves the file to the other side of the readings. Both choices are remembered.
+- **Repair and Text Recognition need their engines.** If a tab says the feature is not set up on this server, the firm's administrator has not connected that engine yet. If it says the engine returned an error, the engine is connected but failing: try again in a minute, and tell your administrator if it keeps happening.
 - **Nothing is kept.** Files on the workbench stay in your own browser: they are not attached to a matter and not recorded as having been looked at. Closing the page clears them. **Convert**, **Repair**, **Text Recognition** and **Unlock** send the file to the firm's own engines when you press their button; the engine answers and keeps nothing.
 - **The name is not the answer.** Everything here reads the file itself. Where the file and its name disagree, the workbench reports the file.
 - **Recovering a lost password is not done here.** Unlocking a document you have the password for takes a moment. Searching for a password nobody has can run for days, so it does not run on a bench that clears itself; it goes to a screen of its own that can be left running.

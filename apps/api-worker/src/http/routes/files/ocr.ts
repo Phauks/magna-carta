@@ -7,6 +7,7 @@ import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
+import { recordEngineFailure } from "./engine-failure.ts";
 
 export const ocrRecognizeMeta: RouteMeta = {
   operationId: "ocr.recognize",
@@ -231,6 +232,7 @@ export function registerOcrRoutes(
       if (response.status !== 200) {
         // Every other non-200 (including the engine's own 503 inference-failed) is a transient
         // fault. A fault is never dressed up as a page with no words.
+        await recordEngineFailure(c, "ocr", "recognize", response);
         return problemJson(c, {
           type: "service-unavailable",
           title: "Recognition failed",
@@ -300,6 +302,7 @@ export function registerOcrRoutes(
         });
       }
       if (response.status !== 200) {
+        await recordEngineFailure(c, "ocr", "searchable", response);
         return problemJson(c, {
           type: "service-unavailable",
           title: "Recognition failed",

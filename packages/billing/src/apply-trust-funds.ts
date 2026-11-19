@@ -111,6 +111,17 @@ export async function applyTrustFundsToInvoices(
     applications: input.applications,
   });
 
+  // Refused before the transfer is composed, so no trust movement is ever built for an application
+  // the door would refuse: money cannot leave trust to pay a bill on a day before the bill existed.
+  for (const application of resolution.applications) {
+    if (input.effectiveDate < application.invoiceIssueDate) {
+      throw new BillingValidationError(
+        "application-before-invoice-issued",
+        `invoice ${application.invoiceId} was issued on ${application.invoiceIssueDate} and this transfer takes effect on ${input.effectiveDate}: money cannot leave trust to pay a bill before the bill existed, so date it on or after ${application.invoiceIssueDate}`,
+      );
+    }
+  }
+
   // The operating side of the transfer, resolved through the role map or refused by name. Trust does
   // not own the firm's chart of accounts and invents no numbering scheme, so these arrive from here —
   // and trust checks that neither of them turns out to belong to a trust account, which is what stops
@@ -157,6 +168,7 @@ export async function applyTrustFundsToInvoices(
         amountMinor: application.amountMinor,
         currency: application.currency,
         effectiveDate: input.effectiveDate,
+        invoiceIssueDate: application.invoiceIssueDate,
         trustTransferId: transfer.transferId,
         appliedBy: input.appliedBy,
       },

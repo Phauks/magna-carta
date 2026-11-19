@@ -24,6 +24,12 @@ import {
 } from "@magna-carta/search/natural-language-topics";
 import { RECORD_INDEX_REBUILD_REQUESTED_TOPIC } from "@magna-carta/search/record-index-topics";
 import { TRANSFER_PASS_REQUESTED_TOPIC } from "@magna-carta/record-transfer/transfer-requests";
+import {
+  SIGNING_COMPLETED_TOPIC,
+  type SigningCompletedPayload,
+} from "@magna-carta/signing/request";
+import type { SigningRequestId } from "@magna-carta/identifiers/types";
+import { sealRequestForFirm } from "../../signing/sealing-wiring.ts";
 import { consumeRecheckRequest } from "../conflicts/recheck-request-consumer.ts";
 import { consumeRecheckRun } from "../conflicts/recheck-run-consumer.ts";
 import { consumeTransferPassRequest } from "../record-transfer/pass-consumer.ts";
@@ -144,7 +150,30 @@ const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   // A member asked for a pass over a record transfer's source file. The pass reads the file from
   // the firm's bucket and loads its rows. See ../record-transfer/pass-consumer.ts.
   [TRANSFER_PASS_REQUESTED_TOPIC]: consumeTransferPassRequest,
+  // The last signer finished: seal the request and file the signed copy and its certificate. See
+  // ../../signing/seal-completed.ts.
+  [SIGNING_COMPLETED_TOPIC]: handleSigningCompleted,
 };
+
+// Sealing does nothing to a request already sealed, so any number of deliveries is safe. A fault
+// propagates and the message retries; an outcome that will not change on a retry (the sealing
+// service unconfigured, the bytes refused, the document changed) is counted and acked, and the
+// hourly signing pass tries the unconfigured case again.
+async function handleSigningCompleted(
+  env: Bindings,
+  firmDatabase: ProxyBatchDatabase,
+  message: PerFirmQueueMessage,
+  logger: Logger,
+): Promise<void> {
+  const payload = JSON.parse(message.payload) as SigningCompletedPayload;
+  await sealRequestForFirm(
+    env,
+    message.firmId,
+    firmDatabase,
+    payload.requestId as SigningRequestId,
+    logger,
+  );
+}
 
 // The message carries nothing to read: the rebuild counts what is behind when it runs. A failure
 // propagates and the message retries, which is safe to any number of deliveries because a place

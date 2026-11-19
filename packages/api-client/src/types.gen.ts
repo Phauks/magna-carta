@@ -2345,6 +2345,206 @@ export type ClientListReport = {
     }>;
 };
 
+export type ChangeLogReport = {
+    periodStart: string;
+    periodEnd: string;
+    computedAt: string;
+    reproducible: boolean;
+    statement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        directoryCount: number;
+        matterCount: number;
+        accountCount: number;
+        totalCount: number;
+    };
+    families: Array<{
+        family: 'directory' | 'matters' | 'accounts';
+        label: string;
+        changeCount: number;
+    }>;
+    people: Array<{
+        directoryCount: number;
+        matterCount: number;
+        accountCount: number;
+        totalCount: number;
+        actorUserId: string | null;
+        actorName: string | null;
+    }>;
+    entries: Array<{
+        id: string;
+        at: string;
+        actorUserId: string | null;
+        actorName: string | null;
+        family: 'directory' | 'matters' | 'accounts';
+        event: string;
+        eventLabel: string;
+        subjectId: string | null;
+    }>;
+};
+
+export type RevenueReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    attributionStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        billedMinor: number;
+        collectedMinor: number;
+        creditedMinor: number;
+    };
+    offices: Array<{
+        locationId: string | null;
+        locationName: string | null;
+        figures: {
+            billedMinor: number;
+            collectedMinor: number;
+            creditedMinor: number;
+        };
+    }>;
+    matterTypes: Array<{
+        matterTypeId: string | null;
+        matterTypeName: string | null;
+        matterCount: number;
+        figures: {
+            billedMinor: number;
+            collectedMinor: number;
+            creditedMinor: number;
+        };
+    }>;
+    responsibleAttorneys: Array<{
+        responsibleMemberId: string;
+        responsibleName: string | null;
+        matterCount: number;
+        figures: {
+            billedMinor: number;
+            collectedMinor: number;
+            creditedMinor: number;
+        };
+    }>;
+};
+
+export type MatterBillingGuideReport = {
+    computedAt: string;
+    asOfDate: string;
+    reproducible: false;
+    statement: string;
+    locationId: string | null;
+    completeness: ReportCompleteness;
+    totals: {
+        matterCount: number;
+        hourlyCount: number;
+        flatFeeCount: number;
+        contingencyCount: number;
+        retainerCount: number;
+        noneRecordedCount: number;
+    };
+    matters: Array<{
+        matterId: string;
+        matterNumber: string | null;
+        matterTitle: string;
+        status: 'open' | 'hold';
+        clientEntityId: string | null;
+        clientName: string | null;
+        locationId: string | null;
+        locationName: string | null;
+        responsibleName: string | null;
+        arrangement: {
+            arrangementId: string;
+            version: number;
+            kind: 'hourly' | 'flat_fee' | 'contingency' | 'retainer';
+            flatFeeAmountMinor: number | null;
+            contingencyShareE4: number | null;
+            contingencyBasis: 'gross_recovery' | 'net_after_costs' | null;
+            retainerTargetMinor: number | null;
+            retainerThresholdMinor: number | null;
+            advanceDepositDestination: 'trust' | 'operating' | null;
+            currency: string;
+            validFrom: string;
+            validTo: string | null;
+        } | null;
+        nextArrangement: {
+            arrangementId: string;
+            version: number;
+            kind: 'hourly' | 'flat_fee' | 'contingency' | 'retainer';
+            flatFeeAmountMinor: number | null;
+            contingencyShareE4: number | null;
+            contingencyBasis: 'gross_recovery' | 'net_after_costs' | null;
+            retainerTargetMinor: number | null;
+            retainerThresholdMinor: number | null;
+            advanceDepositDestination: 'trust' | 'operating' | null;
+            currency: string;
+            validFrom: string;
+            validTo: string | null;
+        } | null;
+        rates: Array<{
+            rateId: string;
+            rateCardId: string;
+            rateCardName: string;
+            tier: 'matter' | 'client';
+            rateE4: number;
+            currency: string;
+            validFrom: string;
+            validTo: string | null;
+        }>;
+    }>;
+};
+
+export type ClientStatementReport = {
+    periodStart: string;
+    periodEnd: string;
+    clientEntityId: string;
+    clientName: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        openingMinor: number;
+        billedMinor: number;
+        invoiceCount: number;
+        appliedMinor: number;
+        applicationCount: number;
+        closingMinor: number;
+    };
+    activity: Array<{
+        kind: 'invoice' | 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | 'reversal';
+        reversesKind: 'trust_transfer' | 'payment' | 'credit_note' | 'client_credit' | 'write_off' | null;
+        date: string;
+        invoiceId: string;
+        invoiceNumber: string | null;
+        applicationId: string | null;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+        }>;
+        reason: string | null;
+        chargedMinor: number | null;
+        appliedMinor: number | null;
+        balanceMinor: number;
+    }>;
+    unpaidInvoices: Array<{
+        invoiceId: string;
+        invoiceNumber: string | null;
+        issueDate: string;
+        dueDate: string | null;
+        matters: Array<{
+            matterId: string;
+            matterTitle: string;
+            matterNumber: string | null;
+        }>;
+        agingBucket: 'current' | '1-30' | '31-60' | '61-90' | '90+';
+        billedMinor: number;
+        paidAndCreditedMinor: number;
+        unpaidMinor: number;
+    }>;
+};
+
 export type BillingInvoiceAck = {
     invoiceId: string;
     status: 'draft' | 'final' | 'void';
@@ -3812,6 +4012,8 @@ export type SigningRequestDetail = {
     sentAt: string | null;
     completedAt: string | null;
     sealedAt: string | null;
+    signedFileVersionId: string | null;
+    certificateFileId: string | null;
     voidedReason: string | null;
     signers: Array<{
         id: string;
@@ -3955,6 +4157,10 @@ export type SignerDecline = {
     reason: string;
 };
 
+export type MySigningRequestsOnFile = {
+    requestIds: Array<string>;
+};
+
 export type SessionLaunchResponse = {
     editorUrl: string;
     editorOrigin: string;
@@ -4048,6 +4254,22 @@ export type ConversionSubmitRequest = {
     sourceKey: string;
     from: string;
     to: string;
+    options?: ConversionOptions;
+};
+
+export type ConversionOptions = {
+    /**
+     * Shrink the image so its longest side is at most this many pixels. Never enlarges.
+     */
+    maxDimension?: number;
+    /**
+     * JPEG quality from 1 to 100. Only a JPEG target accepts it.
+     */
+    quality?: number;
+    /**
+     * Drop the colour and keep the lightness.
+     */
+    grayscale?: boolean;
 };
 
 export type ConversionStatus = {
@@ -6523,6 +6745,14 @@ export type SetDirectoryPersonLifeDatesRequest = {
     deceased?: boolean;
 };
 
+export type ChangeMatterPartyRoleRequest = {
+    role: string;
+    /**
+     * The capacity the party acts in, in its new role. Left out, it has none.
+     */
+    capacity?: string;
+};
+
 export type DirectoryEntityPhotoResponse = {
     photo: DirectoryEntityPhoto;
 };
@@ -7645,9 +7875,9 @@ export type CalendarSyncShownCalendarsReplace = {
 
 export type CalendarSyncAccountEventList = {
     /**
-     * The calendars these events are read from: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
+     * The calendars these events are read from, across every account the member connected: the member's own choice. Empty when they have no account or chose none, in which case there is nothing to show them.
      */
-    shownCalendars: Array<CalendarSyncShownCalendar>;
+    shownCalendars: Array<CalendarSyncAccountShownCalendar>;
     events: Array<CalendarSyncAccountEvent>;
     /**
      * True when the window held more events than one answer carries.
@@ -7655,11 +7885,27 @@ export type CalendarSyncAccountEventList = {
     truncated: boolean;
 };
 
+export type CalendarSyncAccountShownCalendar = {
+    calendarRemoteId: string;
+    /**
+     * The calendar's name when it was chosen, shown when the provider is unreachable.
+     */
+    calendarName: string;
+    /**
+     * Which of the member's accounts holds it.
+     */
+    provider: 'microsoft' | 'google';
+};
+
 export type CalendarSyncAccountEvent = {
     /**
      * The provider's own identifier for the event.
      */
     id: string;
+    /**
+     * Which of the member's accounts the event was read from.
+     */
+    provider: 'microsoft' | 'google';
     calendarRemoteId: string;
     calendarName: string | null;
     title: string;
@@ -10928,7 +11174,7 @@ export type TrustFrozenProof = {
 
 export type TrustChecksResponse = {
     nextCheckNumber: number;
-    stock: TrustCheckStock;
+    stock: TrustCheckStock | null;
     toPrint: Array<TrustCheckToPrint>;
     register: Array<TrustCheckRegisterRow>;
 };
@@ -10945,7 +11191,7 @@ export type TrustCheckStock = {
     hasScan: boolean;
     savedBy: string;
     savedAt: string;
-} | null;
+};
 
 export type TrustCheckField = {
     kind: 'date' | 'payee' | 'amount' | 'amount_words' | 'memo' | 'matter' | 'check_number';
@@ -11008,6 +11254,7 @@ export type PrintedTrustCheck = {
 export type PrintTrustChecksRequest = {
     trustAccountId: string;
     trustMovementIds: Array<string>;
+    firstCheckNumber?: number | null;
 };
 
 export type TrustCheckAcknowledgement = {
@@ -17490,6 +17737,185 @@ export type ReportsClientListResponses = {
 };
 
 export type ReportsClientListResponse = ReportsClientListResponses[keyof ReportsClientListResponses];
+
+export type ReportsChangeLogData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+    };
+    url: '/api/v1/reports/change-log';
+};
+
+export type ReportsChangeLogErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:operational
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not a pair of calendar dates in order, or holds more changes than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsChangeLogError = ReportsChangeLogErrors[keyof ReportsChangeLogErrors];
+
+export type ReportsChangeLogResponses = {
+    /**
+     * The changes recorded in this period
+     */
+    200: ChangeLogReport;
+};
+
+export type ReportsChangeLogResponse = ReportsChangeLogResponses[keyof ReportsChangeLogResponses];
+
+export type ReportsRevenueData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/revenue';
+};
+
+export type ReportsRevenueErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was billed or applied than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsRevenueError = ReportsRevenueErrors[keyof ReportsRevenueErrors];
+
+export type ReportsRevenueResponses = {
+    /**
+     * What was billed and collected in this period
+     */
+    200: RevenueReport;
+};
+
+export type ReportsRevenueResponse = ReportsRevenueResponses[keyof ReportsRevenueResponses];
+
+export type ReportsMatterBillingGuideData = {
+    body?: never;
+    path?: never;
+    query?: {
+        locationId?: string;
+    };
+    url: '/api/v1/reports/matter-billing-guide';
+};
+
+export type ReportsMatterBillingGuideErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The firm has more matters than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsMatterBillingGuideError = ReportsMatterBillingGuideErrors[keyof ReportsMatterBillingGuideErrors];
+
+export type ReportsMatterBillingGuideResponses = {
+    /**
+     * How each open and held matter is billed today
+     */
+    200: MatterBillingGuideReport;
+};
+
+export type ReportsMatterBillingGuideResponse = ReportsMatterBillingGuideResponses[keyof ReportsMatterBillingGuideResponses];
+
+export type ReportsClientStatementData = {
+    body?: never;
+    path?: never;
+    query: {
+        clientEntityId: string | string;
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+    };
+    url: '/api/v1/reports/client-statement';
+};
+
+export type ReportsClientStatementErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The client is not a directory person or organization handle, the period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or the client has more bills or applications than one statement can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsClientStatementError = ReportsClientStatementErrors[keyof ReportsClientStatementErrors];
+
+export type ReportsClientStatementResponses = {
+    /**
+     * The client's statement of account for this period
+     */
+    200: ClientStatementReport;
+};
+
+export type ReportsClientStatementResponse = ReportsClientStatementResponses[keyof ReportsClientStatementResponses];
 
 export type BillingListInvoicesData = {
     body?: never;
@@ -23978,6 +24404,398 @@ export type SignerDeclineResponses = {
 
 export type SignerDeclineResponse = SignerDeclineResponses[keyof SignerDeclineResponses];
 
+export type SigningListMyRequestsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/my-signing-requests';
+};
+
+export type SigningListMyRequestsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningListMyRequestsError = SigningListMyRequestsErrors[keyof SigningListMyRequestsErrors];
+
+export type SigningListMyRequestsResponses = {
+    /**
+     * The requests
+     */
+    200: MySigningRequestsOnFile;
+};
+
+export type SigningListMyRequestsResponse = SigningListMyRequestsResponses[keyof SigningListMyRequestsResponses];
+
+export type SigningReadMyPartData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part';
+};
+
+export type SigningReadMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningReadMyPartError = SigningReadMyPartErrors[keyof SigningReadMyPartErrors];
+
+export type SigningReadMyPartResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningReadMyPartResponse = SigningReadMyPartResponses[keyof SigningReadMyPartResponses];
+
+export type SigningReadMyDocumentData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/document';
+};
+
+export type SigningReadMyDocumentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningReadMyDocumentError = SigningReadMyDocumentErrors[keyof SigningReadMyDocumentErrors];
+
+export type SigningReadMyDocumentResponses = {
+    /**
+     * The document
+     */
+    200: Blob | File;
+};
+
+export type SigningReadMyDocumentResponse = SigningReadMyDocumentResponses[keyof SigningReadMyDocumentResponses];
+
+export type SigningOpenMyPartData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/opening';
+};
+
+export type SigningOpenMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningOpenMyPartError = SigningOpenMyPartErrors[keyof SigningOpenMyPartErrors];
+
+export type SigningOpenMyPartResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningOpenMyPartResponse = SigningOpenMyPartResponses[keyof SigningOpenMyPartResponses];
+
+export type SigningConsentMyPartData = {
+    body?: never;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/consent';
+};
+
+export type SigningConsentMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningConsentMyPartError = SigningConsentMyPartErrors[keyof SigningConsentMyPartErrors];
+
+export type SigningConsentMyPartResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningConsentMyPartResponse = SigningConsentMyPartResponses[keyof SigningConsentMyPartResponses];
+
+export type SigningAdoptMySignatureData = {
+    body: SignerAdoption;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/adoption';
+};
+
+export type SigningAdoptMySignatureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningAdoptMySignatureError = SigningAdoptMySignatureErrors[keyof SigningAdoptMySignatureErrors];
+
+export type SigningAdoptMySignatureResponses = {
+    /**
+     * The member's view
+     */
+    200: SignerRequestView;
+};
+
+export type SigningAdoptMySignatureResponse = SigningAdoptMySignatureResponses[keyof SigningAdoptMySignatureResponses];
+
+export type SigningFinishMyPartData = {
+    body: SignerFinish;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/finish';
+};
+
+export type SigningFinishMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningFinishMyPartError = SigningFinishMyPartErrors[keyof SigningFinishMyPartErrors];
+
+export type SigningFinishMyPartResponses = {
+    /**
+     * Signed
+     */
+    200: SignerOutcome;
+};
+
+export type SigningFinishMyPartResponse = SigningFinishMyPartResponses[keyof SigningFinishMyPartResponses];
+
+export type SigningDeclineMyPartData = {
+    body: SignerDecline;
+    path: {
+        requestId: string;
+    };
+    query?: never;
+    url: '/api/v1/signing-requests/{requestId}/my-part/declining';
+};
+
+export type SigningDeclineMyPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The member lacks the permission this route names
+     */
+    403: Problem;
+    /**
+     * No such request naming this member as a signer
+     */
+    404: Problem;
+    /**
+     * A step before this one is not done, or it is not this member's turn
+     */
+    409: Problem;
+    /**
+     * The request is no longer out for signing, or this member already signed
+     */
+    410: Problem;
+    /**
+     * What was sent cannot be used
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningDeclineMyPartError = SigningDeclineMyPartErrors[keyof SigningDeclineMyPartErrors];
+
+export type SigningDeclineMyPartResponses = {
+    /**
+     * Declined
+     */
+    200: SignerOutcome;
+};
+
+export type SigningDeclineMyPartResponse = SigningDeclineMyPartResponses[keyof SigningDeclineMyPartResponses];
+
 export type DocumentsEditSessionData = {
     body?: never;
     path: {
@@ -24305,7 +25123,7 @@ export type ConversionsSubmitErrors = {
      */
     404: Problem;
     /**
-     * The requested format conversion is not supported (no conversion path found)
+     * The requested format conversion is not supported (no conversion path found), or an option was given that this conversion cannot honour
      */
     422: Problem;
     /**
@@ -31101,6 +31919,60 @@ export type DirectoryUnlinkMatterPartyResponses = {
 
 export type DirectoryUnlinkMatterPartyResponse = DirectoryUnlinkMatterPartyResponses[keyof DirectoryUnlinkMatterPartyResponses];
 
+export type DirectoryChangeMatterPartyRoleData = {
+    body: ChangeMatterPartyRoleRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/matter-parties/{id}';
+};
+
+export type DirectoryChangeMatterPartyRoleErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryChangeMatterPartyRoleError = DirectoryChangeMatterPartyRoleErrors[keyof DirectoryChangeMatterPartyRoleErrors];
+
+export type DirectoryChangeMatterPartyRoleResponses = {
+    /**
+     * The link that now carries the role
+     */
+    200: MatterPartyResponse;
+};
+
+export type DirectoryChangeMatterPartyRoleResponse = DirectoryChangeMatterPartyRoleResponses[keyof DirectoryChangeMatterPartyRoleResponses];
+
 export type DirectoryContactPointsData = {
     body?: never;
     path: {
@@ -34746,7 +35618,12 @@ export type ConnectedAccountsDisconnectResponse = ConnectedAccountsDisconnectRes
 export type CalendarSyncReadMineData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync';
 };
 
@@ -34783,7 +35660,12 @@ export type CalendarSyncReadMineResponse = CalendarSyncReadMineResponses[keyof C
 export type CalendarSyncReplaceMyRulesData = {
     body: CalendarSyncRulesReplace;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/rules';
 };
 
@@ -34910,7 +35792,12 @@ export type CalendarSyncSetFirmLimitsResponse = CalendarSyncSetFirmLimitsRespons
 export type CalendarSyncReplaceMyShownCalendarsData = {
     body: CalendarSyncShownCalendarsReplace;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/shown-calendars';
 };
 
@@ -35009,7 +35896,12 @@ export type CalendarSyncListMyAccountEventsResponse = CalendarSyncListMyAccountE
 export type CalendarSyncListMyIssuesData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues';
 };
 
@@ -35049,7 +35941,12 @@ export type CalendarSyncPutBackMyCopyData = {
         localKind: 'matter_event' | 'firm_event' | 'deadline';
         localId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back';
 };
 
@@ -35089,7 +35986,12 @@ export type CalendarSyncLeaveMyCopyData = {
         localKind: 'matter_event' | 'firm_event' | 'deadline';
         localId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The provider of the member's account the request is about. Left out, it is the account the member connected first.
+         */
+        provider?: 'microsoft' | 'google';
+    };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave';
 };
 
@@ -42248,6 +43150,53 @@ export type GuestSendMessageResponses = {
 };
 
 export type GuestSendMessageResponse = GuestSendMessageResponses[keyof GuestSendMessageResponses];
+
+export type GuestRecordCrashData = {
+    body: RecordClientErrorRequest;
+    headers?: {
+        /**
+         * The link the guest's page was opened from.
+         */
+        'x-meeting-guest'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/guest/client-errors';
+};
+
+export type GuestRecordCrashErrors = {
+    /**
+     * No such resource: the answer to a missing or unverifiable link
+     */
+    404: Problem;
+    /**
+     * The meeting has ended or the link is used up
+     */
+    409: Problem;
+    /**
+     * The link has expired, was withdrawn, or was replaced by a newer one
+     */
+    410: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type GuestRecordCrashError = GuestRecordCrashErrors[keyof GuestRecordCrashErrors];
+
+export type GuestRecordCrashResponses = {
+    /**
+     * The crash is recorded (or already was)
+     */
+    201: RecordClientErrorResponse;
+};
+
+export type GuestRecordCrashResponse = GuestRecordCrashResponses[keyof GuestRecordCrashResponses];
 
 export type GuestOpenSharedFileData = {
     body?: never;
