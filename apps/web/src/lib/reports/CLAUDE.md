@@ -30,8 +30,7 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
   `billing-guide-presenter.ts` (Matter Billing Guide, its terms in `$lib/billing/fee-agreement.ts`'s words),
   `activity-presenters.ts` (Timekeeper Productivity, Daily Time, Matter Productivity, Tasks by Person, operational volumes,
   Matters List, Client List), `change-log-presenter.ts` (Change Log),
-  `client-statement-presenter.ts` (Client Statement of Account, not yet
-  in the registry: the run screen has no client control) — their presenters; `report-samples.ts` their
+  `client-statement-presenter.ts` (Client Statement of Account, on the run screen's Client field) — their presenters; `report-samples.ts` their
   samples; `report-cells.ts` how they print money (through `@magna-carta/money`), hours and counts.
 - `report-summary.svelte` — the row of totals; `report-section-table.svelte` one section (a plain
   table with its ruled total, or `report-section-grid.svelte` on `DataTable.Grid` when sortable),
@@ -60,6 +59,10 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
   total as `totalRow`; a by-client section is `sortable` with each client's matters in
   `rowDetails`. The grid's own totals row is never switched on for a report: it adds the column up,
   and a report's totals are the payload's.
+- **A client report names its client in `scope.subject`** (`scope: { client: true }`), as a trust
+  report names its account. The run screen draws the directory's picker with nothing to add from
+  it (the owner's pick A, 2026-11-19: a Client field in the row of controls), reads the name back
+  for a link opened cold, and reads nothing until a client is chosen.
 - **The office is a filter, never a gate.** `scope.office` rides the address as `office`; null is the
   whole firm, which every member who may run the report may run.
 

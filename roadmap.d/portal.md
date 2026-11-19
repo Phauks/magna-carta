@@ -66,7 +66,7 @@
   scope: esign capability delivered through the e-signature area.
   status: not-started
   slices: 2-5-pdf-services-e-signature-core
-  evidence: The PDF engine substrate is built but the e-signature surfaces are not started (status.d/2-5); no portal hookup.
+  evidence: Firm-side signing is built (documents.esignature.signing-flow: the Signature tab, emailed signing links, colleagues signing in the app, sealing on completion); no portal hookup.
 
 - id: portal.identity
   name: Identity and per-share assurance

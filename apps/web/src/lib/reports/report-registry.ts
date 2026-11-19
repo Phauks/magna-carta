@@ -71,6 +71,7 @@ import {
   readOperationalVolumes,
   readPaymentsApplied,
   readRealization,
+  readClientStatement,
   readRevenue,
   readDailyTime,
   readTaskWorkload,
@@ -88,6 +89,7 @@ import {
   type OperationalVolumes,
   type PaymentsApplied,
   type Realization,
+  type ClientStatement,
   type Revenue,
   type DailyTime,
   type TaskWorkload,
@@ -100,6 +102,7 @@ import {
   sampleAgedExpenses,
   sampleAgedWorkInProgress,
   sampleChangeLog,
+  sampleClientStatement,
   sampleInvoices,
   sampleMatterBalances,
   sampleMatterBillingGuide,
@@ -118,6 +121,7 @@ import {
 import { presentTrustCompliancePack, type ReportCaptions } from "./trust-compliance-presenter.ts";
 import { presentChangeLog } from "./change-log-presenter.ts";
 import { presentRevenue } from "./revenue-presenter.ts";
+import { presentClientStatement } from "./client-statement-presenter.ts";
 
 export type ReportFamily = "trust-compliance" | "financial" | "productivity" | "operational";
 
@@ -146,6 +150,11 @@ export interface ReportScopeControls {
   readonly trustAccount: boolean;
   /** The rows can be narrowed to one office. A filter, never a gate: the default is every office. */
   readonly office: boolean;
+  /**
+   * The report is about one client, picked from the firm's directory (the owner's pick A,
+   * 2026-11-19: a Client field in the row of controls). Left out where the report is not.
+   */
+  readonly client?: boolean;
   /**
    * What the report is asked over on the effective axis: a span of days, one date (aging is owed
    * AT a date, and the scope's period is that one day), or nothing (work in progress is now).
@@ -514,6 +523,33 @@ const revenue = built<Revenue>({
   samplePayload: sampleRevenue,
 });
 
+const clientStatement = built<ClientStatement>({
+  id: "client-statement",
+  family: "financial",
+  name: "Client Statement of Account",
+  answers:
+    "For one client over a period: what they owed at the start, each bill and payment with a running balance, what they owed at the end, and the bills still unpaid.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: false, period: "span", client: true },
+  read: (fetchImpl, scope) => {
+    // A scope with no client never reaches here: the run screen reads only when the scope is
+    // complete, and a client report's scope is complete only once a client is chosen.
+    if (scope.subject === null) {
+      throw new Error("unreachable: a client statement was read with no client chosen");
+    }
+    return readClientStatement(fetchImpl, {
+      clientEntityId: scope.subject,
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+    });
+  },
+  present: (payload) => presentClientStatement(payload),
+  samplePayload: sampleClientStatement,
+});
+
 const matterBalances = built<MatterBalances>({
   id: "matter-balances",
   family: "financial",
@@ -585,6 +621,7 @@ const REPORT_LIST = [
   invoices,
   paymentsApplied,
   revenue,
+  clientStatement,
   matterBalances,
   matterBillingGuide,
   timekeeperProductivity,

@@ -4,13 +4,12 @@
    *
    * A local firm has no trust account with payments waiting for checks, and no seed makes one, so
    * this is where both screens are reviewed. They are the real components over an in-memory
-   * service that keeps the server's numbering rules, so printing, answering and voiding all work
-   * here, and the PDF is composed for real. Reload to start the fixtures over.
+   * service that keeps the server's numbering rules, so printing and returning a check to the list
+   * both work here, and the PDF is composed for real. Reload to start the fixtures over.
    *
    * THE SWITCHES ARE NAMED FOR WHAT A READER WOULD SEE, not for the fixture behind them: the owner
    * reviews from here and could not tell what "ready" or "read fail" meant. The panel row opens
-   * Confirm Print, the answer panel and a reprint at once, which a reader otherwise reaches only by
-   * printing.
+   * Confirm Print or Return to List at once, which a reader otherwise reaches by pressing through.
    *
    * Dev builds only, like the developer console itself, behind the import.meta.env.DEV gate.
    */
@@ -33,17 +32,15 @@
     GALLERY_ACCOUNT_ID,
     GALLERY_ACCOUNT_NAME,
     GALLERY_MEMBERS,
-    GALLERY_REPRINT_PAYMENT,
+    GALLERY_RETURN_CHECK,
     galleryChecksService,
     type ChecksGalleryState,
   } from "$lib/trust/checks/checks-gallery-fixtures.ts";
 
   const STATE_LABELS: Readonly<Record<ChecksGalleryState, string>> = {
     ready: "Checks Waiting",
-    waiting: "Waiting for Your Answer",
     empty: "Nothing to Print",
     "no-stock": "No Layout Saved",
-    reprint: "Misprinted, Back to Print",
     loading: "Still Loading",
     failed: "Couldn't Load",
   };
@@ -51,8 +48,7 @@
   /** The panels the gallery can open at once, each over the situation it needs. */
   const PANELS = [
     { value: "print", label: "Confirm Print", state: "ready" },
-    { value: "answer", label: "How They Printed", state: "waiting" },
-    { value: "reprint", label: "Print Again", state: "reprint" },
+    { value: "return", label: "Return to List", state: "ready" },
   ] as const satisfies readonly { value: string; label: string; state: ChecksGalleryState }[];
   type PanelName = (typeof PANELS)[number]["value"];
 
@@ -70,9 +66,7 @@
   const opening = $derived.by(() => {
     const name: PanelName | null = panel;
     if (name === null || screen !== "checks") return undefined;
-    if (name === "reprint") {
-      return { panel: "reprint" as const, trustMovementIds: [GALLERY_REPRINT_PAYMENT] };
-    }
+    if (name === "return") return { panel: "return" as const, trustCheckId: GALLERY_RETURN_CHECK };
     return { panel: name };
   });
   const readOnly = $derived(page.url.searchParams.get("reader") === "read-only");
