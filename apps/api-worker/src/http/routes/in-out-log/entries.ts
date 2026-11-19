@@ -78,7 +78,9 @@ const errors = {
   401: problem("No valid session"),
   403: problem("The session member lacks the required permission"),
   404: problem("The firm is unreachable, or the entry is not one this member can see"),
-  409: problem("The entry has already been picked up or moved to Custodian, or a retry is in progress"),
+  409: problem(
+    "The entry has already been picked up or moved to Custodian, or a retry is in progress",
+  ),
   422: problem("The request body is not a shape this operation accepts"),
   429: problem("Rate limited"),
 } as const;
@@ -129,7 +131,10 @@ const listRoute = defineOpenAPIRoute(readMeta("listEntries"), {
     "to, and the matter's name.",
   request: { query: listQuery },
   responses: {
-    200: { description: "One page of the log", content: { "application/json": { schema: InOutEntryPage } } },
+    200: {
+      description: "One page of the log",
+      content: { "application/json": { schema: InOutEntryPage } },
+    },
     401: errors[401],
     403: errors[403],
     404: errors[404],
@@ -163,7 +168,10 @@ const dropOffRoute = defineOpenAPIRoute(writeMeta("dropOff"), {
     body: { content: { "application/json": { schema: DropOffRequest } }, required: true },
   },
   responses: {
-    201: { description: "The entry and its number", content: { "application/json": { schema: InOutEntryCreated } } },
+    201: {
+      description: "The entry and its number",
+      content: { "application/json": { schema: InOutEntryCreated } },
+    },
     ...writeErrors,
   },
 });
@@ -180,7 +188,10 @@ const pickUpRoute = defineOpenAPIRoute(writeMeta("pickUp"), {
     body: { content: { "application/json": { schema: PickUpRequest } }, required: true },
   },
   responses: {
-    200: { description: "Picked up", content: { "application/json": { schema: AcknowledgedResponse } } },
+    200: {
+      description: "Picked up",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
     ...writeErrors,
   },
 });
@@ -198,7 +209,10 @@ const moveToCustodianRoute = defineOpenAPIRoute(writeMeta("moveToCustodian"), {
     body: { content: { "application/json": { schema: MoveToCustodianRequest } }, required: true },
   },
   responses: {
-    200: { description: "Moved to Custodian", content: { "application/json": { schema: AcknowledgedResponse } } },
+    200: {
+      description: "Moved to Custodian",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
     ...writeErrors,
   },
 });
@@ -220,7 +234,10 @@ const deleteRoute = defineOpenAPIRoute(
       "Custodian, the entry is the record of that.",
     request: { headers: idempotencyKeyHeader, params: entryIdParam },
     responses: {
-      200: { description: "Deleted", content: { "application/json": { schema: AcknowledgedResponse } } },
+      200: {
+        description: "Deleted",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
       ...writeErrors,
     },
   },
@@ -241,9 +258,19 @@ function inOutErrorResponse(
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
   switch (caught.code) {
     case "in-out-unknown-entry":
-      return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail: caught.message });
+      return problemJson(c, {
+        type: "not-found",
+        title: "Not found",
+        status: 404,
+        detail: caught.message,
+      });
     case "in-out-not-waiting":
-      return problemJson(c, { type: "conflict", title: "Already handled", status: 409, detail: caught.message });
+      return problemJson(c, {
+        type: "conflict",
+        title: "Already handled",
+        status: 409,
+        detail: caught.message,
+      });
     default:
       return problemJson(c, {
         type: "validation",
@@ -307,106 +334,125 @@ export function registerInOutLogRoutes(
   chokepoint: Chokepoint,
 ): void {
   // GET /api/v1/in-out-entries
-  app.openapi({ ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const { status, search, cursor } = c.req.valid("query");
-    const decoded = cursor === undefined ? undefined : decodeEntryCursor(cursor);
-    if (decoded === null) {
-      return problemJson(c, { type: "validation", title: "Invalid cursor", status: 422 });
-    }
-    const visibility = visibleMatterPredicate();
-    const { results } = await selectEntriesStatement(firm.firmDatabase, visibility, {
-      status: status === "waiting" ? "waiting" : undefined,
-      search,
-      cursor: decoded,
-      limit: MAX_ENTRY_PAGE_SIZE + 1,
-    }).all<InOutEntryRow>();
-    const hasMore = results.length > MAX_ENTRY_PAGE_SIZE;
-    const rows = hasMore ? results.slice(0, MAX_ENTRY_PAGE_SIZE) : results;
-    // Everybody each entry on the page is To, in one bounded read.
-    const recipients = await readRecipients(
-      firm.firmDatabase,
-      rows.map((row) => row.id),
-    );
-    const last = rows.at(-1);
-    return c.json(
-      {
-        data: rows.map((row) => presentEntry(row, recipients)),
-        nextCursor: hasMore && last !== undefined ? encodeEntryCursor(last) : null,
-      },
-      200,
-    );
-  });
+  app.openapi(
+    { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { status, search, cursor } = c.req.valid("query");
+      const decoded = cursor === undefined ? undefined : decodeEntryCursor(cursor);
+      if (decoded === null) {
+        return problemJson(c, { type: "validation", title: "Invalid cursor", status: 422 });
+      }
+      const visibility = visibleMatterPredicate();
+      const { results } = await selectEntriesStatement(firm.firmDatabase, visibility, {
+        status: status === "waiting" ? "waiting" : undefined,
+        search,
+        cursor: decoded,
+        limit: MAX_ENTRY_PAGE_SIZE + 1,
+      }).all<InOutEntryRow>();
+      const hasMore = results.length > MAX_ENTRY_PAGE_SIZE;
+      const rows = hasMore ? results.slice(0, MAX_ENTRY_PAGE_SIZE) : results;
+      // Everybody each entry on the page is To, in one bounded read.
+      const recipients = await readRecipients(
+        firm.firmDatabase,
+        rows.map((row) => row.id),
+      );
+      const last = rows.at(-1);
+      return c.json(
+        {
+          data: rows.map((row) => presentEntry(row, recipients)),
+          nextCursor: hasMore && last !== undefined ? encodeEntryCursor(last) : null,
+        },
+        200,
+      );
+    },
+  );
 
   // GET /api/v1/in-out-entries/{entryId}
-  app.openapi({ ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const { entryId } = c.req.valid("param");
-    const row = await readEntry(firm.firmDatabase, entryId as InOutEntryId, visibleMatterPredicate());
-    if (row === undefined) {
-      return problemJson(c, {
-        type: "not-found",
-        title: "Not found",
-        status: 404,
-        detail: "No such entry in this firm's In/Out Log.",
-      });
-    }
-    const recipients = await readRecipients(firm.firmDatabase, [row.id]);
-    return c.json(presentEntry(row, recipients), 200);
-  });
-
-  // POST /api/v1/in-out-entries
-  app.openapi({ ...dropOffRoute, middleware: chokepointMiddleware(chokepoint, dropOffRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const request = c.req.valid("json");
-    // THE NUMBER IS DRAWN INSIDE THE WRITE, so the entry and its number are one batch or neither. A
-    // concurrent Drop Off that took the value first aborts this batch on the allocation table or the
-    // unique number; the shared loop advances the counter and runs this again. The idempotency gate
-    // is inside the retry, so a replay answers from the stored body without drawing anything.
-    const outcome = await drawWithBoundedRetry(
-      firm.firmDatabase,
-      IN_OUT_ENTRY_NUMBERING_TABLES,
-      {
-        sequenceLabel: "in/out log number",
-        alsoRetryable: isEntryNumberConflict,
-        nonConvergenceError: ({ message }) => new Error(message),
-      },
-      async (observe) =>
-        await commitEffect(c, firm.firmDatabase, idempotency, 201, async () => {
-          const created = await recordDropOff(firm.firmDatabase, request, {
-            ...serviceOptions(userId),
-            observeDraw: observe,
-          });
-          return { body: { id: created.entryId, number: created.number }, effect: created.effect };
-        }),
-    );
-    if (!outcome.ok) return outcome.problem;
-    if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-    return c.json({ id: String(outcome.body.id), number: String(outcome.body.number) }, 201);
-  });
-
-  // POST /api/v1/in-out-entries/{entryId}/pick-up
-  app.openapi({ ...pickUpRoute, middleware: chokepointMiddleware(chokepoint, pickUpRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { entryId } = c.req.valid("param");
-    const request = c.req.valid("json");
-    const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-      const { effect } = await recordPickUp(
+  app.openapi(
+    { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { entryId } = c.req.valid("param");
+      const row = await readEntry(
         firm.firmDatabase,
         entryId as InOutEntryId,
-        request,
-        serviceOptions(userId),
+        visibleMatterPredicate(),
       );
-      return { body: { ok: true }, effect };
-    });
-    if (!outcome.ok) return outcome.problem;
-    if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-    return c.json({ ok: true } as const, 200);
-  });
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such entry in this firm's In/Out Log.",
+        });
+      }
+      const recipients = await readRecipients(firm.firmDatabase, [row.id]);
+      return c.json(presentEntry(row, recipients), 200);
+    },
+  );
+
+  // POST /api/v1/in-out-entries
+  app.openapi(
+    { ...dropOffRoute, middleware: chokepointMiddleware(chokepoint, dropOffRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      // THE NUMBER IS DRAWN INSIDE THE WRITE, so the entry and its number are one batch or neither. A
+      // concurrent Drop Off that took the value first aborts this batch on the allocation table or the
+      // unique number; the shared loop advances the counter and runs this again. The idempotency gate
+      // is inside the retry, so a replay answers from the stored body without drawing anything.
+      const outcome = await drawWithBoundedRetry(
+        firm.firmDatabase,
+        IN_OUT_ENTRY_NUMBERING_TABLES,
+        {
+          sequenceLabel: "in/out log number",
+          alsoRetryable: isEntryNumberConflict,
+          nonConvergenceError: ({ message }) => new Error(message),
+        },
+        async (observe) =>
+          await commitEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+            const created = await recordDropOff(firm.firmDatabase, request, {
+              ...serviceOptions(userId),
+              observeDraw: observe,
+            });
+            return {
+              body: { id: created.entryId, number: created.number },
+              effect: created.effect,
+            };
+          }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: String(outcome.body.id), number: String(outcome.body.number) }, 201);
+    },
+  );
+
+  // POST /api/v1/in-out-entries/{entryId}/pick-up
+  app.openapi(
+    { ...pickUpRoute, middleware: chokepointMiddleware(chokepoint, pickUpRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { entryId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await recordPickUp(
+          firm.firmDatabase,
+          entryId as InOutEntryId,
+          request,
+          serviceOptions(userId),
+        );
+        return { body: { ok: true }, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
 
   // POST /api/v1/in-out-entries/{entryId}/custody-packet
   app.openapi(
@@ -433,21 +479,24 @@ export function registerInOutLogRoutes(
   );
 
   // DELETE /api/v1/in-out-entries/{entryId}
-  app.openapi({ ...deleteRoute, middleware: chokepointMiddleware(chokepoint, deleteRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { entryId } = c.req.valid("param");
-    const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-      const { effect } = await deleteWaitingEntry(
-        firm.firmDatabase,
-        entryId as InOutEntryId,
-        serviceOptions(userId),
-      );
-      return { body: { ok: true }, effect };
-    });
-    if (!outcome.ok) return outcome.problem;
-    if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-    return c.json({ ok: true } as const, 200);
-  });
+  app.openapi(
+    { ...deleteRoute, middleware: chokepointMiddleware(chokepoint, deleteRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { entryId } = c.req.valid("param");
+      const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await deleteWaitingEntry(
+          firm.firmDatabase,
+          entryId as InOutEntryId,
+          serviceOptions(userId),
+        );
+        return { body: { ok: true }, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
 }

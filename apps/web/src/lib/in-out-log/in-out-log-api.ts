@@ -75,7 +75,10 @@ export function listInOutEntries(
 
 export interface DropOffRequest {
   description: string;
-  from: Omit<InOutParty, "userId" | "entityId"> & { userId?: string | null; entityId?: string | null };
+  from: Omit<InOutParty, "userId" | "entityId"> & {
+    userId?: string | null;
+    entityId?: string | null;
+  };
   to: DropOffRequest["from"][];
   matterId?: string | null;
   keptAt?: string | null;

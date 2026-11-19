@@ -7,8 +7,19 @@ export interface InOutEntryView {
   id: string;
   number: string;
   description: string;
-  from: { kind: InOutEntryRow["from_kind"]; userId: string | null; entityId: string | null; name: string };
-  to: { id: string; kind: InOutEntryRecipientRow["kind"]; userId: string | null; entityId: string | null; name: string }[];
+  from: {
+    kind: InOutEntryRow["from_kind"];
+    userId: string | null;
+    entityId: string | null;
+    name: string;
+  };
+  to: {
+    id: string;
+    kind: InOutEntryRecipientRow["kind"];
+    userId: string | null;
+    entityId: string | null;
+    name: string;
+  }[];
   matter: { id: string; title: string; number: string | null } | null;
   keptAt: string | null;
   notes: string | null;
@@ -17,7 +28,12 @@ export interface InOutEntryView {
   recordedByUserId: string;
   pickedUp: {
     at: string;
-    by: { kind: InOutEntryRow["from_kind"]; userId: string | null; entityId: string | null; name: string };
+    by: {
+      kind: InOutEntryRow["from_kind"];
+      userId: string | null;
+      entityId: string | null;
+      name: string;
+    };
     identityChecked: boolean;
     handedOverByUserId: string | null;
   } | null;
@@ -37,7 +53,12 @@ export function presentEntry(
     id: row.id,
     number: row.number,
     description: row.description,
-    from: { kind: row.from_kind, userId: row.from_user_id, entityId: row.from_entity_id, name: row.from_name },
+    from: {
+      kind: row.from_kind,
+      userId: row.from_user_id,
+      entityId: row.from_entity_id,
+      name: row.from_name,
+    },
     to: recipients
       .filter((recipient) => recipient.entry_id === row.id)
       .toSorted((left, right) => left.position - right.position)
@@ -72,7 +93,9 @@ export function presentEntry(
           }
         : null,
     movedToCustodian:
-      row.status === "moved_to_custodian" && row.moved_to_custodian_at !== null && row.custody_packet_id !== null
+      row.status === "moved_to_custodian" &&
+      row.moved_to_custodian_at !== null &&
+      row.custody_packet_id !== null
         ? {
             at: row.moved_to_custodian_at,
             packetId: row.custody_packet_id,

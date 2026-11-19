@@ -332,7 +332,9 @@ export async function matterIsVisible(
   visibility: VisibleMatterPredicate,
 ): Promise<boolean> {
   const row = await database
-    .prepare(`SELECT 1 AS present FROM (SELECT ? AS candidate) WHERE ${visibility.fragmentFor("candidate")}`)
+    .prepare(
+      `SELECT 1 AS present FROM (SELECT ? AS candidate) WHERE ${visibility.fragmentFor("candidate")}`,
+    )
     .bind(matterId, ...visibility.bindings)
     .first<{ present: number }>();
   return row !== null;

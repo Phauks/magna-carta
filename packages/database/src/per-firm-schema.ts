@@ -14059,7 +14059,11 @@ export const inOutEntry = sqliteTable(
   (table) => [
     uniqueIndex("in_out_entry_number_unique_index").on(table.number),
     // Waiting for Pickup, oldest first, and the whole log newest first.
-    index("in_out_entry_status_dropped_off_at_index").on(table.status, table.droppedOffAt, table.id),
+    index("in_out_entry_status_dropped_off_at_index").on(
+      table.status,
+      table.droppedOffAt,
+      table.id,
+    ),
     index("in_out_entry_dropped_off_at_index").on(table.droppedOffAt, table.id),
     index("in_out_entry_matter_index").on(table.matterId),
     index("in_out_entry_custody_packet_index").on(table.custodyPacketId),

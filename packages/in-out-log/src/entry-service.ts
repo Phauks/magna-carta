@@ -81,7 +81,10 @@ async function assertMembersKnown(
   const known = await readKnownMembers(database, userIds);
   for (const userId of userIds) {
     if (!known.has(userId)) {
-      throw new InOutValidationError("in-out-unknown-member", "that person is not a member of the firm");
+      throw new InOutValidationError(
+        "in-out-unknown-member",
+        "that person is not a member of the firm",
+      );
     }
   }
 }
@@ -167,7 +170,10 @@ async function waitingEntry(
 ): Promise<InOutEntryRow> {
   const entry = await readEntry(database, entryId, visibility);
   if (entry === undefined) {
-    throw new InOutValidationError("in-out-unknown-entry", "that entry is not one in this firm's log");
+    throw new InOutValidationError(
+      "in-out-unknown-entry",
+      "that entry is not one in this firm's log",
+    );
   }
   if (entry.status !== "waiting") {
     throw new InOutValidationError(
@@ -210,9 +216,17 @@ export async function recordPickUp(
     const recipients = await readRecipients(database, [entryId]);
     const match = recipients.find((recipient) => recipient.id === input.recipientId);
     if (match === undefined) {
-      throw new InOutValidationError("in-out-unknown-recipient", "that person is not listed on this entry");
+      throw new InOutValidationError(
+        "in-out-unknown-recipient",
+        "that person is not listed on this entry",
+      );
     }
-    collector = { kind: match.kind, userId: match.user_id, entityId: match.entity_id, name: match.name };
+    collector = {
+      kind: match.kind,
+      userId: match.user_id,
+      entityId: match.entity_id,
+      name: match.name,
+    };
   } else {
     collector = normalizeParty(input.collector as InOutPartyInput);
     await assertMembersKnown(database, [collector]);
@@ -261,7 +275,10 @@ export async function recordMovedToCustodian(
 ): Promise<{ effect: EffectWrite }> {
   const entry = await waitingEntry(database, entryId, options.visibility);
   if (!(await packetExists(database, packetId))) {
-    throw new InOutValidationError("in-out-unknown-packet", "that packet is not one in this firm's register");
+    throw new InOutValidationError(
+      "in-out-unknown-packet",
+      "that packet is not one in this firm's register",
+    );
   }
   const now = options.clock.now();
   return {

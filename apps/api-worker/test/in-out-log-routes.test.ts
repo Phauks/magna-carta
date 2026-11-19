@@ -38,7 +38,9 @@ async function send(method: string, path: string, body?: unknown): Promise<Respo
 }
 
 async function get<T>(path: string): Promise<T> {
-  const response = await SELF.fetch(`https://example.test${path}`, { headers: { cookie: ownerCookie } });
+  const response = await SELF.fetch(`https://example.test${path}`, {
+    headers: { cookie: ownerCookie },
+  });
   expect(response.status).toBe(200);
   return readJson<T>(response);
 }

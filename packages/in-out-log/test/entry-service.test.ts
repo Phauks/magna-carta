@@ -144,7 +144,9 @@ describe("Pick Up", () => {
       options,
     );
     await commit(database, effect);
-    expect((await readEntry(database, entryId, visibility))?.picked_up_by_name).toBe("Luis Alvarez");
+    expect((await readEntry(database, entryId, visibility))?.picked_up_by_name).toBe(
+      "Luis Alvarez",
+    );
   });
 
   it("refuses a second pick up of the same entry", async () => {
@@ -191,8 +193,14 @@ describe("Move to Custodian and Delete", () => {
     const [first] = await readRecipients(database, [entryId]);
     await commit(
       database,
-      (await recordPickUp(database, entryId, { recipientId: first?.id, identityChecked: false }, options))
-        .effect,
+      (
+        await recordPickUp(
+          database,
+          entryId,
+          { recipientId: first?.id, identityChecked: false },
+          options,
+        )
+      ).effect,
     );
     await expect(deleteWaitingEntry(database, entryId, options)).rejects.toMatchObject({
       code: "in-out-not-waiting",

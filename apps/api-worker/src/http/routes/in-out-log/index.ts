@@ -6,7 +6,11 @@ import { registerInOutLogRoutes } from "./entries.ts";
 //
 // One sub-app per domain, built by the one constructor and mounted at the root by the manifest
 // (src/http/routes/manifest.ts).
-export function mountInOutLog(app: AppRouter, chokepoint: Chokepoint, _deps: DomainDeps = {}): void {
+export function mountInOutLog(
+  app: AppRouter,
+  chokepoint: Chokepoint,
+  _deps: DomainDeps = {},
+): void {
   const domain = createDomainApp();
   registerInOutLogRoutes(domain, chokepoint);
   app.route("/", domain);

@@ -87,7 +87,8 @@ export function normalizeParty(input: InOutPartyInput): InOutParty {
   switch (input.kind) {
     case "member": {
       const userId = input.userId ?? "";
-      if (!userId.startsWith("user_")) refuse("in-out-invalid-party", "a member needs their user id");
+      if (!userId.startsWith("user_"))
+        refuse("in-out-invalid-party", "a member needs their user id");
       return { kind: "member", userId, entityId: null, name };
     }
     case "entity": {
