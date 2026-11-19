@@ -58,6 +58,11 @@ export interface GroupEpoch {
   readonly pause: number;
   /** The digits every screen in the same group with the same people shows. */
   readonly securityCode: string;
+  /**
+   * Who the verified group holds, by leaf. Each identity is the stay the member's credential names,
+   * read from the group state this browser verified, never from the room's roster.
+   */
+  readonly members: readonly { readonly leafIndex: number; readonly identity: string }[];
 }
 
 /** Where this browser stands in the group. */
@@ -415,6 +420,7 @@ export class EncryptionGroup {
         ownLeafIndex: session.ownLeafIndex,
         pause: session.pause,
         securityCode: session.securityCode(),
+        members: session.members(),
       });
     } catch (error) {
       this.#fail(error);
