@@ -3,9 +3,9 @@
  * stock editor drawn over fixtures a local firm never has, in each state a reviewer needs to see.
  *
  * IT KEEPS THE SERVER'S RULES THAT THE SCREENS SHOW. Printing numbers the chosen payments from the
- * first number the reader confirmed and takes them off the queue, and refuses a batch over a number
- * already used; answering misprinted voids the number and puts the payment back; voiding a printed
- * check does the same; the next number is the first unused one at or after the stock's starting
+ * first number on the screen, records them as printed and takes them off the queue, and refuses a
+ * batch over a number already used; returning a printed check to the list voids its number and
+ * puts the payment back; the next number is the first unused one at or after the stock's starting
  * number. The PDF is composed for real, in the Worker.
  */
 import { STANDARD_CHECK_FIELDS } from "@magna-carta/trust/check-layout";
@@ -19,27 +19,19 @@ import type { TrustChecksService } from "./checks-service.ts";
 import { composeCheckPdf, openPdf } from "./check-pdf.ts";
 import { nextUnusedNumber } from "./checks-model.ts";
 
-export type ChecksGalleryState =
-  | "ready"
-  | "no-stock"
-  | "empty"
-  | "waiting"
-  | "reprint"
-  | "loading"
-  | "failed";
+export type ChecksGalleryState = "ready" | "no-stock" | "empty" | "loading" | "failed";
 
 /** The situations the gallery's buttons switch between, in the order they are offered. */
 export const CHECKS_GALLERY_STATES: readonly ChecksGalleryState[] = [
   "ready",
-  "waiting",
   "empty",
   "no-stock",
   "loading",
   "failed",
 ];
 
-/** The payment the reprint fixture has just had misprinted, back in To Print. */
-export const GALLERY_REPRINT_PAYMENT = "trustMovement_henderson";
+/** The printed check the gallery's Return to List panel opens over. */
+export const GALLERY_RETURN_CHECK = "trustCheck_10421";
 
 export const GALLERY_ACCOUNT_ID = "trustAccount_gallery";
 export const GALLERY_ACCOUNT_NAME = "IOLTA Client Trust";
@@ -137,6 +129,8 @@ function initial(state: ChecksGalleryState): TrustChecksResponse {
           ),
         ];
   const register: TrustCheckRegisterRow[] = [
+    // Printed before a check was recorded as printed at once: it reads exactly like the rest.
+    registerRow(10_417, "numbered", "Reno Courier Service", 4_500, "26-0122", "Okafor Estate"),
     registerRow(10_418, "printed", "Silver State Appraisals", 45_000, "26-0122", "Okafor Estate"),
     registerRow(10_419, "printed", "Maria Delgado", 1_840_000, "26-0087", "Delgado Settlement"),
     registerRow(
@@ -159,51 +153,6 @@ function initial(state: ChecksGalleryState): TrustChecksResponse {
     ),
     registerRow(10_421, "printed", "Nevada Court Reporters", 61_500, "26-0110", "Reyes Deposition"),
   ];
-  if (state === "waiting") {
-    register.push(
-      registerRow(
-        10_422,
-        "numbered",
-        "Henderson Medical Group",
-        230_000,
-        "26-0098",
-        "Smith v. Clearwater Logistics",
-      ),
-      registerRow(
-        10_423,
-        "numbered",
-        "Jordan Smith",
-        412_500,
-        "26-0098",
-        "Smith v. Clearwater Logistics",
-      ),
-    );
-  }
-  if (state === "reprint") {
-    register.push(
-      registerRow(
-        10_422,
-        "spoiled",
-        "Henderson Medical Group",
-        230_000,
-        "26-0098",
-        "Smith v. Clearwater Logistics",
-        "Misprinted",
-      ),
-    );
-    toPrint.unshift(
-      queueRow(
-        GALLERY_REPRINT_PAYMENT,
-        "Henderson Medical Group",
-        230_000,
-        "Medical lien",
-        "26-0098",
-        "Smith v. Clearwater Logistics",
-        "2026-10-30",
-        [10_422],
-      ),
-    );
-  }
   return {
     nextCheckNumber: nextUnusedNumber(
       10_422,
@@ -241,11 +190,12 @@ function settle(): Promise<void> {
 
 export function galleryChecksService(state: ChecksGalleryState): TrustChecksService {
   const data = initial(state);
-  /** The payment each numbered check was printed for, so a spoiled one can go back. */
+  /** The payment each printed check was printed for, so a returned one can go back. */
   const printedFrom = new Map<string, TrustCheckToPrint>();
-  // The checks already waiting for an answer were printed for payments too.
   for (const row of data.register) {
-    if (row.status !== "numbered" || row.trustMovementId === null) continue;
+    if ((row.status !== "printed" && row.status !== "numbered") || row.trustMovementId === null) {
+      continue;
+    }
     printedFrom.set(
       row.trustCheckId,
       queueRow(
@@ -267,13 +217,13 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
     );
   }
 
-  function takeOutOfUse(trustCheckId: string, status: "spoiled" | "voided", reason: string): void {
+  function takeOutOfUse(trustCheckId: string, reason: string): void {
     const row = data.register.find((candidate) => candidate.trustCheckId === trustCheckId);
     if (row === undefined) return;
     const index = data.register.indexOf(row);
     data.register[index] = {
       ...row,
-      status,
+      status: "voided",
       settledReason: reason,
       lastEventAt: new Date().toISOString(),
     };
@@ -354,7 +304,7 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
         data.register.push({
           ...registerRow(
             check.checkNumber,
-            "numbered",
+            "printed",
             check.payee,
             check.amountMinor,
             check.matterNumber ?? "",
@@ -378,22 +328,9 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
       }
       return ok({ stock, checks: printed });
     },
-    async recordResults(_account, results) {
-      await settle();
-      for (const result of results) {
-        if (result.outcome === "spoiled") {
-          takeOutOfUse(result.trustCheckId, "spoiled", "Misprinted");
-          continue;
-        }
-        const index = data.register.findIndex((row) => row.trustCheckId === result.trustCheckId);
-        const row = data.register[index];
-        if (row !== undefined) data.register[index] = { ...row, status: "printed" };
-      }
-      return ok({ recorded: results.length, checkNumber: nextNumber() });
-    },
     async voidCheck(_account, checkId, reason) {
       await settle();
-      takeOutOfUse(checkId, "voided", reason);
+      takeOutOfUse(checkId, reason);
       return ok({ recorded: 1, checkNumber: nextNumber() });
     },
     async voidNextNumber(_account, reason) {

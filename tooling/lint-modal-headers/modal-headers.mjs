@@ -105,6 +105,7 @@ export const ACT_VERBS = new Set([
   "request",
   "restore",
   "retire",
+  "return",
   "review",
   "satisfy",
   "send",

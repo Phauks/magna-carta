@@ -242,11 +242,22 @@ export async function readNextTrustCheckNumber(
   trustAccountId: TrustAccountId,
   stock: TrustCheckStockSnapshot | null,
 ): Promise<number> {
-  // The number is the person's to set: the stock's starting number is where they said the paper
-  // in the printer begins. The next number is the first one at or after it that no check on the
-  // account has used, so a number is still never reused, but a firm that loads a box numbered
-  // below its last check can say so and print from it.
-  const from = stock?.startingCheckNumber ?? 1;
+  // The number is the person's to set. It follows the paper from wherever they last said it was:
+  // one past the last check printed, unless the stock's starting number was saved after that print
+  // (a new box), in which case it is that starting number. Either way the answer is the first
+  // number at or after it that no check on the account has used, so a number is never reused, but
+  // a firm that loads a box numbered below its last check can say so and print from it.
+  const { results: latest } = await database
+    .prepare(
+      `SELECT check_number, numbered_at FROM ${TRUST_CHECK_TABLE} WHERE trust_account_id = ?1 AND stock_id IS NOT NULL ORDER BY numbered_at DESC, check_number DESC LIMIT 1`,
+    )
+    .bind(trustAccountId)
+    .all<{ check_number: number; numbered_at: string }>();
+  const lastPrinted = latest[0];
+  const from =
+    lastPrinted !== undefined && (stock === null || lastPrinted.numbered_at >= stock.savedAt)
+      ? lastPrinted.check_number + 1
+      : (stock?.startingCheckNumber ?? 1);
   // `from` when it is free; otherwise one past the end of the run of used numbers that starts
   // there, which is the smallest used number at or after it with no check on the number after.
   const { results } = await database
@@ -579,7 +590,23 @@ export async function composeTrustCheckPrint(
         numberedAt,
       ),
   );
-  return { stock, checks, effect: { statements, outboxMessages: [] } };
+  // A printed check is taken to have printed right: the person says otherwise afterwards by
+  // returning it to the list, which voids the number and puts the payment back.
+  const printedEvents = checks.map((check) =>
+    eventStatement(database, {
+      id: newIdentifier("trustCheckEvent", options.randomSource),
+      checkId: check.checkId,
+      kind: "printed",
+      reason: null,
+      recordedBy: input.numberedBy,
+      recordedAt: numberedAt,
+    }),
+  );
+  return {
+    stock,
+    checks,
+    effect: { statements: [...statements, ...printedEvents], outboxMessages: [] },
+  };
 }
 
 /** Whether a failed batch lost the race for its numbers, so the caller should read again and retry. */
@@ -592,19 +619,7 @@ export function isTrustCheckNumberConflict(error: unknown): boolean {
   );
 }
 
-// ---- answering, voiding ----------------------------------------------------------------------------------
-
-export type TrustCheckOutcome = "printed" | "spoiled";
-
-export interface TrustCheckResultInput {
-  readonly trustAccountId: TrustAccountId;
-  readonly results: readonly {
-    readonly checkId: TrustCheckId;
-    readonly outcome: TrustCheckOutcome;
-    readonly reason?: string | null;
-  }[];
-  readonly recordedBy: UserId;
-}
+// ---- voiding ----------------------------------------------------------------------------------
 
 export interface ComposedTrustCheckEvents {
   readonly eventIds: readonly TrustCheckEventId[];
@@ -627,67 +642,6 @@ function eventStatement(
       `INSERT INTO ${TRUST_CHECK_EVENT_TABLE} (id, check_id, kind, reason, recorded_by, recorded_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
     )
     .bind(row.id, row.checkId, row.kind, row.reason, row.recordedBy, row.recordedAt);
-}
-
-/** The default reason a spoiled check carries when the person gives none. */
-export const SPOILED_IN_PRINTING = "Misprinted";
-
-/**
- * The answer to "did they print?": each check numbered in a batch is confirmed printed or spoiled. A
- * spoiled check keeps its number in the register and its payment returns to the queue. The trigger
- * refuses an answer to a check that was already answered.
- */
-export async function composeTrustCheckResults(
-  database: SqlDatabase,
-  input: TrustCheckResultInput,
-  options: TrustServiceOptions,
-): Promise<ComposedTrustCheckEvents> {
-  if (input.results.length === 0) {
-    throw new TrustValidationError("check-result-empty", "answer for at least one check");
-  }
-  if (input.results.length > MAX_TRUST_CHECKS_PER_BATCH) {
-    throw new TrustValidationError(
-      "check-print-too-many",
-      `answer for at most ${MAX_TRUST_CHECKS_PER_BATCH} checks at once`,
-    );
-  }
-  const rows = await readRegisterRowsById(
-    database,
-    input.trustAccountId,
-    input.results.map((result) => result.checkId),
-  );
-  const byId = new Map(rows.map((row) => [row.checkId, row]));
-  const recordedAt = options.clock.now();
-  const eventIds: TrustCheckEventId[] = [];
-  const statements: SqlStatement[] = [];
-  for (const result of input.results) {
-    const row = byId.get(result.checkId);
-    if (row === undefined) {
-      throw new TrustValidationError(
-        "unknown-trust-check",
-        `no such check on this account: ${result.checkId}`,
-      );
-    }
-    if (row.status !== "numbered") {
-      throw new TrustValidationError(
-        "check-already-answered",
-        `check ${row.checkNumber} is already ${row.status}`,
-      );
-    }
-    const id = newIdentifier("trustCheckEvent", options.randomSource);
-    eventIds.push(id);
-    statements.push(
-      eventStatement(database, {
-        id,
-        checkId: result.checkId,
-        kind: result.outcome,
-        reason: result.outcome === "spoiled" ? result.reason?.trim() || SPOILED_IN_PRINTING : null,
-        recordedBy: input.recordedBy,
-        recordedAt,
-      }),
-    );
-  }
-  return { eventIds, effect: { statements, outboxMessages: [] } };
 }
 
 export interface TrustCheckVoidInput {
