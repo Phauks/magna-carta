@@ -13,7 +13,6 @@
   import * as Tabs from "@magna-carta/design-system/tabs";
   import ActionDialog, { type ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Alert from "@magna-carta/design-system/alert";
-  import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
@@ -117,14 +116,22 @@
     void readWaitingCount();
   }
 
-  const columns = $derived(entryColumns(view));
-  const grid = DataTable.createDataTableGrid<InOutEntry>({
-    columns: () => columns,
-    rows: () => list.items ?? [],
-    rowKey: (entry) => entry.id,
-    initialSort: initialSort("waiting"),
-    itemNoun: { singular: "entry", plural: "entries" },
-  });
+  /*
+   * One grid per tab, because the two differ in their columns (the Log adds Status) and in their
+   * order (the waiting list oldest first, the Log newest first).
+   */
+  function gridFor(tab: "waiting" | "all") {
+    return DataTable.createDataTableGrid<InOutEntry>({
+      columns: () => entryColumns(tab),
+      rows: () => list.items ?? [],
+      rowKey: (entry) => entry.id,
+      initialSort: initialSort(tab),
+      itemNoun: { singular: "entry", plural: "entries" },
+    });
+  }
+  const waitingGrid = gridFor("waiting");
+  const logGrid = gridFor("all");
+  const grid = $derived(view === "waiting" ? waitingGrid : logGrid);
 
   // ---- the windows ----------------------------------------------------------------------------
 
@@ -242,13 +249,15 @@
         <Button
           variant="secondary"
           size="sm"
+          aria-label="Pick Up {row.number}"
           onclick={(event: MouseEvent) => {
             event.stopPropagation();
             startPickUp(row);
           }}
         >
           <HandHelping class="size-16" aria-hidden="true" />
-          Pick Up
+          <!-- The words go on a phone, where the action column would otherwise take the row. -->
+          <span class="hidden sm:inline">Pick Up</span>
         </Button>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger
@@ -314,10 +323,12 @@
   <Tabs.Root bind:value={view}>
     <Tabs.List>
       <Tabs.Trigger value="waiting">
-        Waiting for Pickup
-        {#if waitingCount !== null}
-          <Badge variant="neutral">{waitingCount}</Badge>
-        {/if}
+        <span class="flex items-center gap-8">
+          Waiting for Pickup
+          {#if waitingCount !== null}
+            <span class="text-text-muted tabular-nums">{waitingCount}</span>
+          {/if}
+        </span>
       </Tabs.Trigger>
       <Tabs.Trigger value="all">Log</Tabs.Trigger>
     </Tabs.List>
