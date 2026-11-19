@@ -51,7 +51,9 @@ export const errors = {
   401: problem("No valid session"),
   403: problem("The session member lacks firm:transferRecords"),
   404: problem("The run, file or pass is unknown to this firm"),
-  409: problem("The run has ended, the file is already in the run, or the key is in progress"),
+  409: problem(
+    "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
+  ),
   413: problem("The file is larger than a source file may be"),
   422: problem("The request is not valid, or the Idempotency-Key was reused for another request"),
   429: problem("Rate limit exceeded"),
@@ -87,7 +89,7 @@ export function runEnded(c: Context) {
     type: "conflict",
     title: "The run has ended",
     status: 409,
-    detail: "A run that was completed or abandoned takes no more files or passes. Start a new run.",
+    detail: "A run that was accepted or stopped takes no more files or passes. Start a new run.",
   });
 }
 
