@@ -4,6 +4,7 @@ import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { isStatusRequest, statusResponse } from "./container-phases.ts";
 import { withEditorDiagnostics } from "./diagnostics.ts";
+import { type ErrorRecordIntake, handFailuresTo } from "./failure-handoff.ts";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
 import { documentKeyFromHost } from "./document-routing.ts";
 import { withBuildIdentity } from "./editor-about.ts";
@@ -43,6 +44,9 @@ export type Bindings = {
   // binding (the local pool, a deployment without it) degrades to console-only structured lines, never
   // throws — createWorkersLogger handles undefined.
   TELEMETRY?: AnalyticsEngineDataset;
+  // The app worker's named error-record entrypoint, which keeps each failure this worker logs against
+  // its Error ID (failure-handoff.ts). Optional: without it a failure is in Workers Logs only.
+  ERROR_RECORD?: ErrorRecordIntake;
 };
 
 export { DocumentEditorContainer } from "./document-editor-container.ts";
@@ -54,7 +58,7 @@ export { DocumentEditorContainer } from "./document-editor-container.ts";
 export { ContainerProxy } from "@cloudflare/containers";
 
 export default {
-  async fetch(request: Request, env: Bindings): Promise<Response> {
+  async fetch(request: Request, env: Bindings, context: ExecutionContext): Promise<Response> {
     // The build-identity read the app worker's aggregate version endpoint probes over EDIT_SERVICE.
     // This worker is also publicly routable (the browser loads the editor from it), so the answer —
     // a build commit and two timestamps — is readable without a session; that identity is already
@@ -70,6 +74,8 @@ export default {
     // Everything from here reaches a container, and everything that reaches a container runs under the
     // surface's diagnostics (diagnostics.ts): a throw becomes a 500 with an Error ID and one redacted
     // event, and an upgrade the container declines is recorded with the status the browser cannot see.
+    // A failure the boundary below logs is also handed to the app worker's error record.
+    handFailuresTo(env.ERROR_RECORD, (work) => context.waitUntil(work));
     return withEditorDiagnostics(
       request,
       { logger: createWorkersLogger(env.TELEMETRY), now: () => new Date().toISOString() },

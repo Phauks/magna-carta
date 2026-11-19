@@ -10,15 +10,14 @@ import {
   printTrustChecks,
   readTrustCheckStockScanUrl,
   readTrustChecks,
-  recordTrustCheckResults,
   saveTrustCheckStock,
   voidNextTrustCheckNumber,
   voidTrustCheck,
   type PrintTrustChecksResponse,
   type SaveTrustCheckStockRequest,
-  type TrustCheckAnswer,
   type TrustChecksResponse,
 } from "./checks-api.ts";
+import { saveToTarget } from "$lib/export/save-target.ts";
 import { composeCheckPdf, openPdf } from "./check-pdf.ts";
 import type {
   SaveTrustCheckStockResponse,
@@ -34,11 +33,6 @@ export interface TrustChecksService {
     /** The number on the first sheet in the printer; absent, the account's next number. */
     firstCheckNumber?: number,
   ): Promise<ApiOutcome<PrintTrustChecksResponse>>;
-  recordResults(
-    trustAccountId: string,
-    results: readonly TrustCheckAnswer[],
-    idempotencyKey: string,
-  ): Promise<ApiOutcome<TrustCheckAcknowledgement>>;
   voidCheck(
     trustAccountId: string,
     checkId: string,
@@ -60,16 +54,18 @@ export interface TrustChecksService {
   composePdf(document: ComposeDocument): Promise<Blob>;
   /** Hand the PDF to the browser to print from. */
   openPdf(pdf: Blob): void;
+  /** Save a file the screen made to this computer, where the member's downloads go. */
+  saveFile(content: string, filename: string, contentType: string): Promise<unknown>;
 }
 
 export const liveTrustChecksService: TrustChecksService = {
   read: readTrustChecks,
   print: printTrustChecks,
-  recordResults: recordTrustCheckResults,
   voidCheck: voidTrustCheck,
   voidNextNumber: voidNextTrustCheckNumber,
   saveStock: saveTrustCheckStock,
   readScanUrl: readTrustCheckStockScanUrl,
   composePdf: composeCheckPdf,
   openPdf,
+  saveFile: saveToTarget,
 };

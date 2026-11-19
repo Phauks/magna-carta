@@ -5,8 +5,10 @@
  * days (src/http/error-record.ts, src/http/routes/platform/client-errors.ts), and so is every
  * failure nobody was shown — a sweep, a queue consumer, a Cron pass — through the failed-operation tap
  * (./background-error-record.ts), so the tab needs no Workers Logs token. Where a log-read token IS
- * set, Workers Logs adds what the record cannot hold: background failures of the other Workers, and
- * this one's from before the tap existed. A log group whose newest Error ID the record already holds
+ * set, Workers Logs adds what the record could not take: a failure from before the tap existed, or
+ * one whose write failed. The editor and forum Workers record their own failures too
+ * (./error-record-intake.ts, apps/community-worker/src/failure-record.ts); the other Workers log
+ * none of their own, because the API Worker that calls them logs the failure. A log group whose newest Error ID the record already holds
  * is left out of that read, so a failure is counted once.
  */
 import {

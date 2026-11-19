@@ -13,6 +13,7 @@ import {
   type ProviderEventWindow,
   type ProviderEventWrite,
   type ProviderSeriesChangedDay,
+  type ProviderSeriesDeletedDay,
   type ProviderWrittenEvents,
 } from "@magna-carta/calendar/sync-port";
 import {
@@ -50,6 +51,9 @@ const descriptor: CapabilityDescriptor = {
     readEvent: { supported: true },
     listCalendarEvents: { supported: true },
     listSeriesChangedDays: { supported: true },
+    listSeriesDeletedDays: { supported: true },
+    // Graph documents no way to put one cancelled day of a series back.
+    restoreSeriesDay: { supported: false },
     updateSeriesDay: { supported: true },
     watchChanges: { supported: true },
     renewWatch: { supported: true },
@@ -136,6 +140,21 @@ const seriesChangedDaysSchema = z.object({
     .nullable()
     .optional(),
 });
+
+// The days gone from a series. Graph names each by an occurrence identifier and hands the list
+// back only when the series is asked for by its identifier with the property selected.
+const seriesDeletedDaysSchema = z.object({
+  cancelledOccurrences: z.array(z.string()).nullable().optional(),
+});
+
+// An occurrence identifier ends in the day it names. Graph's reference gives the property and no
+// format for it, so only that ending is read and an identifier without one is passed over: a day
+// not noticed, never a day guessed.
+const OCCURRENCE_DAY_PATTERN = /\.(\d{4}-\d{2}-\d{2})$/;
+
+export function dayOfOccurrenceIdentifier(occurrenceId: string): string | undefined {
+  return OCCURRENCE_DAY_PATTERN.exec(occurrenceId)?.[1];
+}
 
 const GRAPH_MOMENT_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/;
 
@@ -627,6 +646,43 @@ export function createMicrosoftCalendarAdapter(
             days.push({ ...snapshot, originalStartsAtMilliseconds });
           }
           return ok(days);
+        },
+
+        async listSeriesDeletedDays(
+          seriesRemoteId: string,
+        ): Promise<Dispatch<readonly ProviderSeriesDeletedDay[] | null>> {
+          let response;
+          try {
+            response = await dependencies.http.request({
+              method: "GET",
+              url:
+                `${GRAPH_ORIGIN}/v1.0/me/events/${encodeURIComponent(seriesRemoteId)}` +
+                `?$select=id,cancelledOccurrences`,
+              headers,
+            });
+          } catch {
+            return unreachable();
+          }
+          if (response.status === 404) return ok(null);
+          if (response.status >= 400) return adapterError(problemFor(response.status));
+          const parsed = seriesDeletedDaysSchema.safeParse(await readJson(response));
+          if (!parsed.success) return unreadable("Microsoft's list of a series' deleted days");
+          const days: ProviderSeriesDeletedDay[] = [];
+          for (const occurrenceId of parsed.data.cancelledOccurrences ?? []) {
+            const day = dayOfOccurrenceIdentifier(occurrenceId);
+            if (day === undefined) continue;
+            // Named by its date. Noon in UTC is that same date everywhere a calendar's zone is
+            // less than twelve hours from UTC, which is where the caller reads it back.
+            const originalStartsAtMilliseconds = Date.parse(`${day}T12:00:00.000Z`);
+            if (Number.isNaN(originalStartsAtMilliseconds)) continue;
+            // No handle: there is nothing this adapter could put the day back with.
+            days.push({ originalStartsAtMilliseconds, dayRemoteId: null });
+          }
+          return ok(days);
+        },
+
+        restoreSeriesDay(): Promise<Dispatch<ProviderEventPresence>> {
+          return Promise.resolve(ok({ found: false }));
         },
 
         async updateSeriesDay(

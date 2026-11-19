@@ -12,8 +12,9 @@ export const ERROR_RECORD_TABLE = "error_record";
 /** How long a record is kept. The daily pass deletes anything older. */
 export const ERROR_RECORD_RETENTION_DAYS = 30;
 
-// server: a problem the API answered; browser: a crash the app reported; background: a failure
-// nobody was shown (a sweep, a queue consumer, a Cron pass), from the failed-operation tap.
+// server: a problem a Worker answered with an Error ID; browser: a crash the app reported;
+// background: a failure nobody was shown (a sweep, a queue consumer, a Cron pass), from the
+// failed-operation tap.
 export type ErrorRecordSource = "server" | "browser" | "background";
 
 export interface ErrorRecordInput {
@@ -86,6 +87,73 @@ export function insertErrorRecordStatement(
       values.userId,
       values.correlationId,
     );
+}
+
+/** The operation whose failure is the record's own: never written back into it. */
+export const ERROR_RECORD_WRITE_OPERATION = "error-record:write";
+
+/**
+ * The shape of a logged failure event, as @magna-carta/telemetry's `TelemetryEvent` has it. Stated
+ * here rather than imported so this package keeps no dependency on telemetry.
+ */
+export interface FailureEvent {
+  readonly name: string;
+  readonly at: string;
+  readonly correlationId: string;
+  readonly fields: Readonly<Record<string, string | number | boolean | null>>;
+}
+
+function eventText(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+/**
+ * The record a logged failure becomes, or null where it cannot be one. The event has already been
+ * scrubbed and written to Workers Logs, so the record holds nothing the log line does not.
+ *
+ * `operation.failed` is a step that failed where nobody was shown: background. `error.captured` is an
+ * exception a Worker caught at its own boundary and answered with a 500 carrying the Error ID, so the
+ * person holds that ID: server, filed under the route (a path, never a URL, by that event's builder).
+ * A failure of the record's own write is never recorded, or it would be handed straight back here.
+ */
+export function errorRecordFromFailureEvent(
+  event: FailureEvent,
+  service: string,
+): ErrorRecordInput | null {
+  const errorId = eventText(event.fields.errorId);
+  if (errorId === null) return null;
+  let source: ErrorRecordSource;
+  let operation: string | null;
+  let status: number | null;
+  if (event.name === "operation.failed") {
+    source = "background";
+    operation = eventText(event.fields.operation);
+    status = null;
+  } else if (event.name === "error.captured") {
+    source = "server";
+    operation = eventText(event.fields.route);
+    status = 500;
+  } else {
+    return null;
+  }
+  if (operation === null || operation === ERROR_RECORD_WRITE_OPERATION) return null;
+  return {
+    errorId,
+    recordedAt: eventText(event.at) ?? new Date().toISOString(),
+    source,
+    service,
+    operation,
+    status,
+    problemType: null,
+    title: null,
+    errorName: eventText(event.fields.errorName),
+    messageHead: eventText(event.fields.messageHead),
+    location: null,
+    build: null,
+    firmId: null,
+    userId: null,
+    correlationId: eventText(event.correlationId),
+  };
 }
 
 export function selectErrorRecordStatement(database: SqlDatabase, errorId: string): SqlStatement {

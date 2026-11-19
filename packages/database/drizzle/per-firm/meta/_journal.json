@@ -586,8 +586,15 @@
     {
       "idx": 83,
       "version": "6",
+      "when": 1795115768573,
+      "tag": "20261119T191608_a-deleted-day-of-a-repeating-event-is-a-question",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "6",
       "when": 1795115498532,
-      "tag": "20261119T191138_trust-bank-reconciliation",
+      "tag": "20261119T202327_trust-bank-reconciliation",
       "breakpoints": true
     }
   ]

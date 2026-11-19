@@ -6,6 +6,7 @@ import { arrangeDocument } from "../src/lib/pdf-editor/arrange-document.ts";
 import {
   buildPlan,
   initialArrangement,
+  insertPages,
   movePages,
   removePages,
   turnPages,
@@ -17,6 +18,13 @@ const form = new Uint8Array(
     fileURLToPath(
       new URL("../../../crates/pdf-eval/corpus-ci/gov_irs_w9_acroform.pdf", import.meta.url),
     ),
+  ),
+);
+
+// A second, different document whose pages are inserted into the first.
+const other = new Uint8Array(
+  readFileSync(
+    fileURLToPath(new URL("../../../crates/pdf-eval/corpus-ci/basicapi.pdf", import.meta.url)),
   ),
 );
 
@@ -65,5 +73,34 @@ describe("arranging a real document with the engine", () => {
     );
     expect(await pageCount(made)).toBe(count);
     expect(made).not.toEqual(form);
+  });
+
+  it("inserts another file's pages where they were put, and keeps the original's around them", async () => {
+    const count = await pageCount(form);
+    const otherCount = await pageCount(other);
+    const original = await pageTexts(form);
+    const inserted = await pageTexts(other);
+    expect(inserted[0]?.length).toBeGreaterThan(0);
+    expect(inserted[0]).not.toBe(original[0]);
+    const pages = insertPages(initialArrangement(count), count, otherCount, {
+      kind: "after",
+      position: 1,
+    });
+    const made = await arrangeDocument(form, buildPlan(pages), [other]);
+    expect(await pageCount(made)).toBe(count + otherCount);
+    const texts = await pageTexts(made);
+    expect(texts[0]).toBe(original[0]);
+    expect(texts.slice(1, 1 + otherCount)).toEqual(inserted);
+    expect(texts[1 + otherCount]).toBe(original[1]);
+  });
+
+  it("leaves the original alone when nothing inserted is kept", async () => {
+    const count = await pageCount(form);
+    const made = await arrangeDocument(
+      form,
+      buildPlan(removePages(initialArrangement(count), new Set([0]))),
+      [other],
+    );
+    expect(await pageCount(made)).toBe(count - 1);
   });
 });

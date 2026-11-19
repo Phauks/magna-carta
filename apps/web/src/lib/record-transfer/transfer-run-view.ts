@@ -111,11 +111,13 @@ export function passStateLabel(state: TransferPass["state"]): string {
 
 /**
  * One sentence over the latest finished pass of every file: how many rows arrived, and how many
- * were rejected or are waiting on another record.
+ * were rejected or are waiting on another record. A run that has ended is told in the past, and no
+ * longer says what stands before accepting it.
  */
 export function runSummary(
   files: readonly TransferSourceFile[],
   passes: readonly TransferPass[],
+  open = true,
 ): string {
   let rows = 0;
   let arrived = 0;
@@ -129,8 +131,12 @@ export function runSummary(
     arrived += arrivedCount(counts);
     undecided += counts.rejected + counts.waiting;
   }
-  if (heldFiles(files).length === 0) return "No files yet.";
-  if (finished === 0) return "No file has been run yet.";
+  if (heldFiles(files).length === 0) return open ? "No files yet." : "No files.";
+  if (finished === 0) return open ? "No file has been run yet." : "No file was run.";
+  if (!open) {
+    const ended = `${formatCount(arrived)} of ${formatCount(rows)} ${rows === 1 ? "row" : "rows"} arrived.`;
+    return undecided === 0 ? ended : `${ended} ${formatCount(undecided)} did not.`;
+  }
   const first = `${formatCount(arrived)} of ${formatCount(rows)} ${rows === 1 ? "row has" : "rows have"} arrived.`;
   if (undecided === 0) return first;
   return `${first} ${formatCount(undecided)} ${undecided === 1 ? "needs" : "need"} a decision before this run can be accepted.`;
@@ -271,10 +277,13 @@ export function passFailureLabel(failure: NonNullable<RecordTransferPassFailure>
   }
 }
 
-/** A run's ending, as the list's Status column says it. */
+/**
+ * A run's ending, as the list's Status column and the workspace say it. A run that was accepted is
+ * complete. A run that was stopped keeps what arrived and was never accepted.
+ */
 export function runStatusLabel(run: RecordTransferRun): string {
   if (run.completedAt !== null) return "Accepted";
-  if (run.abandonedAt !== null) return "Abandoned";
+  if (run.abandonedAt !== null) return "Stopped";
   return "Open";
 }
 
@@ -287,4 +296,16 @@ export function runIsOpen(run: RecordTransferRun): boolean {
 export function sourceSystemLabel(sourceSystem: string): string {
   if (sourceSystem === "leap") return "LEAP";
   return sourceSystem;
+}
+
+/**
+ * The name the rejected rows of a file are saved under: the file's own name without its ending,
+ * with the characters a file name cannot have replaced.
+ */
+export function rejectedRowsFileName(fileName: string): string {
+  const base = fileName
+    .replace(/\.[A-Za-z0-9]{1,5}$/u, "")
+    .replace(/[\\/:*?"<>|]/gu, "-")
+    .trim();
+  return `rejected-rows-${base === "" ? "file" : base}.csv`;
 }

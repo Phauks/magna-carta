@@ -220,8 +220,25 @@ export const CalendarSyncIssue = z
       "The copy as the member's calendar holds it now. Null when the copy is gone.",
     ),
     detectedAt: z.string(),
+    occurrenceOn: z
+      .string()
+      .nullable()
+      .describe(
+        "Set when the question is about one day of a repeating event that is gone from the " +
+          "member's calendar while the rest of the series is there: that day, as YYYY-MM-DD. " +
+          "`sent` is then that day. Null for a question about a whole copy.",
+      ),
+    canPutBack: z
+      .boolean()
+      .describe("False where the member's provider has no way to put the copy or the day back."),
   })
   .meta({ id: "CalendarSyncIssue" });
+
+// Which question an answer is for, beyond the copy the path names: the account, and the one day
+// of a series where the question is about a day.
+export const CalendarSyncIssueAnswerChoice = CalendarSyncAccountChoice.extend({
+  occurrenceOn: z.string().refine(isCivilDate, "must be a real day written YYYY-MM-DD").optional(),
+}).meta({ id: "CalendarSyncIssueAnswerChoice" });
 
 export const CalendarSyncIssueList = z
   .object({ issues: z.array(CalendarSyncIssue) })

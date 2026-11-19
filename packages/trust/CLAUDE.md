@@ -72,8 +72,8 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - `src/fitness.ts` — re-proves the invariants over stored data
 - `src/checks.ts` — check printing: `readTrustChecksToPrint` (the derived queue),
   `readTrustCheckRegister` (THE register; the reconciliation report reads it too),
-  `composeTrustCheckPrint` (numbers a batch from `readNextTrustCheckNumber`),
-  `composeTrustCheckResults` / `composeTrustCheckVoid` / `composeTrustCheckNumberVoid`, and the stock
+  `composeTrustCheckPrint` (numbers a batch from `readNextTrustCheckNumber` and records it printed),
+  `composeTrustCheckVoid` (a misprint, or a check lost later) / `composeTrustCheckNumberVoid`, and the stock
   (`readCurrentTrustCheckStock` / `composeTrustCheckStockSave`). `src/check-layout.ts` is pure (the
   web app imports it): field positions in thousandths of an inch, the MICR band refusal, the
   standard positions, amount in words. `src/check-statements.ts` holds the live-check SQL fragments
@@ -293,8 +293,10 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   refuse to record the condition reconciliation exists to catch.
 - **Clock injection.** No wall-clock reads — `ClockPort` only.
 - **A check number follows the paper, and a check's history is events.** The number is the person's: the
-  next number is the first unused one at or after the stock's starting number, and a print may name
-  its own first number; a number is never reused (a print over a used one refuses
+  next number is one past the last printed check, or the stock's starting number when the stock was
+  saved after that print, skipping any number already used, and a print may name its own first
+  number. A print records each check printed in the same batch (no one is asked afterwards); a
+  misprint is a void, which returns the payment to the list; a number is never reused (a print over a used one refuses
   `check-number-used`), and `trust_check_account_number_unique_index` is what separates two prints that read
   the same one. A check's status is its `trust_check_event` rows (a trigger holds the sequences), and
   a payment's one LIVE check is `liveTrustCheckPredicate`. Printing and voiding never touch the

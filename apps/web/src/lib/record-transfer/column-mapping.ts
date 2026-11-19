@@ -7,6 +7,10 @@
  * and `mappingFromStated` turns a pass's stored rules back, so a file that has been run opens on the
  * mapping it ran under.
  *
+ * A mapping is also kept between visits. `openingMapping` chooses between the saved one and the one
+ * the latest pass ran under, and `mappingFingerprint` says whether two mappings are the same, which
+ * is how the screen knows a mapping has changes that are not saved. `codeMatchingOf` counts which of a column's own codes are matched.
+ *
  * Everything here is pure, and imports nothing from the app, so it is tested without a browser.
  */
 import type {
@@ -279,7 +283,8 @@ function columnsHolding(
   return columns.filter((column) => mapping.assignments[column]?.holds === value);
 }
 
-function columnHolding(
+/** The first column that holds a field, which for a field that takes one column is the column. */
+export function columnHolding(
   mapping: FileMapping,
   columns: readonly string[],
   value: string,
@@ -581,4 +586,105 @@ export function mappingFromStated(
     mapping.otherwiseMember = text(responsibleMember.otherwise) ?? "";
   }
   return mapping;
+}
+
+function orderedRecord<Value>(entries: Readonly<Record<string, Value>>): [string, Value][] {
+  return Object.keys(entries)
+    .toSorted()
+    .map((key) => [key, entries[key] as Value]);
+}
+
+/**
+ * A mapping as one string that is the same for two mappings that state the same thing, whatever
+ * order their columns and codes were touched in.
+ */
+export function mappingFingerprint(mapping: FileMapping): string {
+  return JSON.stringify([
+    mapping.recordKind,
+    mapping.sourceKind,
+    mapping.delimiter,
+    orderedRecord(mapping.assignments).map(([column, assignment]) => [
+      column,
+      assignment.holds,
+      assignment.referenceSourceKind,
+      assignment.role,
+    ]),
+    mapping.dateOrder,
+    mapping.timeZone,
+    mapping.addressCountry,
+    orderedRecord(mapping.matterTypes),
+    orderedRecord(mapping.members),
+    mapping.otherwiseMember,
+  ]);
+}
+
+/**
+ * How saving a mapping stands. `idle` is a mapping with nothing to save and nothing to say:
+ * unchanged since a pass ran under it, or read on a run that has ended. `unsaved` is a mapping
+ * with changes that Save has not been pressed for.
+ */
+export type MappingSaveState = "idle" | "unsaved" | "saving" | "saved";
+
+/** Where the mapping a file opens on came from. */
+export type OpeningMappingSource = "saved" | "stated" | "none";
+
+/**
+ * The mapping a file's Columns tab opens on. A file that has never been run opens on its saved
+ * mapping. A file that has been run opens on what its latest pass ran under, unless the mapping was
+ * saved after that pass was asked for: then somebody has changed it since, and the saved one wins.
+ */
+export function openingMapping(known: {
+  /** The saved mapping and when it was saved, or null where nothing is saved. */
+  readonly saved: { readonly mapping: FileMapping; readonly savedAt: string } | null;
+  /** The mapping the latest pass ran under, or null where there is no pass or it could not be read. */
+  readonly stated: FileMapping | null;
+  /** When the latest pass was asked for, or null where the file has never been run. */
+  readonly passRequestedAt: string | null;
+}): { readonly mapping: FileMapping | null; readonly source: OpeningMappingSource } {
+  const { saved, stated, passRequestedAt } = known;
+  if (saved !== null) {
+    const savedLater =
+      passRequestedAt === null || Date.parse(saved.savedAt) > Date.parse(passRequestedAt);
+    if (savedLater || stated === null) return { mapping: saved.mapping, source: "saved" };
+  }
+  if (stated !== null) return { mapping: stated, source: "stated" };
+  return { mapping: null, source: "none" };
+}
+
+/** One of a column's own values, with how many rows have it. */
+export interface ColumnCode {
+  readonly value: string;
+  readonly rowCount: number;
+}
+
+/** How many of a column's codes there are, and how many are not matched yet. */
+export interface CodeMatching {
+  readonly total: number;
+  readonly unmatched: number;
+}
+
+/**
+ * Whether a code from the file is matched. A value is trimmed and then compared exactly, which is
+ * how a pass reads it. A code whose match has not been chosen is not matched.
+ */
+export function codeIsMatched(code: string, matches: Readonly<Record<string, string>>): boolean {
+  const target = Object.hasOwn(matches, code.trim()) ? matches[code.trim()] : undefined;
+  return target !== undefined && target !== "";
+}
+
+export function codeMatchingOf(
+  codes: readonly ColumnCode[],
+  matches: Readonly<Record<string, string>>,
+): CodeMatching {
+  const distinct = new Set(codes.map((code) => code.value.trim()).filter((code) => code !== ""));
+  let unmatched = 0;
+  for (const code of distinct) if (!codeIsMatched(code, matches)) unmatched += 1;
+  return { total: distinct.size, unmatched };
+}
+
+/** What the Columns tab says beside a matter type or staff column. */
+export function codeMatchingLabel(matching: CodeMatching): string {
+  if (matching.total === 0) return "No codes";
+  if (matching.unmatched === 0) return `All ${String(matching.total)} matched`;
+  return `${String(matching.unmatched)} of ${String(matching.total)} not matched`;
 }

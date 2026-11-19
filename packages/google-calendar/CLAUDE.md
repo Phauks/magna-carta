@@ -60,6 +60,11 @@ random bytes and the channel identifiers, so every branch runs in a test with no
   the series was sent as, keeps the ones that differ. A whole-day's original date is answered as
   noon UTC of that date, which reads back as the same date in any zone less than twelve hours from
   UTC.
+- **A day deleted from a series is an instance marked cancelled.** `listSeriesDeletedDays` asks
+  `instances` with `showDeleted=true` and keeps those. `restoreSeriesDay` patches the instance's
+  `status` to `confirmed`. Google's guide documents cancelling an instance this way and does not
+  document the reverse, and the call has never run against Google: a refusal is answered as "not
+  put back", which hands the day to the member again.
 - **A watch is one channel per calendar and cannot be renewed.** `watchChanges` begins a channel on
   each readable calendar (the member's own first, twenty at most) and packs them into one
   `watchId`. `renewWatch` ends them and answers null, so the caller begins a new watch in the same
