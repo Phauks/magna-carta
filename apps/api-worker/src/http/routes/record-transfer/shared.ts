@@ -89,7 +89,7 @@ export function runEnded(c: Context) {
     type: "conflict",
     title: "The run has ended",
     status: 409,
-    detail: "A run that was completed or abandoned takes no more files or passes. Start a new run.",
+    detail: "A run that was accepted or stopped takes no more files or passes. Start a new run.",
   });
 }
 
