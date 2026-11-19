@@ -9,13 +9,11 @@ import {
   PrintRequest,
   PrintResponse,
   RegisterRow,
-  ResultsRequest,
   VoidRequest,
 } from "@magna-carta/trust/check-contract";
 import {
   composeTrustCheckNumberVoid,
   composeTrustCheckPrint,
-  composeTrustCheckResults,
   composeTrustCheckVoid,
   readCurrentTrustCheckStock,
   readNextTrustCheckNumber,
@@ -84,27 +82,6 @@ const printRoute = defineOpenAPIRoute(trustCheckWriteMeta("trust.printChecks"), 
       description: "The numbered checks",
       content: { "application/json": { schema: PrintResponse } },
     },
-    400: trustCheckErrors[400],
-    401: trustCheckErrors[401],
-    403: trustCheckErrors[403],
-    404: trustCheckErrors[404],
-    409: trustCheckErrors[409],
-    422: trustCheckErrors[422],
-    429: trustCheckErrors[429],
-  },
-});
-
-const resultsRoute = defineOpenAPIRoute(trustCheckWriteMeta("trust.recordCheckResults"), {
-  method: "post",
-  path: "/api/v1/trust/checks/results",
-  description:
-    "Says which checks of a print came out right and which were spoiled. A spoiled check keeps its number in the register and its payment goes back to the print queue.",
-  request: {
-    headers: idempotencyKeyHeader,
-    body: { content: { "application/json": { schema: ResultsRequest } }, required: true },
-  },
-  responses: {
-    201: { description: "Recorded", content: { "application/json": { schema: Acknowledgement } } },
     400: trustCheckErrors[400],
     401: trustCheckErrors[401],
     403: trustCheckErrors[403],
@@ -271,34 +248,6 @@ export function registerTrustCheckRoutes(
               matterTitle: check.item.matterTitle,
             })),
           },
-        };
-      });
-    },
-  );
-
-  // POST /api/v1/trust/checks/results
-  app.openapi(
-    { ...resultsRoute, middleware: chokepointMiddleware(chokepoint, resultsRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const request = c.req.valid("json");
-      return commitTrustCheckWrite<z.infer<typeof Acknowledgement>>(c, async (recordedBy) => {
-        const composed = await composeTrustCheckResults(
-          firm.firmDatabase,
-          {
-            trustAccountId: request.trustAccountId as TrustAccountId,
-            results: request.results.map((result) => ({
-              checkId: result.trustCheckId as TrustCheckId,
-              outcome: result.outcome,
-              reason: result.reason ?? null,
-            })),
-            recordedBy,
-          },
-          trustCheckOptions(),
-        );
-        return {
-          write: composed.effect,
-          body: { recorded: composed.eventIds.length, checkNumber: null },
         };
       });
     },
