@@ -50,15 +50,18 @@ export async function setFirmLimit(limit: {
 // A member's answer to one copy they changed in their own calendar: have it written again as
 // Magna Carta has the event, or keep it as they made it. Either answers with the questions left.
 export async function answerSyncIssue(
-  issue: Pick<CalendarSyncIssue, "localKind" | "localId">,
+  issue: Pick<CalendarSyncIssue, "localKind" | "localId"> & { occurrenceOn?: string | null },
   answer: "putBack" | "leave",
   account?: AccountChoice,
 ): Promise<SaveOutcome<CalendarSyncIssueList>> {
   const path = { localKind: issue.localKind, localId: issue.localId };
+  // The day is named when the question is about one day of a repeating event.
+  const day = issue.occurrenceOn ?? null;
+  const query = day === null ? account : { ...account, occurrenceOn: day };
   const { data, error } =
     answer === "putBack"
-      ? await calendarSyncPutBackMyCopy({ path, query: account })
-      : await calendarSyncLeaveMyCopy({ path, query: account });
+      ? await calendarSyncPutBackMyCopy({ path, query })
+      : await calendarSyncLeaveMyCopy({ path, query });
   return data === undefined ? refusal(error) : { kind: "saved", value: data };
 }
 

@@ -2,7 +2,7 @@
 
 Use the PDF Editor to change a PDF that is on a matter. Nothing you rely on is overwritten:
 redacting, numbering, watermarking, protecting, extracting, splitting and signing save new files beside the original, and arranging the pages
-saves a new version, with the version before it kept in the file's history.
+(including inserting pages from another PDF) saves a new version, with the version before it kept in the file's history.
 
 To open it, open a PDF from the matter's documents and choose **Edit PDF**. Choose **Read** to go
 back to reading it.
@@ -22,6 +22,21 @@ Put the pages in a new order, turn them, or take some out.
    back as it was.
 
 Each page shows its new number, and **was** with its old number if you moved it.
+
+### Insert pages from another PDF
+
+1. Choose **Insert Pages**.
+2. Under **From**, choose **This Matter** to pick one of the matter's PDFs, or **Your Computer** to
+   choose a PDF on your computer.
+3. Under **Where**, choose **Before Page** or **After Page** and enter the page number, or choose
+   **At the End**. If you had pages selected, the pages go after the last one you selected unless
+   you change it.
+4. Choose **Insert**.
+
+The inserted pages appear selected, marked **Inserted**, so you can move, rotate or delete them
+like any other page. Choose **Save as New Version** to keep them, or **Reset** to take them out
+again. The other PDF is not changed. A PDF locked with a password must be unlocked in the
+[File Workbench](file-workbench.md) before its pages can be inserted.
 
 Two more tools make new files and leave this one as it is:
 
@@ -177,6 +192,11 @@ as its own file. This takes a few minutes; the Signature tab says **Being Sealed
 then **Signed and Sealed** with a button to open the certificate. Dates are written as the day in
 the time zone of the matter's office. A name in a script other than Western European letters is
 left off the page and printed on the certificate.
+
+**Signers get their copy by email.** Once the copy is sealed, each signer from outside the firm is
+emailed a link to download the signed copy and its certificate. The link works for 30 days, so tell
+them to save both. Colleagues who signed in Magna Carta are not emailed; they open the signed copy
+from the document itself.
 
 **What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
 link opens a page with your firm's name, the document's title and your message. If you chose

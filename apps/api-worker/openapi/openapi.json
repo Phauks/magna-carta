@@ -18536,6 +18536,38 @@
           "requestIds"
         ]
       },
+      "SignedCopyView": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "firmName": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "sealedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "documentFileName": {
+            "type": "string"
+          },
+          "certificateFileName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "firmName",
+          "senderName",
+          "sealedAt",
+          "documentFileName",
+          "certificateFileName"
+        ]
+      },
       "SessionLaunchResponse": {
         "type": "object",
         "properties": {
@@ -34765,6 +34797,17 @@
           },
           "detectedAt": {
             "type": "string"
+          },
+          "occurrenceOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set when the question is about one day of a repeating event that is gone from the member's calendar while the rest of the series is there: that day, as YYYY-MM-DD. `sent` is then that day. Null for a question about a whole copy."
+          },
+          "canPutBack": {
+            "type": "boolean",
+            "description": "False where the member's provider has no way to put the copy or the day back."
           }
         },
         "required": [
@@ -34773,7 +34816,9 @@
           "kind",
           "sent",
           "found",
-          "detectedAt"
+          "detectedAt",
+          "occurrenceOn",
+          "canPutBack"
         ]
       },
       "CalendarSeriesInWindow": {
@@ -51181,6 +51226,17 @@
         ],
         "additionalProperties": false
       },
+      "RecordTransferRunEndedResponse": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/RecordTransferRun"
+          }
+        },
+        "required": [
+          "run"
+        ]
+      },
       "RecordTransferSourceFileResponse": {
         "type": "object",
         "properties": {
@@ -51215,6 +51271,198 @@
           "columns",
           "rows"
         ]
+      },
+      "RecordTransferSourceFileColumnValuesResponse": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "rowCount": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "value",
+                "rowCount"
+              ]
+            }
+          },
+          "rowsWithValue": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rowsRead": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "values",
+          "rowsWithValue",
+          "rowsRead",
+          "truncated"
+        ]
+      },
+      "RecordTransferFileMappingResponse": {
+        "type": "object",
+        "properties": {
+          "saved": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "mapping": {
+                "$ref": "#/components/schemas/RecordTransferFileMapping"
+              },
+              "savedBy": {
+                "type": "string"
+              },
+              "savedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "mapping",
+              "savedBy",
+              "savedAt"
+            ]
+          }
+        },
+        "required": [
+          "saved"
+        ]
+      },
+      "RecordTransferFileMapping": {
+        "type": "object",
+        "properties": {
+          "recordKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization",
+              "matter"
+            ]
+          },
+          "sourceKind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "delimiter": {
+            "type": "string",
+            "enum": [
+              "comma",
+              "tab",
+              "semicolon",
+              "pipe"
+            ]
+          },
+          "assignments": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "holds": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "referenceSourceKind": {
+                  "type": "string",
+                  "maxLength": 63
+                },
+                "role": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "holds",
+                "referenceSourceKind",
+                "role"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "dateOrder": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "year-month-day",
+                  "day-month-year",
+                  "month-day-year"
+                ]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              }
+            ]
+          },
+          "timeZone": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "addressCountry": {
+            "type": "string",
+            "maxLength": 2
+          },
+          "matterTypes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          "members": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          "otherwiseMember": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "recordKind",
+          "sourceKind",
+          "delimiter",
+          "assignments",
+          "dateOrder",
+          "timeZone",
+          "addressCountry",
+          "matterTypes",
+          "members",
+          "otherwiseMember"
+        ],
+        "additionalProperties": false
+      },
+      "SaveRecordTransferFileMappingRequest": {
+        "type": "object",
+        "properties": {
+          "mapping": {
+            "$ref": "#/components/schemas/RecordTransferFileMapping"
+          }
+        },
+        "required": [
+          "mapping"
+        ],
+        "additionalProperties": false
       },
       "RecordTransferPassResponse": {
         "type": "object",
@@ -82828,6 +83076,203 @@
         }
       }
     },
+    "/api/v1/signer/signed-copy": {
+      "get": {
+        "description": "What the link to a signed copy opens: the document's title, who sent it, and when it was sealed. Writes nothing.",
+        "operationId": "signer.readSignedCopy",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signed copy's details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedCopyView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy/document": {
+      "get": {
+        "description": "The sealed, signed copy of the document, as a PDF.",
+        "operationId": "signer.readSignedCopyDocument",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopyDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signed copy",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy/certificate": {
+      "get": {
+        "description": "The Certificate of Completion filed beside the signed copy, as a PDF.",
+        "operationId": "signer.readSignedCopyCertificate",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopyCertificate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The certificate",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/documents/{fileId}/edit-session": {
       "post": {
         "description": "Launch an editing session for a document: joins the live co-editing session (or starts one), returns the editor URL to iframe, the editor origin, and a short-lived WOPI edit token.",
@@ -110114,6 +110559,14 @@
             "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
             "name": "provider",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "occurrenceOn",
+            "in": "query"
           }
         ],
         "responses": {
@@ -110149,6 +110602,16 @@
           },
           "404": {
             "description": "The member has no such open question, or the firm is unreachable or the member deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member's provider has no way to put this one day back",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -110226,6 +110689,14 @@
             "required": false,
             "description": "The provider of the member's account the request is about. Left out, it is the account the member connected first.",
             "name": "provider",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "occurrenceOn",
             "in": "query"
           }
         ],
@@ -151128,7 +151599,7 @@
             }
           },
           "409": {
-            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "description": "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -151224,6 +151695,254 @@
           },
           "404": {
             "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/accept": {
+      "post": {
+        "description": "Accepts a run: marks it complete and asks for a conflicts check of every live matter it brought in. Refused while a pass is waiting or running. An accepted run takes no more files or passes.",
+        "operationId": "recordTransfer.acceptRun",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.acceptRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run as it now stands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunEndedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/abandon": {
+      "post": {
+        "description": "Stops a run without accepting it. The records it brought in and their links stay, and no conflicts check is asked for them. Refused while a pass is waiting or running.",
+        "operationId": "recordTransfer.abandonRun",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.abandonRun",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The run as it now stands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferRunEndedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -151355,7 +152074,7 @@
             }
           },
           "409": {
-            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "description": "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -151515,6 +152234,360 @@
         }
       }
     },
+    "/api/v1/record-transfer/runs/{runId}/files/{fileId}/column-values": {
+      "get": {
+        "description": "The different values one column of the file holds and how many rows hold each, read from the stored file when asked, so a person can match every code a column uses. At most 500 values of at most 100 characters are answered. These are values from the file; they are answered to the member and stored nowhere.",
+        "operationId": "recordTransfer.listSourceFileColumnValues",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.listSourceFileColumnValues",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferSourceFile_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "column",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "comma",
+                "tab",
+                "semicolon",
+                "pipe"
+              ]
+            },
+            "required": false,
+            "name": "delimiter",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The column's values, the most used first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferSourceFileColumnValuesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/files/{fileId}/mapping": {
+      "get": {
+        "description": "The mapping last saved for the file, with who saved it and when, or null where none has been saved.",
+        "operationId": "recordTransfer.getSourceFileMapping",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.getSourceFileMapping",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferSourceFile_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The saved mapping, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferFileMappingResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Saves the mapping a person is working on for the file, replacing the one saved before. It need not yet be enough to run a pass. It names columns, the source's own codes and this firm's identifiers, and holds no row of the file.",
+        "operationId": "recordTransfer.saveSourceFileMapping",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.saveSourceFileMapping",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferSourceFile_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRecordTransferFileMappingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The mapping as saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordTransferFileMappingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing, or the body is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is not valid, or the Idempotency-Key was reused for another request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/record-transfer/runs/{runId}/passes": {
       "post": {
         "description": "Asks for a pass over one of the run's files: which kind of record its rows are, which column holds each row's key, and the mapping rules that say what each column holds. The request is recorded and answered at once; the pass runs afterwards.",
@@ -151617,7 +152690,7 @@
             }
           },
           "409": {
-            "description": "The run has ended, the file is already in the run, or the key is in progress",
+            "description": "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -151910,6 +152983,110 @@
           },
           "404": {
             "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/record-transfer/runs/{runId}/passes/{passId}/rejected-rows": {
+      "get": {
+        "description": "The rows a finished pass rejected, as a file in the source file's own shape with one column in front giving the reason for each. The rows are read from the stored source file when asked. These are values from the file; they are answered to the member and stored nowhere.",
+        "operationId": "recordTransfer.downloadRejectedRows",
+        "tags": [
+          "recordTransfer"
+        ],
+        "x-mc-operationId": "recordTransfer.downloadRejectedRows",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:transferRecords",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "recordTransfer"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferRun_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^transferPass_[A-Za-z0-9_-]{1,64}$"
+            },
+            "required": true,
+            "name": "passId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delimited text: the reason column, then the file's own columns",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:transferRecords",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The run, file or pass is unknown to this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run has ended, a pass is still running, the file is already in the run, or the key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {

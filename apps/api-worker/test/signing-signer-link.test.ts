@@ -7,11 +7,14 @@ import { mintGuestInvitationToken } from "../src/meetings/guest-token.ts";
 import {
   hashAccessCode,
   hashSignerSecret,
+  SIGNED_COPY_TOKEN_TYPE,
+  mintSignedCopyLink,
   mintSignerLink,
   newAccessCode,
   readSignerLink,
   signerLinkSecret,
 } from "../src/signing/signer-link.ts";
+import { signedCopyRefusal } from "../src/signing/signer-refusals.ts";
 
 const KEY = "a-test-signing-key-that-is-long-enough";
 const FIRM: FirmId = newIdentifier("firm");
@@ -80,5 +83,55 @@ describe("a signer's link", () => {
     const digest = await hashAccessCode(KEY, SIGNER, code);
     expect(digest).toMatch(/^[0-9a-f]{64}$/);
     expect(await hashAccessCode("another-key-entirely-and-long", SIGNER, code)).not.toBe(digest);
+  });
+});
+
+describe("the link to a signed copy", () => {
+  const SEALED = "2026-11-13T12:00:00.000Z";
+  async function copyLink(): Promise<string> {
+    return await mintSignedCopyLink(KEY, {
+      firmId: FIRM,
+      requestId: REQUEST,
+      signerId: SIGNER,
+      secretVersion: 1,
+      sealedAt: SEALED,
+    });
+  }
+
+  it("carries the signer's own secret and works for 30 days from the sealing", async () => {
+    const token = await copyLink();
+    const read = await readSignerLink(KEY, token, NOW_SECONDS, SIGNED_COPY_TOKEN_TYPE);
+    expect(read?.outcome).toBe("verified");
+    expect(read?.link.secret).toBe(await signerLinkSecret(KEY, FIRM, SIGNER, 1));
+    const thirtyDays = 30 * 24 * 60 * 60;
+    const justBefore = Math.floor(Date.parse(SEALED) / 1000) + thirtyDays - 1;
+    expect((await readSignerLink(KEY, token, justBefore, SIGNED_COPY_TOKEN_TYPE))?.outcome).toBe(
+      "verified",
+    );
+    expect(
+      (await readSignerLink(KEY, token, justBefore + 1, SIGNED_COPY_TOKEN_TYPE))?.outcome,
+    ).toBe("expired");
+  });
+
+  it("is never a signing link, and a signing link never opens the copy", async () => {
+    expect(await readSignerLink(KEY, await copyLink(), NOW_SECONDS)).toBeNull();
+    expect(await readSignerLink(KEY, await link(), NOW_SECONDS, SIGNED_COPY_TOKEN_TYPE)).toBeNull();
+  });
+
+  it("opens only a completed, sealed request at the signer's current version", () => {
+    const live = {
+      found: true,
+      secretMatches: true,
+      storedVersion: 1,
+      presentedVersion: 1,
+      requestStatus: "completed" as const,
+      sealedAt: SEALED,
+    };
+    expect(signedCopyRefusal(live)).toBeNull();
+    expect(signedCopyRefusal({ ...live, sealedAt: null })).toBe("not-ready");
+    expect(signedCopyRefusal({ ...live, secretMatches: false })).toBe("not-valid");
+    expect(signedCopyRefusal({ ...live, storedVersion: 2 })).toBe("not-valid");
+    expect(signedCopyRefusal({ ...live, found: false })).toBe("not-valid");
+    expect(signedCopyRefusal({ ...live, requestStatus: "voided" })).toBe("not-valid");
   });
 });

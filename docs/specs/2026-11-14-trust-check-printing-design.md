@@ -25,10 +25,13 @@ After this design:
 
 1. A disbursement recorded with method `check` and no reference lands in the account's **To print**
    queue.
-2. The person picks the checks to print. The server numbers them from the account's next number in
-   one batch, and the browser composes a PDF with each field at its stored position on the paper.
-3. A printed check is assumed right (owner ruling 2026-11-19): the print records each check as
-   printed in the same batch that numbers it, and nobody is asked afterwards. A check that jammed or
+2. The person picks the checks to print and the first number. The browser composes a PDF from the
+   queue rows and the stock, each field at its stored position on the paper, and opens it; nothing
+   is stored yet. Once the checks are out of the printer the person marks them printed, and only
+   then does the server number them in one batch (owner ruling 2026-11-19: no confirm window
+   before the PDF, the confirmation comes after it).
+3. A printed check is assumed right (owner ruling 2026-11-19): marking them printed records each
+   check as printed in the same batch that numbers it, and nobody is asked which came out right. A check that jammed or
    came out wrong is **returned to the list** from its row: that voids it with its number kept (reason
    `Misprinted` unless the person writes another), and the payment goes back to To print, where the
    next print gives it a new number. There is no separate reprint step.
@@ -174,5 +177,8 @@ person.
    PDF code.
 2. **Printing the MICR line** on blank stock with magnetic toner.
 3. **Signatures** printed on the check. Trust checks are signed by hand.
-4. **Positive pay** export to the bank.
+4. ~~**Positive pay** export to the bank.~~ Built 2026-11-19 as a generic CSV (account number,
+   check number, issue date, amount, payee, void flag) composed in the browser from the register;
+   the full account number is typed per download and never stored. A bank-specific layout waits on
+   the firm naming its bank.
 5. **A payee address** for a window envelope (section 3).

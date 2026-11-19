@@ -878,7 +878,10 @@ describe("where the public chip is mounted", () => {
         stripComments(source(path)),
       );
       expect(actions, path).not.toBeNull();
-      const firstElement = /<([A-Za-z][\w.]*)/.exec(actions?.[1] ?? "");
+      // A `contents` wrapper draws no box of its own (the app shell's hides the chip at phone
+      // width), so the first element inside it is the one that takes the seat.
+      const cluster = (actions?.[1] ?? "").replace(/^\s*<div class="contents[^"]*">/, "");
+      const firstElement = /<([A-Za-z][\w.]*)/.exec(cluster);
       expect(firstElement?.[1], path).toBe("VersionChip");
     }
   });

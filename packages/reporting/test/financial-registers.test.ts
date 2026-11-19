@@ -118,9 +118,13 @@ describe("the invoices report", () => {
       billedMinor: 80_000,
       unpaidMinor: 55_000,
     });
-    expect(alder?.invoices[0]?.matters.map((matter) => matter.figures.billedMinor)).toEqual([
-      60_000, 20_000,
-    ]);
+    // Billing returns a bill's matters by matter id, and two ids made in the same millisecond
+    // sort either way round, so the figures are compared without their order.
+    expect(
+      alder?.invoices[0]?.matters
+        .map((matter) => matter.figures.billedMinor)
+        .toSorted((left, right) => left - right),
+    ).toEqual([20_000, 60_000]);
     expect(totalOf(report.offices.map((office) => office.figures.billedMinor))).toBe(110_000);
   });
 });

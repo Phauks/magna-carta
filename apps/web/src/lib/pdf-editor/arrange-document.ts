@@ -7,15 +7,21 @@ import { mergeDocuments, rotatePages, splitDocument } from "@magna-carta/pdf";
 import type { ArrangementPlan } from "./page-arrangement.ts";
 
 /**
- * The turns first, on the original, because the engine turns a page relative to how it already
- * sits; then the runs cut out and joined in order. A single run needs no join, which is the common
- * case of turning pages without moving any.
+ * Files whose pages were inserted are joined onto the end of the original first, in the order they
+ * were inserted, because that is where the plan numbers their pages. With nothing inserted the
+ * original is worked on as it stands, so a plain rearrangement never pays for a join.
+ *
+ * Then the turns, because the engine turns a page relative to how it already sits; then the runs
+ * cut out and joined in order. A single run needs no join, which is the common case of turning
+ * pages without moving any.
  */
 export async function arrangeDocument(
   original: Uint8Array,
   plan: ArrangementPlan,
+  additions: readonly Uint8Array[] = [],
 ): Promise<Uint8Array> {
-  let turned = original;
+  let turned =
+    additions.length === 0 ? original : (await mergeDocuments([original, ...additions])).pdf;
   for (const turn of plan.turns) {
     turned = (await rotatePages(turned, turn.angle, [...turn.pages])).pdf;
   }

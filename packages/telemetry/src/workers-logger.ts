@@ -11,7 +11,7 @@
 // name, any dimension value, no allowlist, no scrub, no tripwire — which made it the cheapest way to
 // get privileged content into Analytics Engine, and the one no test would have caught.
 import { UNLOGGABLE_VALUE, type TelemetryEvent } from "./event.ts";
-import { FAILED_OPERATION_EVENT, failedOperationTap } from "./failed-operation-tap.ts";
+import { failedOperationTap, isFailureEvent } from "./failed-operation-tap.ts";
 import type { Logger } from "./logger.ts";
 import {
   metricDefinition,
@@ -113,7 +113,7 @@ export function createWorkersLogger(
     // A failure nobody was shown also goes to the Worker's own record where one is installed
     // (failed-operation-tap.ts). The scrubbed event, never the raw one; and a tap that throws is
     // ignored, because the log line above is the record of last resort and has already been written.
-    if (scrubbed.name === FAILED_OPERATION_EVENT) {
+    if (isFailureEvent(scrubbed.name)) {
       const tap = failedOperationTap();
       if (tap !== null) {
         try {

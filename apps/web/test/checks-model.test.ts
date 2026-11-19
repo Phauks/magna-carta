@@ -8,17 +8,24 @@ import {
   clampedPosition,
   clampedWidth,
   kindsToAdd,
+  markPrintedLabel,
   milsFromInches,
   nextUnusedNumber,
   numberAlreadyUsed,
+  openedToPrintText,
   previewNumbers,
+  printButtonLabel,
+  printableChecks,
   printedRows,
   settledReasonText,
   shiftProblem,
   typedCheckNumber,
   voidedRows,
 } from "../src/lib/trust/checks/checks-model.ts";
-import type { TrustCheckRegisterRow } from "../src/lib/trust/checks/checks-api.ts";
+import type {
+  TrustCheckRegisterRow,
+  TrustCheckToPrint,
+} from "../src/lib/trust/checks/checks-api.ts";
 
 function row(checkNumber: number, status: TrustCheckRegisterRow["status"]): TrustCheckRegisterRow {
   return {
@@ -104,6 +111,76 @@ describe("previewing numbers", () => {
     const previews = previewNumbers(["b", "a"], 10_422);
     expect(previews.get("b")).toBe(10_422);
     expect(previews.get("a")).toBe(10_423);
+  });
+});
+
+function waiting(identifier: string, payee: string, amountMinor: number): TrustCheckToPrint {
+  return {
+    trustMovementId: identifier,
+    payee,
+    amountMinor,
+    currency: "USD",
+    memo: `Memo for ${payee}`,
+    effectiveDate: "2026-10-31",
+    authorizedBy: "user_whitfield",
+    matterNumber: "26-0141",
+    matterTitle: "Harrington Purchase",
+    earlierCheckNumbers: [],
+  };
+}
+
+describe("the checks opened to print", () => {
+  const toPrint = [
+    waiting("a", "Desert Title Company", 300_000),
+    waiting("b", "Jordan Smith", 125_050),
+    waiting("c", "Clark County Recorder", 8_400),
+  ];
+
+  it("numbers the chosen payments from the first check number, in the order given", () => {
+    const checks = printableChecks(toPrint, ["c", "a"], 10_422);
+    expect(checks.map((check) => [check.checkNumber, check.payee])).toEqual([
+      [10_422, "Clark County Recorder"],
+      [10_423, "Desert Title Company"],
+    ]);
+  });
+
+  it("matches the previewed numbers the print route will record", () => {
+    const order = ["b", "c", "a"];
+    const previews = previewNumbers(order, 500);
+    const checks = printableChecks(toPrint, order, 500);
+    expect(checks.map((check) => check.checkNumber)).toEqual(
+      order.map((identifier) => previews.get(identifier)),
+    );
+  });
+
+  it("prints what the waiting payment says", () => {
+    expect(printableChecks(toPrint, ["b"], 7)).toEqual([
+      {
+        checkNumber: 7,
+        payee: "Jordan Smith",
+        amountMinor: 125_050,
+        effectiveDate: "2026-10-31",
+        memo: "Memo for Jordan Smith",
+        matterNumber: "26-0141",
+        matterTitle: "Harrington Purchase",
+      },
+    ]);
+  });
+
+  it("leaves out a payment that is no longer waiting", () => {
+    expect(printableChecks(toPrint, ["gone", "a"], 10).map((check) => check.payee)).toEqual([
+      "Desert Title Company",
+    ]);
+  });
+
+  it("names the buttons and the waiting line by count", () => {
+    expect(printButtonLabel(0)).toBe("Print Checks");
+    expect(printButtonLabel(1)).toBe("Print 1 Check");
+    expect(printButtonLabel(3)).toBe("Print 3 Checks");
+    expect(markPrintedLabel(1)).toBe("Mark 1 Printed");
+    expect(markPrintedLabel(3)).toBe("Mark 3 Printed");
+    expect(openedToPrintText(10_422, 1)).toBe("Check 10422 opened to print.");
+    expect(openedToPrintText(10_422, 3)).toBe("Checks 10422 to 10424 opened to print.");
   });
 });
 

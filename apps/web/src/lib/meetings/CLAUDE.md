@@ -77,6 +77,14 @@ edge is a constructor seam, so the whole machine runs under a test with fakes.
   `FrameEncryptionSeams` (`MeetingClientSeams.createFrameEncryption`, real edges in
   `effects/frame-encryption-processor.ts`). A browser without `RTCRtpScriptTransform`, or a client
   given no seam, fails the join `encryption-unsupported` before anything is captured.
+- `encryption-status.ts` — what an encrypted meeting's screen says about its encryption, pure: the
+  state (off, connecting, on, paused with its reasons, failed) the client exposes as
+  `encryptionState`, the pause banner's one sentence for any set of reasons, the security code's
+  digit groups, and the group's members in leaf order (`encryptionMembers`), named from the roster
+  only where it holds the stay. Everything comes from the verified group state; the roster names, it
+  never decides who is in the group. A host's pause is `setEncryptionPause(reason, running)` on the
+  client, a proposal keeping every other reason; the banner moves on the committed epoch, never on
+  the press. The bit table is `@magna-carta/mls/pause`, which loads no WebAssembly.
 - `frame-encryption.ts` and `frame-encryption.worker.ts` — the frame cipher (SFrame, RFC 9605) as
   the `RTCRtpScriptTransform` runs it: a VP8 frame keeps its first bytes readable for the routing
   service (ten on a keyframe, one otherwise) and authenticated, Opus is sealed whole, a frame that

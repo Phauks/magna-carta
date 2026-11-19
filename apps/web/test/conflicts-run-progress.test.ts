@@ -54,15 +54,15 @@ describe("where a run is", () => {
     );
     expect(steps).toHaveLength(RUN_STAGES.length);
     expect(steps[3]).toEqual({
-      label: `${RUN_STAGE_VOCABULARY.places} — 3 results found`,
+      label: `${RUN_STAGE_VOCABULARY.places}: 3 results found`,
       status: "active",
     });
   });
 
   it("says what each stage has counted so far, beside its name", () => {
     const steps = runProgressSteps(run());
-    expect(steps[0]?.label).toBe(`${RUN_STAGE_VOCABULARY.sources} — 2 sources, 3 parties`);
-    expect(steps[1]?.label).toBe(`${RUN_STAGE_VOCABULARY.walking} — 41 entities reached`);
+    expect(steps[0]?.label).toBe(`${RUN_STAGE_VOCABULARY.sources}: 2 sources, 3 parties`);
+    expect(steps[1]?.label).toBe(`${RUN_STAGE_VOCABULARY.walking}: 41 entities reached`);
     // A stage that has reported nothing yet is named and nothing more: no invented zero.
     expect(steps[2]?.label).toBe(RUN_STAGE_VOCABULARY.matching);
   });

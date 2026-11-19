@@ -586,8 +586,15 @@
     {
       "idx": 83,
       "version": "6",
+      "when": 1795115768573,
+      "tag": "20261119T191608_a-deleted-day-of-a-repeating-event-is-a-question",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "6",
       "when": 1795115305920,
-      "tag": "20261119T190825_bates-numbers",
+      "tag": "20261119T202542_bates-numbers",
       "breakpoints": true
     }
   ]

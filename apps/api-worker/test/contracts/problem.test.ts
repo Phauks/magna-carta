@@ -207,6 +207,7 @@ describe("problem-type URI registry", () => {
         "discovery-transcript-scope-unstated",
         "discovery-selection-refused",
         "discovery-load-not-reconciled",
+        "signed-copy-not-ready",
         "signing-link-expired",
         "signing-link-not-valid",
         "signing-not-a-pdf",
