@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z } from "zod";
 import { identifierField } from "@magna-carta/identifiers/field";
 import {
@@ -8,9 +9,10 @@ import {
 // The bank reconciliation screen's contract: what its API accepts and returns, as plain zod. Each
 // component is named with zod's own metadata (`.meta({ id })`), which the contract emitter reads as
 // the component's name. Amounts are whole cents, signed where a balance can be negative; an item's
-// amount is positive into the account and negative out of it.
+// amount is positive into the account and negative out of it, and an interest line's amount is
+// positive, its kind saying whether the bank credited it or it was swept out.
 
-const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const civilDate = z.string().regex(CIVIL_DATE_PATTERN);
 const cents = z.number().int();
 
 export const BankReconciliationLine = z
@@ -127,7 +129,9 @@ export const BankReconciliationChangeRecord = z
     changeId: z.string(),
     sequence: z.number().int(),
     kind: z.enum(["cleared", "uncleared", "end_date", "end_balance"]),
-    line: BankReconciliationLine.nullable(),
+    // A union with null rather than .nullable(): .nullable() folds the null into the shared
+    // schema, and the published contract would then lose it.
+    line: z.union([BankReconciliationLine, z.null()]),
     endDate: civilDate.nullable(),
     endBalanceMinor: cents.nullable(),
     cause: z.enum(["edit", "undo", "redo", "history", "restore"]),

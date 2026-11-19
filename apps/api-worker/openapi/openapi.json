@@ -49220,7 +49220,47 @@
             ]
           },
           "line": {
-            "$ref": "#/components/schemas/TrustBankReconciliationLine"
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "entry"
+                    ]
+                  },
+                  "entryId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "entryId"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "interest"
+                    ]
+                  },
+                  "interestId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "interestId"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "endDate": {
             "type": [

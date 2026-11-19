@@ -32,6 +32,7 @@
     "./checks": "./src/checks.ts",
     "./check-contract": "./src/check-contract.ts",
     "./bank-reconciliation": "./src/bank-reconciliation.ts",
+    "./bank-reconciliation-figures": "./src/bank-reconciliation-figures.ts",
     "./bank-reconciliation-contract": "./src/bank-reconciliation-contract.ts"
   },
   "scripts": {

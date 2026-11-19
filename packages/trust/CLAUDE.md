@@ -52,6 +52,18 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   nothing) then `confirmTrustStatementImport` (stores, only against the previewed fingerprint)
 - `src/reconciliation.ts` — `openTrustReconciliation` / `closeTrustReconciliation` (the freeze) /
   `readTrustThreeWayProof`
+- `src/bank-reconciliation.ts` — the tick-to-clear reconciliation the Reconciliation screen runs,
+  beside (not replacing) the statement-and-match workbench above. A period is a start date and
+  balance (carried over from the last finished one, or typed for an account's first), an end date
+  and balance, and numbered changes: a tick, an untick, an end-date or end-balance edit. Whether a
+  line is cleared is the fold of its changes (`foldBankReconciliationChanges`); Undo, Redo, an undo
+  from History and a restore are themselves new changes (`inverseOfChange`, `undoRedoTargets`), so
+  the change table, interest lines, notes and files are all append-only, and a removal is a row
+  that names what it removes. One open period per account is a partial unique index
+  (`trust_bank_reconciliation_one_open_unique_index`). Nothing locks the ledger: an entry recorded
+  after the period started is still an item, read as New. IOLTA interest lines live on the period
+  and are never posted to the trust book. `composeTrustBankReconciliationFinish` freezes the figures
+  and which items cleared; notes stay open after it
 - `src/three-way-proof.ts` — `computeTrustThreeWayProof` plus the two reads it is derived from, which
   every other surface shares: `readOutstandingTrustBankItems` and
   `readUnmatchedTrustBankStatementLines`

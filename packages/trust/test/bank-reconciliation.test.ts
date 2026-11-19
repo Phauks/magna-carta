@@ -361,7 +361,7 @@ describe("IOLTA interest and notes", () => {
     const detail = await readTrustBankReconciliation(s.database, id);
     expect(detail.interest.map((line) => [line.kind, line.amountMinor, line.cleared])).toEqual([
       ["credited", 1_000, true],
-      ["swept", -1_000, true],
+      ["swept", 1_000, true],
     ]);
     expect(detail.figures.depositedMinor).toBe(1_000);
     expect(detail.figures.withdrawnMinor).toBe(1_000);

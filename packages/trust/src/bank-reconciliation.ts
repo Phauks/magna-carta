@@ -1,4 +1,8 @@
-import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
+import {
+  addCalendarDays,
+  CIVIL_DATE_PATTERN,
+  type CivilDate,
+} from "@magna-carta/civil-time/civil-date";
 import {
   guarded,
   type EffectStatement,
@@ -20,6 +24,13 @@ import type {
 import { loadTrustAccount, type TrustServiceOptions } from "./account-tree.ts";
 import { liveTrustCheckNumberExpression } from "./check-statements.ts";
 import { TrustValidationError } from "./trust-validation.ts";
+import {
+  computeBankReconciliationFigures,
+  interestTotalMinor,
+  type BankReconciliationFigures,
+} from "./bank-reconciliation-figures.ts";
+
+export { computeBankReconciliationFigures, type BankReconciliationFigures };
 
 // BANK RECONCILIATION, the way QuickBooks does it. A person types the statement's end date and end
 // balance, ticks each book item the statement shows, and finishes when the difference is zero:
@@ -110,7 +121,7 @@ export interface BankReconciliationInterestLine {
   readonly id: TrustBankReconciliationInterestId;
   readonly kind: "credited" | "swept";
   readonly postedOn: string;
-  /** Signed like an item: a credit is positive, a sweep negative. */
+  /** What the bank credited or swept, as a positive amount; `kind` says which way it went. */
   readonly amountMinor: number;
   readonly description: string;
   readonly cleared: boolean;
@@ -164,20 +175,6 @@ export interface BankReconciliationRestorePoint {
   readonly savedBy: UserId;
   readonly savedByName: string | null;
   readonly savedAt: string;
-}
-
-export interface BankReconciliationFigures {
-  readonly startBalanceMinor: number;
-  readonly depositedMinor: number;
-  readonly withdrawnMinor: number;
-  readonly clearedBalanceMinor: number;
-  readonly endBalanceMinor: number | null;
-  /** End balance minus cleared balance; null until an end balance is entered. */
-  readonly differenceMinor: number | null;
-  readonly depositCount: number;
-  readonly depositClearedCount: number;
-  readonly withdrawalCount: number;
-  readonly withdrawalClearedCount: number;
 }
 
 export interface BankReconciliationHeader {
@@ -569,47 +566,6 @@ export function undoRedoTargets(
   return { undo: undoStack.at(-1) ?? null, redo: redoStack.at(-1) ?? null };
 }
 
-export function computeBankReconciliationFigures(
-  startBalanceMinor: number,
-  endBalanceMinor: number | null,
-  lines: readonly { readonly amountMinor: number; readonly cleared: boolean }[],
-): BankReconciliationFigures {
-  let depositedMinor = 0;
-  let withdrawnMinor = 0;
-  let depositCount = 0;
-  let depositClearedCount = 0;
-  let withdrawalCount = 0;
-  let withdrawalClearedCount = 0;
-  for (const line of lines) {
-    if (line.amountMinor >= 0) {
-      depositCount += 1;
-      if (line.cleared) {
-        depositClearedCount += 1;
-        depositedMinor += line.amountMinor;
-      }
-    } else {
-      withdrawalCount += 1;
-      if (line.cleared) {
-        withdrawalClearedCount += 1;
-        withdrawnMinor += -line.amountMinor;
-      }
-    }
-  }
-  const clearedBalanceMinor = startBalanceMinor + depositedMinor - withdrawnMinor;
-  return {
-    startBalanceMinor,
-    depositedMinor,
-    withdrawnMinor,
-    clearedBalanceMinor,
-    endBalanceMinor,
-    differenceMinor: endBalanceMinor === null ? null : endBalanceMinor - clearedBalanceMinor,
-    depositCount,
-    depositClearedCount,
-    withdrawalCount,
-    withdrawalClearedCount,
-  };
-}
-
 // ---- reads ----------------------------------------------------------------------------------------
 
 function toHeader(row: ReconciliationRow): BankReconciliationHeader {
@@ -757,17 +713,20 @@ export async function readTrustBankReconciliation(
     id: line.id as TrustBankReconciliationInterestId,
     kind: line.kind,
     postedOn: line.posted_on,
-    amountMinor: line.kind === "credited" ? line.amount_minor : -line.amount_minor,
+    amountMinor: line.amount_minor,
     description: line.description,
     cleared: state.cleared.has(`interest:${line.id}`),
     recordedBy: line.recorded_by as UserId,
     recordedAt: line.recorded_at,
   }));
 
-  const computed = computeBankReconciliationFigures(header.startBalanceMinor, endBalanceMinor, [
-    ...items,
-    ...interest,
-  ]);
+  const computed = computeBankReconciliationFigures(
+    header.currency,
+    header.startBalanceMinor,
+    endBalanceMinor,
+    items,
+    interest,
+  );
   // A finished period answers with what it froze, which the live fold agrees with because nothing
   // can change after the finish; the frozen figures are the record either way.
   const figures: BankReconciliationFigures =
@@ -864,12 +823,16 @@ export async function readTrustBankReconciliations(
         fileCount: detail.files.length,
         noteCount: detail.notes.filter((note) => note.kind === "note").length,
         needsReviewCount: linesNeedingReview(detail.notes).size,
-        interestCreditedMinor: detail.interest
-          .filter((line) => line.kind === "credited")
-          .reduce((sum, line) => sum + line.amountMinor, 0),
-        interestSweptMinor: detail.interest
-          .filter((line) => line.kind === "swept")
-          .reduce((sum, line) => sum - line.amountMinor, 0),
+        interestCreditedMinor: interestTotalMinor(
+          detail.reconciliation.currency,
+          detail.interest,
+          "credited",
+        ),
+        interestSweptMinor: interestTotalMinor(
+          detail.reconciliation.currency,
+          detail.interest,
+          "swept",
+        ),
       };
     }),
   );
@@ -897,9 +860,7 @@ export async function readNextBankReconciliationStart(
 }
 
 function dayAfter(civilDate: string): string {
-  const date = new Date(`${civilDate}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
+  return addCalendarDays(civilDate as CivilDate, 1);
 }
 
 // ---- writes ---------------------------------------------------------------------------------------
@@ -1390,7 +1351,7 @@ export async function composeTrustBankReconciliationInterestRemoval(
             reconciliationId,
             line.kind,
             line.postedOn,
-            Math.abs(line.amountMinor),
+            line.amountMinor,
             line.description,
             interestId,
             recordedBy,

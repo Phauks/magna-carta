@@ -11313,7 +11313,13 @@ export type TrustBankReconciliationChange = {
     changeId: string;
     sequence: number;
     kind: 'cleared' | 'uncleared' | 'end_date' | 'end_balance';
-    line: TrustBankReconciliationLine;
+    line: {
+        kind: 'entry';
+        entryId: string;
+    } | {
+        kind: 'interest';
+        interestId: string;
+    } | null;
     endDate: string | null;
     endBalanceMinor: number | null;
     cause: 'edit' | 'undo' | 'redo' | 'history' | 'restore';
