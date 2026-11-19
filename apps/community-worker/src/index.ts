@@ -3,6 +3,7 @@ import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import { resolveStoredSecrets } from "@magna-carta/worker-secrets/stored-secrets";
 import { boardApplication } from "./board-application.ts";
 import { COMMUNITY_WORKER_SECRET_NAMES, type Bindings } from "./bindings.ts";
+import { recordFailuresIn } from "./failure-record.ts";
 import { withBoardHeaders } from "./respond.ts";
 
 setServiceIdentity("cmy");
@@ -25,6 +26,8 @@ export default {
     const own =
       pathname === "/session" || pathname.startsWith("/session/") || pathname.startsWith("/api/");
     // The handoff secret may be bound from the account's Secrets Store; the board reads a string.
+    // A failure the board answers with an Error ID is also kept in the error record.
+    if (own) recordFailuresIn(environment.DB_CONTROL, (work) => context.waitUntil(work));
     const response = own
       ? await application.fetch(
           request,

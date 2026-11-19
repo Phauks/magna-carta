@@ -22,7 +22,6 @@
   audience: public
   public-name: Feature requests and voting
   public-summary: Ask for what your firm needs, vote on what other firms have asked for, and see what we decided and why.
-  awaiting-owner: Connect the magna-carta-community worker to Workers Builds and set COMMUNITY_HANDOFF_SECRET on it and on magna-carta; nothing on the community host is live until then.
 
 - id: community.package
   name: Extractable community package
@@ -64,7 +63,6 @@
   slices: service-status
   spec: docs/specs/2026-06-17-community-feedback-board-design.md
   evidence: The board's worker reads the status page's own store through the same public merge (apps/community-worker/src/known-issues.ts) and the Known Issues screen and the board's side panel show its unresolved events; it reaches readers once the board's worker is deployed.
-  awaiting-owner: Connect the magna-carta-community worker to Workers Builds; the screen is not reachable until the board is deployed.
 
 - id: community.changelog-sync
   name: Shipped-items changelog sync
