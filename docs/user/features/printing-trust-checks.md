@@ -5,11 +5,11 @@ _In daily use once your account's check stock is set up._
 ## What it does
 
 When a payment out of a trust account is recorded as paid by **check** and no check number is
-typed in, it waits on the account's **Checks** screen to be printed. Before anything prints you
-confirm the checks and the number on the first sheet in your printer, and you get a PDF to send to
-the printer loaded with your check paper. Afterwards you say which checks printed right. A check
-that jammed or printed crooked is recorded as misprinted: its number is voided and kept, and you
-print the payment again on the next number in one step.
+typed in, it waits on the account's **Checks** screen to be printed. You set the number on the
+first sheet in your printer, a PDF opens to send to the printer loaded with your check paper, and
+when they have printed you mark them printed. Printed checks are taken to be right. If one jammed or
+printed crooked, return it to the list: its number is voided and kept, and the payment waits to be
+printed again on a new number.
 
 Open it from **Trust**: pick the account, then **Open Checks** under **Checks** on its record.
 
@@ -51,43 +51,35 @@ reject the check.
 
 ## Printing
 
-Every payment waiting on **To Print** starts ticked. Untick any you are not printing; each ticked
-row shows the number it will print on. Press **Print N Checks**.
+Every payment waiting on **To Print** starts ticked. Untick any you are not printing. Above the
+list is the **First Check No.**: the number on the next sheet of paper in your printer. It
+starts one past the last check you printed (or at the stock's **Next Check Number** if you saved
+the stock since), and you can type any number. Each ticked row shows the number it will print on,
+and follows the field as you change it.
 
-**Print N Checks** opens a panel that lists the checks in the order they will come out, with the
-check number, payee, amount and matter of each, and the **First Check Number**. Change the first
-number if the paper in your printer starts somewhere else; the number beside every check follows
-it. Load the checks it names in the printer, then press **Print Checks**. Nothing is numbered
-until you do. If one of the numbers is already used on the account, the field turns red, the panel
-says which number, and nothing is printed.
+Press **Print N Checks**. A PDF of the checks opens in a new tab; print it from there. Nothing is
+recorded yet. Back on the Checks screen the button now reads **Mark N Printed**: press it once the
+checks are out of the printer, and they move to the **Printed** list with their numbers. Press
+**Cancel** instead if you did not print them; nothing is kept. If you change the ticked payments or
+the first number before marking them, the button goes back to **Print N Checks**, because the PDF
+no longer matches.
 
-The checks are numbered and a PDF opens in a new tab; print it from there (if your browser blocked
-the tab, use **Open PDF** in the panel that follows). Then, in **Record How N Checks Printed**, mark
-each check **Printed Right**, or **Misprinted** if it jammed or came out wrong, and press **Record
-Results**. A misprinted check keeps its number on the **Voided** list with the reason
-**Misprinted**, and the print panel opens again at once for those payments, starting at the next
-number, so printing them again is one step.
+If one of the numbers is already used on the account, the screen says which one, the field turns
+red, and nothing is recorded. If your browser blocks the tab, allow pop-ups for the site and press
+**Print N Checks** again.
 
-If you press **Cancel** instead, the checks stay numbered as **Not Answered** on the **Printed**
-list, and **Answer** asks again.
+## A check that misprinted
 
-## Changing the next check number
-
-The check number is yours to set at any time. The Checks screen shows the account's **Next check
-number** with **Change** beside it: type the number on the next sheet in your printer and press
-**Save Number**. It can be higher or lower than before. If the number is already used on the
-account, the panel says which number the next check will print on instead. You can also set the
-first number of one batch in the print panel without changing the account's next number.
+Open the **...** menu on its row on the **Printed** list and choose **Return to List**. The reason
+starts as **Misprinted**; change it if you like and press **Return to List**. The check keeps its
+number on the **Voided** list with the reason, and the payment is back on **To Print**. Print it
+from there with the rest; it gets a new number.
 
 ## Voiding a check
 
-A check that was lost, went stale or was stopped can be voided from the **Printed** list: open the
-**...** menu on its row and choose **Void**, then give a reason and press **Void Check**. Its number
-stays on the record with your reason on the **Voided** list, and the payment returns to **To Print**
-so you can issue a replacement.
-
-To print a replacement straight away, choose **Void and Reprint** instead. You give a reason as
-before, and the print panel opens for that payment on the next number.
+A check that was lost, went stale or was stopped is handled the same way: **Return to List** from
+its row, with a reason such as **Lost in the mail**. Its number stays on the record with your reason
+on the **Voided** list, and the payment returns to **To Print** so you can issue a replacement.
 
 Voiding a check does **not** cancel the payment. The money left the client's ledger when the
 payment was approved. If the payment itself should not happen, record a deposit back to the
@@ -103,6 +95,6 @@ list. Its number is still what the bank statement is matched against during reco
 
 ## Who can do what
 
-Anyone who can see the firm's trust accounts can see the checks. Printing, answering, voiding and
+Anyone who can see the firm's trust accounts can see the checks. Printing, voiding and
 setting up check stock need the trust management right. Printing a check moves no money, so it does
 not need a second person.

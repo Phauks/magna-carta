@@ -115,7 +115,7 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "Hands an admitted guest the address of one clean file a line of their meeting's chat points at, while their stay is in the room and the meeting has not ended. Admitted by the guest lane's verified grant; a handle the guest names alone reaches nothing, and the download is recorded on the firm's audit trail naming the meeting, the invitation and the stay.",
   "guest.recordCrash":
     "Keeps a crash on the guest's own page against the client_ Error ID its crash screen shows: the route template, the error kind, the first stack frame, the build and an engine-written message, scrubbed. Admitted by the guest lane's verified invitation credential; filed under the page's template, never the address, with no user; bounded per link by the client-error bucket keyed by the invitation.",
-  // AN OUTSIDE SIGNER'S NINE. A signer holds a signed link minted for one signer on one signing
+  // AN OUTSIDE SIGNER'S NINE, AND THREE MORE BELOW. A signer holds a signed link minted for one signer on one signing
   // request — no session, no member row. Each route rides the chokepoint's signer lane
   // (x-mc-signerLane): the signature is verified before anything is read, the signer's row and the
   // request must still accept the link on every request, and the lane stashes no user id. What each
@@ -138,6 +138,15 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "Signs the signer's own fields on the one request the verified link names, and moves the request on.",
   "signer.decline":
     "Declines for the signer the verified link names, which ends the request; the reason is kept on its record.",
+  // AND THE THREE BEHIND THE COMPLETION EMAIL. The link is the same signer's, minted as its own kind
+  // of token (x-mc-signerLane: signed-copy), admitted only once the request is completed and sealed
+  // and for 30 days after; a signing link opens none of them, and none of them opens a signing route.
+  "signer.readSignedCopy":
+    "The title, sender and sealing date of the one sealed request the verified copy link names. Writes nothing.",
+  "signer.readSignedCopyDocument":
+    "The version the seal filed for the one request the verified copy link names. Writes nothing.",
+  "signer.readSignedCopyCertificate":
+    "The Certificate of Completion filed beside that signed copy. Writes nothing.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/

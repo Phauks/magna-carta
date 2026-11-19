@@ -1,8 +1,9 @@
 /*
  * A batch of trust checks, or a test page, as the PDF composer's document. Pure: the stock says
  * where each field goes, the checks say what it reads, and this places each line at its position on
- * a letter page. Composed in a Web Worker (check-pdf.worker.ts) from the numbers the server handed
- * back, so the server never holds the PDF.
+ * a letter page. Composed in a Web Worker (check-pdf.worker.ts) from the payments the Checks screen
+ * has read and the numbers it will send, before anything is recorded, so the server never holds the
+ * PDF.
  *
  * Positions are thousandths of an inch on the stock and points in the document: 72 points to the
  * inch. The stock's whole-page shift moves every line on the page together, stubs included, because

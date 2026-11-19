@@ -19,8 +19,10 @@
 - `src/matter-transfer.ts` — `transferMatter`: read the link, resolve the client and parties to live Directory records, and write the matter, its parties and its link in one commit
 - `src/transfer-pass.ts` — `runTransferPass`: one pass over one file for one kind of record, returning a `TransferPassReport`. `personPassPlan`, `organizationPassPlan` and `matterPassPlan` build the plan for each kind
 - `src/transfer-pass-statements.ts` — the `transfer_pass` row: ask for a pass, read one, list a run's, take one to run it, and end it finished (with the report's counts) or failed. `transferPassReportObjectKey` is where a pass's report is kept
-- `src/transfer-requests.ts` — a member's three acts as effects (start a run, register a file, ask for a pass), each with its audit row; the outbox topic a requested pass rides; `unknownMatterRuleReferences`; and `transferPassStateOf`, which derives requested, running, stalled, finished or failed from a row
+- `src/transfer-requests.ts` — a member's acts as effects (start a run, register a file, ask for a pass, save a mapping, accept a run, abandon a run), each with its audit row; the outbox topics a requested pass and an accepted run ride; `unknownMatterRuleReferences`; and `transferPassStateOf`, which derives requested, running, stalled, finished or failed from a row
 - `src/requested-pass.ts` — `runRequestedPass`: take the pass, read the file through a port, run it, store the report through a port, end the row. Its failures are a fixed vocabulary
+- `src/column-values.ts` — `distinctColumnValues`: the different values of one column and the rows that use each, capped, for matching a column of codes before a pass
+- `src/rejected-rows.ts` — `rejectedRowsAsDelimitedText`: the rows a pass rejected, read again from the file and written in its own shape with a reason column in front
 - `src/contract.ts` — the zod shapes the routes take and answer, including the three sets of mapping rules. `src/transfer-views.ts` turns a stored row into its answer
 
 ## Local conventions
@@ -48,6 +50,8 @@
 - **A pass's counts are held to the report's rule by the database.** `transfer_pass_counts_check` refuses counts that do not sum to the rows read, so `finishTransferPassStatement` takes the report itself and not seven numbers.
 - **Rules added to a mapping module are added to `contract.ts` in the same change.** The schemas are strict: a rule the contract does not know is refused at the request and again by the job.
 - **What the operator stated is stored as stated.** `rules_json` holds the key column, the delimiter and the rules. They name columns and the source's own codes for matter types and staff; they hold no row of the file.
+- **A saved mapping is the screen's working state, not rules.** `TransferFileMappingSchema` in `contract.ts` is strict and bounded so only column names, the source's codes and the firm's identifiers fit in it. It is kept as one object per file (`transferFileMappingObjectKey`), never in the database, and is not what a pass runs under: a pass stores its own rules.
+- **Accepting is the only announcement.** `acceptTransferRunEffect` puts one message on the outbox; the Worker's consumer asks the conflicts ledger for a check of each live matter the run linked. A loader still announces nothing. Abandoning announces nothing either, and neither ending removes a record or a link.
 - **A new reader adds its format to `SOURCE_FILE_FORMATS`.** A file registered under a format nothing reads is refused before the database is asked.
 
 ## Invariants that apply here

@@ -13,6 +13,13 @@
    *
    * A refusal is a red edge on the field and never a line of text. What no column holds yet stands
    * under the table as plain marks from the start, and turns red once a run has been refused.
+   *
+   * A matter type or staff column counts its own codes: how many of the codes the file has are not
+   * matched yet. Until the column's codes have been read it counts the matches alone.
+   *
+   * Nothing is saved until Save is pressed. The line beside it says how the mapping stands: not
+   * saved while it has changes, saved once it has none. A save that failed is not a field's
+   * refusal, so the page says it in words above the tabs.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
@@ -30,6 +37,8 @@
   import MatchCodesDialog from "./match-codes-dialog.svelte";
   import {
     assignmentOf,
+    codeMatchingLabel,
+    codeMatchingOf,
     FILE_KIND_CHOICES,
     holdsAnyAddress,
     holdsField,
@@ -41,8 +50,10 @@
     type FileMapping,
     type MappingDefaults,
     type MappingProblems,
+    type MappingSaveState,
     type TransferRecordKind,
   } from "./column-mapping.ts";
+  import type { ColumnCodesRead } from "./record-transfer-api.ts";
 
   let {
     fileName,
@@ -57,6 +68,11 @@
     referenceOptions,
     matterTypeOptions,
     memberOptions,
+    matterTypeCodes,
+    memberCodes,
+    onRetryCodes,
+    saveState = "idle",
+    onSave,
     disabled = false,
     onChange,
     onChooseKind,
@@ -78,6 +94,13 @@
     referenceOptions: readonly ChoiceOption[];
     matterTypeOptions: readonly ChoiceOption[];
     memberOptions: readonly ChoiceOption[];
+    /** The codes of the column that holds the matter type, as far as they have been read. */
+    matterTypeCodes: ColumnCodesRead;
+    /** The codes of the column that holds the responsible member, as far as they have been read. */
+    memberCodes: ColumnCodesRead;
+    onRetryCodes: () => void;
+    saveState?: MappingSaveState;
+    onSave: () => void;
     /** The run has ended, so the mapping is read and not changed. */
     disabled?: boolean;
     onChange: (next: FileMapping) => void;
@@ -159,9 +182,28 @@
     });
   }
 
-  function countLabel(count: number): string {
-    return `${String(count)} matched`;
+  /** What a code column says: its unmatched codes once they are read, and its matches until then. */
+  function matchingLabel(codes: ColumnCodesRead, matches: Readonly<Record<string, string>>): string {
+    if (codes.kind === "read") return codeMatchingLabel(codeMatchingOf(codes.codes, matches));
+    return `${String(Object.keys(matches).length)} matched`;
   }
+
+  function matchingVariant(
+    codes: ColumnCodesRead,
+    matches: Readonly<Record<string, string>>,
+  ): "neutral" | "warning" | "success" {
+    if (codes.kind !== "read") return "neutral";
+    const matching = codeMatchingOf(codes.codes, matches);
+    if (matching.total === 0) return "neutral";
+    return matching.unmatched === 0 ? "success" : "warning";
+  }
+
+  const saveLine = $derived.by(() => {
+    if (saveState === "saving") return "Saving";
+    if (saveState === "saved") return "Saved";
+    if (saveState === "unsaved") return "Not saved";
+    return "";
+  });
 </script>
 
 {#snippet table(
@@ -255,8 +297,8 @@
               {/if}
               {#if current !== null && detail === "matterTypes"}
                 <span class="flex flex-wrap items-center gap-8">
-                  <Badge variant="neutral">
-                    {countLabel(Object.keys(current.matterTypes).length)}
+                  <Badge variant={matchingVariant(matterTypeCodes, current.matterTypes)}>
+                    {matchingLabel(matterTypeCodes, current.matterTypes)}
                   </Badge>
                   <Button
                     variant="secondary"
@@ -273,9 +315,9 @@
                   <Badge
                     variant={attempted && (problems?.responsibleMemberMissing ?? false)
                       ? "danger"
-                      : "neutral"}
+                      : matchingVariant(memberCodes, current.members)}
                   >
-                    {countLabel(Object.keys(current.members).length)}
+                    {matchingLabel(memberCodes, current.members)}
                   </Badge>
                   <Button
                     variant="secondary"
@@ -337,6 +379,20 @@
         {@render table([], [], null)}
       {/if}
     </LoadingRegion>
+
+    {#if mapping !== null}
+      <div class="flex items-center gap-8">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={disabled || saveState !== "unsaved"}
+          onclick={onSave}
+        >
+          Save
+        </Button>
+        <span class="text-sm text-text-muted" role="status">{saveLine}</span>
+      </div>
+    {/if}
 
     {#if mapping !== null && problems !== null && problems.missing.length > 0}
       <div class="flex flex-wrap items-center gap-8">
@@ -400,6 +456,8 @@
     targetLabel="Matter Type"
     targets={matterTypeOptions}
     matches={current.matterTypes}
+    codes={matterTypeCodes}
+    {onRetryCodes}
     onSave={(matterTypes) => onChange({ ...current, matterTypes })}
   />
   <MatchCodesDialog
@@ -410,6 +468,8 @@
     targets={memberOptions}
     matches={current.members}
     otherwise={current.otherwiseMember}
+    codes={memberCodes}
+    {onRetryCodes}
     onSave={(members, otherwiseMember) => onChange({ ...current, members, otherwiseMember })}
   />
 {/if}

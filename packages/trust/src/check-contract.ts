@@ -114,22 +114,6 @@ export const PrintResponse = z
   .object({ stock: CheckStock, checks: z.array(PrintedCheck) })
   .meta({ id: "PrintTrustChecksResponse" });
 
-export const ResultsRequest = z
-  .object({
-    trustAccountId: identifierField("trustAccount"),
-    results: z
-      .array(
-        z.object({
-          trustCheckId: identifierField("trustCheck"),
-          outcome: z.enum(["printed", "spoiled"]),
-          reason: z.string().max(500).nullish(),
-        }),
-      )
-      .min(1)
-      .max(100),
-  })
-  .meta({ id: "RecordTrustCheckResultsRequest" });
-
 export const VoidRequest = z
   .object({ trustAccountId: identifierField("trustAccount"), reason: z.string().min(1).max(500) })
   .meta({ id: "VoidTrustCheckRequest" });

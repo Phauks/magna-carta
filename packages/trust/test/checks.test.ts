@@ -12,7 +12,6 @@ import {
 import {
   composeTrustCheckNumberVoid,
   composeTrustCheckPrint,
-  composeTrustCheckResults,
   composeTrustCheckStockSave,
   composeTrustCheckVoid,
   readNextTrustCheckNumber,
@@ -180,7 +179,7 @@ describe("check printing", () => {
     ).rejects.toMatchObject({ code: "check-stock-missing" });
   });
 
-  it("numbers from the starting number, spoils, reprints on a new number, and keeps both", async () => {
+  it("numbers from the starting number, returns a misprint to the list, reprints on a new number, and keeps both", async () => {
     const setup = await fundedAccount();
     const stock = await saveStock(setup);
     expect(stock.version).toBe(1);
@@ -205,20 +204,14 @@ describe("check printing", () => {
     ).all<{ reference: string | null; movement_id: string | null }>();
     expect(results.find((row) => row.movement_id === first)?.reference).toBe("10422");
 
-    const [firstCheck, secondCheck] = printed.checks;
-    const answered = await composeTrustCheckResults(
+    // Printing counts as printed; a misprint is returned to the list, which voids that number.
+    const secondCheck = printed.checks[1]!;
+    const returned = await composeTrustCheckVoid(
       database,
-      {
-        trustAccountId,
-        results: [
-          { checkId: firstCheck!.checkId, outcome: "printed" },
-          { checkId: secondCheck!.checkId, outcome: "spoiled" },
-        ],
-        recordedBy: RECORDER,
-      },
+      { trustAccountId, checkId: secondCheck.checkId, reason: "Misprinted", recordedBy: RECORDER },
       options,
     );
-    await commit(database, answered.effect);
+    await commit(database, returned.effect);
 
     const queue = await readTrustChecksToPrint(database, trustAccountId);
     expect(queue.map((item) => item.movementId)).toEqual([second]);
@@ -234,8 +227,8 @@ describe("check printing", () => {
 
     const register = await readTrustCheckRegister(database, trustAccountId);
     expect(register.map((row) => [row.checkNumber, row.status])).toEqual([
-      [10_424, "numbered"],
-      [10_423, "spoiled"],
+      [10_424, "printed"],
+      [10_423, "voided"],
       [10_422, "printed"],
     ]);
     expect(register[1]?.settledReason).toBe("Misprinted");
@@ -254,16 +247,6 @@ describe("check printing", () => {
     );
     await commit(database, printed.effect);
     const checkId = printed.checks[0]!.checkId;
-    await commit(
-      database,
-      (
-        await composeTrustCheckResults(
-          database,
-          { trustAccountId, results: [{ checkId, outcome: "printed" }], recordedBy: RECORDER },
-          options,
-        )
-      ).effect,
-    );
     await expect(
       composeTrustCheckVoid(
         database,

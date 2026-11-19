@@ -625,6 +625,9 @@ importers:
       '@magna-carta/community':
         specifier: workspace:*
         version: link:../../packages/community
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../../packages/data-access
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../../packages/identifiers

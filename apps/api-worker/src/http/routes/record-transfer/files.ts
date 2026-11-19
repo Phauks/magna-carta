@@ -3,16 +3,27 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { TransferSourceFileId } from "@magna-carta/identifiers/types";
+import { distinctColumnValues } from "@magna-carta/record-transfer/column-values";
 import {
+  SaveTransferFileMappingRequest,
+  TransferFileMappingResponse,
+  TransferSourceFileColumnValuesResponse,
   TransferSourceFilePreviewResponse,
   TransferSourceFileResponse,
+  type TransferFileMappingResponseBody,
 } from "@magna-carta/record-transfer/contract";
 import {
   DelimitedTextError,
   readDelimitedText,
 } from "@magna-carta/record-transfer/delimited-text-reader";
-import { transferSourceFileObjectKey } from "@magna-carta/record-transfer/source-file";
-import { registerTransferSourceFileEffect } from "@magna-carta/record-transfer/transfer-requests";
+import {
+  transferFileMappingObjectKey,
+  transferSourceFileObjectKey,
+} from "@magna-carta/record-transfer/source-file";
+import {
+  registerTransferSourceFileEffect,
+  saveTransferFileMappingEffect,
+} from "@magna-carta/record-transfer/transfer-requests";
 import {
   selectTransferSourceFileStatement,
   selectTransferSourceFilesStatement,
@@ -75,6 +86,84 @@ const previewQuery = z.object({
 });
 
 const DELIMITERS = { comma: ",", tab: "\t", semicolon: ";", pipe: "|" } as const;
+
+const columnValuesQuery = z.object({
+  // The column, named exactly as the file's header row names it.
+  column: z.string().min(1).max(200),
+  delimiter: z.enum(["comma", "tab", "semicolon", "pipe"]).optional(),
+});
+
+const columnValuesRoute = defineOpenAPIRoute(
+  readMeta("recordTransfer.listSourceFileColumnValues"),
+  {
+    method: "get",
+    path: "/api/v1/record-transfer/runs/{runId}/files/{fileId}/column-values",
+    description:
+      "The different values one column of the file holds and how many rows hold each, read from the stored file when asked, so a person can match every code a column uses. At most 500 values of at most 100 characters are answered. These are values from the file; they are answered to the member and stored nowhere.",
+    request: { params: fileParam, query: columnValuesQuery },
+    responses: {
+      200: {
+        description: "The column's values, the most used first",
+        content: { "application/json": { schema: TransferSourceFileColumnValuesResponse } },
+      },
+      401: errors[401],
+      403: errors[403],
+      404: errors[404],
+      422: errors[422],
+      429: errors[429],
+    },
+  },
+);
+
+const mappingRoute = defineOpenAPIRoute(readMeta("recordTransfer.getSourceFileMapping"), {
+  method: "get",
+  path: "/api/v1/record-transfer/runs/{runId}/files/{fileId}/mapping",
+  description:
+    "The mapping last saved for the file, with who saved it and when, or null where none has been saved.",
+  request: { params: fileParam },
+  responses: {
+    200: {
+      description: "The saved mapping, or null",
+      content: { "application/json": { schema: TransferFileMappingResponse } },
+    },
+    401: errors[401],
+    403: errors[403],
+    404: errors[404],
+    429: errors[429],
+  },
+});
+
+// A save replaces the mapping whole, so the same save delivered twice leaves the same thing and the
+// route asks for no Idempotency-Key.
+const saveMappingRoute = defineOpenAPIRoute(
+  { ...writeMeta("recordTransfer.saveSourceFileMapping"), idempotency: "optional" },
+  {
+    method: "put",
+    path: "/api/v1/record-transfer/runs/{runId}/files/{fileId}/mapping",
+    description:
+      "Saves the mapping a person is working on for the file, replacing the one saved before. It need not yet be enough to run a pass. It names columns, the source's own codes and this firm's identifiers, and holds no row of the file.",
+    request: {
+      params: fileParam,
+      body: {
+        required: true,
+        content: { "application/json": { schema: SaveTransferFileMappingRequest } },
+      },
+    },
+    responses: {
+      200: {
+        description: "The mapping as saved",
+        content: { "application/json": { schema: TransferFileMappingResponse } },
+      },
+      400: errors[400],
+      401: errors[401],
+      403: errors[403],
+      404: errors[404],
+      409: errors[409],
+      422: errors[422],
+      429: errors[429],
+    },
+  },
+);
 
 const uploadRoute = defineOpenAPIRoute(
   { ...writeMeta("recordTransfer.addSourceFile"), idempotency: "optional" },
@@ -257,4 +346,115 @@ export function registerTransferSourceFileRoutes(app: AppRouter, chokepoint: Cho
       return c.json({ columns: [...columns], rows }, 200);
     },
   );
+
+  app.openapi(
+    { ...columnValuesRoute, middleware: chokepointMiddleware(chokepoint, columnValuesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { runId, fileId } = c.req.valid("param");
+      const { column, delimiter } = c.req.valid("query");
+      const file = await heldFile(firm.firmDatabase, runId, fileId);
+      if (file === null) return notFound(c, "file");
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const text = await sourceFileText(bucket, file.object_key);
+      if (text === null) return notFound(c, "file");
+      try {
+        const found = await distinctColumnValues(
+          readDelimitedText(text, { delimiter: DELIMITERS[delimiter ?? "comma"] }),
+          column,
+        );
+        if (!found.columnFound) {
+          return problemJson(c, {
+            type: "validation",
+            title: "The file has no such column",
+            status: 422,
+            detail: "The column named is not in the file's header row.",
+          });
+        }
+        return c.json(
+          {
+            values: [...found.values],
+            rowsWithValue: found.rowsWithValue,
+            rowsRead: found.rowsRead,
+            truncated: found.truncated,
+          },
+          200,
+        );
+      } catch (caught) {
+        if (!(caught instanceof DelimitedTextError)) throw caught;
+        return problemJson(c, {
+          type: "validation",
+          title: "The file cannot be read as rows",
+          status: 422,
+          detail: caught.message,
+        });
+      }
+    },
+  );
+
+  app.openapi(
+    { ...mappingRoute, middleware: chokepointMiddleware(chokepoint, mappingRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { runId, fileId } = c.req.valid("param");
+      const file = await heldFile(firm.firmDatabase, runId, fileId);
+      if (file === null) return notFound(c, "file");
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const object = await bucket.get(transferFileMappingObjectKey(file.transfer_run_id, file.id));
+      if (object === null) return c.json({ saved: null }, 200);
+      // Written by the save below in the declared shape, so it is answered as stored.
+      return c.json(await object.json<TransferFileMappingResponseBody>(), 200);
+    },
+  );
+
+  app.openapi(
+    { ...saveMappingRoute, middleware: chokepointMiddleware(chokepoint, saveMappingRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { runId, fileId } = c.req.valid("param");
+      const { mapping } = c.req.valid("json");
+      const run = await readRun(firm.firmDatabase, runId);
+      if (run === null) return notFound(c, "run");
+      if (!runIsOpen(run)) return runEnded(c);
+      const file = await heldFile(firm.firmDatabase, runId, fileId);
+      if (file === null) return notFound(c, "file");
+      const now = new Date().toISOString();
+      const body: TransferFileMappingResponseBody = {
+        saved: { mapping, savedBy: userId, savedAt: now },
+      };
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      await bucket.put(
+        transferFileMappingObjectKey(file.transfer_run_id, file.id),
+        JSON.stringify(body),
+        {
+          httpMetadata: { contentType: "application/json" },
+          customMetadata: firmScopedObjectDimensions("transfer-file-mapping"),
+        },
+      );
+      await commitEffectBatch(
+        firm.firmDatabase,
+        saveTransferFileMappingEffect(
+          firm.firmDatabase,
+          { id: file.id, transferRunId: file.transfer_run_id },
+          { actorUserId: userId, now },
+        ),
+        { now: () => now },
+      );
+      return c.json(body, 200);
+    },
+  );
+}
+
+// A file of this run whose bytes are still held, or null.
+async function heldFile(
+  database: Parameters<typeof readRun>[0],
+  runId: string,
+  fileId: string,
+): Promise<TransferSourceFileRow | null> {
+  const file = await selectTransferSourceFileStatement(
+    database,
+    fileId as TransferSourceFileId,
+  ).first<TransferSourceFileRow>();
+  return file === null || file.transfer_run_id !== runId || file.removed_at !== null ? null : file;
 }
