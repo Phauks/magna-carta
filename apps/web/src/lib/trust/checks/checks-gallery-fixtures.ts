@@ -1,6 +1,6 @@
 /*
  * A trust checks service over memory, for the developer-console gallery: the Checks screen and the
- * stock editor drawn over fixtures a local firm never has, in each state a reviewer needs to see.
+ * stock editor drawn over sample payments and checks a local firm never has.
  *
  * IT KEEPS THE SERVER'S RULES THAT THE SCREENS SHOW. Printing numbers the chosen payments from the
  * first number on the screen, records them as printed and takes them off the queue, and refuses a
@@ -16,22 +16,9 @@ import type {
   TrustChecksResponse,
 } from "./checks-api.ts";
 import type { TrustChecksService } from "./checks-service.ts";
+import { saveToTarget } from "$lib/export/save-target.ts";
 import { composeCheckPdf, openPdf } from "./check-pdf.ts";
 import { nextUnusedNumber } from "./checks-model.ts";
-
-export type ChecksGalleryState = "ready" | "no-stock" | "empty" | "loading" | "failed";
-
-/** The situations the gallery's buttons switch between, in the order they are offered. */
-export const CHECKS_GALLERY_STATES: readonly ChecksGalleryState[] = [
-  "ready",
-  "empty",
-  "no-stock",
-  "loading",
-  "failed",
-];
-
-/** The printed check the gallery's Return to List panel opens over. */
-export const GALLERY_RETURN_CHECK = "trustCheck_10421";
 
 export const GALLERY_ACCOUNT_ID = "trustAccount_gallery";
 export const GALLERY_ACCOUNT_NAME = "IOLTA Client Trust";
@@ -94,86 +81,121 @@ function registerRow(
   };
 }
 
-function initial(state: ChecksGalleryState): TrustChecksResponse {
-  const toPrint =
-    state === "empty"
-      ? []
-      : [
-          queueRow(
-            "trustMovement_desert",
-            "Desert Title Company",
-            300_000,
-            "Harrington closing",
-            "26-0141",
-            "Harrington Purchase",
-            "2026-10-31",
-          ),
-          queueRow(
-            "trustMovement_smith",
-            "Jordan Smith",
-            125_050,
-            "Settlement share",
-            "26-0098",
-            "Smith v. Clearwater Logistics",
-            "2026-10-31",
-            [10_398],
-          ),
-          queueRow(
-            "trustMovement_county",
-            "Clark County Recorder",
-            8_400,
-            "Recording fee",
-            "26-0141",
-            "Harrington Purchase",
-            "2026-11-01",
-          ),
-        ];
+/** The same check, issued on another day and, where it was voided, voided on a later one. */
+function on(
+  row: TrustCheckRegisterRow,
+  issuedOn: string,
+  voidedOn?: string,
+): TrustCheckRegisterRow {
+  const numberedAt = `${issuedOn}T16:00:00.000Z`;
+  return {
+    ...row,
+    effectiveDate: issuedOn,
+    numberedAt,
+    lastEventAt:
+      row.lastEventAt === null
+        ? null
+        : voidedOn === undefined
+          ? `${issuedOn}T16:05:00.000Z`
+          : `${voidedOn}T16:00:00.000Z`,
+  };
+}
+
+function initial(): TrustChecksResponse {
+  const toPrint = [
+    queueRow(
+      "trustMovement_desert",
+      "Desert Title Company",
+      300_000,
+      "Harrington closing",
+      "26-0141",
+      "Harrington Purchase",
+      "2026-10-31",
+    ),
+    queueRow(
+      "trustMovement_smith",
+      "Jordan Smith",
+      125_050,
+      "Settlement share",
+      "26-0098",
+      "Smith v. Clearwater Logistics",
+      "2026-10-31",
+      [10_398],
+    ),
+    queueRow(
+      "trustMovement_county",
+      "Clark County Recorder",
+      8_400,
+      "Recording fee",
+      "26-0141",
+      "Harrington Purchase",
+      "2026-11-01",
+    ),
+  ];
   const register: TrustCheckRegisterRow[] = [
     // Printed before a check was recorded as printed at once: it reads exactly like the rest.
     registerRow(10_417, "numbered", "Reno Courier Service", 4_500, "26-0122", "Okafor Estate"),
     registerRow(10_418, "printed", "Silver State Appraisals", 45_000, "26-0122", "Okafor Estate"),
-    registerRow(10_419, "printed", "Maria Delgado", 1_840_000, "26-0087", "Delgado Settlement"),
-    registerRow(
-      10_398,
-      "voided",
-      "Jordan Smith",
-      125_050,
-      "26-0098",
-      "Smith v. Clearwater Logistics",
-      "Lost in the mail; stop payment placed",
+    on(
+      registerRow(10_419, "printed", "Maria Delgado", 1_840_000, "26-0087", "Delgado Settlement"),
+      "2026-11-03",
     ),
-    registerRow(
-      10_420,
-      "spoiled",
-      "Nevada Court Reporters",
-      61_500,
-      "26-0110",
-      "Reyes Deposition",
-      "Misprinted",
+    // Printed in October and voided in November, so the positive pay file for November reports it.
+    on(
+      registerRow(
+        10_398,
+        "voided",
+        "Jordan Smith",
+        125_050,
+        "26-0098",
+        "Smith v. Clearwater Logistics",
+        "Lost in the mail; stop payment placed",
+      ),
+      "2026-10-14",
+      "2026-11-10",
     ),
-    registerRow(10_421, "printed", "Nevada Court Reporters", 61_500, "26-0110", "Reyes Deposition"),
+    on(
+      registerRow(
+        10_420,
+        "spoiled",
+        "Nevada Court Reporters",
+        61_500,
+        "26-0110",
+        "Reyes Deposition",
+        "Misprinted",
+      ),
+      "2026-11-05",
+    ),
+    on(
+      registerRow(
+        10_421,
+        "printed",
+        "Nevada Court Reporters",
+        61_500,
+        "26-0110",
+        "Reyes Deposition",
+      ),
+      "2026-11-05",
+    ),
   ];
   return {
     nextCheckNumber: nextUnusedNumber(
       10_422,
       register.map((row) => row.checkNumber),
     ),
-    stock:
-      state === "no-stock"
-        ? null
-        : {
-            trustCheckStockId: "trustCheckStock_gallery",
-            version: 3,
-            name: "IOLTA checks, voucher bottom",
-            pageLayout: "check_top",
-            fields: STANDARD_CHECK_FIELDS.map((field) => ({ ...field })),
-            shiftXMils: 0,
-            shiftYMils: 0,
-            startingCheckNumber: 10_422,
-            hasScan: false,
-            savedBy: "user_whitfield",
-            savedAt: SAVED_AT,
-          },
+    stock: {
+      trustCheckStockId: "trustCheckStock_gallery",
+      version: 3,
+      name: "IOLTA checks, voucher bottom",
+      pageLayout: "check_top",
+      fields: STANDARD_CHECK_FIELDS.map((field) => ({ ...field })),
+      shiftXMils: 0,
+      shiftYMils: 0,
+      startingCheckNumber: 10_422,
+      hasScan: false,
+      savedBy: "user_whitfield",
+      savedAt: SAVED_AT,
+    },
     toPrint,
     register,
   };
@@ -188,8 +210,8 @@ function settle(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 400));
 }
 
-export function galleryChecksService(state: ChecksGalleryState): TrustChecksService {
-  const data = initial(state);
+export function galleryChecksService(): TrustChecksService {
+  const data = initial();
   /** The payment each printed check was printed for, so a returned one can go back. */
   const printedFrom = new Map<string, TrustCheckToPrint>();
   for (const row of data.register) {
@@ -238,18 +260,7 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
 
   return {
     async read() {
-      if (state === "loading") return new Promise(() => {});
       await settle();
-      if (state === "failed") {
-        return {
-          kind: "transport",
-          failure: {
-            problem: null,
-            request: `GET /trust/accounts/${GALLERY_ACCOUNT_ID}/checks`,
-            failedAt: new Date("2026-11-14T15:02:00.000Z"),
-          },
-        };
-      }
       return ok(structuredClone({ ...data, nextCheckNumber: nextNumber() }));
     },
     async print(_account, trustMovementIds, _key, firstCheckNumber) {
@@ -314,18 +325,9 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
           memo: check.memo,
         });
       }
-      // The server refuses a print with no stock saved, so the gallery never answers one.
+      // The server refuses a print with no stock saved, and the gallery always has one.
       const stock = data.stock;
-      if (stock === null) {
-        return {
-          kind: "transport",
-          failure: {
-            problem: null,
-            request: "POST /trust/checks/print",
-            failedAt: new Date("2026-11-14T15:02:00.000Z"),
-          },
-        };
-      }
+      if (stock === null) throw new Error("The gallery's check stock is missing.");
       return ok({ stock, checks: printed });
     },
     async voidCheck(_account, checkId, reason) {
@@ -336,8 +338,11 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
     async voidNextNumber(_account, reason) {
       await settle();
       const checkNumber = nextNumber();
+      const now = new Date().toISOString();
       data.register.push({
         ...registerRow(checkNumber, "voided", "", 0, "", "", reason),
+        numberedAt: now,
+        lastEventAt: now,
         trustMovementId: null,
         payee: null,
         amountMinor: null,
@@ -374,5 +379,7 @@ export function galleryChecksService(state: ChecksGalleryState): TrustChecksServ
     },
     composePdf: composeCheckPdf,
     openPdf,
+    // A real download, so the file the gallery makes can be opened and read.
+    saveFile: saveToTarget,
   };
 }

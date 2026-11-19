@@ -20,6 +20,7 @@ export interface SignerLinkState {
   readonly signerStatus: SignerStatus;
   readonly requestStatus: RequestStatus;
   readonly expiresAt: string;
+  readonly sealedAt: string | null;
 }
 
 /** What the lane checks a link against: the signer's digest and version, and the request's state. */
@@ -30,7 +31,7 @@ export async function readSignerLinkState(
 ): Promise<SignerLinkState | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT s.token_secret_hash, s.secret_version, s.status AS signer_status, r.status AS request_status, r.expires_at FROM ${SIGNING_SIGNER_TABLE} s JOIN ${SIGNING_REQUEST_TABLE} r ON r.id = s.request_id WHERE s.id = ? AND s.request_id = ? LIMIT 1`,
+      `SELECT s.token_secret_hash, s.secret_version, s.status AS signer_status, r.status AS request_status, r.expires_at, r.sealed_at FROM ${SIGNING_SIGNER_TABLE} s JOIN ${SIGNING_REQUEST_TABLE} r ON r.id = s.request_id WHERE s.id = ? AND s.request_id = ? LIMIT 1`,
     )
     .bind(signerId, requestId)
     .all<{
@@ -39,6 +40,7 @@ export async function readSignerLinkState(
       signer_status: string;
       request_status: string;
       expires_at: string;
+      sealed_at: string | null;
     }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -48,6 +50,7 @@ export async function readSignerLinkState(
     signerStatus: row.signer_status as SignerStatus,
     requestStatus: row.request_status as RequestStatus,
     expiresAt: row.expires_at,
+    sealedAt: row.sealed_at,
   };
 }
 

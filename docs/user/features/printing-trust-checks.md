@@ -5,9 +5,9 @@ _In daily use once your account's check stock is set up._
 ## What it does
 
 When a payment out of a trust account is recorded as paid by **check** and no check number is
-typed in, it waits on the account's **Checks** screen to be printed. Before anything prints you
-confirm the checks and the number on the first sheet in your printer, and you get a PDF to send to
-the printer loaded with your check paper. Printed checks are taken to be right. If one jammed or
+typed in, it waits on the account's **Checks** screen to be printed. You set the number on the
+first sheet in your printer, a PDF opens to send to the printer loaded with your check paper, and
+when they have printed you mark them printed. Printed checks are taken to be right. If one jammed or
 printed crooked, return it to the list: its number is voided and kept, and the payment waits to be
 printed again on a new number.
 
@@ -57,14 +57,16 @@ starts one past the last check you printed (or at the stock's **Next Check Numbe
 the stock since), and you can type any number. Each ticked row shows the number it will print on,
 and follows the field as you change it.
 
-Press **Print N Checks**. **Confirm Print** lists the checks with their numbers, payees and
-amounts. Press **Print Checks**, or **Cancel** to change something first. Nothing is numbered until
-you do. If one of the numbers is already used on the account, the screen says which one, the field
-turns red, and nothing is printed.
+Press **Print N Checks**. A PDF of the checks opens in a new tab; print it from there. Nothing is
+recorded yet. Back on the Checks screen the button now reads **Mark N Printed**: press it once the
+checks are out of the printer, and they move to the **Printed** list with their numbers. Press
+**Cancel** instead if you did not print them; nothing is kept. If you change the ticked payments or
+the first number before marking them, the button goes back to **Print N Checks**, because the PDF
+no longer matches.
 
-The checks are numbered, recorded as printed, and a PDF opens in a new tab; print it from there. If
-your browser blocks the tab, allow pop-ups for the site, return the checks to the list and print
-them again.
+If one of the numbers is already used on the account, the screen says which one, the field turns
+red, and nothing is recorded. If your browser blocks the tab, allow pop-ups for the site and press
+**Print N Checks** again.
 
 ## A check that misprinted
 
@@ -85,6 +87,25 @@ client's ledger as well.
 
 A sheet torn in the printer before it was printed can be voided with **Void Next Number** in the screen's **...** menu, so the
 numbers on screen keep matching the paper.
+
+## Positive pay file
+
+Many banks offer **positive pay**: you upload a list of the checks you issued and voided, and the
+bank refuses any check presented that is not on it. To make that list, open the **...** menu on the
+Checks screen and choose **Positive Pay File**.
+
+1. Pick the dates. **From** starts on the first of this month and **To** on today.
+2. Enter the bank account's full **Account Number**, digits only. It is not saved anywhere, so you
+   enter it each time.
+3. The line under the fields says how many checks the file holds and how many of those are voided.
+   Press **Download**.
+
+The file lists every check whose number was used in those dates, and every check voided in those
+dates, even one printed earlier. A number voided before anything printed on it goes in as a void
+for 0.00 with no payee. Each row has the account number, check number, issue date, amount, payee
+and **Y** or **N** for void. The matter and memo are left out.
+
+The file is a plain CSV in the layout most banks accept.
 
 ## A check you wrote by hand
 
