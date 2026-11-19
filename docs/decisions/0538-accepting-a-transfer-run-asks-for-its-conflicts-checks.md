@@ -1,8 +1,9 @@
 ---
+number: 538
 slug: accepting-a-transfer-run-asks-for-its-conflicts-checks
 status: Accepted
-area: Platform
 date: 2026-11-19
+area: Platform
 summary: "A record transfer run ends by being accepted or stopped. Accepting marks it complete and puts one message on the outbox; its consumer records a conflicts request in the conflicts ledger for each live matter the run brought in, with the run as the cause. Stopping keeps what arrived and asks for nothing. A file's working mapping is one strict-shaped object beside the file, not a table. Removing what a run created is not built and waits for the owner."
 ---
 

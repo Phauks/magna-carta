@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "885c9f3b-d5ec-4857-bc6b-7c27b836a515",
+  "id": "ac6c0590-a928-428a-b705-eacfb66e1918",
   "prevId": "60c1ab6d-39a4-4786-b325-b5c865180f44",
   "tables": {
     "account_balance": {
@@ -12387,6 +12387,27 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'open'"
+        },
+        "status_note_ciphertext": {
+          "name": "status_note_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status_changed_at": {
+          "name": "status_changed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status_changed_by": {
+          "name": "status_changed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "reported_by": {
           "name": "reported_by",
@@ -26167,89 +26188,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "payment_receipt": {
-      "name": "payment_receipt",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "application_id": {
-          "name": "application_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "method": {
-          "name": "method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reference": {
-          "name": "reference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "payment_receipt_application_unique_index": {
-          "name": "payment_receipt_application_unique_index",
-          "columns": [
-            "application_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "payment_receipt_application_id_invoice_application_id_fk": {
-          "name": "payment_receipt_application_id_invoice_application_id_fk",
-          "tableFrom": "payment_receipt",
-          "tableTo": "invoice_application",
-          "columnsFrom": [
-            "application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "payment_receipt_method_check": {
-          "name": "payment_receipt_method_check",
-          "value": "\"payment_receipt\".\"method\" IN ('check', 'cash', 'bank_transfer', 'card_terminal')"
-        },
-        "payment_receipt_reference_nonempty_check": {
-          "name": "payment_receipt_reference_nonempty_check",
-          "value": "\"payment_receipt\".\"reference\" IS NULL OR length(trim(\"payment_receipt\".\"reference\")) > 0"
-        }
-      }
     },
     "picklist_option": {
       "name": "picklist_option",
