@@ -31,6 +31,12 @@ export type PdfOperation =
       /** Make one new document per plan, each from the original's pages (`page-arrangement.ts`). */
       readonly kind: "arrange";
       readonly plans: readonly ArrangementPlan[];
+      /**
+       * The files whose pages were inserted, in the order they were inserted. They are joined onto
+       * the end of the original before any plan is carried out, which is where the plans number
+       * their pages. Copied to the worker, not transferred: the tab keeps them for the next save.
+       */
+      readonly additions?: readonly ArrayBuffer[];
     }
   | {
       /** Stamp a Bates label on every page (`bates.ts`). */
