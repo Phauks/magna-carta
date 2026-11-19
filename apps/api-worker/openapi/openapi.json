@@ -48859,6 +48859,1046 @@
           "balanced"
         ]
       },
+      "TrustBankReconciliationList": {
+        "type": "object",
+        "properties": {
+          "reconciliations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationSummary"
+            }
+          },
+          "nextStart": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "startDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "startBalanceMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "startDate",
+              "startBalanceMinor"
+            ]
+          }
+        },
+        "required": [
+          "reconciliations",
+          "nextStart"
+        ]
+      },
+      "TrustBankReconciliationSummary": {
+        "type": "object",
+        "properties": {
+          "reconciliation": {
+            "$ref": "#/components/schemas/TrustBankReconciliationHeader"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "depositedMinor": {
+            "type": "integer"
+          },
+          "withdrawnMinor": {
+            "type": "integer"
+          },
+          "clearedBalanceMinor": {
+            "type": "integer"
+          },
+          "differenceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "fileCount": {
+            "type": "integer"
+          },
+          "noteCount": {
+            "type": "integer"
+          },
+          "needsReviewCount": {
+            "type": "integer"
+          },
+          "interestCreditedMinor": {
+            "type": "integer"
+          },
+          "interestSweptMinor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reconciliation",
+          "endDate",
+          "endBalanceMinor",
+          "depositedMinor",
+          "withdrawnMinor",
+          "clearedBalanceMinor",
+          "differenceMinor",
+          "fileCount",
+          "noteCount",
+          "needsReviewCount",
+          "interestCreditedMinor",
+          "interestSweptMinor"
+        ]
+      },
+      "TrustBankReconciliationHeader": {
+        "type": "object",
+        "properties": {
+          "trustBankReconciliationId": {
+            "type": "string"
+          },
+          "trustAccountId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "startBalanceMinor": {
+            "type": "integer"
+          },
+          "startCarriedOver": {
+            "type": "boolean"
+          },
+          "startedBy": {
+            "type": "string"
+          },
+          "startedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "finishedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "trustBankReconciliationId",
+          "trustAccountId",
+          "currency",
+          "startDate",
+          "startBalanceMinor",
+          "startCarriedOver",
+          "startedBy",
+          "startedByName",
+          "startedAt",
+          "finishedBy",
+          "finishedByName",
+          "finishedAt"
+        ]
+      },
+      "StartTrustBankReconciliationResponse": {
+        "type": "object",
+        "properties": {
+          "trustBankReconciliationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "trustBankReconciliationId"
+        ]
+      },
+      "StartTrustBankReconciliationRequest": {
+        "type": "object",
+        "properties": {
+          "trustAccountId": {
+            "type": "string",
+            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "startDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "startBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "trustAccountId",
+          "endDate"
+        ]
+      },
+      "TrustBankReconciliationDetail": {
+        "type": "object",
+        "properties": {
+          "reconciliation": {
+            "$ref": "#/components/schemas/TrustBankReconciliationHeader"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "figures": {
+            "$ref": "#/components/schemas/TrustBankReconciliationFigures"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationItem"
+            }
+          },
+          "interest": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationInterest"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationNote"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationFile"
+            }
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationChange"
+            }
+          },
+          "restorePoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationRestorePoint"
+            }
+          },
+          "undoChangeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redoChangeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reconciliation",
+          "endDate",
+          "endBalanceMinor",
+          "figures",
+          "items",
+          "interest",
+          "notes",
+          "files",
+          "changes",
+          "restorePoints",
+          "undoChangeId",
+          "redoChangeId",
+          "version"
+        ]
+      },
+      "TrustBankReconciliationFigures": {
+        "type": "object",
+        "properties": {
+          "startBalanceMinor": {
+            "type": "integer"
+          },
+          "depositedMinor": {
+            "type": "integer"
+          },
+          "withdrawnMinor": {
+            "type": "integer"
+          },
+          "clearedBalanceMinor": {
+            "type": "integer"
+          },
+          "endBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "differenceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "depositCount": {
+            "type": "integer"
+          },
+          "depositClearedCount": {
+            "type": "integer"
+          },
+          "withdrawalCount": {
+            "type": "integer"
+          },
+          "withdrawalClearedCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "startBalanceMinor",
+          "depositedMinor",
+          "withdrawnMinor",
+          "clearedBalanceMinor",
+          "endBalanceMinor",
+          "differenceMinor",
+          "depositCount",
+          "depositClearedCount",
+          "withdrawalCount",
+          "withdrawalClearedCount"
+        ]
+      },
+      "TrustBankReconciliationItem": {
+        "type": "object",
+        "properties": {
+          "entryId": {
+            "type": "string"
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "check",
+              "cash",
+              "wire",
+              "electronic_transfer",
+              "card",
+              "internal",
+              "transfer",
+              "bank_charge",
+              "other"
+            ]
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payeeOrFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmFunds": {
+            "type": "boolean"
+          },
+          "movementId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transferId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "isNew": {
+            "type": "boolean"
+          },
+          "cleared": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entryId",
+          "effectiveDate",
+          "description",
+          "amountMinor",
+          "type",
+          "number",
+          "payeeOrFrom",
+          "purpose",
+          "matterId",
+          "matterNumber",
+          "matterTitle",
+          "firmFunds",
+          "movementId",
+          "transferId",
+          "recordedAt",
+          "isNew",
+          "cleared"
+        ]
+      },
+      "TrustBankReconciliationInterest": {
+        "type": "object",
+        "properties": {
+          "interestId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "credited",
+              "swept"
+            ]
+          },
+          "postedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "cleared": {
+            "type": "boolean"
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "interestId",
+          "kind",
+          "postedOn",
+          "amountMinor",
+          "description",
+          "cleared",
+          "recordedBy",
+          "recordedAt"
+        ]
+      },
+      "TrustBankReconciliationNote": {
+        "type": "object",
+        "properties": {
+          "noteId": {
+            "type": "string"
+          },
+          "line": {
+            "$ref": "#/components/schemas/TrustBankReconciliationLine"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "note",
+              "needs_review",
+              "resolved"
+            ]
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "writtenBy": {
+            "type": "string"
+          },
+          "writtenByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "writtenAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "noteId",
+          "line",
+          "kind",
+          "body",
+          "writtenBy",
+          "writtenByName",
+          "writtenAt"
+        ]
+      },
+      "TrustBankReconciliationLine": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entry"
+                ]
+              },
+              "entryId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "entryId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "interest"
+                ]
+              },
+              "interestId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "interestId"
+            ]
+          }
+        ]
+      },
+      "TrustBankReconciliationFile": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "name",
+          "contentType",
+          "sizeBytes",
+          "recordedBy",
+          "recordedAt"
+        ]
+      },
+      "TrustBankReconciliationChange": {
+        "type": "object",
+        "properties": {
+          "changeId": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "uncleared",
+              "end_date",
+              "end_balance"
+            ]
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "entry"
+                    ]
+                  },
+                  "entryId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "entryId"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "interest"
+                    ]
+                  },
+                  "interestId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "interestId"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "endDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "edit",
+              "undo",
+              "redo",
+              "history",
+              "restore"
+            ]
+          },
+          "revertsChangeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "restorePointId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changedBy": {
+            "type": "string"
+          },
+          "changedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changedAt": {
+            "type": "string"
+          },
+          "canRevert": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "changeId",
+          "sequence",
+          "kind",
+          "line",
+          "endDate",
+          "endBalanceMinor",
+          "cause",
+          "revertsChangeId",
+          "restorePointId",
+          "changedBy",
+          "changedByName",
+          "changedAt",
+          "canRevert"
+        ]
+      },
+      "TrustBankReconciliationRestorePoint": {
+        "type": "object",
+        "properties": {
+          "restorePointId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "atSequence": {
+            "type": "integer"
+          },
+          "automatic": {
+            "type": "boolean"
+          },
+          "savedBy": {
+            "type": "string"
+          },
+          "savedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "savedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "restorePointId",
+          "name",
+          "atSequence",
+          "automatic",
+          "savedBy",
+          "savedByName",
+          "savedAt"
+        ]
+      },
+      "TrustBankReconciliationAcknowledgement": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "TrustBankReconciliationEditsRequest": {
+        "type": "object",
+        "properties": {
+          "edits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrustBankReconciliationEdit"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "edits"
+        ]
+      },
+      "TrustBankReconciliationEdit": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "tick"
+                ]
+              },
+              "line": {
+                "$ref": "#/components/schemas/TrustBankReconciliationLine"
+              },
+              "cleared": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "line",
+              "cleared"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "end_date"
+                ]
+              },
+              "endDate": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "kind",
+              "endDate"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "end_balance"
+                ]
+              },
+              "endBalanceMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "endBalanceMinor"
+            ]
+          }
+        ]
+      },
+      "TrustBankReconciliationRevertRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "undo"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "redo"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "history"
+                ]
+              },
+              "changeId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "changeId"
+            ]
+          }
+        ]
+      },
+      "TrustBankReconciliationSaveRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "TrustBankReconciliationRestoreRequest": {
+        "type": "object",
+        "properties": {
+          "restorePointId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "restorePointId"
+        ]
+      },
+      "TrustBankReconciliationInterestRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "credited",
+              "swept"
+            ]
+          },
+          "postedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "alsoSweep": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "postedOn",
+          "amountMinor",
+          "description"
+        ]
+      },
+      "TrustBankReconciliationNoteRequest": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/TrustBankReconciliationLine"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "note",
+              "needs_review",
+              "resolved"
+            ]
+          },
+          "body": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "line",
+          "kind"
+        ]
+      },
+      "TrustBankReconciliationFileRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "contentType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 127
+          },
+          "dataBase64": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name",
+          "contentType",
+          "dataBase64"
+        ]
+      },
       "TrustChecksResponse": {
         "type": "object",
         "properties": {
@@ -148356,6 +149396,1791 @@
           },
           "422": {
             "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations": {
+      "get": {
+        "description": "Every reconciliation on the account, newest first, with its figures, and where the next one starts.",
+        "operationId": "trust.listBankReconciliations",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.listBankReconciliations",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "trustAccountId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reconciliations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Starts a reconciliation. The first one on an account takes its start date and balance from the statement; after that they carry over from the last finished one. One may be in progress per account.",
+        "operationId": "trust.startBankReconciliation",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.startBankReconciliation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartTrustBankReconciliationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartTrustBankReconciliationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}": {
+      "get": {
+        "description": "One reconciliation: its book items with what is ticked, the figures, IOLTA interest, notes, files, History and restore points.",
+        "operationId": "trust.getBankReconciliation",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.getBankReconciliation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reconciliation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/changes": {
+      "post": {
+        "description": "Ticks or unticks lines, or changes the end date or end balance, in order.",
+        "operationId": "trust.editBankReconciliation",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.editBankReconciliation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustBankReconciliationEditsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/revert": {
+      "post": {
+        "description": "Undo or Redo the caller's own last change, or undo any one change from History. Each writes a new change; nothing is erased.",
+        "operationId": "trust.revertBankReconciliationChange",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.revertBankReconciliationChange",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustBankReconciliationRevertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/restore-points": {
+      "post": {
+        "description": "Save: a named restore point at the latest change.",
+        "operationId": "trust.saveBankReconciliation",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.saveBankReconciliation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustBankReconciliationSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/restore": {
+      "post": {
+        "description": "Puts the ticks, end date and end balance back as they were at a restore point, saving the current place first. Notes and files are kept.",
+        "operationId": "trust.restoreBankReconciliation",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.restoreBankReconciliation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustBankReconciliationRestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/interest": {
+      "post": {
+        "description": "Adds IOLTA interest the bank credited, or its sweep to the bar foundation, ticked. It belongs to no matter and never touches a client ledger.",
+        "operationId": "trust.addBankReconciliationInterest",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.addBankReconciliationInterest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustBankReconciliationInterestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/interest/{interestId}/removal": {
+      "post": {
+        "description": "Removes an IOLTA interest line added by mistake.",
+        "operationId": "trust.removeBankReconciliationInterest",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.removeBankReconciliationInterest",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliationInterest_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "interestId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/notes": {
+      "post": {
+        "description": "Adds a note to a line, or marks it Needs review or resolved. Notes are never undone, and may be added after the reconciliation is finished.",
+        "operationId": "trust.addBankReconciliationNote",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.addBankReconciliationNote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustBankReconciliationNoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/files": {
+      "post": {
+        "description": "Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB.",
+        "operationId": "trust.attachBankReconciliationFile",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.attachBankReconciliationFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustBankReconciliationFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/files/{fileId}/removal": {
+      "post": {
+        "description": "Takes a file off an in-progress reconciliation. The bytes are kept, as trust records are.",
+        "operationId": "trust.removeBankReconciliationFile",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.removeBankReconciliationFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliationFile_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/files/{fileId}": {
+      "get": {
+        "description": "A file kept with the reconciliation, as it was attached.",
+        "operationId": "trust.bankReconciliationFile",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.bankReconciliationFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliationFile_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/finish": {
+      "post": {
+        "description": "Finishes the reconciliation: freezes its figures and the items it cleared. A difference is allowed and recorded as it stands. Refused if anyone changed it since it was last read.",
+        "operationId": "trust.finishBankReconciliation",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.finishBankReconciliation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustBankReconciliationAcknowledgement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The trust account, reconciliation or file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reconciliation changed or finished, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The trust rules refuse this",
             "content": {
               "application/problem+json": {
                 "schema": {

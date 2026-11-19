@@ -79,6 +79,9 @@ describe("schema conformance (fitness functions)", () => {
       community_profile: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
+      // A book entry is cleared at the finish of exactly one bank reconciliation, ever: keying the
+      // row by the entry is what makes clearing the same deposit twice impossible at commit.
+      trust_bank_reconciliation_cleared: "entry_id",
       // A class's structured attributes are one-to-one WITH the asset and have no identity of their
       // own: the asset id IS the row's identity, exactly as account_balance IS its account. A separate
       // handle would add a unique lookup on every read that already arrives holding the asset.

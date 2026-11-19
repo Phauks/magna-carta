@@ -95,6 +95,7 @@ import trustCheckPrintingSql from "@magna-carta/database/drizzle/per-firm/202611
 import aMemberConnectsMoreThanOneCalendarAccountSql from "@magna-carta/database/drizzle/per-firm/20261116T172646_a-member-connects-more-than-one-calendar-account.sql";
 import aDeletedDayOfARepeatingEventIsAQuestionSql from "@magna-carta/database/drizzle/per-firm/20261119T191608_a-deleted-day-of-a-repeating-event-is-a-question.sql";
 import problemReportsAreAnsweredSql from "@magna-carta/database/drizzle/per-firm/20261119T193530_problem-reports-are-answered.sql";
+import trustBankReconciliationSql from "@magna-carta/database/drizzle/per-firm/20261119T202327_trust-bank-reconciliation.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -194,6 +195,7 @@ export function perFirmMigrations(): Migration[] {
     "20261119T191608_a-deleted-day-of-a-repeating-event-is-a-question":
       aDeletedDayOfARepeatingEventIsAQuestionSql,
     "20261119T193530_problem-reports-are-answered": problemReportsAreAnsweredSql,
+    "20261119T202327_trust-bank-reconciliation": trustBankReconciliationSql,
   });
 }
 

@@ -135,6 +135,8 @@ export interface HouseDocument {
   /** Rows set closer together. */
   readonly compact: true;
   readonly letterhead?: HouseLetterhead;
+  /** A pale word across every page, under the content. */
+  readonly watermark?: string;
   /** The family the document is set in. */
   readonly typeface: HouseTypeface;
   readonly footer: { readonly center: string };
@@ -219,6 +221,11 @@ export interface HouseDocumentOptions {
    * a document that goes out under someone else's heading, such as a court filing.
    */
   readonly letterhead?: false;
+  /**
+   * A word set large, pale and on a slant across every page, under the content: "DRAFT" on a
+   * report printed before its figures are final.
+   */
+  readonly watermark?: string;
   readonly blocks: readonly HouseBlock[];
 }
 
@@ -261,6 +268,7 @@ export function houseDocument(options: HouseDocumentOptions): HouseDocument {
           },
         }
       : {}),
+    ...(options.watermark !== undefined ? { watermark: options.watermark } : {}),
     footer: { center: "Page {page} of {pages}" },
     blocks: options.blocks,
   };

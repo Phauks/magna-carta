@@ -2,7 +2,7 @@
 
 **Purpose.** Makes a new PDF from content: a title, headings, paragraphs with bold and italic,
 pictures, tables whose heading row repeats on every page (with totals, part and withdrawn rows),
-labelled fields, summary figures, a cover label, signature lines, rules, spacing and page breaks, with a header and footer line on each page and an optional accent colour for the title,
+labelled fields, summary figures, a cover label, signature lines, rules, spacing and page breaks, with a header and footer line on each page, an optional watermark across each page and an optional accent colour for the title,
 headings and rules. [`pdf-core`](../pdf-core) works on PDFs that
 already exist; this crate is the only place a PDF is written from nothing. Native `rlib`, and a
 WebAssembly module shipped through [`@magna-carta/pdf-compose`](../../packages/pdf-compose/CLAUDE.md).
