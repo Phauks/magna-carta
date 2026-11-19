@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./sframe": "./src/sframe.ts",
+    "./pause": "./src/pause.ts",
     "./src/pkg/mls_core_bg.wasm": "./src/pkg/mls_core_bg.wasm"
   },
   "scripts": {

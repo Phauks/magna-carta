@@ -15,7 +15,8 @@ import {
   type TabularExportDocument,
 } from "./tabular-export.ts";
 
-function csvField(value: string): string {
+/** One field, quoted only when it has to be: a comma, a quote or a line break wraps it, inner quotes doubled. */
+export function csvField(value: string): string {
   if (/[",\r\n]/.test(value)) return `"${value.replaceAll('"', '""')}"`;
   return value;
 }
