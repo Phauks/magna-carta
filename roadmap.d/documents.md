@@ -470,7 +470,7 @@
   scope: Upload-and-submit conversion endpoints in the OpenAPI contract.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/http/routes/documents/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions.
+  evidence: apps/api-worker/src/http/routes/documents/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions. The submit body takes optional options (maxDimension, quality, grayscale; contract in packages/conversion/src/contract.ts), checked against packages/conversion/src/options.ts and refused with 422 unsupported-conversion-option where the conversion's final engine cannot honour one.
   notes: Execution currently limited to the built engine edges (raster, image-to-PDF).
 
 - id: documents.conversion.raster
@@ -479,7 +479,7 @@
   status: shipped
   surface: awaiting-screen
   spec: docs/specs/2026-06-23-slice-2-4d-raster-engine-design.md
-  evidence: containers/raster + apps/convert-worker/src/raster-engine-container.ts + forward-convert.ts.
+  evidence: containers/raster + apps/convert-worker/src/raster-engine-container.ts + forward-convert.ts. Honours per-job options from the x-max-dimension, x-quality and x-grayscale headers (containers/raster/src/convert.rs, ConvertOptions): shrink to a longest side without enlarging, grayscale, and JPEG quality; anything malformed or unhonourable is a 400.
 
 - id: documents.conversion.image-to-pdf
   name: Image to PDF
@@ -545,8 +545,8 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch.
-  notes: The "Convert With Options" entry from the file manager rulings is not built; every target converts with the engine's defaults.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch. Convert with Options (apps/web/src/lib/tools/file-workbench/convert-options-dialog.svelte) is the flyout's last entry and a button on the Convert tab; it picks the target and the settings that target accepts (conversion-options.ts) and runs the same flow.
+  notes: Settings exist only where an engine honours them, which today is the raster engine (image targets, and an image going to PDF). Office, OCR, email and video targets convert with their engine's defaults, and Convert with Options is not offered for a file whose targets take no setting.
 
 - id: documents.pdf
   name: PDF services
@@ -918,7 +918,7 @@
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   spec: docs/specs/2026-06-22-metadata-tool-design.md
-  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts + the File Workbench Metadata tab; XLSX/PPTX reading, HEIC/PDF and the container engine still to come.
+  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts + the File Workbench Metadata tab, which lists each value per kind (FindingField, read by packages/metadata/src/ooxml/fields.ts and src/image/{exif,xmp,iptc}.ts); the API route publishes counts only (withoutFieldValues). XLSX/PPTX reading, HEIC/PDF and the container engine still to come.
   audience: public
   public-name: Metadata scrubbing
   public-summary: See what is hidden inside a file — tracked changes, comments, author details, the place a photograph was taken — and strip it out before you send it.
@@ -928,14 +928,14 @@
   scope: Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
   status: shipped
   surface: screen
-  evidence: packages/metadata/src/ooxml + engine.ts/port.ts.
+  evidence: packages/metadata/src/ooxml (inspect.ts counts, fields.ts reads the values) + engine.ts/port.ts; test/ooxml-fields.test.ts.
 
 - id: documents.metadata.image
   name: Image metadata
   scope: Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
   status: shipped
   surface: screen
-  evidence: packages/metadata/src/image + tests.
+  evidence: packages/metadata/src/image (EXIF, XMP, IPTC and PNG text values read beside the segment surgery) + test/image-fields.test.ts.
 
 - id: documents.metadata.extended-formats
   name: HEIC / PDF / container-engine metadata

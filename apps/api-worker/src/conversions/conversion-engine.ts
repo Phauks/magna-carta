@@ -1,5 +1,6 @@
 import type { EngineResolver } from "@magna-carta/conversion/execute";
 import type { EngineId } from "@magna-carta/conversion/format";
+import { optionHeaders } from "@magna-carta/conversion/options";
 import {
   type ConversionPort,
   type ConversionResult,
@@ -45,6 +46,9 @@ function serviceBindingPort(convert: Pick<Fetcher, "fetch">, engineId: EngineId)
               "x-source-format": input.from,
               "x-target-format": input.to,
               "x-recipe": input.recipeRef,
+              // The member's choices, as the engine's own headers. The convert worker forwards
+              // headers verbatim, and an engine refuses an option it cannot honour.
+              ...optionHeaders(input.options),
             },
             body: input.bytes,
           }),

@@ -102,6 +102,29 @@ describe("resolveEnginePort", () => {
     expect(headers?.get("x-recipe")).toBe("image-pdf");
   });
 
+  it("sends a member's options as the raster engine's own headers, and none when there are none", async () => {
+    const convert = fakeBinding(
+      new Response(new Uint8Array([9]), { status: 200, headers: { "Content-Type": "image/jpeg" } }),
+    );
+    const resolve = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
+    await resolve("libvips").convert({
+      ...rasterInput,
+      to: "jpeg",
+      recipeRef: "jpeg",
+      options: { maxDimension: 1600, quality: 60, grayscale: true },
+    });
+    const headers = convert.seen()?.headers;
+    expect(headers?.get("x-max-dimension")).toBe("1600");
+    expect(headers?.get("x-quality")).toBe("60");
+    expect(headers?.get("x-grayscale")).toBe("true");
+
+    await resolve("libvips").convert(rasterInput);
+    const plain = convert.seen()?.headers;
+    expect(plain?.get("x-max-dimension")).toBeNull();
+    expect(plain?.get("x-quality")).toBeNull();
+    expect(plain?.get("x-grayscale")).toBeNull();
+  });
+
   it("maps a convert-worker non-2xx to adapter-error (never throws)", async () => {
     const convert = fakeBinding(new Response("bad", { status: 422 }));
     const result = await resolveEnginePort({ CONVERT: convert } as unknown as Bindings)(

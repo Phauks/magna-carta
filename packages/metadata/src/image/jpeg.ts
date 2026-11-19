@@ -1,4 +1,8 @@
+import { FieldCollector, textValue } from "../fields.ts";
 import type { Finding } from "../model.ts";
+import { readExif } from "./exif.ts";
+import { readIptc } from "./iptc.ts";
+import { readXmp } from "./xmp.ts";
 
 // Markers that carry metadata we strip. APP1 (EXIF or XMP), APP13 (IPTC/Photoshop), APP14 (Adobe),
 // COM (free-text comment). APP0 (JFIF) is structural and kept.
@@ -104,12 +108,38 @@ function isMetadataSegment(category: Finding["category"] | undefined): boolean {
   return category !== undefined;
 }
 
+const EXIF_HEADER_LENGTH = "Exif\0\0".length;
+const XMP_NAMESPACE = "http://ns.adobe.com/xap/1.0/\0";
+
+// The values a metadata segment carries, into its category's collector. A segment whose values this
+// reader does not know (an Adobe APP14, an unrecognised APP1) is still counted; it just lists nothing.
+function readSegment(bytes: Uint8Array, segment: Segment, fields: FieldCollector): void {
+  const payload = bytes.subarray(segment.payloadStart, segment.end);
+  if (segment.marker === APP1 && payloadStartsWith(bytes, segment.payloadStart, "Exif\0\0")) {
+    readExif(payload.subarray(EXIF_HEADER_LENGTH), fields);
+  } else if (
+    segment.marker === APP1 &&
+    payloadStartsWith(bytes, segment.payloadStart, XMP_NAMESPACE)
+  ) {
+    readXmp(new TextDecoder("utf-8").decode(payload.subarray(XMP_NAMESPACE.length)), fields);
+  } else if (segment.marker === APP13) {
+    readIptc(payload, fields);
+  } else if (segment.marker === COM) {
+    fields.addNamed("Comment", textValue(new TextDecoder("utf-8").decode(payload)));
+  }
+}
+
 export function inspectJpegFindings(bytes: Uint8Array): Finding[] {
   const { segments, scanStart } = walkSegments(bytes);
   const counts = new Map<Finding["category"], number>();
+  const fieldsByCategory = new Map<Finding["category"], FieldCollector>();
   for (const segment of segments) {
     const category = classify(bytes, segment);
-    if (category !== undefined) counts.set(category, (counts.get(category) ?? 0) + 1);
+    if (category === undefined) continue;
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+    const fields = fieldsByCategory.get(category) ?? new FieldCollector();
+    fieldsByCategory.set(category, fields);
+    readSegment(bytes, segment, fields);
   }
   const labels: Record<string, string> = {
     "image-location": "EXIF metadata (may include GPS location, device, and timestamps)",
@@ -118,13 +148,14 @@ export function inspectJpegFindings(bytes: Uint8Array): Finding[] {
   };
   const findings: Finding[] = [];
   for (const [category, count] of counts) {
-    findings.push({
+    const finding: Finding = {
       category,
       label: labels[category] ?? "Embedded metadata",
       risk: category === "image-location" ? "high" : "medium",
       count,
       defaultScrub: true,
-    });
+    };
+    findings.push(fieldsByCategory.get(category)?.attachTo(finding) ?? finding);
   }
   if (trailingByteCount(bytes, scanStart) > 0) {
     findings.push({

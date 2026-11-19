@@ -20,7 +20,19 @@ import {
   runIsHidden,
   TRACKED_CHANGE_TAGS,
 } from "./walk.ts";
+import {
+  commentFields,
+  contentFieldCollectors,
+  customPropertyFields,
+  customXmlFields,
+  propertyFields,
+  readContentPart,
+  settingsFields,
+} from "./fields.ts";
 import { nodeTag, parseXml, type XmlNode } from "./xml.ts";
+
+const SETTINGS_RELATIONSHIPS_PART = "word/_rels/settings.xml.rels";
+const COMMENTS_PART = "word/comments.xml";
 
 const SETTINGS_DISCLOSURE_TAGS: ReadonlySet<string> = new Set([
   ...SETTINGS_TAGS_IDENTIFYING,
@@ -90,23 +102,28 @@ export function inspectDocx(bytes: Uint8Array): MetadataReport {
   const app = decode(entries[APP_PART]);
   const identifyingPresent = hasMeaningfulChild(core, true) || hasMeaningfulChild(app, true);
   if (identifyingPresent) {
-    findings.push({
-      category: "identifying-metadata",
-      label: "Author, organization, dates, and revision details",
-      risk: "high",
-      count: 1,
-      defaultScrub: true,
-    });
+    findings.push(
+      propertyFields(core, app).attachTo({
+        category: "identifying-metadata",
+        label: "Author, organization, dates, and revision details",
+        risk: "high",
+        count: 1,
+        defaultScrub: true,
+      }),
+    );
   }
 
-  if (hasMeaningfulChild(decode(entries[CUSTOM_PROPERTIES_PART]), true)) {
-    findings.push({
-      category: "custom-properties",
-      label: "Custom document properties",
-      risk: "medium",
-      count: 1,
-      defaultScrub: true,
-    });
+  const custom = decode(entries[CUSTOM_PROPERTIES_PART]);
+  if (hasMeaningfulChild(custom, true)) {
+    findings.push(
+      customPropertyFields(custom).attachTo({
+        category: "custom-properties",
+        label: "Custom document properties",
+        risk: "medium",
+        count: 1,
+        defaultScrub: true,
+      }),
+    );
   }
 
   // Whole parts that carry content or data of their own. They survive every transform applied to the
@@ -128,25 +145,31 @@ export function inspectDocx(bytes: Uint8Array): MetadataReport {
     (name) => CUSTOM_XML_PART_PATTERN.test(name) && /^customXml\/item\d*\.xml$/.test(name),
   );
   if (customXmlItems.length > 0) {
-    findings.push({
-      category: "embedded-data",
-      label: "Embedded custom XML data",
-      risk: "high",
-      count: customXmlItems.length,
-      defaultScrub: true,
-    });
+    const items = customXmlItems.map((name) => decode(entries[name]) ?? "");
+    findings.push(
+      customXmlFields(items).attachTo({
+        category: "embedded-data",
+        label: "Embedded custom XML data",
+        risk: "high",
+        count: customXmlItems.length,
+        defaultScrub: true,
+      }),
+    );
   }
 
   const settings = decode(entries[SETTINGS_PART]);
   const settingsDisclosures = countTags(settings, SETTINGS_DISCLOSURE_TAGS);
   if (settingsDisclosures > 0) {
-    findings.push({
-      category: "document-settings",
-      label: "Stored document variables, mail-merge data source, or attached template",
-      risk: "medium",
-      count: settingsDisclosures,
-      defaultScrub: true,
-    });
+    const settingsRelationships = decode(entries[SETTINGS_RELATIONSHIPS_PART]);
+    findings.push(
+      settingsFields(settings, settingsRelationships).attachTo({
+        category: "document-settings",
+        label: "Stored document variables, mail-merge data source, or attached template",
+        risk: "medium",
+        count: settingsDisclosures,
+        defaultScrub: true,
+      }),
+    );
   }
 
   // Revision save identifiers are stamped across every word-processing part, as attributes on
@@ -174,44 +197,53 @@ export function inspectDocx(bytes: Uint8Array): MetadataReport {
   // so that tracked changes, hidden runs, and comment references in any of those parts are found.
   const accumulator = { tagged: 0, vanish: 0 };
   let commentRefs = 0;
+  const contentFields = contentFieldCollectors();
+  const seenFormatting = new Set<string>();
   for (const [name, content] of Object.entries(entries)) {
     if (!CONTENT_PART_PATTERN.test(name)) continue;
     const xml = decode(content);
     if (xml === undefined) continue;
     const nodes = parseXml(xml);
     walk(nodes, TRACKED_CHANGE_TAGS, true, accumulator);
+    readContentPart(name, nodes, contentFields, seenFormatting);
     const commentAccumulator = { tagged: 0, vanish: 0 };
     walk(nodes, COMMENT_REF_TAGS, false, commentAccumulator);
     commentRefs += commentAccumulator.tagged;
   }
   if (accumulator.tagged > 0) {
-    findings.push({
-      category: "tracked-changes",
-      label: "Tracked insertions, deletions, moves, or formatting changes",
-      risk: "high",
-      count: accumulator.tagged,
-      defaultScrub: true,
-    });
+    findings.push(
+      contentFields.trackedChanges.attachTo({
+        category: "tracked-changes",
+        label: "Tracked insertions, deletions, moves, or formatting changes",
+        risk: "high",
+        count: accumulator.tagged,
+        defaultScrub: true,
+      }),
+    );
   }
   if (accumulator.vanish > 0) {
-    findings.push({
-      category: "hidden-content",
-      label: "Hidden text",
-      risk: "high",
-      count: accumulator.vanish,
-      defaultScrub: true,
-    });
+    findings.push(
+      contentFields.hiddenText.attachTo({
+        category: "hidden-content",
+        label: "Hidden text",
+        risk: "high",
+        count: accumulator.vanish,
+        defaultScrub: true,
+      }),
+    );
   }
 
   const commentParts = partNames.filter((name) => COMMENT_PART_PATTERN.test(name));
   if (commentParts.length > 0 || commentRefs > 0) {
-    findings.push({
-      category: "comments",
-      label: "Reviewer comments",
-      risk: "high",
-      count: Math.max(commentRefs, commentParts.length),
-      defaultScrub: true,
-    });
+    findings.push(
+      commentFields(decode(entries[COMMENTS_PART])).attachTo({
+        category: "comments",
+        label: "Reviewer comments",
+        risk: "high",
+        count: Math.max(commentRefs, commentParts.length),
+        defaultScrub: true,
+      }),
+    );
   }
 
   return reportOf("docx", findings);

@@ -120,6 +120,101 @@ describe("POST /api/v1/conversions", () => {
     const body = (await response.json()) as { status?: number; type?: string };
     expect(body.status).toBe(422);
   });
+
+  async function submitWithOptions(body: Record<string, unknown>): Promise<Response> {
+    return SELF.fetch("https://example.com/api/v1/conversions", {
+      method: "POST",
+      headers: {
+        cookie: ownerCookie,
+        origin: "https://example.com",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("refuses an option the conversion cannot honour with 422, rather than dropping it", async () => {
+    // Quality is a JPEG setting; WebP is written lossless.
+    const quality = await submitWithOptions({
+      jobId: "x",
+      sourceKey: "y",
+      from: "png",
+      to: "webp",
+      options: { quality: 60 },
+    });
+    expect(quality.status).toBe(422);
+    const qualityBody = (await quality.json()) as { type?: string; detail?: string };
+    expect(qualityBody.type).toContain("unsupported-conversion-option");
+    expect(qualityBody.detail).toContain("quality");
+
+    // The office engine reads no options at all.
+    const office = await submitWithOptions({
+      jobId: "x",
+      sourceKey: "y",
+      from: "docx",
+      to: "pdf",
+      options: { grayscale: true },
+    });
+    expect(office.status).toBe(422);
+  });
+
+  it("refuses an out-of-range or unknown option at validation", async () => {
+    for (const options of [{ maxDimension: 8 }, { quality: 0 }, { quality: 101 }, { dpi: 300 }]) {
+      const response = await submitWithOptions({
+        jobId: "x",
+        sourceKey: "y",
+        from: "png",
+        to: "jpeg",
+        options,
+      });
+      expect(response.status, JSON.stringify(options)).toBe(422);
+    }
+  });
+
+  it("accepts honourable options and queues the job", async () => {
+    const upload = await SELF.fetch("https://example.com/api/v1/conversions/upload", {
+      method: "POST",
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+    });
+    const { jobId, sourceKey } = (await upload.json()) as { jobId: string; sourceKey: string };
+    await env.R2.put(sourceKey, new TextEncoder().encode("fake-png"));
+    const response = await submitWithOptions({
+      jobId,
+      sourceKey,
+      from: "png",
+      to: "jpeg",
+      options: { maxDimension: 1600, quality: 70, grayscale: true },
+    });
+    expect(response.status).toBe(202);
+  });
+});
+
+describe("Conversion options reach the engine", () => {
+  it("the consumer hands the message's options to the final hop", async () => {
+    const jobId = "job-options-e2e";
+    const sourceKey = `conversions/${firmId}/${jobId}/source`;
+    await env.R2.put(sourceKey, new TextEncoder().encode("fake-png"));
+    const seen: unknown[] = [];
+    const fakePort: ConversionPort = {
+      convert: async (input) => {
+        seen.push(input.options);
+        return converted(new Uint8Array([0xff, 0xd8]), "image/jpeg");
+      },
+    };
+    const { batch, acks } = makeBatch({
+      firmId,
+      bucketName: "conversion-routes-firm-bucket",
+      jobId,
+      sourceKey,
+      resultKey: `conversions/${firmId}/${jobId}/result`,
+      from: "png",
+      to: "jpeg",
+      options: { maxDimension: 800, quality: 50 },
+    });
+    await conversionQueue(batch, env, () => () => fakePort);
+    expect(acks).toEqual(["msg-e2e"]);
+    expect(seen).toEqual([{ maxDimension: 800, quality: 50 }]);
+  });
 });
 
 describe("GET /api/v1/conversions/{jobId}", () => {
