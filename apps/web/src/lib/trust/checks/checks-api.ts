@@ -6,7 +6,6 @@ import {
   trustCheckStockScan,
   trustChecks,
   trustPrintChecks,
-  trustRecordCheckResults,
   trustSaveCheckStock,
   trustVoidCheck,
   trustVoidNextCheckNumber,
@@ -55,28 +54,6 @@ export async function printTrustChecks(
         // Absent, the server numbers from the account's next number.
         ...(firstCheckNumber === undefined ? {} : { firstCheckNumber }),
       },
-      headers: { "idempotency-key": idempotencyKey },
-      throwOnError: true,
-    });
-    return { kind: "ok", value: data };
-  } catch (error) {
-    return outcomeOf(error);
-  }
-}
-
-export interface TrustCheckAnswer {
-  readonly trustCheckId: string;
-  readonly outcome: "printed" | "spoiled";
-}
-
-export async function recordTrustCheckResults(
-  trustAccountId: string,
-  results: readonly TrustCheckAnswer[],
-  idempotencyKey: string,
-): Promise<ApiOutcome<TrustCheckAcknowledgement>> {
-  try {
-    const { data } = await trustRecordCheckResults({
-      body: { trustAccountId, results: results.map((result) => ({ ...result })) },
       headers: { "idempotency-key": idempotencyKey },
       throwOnError: true,
     });

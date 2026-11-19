@@ -9,8 +9,8 @@ built: in-progress
 ui: in-progress
 load-profile: in-progress
 tested: done
-branch: claude/project-thread-rixee1
-active-work: docs/active-work/claude/project-thread-rixee1.md
+branch: main
+active-work:
 next: one file indexed and found end to end in production now that the SEARCH_SERVICE binding is declared, the owner's answer on whether calendar events are searched across matters, then the per-split word summary that lets the words inside files answer for every matter
 link-spec: docs/specs/2026-11-10-indexing-and-discovery-design.md
 link-plan:
