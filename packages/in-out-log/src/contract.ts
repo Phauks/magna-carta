@@ -110,7 +110,7 @@ export const InOutEntry = z
   .meta({ id: "InOutEntry" });
 
 export const InOutEntryPage = z
-  .object({ entries: z.array(InOutEntry), nextCursor: z.string().nullable() })
+  .object({ data: z.array(InOutEntry), nextCursor: z.string().nullable() })
   .meta({ id: "InOutEntryPage" });
 
 export const InOutEntryCreated = z

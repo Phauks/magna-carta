@@ -289,7 +289,7 @@ async function commitEffect(
           type: "conflict",
           title: "Already handled",
           status: 409,
-          detail: "that entry was picked up or moved to Custodian a moment ago",
+          detail: "somebody else picked that entry up or moved it to Custodian first",
         }),
       };
     }
@@ -331,7 +331,7 @@ export function registerInOutLogRoutes(
     const last = rows.at(-1);
     return c.json(
       {
-        entries: rows.map((row) => presentEntry(row, recipients)),
+        data: rows.map((row) => presentEntry(row, recipients)),
         nextCursor: hasMore && last !== undefined ? encodeEntryCursor(last) : null,
       },
       200,

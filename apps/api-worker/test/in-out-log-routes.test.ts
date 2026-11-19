@@ -76,8 +76,8 @@ describe("the In/Out Log routes", () => {
     expect(first.number).toMatch(/^IO-\d{4}$/u);
     expect(second.number).not.toBe(first.number);
 
-    const waiting = await get<{ entries: Entry[] }>("/api/v1/in-out-entries?status=waiting");
-    expect(waiting.entries.map((entry) => entry.id)).toEqual([first.id, second.id]);
+    const waiting = await get<{ data: Entry[] }>("/api/v1/in-out-entries?status=waiting");
+    expect(waiting.data.map((entry) => entry.id)).toEqual([first.id, second.id]);
     const entry = await get<Entry>(`/api/v1/in-out-entries/${first.id}`);
     expect(entry.to.map((person) => person.name)).toEqual(["In Out Owner", "Maria Lopez"]);
 
@@ -99,10 +99,10 @@ describe("the In/Out Log routes", () => {
     expect(again.status).toBe(409);
     expect((await send("DELETE", `/api/v1/in-out-entries/${first.id}`)).status).toBe(409);
 
-    const stillWaiting = await get<{ entries: Entry[] }>("/api/v1/in-out-entries?status=waiting");
-    expect(stillWaiting.entries.map((row) => row.id)).toEqual([second.id]);
-    const found = await get<{ entries: Entry[] }>("/api/v1/in-out-entries?search=Maria");
-    expect(found.entries).toHaveLength(2);
+    const stillWaiting = await get<{ data: Entry[] }>("/api/v1/in-out-entries?status=waiting");
+    expect(stillWaiting.data.map((row) => row.id)).toEqual([second.id]);
+    const found = await get<{ data: Entry[] }>("/api/v1/in-out-entries?search=Maria");
+    expect(found.data).toHaveLength(2);
   });
 
   it("deletes a waiting entry recorded by mistake", async () => {
