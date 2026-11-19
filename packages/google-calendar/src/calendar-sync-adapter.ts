@@ -13,6 +13,7 @@ import {
   type ProviderEventWindow,
   type ProviderEventWrite,
   type ProviderSeriesChangedDay,
+  type ProviderSeriesDeletedDay,
   type ProviderWrittenEvents,
 } from "@magna-carta/calendar/sync-port";
 import { addCalendarDays, civilDateParts, isCivilDate } from "@magna-carta/civil-time/civil-date";
@@ -42,6 +43,8 @@ const descriptor: CapabilityDescriptor = {
     readEvent: { supported: true },
     listCalendarEvents: { supported: true },
     listSeriesChangedDays: { supported: true },
+    listSeriesDeletedDays: { supported: true },
+    restoreSeriesDay: { supported: true },
     updateSeriesDay: { supported: true },
     watchChanges: { supported: true },
     renewWatch: { supported: true },
@@ -746,6 +749,61 @@ export function createGoogleCalendarAdapter(
           if (!read.ok) return read;
           if (read.value === null) return ok(null);
           return ok(days);
+        },
+
+        async listSeriesDeletedDays(
+          seriesRemoteId: string,
+        ): Promise<Dispatch<readonly ProviderSeriesDeletedDay[] | null>> {
+          const reference = partsOfReference(seriesRemoteId);
+          if (reference === undefined) return ok(null);
+          const nowMs = dependencies.now().getTime();
+          const from = new Date(nowMs - SERIES_LOOK_BACK_DAYS * MILLISECONDS_PER_DAY);
+          const to = new Date(nowMs + SERIES_LOOK_AHEAD_DAYS * MILLISECONDS_PER_DAY);
+          const days: ProviderSeriesDeletedDay[] = [];
+          const read = await eachEvent(
+            reference.calendarId,
+            // Google keeps a day taken out of a series as an instance marked cancelled, and
+            // hands those back only when asked for deleted events.
+            `showDeleted=true&timeMin=${encodeURIComponent(from.toISOString())}` +
+              `&timeMax=${encodeURIComponent(to.toISOString())}`,
+            SERIES_DAY_PAGE_LIMIT,
+            (event) => {
+              if (event.status !== "cancelled") return;
+              const original = event.originalStartTime;
+              const originalStartsAtMilliseconds =
+                original?.date !== undefined && isCivilDate(original.date)
+                  ? Date.parse(`${original.date}T12:00:00.000Z`)
+                  : Date.parse(original?.dateTime ?? "");
+              // A day that does not say which day it was is not guessed at.
+              if (Number.isNaN(originalStartsAtMilliseconds)) return;
+              days.push({
+                originalStartsAtMilliseconds,
+                dayRemoteId: googleEventReference(event.id, reference.calendarId),
+              });
+            },
+            `/${encodeURIComponent(reference.eventId)}/instances`,
+          );
+          if (!read.ok) return read;
+          if (read.value === null) return ok(null);
+          return ok(days);
+        },
+
+        async restoreSeriesDay(dayRemoteId: string): Promise<Dispatch<ProviderEventPresence>> {
+          const reference = partsOfReference(dayRemoteId);
+          if (reference === undefined) return ok({ found: false });
+          // The reverse of how a day is taken out: the instance is marked as standing again.
+          const sent = await send(
+            "PATCH",
+            `${eventsUrl(reference.calendarId)}/${encodeURIComponent(reference.eventId)}` +
+              `?fields=${encodeURIComponent("id,etag")}`,
+            { status: "confirmed" },
+          );
+          if (!sent.ok) return sent;
+          if (sent.value.status === 401) return refused(sent.value);
+          // Any other refusal is Google declining to put this one day back, which is the day's
+          // own and not a reason to stop a pass.
+          if (sent.value.status >= 400) return ok({ found: false });
+          return ok({ found: true, versionTag: null });
         },
 
         async updateSeriesDay(

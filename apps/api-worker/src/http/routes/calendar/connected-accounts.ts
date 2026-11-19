@@ -6,6 +6,7 @@ import {
   ConnectedAccountList,
 } from "@magna-carta/calendar/sync-contract";
 import { CALENDAR_SYNC_CATEGORY } from "@magna-carta/calendar/sync-port";
+import { deleteSyncDayIssuesStatement } from "@magna-carta/calendar/sync-day-issue-statements";
 import { deleteSyncIssuesStatement } from "@magna-carta/calendar/sync-issue-statements";
 import {
   deleteExternalEventsStatement,
@@ -269,6 +270,7 @@ export function registerConnectedAccountsRoutes(
             // there: the sign-in that could have removed them is what this batch deletes.
             deleteSyncLinksStatement(firm.firmDatabase, existing.id as IntegrationConnectionId),
             deleteSyncIssuesStatement(firm.firmDatabase, existing.id as IntegrationConnectionId),
+            deleteSyncDayIssuesStatement(firm.firmDatabase, existing.id as IntegrationConnectionId),
             // What was read from their own calendars for them, and which calendars those were.
             deleteExternalEventsStatement(
               firm.firmDatabase,

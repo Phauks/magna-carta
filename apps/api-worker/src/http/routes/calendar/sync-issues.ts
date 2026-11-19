@@ -1,9 +1,17 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import {
   CalendarSyncAccountChoice,
+  CalendarSyncIssueAnswerChoice,
   CalendarSyncIssueList,
   type CalendarProvider,
 } from "@magna-carta/calendar/sync-contract";
+import {
+  selectSyncDayIssueStatement,
+  selectSyncDayIssuesStatement,
+  setSyncDayIssueStateStatement,
+  type SyncDayIssueKey,
+  type SyncDayIssueRow,
+} from "@magna-carta/calendar/sync-day-issue-statements";
 import {
   deleteSyncIssueStatement,
   leaveSyncIssueStatement,
@@ -44,6 +52,10 @@ import { memberAccount } from "./member-account.ts";
 // made it and closes the question. Neither changes anything in the firm's calendar: the event is
 // shared, and the copy is the member's own.
 //
+// ONE DAY OF A REPEATING EVENT, DELETED ON ITS OWN, is listed beside them and answered through the
+// same two routes with the day named. "Leave" closes it. "Put back" asks the next pass to put the
+// day back, and is refused where the member's provider has no way to.
+//
 // Every route finds the account through the session member and nothing a request names, so one
 // member can neither read nor answer another's.
 
@@ -60,6 +72,10 @@ const errorResponses = {
   404: {
     description:
       "The member has no such open question, or the firm is unreachable or the member deactivated",
+    content: problemContent,
+  },
+  409: {
+    description: "The member's provider has no way to put this one day back",
     content: problemContent,
   },
   429: { description: "Rate limit exceeded", content: problemContent },
@@ -132,8 +148,15 @@ const putBackRoute = defineOpenAPIRoute(putBackMeta, {
     "Has the copy written to the member's calendar again as the firm's calendar has the event: a " +
     "changed copy is overwritten, a deleted one is made again, and an event the provider would " +
     "not take is tried again. The firm's event is not changed.",
-  request: { params: issueParams, query: CalendarSyncAccountChoice },
-  responses: answerResponses,
+  request: { params: issueParams, query: CalendarSyncIssueAnswerChoice },
+  responses: {
+    200: answerResponses[200],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    429: errorResponses[429],
+  },
 });
 
 const leaveMeta = answerMeta("calendarSync.leaveMyCopy");
@@ -143,7 +166,7 @@ const leaveRoute = defineOpenAPIRoute(leaveMeta, {
   description:
     "Keeps the copy in the member's calendar as they made it, or leaves it deleted, and closes " +
     "the question. The copy is written again only when the firm's event next changes.",
-  request: { params: issueParams, query: CalendarSyncAccountChoice },
+  request: { params: issueParams, query: CalendarSyncIssueAnswerChoice },
   responses: answerResponses,
 });
 
@@ -152,17 +175,37 @@ function readingOf(text: string): SyncCopyReading {
 }
 
 async function openIssues(database: SqlDatabase, connectionId: IntegrationConnectionId) {
-  const rows = await selectSyncIssuesStatement(database, connectionId).all<SyncIssueRow>();
-  return rows.results
-    .filter((row) => row.state === "open")
-    .map((row) => ({
-      localKind: row.local_kind,
-      localId: row.local_id,
-      kind: row.kind,
-      sent: readingOf(row.sent_json),
-      found: row.found_json === null ? null : readingOf(row.found_json),
-      detectedAt: row.detected_at,
-    }));
+  const [rows, days] = await Promise.all([
+    selectSyncIssuesStatement(database, connectionId).all<SyncIssueRow>(),
+    selectSyncDayIssuesStatement(database, connectionId).all<SyncDayIssueRow>(),
+  ]);
+  return [
+    ...rows.results
+      .filter((row) => row.state === "open")
+      .map((row) => ({
+        localKind: row.local_kind,
+        localId: row.local_id,
+        kind: row.kind,
+        sent: readingOf(row.sent_json),
+        found: row.found_json === null ? null : readingOf(row.found_json),
+        detectedAt: row.detected_at,
+        occurrenceOn: null,
+        canPutBack: true,
+      })),
+    // A day being put back is no longer a question; it returns here only if the pass could not.
+    ...days.results
+      .filter((row) => row.state === "open")
+      .map((row) => ({
+        localKind: row.local_kind,
+        localId: row.local_id,
+        kind: "removed" as const,
+        sent: readingOf(row.sent_json),
+        found: null,
+        detectedAt: row.detected_at,
+        occurrenceOn: row.occurrence_on,
+        canPutBack: row.day_remote_id !== null,
+      })),
+  ];
 }
 
 export function registerCalendarSyncIssueRoutes(
@@ -202,6 +245,60 @@ export function registerCalendarSyncIssueRoutes(
     return row === null || row.state !== "open" ? null : { key, row };
   }
 
+  // The member's open question about one day of a series, or null.
+  async function openDayIssue(
+    c: SyncIssuesContext,
+    params: z.infer<typeof issueParams>,
+    provider: CalendarProvider | undefined,
+    occurrenceOn: string,
+  ): Promise<{ key: SyncDayIssueKey; row: SyncDayIssueRow } | null> {
+    const connectionId = await memberConnectionId(c, provider);
+    if (connectionId === null) return null;
+    const key: SyncDayIssueKey = {
+      connectionId,
+      localKind: params.localKind,
+      localId: params.localId,
+      occurrenceOn,
+    };
+    const row = await selectSyncDayIssueStatement(
+      requireChokepointFirmContext(c).firmDatabase,
+      key,
+    ).first<SyncDayIssueRow>();
+    return row === null || row.state !== "open" ? null : { key, row };
+  }
+
+  // The answer to a question about one day: the row moves from open to where the answer puts it.
+  async function answerDayIssue(
+    c: SyncIssuesContext,
+    found: { key: SyncDayIssueKey; row: SyncDayIssueRow },
+    answer: "restoring" | "left",
+  ) {
+    const database = requireChokepointFirmContext(c).firmDatabase;
+    const instant = now().toISOString();
+    await commitEffectBatch(
+      database,
+      {
+        statements: [
+          setSyncDayIssueStateStatement(database, found.key, "open", answer, instant),
+          domainAuditStatement(database, {
+            event: answer === "left" ? "calendar_sync.copy_left" : "calendar_sync.copy_put_back",
+            subjectId: found.key.localId,
+            actorUserId: requireChokepointUserId(c),
+            clock: { now: () => instant },
+            metadata: {
+              localKind: found.key.localKind,
+              issue: "removed",
+              occurrenceOn: found.key.occurrenceOn,
+            },
+          }),
+        ],
+        outboxMessages: [],
+      },
+      { now: () => instant },
+    );
+    return c.json({ issues: await openIssues(database, found.key.connectionId) }, 200);
+  }
+
   const noSuchIssue = (c: SyncIssuesContext) =>
     problemJson(c, {
       type: "not-found",
@@ -227,7 +324,22 @@ export function registerCalendarSyncIssueRoutes(
   app.openapi(
     { ...putBackRoute, middleware: chokepointMiddleware(chokepoint, putBackRoute) },
     async (c) => {
-      const found = await openIssue(c, c.req.valid("param"), c.req.valid("query").provider);
+      const { provider, occurrenceOn } = c.req.valid("query");
+      if (occurrenceOn !== undefined) {
+        const day = await openDayIssue(c, c.req.valid("param"), provider, occurrenceOn);
+        if (day === null) return noSuchIssue(c);
+        if (day.row.day_remote_id === null) {
+          return problemJson(c, {
+            type: "conflict",
+            title: "This day cannot be put back",
+            status: 409,
+            detail:
+              "Your calendar account has no way to put one deleted day of a repeating event back. Nothing was changed.",
+          });
+        }
+        return answerDayIssue(c, day, "restoring");
+      }
+      const found = await openIssue(c, c.req.valid("param"), provider);
       if (found === null) return noSuchIssue(c);
       const database = requireChokepointFirmContext(c).firmDatabase;
       const instant = now().toISOString();
@@ -262,7 +374,13 @@ export function registerCalendarSyncIssueRoutes(
   app.openapi(
     { ...leaveRoute, middleware: chokepointMiddleware(chokepoint, leaveRoute) },
     async (c) => {
-      const found = await openIssue(c, c.req.valid("param"), c.req.valid("query").provider);
+      const { provider, occurrenceOn } = c.req.valid("query");
+      if (occurrenceOn !== undefined) {
+        const day = await openDayIssue(c, c.req.valid("param"), provider, occurrenceOn);
+        if (day === null) return noSuchIssue(c);
+        return answerDayIssue(c, day, "left");
+      }
+      const found = await openIssue(c, c.req.valid("param"), provider);
       if (found === null) return noSuchIssue(c);
       const database = requireChokepointFirmContext(c).firmDatabase;
       const instant = now().toISOString();
