@@ -143,7 +143,11 @@ export type FirmScopedObjectClass =
   // belong to the firm and to no matter: a source file is a list of many matters or of none, and
   // a report names rows of such a file.
   | "transfer-source-file"
-  | "transfer-pass-report";
+  | "transfer-pass-report"
+  // The screenshot a member sent with a problem report, covered parts already painted out. It is a
+  // picture of whatever screen they were on, which may span matters or be none, and it belongs to
+  // the report, which belongs to the firm.
+  | "incident-screenshot";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -182,6 +186,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "check-stock-scan",
   "transfer-source-file",
   "transfer-pass-report",
+  "incident-screenshot",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [

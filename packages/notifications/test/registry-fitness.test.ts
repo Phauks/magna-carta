@@ -14,6 +14,7 @@ import { TASK_OUTBOX_TOPICS } from "@magna-carta/tasks/notifications";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_OUTBOX_TOPICS } from "@magna-carta/matters/topics";
 import { SIGNING_MEMBER_TURN_TOPIC } from "@magna-carta/signing/request";
+import { INCIDENT_OUTBOX_TOPICS } from "@magna-carta/data-access/incident-statements";
 import { LOCALLY_NAMED_EMISSION_POINTS } from "../src/emission-points.ts";
 import { validateFactsSchema } from "../src/facts-grammar.ts";
 import {
@@ -53,6 +54,7 @@ const PRODUCING_PACKAGE_TOPICS = new Set<string>([
   INVOICE_FINALIZED_TOPIC,
   INVOICE_VOIDED_TOPIC,
   SIGNING_MEMBER_TURN_TOPIC,
+  ...INCIDENT_OUTBOX_TOPICS,
 ]);
 
 // The emission points a COMPARISON kind may name. The calendar declares its own set — the deadline
@@ -64,11 +66,10 @@ const COMPARISON_EMISSION_POINTS = new Set<string>([
   ...LOCALLY_NAMED_EMISSION_POINTS,
 ]);
 
-// The one topic whose producer is a worker route rather than a domain package, so there is no
-// package constant to import from here. The worker's own test pins the registry's spelling against
-// the route's exported constant, which is the same guarantee by a different route; this list exists
-// so the exception has to be written down rather than being an unexplained gap in the check above.
-const TOPICS_WITHOUT_A_PRODUCING_PACKAGE_CONSTANT = new Set<string>(["incident.created"]);
+// Topics whose producer exports no constant. None today: the incident topics, the last exception,
+// now live beside their table (@magna-carta/data-access/incident-statements). Kept so a future
+// exception has to be written down here rather than being an unexplained gap in the check below.
+const TOPICS_WITHOUT_A_PRODUCING_PACKAGE_CONSTANT = new Set<string>();
 
 describe("the notification registry", () => {
   it("subscribes only to topics a producing package exports (or a named exception)", () => {
