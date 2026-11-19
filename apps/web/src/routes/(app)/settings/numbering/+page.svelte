@@ -98,6 +98,7 @@
     "Bill Numbers",
     "Time Entry Numbers",
     "Call and Text Numbers",
+    "In/Out Log Numbers",
   ].map((title, index) => ({ key: `fixture-${index}`, title, example: "2026-0001" }));
 </script>
 

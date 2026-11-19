@@ -107,6 +107,7 @@ const SCHEME_PURPOSES = [
   "invoice",
   "time_entry",
   "communication",
+  "in_out_entry",
 ] as const satisfies readonly SchemeNumberingPurpose[];
 const registerAgreesWithContract: readonly (typeof SCHEME_PURPOSES)[number][] =
   [] as SchemeNumberingPurpose[];

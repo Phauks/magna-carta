@@ -783,7 +783,7 @@ export type NumberingSchemesResponse = {
 };
 
 export type NumberingListedPurpose = {
-    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     title: string;
     label: string;
     subject: string;
@@ -850,13 +850,13 @@ export type NumberingSampleContext = {
 
 export type NumberingSchemeResponse = {
     segments: Array<NumberSegment> | null;
-    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     usingDefault: boolean;
 };
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
 };
 
 export type NumberingPreviewResponse = {
@@ -867,7 +867,7 @@ export type NumberingPreviewResponse = {
 
 export type NumberingPreviewRequest = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     counterValue?: number;
     context?: {
         openedDate?: string;
@@ -887,7 +887,7 @@ export type NumberReservationResponse = {
 };
 
 export type NumberReservationRequest = {
-    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'communication';
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'communication' | 'in_out_entry';
     token?: string;
     occurredAt?: string;
     context?: {
@@ -9797,6 +9797,95 @@ export type CustodyWillCapability = {
     verifiedOn: string;
 };
 
+export type InOutEntryPage = {
+    entries: Array<InOutEntry>;
+    nextCursor: string | null;
+};
+
+export type InOutEntry = {
+    id: string;
+    number: string;
+    description: string;
+    from: {
+        kind: 'member' | 'entity' | 'external';
+        userId: string | null;
+        entityId: string | null;
+        name: string;
+    };
+    to: Array<InOutRecipient>;
+    matter: {
+        id: string;
+        title: string;
+        number: string | null;
+    } | null;
+    keptAt: string | null;
+    notes: string | null;
+    status: 'waiting' | 'picked_up' | 'moved_to_custodian';
+    droppedOffAt: string;
+    recordedByUserId: string;
+    pickedUp: {
+        at: string;
+        by: {
+            kind: 'member' | 'entity' | 'external';
+            userId: string | null;
+            entityId: string | null;
+            name: string;
+        };
+        identityChecked: boolean;
+        handedOverByUserId: string | null;
+    } | null;
+    movedToCustodian: {
+        at: string;
+        packetId: string;
+        custodyNumber: string | null;
+        movedByUserId: string | null;
+    } | null;
+};
+
+export type InOutRecipient = {
+    id: string;
+    kind: 'member' | 'entity' | 'external';
+    userId: string | null;
+    entityId: string | null;
+    name: string;
+};
+
+export type InOutEntryCreated = {
+    id: string;
+    number: string;
+};
+
+export type InOutDropOffRequest = {
+    description: string;
+    from: InOutParty;
+    to: Array<InOutParty>;
+    matterId?: string | null;
+    keptAt?: string | null;
+    notes?: string | null;
+    numberReservation?: string;
+};
+
+export type InOutParty = {
+    kind: 'member' | 'entity' | 'external';
+    userId?: string | null;
+    entityId?: string | null;
+    name: string;
+};
+
+export type InOutAcknowledged = {
+    ok: true;
+};
+
+export type InOutPickUpRequest = {
+    recipientId?: string | null;
+    collector?: InOutParty;
+    identityChecked: boolean;
+};
+
+export type InOutMoveToCustodianRequest = {
+    packetId: string;
+};
+
 export type MagnusAvailability = {
     state: 'open' | 'firm-ineligible' | 'feature-disabled' | 'acknowledgement-required';
     disclosureVersion?: number;
@@ -14073,7 +14162,7 @@ export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     };
     url: '/api/v1/numbering-scheme';
 };
@@ -45089,6 +45178,304 @@ export type CustodyWillDepositDutiesResponses = {
 };
 
 export type CustodyWillDepositDutiesResponse = CustodyWillDepositDutiesResponses[keyof CustodyWillDepositDutiesResponses];
+
+export type InOutLogListEntriesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: 'waiting' | 'all';
+        search?: string;
+        cursor?: string;
+    };
+    url: '/api/v1/in-out-entries';
+};
+
+export type InOutLogListEntriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogListEntriesError = InOutLogListEntriesErrors[keyof InOutLogListEntriesErrors];
+
+export type InOutLogListEntriesResponses = {
+    /**
+     * One page of the log
+     */
+    200: InOutEntryPage;
+};
+
+export type InOutLogListEntriesResponse = InOutLogListEntriesResponses[keyof InOutLogListEntriesResponses];
+
+export type InOutLogDropOffData = {
+    body: InOutDropOffRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/in-out-entries';
+};
+
+export type InOutLogDropOffErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogDropOffError = InOutLogDropOffErrors[keyof InOutLogDropOffErrors];
+
+export type InOutLogDropOffResponses = {
+    /**
+     * The entry and its number
+     */
+    201: InOutEntryCreated;
+};
+
+export type InOutLogDropOffResponse = InOutLogDropOffResponses[keyof InOutLogDropOffResponses];
+
+export type InOutLogDeleteEntryData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}';
+};
+
+export type InOutLogDeleteEntryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogDeleteEntryError = InOutLogDeleteEntryErrors[keyof InOutLogDeleteEntryErrors];
+
+export type InOutLogDeleteEntryResponses = {
+    /**
+     * Deleted
+     */
+    200: InOutAcknowledged;
+};
+
+export type InOutLogDeleteEntryResponse = InOutLogDeleteEntryResponses[keyof InOutLogDeleteEntryResponses];
+
+export type InOutLogGetEntryData = {
+    body?: never;
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}';
+};
+
+export type InOutLogGetEntryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogGetEntryError = InOutLogGetEntryErrors[keyof InOutLogGetEntryErrors];
+
+export type InOutLogGetEntryResponses = {
+    /**
+     * The entry
+     */
+    200: InOutEntry;
+};
+
+export type InOutLogGetEntryResponse = InOutLogGetEntryResponses[keyof InOutLogGetEntryResponses];
+
+export type InOutLogPickUpData = {
+    body: InOutPickUpRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}/pick-up';
+};
+
+export type InOutLogPickUpErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogPickUpError = InOutLogPickUpErrors[keyof InOutLogPickUpErrors];
+
+export type InOutLogPickUpResponses = {
+    /**
+     * Picked up
+     */
+    200: InOutAcknowledged;
+};
+
+export type InOutLogPickUpResponse = InOutLogPickUpResponses[keyof InOutLogPickUpResponses];
+
+export type InOutLogMoveToCustodianData = {
+    body: InOutMoveToCustodianRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}/custody-packet';
+};
+
+export type InOutLogMoveToCustodianErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogMoveToCustodianError = InOutLogMoveToCustodianErrors[keyof InOutLogMoveToCustodianErrors];
+
+export type InOutLogMoveToCustodianResponses = {
+    /**
+     * Moved to Custodian
+     */
+    200: InOutAcknowledged;
+};
+
+export type InOutLogMoveToCustodianResponse = InOutLogMoveToCustodianResponses[keyof InOutLogMoveToCustodianResponses];
 
 export type MagnusAvailabilityData = {
     body?: never;

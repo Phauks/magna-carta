@@ -121,6 +121,9 @@
       "path": "../../packages/identifiers/tsconfig.build.json"
     },
     {
+      "path": "../../packages/in-out-log/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/inference/tsconfig.build.json"
     },
     {

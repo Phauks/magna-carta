@@ -19,6 +19,8 @@ import type {
   CalendarEventLinkId,
   ClientCreditId,
   CommunicationId,
+  InOutEntryId,
+  InOutEntryRecipientId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
@@ -743,6 +745,7 @@ export const numberingScheme = sqliteTable(
         "invoice",
         "time_entry",
         "communication",
+        "in_out_entry",
       ],
     })
       .notNull()
@@ -13990,5 +13993,167 @@ export const signingEvent = sqliteTable(
       "signing_event_kind_check",
       sql`${table.kind} IN ('created', 'sent', 'delivered', 'viewed', 'identity-verified', 'consented', 'signed', 'declined', 'reassigned', 'reminded', 'voided', 'completed', 'sealed')`,
     ),
+  ],
+);
+
+// THE IN/OUT LOG — what crosses the front desk that is NOT held in custody: copies of a closing set,
+// a stack of bank statements, the physical file handed back at the end of a matter.
+//
+// A separate record from Custodian on the owner's ruling of 2026-11-19, and deliberately the
+// lighter one. A custody packet must have a Directory owner, draws a custody number, and moves only by
+// an append-only ledger row, because it is the register of a client's ORIGINALS. Logging every set of
+// copies that way is exactly the verbosity the owner wanted to avoid. An entry here is one row that
+// is dropped off, then picked up or moved into Custodian, and its few transitions overwrite its own
+// columns; the audit row written beside each one records who did it and when.
+//
+// The people on it — who it came from, who it is To, who collected it — are each one of three kinds,
+// the custody borrower's shape and for its reasons: a firm member, a Directory person or
+// organization, or a typed name for somebody who is neither (a courier). Forcing a courier into the
+// Directory would put a person who is party to nothing into the conflicts corpus. The name is kept
+// on the row for all three kinds, because a log records who it was at the time and the screen reads
+// it without a join per row.
+export const inOutEntry = sqliteTable(
+  "in_out_entry",
+  {
+    id: text("id").primaryKey().$type<InOutEntryId>(), // inOutEntry_ handle
+    // The number the front desk writes on the envelope and reads back to the person collecting,
+    // drawn from the firm's `in_out_entry` scheme (IO-0187 by default). Frozen once drawn.
+    number: text("number").notNull(),
+    // What it is, in the desk's own words: "Copies of closing documents".
+    description: text("description").notNull(),
+    fromKind: text("from_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    fromUserId: text("from_user_id").$type<UserId>(),
+    fromEntityId: text("from_entity_id"),
+    fromName: text("from_name").notNull(),
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // Where at the desk it is waiting: "Front desk tray". Free text, because a tray is not a
+    // custody container and naming one should not require building a tree.
+    keptAt: text("kept_at"),
+    notes: text("notes"),
+    // waiting → picked_up, or waiting → moved_to_custodian. Nothing moves back: a pick up recorded
+    // against the wrong entry is deleted and recorded again only while it is still waiting.
+    status: text("status", { enum: ["waiting", "picked_up", "moved_to_custodian"] })
+      .notNull()
+      .default("waiting"),
+    droppedOffAt: text("dropped_off_at").notNull(),
+    recordedByUserId: text("recorded_by_user_id").notNull().$type<UserId>(),
+    pickedUpAt: text("picked_up_at"),
+    pickedUpByKind: text("picked_up_by_kind", { enum: ["member", "entity", "external"] }),
+    pickedUpByUserId: text("picked_up_by_user_id").$type<UserId>(),
+    pickedUpByEntityId: text("picked_up_by_entity_id"),
+    pickedUpByName: text("picked_up_by_name"),
+    // That the person at the desk looked at an identity document. A yes or no, never the document's
+    // number: the log does not need it and an identity number written here could not be taken back.
+    identityChecked: integer("identity_checked"),
+    handedOverByUserId: text("handed_over_by_user_id").$type<UserId>(),
+    custodyPacketId: text("custody_packet_id")
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    movedToCustodianAt: text("moved_to_custodian_at"),
+    movedByUserId: text("moved_by_user_id").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("in_out_entry_number_unique_index").on(table.number),
+    // Waiting for Pickup, oldest first, and the whole log newest first.
+    index("in_out_entry_status_dropped_off_at_index").on(table.status, table.droppedOffAt, table.id),
+    index("in_out_entry_dropped_off_at_index").on(table.droppedOffAt, table.id),
+    index("in_out_entry_matter_index").on(table.matterId),
+    index("in_out_entry_custody_packet_index").on(table.custodyPacketId),
+    check("in_out_entry_description_check", sql`length(${table.description}) > 0`),
+    check("in_out_entry_from_name_check", sql`length(${table.fromName}) > 0`),
+    check(
+      "in_out_entry_from_kind_check",
+      sql`${table.fromKind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "in_out_entry_from_shape_check",
+      sql`(${table.fromKind} = 'member' AND ${table.fromUserId} IS NOT NULL) OR (${table.fromKind} = 'entity' AND ${table.fromEntityId} IS NOT NULL) OR (${table.fromKind} = 'external')`,
+    ),
+    check(
+      "in_out_entry_status_check",
+      sql`${table.status} IN ('waiting', 'picked_up', 'moved_to_custodian')`,
+    ),
+    // A picked-up entry names who collected it and when; nothing else carries those columns.
+    check(
+      "in_out_entry_picked_up_shape_check",
+      sql`(${table.status} = 'picked_up') = (${table.pickedUpAt} IS NOT NULL AND ${table.pickedUpByName} IS NOT NULL AND ${table.pickedUpByKind} IS NOT NULL)`,
+    ),
+    check(
+      "in_out_entry_picked_up_by_kind_check",
+      sql`${table.pickedUpByKind} IS NULL OR ${table.pickedUpByKind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "in_out_entry_moved_shape_check",
+      sql`(${table.status} = 'moved_to_custodian') = (${table.custodyPacketId} IS NOT NULL AND ${table.movedToCustodianAt} IS NOT NULL)`,
+    ),
+    check(
+      "in_out_entry_identity_checked_check",
+      sql`${table.identityChecked} IS NULL OR ${table.identityChecked} IN (0, 1)`,
+    ),
+  ],
+);
+
+// One person an entry is To — anybody listed may pick it up (owner ruling, 2026-11-19). The order the
+// desk listed them in is kept, so the screen names them the way they were written down.
+export const inOutEntryRecipient = sqliteTable(
+  "in_out_entry_recipient",
+  {
+    id: text("id").primaryKey().$type<InOutEntryRecipientId>(), // inOutEntryRecipient_ handle
+    entryId: text("entry_id")
+      .notNull()
+      .$type<InOutEntryId>()
+      .references(() => inOutEntry.id),
+    position: integer("position").notNull(),
+    kind: text("kind", { enum: ["member", "entity", "external"] }).notNull(),
+    userId: text("user_id").$type<UserId>(),
+    entityId: text("entity_id"),
+    name: text("name").notNull(),
+  },
+  (table) => [
+    index("in_out_entry_recipient_entry_index").on(table.entryId, table.position),
+    index("in_out_entry_recipient_user_index").on(table.userId),
+    index("in_out_entry_recipient_entity_index").on(table.entityId),
+    check("in_out_entry_recipient_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "in_out_entry_recipient_kind_check",
+      sql`${table.kind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "in_out_entry_recipient_shape_check",
+      sql`(${table.kind} = 'member' AND ${table.userId} IS NOT NULL) OR (${table.kind} = 'entity' AND ${table.entityId} IS NOT NULL) OR (${table.kind} = 'external')`,
+    ),
+  ],
+);
+
+// The In/Out Log number's counter and allocation ledger, on the custody number's model: the
+// mechanism is @magna-carta/sequence-numbering's, and the allocation primary key is the backstop on
+// the draw race (a scheme may render different strings from one counter value).
+export const inOutEntryNumberCounter = sqliteTable(
+  "in_out_entry_number_counter",
+  {
+    scopeKey: text("scope_key").primaryKey(),
+    nextValue: integer("next_value").notNull(),
+  },
+  (table) => [check("in_out_entry_number_counter_next_value_check", sql`${table.nextValue} > 0`)],
+);
+
+export const inOutEntryNumberAllocation = sqliteTable(
+  "in_out_entry_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(),
+    drawnValue: integer("drawn_value").notNull(),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<InOutEntryId>()
+      .references(() => inOutEntry.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("in_out_entry_number_allocation_entry_index").on(table.entryId),
   ],
 );

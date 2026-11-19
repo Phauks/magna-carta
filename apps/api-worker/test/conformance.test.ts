@@ -281,6 +281,10 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // resource the rows in the queue do not have. The matter-scoped read still composes the
   // visible-matter predicate; the binding decides which root the chokepoint resolves.
   communications: "firm",
+  // inOutLog:* governs the front desk's In/Out Log. It binds the FIRM on the communications:*
+  // reasoning above: an entry's matter is nullable by construction (a courier's envelope for a
+  // lawyer is often on no matter), and every read still composes the visible-matter predicate.
+  inOutLog: "firm",
   // meetings:* governs the room a member opens on a calendar event. It binds the FIRM on the
   // communications:* reasoning immediately above and for the identical structural reason: a meeting
   // hangs from an event, and a FIRM event belongs to no matter at all — a staff meeting is real firm
