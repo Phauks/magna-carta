@@ -3,6 +3,8 @@ import {
   buildPlan,
   extractedCopyName,
   initialArrangement,
+  insertPages,
+  insertionIndex,
   isUnchanged,
   movePages,
   nudgePages,
@@ -11,6 +13,7 @@ import {
   removePages,
   splitAt,
   turnPages,
+  wasInserted,
 } from "../src/lib/pdf-editor/page-arrangement.ts";
 
 const order = (pages: readonly { source: number }[]): number[] => pages.map((page) => page.source);
@@ -90,5 +93,49 @@ describe("splitting and naming", () => {
     expect(extractedCopyName("Exhibits.pdf", [2, 3, 4])).toBe("Exhibits (Pages 3-5).pdf");
     expect(extractedCopyName("Exhibits.pdf", [6])).toBe("Exhibits (Page 7).pdf");
     expect(partName("Exhibits.pdf", 2, 3)).toBe("Exhibits (Part 2 of 3).pdf");
+  });
+});
+
+describe("inserting pages from another file", () => {
+  it("finds where the pages start for each place, holding a stale position to the ends", () => {
+    const pages = initialArrangement(4);
+    expect(insertionIndex(pages, { kind: "before", position: 1 })).toBe(0);
+    expect(insertionIndex(pages, { kind: "after", position: 2 })).toBe(2);
+    expect(insertionIndex(pages, { kind: "after", position: 4 })).toBe(4);
+    expect(insertionIndex(pages, { kind: "end" })).toBe(4);
+    expect(insertionIndex(pages, { kind: "before", position: 0 })).toBe(0);
+    expect(insertionIndex(pages, { kind: "after", position: 99 })).toBe(4);
+    expect(insertionIndex([], { kind: "before", position: 1 })).toBe(0);
+  });
+
+  it("numbers the inserted pages on past the original, in their own order, unturned", () => {
+    const pages = insertPages(initialArrangement(3), 3, 2, { kind: "after", position: 1 });
+    expect(order(pages)).toEqual([0, 3, 4, 1, 2]);
+    expect(pages.every((page) => page.turn === 0)).toBe(true);
+    expect(pages.map((page) => wasInserted(page, 3))).toEqual([false, true, true, false, false]);
+  });
+
+  it("counts as a change even at the end, where every page keeps its number", () => {
+    const pages = insertPages(initialArrangement(3), 3, 1, { kind: "end" });
+    expect(isUnchanged(pages, 3)).toBe(false);
+  });
+
+  it("plans the inserted pages as runs of the joined document", () => {
+    let pages = insertPages(initialArrangement(4), 4, 3, { kind: "before", position: 3 });
+    pages = turnPages(pages, new Set([5]), 90);
+    expect(buildPlan(pages)).toEqual({
+      turns: [{ angle: 90, pages: [5] }],
+      runs: [
+        { start: 0, end: 1 },
+        { start: 4, end: 6 },
+        { start: 2, end: 3 },
+      ],
+    });
+  });
+
+  it("keeps a second file's pages apart from the first's", () => {
+    let pages = insertPages(initialArrangement(2), 2, 1, { kind: "end" });
+    pages = insertPages(pages, 3, 2, { kind: "before", position: 1 });
+    expect(order(pages)).toEqual([3, 4, 0, 1, 2]);
   });
 });
