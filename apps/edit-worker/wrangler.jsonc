@@ -60,7 +60,14 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentEditorContainer"] }],
   // Service binding to the main app worker — the target of coolwsd's intercepted WOPI callbacks
   // (/wopi/files/*). This worker holds no R2/D1/secret bindings; all object I/O flows through that host.
-  "services": [{ "binding": "APP_WORKER", "service": "magna-carta" }],
+  //
+  // ERROR_RECORD is the same app worker's named entrypoint ErrorRecordIntake, which this worker hands
+  // each failure it logs to, so an Error ID from the editor can be looked up in System Status
+  // (src/failure-handoff.ts). A named entrypoint has no public route.
+  "services": [
+    { "binding": "APP_WORKER", "service": "magna-carta" },
+    { "binding": "ERROR_RECORD", "service": "magna-carta", "entrypoint": "ErrorRecordIntake" },
+  ],
   // The Analytics Engine dataset the telemetry Workers logger mirrors counters to — the same production
   // dataset the app worker writes to, so this worker's failures land beside the WOPI host's. Optional in
   // code (a missing binding degrades to console-only structured lines), declared here so a deployment

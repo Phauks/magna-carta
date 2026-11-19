@@ -4,18 +4,20 @@
  * /api/v1/client-errors, a failure nobody was shown is kept through the failed-operation tap, the
  * lookup is a platform operator's alone, and the daily pass ages records out after thirty days.
  */
-import { env, SELF } from "cloudflare:test";
+import { createExecutionContext, env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { runErrorRecordRetentionSweep } from "../src/background/system-status/error-record-retention.ts";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { setFailedOperationTap } from "@magna-carta/telemetry/failed-operation-tap";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
+import { newErrorId } from "@magna-carta/telemetry/ids";
 import { setServiceIdentity } from "@magna-carta/telemetry/service-identity";
 import {
   recordBackgroundFailures,
   settleBackgroundFailureRecords,
 } from "../src/system-status/background-error-record.ts";
+import { ErrorRecordIntake } from "../src/system-status/error-record-intake.ts";
 import { readRecordedErrors } from "../src/system-status/recorded-errors.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { settleBackgroundWork } from "./support/settle-background-work.ts";
@@ -234,5 +236,79 @@ describe("a failure nobody was shown", () => {
     } finally {
       setFailedOperationTap(null);
     }
+  });
+});
+
+describe("a failure another Worker hands over", () => {
+  function intake(): ErrorRecordIntake {
+    return new ErrorRecordIntake(createExecutionContext(), env);
+  }
+
+  it("keeps the editor's captured exception as a server failure under its route", async () => {
+    setServiceIdentity("edt");
+    const errorId = newErrorId();
+    setServiceIdentity("api");
+    await intake().record(
+      {
+        name: "error.captured",
+        at: new Date().toISOString(),
+        correlationId: "corr_handed-over",
+        fields: {
+          errorId,
+          route: "/cool/ws",
+          method: "GET",
+          errorName: "TypeError",
+          messageHead: "container fetch failed",
+        },
+      },
+      "edt",
+    );
+    expect(await storedRecord(errorId)).toMatchObject({
+      source: "server",
+      service: "edt",
+      operation: "/cool/ws",
+      status: 500,
+      error_name: "TypeError",
+      message_head: "container fetch failed",
+      firm_id: null,
+      user_id: null,
+    });
+  });
+
+  it("keeps a refused upgrade as a background failure", async () => {
+    const errorId = newErrorId();
+    await intake().record(
+      {
+        name: "operation.failed",
+        at: new Date().toISOString(),
+        correlationId: "corr_handed-over",
+        fields: { errorId, operation: "editor.upgrade", errorName: "UpgradeRefused" },
+      },
+      "edt",
+    );
+    expect(await storedRecord(errorId)).toMatchObject({
+      source: "background",
+      service: "edt",
+      operation: "editor.upgrade",
+    });
+  });
+
+  it("writes nothing for a malformed hand-over, and never throws", async () => {
+    const errorId = newErrorId();
+    const event = {
+      name: "operation.failed",
+      at: "not a time",
+      correlationId: "corr_handed-over",
+      fields: { errorId, operation: "editor.upgrade" },
+    };
+    await intake().record(event, "not-a-code");
+    await intake().record({ ...event, name: "usage.feature" }, "edt");
+    await intake().record({ ...event, fields: { errorId: "error_nope", operation: "x" } }, "edt");
+    await intake().record("not an event", "edt");
+    expect(await storedRecord(errorId)).toBeUndefined();
+
+    // A time that does not parse is replaced with the moment of writing, not refused.
+    await intake().record(event, "edt");
+    expect(await storedRecord(errorId)).toMatchObject({ source: "background", service: "edt" });
   });
 });
