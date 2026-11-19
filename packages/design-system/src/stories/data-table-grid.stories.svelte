@@ -1098,7 +1098,10 @@
       await userEvent.click(canvas.getByRole("button", { name: "Add an entry for Rosalind Chase" }));
       const open = canvasElement.querySelector('tr[data-grid-band-foot="Rosalind Chase"]');
       await expect(open?.getAttribute("data-editing")).toBe("true");
-      await expect(open?.querySelectorAll("td")).toHaveLength(TIME_COLUMNS.length);
+      // One cell per column the table shows; a column hidden by default (the entry number) has none.
+      await expect(open?.querySelectorAll("td")).toHaveLength(
+        TIME_COLUMNS.filter((column) => !column.hidden).length,
+      );
       await expect(canvas.getByRole("textbox", { name: "New entry title" })).toBeInTheDocument();
     });
   }}

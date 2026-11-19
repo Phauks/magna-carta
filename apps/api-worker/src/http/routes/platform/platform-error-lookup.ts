@@ -26,7 +26,7 @@ export const ErrorRecord = z
   .object({
     errorId: z.string(),
     recordedAt: z.string(),
-    source: z.enum(["server", "browser"]),
+    source: z.enum(["server", "browser", "background"]),
     service: z.string().nullable(),
     operation: z.string().nullable(),
     status: z.number().int().nullable(),
@@ -55,7 +55,7 @@ export function errorRecordFromRow(row: ErrorRecordRow): z.infer<typeof ErrorRec
   return {
     errorId: row.id,
     recordedAt: row.recorded_at,
-    source: row.source === "browser" ? "browser" : "server",
+    source: row.source === "browser" || row.source === "background" ? row.source : "server",
     service: row.service,
     operation: row.operation,
     status: row.status,
