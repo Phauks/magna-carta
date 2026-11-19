@@ -330,10 +330,19 @@ describe("the verbs a bill offers", () => {
     expect(billAction(onFinal, "voidDraft")?.disabledReason).toContain("credit note");
   });
 
-  it("keeps a not-yet-built capability on screen with what it waits on", () => {
+  it("offers recording a payment on a finalized bill that is still owed, and refuses it otherwise", () => {
     const payment = billAction(billActions(makeRow({}), context), "recordPayment");
-    expect(payment?.soonDependency).toBe(BILL_DEPENDENCIES.payment);
-    expect(payment === null ? true : isEnabled(payment)).toBe(false);
+    expect(payment === null ? false : isEnabled(payment)).toBe(true);
+    const onDraft = billAction(
+      billActions(makeRow({ status: "draft", invoiceNumber: null }), context),
+      "recordPayment",
+    );
+    expect(onDraft?.disabledReason).toContain("finalized");
+    const settled = billAction(
+      billActions(makeRow({ appliedMinor: 100_000 }), context),
+      "recordPayment",
+    );
+    expect(settled?.disabledReason).toContain("paid in full");
   });
 
   it("offers adjustment on a finalized bill with nothing applied, marked against its dependency", () => {

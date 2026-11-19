@@ -54,6 +54,11 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/credit-note.ts` — the four corrections after finalization: `issueCreditNote` (the split
   against what the bill can still absorb, and the `client_credit` for what it cannot),
   `composeInvoiceWriteOff`, `applyClientCreditToInvoice`, `composeApplicationReversal`
+- `src/receipt.ts` — `recordPaymentReceipt`: a payment the firm received by hand (check, cash, bank
+  transfer, card on its own terminal). Composes `Dr Operating Bank / Cr Accounts Receivable`, the
+  `payment` application naming it, and the append-only `payment_receipt` row (method + the firm's
+  reference). Refuses more than the matter still owes: an over-payment has no home until a client
+  credit can exist without a credit note. A processor payment is not a receipt and never lands here.
 - `src/delivery.ts` — `recordInvoiceDelivery`: one append-only attempt at getting a bill to its
   client, and the `billing.invoice.delivered` topic. The delivery-state reads live in
   `src/statements.ts` (`readInvoiceDeliveries`, `readInvoiceDeliveryState`, and the batched

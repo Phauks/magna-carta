@@ -58,6 +58,9 @@ export type BillingValidationCode =
   | "credit-note-matter-not-billed"
   | "write-off-invalid"
   | "write-off-exceeds-unpaid-balance"
+  // A payment recorded by hand
+  | "payment-receipt-invalid"
+  | "payment-exceeds-unpaid-balance"
   | "unknown-client-credit"
   | "client-credit-exhausted"
   | "client-credit-client-mismatch"

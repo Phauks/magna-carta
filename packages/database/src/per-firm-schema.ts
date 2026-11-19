@@ -88,6 +88,7 @@ import type {
   IntegrationCredentialId,
   InvoiceApplicationId,
   InvoiceDeliveryId,
+  PaymentReceiptId,
   InvoiceId,
   InvoiceLineId,
   InvoiceTrustApplicationLineId,
@@ -6839,6 +6840,46 @@ export const invoiceDelivery = sqliteTable(
     check(
       "invoice_delivery_external_reference_nonempty_check",
       sql`${table.externalReference} IS NULL OR length(trim(${table.externalReference})) > 0`,
+    ),
+  ],
+);
+
+// A payment the firm recorded by hand: a check, cash, a bank transfer, or a card run on the firm's
+// own terminal. The money and its date live on the `payment` application this row names, which in
+// turn names the ledger entry that put the money in the operating bank; this row adds only what the
+// application has no column for — HOW it arrived and the firm's own reference for it (a check
+// number, a wire confirmation). One receipt per application, enforced by the unique index, and
+// append-only by trigger: a receipt recorded in error is undone by reversing its application, which
+// leaves both records standing, never by editing this one.
+//
+// A CLOSED VOCABULARY, for the same reason `invoice_delivery.channel` is one: SQLite cannot widen a
+// table CHECK without a destructive rebuild of an evidence table. Payments taken through a processor
+// are not receipts and will not land here.
+export const paymentReceipt = sqliteTable(
+  "payment_receipt",
+  {
+    id: text("id").primaryKey().$type<PaymentReceiptId>(), // paymentReceipt_ handle
+    applicationId: text("application_id")
+      .notNull()
+      .$type<InvoiceApplicationId>()
+      .references(() => invoiceApplication.id),
+    method: text("method", {
+      enum: ["check", "cash", "bank_transfer", "card_terminal"],
+    }).notNull(),
+    // The firm's own handle on the payment, where it has one. Absent is ordinary for cash.
+    reference: text("reference"),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("payment_receipt_application_unique_index").on(table.applicationId),
+    check(
+      "payment_receipt_method_check",
+      sql`${table.method} IN ('check', 'cash', 'bank_transfer', 'card_terminal')`,
+    ),
+    check(
+      "payment_receipt_reference_nonempty_check",
+      sql`${table.reference} IS NULL OR length(trim(${table.reference})) > 0`,
     ),
   ],
 );

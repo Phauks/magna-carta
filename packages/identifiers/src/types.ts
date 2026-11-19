@@ -154,6 +154,7 @@ export type CreditNoteId = Identifier<"creditNote">;
 export type CreditNoteLineId = Identifier<"creditNoteLine">;
 export type ClientCreditId = Identifier<"clientCredit">;
 export type InvoiceDeliveryId = Identifier<"invoiceDelivery">;
+export type PaymentReceiptId = Identifier<"paymentReceipt">;
 export type BillingArrangementId = Identifier<"billingArrangement">;
 export type TaxRateId = Identifier<"taxRate">;
 export type MatterRecoveryId = Identifier<"matterRecovery">;

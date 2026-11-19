@@ -22,14 +22,14 @@ trust rail (design flags K2 and K3).
 
 ## Price, as published
 
-| | Helcim | LawPay | Stripe (standard) | Confido Legal |
-| --- | --- | --- | --- | --- |
-| Monthly fee | $0 [H1] | $19 + $7.99 card-brand allocation [R1] | $0 [S1] | $0; $500 onboarding if not through a partner [C1] |
-| Card, online | interchange + 0.50% + 25c at under $50K/month, falling to + 0.15% + 15c [H1] | 2.99% + 30c; Amex 3.90% + 30c [R1] | 2.9% + 30c [S1] | 2.95% [C1] |
-| Bank payment (ACH) | 0.5% + 25c, capped at $6 under $25,000; 0.05% above [H1] | 1%; reviewers disagree on a $10 cap [R1][R2] | 0.8%, capped at $5 [S2] | 1%, capped at $30 [C1] |
-| Recurring | + 0.4% [H1] | not found | not found | not found |
-| Chargeback | $15, refunded if won [H1] | not found | $15 [S1] | $25 [C1] |
-| Bank payment returned | $5 [H1] | not found | $4 failed, $15 disputed [S2] | $25 [C1] |
+|                       | Helcim                                                                       | LawPay                                       | Stripe (standard)            | Confido Legal                                     |
+| --------------------- | ---------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------- | ------------------------------------------------- |
+| Monthly fee           | $0 [H1]                                                                      | $19 + $7.99 card-brand allocation [R1]       | $0 [S1]                      | $0; $500 onboarding if not through a partner [C1] |
+| Card, online          | interchange + 0.50% + 25c at under $50K/month, falling to + 0.15% + 15c [H1] | 2.99% + 30c; Amex 3.90% + 30c [R1]           | 2.9% + 30c [S1]              | 2.95% [C1]                                        |
+| Bank payment (ACH)    | 0.5% + 25c, capped at $6 under $25,000; 0.05% above [H1]                     | 1%; reviewers disagree on a $10 cap [R1][R2] | 0.8%, capped at $5 [S2]      | 1%, capped at $30 [C1]                            |
+| Recurring             | + 0.4% [H1]                                                                  | not found                                    | not found                    | not found                                         |
+| Chargeback            | $15, refunded if won [H1]                                                    | not found                                    | $15 [S1]                     | $25 [C1]                                          |
+| Bank payment returned | $5 [H1]                                                                      | not found                                    | $4 failed, $15 disputed [S2] | $25 [C1]                                          |
 
 Helcim states that most merchants' total online effective rate is "below 2.5%" [H2]; that is
 Helcim's own claim, not a guarantee. On a $3,000 bank payment the cap makes Helcim $6, Stripe $5,

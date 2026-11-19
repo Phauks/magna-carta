@@ -58,7 +58,7 @@ by itself and a matter will not close while one is open. You have three ways to 
 
 The platform performs the third: setting a credit against a later bill discharges that much of the
 obligation and no money moves in either direction. The first two move real money out of a firm
-account, and the platform does not do them on your behalf — record the payment through your usual
+account, and Magna Carta does not do them on your behalf: make the refund through your usual
 route and the credit stays visible until it is settled. Which of the three is right depends on what
 you have agreed with the client, and it is your decision to make.
 

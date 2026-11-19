@@ -47,12 +47,14 @@ import {
   issueCreditNote,
 } from "@magna-carta/billing/credit-note";
 import { recordInvoiceDelivery } from "@magna-carta/billing/delivery";
+import { PAYMENT_RECEIPT_METHODS, recordPaymentReceipt } from "@magna-carta/billing/receipt";
 import {
   readCreditNoteLinesForNotes,
   readCreditNotesForInvoicePage,
   readInvoiceDeliveries,
   readInvoiceDeliveryState,
   readOpenClientCreditsForClientPage,
+  readPaymentReceiptsForInvoice,
 } from "@magna-carta/billing/statements";
 import { addFlatFeeToDraft } from "@magna-carta/billing/flat-fee";
 import {
@@ -719,6 +721,45 @@ const WriteOffRequest = z
 const ApplicationAck = z
   .object({ applicationId: z.string(), invoiceId: z.string(), matterId: z.string() })
   .openapi("BillingApplicationAck");
+
+const PaymentReceiptRequest = z
+  .object({
+    matterId: identifierField("matter"),
+    amountMinor: z.number().int().positive(),
+    method: z.enum(PAYMENT_RECEIPT_METHODS),
+    reference: z.string().max(200).nullable().optional(),
+    effectiveDate: civilDate,
+  })
+  .openapi("BillingPaymentReceiptRequest");
+
+const PaymentReceiptAck = z
+  .object({
+    receiptId: z.string(),
+    applicationId: z.string(),
+    invoiceId: z.string(),
+    matterId: z.string(),
+  })
+  .openapi("BillingPaymentReceiptAck");
+
+const PaymentReceiptListResponse = z
+  .object({
+    data: z.array(
+      z.object({
+        id: z.string(),
+        applicationId: z.string(),
+        matterId: z.string(),
+        amountMinor: z.number().int(),
+        currency: z.string(),
+        effectiveDate: z.string(),
+        method: z.enum(PAYMENT_RECEIPT_METHODS),
+        reference: z.string().nullable(),
+        reversed: z.boolean(),
+        recordedBy: z.string().nullable(),
+        recordedAt: z.string(),
+      }),
+    ),
+  })
+  .openapi("BillingPaymentReceiptListResponse");
 
 const ClientCreditListResponse = z
   .object({
@@ -1627,6 +1668,40 @@ const writeOffRoute = defineOpenAPIRoute(writeMeta("billing.writeOffBalance", CR
   },
 });
 
+const recordPaymentRoute = defineOpenAPIRoute(writeMeta("billing.recordPayment", APPLY), {
+  method: "post",
+  path: "/api/v1/billing/invoices/{invoiceId}/payments",
+  description:
+    "Records a payment the firm received by hand against what one matter owes on a bill: a check, cash, a bank transfer, or a card run on the firm's own terminal. The money is booked into the firm's operating bank account and the bill's balance comes down by the same amount. It cannot exceed what the matter still owes on the bill; record what is owed and return or credit the rest. Money a client sends to be held in trust is a trust deposit, not a payment, and is recorded on the client's trust ledger instead. A payment recorded in error is undone by reversing it, which keeps both records.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: invoiceParam,
+    body: { content: { "application/json": { schema: PaymentReceiptRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The payment was recorded",
+      content: { "application/json": { schema: PaymentReceiptAck } },
+    },
+    ...mutationResponses,
+  },
+});
+
+const listPaymentsRoute = defineOpenAPIRoute(readMeta("billing.listPayments"), {
+  method: "get",
+  path: "/api/v1/billing/invoices/{invoiceId}/payments",
+  description:
+    "Every payment recorded by hand against one bill, oldest first, including any that were later reversed, which are marked. Nothing here is ever edited or removed.",
+  request: { params: invoiceParam },
+  responses: {
+    200: {
+      description: "The bill's recorded payments",
+      content: { "application/json": { schema: PaymentReceiptListResponse } },
+    },
+    ...readErrorResponses,
+  },
+});
+
 const clientCreditsRoute = defineOpenAPIRoute(readMeta("billing.clientCredits"), {
   method: "get",
   path: "/api/v1/billing/clients/{clientEntityId}/credits",
@@ -1791,6 +1866,7 @@ function billingErrorResponse(
   if (
     error.code === "earned-fee-exceeds-unpaid-balance" ||
     error.code === "write-off-exceeds-unpaid-balance" ||
+    error.code === "payment-exceeds-unpaid-balance" ||
     error.code === "client-credit-exhausted"
   ) {
     return problemJson(c, {
@@ -2918,6 +2994,72 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       );
       if (outcome.kind === "refused") return outcome.response;
       return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    { ...recordPaymentRoute, middleware: chokepointMiddleware(chokepoint, recordPaymentRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await runBillingEffect<z.infer<typeof PaymentReceiptAck>>(
+        c,
+        201,
+        async (recordedBy) => {
+          const composed = await recordPaymentReceipt(
+            firm.firmDatabase,
+            {
+              invoiceId,
+              matterId: request.matterId,
+              amountMinor: request.amountMinor,
+              method: request.method,
+              reference: request.reference ?? null,
+              effectiveDate: request.effectiveDate,
+              recordedBy,
+            },
+            clockOptions(),
+          );
+          return {
+            write: composed.effect,
+            body: {
+              receiptId: composed.receiptId,
+              applicationId: composed.applicationId,
+              invoiceId,
+              matterId: request.matterId,
+            },
+          };
+        },
+      );
+      if (outcome.kind === "refused") return outcome.response;
+      return c.json(outcome.body, 201);
+    },
+  );
+
+  app.openapi(
+    { ...listPaymentsRoute, middleware: chokepointMiddleware(chokepoint, listPaymentsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { invoiceId } = c.req.valid("param");
+      const receipts = await readPaymentReceiptsForInvoice(firm.firmDatabase, invoiceId);
+      return c.json(
+        {
+          data: receipts.map((receipt) => ({
+            id: receipt.id,
+            applicationId: receipt.applicationId,
+            matterId: receipt.matterId,
+            amountMinor: receipt.amountMinor,
+            currency: receipt.currency,
+            effectiveDate: receipt.effectiveDate,
+            method: receipt.method,
+            reference: receipt.reference,
+            reversed: receipt.reversedByApplicationId !== null,
+            recordedBy: receipt.recordedBy,
+            recordedAt: receipt.recordedAt,
+          })),
+        } as never,
+        200,
+      );
     },
   );
 

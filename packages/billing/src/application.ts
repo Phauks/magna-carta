@@ -92,12 +92,13 @@ export interface ComposedInvoiceApplication {
   readonly effect: EffectWrite;
 }
 
-// The kinds that have a write path today. `payment` is the one still missing: cash and card rails
-// are a later slice, and an application composed here with nothing on the firm's books to match it
-// would reduce what a client owes with no posting behind it — the same subledger-versus-control
-// disagreement the trust arm exists to avoid, in the opposite direction.
+// The kinds that have a write path today: every one the CHECK admits. A payment reaches this door
+// from `recordPaymentReceipt` in receipt.ts, which composes the operating-bank posting it names; the
+// pairing trigger still refuses one that names no entry, because an application with nothing on the
+// firm's books to match it would reduce what a client owes with no posting behind it.
 const KINDS_WITH_A_WRITE_PATH: ReadonlySet<InvoiceApplicationKind> = new Set([
   "trust_transfer",
+  "payment",
   "credit_note",
   "client_credit",
   "write_off",
@@ -119,7 +120,7 @@ export function composeInvoiceApplication(
   if (!KINDS_WITH_A_WRITE_PATH.has(input.kind)) {
     throw new BillingValidationError(
       "application-kind-not-built",
-      `${input.kind} applications are not built yet: a payment has to record the money actually arriving and post it, and the payment rails that would do so are a later slice`,
+      `${String(input.kind)} is not a kind of application: value reaches a bill as a trust transfer, a payment, a credit note, a client credit, a write-off, or a reversal`,
     );
   }
 

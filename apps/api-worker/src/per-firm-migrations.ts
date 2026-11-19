@@ -93,6 +93,7 @@ import documentsCanBeSentForSignatureSql from "@magna-carta/database/drizzle/per
 import meetingChatFilesSql from "@magna-carta/database/drizzle/per-firm/20261114T021115_meeting-chat-files.sql";
 import trustCheckPrintingSql from "@magna-carta/database/drizzle/per-firm/20261114T024503_trust-check-printing.sql";
 import aMemberConnectsMoreThanOneCalendarAccountSql from "@magna-carta/database/drizzle/per-firm/20261116T172646_a-member-connects-more-than-one-calendar-account.sql";
+import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261119T194024_payments-recorded-by-hand.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -189,6 +190,7 @@ export function perFirmMigrations(): Migration[] {
     "20261114T024503_trust-check-printing": trustCheckPrintingSql,
     "20261116T172646_a-member-connects-more-than-one-calendar-account":
       aMemberConnectsMoreThanOneCalendarAccountSql,
+    "20261119T194024_payments-recorded-by-hand": paymentsRecordedByHandSql,
   });
 }
 

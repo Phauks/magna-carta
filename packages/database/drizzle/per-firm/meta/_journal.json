@@ -582,6 +582,13 @@
       "when": 1794850006903,
       "tag": "20261116T172646_a-member-connects-more-than-one-calendar-account",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "6",
+      "when": 1795117224715,
+      "tag": "20261119T194024_payments-recorded-by-hand",
+      "breakpoints": true
     }
   ]
 }

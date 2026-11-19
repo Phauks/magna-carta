@@ -20,6 +20,7 @@ import type {
   LedgerEntryId,
   LocationId,
   MatterId,
+  PaymentReceiptId,
   TrustDisbursementRequestId,
   TrustTransferId,
   UserId,
@@ -1349,6 +1350,94 @@ export function insertInvoiceDeliveryStatement(
       input.recordedBy,
       input.now,
     );
+}
+
+export interface InsertPaymentReceiptInput {
+  readonly id: PaymentReceiptId;
+  readonly applicationId: InvoiceApplicationId;
+  readonly method: string;
+  readonly reference: string | null;
+  readonly recordedBy: UserId | null;
+  readonly now: string;
+}
+
+export function insertPaymentReceiptStatement(
+  database: SqlDatabase,
+  input: InsertPaymentReceiptInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO payment_receipt (id, application_id, method, reference, recorded_by, recorded_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+    )
+    .bind(
+      input.id,
+      input.applicationId,
+      input.method,
+      input.reference,
+      input.recordedBy,
+      input.now,
+    );
+}
+
+export interface PaymentReceiptSnapshot {
+  readonly id: PaymentReceiptId;
+  readonly applicationId: InvoiceApplicationId;
+  readonly matterId: MatterId;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly effectiveDate: string;
+  readonly method: string;
+  readonly reference: string | null;
+  /** The reversal that undid this payment's application, where one did. */
+  readonly reversedByApplicationId: InvoiceApplicationId | null;
+  readonly recordedBy: UserId | null;
+  readonly recordedAt: string;
+}
+
+/** Every payment recorded by hand against one bill, oldest first, reversed ones included. */
+export async function readPaymentReceiptsForInvoice(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+): Promise<readonly PaymentReceiptSnapshot[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT receipt.id, receipt.application_id, application.matter_id, application.amount_minor,
+              application.currency, application.effective_date, receipt.method, receipt.reference,
+              reversal.id AS reversed_by_application_id, receipt.recorded_by, receipt.recorded_at
+         FROM payment_receipt AS receipt
+         JOIN invoice_application AS application ON application.id = receipt.application_id
+         LEFT JOIN invoice_application AS reversal ON reversal.reverses_application_id = application.id
+        WHERE application.invoice_id = ?1
+        ORDER BY application.effective_date, receipt.recorded_at, receipt.id`,
+    )
+    .bind(invoiceId)
+    .all<{
+      id: PaymentReceiptId;
+      application_id: InvoiceApplicationId;
+      matter_id: MatterId;
+      amount_minor: number;
+      currency: string;
+      effective_date: string;
+      method: string;
+      reference: string | null;
+      reversed_by_application_id: InvoiceApplicationId | null;
+      recorded_by: UserId | null;
+      recorded_at: string;
+    }>();
+  return results.map((row) => ({
+    id: row.id,
+    applicationId: row.application_id,
+    matterId: row.matter_id,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    effectiveDate: row.effective_date,
+    method: row.method,
+    reference: row.reference,
+    reversedByApplicationId: row.reversed_by_application_id,
+    recordedBy: row.recorded_by,
+    recordedAt: row.recorded_at,
+  }));
 }
 
 export interface InvoiceDeliverySnapshot {

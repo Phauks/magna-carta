@@ -28,15 +28,16 @@
 
 - id: payments.manual-receipt
   name: Manually recorded receipt
-  scope: Record a cheque, cash, wire or in-person terminal payment against a finalized invoice, with no processor, port or adapter involved.
-  status: designed
+  scope: Record a check, cash, wire or in-person terminal payment against a finalized invoice, with no processor, port or adapter involved.
+  status: shipped
+  surface: screen
   slices: 3-4-billing-and-invoicing
   spec: docs/specs/2026-08-15-payments-design.md
-  evidence: The invoice_application kind, its CHECK constraint, the entry-pairing trigger and the billing:apply capability all exist; composeInvoiceApplication refuses the payment kind for every rail, so a firm cannot record a cheque.
+  evidence: packages/billing/src/receipt.ts (recordPaymentReceipt: Dr Operating Bank / Cr Accounts Receivable plus a payment application), the append-only payment_receipt table, POST and GET /api/v1/billing/invoices/{invoiceId}/payments, and Record Payment in the bill's Payments & Credits tab (apps/web/src/lib/billing/record-payment-dialog.svelte).
   audience: public
   public-name: Record a payment
-  public-summary: Mark a bill as paid when a client sends a cheque, cash or a bank transfer.
-  awaiting-owner: Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
+  public-summary: Mark a bill as paid when a client sends a check, cash or a bank transfer.
+  notes: An over-payment is refused rather than held as unapplied cash (design flag K4 still open); the firm records what the bill is owed and returns or credits the rest.
 
 - id: payments.ach
   name: ACH rail (default)
@@ -77,7 +78,8 @@
   scope: Launch adapter covering both rails — interchange-plus cards and capped-fee ACH.
   status: not-started
   adrs: ADR-0032
-  evidence: Vendor decided; no adapter code. The adapter must declare gross per-transaction trust settlement and a separate fee account before the trust rail dispatches at all.
+  evidence: Vendor decided; no adapter code. Rechecked 2026-11-19 against LawPay, Stripe and Confido in docs/research/2026-11-19-payment-processor-recheck.md; Helcim stays cheapest and offers lawyer split deposits, but its standard US merchant terms put a lien and debit rights on the deposit account without excluding trust. Helcim webhooks cover card transactions only, so bank-payment status must be polled.
+  awaiting-owner: Keep Helcim, and obtain Helcim's written carve-out of the trust account from its debit rights, reserve and security interest before the trust rail ships; or route the trust rail to the Confido Legal fallback.
 
 - id: payments.pci-scope
   name: PCI scope minimization
