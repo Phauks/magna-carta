@@ -3,7 +3,7 @@
  *
  * Four steps, each through the server's conversion routes: ask for an upload slot, put the bytes
  * straight into storage with the slot's signed URL (they never pass through the Worker), submit the
- * job naming the two formats, then read the job's state until it settles. A finished job carries a
+ * job naming the two formats and any options chosen, then read the job's state until it settles. A finished job carries a
  * short-lived signed URL, which is read at once into a Blob, so the copy lives in this browser like
  * everything else on the workbench.
  *
@@ -11,6 +11,7 @@
  */
 import { conversionsStatus, conversionsSubmit, conversionsUpload } from "@magna-carta/api-client";
 import type { Format } from "@magna-carta/conversion/format";
+import { compactOptions, type ConversionOptions } from "@magna-carta/conversion/options";
 import { failureOf } from "$lib/api/api-client.ts";
 
 export type ConversionStage = "uploading" | "queued" | "converting";
@@ -36,10 +37,19 @@ export interface ConversionPorts {
     headers: Readonly<Record<string, string>>,
     bytes: Uint8Array,
   ): Promise<void>;
-  submit(body: { jobId: string; sourceKey: string; from: string; to: string }): Promise<void>;
+  submit(body: ConversionSubmission): Promise<void>;
   state(jobId: string): Promise<ConversionState>;
   fetchResult(url: string): Promise<Blob>;
   wait(milliseconds: number): Promise<void>;
+}
+
+/** What a job is submitted with. `options` is present only when a setting was actually chosen. */
+export interface ConversionSubmission {
+  readonly jobId: string;
+  readonly sourceKey: string;
+  readonly from: string;
+  readonly to: string;
+  readonly options?: ConversionOptions;
 }
 
 export type ConversionOutcome =
@@ -56,6 +66,8 @@ function sentenceFor(
   step: "slot" | "upload" | "submit" | "state" | "result",
 ): string {
   const problem = failureOf(error).problem;
+  if (problem?.status === 422 && problem.type?.endsWith("unsupported-conversion-option") === true)
+    return "This format can't take one of the settings chosen. Convert without it.";
   if (problem?.status === 422) return "There is no way to convert between these two formats.";
   if (problem?.status === 403) return "Your role does not include converting files.";
   if (problem?.status === 503) return "The conversion engine is not running yet.";
@@ -77,7 +89,9 @@ export async function runConversion(
   from: string,
   to: string,
   onStage?: (stage: ConversionStage) => void,
+  options?: ConversionOptions,
 ): Promise<ConversionOutcome> {
+  const chosen = compactOptions(options);
   let slot: ConversionSlot;
   try {
     onStage?.("uploading");
@@ -91,7 +105,13 @@ export async function runConversion(
     return { kind: "failed", message: sentenceFor(error, "upload") };
   }
   try {
-    await ports.submit({ jobId: slot.jobId, sourceKey: slot.sourceKey, from, to });
+    await ports.submit({
+      jobId: slot.jobId,
+      sourceKey: slot.sourceKey,
+      from,
+      to,
+      ...(chosen !== undefined ? { options: chosen } : {}),
+    });
   } catch (error) {
     return { kind: "failed", message: sentenceFor(error, "submit") };
   }

@@ -30,7 +30,17 @@ Excel workbooks, PowerPoint presentations, PDF files and TIFF and HEIC photos ar
 1. Open **File Workbench** in the sidebar, under **Firm**.
 2. Drop in the file, or use **Add Files**.
 3. Open the **Metadata** tab.
-4. Each kind of hidden content it found has a table of its own: **Tracked Changes**, **Comments**, **Hidden Text**, **Document Properties** (the author and organization, dates, the editing history, a stored preview of the first page, and settings such as a mail-merge data source or template location), **Custom Data** (custom properties and data a document-management system attached), and **Picture Metadata** (camera details, location, editing software, and anything stored after the end of the picture). Each row says how many there are. The badges along the top name the kinds that matter most.
+4. Each kind of hidden content it found has a table of its own, and each table lists what the file actually says:
+   - **Tracked Changes**: who made each change, what they inserted, deleted or moved, and when.
+   - **Comments**: who wrote each comment, what it says, and when.
+   - **Hidden Text**: the hidden words themselves, and whether they sit in the body, a header, a footer or the notes.
+   - **Document Properties**: the author, the person who last saved it, the title, the company, the template, the created and modified dates, the total editing time, and settings such as an attached template path or a mail-merge data source.
+   - **Custom Data**: each custom property by name and value, and the values a document-management system stored in the file.
+   - **Picture Metadata**: the camera make, model and serial number, the GPS location and altitude, when the picture was taken, the editing software, and the photographer and copyright.
+
+   Something with no readable value, such as a stored preview of the first page or data after the end of a picture, is a row with how many there are. Long values wrap, and a table with a very long list shows the first hundred entries and says how many more there are. The badges along the top name the kinds that matter most.
+
+   A date the file recorded with its time zone is shown in your own time zone. A date recorded without one, as most cameras do, is shown exactly as recorded and marked **No time zone recorded**.
 
 **Make a clean copy**
 

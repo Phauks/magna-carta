@@ -1,5 +1,6 @@
 import { engineFor } from "./engines.ts";
 import type { ConversionEdge, EngineId, FormatId } from "./format.ts";
+import type { ConversionOptions } from "./options.ts";
 import { type ConversionPort, type ConversionResult, unsupportedEdge } from "./port.ts";
 import { findPath } from "./pathfinding.ts";
 
@@ -10,19 +11,25 @@ export type EngineResolver = (id: EngineId) => ConversionPort;
 // hop's success, or the first hop's failure — execution stops at the first failure and never runs a
 // later hop (so a deferred engine mid-chain surfaces its `engine-not-implemented` without side effects
 // from earlier hops being wasted on later ones).
+//
+// `options` ride on the FINAL hop only: that hop writes the copy the member asked for, and an
+// intermediate hop (doc->docx on the way to pdf) is not what the options describe.
 export async function executePath(
   path: readonly ConversionEdge[],
   bytes: Uint8Array,
   resolve: EngineResolver = engineFor,
+  options?: ConversionOptions,
 ): Promise<ConversionResult> {
   let current = bytes;
   let last: ConversionResult | undefined;
-  for (const edge of path) {
+  for (const [position, edge] of path.entries()) {
+    const isFinal = position === path.length - 1;
     const result = await resolve(edge.engineId).convert({
       bytes: current,
       from: edge.from,
       to: edge.to,
       recipeRef: edge.recipeRef,
+      ...(isFinal && options !== undefined ? { options } : {}),
     });
     if (!result.ok) return result;
     current = result.bytes;
@@ -38,8 +45,9 @@ export function runConversion(
   to: FormatId,
   bytes: Uint8Array,
   resolve: EngineResolver = engineFor,
+  options?: ConversionOptions,
 ): Promise<ConversionResult> {
   const path = findPath(from, to);
   if (!path.ok) return Promise.resolve(unsupportedEdge(`no conversion path from ${from} to ${to}`));
-  return executePath(path.path, bytes, resolve);
+  return executePath(path.path, bytes, resolve, options);
 }

@@ -15,4 +15,7 @@
 // conversation kept on a matter read their own other conversations on that matter (off until they
 // turn it on, and never a colleague's), and Magnus can write a draft as a document kept in the
 // conversation with its versions (artifact.ts). It still files, sends and changes nothing.
-export const MAGNUS_DISCLOSURE_VERSION = 3;
+//
+// Version 4: the same facts in plainer words (owner, 2026-11-16). Nothing Magnus can see or do
+// changed; the wording did, so members accept the statement they are now shown.
+export const MAGNUS_DISCLOSURE_VERSION = 4;

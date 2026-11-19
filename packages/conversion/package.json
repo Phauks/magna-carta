@@ -12,6 +12,8 @@
     "./execute": "./src/execute.ts",
     "./file": "./src/file.ts",
     "./port": "./src/port.ts",
+    "./options": "./src/options.ts",
+    "./contract": "./src/contract.ts",
     "./engines": "./src/engines.ts",
     "./adapters/libvips": "./src/adapters/libvips/index.ts"
   },
@@ -19,7 +21,8 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "wasm-vips": "catalog:"
+    "wasm-vips": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

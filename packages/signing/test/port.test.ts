@@ -31,6 +31,30 @@ describe("SealPort wire codec", () => {
     expect(decoded.seal).toEqual(request.seal);
   });
 
+  it("carries the marks and each picture once, byte for byte", () => {
+    const picture = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 255]);
+    const request: SealRequest = {
+      document: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+      signers: [signer],
+      signingTime: "2026-07-18T12:00:01Z",
+      marks: [
+        { page: 1, rect: [72, 100, 252, 130], content: { kind: "picture", picture: 0 } },
+        { page: 2, rect: [72, 100, 252, 130], content: { kind: "picture", picture: 0 } },
+        { page: 1, rect: [300, 100, 450, 120], content: { kind: "text", text: "Jordan Smith" } },
+        { page: 1, rect: [72, 200, 86, 214], content: { kind: "check" } },
+      ],
+      markPictures: [picture],
+    };
+    const decoded = decodeSealRequest(encodeSealRequest(request));
+    expect(decoded.marks).toEqual(request.marks);
+    expect(decoded.markPictures).toEqual([picture]);
+    const bare = decodeSealRequest(
+      encodeSealRequest({ ...request, marks: undefined, markPictures: undefined }),
+    );
+    expect(bare.marks).toBeUndefined();
+    expect(bare.markPictures).toBeUndefined();
+  });
+
   it("round-trips a response, preserving the sealed bytes exactly", () => {
     const certificate: CertificateOfCompletion = {
       documentHashSha256: "a".repeat(64),

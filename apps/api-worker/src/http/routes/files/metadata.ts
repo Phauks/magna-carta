@@ -3,6 +3,7 @@ import {
   createMetadataPort,
   MAX_INPUT_BYTES,
   SCRUB_ALL,
+  withoutFieldValues,
   type ScrubOptions,
 } from "@magna-carta/metadata";
 import type { Bindings } from "../../../bindings.ts";
@@ -195,11 +196,11 @@ export function registerMetadataRoutes(
       if (bytes === undefined) return failureProblem(c, "corrupt");
       const outcome = await port.inspect({ bytes, filename });
       if (!outcome.ok) return failureProblem(c, outcome.reason);
-      // MetadataReport uses readonly arrays; the response schema expects mutable arrays.
+      // The published shape: what was found and how much, never the values read from the file.
       return c.json(
         {
           format: outcome.report.format,
-          findings: [...outcome.report.findings],
+          findings: outcome.report.findings.map(withoutFieldValues),
           clean: outcome.report.clean,
         },
         200,
@@ -216,7 +217,6 @@ export function registerMetadataRoutes(
       if (bytes === undefined) return failureProblem(c, "corrupt");
       const outcome = await port.scrub({ bytes, filename }, effective);
       if (!outcome.ok) return failureProblem(c, outcome.reason);
-      // MetadataReport uses readonly arrays; the response schema expects mutable arrays.
       return c.json(
         {
           mediaType: outcome.mediaType,
@@ -224,7 +224,7 @@ export function registerMetadataRoutes(
           cleanedBase64: encodeBase64(outcome.bytes),
           report: {
             format: outcome.report.format,
-            findings: [...outcome.report.findings],
+            findings: outcome.report.findings.map(withoutFieldValues),
             clean: outcome.report.clean,
           },
         },

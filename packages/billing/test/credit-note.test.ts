@@ -638,6 +638,97 @@ describe("the client credit", () => {
   });
 });
 
+describe("a correction's date", () => {
+  it("is refused before the bill was issued, for a write-off and for a credit note", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, CORRECTION_ROLES);
+    const bill = await finalizedBill(fixture, 300_000);
+
+    await expect(
+      composeInvoiceWriteOff(
+        fixture.database,
+        {
+          invoiceId: bill.invoiceId,
+          matterId: bill.matterId,
+          amountMinor: 50_000,
+          reason: "Uncollectable",
+          effectiveDate: "2026-07-30",
+          writtenOffBy: null,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "application-before-invoice-issued" });
+    await expect(
+      issueCreditNote(
+        fixture.database,
+        {
+          invoiceId: bill.invoiceId,
+          reason: "Billed in error",
+          effectiveDate: "2026-08-02",
+          lines: [
+            {
+              matterId: bill.matterId,
+              kind: "adjustment",
+              description: "Billed in error",
+              amountMinor: 10_000,
+            },
+          ],
+          issuedBy: null,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "application-before-invoice-issued" });
+
+    // The bill's own issue date is allowed.
+    const onIssueDay = await composeInvoiceWriteOff(
+      fixture.database,
+      {
+        invoiceId: bill.invoiceId,
+        matterId: bill.matterId,
+        amountMinor: 50_000,
+        reason: "Uncollectable",
+        effectiveDate: FINALIZE_DATES.issueDate,
+        writtenOffBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, onIssueDay.effect);
+    expect(await unpaidMinor(fixture, bill)).toBe(250_000);
+  });
+
+  it("refuses a reversal dated before the application it reverses", async () => {
+    const fixture = await billingFixture();
+    await mapAccountRoles(fixture, CORRECTION_ROLES);
+    const bill = await finalizedBill(fixture, 300_000);
+    const writtenOff = await composeInvoiceWriteOff(
+      fixture.database,
+      {
+        invoiceId: bill.invoiceId,
+        matterId: bill.matterId,
+        amountMinor: 50_000,
+        reason: "Uncollectable",
+        effectiveDate: "2026-08-05",
+        writtenOffBy: null,
+      },
+      options,
+    );
+    await commit(fixture.database, writtenOff.effect);
+
+    await expect(
+      composeApplicationReversal(
+        fixture.database,
+        {
+          applicationId: writtenOff.applicationId,
+          reason: "The client paid after all",
+          effectiveDate: "2026-08-04",
+          reversedBy: null,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "application-reversal-before-original" });
+  });
+});
+
 describe("the reversal", () => {
   it("unwinds an application and its posting, gives a discharged credit back, and refuses a second attempt", async () => {
     const fixture = await billingFixture();

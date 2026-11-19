@@ -12,6 +12,7 @@ import {
   readMatterParties,
   readMatterPartiesForEmailAddresses,
   unlinkMatterParty,
+  changeMatterPartyRole,
 } from "../src/party.ts";
 
 const clock = { now: () => "2026-06-17T00:00:00.000Z" };
@@ -246,4 +247,43 @@ test("a severed link is retained as evidence, and severing it again reports no l
   // Guarded, so a retry cannot rewrite the instant the link was severed.
   expect(await unlinkMatterParty(database, link, { clock, actorUserId: ACTOR })).toBe(false);
   expect(await readMatterParties(database, "mat_evidence")).toEqual([]);
+});
+
+test("changeMatterPartyRole moves the party to a new role and keeps the old link as evidence", async () => {
+  const database = freshDatabase();
+  await seedMatter(database, "mat_role");
+  const personId = await createPerson(
+    database,
+    { given: "Iris", family: "Hale" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("role-person") },
+  );
+  const link = await linkMatterParty(
+    database,
+    { matterId: "mat_role", entityId: personId, role: "witness" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("role-1") },
+  );
+
+  const replacement = await changeMatterPartyRole(
+    database,
+    link,
+    { role: "opposing_party", capacity: "Trustee" },
+    { clock, actorUserId: ACTOR, randomSource: seededRandomSource("role-2") },
+  );
+
+  expect(replacement).not.toBeNull();
+  expect(replacement).not.toBe(link);
+  const parties = await readMatterParties(database, "mat_role");
+  expect(parties.map((party) => [party.id, party.entityId, party.role, party.capacity])).toEqual([
+    [replacement, personId, "opposing_party", "Trustee"],
+  ]);
+  const { results } = await database
+    .prepare(`SELECT role, deleted_at FROM matter_party WHERE id = ?1`)
+    .bind(link)
+    .all<{ role: string; deleted_at: string | null }>();
+  expect(results).toEqual([{ role: "witness", deleted_at: clock.now() }]);
+
+  // The old link is closed, so changing it again finds nothing live.
+  expect(
+    await changeMatterPartyRole(database, link, { role: "client" }, { clock, actorUserId: ACTOR }),
+  ).toBeNull();
 });

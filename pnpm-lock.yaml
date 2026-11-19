@@ -1538,6 +1538,9 @@ importers:
       wasm-vips:
         specifier: 'catalog:'
         version: 0.0.19
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

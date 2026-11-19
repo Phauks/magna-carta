@@ -22,6 +22,7 @@
  */
 import { countPhrase, selectionPhrase } from "./file-manager-vocabulary.ts";
 import { detectFormat } from "@magna-carta/conversion/file";
+import { acceptedOptions } from "@magna-carta/conversion/options";
 import { availableConversions } from "@magna-carta/conversion/pathfinding";
 import { getFormat } from "@magna-carta/conversion/registry";
 import { waitingReason } from "./file-manager-availability.ts";
@@ -88,6 +89,12 @@ export interface FileMenuFlyout {
   readonly soon?: boolean;
   /** For Convert: the formats this file can become, by the conversion graph's own ids and labels. */
   readonly formats?: readonly ConversionChoice[];
+  /**
+   * For Convert: whether the flyout ends with Convert With Options. Present only when some target
+   * takes a setting (a size, grayscale, a JPEG quality), because a dialog with nothing to set is a
+   * slower quick convert.
+   */
+  readonly withOptions?: boolean;
 }
 
 /** One format the Convert flyout offers: the graph's id, and the words the item says. */
@@ -139,6 +146,15 @@ export function conversionChoicesFor(
       };
     })
     .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+/** Whether converting this file into any of its targets takes a setting. */
+export function conversionTakesOptions(
+  file: Pick<MatterFile, "name" | "sniffedContentType">,
+): boolean {
+  const from = conversionSourceOf(file);
+  if (from === undefined) return false;
+  return availableConversions(from).some((to) => acceptedOptions(from, to).length > 0);
 }
 
 export type FileMenuEntry = FileMenuItem | FileMenuSeparator | FileMenuFlyout;
@@ -333,6 +349,7 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
       command: "convert",
       label: "Convert",
       formats,
+      withOptions: formats.length > 0 && conversionTakesOptions(singleFile),
       disabledReason:
         singleFile.currentVersionId === null
           ? "This file has no committed version yet, so there is nothing to convert."

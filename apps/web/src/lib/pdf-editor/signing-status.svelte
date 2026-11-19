@@ -21,6 +21,7 @@
   import { cancelSigningRequest, remindSigners, type SigningRequestDetail } from "./signing-api.ts";
   import { attributionLabel } from "./signing-draft.ts";
   import { listMySigningRequests } from "$lib/signing/signer-api.ts";
+  import { viewerHref } from "$lib/documents/editable-documents.ts";
 
   let {
     request,
@@ -158,10 +159,24 @@
 
   {#if request.status === "completed" && request.sealedAt === null}
     <Alert.Root variant="info">
-      <Alert.Title>Waiting to Be Sealed</Alert.Title>
+      <Alert.Title>Being Sealed</Alert.Title>
       <Alert.Description>
-        Everyone has signed. The signed copy and its certificate are saved once the seal is applied.
+        Everyone has signed. The signed copy is saved as this document's newest version, with its
+        Certificate of Completion beside it, in a few minutes.
       </Alert.Description>
+    </Alert.Root>
+  {:else if request.status === "completed" && request.certificateFileId !== null}
+    <Alert.Root variant="success">
+      <Alert.Title>Signed and Sealed</Alert.Title>
+      <Alert.Description>
+        The signed copy is this document's newest version, sealed {formatInstant(request.sealedAt ?? "")}.
+        Its Certificate of Completion is filed beside it.
+      </Alert.Description>
+      <span class="flex flex-wrap gap-8">
+        <Button variant="secondary" size="sm" href={viewerHref(request.certificateFileId)}>
+          Open the Certificate
+        </Button>
+      </span>
     </Alert.Root>
   {/if}
 

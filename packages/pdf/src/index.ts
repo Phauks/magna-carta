@@ -718,6 +718,44 @@ export async function watermarkDocument(
   }
 }
 
+// ── Marks: what signers gave, drawn into their boxes ─────────────────────────────
+
+import { placeMarks as wasmPlaceMarks } from "./pkg/pdf_core.js";
+
+/** What a mark draws into its box. */
+export type MarkContent =
+  /** A PNG or JPEG, fitted inside the box without stretching and centred. */
+  | { kind: "image"; bytes: Uint8Array }
+  /** One line in a standard font, sized to the box. Windows-1252 only; anything else is refused. */
+  | { kind: "text"; text: string; font?: BatesFont }
+  /** A tick drawn inside the box. */
+  | { kind: "check" };
+
+export interface Mark {
+  /** Counted from 1. */
+  page: number;
+  /** Left, bottom, right, top, in displayed page points from the displayed bottom-left corner. */
+  rect: readonly [number, number, number, number];
+  content: MarkContent;
+}
+
+/**
+ * Draw marks into boxes on existing pages. Additive: it draws on top and removes nothing. A picture
+ * placed in several boxes is embedded once. Every mark is checked before anything is written, so a
+ * page past the end, an empty box or an undrawable character changes nothing.
+ */
+export async function placeMarks(
+  bytes: Uint8Array,
+  marks: readonly Mark[],
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmPlaceMarks(bytes, marks) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
 // ── PAdES seal ──────────────────────────────────────────────────────────────
 //
 // The engine owns the PDF structure; the CMS is opaque. A seal is three host-side steps:

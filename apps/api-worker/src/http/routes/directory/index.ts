@@ -5,6 +5,7 @@ import { registerConflictsRunRoutes } from "./conflicts-runs.ts";
 import { registerConflictsRoutes } from "./conflicts.ts";
 import { registerDirectoryRoutes } from "./directory.ts";
 import { registerEntityPhotoRoutes } from "./entity-photo.ts";
+import { registerMatterPartyRoleRoutes } from "./matter-party-role.ts";
 
 // The directory of persons and organizations, and the conflicts-of-interest check run over it.
 //
@@ -21,6 +22,8 @@ export function mountDirectory(
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(domain, chokepoint);
+  // Changing the role a party plays on a matter.
+  registerMatterPartyRoleRoutes(domain, chokepoint);
   // A record's picture: a person's photograph or an organization's logo, with its bytes.
   registerEntityPhotoRoutes(domain, chokepoint);
   // Address autocomplete: offers for what has been typed, and a chosen offer resolved into parts.

@@ -118,11 +118,11 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
 
 ## Gotchas
 
-- **A client statement can fail to close when an application is dated before its bill.** Billing
-  accepts an application whose effective date precedes its bill's issue date. The as-of aging counts
-  it only once the bill exists; the application register dates it by its own effective date. A
-  period that separates the two then ends its running balance away from its closing balance. It is
-  billing's to refuse, not this package's to paper over.
+- **A client statement closes only because billing refuses an application dated before its bill.**
+  The as-of aging counts an application only once its bill exists, and the application register dates
+  it by its own effective date; the two agree because `composeInvoiceApplication` refuses an
+  effective date before the bill's issue date, and a reversal before what it reverses. Rows written
+  before that refusal existed can still part the two; never paper over it here.
 
 - **The pack's `proofAtProduction` is deliberately live, and the reproducibility test knows it.**
   `computeTrustThreeWayProof` computes over everything recorded and takes no knowledge instant. A pack
