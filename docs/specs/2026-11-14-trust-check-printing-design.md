@@ -177,5 +177,8 @@ person.
    PDF code.
 2. **Printing the MICR line** on blank stock with magnetic toner.
 3. **Signatures** printed on the check. Trust checks are signed by hand.
-4. **Positive pay** export to the bank.
+4. ~~**Positive pay** export to the bank.~~ Built 2026-11-19 as a generic CSV (account number,
+   check number, issue date, amount, payee, void flag) composed in the browser from the register;
+   the full account number is typed per download and never stored. A bank-specific layout waits on
+   the firm naming its bank.
 5. **A payee address** for a window envelope (section 3).

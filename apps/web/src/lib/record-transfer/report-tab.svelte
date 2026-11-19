@@ -9,11 +9,17 @@
    *
    * Columns the rules name and the file lacks stand first, because every row is affected by them. A
    * pass that failed has no report: the reason it failed stands in the report's place.
+   *
+   * The rejected rows themselves can be saved as a file, to be corrected and uploaded again. That
+   * file has the source file's own values, which this tab never shows. A download that fails says
+   * so beside the button, with the way to try again.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import Download from "@lucide/svelte/icons/download";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { TransferPassOutcome } from "./record-transfer-api.ts";
@@ -34,6 +40,8 @@
     failedOutcome,
     readFailure,
     onRetry,
+    rejectedDownload = null,
+    onDownloadRejected,
   }: {
     fileName: string;
     /** The pass most recently asked for, however it stands. Null where the file has never been run. */
@@ -46,6 +54,9 @@
     failedOutcome: TransferPassOutcome | null;
     readFailure: StatedFailure | null;
     onRetry: () => void;
+    /** How saving the rejected rows stands. Null where the pass rejected nothing. */
+    rejectedDownload?: { busy: boolean; failure: StatedFailure | null } | null;
+    onDownloadRejected?: () => void;
   } = $props();
 
   /** How many rows of a list show before the reader asks for the rest. */
@@ -128,7 +139,29 @@
       {/if}
 
       <section class="flex flex-col gap-8">
-        <FieldLabel as="h2">Rejected Rows</FieldLabel>
+        <div class="flex flex-wrap items-center justify-between gap-8">
+          <FieldLabel as="h2">Rejected Rows</FieldLabel>
+          {#if rejectedDownload !== null}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={rejectedDownload.busy}
+              onclick={() => onDownloadRejected?.()}
+            >
+              <Download class="size-16" aria-hidden="true" />
+              Download Rejected Rows
+            </Button>
+          {/if}
+        </div>
+        {#if rejectedDownload !== null && rejectedDownload.failure !== null}
+          <FailureNotice
+            failure={rejectedDownload.failure.failure}
+            title="Download Failed"
+            fallback={rejectedDownload.failure.fallback}
+            whenSilent={rejectedDownload.failure.whenSilent}
+            onRetry={onDownloadRejected}
+          />
+        {/if}
         <DataTable.Root>
           <DataTable.Caption class="sr-only">Rows of {fileName} that were rejected</DataTable.Caption>
           <DataTable.Header>

@@ -3,14 +3,24 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
-import type { TransferPassId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  TransferPassId,
+  TransferRunId,
+  TransferSourceFileId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import type { MatterMappingRules } from "./matter-mapping.ts";
 import {
   insertTransferPassStatement,
   type NewTransferPass,
   type TransferPassRow,
 } from "./transfer-pass-statements.ts";
-import { insertTransferRunStatement, type NewTransferRun } from "./transfer-run-statements.ts";
+import {
+  abandonTransferRunStatement,
+  completeTransferRunStatement,
+  insertTransferRunStatement,
+  type NewTransferRun,
+} from "./transfer-run-statements.ts";
 import {
   insertTransferSourceFileStatement,
   type NewTransferSourceFile,
@@ -27,6 +37,18 @@ import {
 export const TRANSFER_RUN_STARTED_EVENT = "recordTransfer.run_started";
 export const TRANSFER_SOURCE_FILE_REGISTERED_EVENT = "recordTransfer.source_file_registered";
 export const TRANSFER_PASS_REQUESTED_EVENT = "recordTransfer.pass_requested";
+
+export const TRANSFER_FILE_MAPPING_SAVED_EVENT = "recordTransfer.file_mapping_saved";
+export const TRANSFER_RUN_ACCEPTED_EVENT = "recordTransfer.run_accepted";
+export const TRANSFER_RUN_ABANDONED_EVENT = "recordTransfer.run_abandoned";
+
+// The outbox topic an accepted run rides. The payload is `{ transferRunId }`. Its consumer asks for
+// the conflicts checks the loaders withheld while records were arriving.
+export const TRANSFER_RUN_ACCEPTED_TOPIC = "recordTransfer.runAccepted";
+
+export interface TransferRunAcceptedPayload {
+  readonly transferRunId: TransferRunId;
+}
 
 // The outbox topic the per-firm queue's consumer owns. The payload is `{ transferPassId }`.
 export const TRANSFER_PASS_REQUESTED_TOPIC = "recordTransfer.passRequested";
@@ -107,6 +129,58 @@ export function requestTransferPassEffect(
       }),
     ],
     outboxMessages: [{ topic: TRANSFER_PASS_REQUESTED_TOPIC, payload: { ...payload } }],
+  };
+}
+
+// Saving the mapping a person is working on writes one object beside the file and this audit row,
+// which says who saved and for which file. The mapping itself is not in the row.
+export function saveTransferFileMappingEffect(
+  database: SqlDatabase,
+  file: { readonly id: TransferSourceFileId; readonly transferRunId: TransferRunId },
+  actor: Actor,
+): EffectWrite {
+  return {
+    statements: [
+      audit(database, actor, TRANSFER_FILE_MAPPING_SAVED_EVENT, file.id, {
+        transferRunId: file.transferRunId,
+      }),
+    ],
+    outboxMessages: [],
+  };
+}
+
+// Accepting a run ends it as complete and ends its quiet period: one message says the run's records
+// are the firm's records now. The caller has read the run and found it open; a second accept that
+// raced past that read changes no row, and its message asks for checks already asked for, which the
+// conflicts ledger takes as one request.
+export function acceptTransferRunEffect(
+  database: SqlDatabase,
+  transferRunId: TransferRunId,
+  actor: Actor,
+): EffectWrite {
+  const payload: TransferRunAcceptedPayload = { transferRunId };
+  return {
+    statements: [
+      completeTransferRunStatement(database, transferRunId, actor.now),
+      audit(database, actor, TRANSFER_RUN_ACCEPTED_EVENT, transferRunId, {}),
+    ],
+    outboxMessages: [{ topic: TRANSFER_RUN_ACCEPTED_TOPIC, payload: { ...payload } }],
+  };
+}
+
+// Abandoning a run stops it and announces nothing. The records it brought in and their links stay:
+// they are real, and "this run was stopped part way" is what a later reader needs to know.
+export function abandonTransferRunEffect(
+  database: SqlDatabase,
+  transferRunId: TransferRunId,
+  actor: Actor,
+): EffectWrite {
+  return {
+    statements: [
+      abandonTransferRunStatement(database, transferRunId, actor.now),
+      audit(database, actor, TRANSFER_RUN_ABANDONED_EVENT, transferRunId, {}),
+    ],
+    outboxMessages: [],
   };
 }
 
