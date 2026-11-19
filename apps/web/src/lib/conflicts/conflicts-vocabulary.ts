@@ -611,6 +611,7 @@ export const CAUSE_TOPIC_VOCABULARY: Readonly<Record<string, string>> = {
   "matter.created": "The matter was created",
   "matter.opened": "The matter was opened",
   "matter.reopened": "The matter was reopened",
+  "recordTransfer.runAccepted": "The matter was brought in by a record transfer",
   "matter_party.linked": "A party was added to the matter",
   "directory.entity.merged": "Two Directory records were merged",
   "directory.entity.renamed": "A Directory record gained another name",

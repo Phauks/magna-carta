@@ -11672,6 +11672,10 @@ export type StartRecordTransferRunRequest = {
     label: string;
 };
 
+export type RecordTransferRunEndedResponse = {
+    run: RecordTransferRun;
+};
+
 export type RecordTransferSourceFileResponse = {
     file: RecordTransferSourceFile;
 };
@@ -11679,6 +11683,51 @@ export type RecordTransferSourceFileResponse = {
 export type RecordTransferSourceFilePreviewResponse = {
     columns: Array<string>;
     rows: Array<Array<string>>;
+};
+
+export type RecordTransferSourceFileColumnValuesResponse = {
+    values: Array<{
+        value: string;
+        rowCount: number;
+    }>;
+    rowsWithValue: number;
+    rowsRead: number;
+    truncated: boolean;
+};
+
+export type RecordTransferFileMappingResponse = {
+    saved: {
+        mapping: RecordTransferFileMapping;
+        savedBy: string;
+        savedAt: string;
+    } | null;
+};
+
+export type RecordTransferFileMapping = {
+    recordKind: 'person' | 'organization' | 'matter';
+    sourceKind: string;
+    delimiter: 'comma' | 'tab' | 'semicolon' | 'pipe';
+    assignments: {
+        [key: string]: {
+            holds: string;
+            referenceSourceKind: string;
+            role: string;
+        };
+    };
+    dateOrder: 'year-month-day' | 'day-month-year' | 'month-day-year' | '';
+    timeZone: string;
+    addressCountry: string;
+    matterTypes: {
+        [key: string]: string;
+    };
+    members: {
+        [key: string]: string;
+    };
+    otherwiseMember: string;
+};
+
+export type SaveRecordTransferFileMappingRequest = {
+    mapping: RecordTransferFileMapping;
 };
 
 export type RecordTransferPassResponse = {
@@ -53087,7 +53136,7 @@ export type RecordTransferStartRunErrors = {
      */
     403: Problem;
     /**
-     * The run has ended, the file is already in the run, or the key is in progress
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
      */
     409: Problem;
     /**
@@ -53150,6 +53199,114 @@ export type RecordTransferGetRunResponses = {
 
 export type RecordTransferGetRunResponse = RecordTransferGetRunResponses[keyof RecordTransferGetRunResponses];
 
+export type RecordTransferAcceptRunData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/accept';
+};
+
+export type RecordTransferAcceptRunErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferAcceptRunError = RecordTransferAcceptRunErrors[keyof RecordTransferAcceptRunErrors];
+
+export type RecordTransferAcceptRunResponses = {
+    /**
+     * The run as it now stands
+     */
+    200: RecordTransferRunEndedResponse;
+};
+
+export type RecordTransferAcceptRunResponse = RecordTransferAcceptRunResponses[keyof RecordTransferAcceptRunResponses];
+
+export type RecordTransferAbandonRunData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/abandon';
+};
+
+export type RecordTransferAbandonRunErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferAbandonRunError = RecordTransferAbandonRunErrors[keyof RecordTransferAbandonRunErrors];
+
+export type RecordTransferAbandonRunResponses = {
+    /**
+     * The run as it now stands
+     */
+    200: RecordTransferRunEndedResponse;
+};
+
+export type RecordTransferAbandonRunResponse = RecordTransferAbandonRunResponses[keyof RecordTransferAbandonRunResponses];
+
 export type RecordTransferAddSourceFileData = {
     body: unknown;
     path: {
@@ -53180,7 +53337,7 @@ export type RecordTransferAddSourceFileErrors = {
      */
     404: Problem;
     /**
-     * The run has ended, the file is already in the run, or the key is in progress
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
      */
     409: Problem;
     /**
@@ -53254,6 +53411,145 @@ export type RecordTransferPreviewSourceFileResponses = {
 
 export type RecordTransferPreviewSourceFileResponse = RecordTransferPreviewSourceFileResponses[keyof RecordTransferPreviewSourceFileResponses];
 
+export type RecordTransferListSourceFileColumnValuesData = {
+    body?: never;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query: {
+        column: string;
+        delimiter?: 'comma' | 'tab' | 'semicolon' | 'pipe';
+    };
+    url: '/api/v1/record-transfer/runs/{runId}/files/{fileId}/column-values';
+};
+
+export type RecordTransferListSourceFileColumnValuesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferListSourceFileColumnValuesError = RecordTransferListSourceFileColumnValuesErrors[keyof RecordTransferListSourceFileColumnValuesErrors];
+
+export type RecordTransferListSourceFileColumnValuesResponses = {
+    /**
+     * The column's values, the most used first
+     */
+    200: RecordTransferSourceFileColumnValuesResponse;
+};
+
+export type RecordTransferListSourceFileColumnValuesResponse = RecordTransferListSourceFileColumnValuesResponses[keyof RecordTransferListSourceFileColumnValuesResponses];
+
+export type RecordTransferGetSourceFileMappingData = {
+    body?: never;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/files/{fileId}/mapping';
+};
+
+export type RecordTransferGetSourceFileMappingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferGetSourceFileMappingError = RecordTransferGetSourceFileMappingErrors[keyof RecordTransferGetSourceFileMappingErrors];
+
+export type RecordTransferGetSourceFileMappingResponses = {
+    /**
+     * The saved mapping, or null
+     */
+    200: RecordTransferFileMappingResponse;
+};
+
+export type RecordTransferGetSourceFileMappingResponse = RecordTransferGetSourceFileMappingResponses[keyof RecordTransferGetSourceFileMappingResponses];
+
+export type RecordTransferSaveSourceFileMappingData = {
+    body: SaveRecordTransferFileMappingRequest;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/files/{fileId}/mapping';
+};
+
+export type RecordTransferSaveSourceFileMappingErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferSaveSourceFileMappingError = RecordTransferSaveSourceFileMappingErrors[keyof RecordTransferSaveSourceFileMappingErrors];
+
+export type RecordTransferSaveSourceFileMappingResponses = {
+    /**
+     * The mapping as saved
+     */
+    200: RecordTransferFileMappingResponse;
+};
+
+export type RecordTransferSaveSourceFileMappingResponse = RecordTransferSaveSourceFileMappingResponses[keyof RecordTransferSaveSourceFileMappingResponses];
+
 export type RecordTransferRequestPassData = {
     body: RequestRecordTransferPassRequest;
     headers: {
@@ -53284,7 +53580,7 @@ export type RecordTransferRequestPassErrors = {
      */
     404: Problem;
     /**
-     * The run has ended, the file is already in the run, or the key is in progress
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
      */
     409: Problem;
     /**
@@ -53427,6 +53723,50 @@ export type RecordTransferGetPassReportResponses = {
 };
 
 export type RecordTransferGetPassReportResponse = RecordTransferGetPassReportResponses[keyof RecordTransferGetPassReportResponses];
+
+export type RecordTransferDownloadRejectedRowsData = {
+    body?: never;
+    path: {
+        runId: string;
+        passId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/passes/{passId}/rejected-rows';
+};
+
+export type RecordTransferDownloadRejectedRowsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferDownloadRejectedRowsError = RecordTransferDownloadRejectedRowsErrors[keyof RecordTransferDownloadRejectedRowsErrors];
+
+export type RecordTransferDownloadRejectedRowsResponses = {
+    /**
+     * Delimited text: the reason column, then the file's own columns
+     */
+    200: string;
+};
+
+export type RecordTransferDownloadRejectedRowsResponse = RecordTransferDownloadRejectedRowsResponses[keyof RecordTransferDownloadRejectedRowsResponses];
 
 export type ShippingDisconnectCarrierData = {
     body?: never;

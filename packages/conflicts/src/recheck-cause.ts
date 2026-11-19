@@ -51,6 +51,17 @@ const TRIGGER_BY_TOPIC: Readonly<Record<string, ConflictsTrigger>> = {
   [PERSONNEL_TOPIC]: "personnel_changed",
 };
 
+// A cause that names its matters itself. Accepting a record transfer run asks for a check of every
+// live matter the run brought in, and records those requests directly, so the topic is no entry in
+// the table above (nothing here resolves matters for it). It is named here, not imported, because
+// its producer is the record transfer and this package does not depend on it; the worker's own test
+// pins the two spellings together. The check it leads to is a matter's first, hence comprehensive.
+export const CONFLICTS_TRANSFER_ACCEPTED_TOPIC = "recordTransfer.runAccepted";
+
+const TRIGGER_BY_DIRECT_TOPIC: Readonly<Record<string, ConflictsTrigger>> = {
+  [CONFLICTS_TRANSFER_ACCEPTED_TOPIC]: "comprehensive",
+};
+
 // The catalogue the worker's per-firm dispatch table spreads, so adding a cause is one entry in the
 // table above and nothing at all in the dispatcher.
 export const RECHECK_CAUSE_TOPICS: readonly string[] = Object.freeze(Object.keys(TRIGGER_BY_TOPIC));
@@ -59,7 +70,7 @@ export const RECHECK_CAUSE_TOPICS: readonly string[] = Object.freeze(Object.keys
 // build does not know, which is the honest label for "something asked and the reason is not in this
 // catalogue" — never a silent drop of the cause.
 export function triggerForCauseTopic(topic: string): ConflictsTrigger {
-  return TRIGGER_BY_TOPIC[topic] ?? "periodic_rescan";
+  return TRIGGER_BY_TOPIC[topic] ?? TRIGGER_BY_DIRECT_TOPIC[topic] ?? "periodic_rescan";
 }
 
 export interface ResolvedCause {
