@@ -19,6 +19,9 @@
       "path": "../../packages/community/tsconfig.build.json"
     },
     {
+      "path": "../../packages/data-access/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/database/tsconfig.build.json"
     },
     {

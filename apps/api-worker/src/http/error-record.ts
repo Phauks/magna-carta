@@ -12,7 +12,10 @@
  * real failure out of the table.
  */
 import type { Context } from "hono";
-import { insertErrorRecordStatement } from "@magna-carta/data-access/error-record-statements";
+import {
+  ERROR_RECORD_WRITE_OPERATION,
+  insertErrorRecordStatement,
+} from "@magna-carta/data-access/error-record-statements";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { serviceIdentity } from "@magna-carta/telemetry/service-identity";
 import type { Bindings } from "../bindings.ts";
@@ -61,7 +64,12 @@ export function recordAnsweredProblem(c: RecordingContext): void {
     .catch((caught: unknown) => {
       const logger = c.get("logger");
       if (logger !== undefined) {
-        logOperationFailed(logger, "error-record:write", caught, correlationId ?? undefined);
+        logOperationFailed(
+          logger,
+          ERROR_RECORD_WRITE_OPERATION,
+          caught,
+          correlationId ?? undefined,
+        );
       }
     });
   runInBackground(c, write);
