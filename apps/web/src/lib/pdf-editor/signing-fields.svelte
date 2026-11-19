@@ -327,7 +327,7 @@
     </div>
   </div>
 
-  <aside aria-label="Signers and fields" class="mc-scrollbar flex min-h-0 w-352 shrink-0 flex-col gap-16 overflow-auto border-s border-border-default bg-surface-default p-16">
+  <aside aria-label="Signers and fields" class="mc-scrollbar flex min-h-0 w-sm shrink-0 flex-col gap-16 overflow-auto border-s border-border-default bg-surface-default p-16">
     <section class="flex flex-col gap-8" aria-labelledby="signing-signers">
       <h2 id="signing-signers" class="text-sm font-semibold">Signers</h2>
       {#each draft.signers as signer, index (signer.key)}

@@ -244,6 +244,9 @@ export const PROBLEM_TYPES = {
   "exhibit-file-unavailable": "exhibit-file-unavailable",
   // A folder follow asked of a set built by hand, which follows no folder (HTTP 409).
   "exhibit-set-not-following": "exhibit-set-not-following",
+  // Bates numbers. Some number in the asked-for range is already stamped under that prefix on the
+  // matter (HTTP 409); the detail names the clash and the next free number.
+  "bates-range-taken": "bates-range-taken",
   // A bulk entry carrying more rows than one commit takes (HTTP 422). A REFUSAL and never a
   // truncation: a caller that sent sixty rows and silently had fifty written cannot tell that from
   // fifty rows it never sent.
