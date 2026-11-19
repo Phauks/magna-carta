@@ -23,11 +23,17 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Nineteen reports run today: the trust compliance report, accounts receivable aging, work in
-progress, aged work in progress, aged expenses, realization, revenue, invoices, payments applied, matter balances, the matter billing guide,
+Twenty reports run today: the trust compliance report, accounts receivable aging, work in
+progress, aged work in progress, aged expenses, realization, revenue, the client statement of account, invoices, payments applied, matter balances, the matter billing guide,
 timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
 the matters list, the client list, and the change log.
 
+- **Client Statement of Account** is one client's account for the period you choose. Pick the
+  client in the Client field beside the period; typing narrows the list. It shows what the client
+  owed at the start of the period, then each bill and each payment, credit or write-off in date
+  order with the balance after each one, what they owed at the end, and the bills still unpaid
+  then. An undone payment or credit appears as its own line. The closing balance is the same figure
+  Accounts Receivable Aging shows for that client on the period's last day.
 - **Invoices** lists every bill issued in the period you choose, by office and by client. For each
   bill it shows what was billed, what was credited or written off, what was applied against it by
   the last day of the period, and what was still unpaid then. Open a client to see their bills.
