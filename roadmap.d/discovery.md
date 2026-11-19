@@ -240,6 +240,14 @@
   evidence: crates/pdf-core/src/bates.rs plus configurability plan (docs/specs/2026-06-25-pdf-bates-configurability-plan.md).
   notes: Engine only; production-set workflow integration pending.
 
+- id: discovery.production.bates-register
+  name: Bates register
+  scope: One register of Bates numbers per matter, by prefix. Every stamp takes its range there first, so two documents stamped on a matter under one prefix never share a number, and each range is logged with the file, the saved copy, who stamped it and when.
+  status: shipped
+  surface: screen
+  evidence: packages/bates (overlap-guarded take, append-only ranges by trigger in the bates-numbers per-firm migration); routes in apps/api-worker/src/http/routes/matters/bates.ts; the PDF Editor's Bates tab fills in the next number and takes its range before stamping (apps/web/src/lib/pdf-editor/bates-tool.svelte).
+  notes: The register is the ranges themselves, not a counter, because a counter cannot refuse a typed start inside a stamped range. A production will take its block here too.
+
 - id: discovery.production.privilege-log
   name: Privilege log
   scope: Privilege log generated from tagged documents in a production.

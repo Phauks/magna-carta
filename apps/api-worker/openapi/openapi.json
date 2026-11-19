@@ -26970,6 +26970,263 @@
           "name"
         ]
       },
+      "BatesPrefixList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatesPrefixSummary"
+            }
+          },
+          "capped": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "capped"
+        ]
+      },
+      "BatesPrefixSummary": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string"
+          },
+          "digits": {
+            "type": "integer"
+          },
+          "nextNumber": {
+            "type": "integer"
+          },
+          "rangeCount": {
+            "type": "integer"
+          },
+          "pagesStamped": {
+            "type": "integer"
+          },
+          "lastStampedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "prefix",
+          "digits",
+          "nextNumber",
+          "rangeCount",
+          "pagesStamped",
+          "lastStampedAt"
+        ]
+      },
+      "BatesRangeList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatesRange"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "BatesRange": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^batesRange_[A-Za-z0-9_-]{21}$"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "digits": {
+            "type": "integer"
+          },
+          "firstNumber": {
+            "type": "integer"
+          },
+          "lastNumber": {
+            "type": "integer"
+          },
+          "pageCount": {
+            "type": "integer"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "pdfEditor",
+              "exhibitPackage"
+            ]
+          },
+          "sourceFileId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "sourceFileName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exhibitSetId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+          },
+          "stampedFileId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "stampedFileName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stampedFileSavedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "prefix",
+          "digits",
+          "firstNumber",
+          "lastNumber",
+          "pageCount",
+          "purpose",
+          "sourceFileId",
+          "sourceFileName",
+          "exhibitSetId",
+          "stampedFileId",
+          "stampedFileName",
+          "stampedFileSavedAt",
+          "createdBy",
+          "createdAt"
+        ]
+      },
+      "TakenBatesRange": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^batesRange_[A-Za-z0-9_-]{21}$"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "digits": {
+            "type": "integer"
+          },
+          "firstNumber": {
+            "type": "integer"
+          },
+          "lastNumber": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "prefix",
+          "digits",
+          "firstNumber",
+          "lastNumber"
+        ]
+      },
+      "TakeBatesRangeRequest": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "digits": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "pageCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "firstNumber": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999999
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "pdfEditor",
+              "exhibitPackage"
+            ]
+          },
+          "sourceFileId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "exhibitSetId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^exhibitSet_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "prefix",
+          "digits",
+          "pageCount",
+          "purpose"
+        ]
+      },
+      "RecordBatesStampedFileRequest": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "fileId"
+        ]
+      },
       "CreatedDirectoryEntityResponse": {
         "type": "object",
         "properties": {
@@ -97071,6 +97328,476 @@
         }
       }
     },
+    "/api/v1/matters/{matterId}/bates-prefixes": {
+      "get": {
+        "description": "Each Bates prefix stamped on the matter, most recently used first, with the next number under it, the padding it was last stamped with, and how many ranges and pages it holds.",
+        "operationId": "bates.listBatesPrefixes",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.listBatesPrefixes",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's Bates prefixes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatesPrefixList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/bates-ranges": {
+      "get": {
+        "description": "Every range of Bates numbers taken on the matter, newest first: the prefix and numbers, the file stamped, the saved copy if there is one, who took it and when.",
+        "operationId": "bates.listBatesRanges",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.listBatesRanges",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "required": false,
+            "name": "prefix",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's Bates ranges",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatesRangeList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Takes a range of Bates numbers for one stamp: one number per page, under a prefix. With no start number given it starts one past the highest number stamped under the prefix (1 for a new prefix). Refused when any number in the range is already stamped under the prefix.",
+        "operationId": "bates.takeBatesRange",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.takeBatesRange",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TakeBatesRangeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The range taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TakenBatesRange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/bates-ranges/{rangeId}/stamped-file": {
+      "post": {
+        "description": "Records the saved, stamped copy of a range: a file already on the matter. Once only; a range stamps one document.",
+        "operationId": "bates.recordBatesStampedFile",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.recordBatesStampedFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^batesRange_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "rangeId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordBatesStampedFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The copy is recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/directory/persons": {
       "post": {
         "description": "Creates a directory person from its structured name parts, seeding the current-name history row and its phonetic blocking codes.",
@@ -152648,6 +153375,9 @@
     },
     {
       "name": "assemblies"
+    },
+    {
+      "name": "bates"
     },
     {
       "name": "billing"
