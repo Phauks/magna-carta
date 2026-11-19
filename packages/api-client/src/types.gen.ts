@@ -4161,6 +4161,15 @@ export type MySigningRequestsOnFile = {
     requestIds: Array<string>;
 };
 
+export type SignedCopyView = {
+    title: string;
+    firmName: string;
+    senderName: string;
+    sealedAt: string;
+    documentFileName: string;
+    certificateFileName: string;
+};
+
 export type SessionLaunchResponse = {
     editorUrl: string;
     editorOrigin: string;
@@ -24786,6 +24795,105 @@ export type SigningDeclineMyPartResponses = {
 };
 
 export type SigningDeclineMyPartResponse = SigningDeclineMyPartResponses[keyof SigningDeclineMyPartResponses];
+
+export type SignerReadSignedCopyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/signed-copy';
+};
+
+export type SignerReadSignedCopyErrors = {
+    /**
+     * Not a link this deployment made, or the copy is no longer held
+     */
+    404: Problem;
+    /**
+     * The link expired or was replaced, or the copy is not sealed yet
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadSignedCopyError = SignerReadSignedCopyErrors[keyof SignerReadSignedCopyErrors];
+
+export type SignerReadSignedCopyResponses = {
+    /**
+     * The signed copy's details
+     */
+    200: SignedCopyView;
+};
+
+export type SignerReadSignedCopyResponse = SignerReadSignedCopyResponses[keyof SignerReadSignedCopyResponses];
+
+export type SignerReadSignedCopyDocumentData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/signed-copy/document';
+};
+
+export type SignerReadSignedCopyDocumentErrors = {
+    /**
+     * Not a link this deployment made, or the copy is no longer held
+     */
+    404: Problem;
+    /**
+     * The link expired or was replaced, or the copy is not sealed yet
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadSignedCopyDocumentError = SignerReadSignedCopyDocumentErrors[keyof SignerReadSignedCopyDocumentErrors];
+
+export type SignerReadSignedCopyDocumentResponses = {
+    /**
+     * The signed copy
+     */
+    200: Blob | File;
+};
+
+export type SignerReadSignedCopyDocumentResponse = SignerReadSignedCopyDocumentResponses[keyof SignerReadSignedCopyDocumentResponses];
+
+export type SignerReadSignedCopyCertificateData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/signer/signed-copy/certificate';
+};
+
+export type SignerReadSignedCopyCertificateErrors = {
+    /**
+     * Not a link this deployment made, or the copy is no longer held
+     */
+    404: Problem;
+    /**
+     * The link expired or was replaced, or the copy is not sealed yet
+     */
+    410: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SignerReadSignedCopyCertificateError = SignerReadSignedCopyCertificateErrors[keyof SignerReadSignedCopyCertificateErrors];
+
+export type SignerReadSignedCopyCertificateResponses = {
+    /**
+     * The certificate
+     */
+    200: Blob | File;
+};
+
+export type SignerReadSignedCopyCertificateResponse = SignerReadSignedCopyCertificateResponses[keyof SignerReadSignedCopyCertificateResponses];
 
 export type DocumentsEditSessionData = {
     body?: never;

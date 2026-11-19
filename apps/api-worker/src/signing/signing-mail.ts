@@ -1,5 +1,10 @@
 import { formatInstant } from "@magna-carta/design-system/formatters";
-import { signerPageLink, SIGNER_SCREEN_PATH } from "./signer-link.ts";
+import {
+  SIGNED_COPY_SCREEN_PATH,
+  SIGNER_SCREEN_PATH,
+  signedCopyPageLink,
+  signerPageLink,
+} from "./signer-link.ts";
 
 // THE MAILS A SIGNER RECEIVES, pure and testable.
 //
@@ -15,6 +20,7 @@ import { signerPageLink, SIGNER_SCREEN_PATH } from "./signer-link.ts";
 export const SIGNING_REQUEST_MESSAGE_CLASS = "signing-request";
 export const SIGNING_REMINDER_MESSAGE_CLASS = "signing-reminder";
 export const SIGNING_ACCESS_CODE_MESSAGE_CLASS = "signing-access-code";
+export const SIGNING_COMPLETED_MESSAGE_CLASS = "signing-completed";
 
 export interface SigningLetterFacts {
   readonly firmName: string;
@@ -84,6 +90,31 @@ export function accessCodeEmail(input: {
     text:
       `Your code to sign the document ${firmOf(input.firmName)} sent you is:\n\n${input.code}\n\n` +
       `It works for ${input.minutes} minutes. If you did not ask for it, you can ignore this message; nobody can sign without the link as well.`,
+  };
+}
+
+/**
+ * The mail each outside signer gets once everyone has signed and the copy is sealed. Like the others
+ * it never carries the document: the link opens a page with the signed copy and its certificate.
+ */
+export function signedCopyEmail(facts: {
+  readonly firmName: string;
+  readonly senderName: string;
+  readonly title: string;
+  /** When the link stops working, already written for a reader, with its zone named. */
+  readonly linkWorksUntil: string;
+  readonly origin: string;
+  readonly token: string;
+}): { readonly subject: string; readonly text: string } {
+  const link = signedCopyPageLink(facts.origin, facts.token);
+  return {
+    subject: `Completed: ${facts.title}`,
+    text:
+      `Everyone has signed the document ${facts.senderName} at ${firmOf(facts.firmName)} sent you.\n\n${facts.title}\n\n` +
+      `Open this link to download the signed copy and its Certificate of Completion:\n\n${link}\n\n` +
+      `The link works until ${facts.linkWorksUntil}. Save a copy for your records.\n\n` +
+      `If your mail program does not open links, go to ${facts.origin}${SIGNED_COPY_SCREEN_PATH}/ followed by this code:\n\n${facts.token}\n\n` +
+      `This link is for you; do not forward it.`,
   };
 }
 
