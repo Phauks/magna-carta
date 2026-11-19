@@ -212,6 +212,12 @@ import type {
   TrustCheckId,
   TrustCheckEventId,
   TrustCheckStockId,
+  TrustBankReconciliationChangeId,
+  TrustBankReconciliationFileId,
+  TrustBankReconciliationId,
+  TrustBankReconciliationInterestId,
+  TrustBankReconciliationNoteId,
+  TrustBankReconciliationRestorePointId,
   TrustUnclaimedFundsReviewId,
   UploadSessionId,
   UserId,
@@ -6171,6 +6177,275 @@ export const trustCheckEvent = sqliteTable(
       "trust_check_event_reason_check",
       sql`${table.kind} = 'printed' OR length(${table.reason}) > 0`,
     ),
+  ],
+);
+
+// BANK RECONCILIATION, the way QuickBooks does it: a person types the statement's end date and end
+// balance, ticks each book item the statement shows, and finishes when the difference is zero.
+// Nothing here moves money and nothing locks the account while a period is open. Every tick, untick
+// and change of end date or end balance is a row of its own, in order, so History, Undo, Redo and
+// restore points are all reads of one list and two people can work one period at once.
+//
+// The period's row takes exactly one update, its finish, which freezes the figures. The items it
+// cleared are copied into trust_bank_reconciliation_cleared in the same batch, and that table's
+// key is what stops one book item being cleared in two finished periods.
+export const trustBankReconciliation = sqliteTable(
+  "trust_bank_reconciliation",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationId>(), // trustBankReconciliation_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    currency: text("currency").notNull(),
+    startDate: text("start_date").notNull(), // YYYY-MM-DD civil date
+    startBalanceMinor: integer("start_balance_minor").notNull(), // signed: an account can be overdrawn
+    // 1 when the start came from the last finished period, 0 when a person typed it (the first one).
+    startCarriedOver: integer("start_carried_over").notNull(),
+    startedBy: text("started_by").notNull().$type<UserId>(),
+    startedAt: text("started_at").notNull(), // UTC instant
+    finishedBy: text("finished_by").$type<UserId>(),
+    finishedAt: text("finished_at"), // UTC instant
+    finishedEndDate: text("finished_end_date"),
+    finishedEndBalanceMinor: integer("finished_end_balance_minor"),
+    finishedClearedBalanceMinor: integer("finished_cleared_balance_minor"),
+    finishedDepositedMinor: integer("finished_deposited_minor"),
+    finishedWithdrawnMinor: integer("finished_withdrawn_minor"),
+    finishedDifferenceMinor: integer("finished_difference_minor"),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_account_index").on(table.trustAccountId, table.startDate),
+    // One period in progress per account at a time.
+    uniqueIndex("trust_bank_reconciliation_one_open_unique_index")
+      .on(table.trustAccountId)
+      .where(sql`${table.finishedAt} IS NULL`),
+    check("trust_bank_reconciliation_currency_check", sql`length(${table.currency}) = 3`),
+    check("trust_bank_reconciliation_start_date_shape_check", civilDateShape(table.startDate)),
+    check(
+      "trust_bank_reconciliation_end_date_shape_check",
+      civilDateShape(table.finishedEndDate, true),
+    ),
+    check("trust_bank_reconciliation_carried_over_check", sql`${table.startCarriedOver} IN (0, 1)`),
+    check(
+      "trust_bank_reconciliation_finish_shape_check",
+      sql`(${table.finishedAt} IS NULL AND ${table.finishedBy} IS NULL AND ${table.finishedEndDate} IS NULL AND ${table.finishedEndBalanceMinor} IS NULL AND ${table.finishedClearedBalanceMinor} IS NULL AND ${table.finishedDepositedMinor} IS NULL AND ${table.finishedWithdrawnMinor} IS NULL AND ${table.finishedDifferenceMinor} IS NULL)
+        OR (${table.finishedAt} IS NOT NULL AND ${table.finishedBy} IS NOT NULL AND ${table.finishedEndDate} >= ${table.startDate} AND ${table.finishedEndBalanceMinor} IS NOT NULL AND ${table.finishedClearedBalanceMinor} IS NOT NULL AND ${table.finishedDepositedMinor} >= 0 AND ${table.finishedWithdrawnMinor} >= 0 AND ${table.finishedDifferenceMinor} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// An IOLTA interest line: interest the bank credited, or the bank's sweep of it to the bar
+// foundation. It belongs to no matter and never touches a client ledger or the trust book. Removing
+// one is a new row naming it.
+export const trustBankReconciliationInterest = sqliteTable(
+  "trust_bank_reconciliation_interest",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationInterestId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    kind: text("kind", { enum: ["credited", "swept"] }).notNull(),
+    postedOn: text("posted_on").notNull(), // YYYY-MM-DD, as the statement shows it
+    amountMinor: integer("amount_minor").notNull(),
+    description: text("description").notNull(),
+    removesInterestId: text("removes_interest_id").$type<TrustBankReconciliationInterestId>(),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_interest_reconciliation_index").on(table.reconciliationId),
+    uniqueIndex("trust_bank_reconciliation_interest_removes_unique_index").on(
+      table.removesInterestId,
+    ),
+    check(
+      "trust_bank_reconciliation_interest_kind_check",
+      sql`${table.kind} IN ('credited', 'swept')`,
+    ),
+    check(
+      "trust_bank_reconciliation_interest_posted_on_shape_check",
+      civilDateShape(table.postedOn),
+    ),
+    check("trust_bank_reconciliation_interest_amount_check", sql`${table.amountMinor} > 0`),
+    check(
+      "trust_bank_reconciliation_interest_description_check",
+      sql`length(${table.description}) > 0`,
+    ),
+  ],
+);
+
+// One change to a period, numbered in order within it. A tick names a book item (a ledger entry
+// touching the account's bank account) or an interest line. `cause` says how the change came about,
+// which is what History shows and what Undo and Redo walk.
+export const trustBankReconciliationChange = sqliteTable(
+  "trust_bank_reconciliation_change",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationChangeId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    sequence: integer("sequence").notNull(),
+    kind: text("kind", { enum: ["cleared", "uncleared", "end_date", "end_balance"] }).notNull(),
+    entryId: text("entry_id")
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    interestId: text("interest_id")
+      .$type<TrustBankReconciliationInterestId>()
+      .references(() => trustBankReconciliationInterest.id),
+    endDate: text("end_date"),
+    endBalanceMinor: integer("end_balance_minor"),
+    cause: text("cause", { enum: ["edit", "undo", "redo", "history", "restore"] }).notNull(),
+    revertsChangeId: text("reverts_change_id").$type<TrustBankReconciliationChangeId>(),
+    restorePointId: text("restore_point_id").$type<TrustBankReconciliationRestorePointId>(),
+    changedBy: text("changed_by").notNull().$type<UserId>(),
+    changedAt: text("changed_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("trust_bank_reconciliation_change_sequence_unique_index").on(
+      table.reconciliationId,
+      table.sequence,
+    ),
+    index("trust_bank_reconciliation_change_entry_index").on(table.reconciliationId, table.entryId),
+    check("trust_bank_reconciliation_change_sequence_check", sql`${table.sequence} > 0`),
+    check(
+      "trust_bank_reconciliation_change_kind_check",
+      sql`${table.kind} IN ('cleared', 'uncleared', 'end_date', 'end_balance')`,
+    ),
+    check(
+      "trust_bank_reconciliation_change_cause_check",
+      sql`${table.cause} IN ('edit', 'undo', 'redo', 'history', 'restore')`,
+    ),
+    check(
+      "trust_bank_reconciliation_change_end_date_shape_check",
+      civilDateShape(table.endDate, true),
+    ),
+    check(
+      "trust_bank_reconciliation_change_shape_check",
+      sql`(${table.kind} IN ('cleared', 'uncleared') AND ((${table.entryId} IS NULL) <> (${table.interestId} IS NULL)) AND ${table.endDate} IS NULL AND ${table.endBalanceMinor} IS NULL)
+        OR (${table.kind} = 'end_date' AND ${table.entryId} IS NULL AND ${table.interestId} IS NULL AND ${table.endDate} IS NOT NULL AND ${table.endBalanceMinor} IS NULL)
+        OR (${table.kind} = 'end_balance' AND ${table.entryId} IS NULL AND ${table.interestId} IS NULL AND ${table.endDate} IS NULL AND ${table.endBalanceMinor} IS NOT NULL)`,
+    ),
+    check(
+      "trust_bank_reconciliation_change_cause_shape_check",
+      sql`(${table.cause} = 'edit' AND ${table.revertsChangeId} IS NULL AND ${table.restorePointId} IS NULL)
+        OR (${table.cause} IN ('undo', 'redo', 'history') AND ${table.revertsChangeId} IS NOT NULL AND ${table.restorePointId} IS NULL)
+        OR (${table.cause} = 'restore' AND ${table.revertsChangeId} IS NULL AND ${table.restorePointId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// A named place in a period's changes to go back to. Restoring writes the changes that put the
+// ticks, end date and end balance back as they were at `atSequence`; notes and files are kept.
+export const trustBankReconciliationRestorePoint = sqliteTable(
+  "trust_bank_reconciliation_restore_point",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationRestorePointId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    name: text("name").notNull(),
+    atSequence: integer("at_sequence").notNull(),
+    // 1 for the point saved by itself just before a restore, so the restore can be gone back on.
+    automatic: integer("automatic").notNull(),
+    savedBy: text("saved_by").notNull().$type<UserId>(),
+    savedAt: text("saved_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_restore_point_reconciliation_index").on(
+      table.reconciliationId,
+    ),
+    check("trust_bank_reconciliation_restore_point_name_check", sql`length(${table.name}) > 0`),
+    check("trust_bank_reconciliation_restore_point_sequence_check", sql`${table.atSequence} >= 0`),
+    check(
+      "trust_bank_reconciliation_restore_point_automatic_check",
+      sql`${table.automatic} IN (0, 1)`,
+    ),
+  ],
+);
+
+// A note on a line, or a change to whether it needs review. Notes are never undone or restored, and
+// may be added after the period is finished: they outlive the review.
+export const trustBankReconciliationNote = sqliteTable(
+  "trust_bank_reconciliation_note",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationNoteId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    entryId: text("entry_id")
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    interestId: text("interest_id")
+      .$type<TrustBankReconciliationInterestId>()
+      .references(() => trustBankReconciliationInterest.id),
+    kind: text("kind", { enum: ["note", "needs_review", "resolved"] }).notNull(),
+    body: text("body"),
+    writtenBy: text("written_by").notNull().$type<UserId>(),
+    writtenAt: text("written_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_note_reconciliation_index").on(table.reconciliationId),
+    check(
+      "trust_bank_reconciliation_note_kind_check",
+      sql`${table.kind} IN ('note', 'needs_review', 'resolved')`,
+    ),
+    check(
+      "trust_bank_reconciliation_note_line_check",
+      sql`(${table.entryId} IS NULL) <> (${table.interestId} IS NULL)`,
+    ),
+    check(
+      "trust_bank_reconciliation_note_body_check",
+      sql`(${table.kind} = 'note' AND length(${table.body}) > 0) OR (${table.kind} <> 'note' AND ${table.body} IS NULL)`,
+    ),
+  ],
+);
+
+// A file kept with a period: the bank statement, a deposit slip. The bytes are in the firm's bucket
+// under the key. Removing one is a new row naming it; the bytes stay, as trust records are kept.
+export const trustBankReconciliationFile = sqliteTable(
+  "trust_bank_reconciliation_file",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationFileId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    name: text("name").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    objectKey: text("object_key").notNull(),
+    sha256: text("sha256").notNull(),
+    removesFileId: text("removes_file_id").$type<TrustBankReconciliationFileId>(),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_file_reconciliation_index").on(table.reconciliationId),
+    uniqueIndex("trust_bank_reconciliation_file_removes_unique_index").on(table.removesFileId),
+    check("trust_bank_reconciliation_file_name_check", sql`length(${table.name}) > 0`),
+    check("trust_bank_reconciliation_file_size_check", sql`${table.sizeBytes} >= 0`),
+  ],
+);
+
+// The book items a finished period cleared, written by its finish.
+export const trustBankReconciliationCleared = sqliteTable(
+  "trust_bank_reconciliation_cleared",
+  {
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    // The primary key is the guarantee: one item is cleared in one finished period, ever.
+    entryId: text("entry_id")
+      .primaryKey()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_cleared_reconciliation_index").on(table.reconciliationId),
   ],
 );
 

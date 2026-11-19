@@ -246,6 +246,19 @@ export const ENTITY_PREFIXES = {
   trustCheck: "trustCheck",
   trustCheckEvent: "trustCheckEvent",
   trustCheckStock: "trustCheckStock",
+  // Bank reconciliation, the tick-to-clear way. A `trustBankReconciliation` is one period of one
+  // account checked against the bank's statement; a `trustBankReconciliationChange` is one tick,
+  // untick, end date or end balance, kept in order so History, Undo and restore points read it; a
+  // `trustBankReconciliationRestorePoint` is a named place in that order to go back to; a
+  // `trustBankReconciliationInterest` is an IOLTA interest line the bank credited or swept out; a
+  // `trustBankReconciliationNote` is a note or a review flag on a line; a
+  // `trustBankReconciliationFile` is a statement or other file kept with the period.
+  trustBankReconciliation: "trustBankReconciliation",
+  trustBankReconciliationChange: "trustBankReconciliationChange",
+  trustBankReconciliationRestorePoint: "trustBankReconciliationRestorePoint",
+  trustBankReconciliationInterest: "trustBankReconciliationInterest",
+  trustBankReconciliationNote: "trustBankReconciliationNote",
+  trustBankReconciliationFile: "trustBankReconciliationFile",
   // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
   // entities); an `invoiceLine` is what the client is told, in presentation order; an
   // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the

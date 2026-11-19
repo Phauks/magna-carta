@@ -1,5 +1,6 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerTrustBankReconciliationRoutes } from "./trust-bank-reconciliation.ts";
 import { registerTrustCheckStockRoutes } from "./trust-check-stock.ts";
 import { registerTrustCheckRoutes } from "./trust-checks.ts";
 import { registerTrustFirmFundsRoutes } from "./trust-firm-funds.ts";
@@ -19,6 +20,8 @@ export function mountTrust(app: AppRouter, chokepoint: Chokepoint, _deps: Domain
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(domain, chokepoint);
   registerTrustReconciliationRoutes(domain, chokepoint);
+  // Bank reconciliation, the tick-to-clear screen: periods, ticks, notes, files, restore points.
+  registerTrustBankReconciliationRoutes(domain, chokepoint);
   // Check printing: the queue, the register, the stock and its scan. Printing moves no money.
   registerTrustCheckRoutes(domain, chokepoint);
   registerTrustCheckStockRoutes(domain, chokepoint);
