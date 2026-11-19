@@ -11262,15 +11262,6 @@ export type TrustCheckAcknowledgement = {
     checkNumber: number | null;
 };
 
-export type RecordTrustCheckResultsRequest = {
-    trustAccountId: string;
-    results: Array<{
-        trustCheckId: string;
-        outcome: 'printed' | 'spoiled';
-        reason?: string | null;
-    }>;
-};
-
 export type VoidTrustCheckRequest = {
     trustAccountId: string;
     reason: string;
@@ -51683,58 +51674,6 @@ export type TrustPrintChecksResponses = {
 };
 
 export type TrustPrintChecksResponse = TrustPrintChecksResponses[keyof TrustPrintChecksResponses];
-
-export type TrustRecordCheckResultsData = {
-    body: RecordTrustCheckResultsRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/trust/checks/results';
-};
-
-export type TrustRecordCheckResultsErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks the capability
-     */
-    403: Problem;
-    /**
-     * The trust account or check is unknown
-     */
-    404: Problem;
-    /**
-     * The check was already answered, or the Idempotency-Key is still in progress
-     */
-    409: Problem;
-    /**
-     * The trust rules refuse this
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type TrustRecordCheckResultsError = TrustRecordCheckResultsErrors[keyof TrustRecordCheckResultsErrors];
-
-export type TrustRecordCheckResultsResponses = {
-    /**
-     * Recorded
-     */
-    201: TrustCheckAcknowledgement;
-};
-
-export type TrustRecordCheckResultsResponse = TrustRecordCheckResultsResponses[keyof TrustRecordCheckResultsResponses];
 
 export type TrustVoidNextCheckNumberData = {
     body: VoidTrustCheckRequest;

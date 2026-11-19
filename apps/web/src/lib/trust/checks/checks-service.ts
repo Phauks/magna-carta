@@ -10,13 +10,11 @@ import {
   printTrustChecks,
   readTrustCheckStockScanUrl,
   readTrustChecks,
-  recordTrustCheckResults,
   saveTrustCheckStock,
   voidNextTrustCheckNumber,
   voidTrustCheck,
   type PrintTrustChecksResponse,
   type SaveTrustCheckStockRequest,
-  type TrustCheckAnswer,
   type TrustChecksResponse,
 } from "./checks-api.ts";
 import { composeCheckPdf, openPdf } from "./check-pdf.ts";
@@ -34,11 +32,6 @@ export interface TrustChecksService {
     /** The number on the first sheet in the printer; absent, the account's next number. */
     firstCheckNumber?: number,
   ): Promise<ApiOutcome<PrintTrustChecksResponse>>;
-  recordResults(
-    trustAccountId: string,
-    results: readonly TrustCheckAnswer[],
-    idempotencyKey: string,
-  ): Promise<ApiOutcome<TrustCheckAcknowledgement>>;
   voidCheck(
     trustAccountId: string,
     checkId: string,
@@ -65,7 +58,6 @@ export interface TrustChecksService {
 export const liveTrustChecksService: TrustChecksService = {
   read: readTrustChecks,
   print: printTrustChecks,
-  recordResults: recordTrustCheckResults,
   voidCheck: voidTrustCheck,
   voidNextNumber: voidNextTrustCheckNumber,
   saveStock: saveTrustCheckStock,

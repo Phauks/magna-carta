@@ -33,7 +33,6 @@ export const OPERATIONS: readonly string[] = [
   "trust.reconciliationSuggestions",
   "trust.recordBankCharge",
   "trust.recordBankStatement",
-  "trust.recordCheckResults",
   "trust.recordReconciliationMatch",
   "trust.recordUnclaimedFundsContactAttempt",
   "trust.rejectDisbursement",
