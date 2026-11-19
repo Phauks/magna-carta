@@ -6,12 +6,12 @@ research: done by="Opus 4.8"
 spec: in-progress by="Opus 4.8"
 plan: in-progress by="Opus 4.8"
 built: in-progress by="Opus 4.8"
-ui: todo
+ui: in-progress by="Claude"
 load-profile: n/a
 tested: in-progress by="Opus 4.8"
 branch: main
 active-work:
-next: Deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists), then provision the platform seal identity with pnpm run platform-seal-certificate; after that, timestamp/LTV levels behind a TSA, independent-validator (pyHanko/DSS) conformance, cross-reference-stream originals in the seal primitive (classic tables only today), and the consumer/UI surfaces.
+next: Deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists), then provision the platform seal identity with pnpm run platform-seal-certificate; after that, timestamp/LTV levels behind a TSA, independent-validator (pyHanko/DSS) conformance, cross-reference-stream originals in the seal primitive (classic tables only today). The PDF Editor tools and the signing flow are on main (PRs #803, #939, #957); emailing signers the signed copy is the next signing step.
 link-spec: docs/specs/2026-07-17-slice-2-5-pdf-services-esignature-analysis.md
 link-plan:
 adrs:
