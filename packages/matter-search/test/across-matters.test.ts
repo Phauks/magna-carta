@@ -5,6 +5,7 @@ import {
   type VisibleMatterPredicate,
 } from "@magna-carta/calendar/visibility";
 import type { Permission } from "@magna-carta/access-control/registry";
+import type { UserId } from "@magna-carta/identifiers/types";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
 import type { FileContentsAnswer, MatterFileContentsSearcher } from "../src/file-contents.ts";
@@ -76,6 +77,7 @@ interface AskOptions {
   readonly narrowing?: MatterNarrowing;
   readonly fileContents?: MatterFileContentsSearcher | null;
   readonly dates?: SearchDateRange;
+  readonly actorUserId?: UserId;
 }
 
 function ask(
@@ -95,6 +97,7 @@ function ask(
     ...(options.narrowing === undefined ? {} : { narrowing: options.narrowing }),
     ...(options.fileContents === undefined ? {} : { fileContents: options.fileContents }),
     ...(options.dates === undefined ? {} : { dates: options.dates }),
+    ...(options.actorUserId === undefined ? {} : { actorUserId: options.actorUserId }),
   });
 }
 
@@ -434,6 +437,30 @@ describe("a search across matters held to the days its reader asked about", () =
       dates: { from: "2026-08-01" },
     });
     expect(hitIds(answer, "notes")).toEqual(["matterNote_easement"]);
+  });
+});
+
+describe("a search across matters held to the one person its reader asked about", () => {
+  it("answers from the rows that person wrote, and from no one else's", async () => {
+    const { database } = seededDatabase();
+    const anyone = await ask(database, "easement");
+    const theirs = await ask(database, "easement", { actorUserId: ACTOR });
+    expect(hitIds(theirs, "notes")).toEqual(hitIds(anyone, "notes"));
+    const nobody = await ask(database, "easement", { actorUserId: "user_nobodyHere00" as UserId });
+    expect(hitIds(nobody, "notes")).toEqual([]);
+    expect(groupOf(nobody, "notes").skipped).toBeNull();
+  });
+
+  it("says a place that records no author was not asked, rather than answering it unheld", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", { actorUserId: ACTOR });
+    for (const source of ["files", "parties", "custody", "billing", "costs"]) {
+      expect(groupOf(answer, source).skipped).toBe("no-author");
+      expect(hitIds(answer, source)).toEqual([]);
+    }
+    for (const source of ["notes", "time", "communications"]) {
+      expect(groupOf(answer, source).skipped).not.toBe("no-author");
+    }
   });
 });
 

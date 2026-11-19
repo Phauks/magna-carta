@@ -1,7 +1,7 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import type { MatterId } from "@magna-carta/identifiers/types";
+import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
 import { countRecordIndexMatchesUpToStatement } from "@magna-carta/search/record-index-statements";
 import type { MatterFileContentsSearcher } from "./file-contents.ts";
@@ -87,6 +87,8 @@ export interface RunSearchAcrossMattersInput {
   // The days the reader asked about. Absent for any day. Every place answers inside them, because
   // every place answers across matters newest first by a date it is listed by.
   readonly dates?: SearchDateRange;
+  // The one member whose rows are wanted, or absent for anyone.
+  readonly actorUserId?: UserId;
 }
 
 function group(
@@ -162,6 +164,8 @@ export async function runSearchAcrossMatters(
       groups.push(skipped(source, "one-matter-only"));
     } else if (source.permission !== null && !input.permissions.has(source.permission)) {
       groups.push(skipped(source, "permission"));
+    } else if (input.actorUserId !== undefined && source.acrossMatters.recordsAuthor !== true) {
+      groups.push(skipped(source, "no-author"));
     } else if (query.length < source.minimumQueryLength) {
       groups.push(skipped(source, "query-too-short"));
     } else {
@@ -197,6 +201,7 @@ export async function runSearchAcrossMatters(
     ...(reachedMatterIds === undefined ? {} : { reachedMatterIds }),
     ...(input.fileContents === undefined ? {} : { fileContents: input.fileContents }),
     ...(input.dates === undefined ? {} : { dates: input.dates }),
+    ...(input.actorUserId === undefined ? {} : { actorUserId: input.actorUserId }),
   };
 
   const [broad, answered] = await Promise.all([

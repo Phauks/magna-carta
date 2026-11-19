@@ -10,62 +10,44 @@ still finds the application's own screens, settings and tools first. Its last ro
 Every Matter For** and whatever you typed: choose it, or press Enter when it is the only row, and
 the Search page opens with your words already in it.
 
-The page's address holds your words, the place you chose, the matters you chose and any dates, so
-you can reload it, go back to an earlier search with the browser's Back button, or send the link
-to a colleague. They see what _they_ are allowed to see, which may be less than you do.
+The page's address holds your words and every filter you set, so you can reload it, go back to
+an earlier search with the browser's Back button, or send the link to a colleague. They see what
+_they_ are allowed to see, which may be less than you do.
 
-## Choosing which matters to search
+## Filtering a search
 
-Under the search box, **Search In** chooses which matters are asked.
+The filters are in the panel beside the results. On a phone, tap **Filters** under the search box;
+the button says how many are set. Each filter you set also shows above the results: click it to
+take it off, or click **Clear All**. Your filters stay as you type a new question.
 
-| Choice                   | What is searched                                                        |
-| ------------------------ | ----------------------------------------------------------------------- |
-| **Everything I Can See** | Every matter you can see. This is where the page starts.                |
-| **My Matters**           | The matters you are responsible for, and the ones you are assigned to   |
-| **One Client**           | The matters one person or organization is a client on. Pick the client. |
-| **One Matter**           | Pick a matter, and its own search opens with your words already in it   |
+**Places.** Tick the places to show. Every place starts ticked except **Matters by Name** and
+**People by Name**; tick those to find a matter or a person by name. The number beside a place is
+how many it found, even when it is not ticked.
 
-A matter's own search reaches more of that matter than this page does, such as its calendar and
-its deleted files, which is why **One Matter** takes you there.
+**Matters.** Choose which matters are searched.
 
-**My Matters** and **One Client** search fewer matters and nothing else changes: you still see only
-what you are allowed to see. A link that names a client shows a colleague only the matters of that
-client they can see themselves.
+| Choice                     | What is searched                                                        |
+| -------------------------- | ----------------------------------------------------------------------- |
+| **Every matter I can see** | Every matter you can see. This is where the page starts.                |
+| **My matters**             | The matters you are responsible for, and the ones you are assigned to   |
+| **One client's matters**   | The matters one person or organization is a client on. Pick the client. |
+| **Matters I pick**         | Up to 25 matters you pick by name or number. Untick one to drop it.     |
 
-While the search is narrowed, **People** is not searched, because the directory belongs to the
-whole firm and not to a matter. It is listed under **Not Searched** as **Firm-Wide**. Choose
-**Everything I Can See** to search people by name.
+A smaller choice searches fewer matters and nothing else changes: you still see only what you are
+allowed to see. A link that names a client or a matter shows a colleague only what they can see
+themselves.
 
-Your choice stays as you type a new question. Changing it starts again at **All Places**.
+**Date.** **Any time**, **Last 30 days**, **This year**, or **Between** two days you pick. A date
+holds each place to its own date: a note's date, a time entry's work date, a cost's date, when a
+call happened, when an invoice line or a file was added, when a party was added to the matter.
 
-## Asking in your own words
+**By.** Pick a colleague to see only the notes they wrote, the calls they logged and the time they
+recorded. The other places do not record who wrote them, so they show **No Author** while a person
+is picked.
 
-You can type a question the way you would say it, such as **hargrove invoices since june**. The
-page reads three things out of it and searches the rest as words:
-
-- **A place**, when you name one: invoices or bills (Billing), notes, time entries or hours (Time),
-  costs or expenses, calls, texts or messages (Messaging), files or documents, parties, custody
-  packets, matters or cases, people or contacts. Name two places and both are searched as words.
-- **Your own matters**: **my matters**, **my cases** or **mine**.
-- **Dates**: **today**, **yesterday**, **this week**, **last week**, **this month**, **last
-  month**, **this year**, **last year**, **last 30 days**, **since june**, **after 2025**,
-  **before march 2026**, **in 2025**, **between may 1 and june 30**, or a day such as
-  **6/5/2026** or **june 5, 2026**. A month with no year is the most recent one. A month or a year
-  on its own, with no word such as **since** or **in** before it, is searched as a word, because
-  "May" and "March" are names too.
-
-What the page read shows under the search box as **Understood as**, one chip for each. Click a chip
-to take it away and search without it. **Search the Words Only** searches what you typed exactly
-as you typed it. Words inside quotation marks are never read as a place or a date.
-
-A date holds each place to its own date: a note's date, a time entry's work date, a cost's date,
-when a call happened, when an invoice line or a file was added, when a party was added to the
-matter. A file found by the words inside it is held to when it was added. **Matters** and
-**People** are found by name, and a name has no date, so a search with a date lists them under
-**Not Searched** as **By Name**.
-
-A place or a date is not a search on its own. A question read down to no words, such as **invoices
-since june**, asks you to add a word to look for, such as a name.
+**Matters by Name** and **People by Name** have no date and no author, so they are not searched
+while a date or a person is set, and show **By Name**. **People by Name** is also not searched when
+you choose fewer matters, because the directory belongs to the whole firm and not to a matter.
 
 ## What is searched
 
@@ -92,9 +74,9 @@ today.
 
 **Inside Files** finds a file by the words in it, best match first, and names the pages they are
 on. Each matter's files are searched separately, so this place answers when your search reaches 25
-matters or fewer: **One Client**, **My Matters** when those are few, or **Everything I Can See**
-at a firm with few matters. With more, the page lists it under **Not Searched** as **Fewer
-Matters**. Searching inside files has to be turned on for the firm first. See
+matters or fewer: matters you pick, one client's, **My matters** when those are few, or every
+matter at a firm with few matters. With more, it is marked **Fewer Matters** in the **Places**
+list. Searching inside files has to be turned on for the firm first. See
 [Searching inside files](searching-a-matter.md#searching-inside-files).
 
 **Billing** finds an invoice by a line on it or by its number, and shows the invoice's number and
@@ -113,32 +95,32 @@ where they are, the same as inside a matter. See
 [Reading the results](searching-a-matter.md#reading-the-results). The **Matters** and **People**
 groups are found by name through their own lists and are not highlighted.
 
-## The list of places
+## Reading the results
 
-Beside the results is a list of places with the number of results showing for each. **All Places**
-shows up to five from each place that found something. Choose a place to see up to fifty from that
-place alone.
+Results are one list, newest first, each labelled with its place and its matter. Matters and people
+found by name come first, in their own short lists, when you ticked them.
 
-A number followed by **+** means there are more than are showing. The page never states a total: it
-reads only as far as it shows, and says when there is more.
+Each place shows up to 25 results. When a place holds more, the page says so under the list: add a
+word or a filter to narrow the search. The page never states a total: it reads only as far as it
+shows, and says when there is more.
 
 ## What is not searched here
 
-Under **Not Searched** the page lists the places it did not look, and why:
+A place the search did not look in carries a mark in the **Places** list instead of a number. Hold
+the pointer over it for the reason:
 
 - **In A Matter** means the place is searched with that matter's own search and not across matters.
   Today that is Calendar. Open the matter and use the search at its top right.
 - **Fewer Matters** means the place is searched one matter at a time, and your search reaches more
-  than 25. Today that is Inside Files. Choose fewer matters under **Search In**.
+  than 25. Today that is Inside Files. Choose fewer matters under **Matters**.
 - **Off** means searching inside files is turned off for the firm. An administrator turns it on in
   Settings, under Search and Indexing.
 - **Soon** means the part of the application that reads inside files is not switched on yet, and
   **Unavailable** means it did not answer just now. File and folder names were still searched.
 - **No Access** means your role does not include reading that place.
-- **By Name** means the place is found by name and your search has a date. Today that is
-  Matters and People. Take the date chip away to search them.
-- **Firm-Wide** means the place belongs to the whole firm and is searched only when **Search In**
-  reads **Everything I Can See**. Today that is People.
+- **No Author** means the place does not record who wrote it, and a person is picked under **By**.
+- **By Name** means the place is found by name and a date, a person or (for people) fewer matters
+  is set.
 - **Discovery Sets** are never searched from here. A discovery review set is searched only from
   inside the set, by the people on its access list.
 
@@ -147,7 +129,7 @@ Under **Not Searched** the page lists the places it did not look, and why:
 If your words are in more of the firm's records than one search reads, the page says **Showing The
 Most Recent Matches**. The results are then the most recent records with those words, not every
 one, and a place showing nothing may still hold older matches. Add a word to narrow the search, or
-choose fewer matters under **Search In**: a search of **My Matters** or **One Client** that reaches
+choose fewer matters under **Matters**: a search of **My matters**, one client's or picked matters that reaches
 25 matters or fewer reads those matters' own most recent matches, however old they are.
 
 ## What you can and cannot see

@@ -270,6 +270,7 @@ export function visibleMattersSearchSelect(
   const { request } = spec;
   const conditions = [...spec.conditions, request.visibility.fragmentFor(spec.matterExpression)];
   const dateBindings = dateConditions(spec, conditions);
+  const authorBindings = authorConditions(spec, conditions);
   const sql =
     `SELECT ${projectedColumns(spec)} ` +
     `FROM ${spec.from} ` +
@@ -283,6 +284,7 @@ export function visibleMattersSearchSelect(
       ...spec.bindings,
       ...request.visibility.bindings,
       ...dateBindings,
+      ...authorBindings,
       request.limit + 1,
     );
 }
@@ -310,6 +312,22 @@ function dateConditions(spec: VisibleMattersSearchSelectSpec, conditions: string
     bindings.push(dates.before);
   }
   return bindings;
+}
+
+// THE ONE PERSON THE READER ASKED ABOUT, composed like the days. The runner asks only a place that
+// declared it records who acted (`recordsAuthor` in registry.ts), so a place that records nobody
+// reaching here is a declaration that does not match its columns, and is refused rather than
+// answered as though the person had been applied.
+function authorConditions(spec: VisibleMattersSearchSelectSpec, conditions: string[]): unknown[] {
+  const author = spec.request.actorUserId;
+  if (author === undefined) return [];
+  if (spec.actorExpression === "NULL") {
+    throw new Error(
+      "A place that records nobody as its rows' author cannot be held to one person.",
+    );
+  }
+  conditions.push(`${spec.actorExpression} = ?`);
+  return [author];
 }
 
 // The deep link a person follows to see the row itself, in the section that owns it and behind that

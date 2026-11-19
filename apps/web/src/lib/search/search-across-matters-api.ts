@@ -27,7 +27,8 @@ export type AcrossMattersAnswer = SearchAcrossMattersAnswer;
 
 /**
  * One place's part of the answer. `skipped` says why a place contributed nothing:
- * `one-matter-only` is a place that is searched inside a matter and not across them, and the rest
+ * `one-matter-only` is a place that is searched inside a matter and not across them, `no-author`
+ * a place that records nobody as its rows' author under a search held to one person, and the rest
  * mean what they mean in a matter's own search. `hasMore` is measured by reading one row past the
  * limit, never estimated.
  */
@@ -44,6 +45,8 @@ export interface AcrossMattersRequest {
   readonly reach?: SearchReach;
   /** The days to answer from, both ends included. Absent or null means any day. */
   readonly days?: SearchDays | null;
+  /** The one member whose rows are wanted. Absent or null means anyone. */
+  readonly by?: string | null;
   /** Aborts a search the reader has already typed past. */
   readonly signal?: AbortSignal;
 }
@@ -62,6 +65,8 @@ export async function searchAcrossMatters(
         ...(request.limit !== undefined ? { limit: request.limit } : {}),
         ...(request.reach?.kind === "mine" ? { mine: "true" as const } : {}),
         ...(request.reach?.kind === "client" ? { clientEntityId: request.reach.entityId } : {}),
+        ...(request.reach?.kind === "matters" ? { matterId: [...request.reach.matterIds] } : {}),
+        ...(request.by === undefined || request.by === null ? {} : { by: request.by }),
         ...(request.days?.from === undefined ? {} : { from: request.days.from }),
         ...(request.days?.to === undefined ? {} : { to: request.days.to }),
       },

@@ -1,13 +1,16 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { addCalendarDays, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import { identifierField } from "@magna-carta/identifiers/field";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import type { MatterNarrowing } from "@magna-carta/matter-search/narrowing";
 import { runSearchAcrossMatters } from "@magna-carta/matter-search/run-across-matters";
 import { matterSearchSources } from "@magna-carta/matter-search/sources";
 import type { SearchDateRange } from "@magna-carta/matter-search/registry";
 import type { AcrossMattersSearchAnswer } from "@magna-carta/matter-search/types";
+import { chosenMattersNarrowing } from "@magna-carta/matters/matter-narrowing";
 import { readMattersByIds } from "@magna-carta/matters/queries";
+import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
 import {
   SearchAcrossMattersAnswer,
   type SearchAcrossMattersAnswerBody,
@@ -77,7 +80,23 @@ const searchQuery = z.object({
   to: civilDay.optional(),
   // The member's own narrowing of the reach: their own matters, one client's, or both at once.
   ...matterNarrowingQuery,
+  // Repeatable. The matters the member named one by one, as many as the words inside files are
+  // searched across, so naming matters never costs a reader that place.
+  matterId: z
+    .union([
+      identifierField("matter"),
+      z.array(identifierField("matter")).max(RECORD_QUERY_MATTERS_LIMIT),
+    ])
+    .optional(),
+  // The one member whose notes, calls and time are wanted. A place that records nobody as its
+  // rows' author answers `no-author` instead.
+  by: identifierField("user").optional(),
 });
+
+function listOf<Value>(value: Value | Value[] | undefined): readonly Value[] | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value : [value];
+}
 
 // The days as the builder holds them: from the first, and before the day after the last. Two days
 // given the wrong way round ("between June and March") are the same range read in order, not an
@@ -123,7 +142,9 @@ const searchRoute = defineOpenAPIRoute(searchMeta, {
     "`clientEntityId` to the matters one person or organization is a client on; neither reaches a " +
     "matter the member may not see. `from` and `to` (days, both included) hold every place to " +
     "the days it is listed by: a note's date, a time entry's work date, a call's moment, a file's " +
-    "upload. A moment is held to its day in UTC.",
+    "upload. A moment is held to its day in UTC. `matterId` (repeatable, up to `fewMattersLimit`) " +
+    "narrows the search to matters named one by one, and `by` to the notes, calls and time one " +
+    "member wrote, logged or recorded; a place that records nobody as its author says `no-author`.",
   request: { query: searchQuery },
   responses: {
     200: {
@@ -157,11 +178,6 @@ function narrowingOf(narrowings: readonly MatterNarrowing[]): MatterNarrowing | 
       narrowings.map((narrowing) => narrowing.fragmentFor(matterIdExpression)).join(" AND "),
     bindings: narrowings.flatMap((narrowing) => [...narrowing.bindings]),
   };
-}
-
-function sourceKeysFrom(value: string | string[] | undefined): readonly string[] | undefined {
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value : [value];
 }
 
 type MatterLabel = SearchAcrossMattersAnswerBody["groups"][number]["hits"][number]["matter"];
@@ -241,10 +257,14 @@ export function registerSearchAcrossMattersRoutes(
     { ...searchRoute, middleware: chokepointMiddleware(chokepoint, searchRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { q, in: places, limit, from, to, ...narrowed } = c.req.valid("query");
+      const { q, in: places, limit, from, to, matterId, by, ...narrowed } = c.req.valid("query");
       const dates = datesOf(from, to);
       const logger = c.get("logger");
-      const narrowing = narrowingOf(matterNarrowingsOf(requireChokepointUserId(c), narrowed));
+      const chosen = listOf(matterId);
+      const narrowing = narrowingOf([
+        ...matterNarrowingsOf(requireChokepointUserId(c), narrowed),
+        ...(chosen === undefined ? [] : [chosenMattersNarrowing(chosen)]),
+      ]);
       const answer = await runSearchAcrossMatters({
         database: firm.firmDatabase,
         registry: matterSearchSources,
@@ -256,7 +276,8 @@ export function registerSearchAcrossMattersRoutes(
         // its place. Whose matters "mine" means is the session's member, not a value in the request.
         ...(narrowing === undefined ? {} : { narrowing }),
         ...(dates === undefined ? {} : { dates }),
-        sourceKeys: sourceKeysFrom(places),
+        ...(by === undefined ? {} : { actorUserId: by }),
+        sourceKeys: listOf(places),
         permissions: requireChokepointPermissions(c),
         limit: limit ?? DEFAULT_HITS_PER_SOURCE,
         // The words inside files are in an index outside the firm's database. The searcher costs

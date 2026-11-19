@@ -1,197 +1,133 @@
 <script lang="ts">
   /*
-   * Search: one question, asked of every matter the reader may see.
+   * Search: one question, asked of every matter the reader may see, narrowed by the filters in the
+   * panel beside the results.
    *
    * It is reached from the top bar. The palette there finds the application's own screens as it
    * always has; its last row sends whatever was typed here, where the firm's records are searched.
    * A matter's own search stays where it is, inside the matter, and reaches more of that one
-   * matter than this page does: the words inside its files, its parties, its calendar. The list
-   * under "Not Searched" says which places those are, read from the server's own answer.
+   * matter than this page does: its calendar, among others. The panel marks those places.
    *
-   * THE QUESTION, THE PLACE AND THE MATTERS RIDE IN THE ADDRESS. `?q=`, `?in=` and the reader's
-   * choice of matters (`?scope=mine`, `?client=`) are the state, so a search survives a reload,
-   * the back button walks a reader's searches, and a place beside the results is an ordinary
-   * link. The trade taken with it: the words searched for land in browser history.
+   * THE QUESTION AND THE FILTERS RIDE IN THE ADDRESS (search-address.ts), so a search survives a
+   * reload, the back button walks a reader's searches, and a search can be sent to a colleague.
+   * The trade taken with it: the words searched for land in browser history.
    *
-   * THE READER MAY ASK FEWER MATTERS, NEVER MORE. The row under the field narrows the search to
-   * their own matters or to one client's. One matter is that matter's own search, which reaches
-   * more of it, so choosing a matter goes there with the question.
+   * THE READER MAY ASK FEWER MATTERS, NEVER MORE. Every filter takes away; the server decides what
+   * the reader may see and composes the filters inside that.
    *
-   * A QUESTION IS READ BEFORE IT IS SEARCHED. "hargrove invoices since june" is words, a place
-   * and some days; question-reading.ts takes the place and the days out by rule and the rest is
-   * searched. Every reading is a chip under the field the reader can take away, and the question
-   * as typed rides in `?asked=` so the field shows it and "Search the Words Only" can search it
-   * as typed.
-   *
-   * WHAT IT REACHES IS DECIDED BY THE SERVER, per reader. A record is here only where the reader
-   * may see its matter and holds the permission its own section asks for, and a matter the reader
-   * cannot see contributes nothing to any result or any count.
+   * ON A NARROW SCREEN THE PANEL FOLDS AWAY above the results, opened by a Filters button that says
+   * how many are set, so the results come first.
    */
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import Badge from "@magna-carta/design-system/badge";
+  import { untrack } from "svelte";
+  import Button from "@magna-carta/design-system/button";
   import { formatDate } from "@magna-carta/design-system/formatters";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { todayCivil } from "$lib/calendar/calendar-window.ts";
-  import { presentationFor } from "$lib/matters/matter-search-presentation.ts";
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
+  import X from "@lucide/svelte/icons/x";
+  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import {
-    readAnything,
-    readQuestion,
-    understoodChips,
-    type UnderstoodChip,
-  } from "$lib/search/question-reading.ts";
   import SearchAcrossMattersResults from "$lib/search/search-across-matters-results.svelte";
+  import { SearchAcrossMatters, panelPlaces } from "$lib/search/search-across-matters.svelte.ts";
   import {
-    SearchAcrossMatters,
-    railPlaces,
-    unsearchedPlaces,
-  } from "$lib/search/search-across-matters.svelte.ts";
-  import {
-    ALL_PLACES,
     EVERYTHING,
-    MATTERS_PLACE,
-    MY_MATTERS,
-    PEOPLE_PLACE,
-    daysFromAddress,
-    daysKey,
-    placeFromAddress,
-    reachFromAddress,
-    reachKey,
+    NO_FILTERS,
+    filtersFromAddress,
     searchAddress,
-    type SearchReach,
+    type SearchDays,
+    type SearchFilters,
   } from "$lib/search/search-address.ts";
-  import SearchReachControl from "$lib/search/search-reach-control.svelte";
-  import UnderstoodChips from "$lib/search/understood-chips.svelte";
-  import { reachFieldLabel, reachSentence } from "$lib/search/search-reach.ts";
+  import SearchFilterPanel from "$lib/search/search-filter-panel.svelte";
+  import { filterCount } from "$lib/search/search-filters.ts";
 
   const search = new SearchAcrossMatters();
 
-  // The address is the state. Reading the question, the place and the matters FROM it, and
-  // holding no second copy, is what makes a reload, a shared link and the back button all land on
-  // the same search.
+  // The address is the state. Reading the question and the filters FROM it, and holding no second
+  // copy, is what makes a reload, a shared link and the back button all land on the same search.
   const addressQuery = $derived(page.url.searchParams.get("q") ?? "");
-  const addressPlace = $derived(placeFromAddress(page.url.searchParams.get("in")));
-  // Held by its key, so a new address object naming the same matters does not ask again.
-  const addressReachKey = $derived(
-    reachKey(
-      reachFromAddress(page.url.searchParams.get("scope"), page.url.searchParams.get("client")),
-    ),
-  );
-  const addressReach = $derived.by((): SearchReach => {
-    void addressReachKey;
-    return reachFromAddress(
-      page.url.searchParams.get("scope"),
-      page.url.searchParams.get("client"),
-    );
+  // Held by the address's own text, so a new URL object naming the same search does not ask again.
+  const addressSearch = $derived(page.url.search);
+  const filters = $derived.by((): SearchFilters => {
+    void addressSearch;
+    return filtersFromAddress(page.url.searchParams);
   });
-
-  // The question as typed, where a reading took something out of it.
-  const addressAsked = $derived(page.url.searchParams.get("asked"));
-  // Held by its key, like the reach, so a new address naming the same days does not ask again.
-  const addressDaysKey = $derived(
-    daysKey(daysFromAddress(page.url.searchParams.get("from"), page.url.searchParams.get("to"))),
-  );
-  const addressDays = $derived.by(() => {
-    void addressDaysKey;
-    return daysFromAddress(page.url.searchParams.get("from"), page.url.searchParams.get("to"));
-  });
-  // What the field shows: the question as the reader typed it.
-  const shownQuestion = $derived(addressAsked ?? addressQuery);
 
   let field = $state("");
   $effect(() => {
-    field = shownQuestion;
+    field = addressQuery;
   });
 
+  // Only the address drives a search. The model reads its own answer to decide what to ask again,
+  // and that read must not make the answer a reason to run once more.
   $effect(() => {
-    void search.run(fetch, addressQuery, addressPlace, addressReach, addressDays);
+    const query = addressQuery;
+    const chosen = filters;
+    untrack(() => void search.run(fetch, query, chosen));
   });
 
   function retrySearch(): void {
-    void search.run(fetch, addressQuery, addressPlace, addressReach, addressDays);
-  }
-
-  function placeName(place: string): string {
-    if (place === MATTERS_PLACE) return "Matters";
-    if (place === PEOPLE_PLACE) return "People";
-    return presentationFor(place).heading;
-  }
-
-  const chips = $derived(
-    understoodChips({
-      asked: addressAsked,
-      place: addressPlace,
-      mine: addressReach.kind === "mine",
-      days: addressDays,
-      today: todayCivil(),
-      placeName,
-      formatDay: (day) => formatDate(day),
-    }),
-  );
-
-  // Taking a reading away searches without it, and keeps the rest of what was read.
-  function removeReading(key: UnderstoodChip["key"]): void {
-    const place = key === "place" ? ALL_PLACES : addressPlace;
-    const reach = key === "mine" ? EVERYTHING : addressReach;
-    const days = key === "days" ? null : addressDays;
-    void goto(searchAddress(addressQuery, place, reach, { days, asked: addressAsked }), {
-      keepFocus: true,
-    });
-  }
-
-  // The question as typed, searched as words with nothing read out of it. A choice of matters the
-  // reader made by hand stays; the one the question named goes with the other readings.
-  function searchWordsOnly(): void {
-    if (addressAsked === null) return;
-    const reach = chips.some((chip) => chip.key === "mine") ? EVERYTHING : addressReach;
-    void goto(searchAddress(addressAsked, ALL_PLACES, reach), { keepFocus: true });
+    search.clear();
+    void search.run(fetch, addressQuery, filters);
   }
 
   // Typing rewrites the address, which re-runs the search through the effect above. One path, so
-  // the field and the address can never say different things. A new question starts over at every
-  // place: the place a reader had chosen was chosen for the last question's results. The matters
-  // chosen stay, because they were chosen for the reader and not for a question.
-  //
-  // The question is read first. What it named (a place, the reader's own matters, some days) goes
-  // into the address beside the words, and the question as typed goes with them.
+  // the field and the address can never say different things. The filters stay: they were chosen
+  // for the reader's work, not for one question.
   function submit(next: string): void {
-    if (next.trim() === shownQuestion.trim()) return;
-    const reading = readQuestion(next, todayCivil());
-    const address = readAnything(reading)
-      ? searchAddress(
-          reading.words,
-          reading.place ?? ALL_PLACES,
-          reading.mine ? MY_MATTERS : addressReach,
-          { days: reading.days, asked: next },
-        )
-      : searchAddress(next, ALL_PLACES, addressReach);
-    void goto(address, { replaceState: true, keepFocus: true });
+    if (next.trim() === addressQuery.trim()) return;
+    void goto(searchAddress(next, filters), { replaceState: true, keepFocus: true });
   }
 
-  // A different choice of matters is a different search of the same question, and starts over at
-  // every place for the reason a new question does. It is a step the back button returns from.
-  function chooseReach(next: SearchReach): void {
-    if (reachKey(next) === addressReachKey) return;
-    void goto(
-      searchAddress(addressQuery, ALL_PLACES, next, { days: addressDays, asked: addressAsked }),
-      { keepFocus: true },
-    );
+  // A change of filter is a step the back button returns from.
+  function applyFilters(next: SearchFilters): void {
+    void goto(searchAddress(addressQuery, next), { keepFocus: true, noScroll: true });
   }
 
-  // One matter is searched by that matter's own search, which carries the question in its address
-  // the same way.
-  function searchOneMatter(matterId: string): void {
-    const question = addressQuery.trim();
-    const suffix = question === "" ? "" : `?${new URLSearchParams({ q: question }).toString()}`;
-    void goto(`/matters/${matterId}/search${suffix}`);
-  }
-
-  const places = $derived(railPlaces(search.overview));
-  const unsearched = $derived(unsearchedPlaces(search.overview));
+  const places = $derived(panelPlaces(search.answer, filters));
   const asked = $derived(addressQuery.trim() !== "");
-  // A question read down to no words: a place or some days with nothing to look for in them.
-  const nothingLeft = $derived(!asked && (addressAsked ?? "").trim() !== "");
+  const setCount = $derived(filterCount(filters));
+  let filtersOpen = $state(false);
+
+  $effect(() => {
+    if (filters.by !== null) void firmRoster.load(fetch);
+  });
+
+  function memberName(userId: string): string {
+    return firmRoster.members?.find((member) => member.userId === userId)?.displayName ?? "";
+  }
+
+  function daysLabel(days: SearchDays): string {
+    if (days.from !== undefined && days.to !== undefined) {
+      return days.from === days.to
+        ? formatDate(days.from)
+        : `${formatDate(days.from)} to ${formatDate(days.to)}`;
+    }
+    if (days.from !== undefined) return `Since ${formatDate(days.from)}`;
+    return `Through ${formatDate(days.to ?? "")}`;
+  }
+
+  // The filters in force, one tag each, above the results: what is set, and a way to take it off.
+  const tags = $derived.by(() => {
+    const list: { key: string; label: string; clear: Partial<SearchFilters> }[] = [];
+    if (filters.places !== null) {
+      const count = filters.places.length;
+      list.push({ key: "places", label: count === 1 ? "1 Place" : `${count} Places`, clear: { places: null } });
+    }
+    const reach = filters.reach;
+    if (reach.kind === "mine") list.push({ key: "reach", label: "My Matters", clear: { reach: EVERYTHING } });
+    if (reach.kind === "client") list.push({ key: "reach", label: "One Client", clear: { reach: EVERYTHING } });
+    if (reach.kind === "matters") {
+      const count = reach.matterIds.length;
+      list.push({ key: "reach", label: count === 1 ? "1 Matter" : `${count} Matters`, clear: { reach: EVERYTHING } });
+    }
+    if (filters.days !== null) list.push({ key: "days", label: daysLabel(filters.days), clear: { days: null } });
+    if (filters.by !== null) {
+      const name = memberName(filters.by);
+      list.push({ key: "by", label: name === "" ? "One Person" : `By ${name}`, clear: { by: null } });
+    }
+    return list;
+  });
 </script>
 
 <svelte:head>
@@ -201,102 +137,79 @@
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader title="Search" />
 
-  <div class="flex flex-col gap-8 border-b border-border-default pb-12">
+  <div class="flex flex-col gap-12 border-b border-border-default pb-12">
     <ScreenSearch
       bind:value={field}
       expanded
       busy={search.busy}
-      label={reachFieldLabel(addressReach)}
+      label="Search every matter you can see"
       searchOn="pause"
-      fieldClass="w-xs sm:w-md"
+      fieldClass="w-full sm:w-md"
       onsearch={submit}
     />
-    <SearchReachControl reach={addressReach} onReach={chooseReach} onMatter={searchOneMatter} />
-    <UnderstoodChips
-      {chips}
-      onRemove={removeReading}
-      {...addressAsked === null ? {} : { onWordsOnly: searchWordsOnly }}
-    />
-    <p class="text-xs text-text-muted">{reachSentence(addressReach)}</p>
+    {#if tags.length > 0 || asked}
+      <div class="flex flex-wrap items-center gap-8">
+        <Button
+          variant="secondary"
+          size="sm"
+          class="lg:hidden"
+          aria-expanded={filtersOpen}
+          onclick={() => (filtersOpen = !filtersOpen)}
+        >
+          <SlidersHorizontal class="size-16" aria-hidden="true" />
+          {setCount === 0 ? "Filters" : `Filters (${setCount})`}
+        </Button>
+        {#each tags as tag (tag.key)}
+          <button
+            type="button"
+            class={[
+              "inline-flex items-center gap-4 rounded-sm bg-surface-subtle px-8 py-4 text-xs",
+              "font-medium whitespace-nowrap text-text-default transition-colors duration-fast",
+              "ease-standard hover:bg-surface-selected",
+            ]}
+            aria-label="Remove filter: {tag.label}"
+            onclick={() => applyFilters({ ...filters, ...tag.clear })}
+          >
+            {tag.label}
+            <X class="size-12" aria-hidden="true" />
+          </button>
+        {/each}
+        {#if tags.length > 0}
+          <button
+            type="button"
+            class="text-xs text-text-default underline underline-offset-2 hover:text-text-muted"
+            onclick={() => applyFilters(NO_FILTERS)}
+          >
+            Clear All
+          </button>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
-    {#if nothingLeft}
+    {#if !asked}
       <p class="text-sm text-text-muted">
-        Add a word to look for, such as a name. A place and a date narrow a search; they are not a search on their own.
-      </p>
-    {:else if !asked}
-      <p class="text-sm text-text-muted">
-        Type a name, a number or a few words. To search inside a matter's files, open the matter and use its search.
+        Type a name, a number or a few words. The filters beside the results narrow what is searched.
       </p>
     {:else}
       <div class="flex flex-col gap-24 lg:flex-row lg:items-start">
-        <nav aria-label="Places searched" class="flex w-full shrink-0 flex-col gap-16 lg:w-2xs">
-          {#if places.length > 0}
-            <ul class="flex flex-col gap-2">
-              {#each places as place (place.key)}
-                {@const current = place.key === addressPlace}
-                <li>
-                  <a
-                    href={searchAddress(addressQuery, place.key, addressReach, {
-                      days: addressDays,
-                      asked: addressAsked,
-                    })}
-                    aria-current={current ? "page" : undefined}
-                    class={[
-                      "flex items-center justify-between gap-8 rounded-sm px-12 py-8 text-sm",
-                      "transition-colors duration-fast ease-standard hover:bg-surface-subtle",
-                      current
-                        ? "bg-surface-selected font-semibold text-text-default"
-                        : "text-text-default",
-                    ]}
-                  >
-                    <span>{place.label}</span>
-                    <span class="text-xs text-text-muted">
-                      {#if place.shown === null}
-                        <span class="sr-only">Could not be searched</span>
-                      {:else}
-                        {place.shown}{place.more ? "+" : ""}
-                      {/if}
-                    </span>
-                  </a>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-
-          {#if search.overview !== null}
-            <div class="flex flex-col gap-8">
-              <h2 class="px-12 text-xs font-semibold text-text-muted">Not Searched</h2>
-              <ul class="flex flex-col gap-2">
-                {#each unsearched as place (place.key)}
-                  <li
-                    class="flex items-center justify-between gap-8 px-12 py-4 text-sm text-text-muted"
-                    title={place.reason}
-                  >
-                    <span>{place.label}</span>
-                    <Badge variant="neutral">{place.mark}</Badge>
-                  </li>
-                {/each}
-              </ul>
-              {#each unsearched.filter((place) => place.writtenOut === true) as place (place.key)}
-                <p class="px-12 text-xs text-text-muted">{place.reason}</p>
-              {/each}
-              <p class="px-12 text-xs text-text-muted">
-                Places marked In A Matter are searched from that matter. Review sets are searched only from inside the set, by people with access.
-              </p>
-            </div>
-          {/if}
-        </nav>
+        <aside
+          aria-label="Filters"
+          class={[
+            "w-full shrink-0 border-b border-border-default pb-16 lg:block lg:w-2xs lg:border-b-0 lg:pb-0",
+            filtersOpen ? "block" : "hidden",
+          ]}
+        >
+          <SearchFilterPanel {filters} {places} onChange={applyFilters} />
+        </aside>
 
         <div class="min-w-0 flex-1 pb-24">
           <SearchAcrossMattersResults
-            overview={search.overview}
-            placeGroup={search.place}
-            chosen={addressPlace}
+            answer={search.answer}
             failure={search.failure}
             busy={search.busy}
-            asked={addressAsked}
+            authorName={memberName}
             onRetry={retrySearch}
           />
         </div>
