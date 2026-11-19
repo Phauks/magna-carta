@@ -116,3 +116,11 @@ export const InOutEntryPage = z
 export const InOutEntryCreated = z
   .object({ id: z.string(), number: z.string() })
   .meta({ id: "InOutEntryCreated" });
+
+// The Log's list query. `waiting` is Waiting for Pickup, oldest first; `all` is the whole Log,
+// newest first. A query is not a named component, so it carries no id.
+export const InOutEntryListQuery = z.object({
+  status: z.enum(["waiting", "all"]).optional(),
+  search: z.string().min(1).max(200).optional(),
+  cursor: z.string().min(1).max(400).optional(),
+});

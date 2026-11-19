@@ -11,7 +11,8 @@
    * the form above it shows who was chosen.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
-  import { searchDirectory, type DirectorySearchHit } from "$lib/directory/directory-api.ts";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { searchHitKindLabel } from "$lib/directory/entity-presentation.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
   import type { InOutParty } from "./in-out-log-api.ts";
@@ -36,7 +37,9 @@
 
   let query = $state("");
   let settledQuery = $state("");
-  let hits = $state<readonly DirectorySearchHit[]>([]);
+  let hits = $state<readonly PickableEntity[]>([]);
+  // The directory is asked the same question every picker over it asks, through the one adapter.
+  const searchTheDirectory = directoryPickerSearch(fetch);
   let searchFailed = $state(false);
 
   const SETTLE_MILLISECONDS = 250;
@@ -53,16 +56,20 @@
       searchFailed = false;
       return;
     }
-    let live = true;
+    const asking = new AbortController();
     void (async () => {
-      const outcome = await searchDirectory(fetch, asked);
-      if (!live) return;
-      hits = outcome.kind === "ok" ? outcome.value.data : [];
-      searchFailed = outcome.kind !== "ok";
+      try {
+        const answer = await searchTheDirectory(asked, asking.signal);
+        if (asking.signal.aborted) return;
+        hits = answer.hits;
+        searchFailed = false;
+      } catch {
+        if (asking.signal.aborted) return;
+        hits = [];
+        searchFailed = true;
+      }
     })();
-    return () => {
-      live = false;
-    };
+    return () => asking.abort();
   });
 
   interface Choice {
@@ -86,10 +93,10 @@
         party: { kind: "member", userId: member.userId, entityId: null, name: member.displayName },
       }));
     const directoryChoices = hits.map((hit) => ({
-      value: `entity:${hit.entityId}`,
-      label: hit.displayName,
-      kindLabel: searchHitKindLabel(hit.entityKind),
-      party: { kind: "entity", userId: null, entityId: hit.entityId, name: hit.displayName },
+      value: `entity:${hit.identifier}`,
+      label: hit.name,
+      kindLabel: searchHitKindLabel(hit.kind),
+      party: { kind: "entity", userId: null, entityId: hit.identifier, name: hit.name },
     }));
     const typedChoice =
       typed === ""

@@ -10,6 +10,7 @@ import {
   DropOffRequest,
   InOutEntry,
   InOutEntryCreated,
+  InOutEntryListQuery,
   InOutEntryPage,
   MoveToCustodianRequest,
   PickUpRequest,
@@ -62,12 +63,6 @@ const MANAGE = "inOutLog:manage" as const;
 
 const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("InOutAcknowledged");
 const entryIdParam = z.object({ entryId: identifierPathParam("inOutEntry", "entryId") });
-const listQuery = z.object({
-  // `waiting` is Waiting for Pickup, oldest first; `all` is the whole Log, newest first.
-  status: z.enum(["waiting", "all"]).optional(),
-  search: z.string().min(1).max(200).optional(),
-  cursor: z.string().min(1).max(400).optional(),
-});
 
 const problem = (description: string) => ({
   description,
@@ -129,7 +124,7 @@ const listRoute = defineOpenAPIRoute(readMeta("listEntries"), {
     "The In/Out Log. `status=waiting` lists what is waiting for pickup, oldest first; otherwise the " +
     "whole log, newest first. A search matches the number, what it is, who it came from, who it is " +
     "to, and the matter's name.",
-  request: { query: listQuery },
+  request: { query: InOutEntryListQuery },
   responses: {
     200: {
       description: "One page of the log",
