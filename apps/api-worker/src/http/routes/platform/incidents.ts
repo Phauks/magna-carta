@@ -1,5 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { INCIDENT_CREATED_TOPIC } from "@magna-carta/data-access/incident-statements";
 import { incidentDescription } from "@magna-carta/data-access/protected-field-registry";
 import { composeProtectedWrite } from "@magna-carta/data-access/protected-fields";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -59,14 +60,9 @@ const ReportIncidentResponse = z
   .object({ id: z.string(), status: z.string() })
   .openapi("ReportIncidentResponse");
 
-// The per-firm outbox topic a filed incident publishes. Named here rather than at the write site
-// because something now subscribes to it, and a subscriber that spells a topic itself is a
-// subscriber that can spell it differently — silently, because an unrecognized topic on the
-// per-firm bus is acked and ignored by design, so a typo does not throw, it just stops delivering.
-// Every other producer exports its topics from its own domain package; the incident write path has
-// no domain package to put this in, so it lives beside the route that emits it and the notification
-// registry's spelling is pinned against it by test.
-export const INCIDENT_CREATED_TOPIC = "incident.created";
+// The per-firm outbox topic a filed incident publishes, spelled once beside the incident table so the
+// notification registry and this route cannot disagree. Re-exported for the worker's own pin test.
+export { INCIDENT_CREATED_TOPIC };
 
 // idempotency: "optional" — the chokepoint applies no idempotency gate to optional routes (a
 // duplicate report is at worst a duplicate row; handler-managed replay on a supplied key is a named
@@ -178,7 +174,8 @@ export function registerIncidentsRoute(
               ),
           ],
           outboxMessages: [
-            { topic: INCIDENT_CREATED_TOPIC, payload: { incidentId, errorIdCount } },
+            // reportedBy names the one member the receipt goes to (system.incident.received).
+            { topic: INCIDENT_CREATED_TOPIC, payload: { incidentId, errorIdCount, reportedBy } },
           ],
         },
         { now: () => now },
