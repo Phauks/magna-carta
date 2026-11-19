@@ -7995,6 +7995,14 @@ export type CalendarSyncIssue = {
         timeZone: string;
     } | null;
     detectedAt: string;
+    /**
+     * Set when the question is about one day of a repeating event that is gone from the member's calendar while the rest of the series is there: that day, as YYYY-MM-DD. `sent` is then that day. Null for a question about a whole copy.
+     */
+    occurrenceOn: string | null;
+    /**
+     * False where the member's provider has no way to put the copy or the day back.
+     */
+    canPutBack: boolean;
 };
 
 export type CalendarSeriesInWindow = {
@@ -36181,6 +36189,7 @@ export type CalendarSyncPutBackMyCopyData = {
          * The provider of the member's account the request is about. Left out, it is the account the member connected first.
          */
         provider?: 'microsoft' | 'google';
+        occurrenceOn?: string;
     };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back';
 };
@@ -36198,6 +36207,10 @@ export type CalendarSyncPutBackMyCopyErrors = {
      * The member has no such open question, or the firm is unreachable or the member deactivated
      */
     404: Problem;
+    /**
+     * The member's provider has no way to put this one day back
+     */
+    409: Problem;
     /**
      * Rate limit exceeded
      */
@@ -36226,6 +36239,7 @@ export type CalendarSyncLeaveMyCopyData = {
          * The provider of the member's account the request is about. Left out, it is the account the member connected first.
          */
         provider?: 'microsoft' | 'google';
+        occurrenceOn?: string;
     };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave';
 };

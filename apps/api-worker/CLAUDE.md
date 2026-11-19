@@ -97,7 +97,10 @@ routes requests through the chokepoint into those packages.
   `apply-provider-edit.ts`, which carries the edit to the event through the calendar's own service
   when the member holds `calendar:manage` and otherwise leaves it a question. One day of a series
   changed on its own is asked for last and carried as that day's own row; where it cannot be
-  carried the day is written back, with no question. A deleted copy never cancels an event. `change-watch.ts` keeps the provider's standing request to say
+  carried the day is written back, with no question. One day of a series deleted on its own is a
+  row in `connection_sync_day_issue` (never a widened `connection_sync_issue`), listed with the
+  other questions and answered on the same two routes with `occurrenceOn`; Put Back sets the row
+  to `restoring` and the next pass calls `restoreSeriesDay`. A deleted copy or day never cancels an event. `change-watch.ts` keeps the provider's standing request to say
   when the member's calendar changes: the object stores the watch and its secret, every pass that
   reaches the provider renews it, and `http/routes/calendar/provider-notices.ts` (public, one route
   per provider) hands a notice to the object, which believes it only by that secret and then only

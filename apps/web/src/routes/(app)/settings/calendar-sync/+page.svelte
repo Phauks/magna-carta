@@ -22,7 +22,8 @@
    * Outlook holds, and two answers: Put Back, or Leave It. An event Outlook would not take at all
    * sits in the same plate, because it is the same fact to the reader (Outlook does not have what
    * Magna Carta has), with Try Again and Dismiss. The plate is absent while there is nothing to
-   * answer.
+   * answer. One day of a repeating event deleted on its own sits there too, as that day: Leave It
+   * always, and Put Back only where the provider can put one day back.
    *
    * THE OTHER DIRECTION HAS ITS OWN PLATE. Which of the member's Outlook calendars Magna Carta shows
    * back to them is a switch per calendar, applied at once. It is theirs alone to choose (the firm's
@@ -295,14 +296,16 @@
 {#snippet issueCell({ row, column, text }: DataTable.GridCellContext<CalendarSyncIssue>)}
   {#if column.id === SYNC_ACTIONS_COLUMN_ID}
     <div class="flex items-center gap-4">
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={answering !== null}
-        onclick={() => void answer(row, "putBack")}
-      >
-        {row.kind === "not_sent" ? "Try Again" : "Put Back"}
-      </Button>
+      {#if row.canPutBack}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={answering !== null}
+          onclick={() => void answer(row, "putBack")}
+        >
+          {row.kind === "not_sent" ? "Try Again" : "Put Back"}
+        </Button>
+      {/if}
       <Button
         variant="ghost"
         size="sm"

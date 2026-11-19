@@ -13,11 +13,16 @@
    * A page is chosen by pressing it; Shift chooses the run from the last page pressed. A choice of
    * pages is dragged as one block, or moved a place at a time with Move Earlier and Move Later,
    * which is the keyboard's way to reorder.
+   *
+   * Insert Pages adds the pages of another PDF, from the matter or from the reader's computer, to
+   * the arrangement. They are pages like any other until Save: they can be moved, turned and
+   * deleted, and Reset takes them out again. The other file itself is never changed.
    */
   import { onMount } from "svelte";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Check from "@lucide/svelte/icons/check";
+  import FilePlus from "@lucide/svelte/icons/file-plus";
   import Files from "@lucide/svelte/icons/files";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
@@ -36,10 +41,13 @@
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
+  import InsertPagesDialog from "./insert-pages-dialog.svelte";
+  import type { OpenedInsertion } from "./inserted-file.ts";
   import {
     buildPlan,
     extractedCopyName,
     initialArrangement,
+    insertPages,
     isUnchanged,
     movePages,
     nudgePages,
@@ -47,8 +55,10 @@
     removePages,
     splitAt,
     turnPages,
+    wasInserted,
     wasMoved,
     type ArrangedPage,
+    type InsertPlace,
   } from "./page-arrangement.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
 
@@ -77,6 +87,19 @@
   let lastPressed = $state<number | null>(null);
   let result = $state<Result>({ kind: "idle" });
   let canvases = $state<Record<number, HTMLCanvasElement | null>>({});
+  /** How many pages the document itself has. A page numbered past it was inserted. */
+  let originalCount = $state(0);
+  let inserting = $state(false);
+
+  /** A file whose pages were inserted: its bytes for the engine, and its drawing for the grid. */
+  interface Addition {
+    readonly source: PdfDocumentSource;
+    readonly bytes: ArrayBuffer;
+    /** The number its first page takes in the arrangement. */
+    readonly first: number;
+    readonly count: number;
+  }
+  let additions: Addition[] = [];
 
   let source: PdfDocumentSource | null = null;
   let original: ArrayBuffer | null = null;
@@ -85,12 +108,18 @@
   let gone = false;
 
   const busy = $derived(result.kind === "working");
-  const changed = $derived(!isUnchanged(pages, sizes.length));
+  const changed = $derived(!isUnchanged(pages, originalCount));
   const chosenInOrder = $derived(pages.filter((page) => chosen.has(page.source)));
   const chosenLabel = $derived(
     chosen.size === 0 ? "No pages chosen" : chosen.size === 1 ? "1 page chosen" : `${chosen.size} pages chosen`,
   );
   const partCount = $derived(splitAt(pages, chosen).length);
+  /** Where the dialog offers to put inserted pages: after the last chosen page, if any. */
+  const suggestedPosition = $derived.by(() => {
+    let last: number | null = null;
+    for (const [index, page] of pages.entries()) if (chosen.has(page.source)) last = index + 1;
+    return last;
+  });
 
   const drag = createItemDrag({
     keysFor: (key) => {
@@ -109,10 +138,17 @@
   });
   const handlers = $derived(drag.handlers());
 
+  /** The drawing source a page belongs to, and its number within that file. */
+  function drawingFor(index: number): { engine: PdfDocumentSource; page: number } | null {
+    if (index < originalCount) return source === null ? null : { engine: source, page: index };
+    const addition = additions.find((one) => index >= one.first && index < one.first + one.count);
+    return addition === undefined ? null : { engine: addition.source, page: index - addition.first };
+  }
+
   async function paint(canvas: HTMLCanvasElement, index: number): Promise<void> {
-    const engine = source;
-    if (engine === null) return;
-    const outcome = await engine.render(index, renderDpiFor(GRID_ZOOM, window.devicePixelRatio));
+    const drawing = drawingFor(index);
+    if (drawing === null) return;
+    const outcome = await drawing.engine.render(drawing.page, renderDpiFor(GRID_ZOOM, window.devicePixelRatio));
     if (gone || "failure" in outcome) return;
     const context = canvas.getContext("2d");
     if (context === null) return;
@@ -141,6 +177,7 @@
     source = opened.source;
     original = opened.original;
     sizes = opened.pages;
+    originalCount = opened.pages.length;
     pages = initialArrangement(opened.pages.length);
     phase = { kind: "ready" };
   }
@@ -151,6 +188,7 @@
       gone = true;
       source?.close();
       source = null;
+      dropAdditions();
     };
   });
 
@@ -190,9 +228,50 @@
     chosen = new Set();
   }
 
+  /** Close every inserted file and forget its pages. */
+  function dropAdditions(): void {
+    for (const addition of additions) addition.source.close();
+    additions = [];
+    for (const index of painted) if (index >= originalCount) painted.delete(index);
+  }
+
   function reset(): void {
-    change(initialArrangement(sizes.length));
+    dropAdditions();
+    sizes = sizes.slice(0, originalCount);
+    change(initialArrangement(originalCount));
     chosen = new Set();
+  }
+
+  function insert(opened: Extract<OpenedInsertion, { kind: "ready" }>, place: InsertPlace): void {
+    if (gone) {
+      opened.source.close();
+      return;
+    }
+    const first = sizes.length;
+    additions = [...additions, { source: opened.source, bytes: opened.bytes, first, count: opened.pages.length }];
+    sizes = [...sizes, ...opened.pages];
+    change(insertPages(pages, first, opened.pages.length, place));
+    chosen = new Set(Array.from({ length: opened.pages.length }, (_, offset) => first + offset));
+    lastPressed = null;
+  }
+
+  /** What the grid says under a page: its new number, and where it came from if that changed. */
+  function caption(page: ArrangedPage, index: number): string {
+    const origin = wasInserted(page, originalCount)
+      ? " · Inserted"
+      : wasMoved(page, index)
+        ? ` · was ${page.source + 1}`
+        : "";
+    return `${index + 1}${origin}${page.turn === 0 ? "" : " · Rotated"}`;
+  }
+
+  function describe(page: ArrangedPage, index: number): string {
+    const origin = wasInserted(page, originalCount)
+      ? ", inserted from another file"
+      : wasMoved(page, index)
+        ? `, was page ${page.source + 1}`
+        : "";
+    return `Page ${index + 1}${origin}${page.turn === 0 ? "" : `, turned ${page.turn} degrees`}`;
   }
 
   /** The box a page takes in the grid: a turned page lies on its side. */
@@ -206,7 +285,12 @@
   async function make(plans: ArrangedPage[][], what: string): Promise<Uint8Array[] | null> {
     if (original === null) return null;
     result = { kind: "working", what };
-    const reply = await runPdfOperation(original.slice(0), { kind: "arrange", plans: plans.map(buildPlan) });
+    const used = plans.some((plan) => plan.some((page) => wasInserted(page, originalCount)));
+    const reply = await runPdfOperation(original.slice(0), {
+      kind: "arrange",
+      plans: plans.map(buildPlan),
+      ...(used ? { additions: additions.map((addition) => addition.bytes.slice(0)) } : {}),
+    });
     if (gone) return null;
     if (reply.kind === "failed") {
       result = { kind: "failed", message: describeOperationFailure(reply.reason, reply.message) };
@@ -290,6 +374,10 @@
         Delete
       </Button>
       <span class="h-24 border-s border-border-default" aria-hidden="true"></span>
+      <Button variant="secondary" size="sm" disabled={busy} onclick={() => (inserting = true)}>
+        <FilePlus class="size-16" aria-hidden="true" />
+        Insert Pages
+      </Button>
       <Button variant="secondary" size="sm" disabled={chosen.size === 0 || busy} onclick={extract}>
         <Scissors class="size-16" aria-hidden="true" />
         Extract to New File
@@ -377,7 +465,7 @@
               class="relative block border bg-surface-raised {isChosen ? 'border-accent-strong ring-2 ring-accent-strong' : 'border-border-default'}"
               style="width: {box.width}px; height: {box.height}px"
               aria-pressed={isChosen}
-              aria-label="Page {index + 1}{wasMoved(page, index) ? `, was page ${page.source + 1}` : ''}{page.turn === 0 ? '' : `, turned ${page.turn} degrees`}"
+              aria-label={describe(page, index)}
               onclick={(event) => press(event, page.source)}
             >
               <canvas
@@ -392,7 +480,7 @@
               {/if}
             </button>
             <span class="text-xs tabular-nums text-text-muted">
-              {index + 1}{wasMoved(page, index) ? ` · was ${page.source + 1}` : ""}{page.turn === 0 ? "" : " · Rotated"}
+              {caption(page, index)}
             </span>
           </li>
         {/each}
@@ -404,4 +492,6 @@
       </ol>
     </div>
   </div>
+
+  <InsertPagesDialog bind:open={inserting} {file} pageCount={pages.length} {suggestedPosition} onInsert={insert} />
 {/if}

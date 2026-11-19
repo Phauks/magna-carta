@@ -90,6 +90,7 @@ export const ACT_VERBS = new Set([
   "fund",
   "hand",
   "import",
+  "insert",
   "invite",
   "issue",
   "join",

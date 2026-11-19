@@ -62,8 +62,11 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
       }
       case "arrange": {
         const documents: Uint8Array[] = [];
+        const additions = (request.operation.additions ?? []).map(
+          (addition) => new Uint8Array(addition),
+        );
         for (const plan of request.operation.plans)
-          documents.push(await arrangeDocument(bytes, plan));
+          documents.push(await arrangeDocument(bytes, plan, additions));
         return {
           kind: "done",
           id: request.id,
