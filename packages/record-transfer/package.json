@@ -20,7 +20,9 @@
     "./contract": "./src/contract.ts",
     "./transfer-requests": "./src/transfer-requests.ts",
     "./requested-pass": "./src/requested-pass.ts",
-    "./transfer-views": "./src/transfer-views.ts"
+    "./transfer-views": "./src/transfer-views.ts",
+    "./rejected-rows": "./src/rejected-rows.ts",
+    "./column-values": "./src/column-values.ts"
   },
   "scripts": {
     "test": "vp test run"

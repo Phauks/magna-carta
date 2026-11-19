@@ -23,6 +23,11 @@
  * the series, as "this event only" does, and the series itself is untouched; a member who may not
  * edit the calendar has the day written back as it was sent; and a day that reads as sent, or
  * that already has a row, is left alone.
+ *
+ * And for one day of a series the member deleted on its own: it becomes one question about that
+ * day and cancels nothing; a day this side took out itself, a day the rule does not fall on and a
+ * day long gone raise nothing; a day asked back is put back by the next pass, or handed to the
+ * member again when the provider will not; and a day that is back takes its question with it.
  */
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -31,6 +36,7 @@ import type {
   ProviderEventSnapshot,
   ProviderEventWrite,
   ProviderSeriesChangedDay,
+  ProviderSeriesDeletedDay,
 } from "@magna-carta/calendar/sync-port";
 import { instantForCivilDateTime, zonedReading } from "@magna-carta/civil-time/time-zone";
 import type { FirmId, IntegrationConnectionId, UserId } from "@magna-carta/identifiers/types";
@@ -56,11 +62,14 @@ type Call =
   | { op: "create"; calendar: string; event: ProviderEventWrite; transactionId: string }
   | { op: "update"; remoteId: string; event: ProviderEventWrite }
   | { op: "delete"; remoteId: string }
+  | { op: "restore-day"; dayRemoteId: string }
   | { op: "update-day"; remoteId: string; event: ProviderEventWrite };
 
 // The days of a series the member changed on their own, by the series' remote identifier. The
 // member's calendar, like `remote`, so it outlives any one recorder.
 let changedDays = new Map<string, ProviderSeriesChangedDay[]>();
+// The days of a series the member deleted on their own, by the series' remote identifier.
+let deletedDays = new Map<string, ProviderSeriesDeletedDay[]>();
 
 interface RemoteCopy {
   event: ProviderEventWrite;
@@ -169,6 +178,24 @@ function recorder(remote = new Map<string, RemoteCopy>()): {
             originalStartsAtMilliseconds: day.originalStartsAtMilliseconds,
           };
           return Promise.resolve(ok({ found: true as const, versionTag: "day-written" }));
+        }
+        return Promise.resolve(ok({ found: false as const }));
+      },
+      listSeriesDeletedDays: (seriesRemoteId) =>
+        Promise.resolve(
+          ok(remote.has(seriesRemoteId) ? (deletedDays.get(seriesRemoteId) ?? []) : null),
+        ),
+      restoreSeriesDay: (dayRemoteId) => {
+        calls.push({ op: "restore-day", dayRemoteId });
+        const refused = refusal();
+        if (refused !== null) return Promise.resolve(refused);
+        for (const [seriesRemoteId, days] of deletedDays) {
+          if (!days.some((day) => day.dayRemoteId === dayRemoteId)) continue;
+          deletedDays.set(
+            seriesRemoteId,
+            days.filter((day) => day.dayRemoteId !== dayRemoteId),
+          );
+          return Promise.resolve(ok({ found: true as const, versionTag: null }));
         }
         return Promise.resolve(ok({ found: false as const }));
       },
@@ -350,7 +377,9 @@ beforeAll(async () => {
 beforeEach(async () => {
   nextTransaction = 0;
   changedDays = new Map();
+  deletedDays = new Map();
   for (const table of [
+    "connection_sync_day_issue",
     "connection_sync_issue",
     "calendar_sync_link",
     "calendar_sync_rule",
@@ -1229,6 +1258,157 @@ describe("a repeating event", () => {
     });
     expect([...second.calls, ...third.calls]).toEqual([]);
     expect(await daysOfSeries()).toEqual([]);
+  });
+
+  // The member deletes one day of the series in their own calendar. A handle is what the provider
+  // gives for putting the day back; a provider that cannot put one back gives none.
+  function memberDeletesDays(days: readonly string[], handle: "handle" | "no-handle"): void {
+    deletedDays.set(
+      "remote-txn-1",
+      days.map((occurrenceOn) => ({
+        originalStartsAtMilliseconds: instantForCivilDateTime(
+          occurrenceOn,
+          "09:30",
+          "America/Chicago",
+        ),
+        dayRemoteId: handle === "handle" ? `gone-${occurrenceOn}` : null,
+      })),
+    );
+  }
+
+  const dayIssues = async () =>
+    (
+      await firmDatabase
+        .prepare(
+          "SELECT local_kind, local_id, occurrence_on, state, day_remote_id FROM connection_sync_day_issue WHERE connection_id = ?1 ORDER BY occurrence_on",
+        )
+        .bind(CONNECTION)
+        .all<Record<string, string | null>>()
+    ).results;
+
+  it("asks about one day the member deleted, once, and cancels nothing", async () => {
+    eventsChanged = 0;
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+    memberDeletesDays(["2026-12-01"], "handle");
+
+    const second = recorder(provider.remote);
+    expect(await pass(second.port, { as: memberUserId })).toMatchObject({
+      kind: "settled",
+      report: { flagged: 1, applied: 0, putBack: 0 },
+    });
+    expect(second.calls).toEqual([]);
+    expect(eventsChanged).toBe(0);
+    expect(await daysOfSeries()).toEqual([]);
+    expect(await dayIssues()).toEqual([
+      {
+        local_kind: "matter_event",
+        local_id: SERIES,
+        occurrence_on: "2026-12-01",
+        state: "open",
+        day_remote_id: "gone-2026-12-01",
+      },
+    ]);
+
+    // Still deleted on the next pass: the same one question, not a second.
+    const third = recorder(provider.remote);
+    expect(await pass(third.port, { as: memberUserId })).toMatchObject({ report: { flagged: 0 } });
+    expect(third.calls).toEqual([]);
+    expect(await dayIssues()).toHaveLength(1);
+  });
+
+  it("raises nothing for a day this side took out, a day off the rule, or a day long gone", async () => {
+    await seedSeries("2026-09-01", "FREQ=WEEKLY");
+    // The 1 December conference is called off here, so the provider's series skips it already.
+    await seedEvent(
+      "matterEvent_outbound0calledoff",
+      MATTER,
+      hearingTypeId,
+      "Status conference",
+      "2026-12-01",
+      true,
+    );
+    await run(
+      "UPDATE matter_event SET recurrence_parent_id = ?1, recurrence_occurrence_on = '2026-12-01', status = 'cancelled' WHERE id = 'matterEvent_outbound0calledoff'",
+      SERIES,
+    );
+    const provider = recorder();
+    await pass(provider.port);
+    // Skipped from here, a Wednesday of a Tuesday series, and a Tuesday two months back.
+    memberDeletesDays(["2026-12-01", "2026-12-02", "2026-09-08"], "handle");
+
+    const second = recorder(provider.remote);
+    expect(await pass(second.port, { as: memberUserId })).toMatchObject({ report: { flagged: 0 } });
+    expect(await dayIssues()).toEqual([]);
+  });
+
+  it("puts back a day the member asked for, and forgets a question whose day is back", async () => {
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+    memberDeletesDays(["2026-12-01", "2026-12-08"], "handle");
+    await pass(recorder(provider.remote).port, { as: memberUserId });
+    expect(await dayIssues()).toHaveLength(2);
+
+    // The member asks for the 1st back, and puts the 8th back themselves in their calendar.
+    await run(
+      "UPDATE connection_sync_day_issue SET state = 'restoring' WHERE occurrence_on = '2026-12-01'",
+    );
+    deletedDays.set(
+      "remote-txn-1",
+      (deletedDays.get("remote-txn-1") ?? []).filter(
+        (day) => day.dayRemoteId !== "gone-2026-12-08",
+      ),
+    );
+    const third = recorder(provider.remote);
+    expect(await pass(third.port, { as: memberUserId })).toMatchObject({
+      report: { putBack: 1, flagged: 0 },
+    });
+    expect(third.calls).toEqual([{ op: "restore-day", dayRemoteId: "gone-2026-12-01" }]);
+    expect(await dayIssues()).toEqual([]);
+
+    // And nothing is asked again afterwards.
+    const fourth = recorder(provider.remote);
+    expect(await pass(fourth.port, { as: memberUserId })).toMatchObject({
+      report: { putBack: 0, flagged: 0 },
+    });
+    expect(fourth.calls).toEqual([]);
+    expect(await dayIssues()).toEqual([]);
+  });
+
+  it("hands a day back to the member when the provider will not put it back", async () => {
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+    memberDeletesDays(["2026-12-01"], "handle");
+    await pass(recorder(provider.remote).port, { as: memberUserId });
+
+    // Asked back, but the provider no longer knows the handle it gave.
+    await run(
+      "UPDATE connection_sync_day_issue SET state = 'restoring', day_remote_id = 'gone-unknown'",
+    );
+    const third = recorder(provider.remote);
+    expect(await pass(third.port, { as: memberUserId })).toMatchObject({
+      report: { putBack: 0 },
+    });
+    expect(third.calls).toEqual([{ op: "restore-day", dayRemoteId: "gone-unknown" }]);
+    expect(await dayIssues()).toMatchObject([{ occurrence_on: "2026-12-01", state: "open" }]);
+  });
+
+  it("keeps a day the member chose to leave, and asks nothing more about it", async () => {
+    await seedSeries("2026-11-03", "FREQ=WEEKLY");
+    const provider = recorder();
+    await pass(provider.port);
+    memberDeletesDays(["2026-12-01"], "no-handle");
+    await pass(recorder(provider.remote).port, { as: memberUserId });
+    expect(await dayIssues()).toMatchObject([{ state: "open", day_remote_id: null }]);
+
+    await run("UPDATE connection_sync_day_issue SET state = 'left'");
+    const third = recorder(provider.remote);
+    expect(await pass(third.port, { as: memberUserId })).toMatchObject({ report: { flagged: 0 } });
+    expect(third.calls).toEqual([]);
+    expect(await dayIssues()).toMatchObject([{ occurrence_on: "2026-12-01", state: "left" }]);
   });
 
   it("does not send a series whose last day is behind the window", async () => {

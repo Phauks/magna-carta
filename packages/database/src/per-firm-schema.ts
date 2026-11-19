@@ -8620,6 +8620,45 @@ export const connectionSyncIssue = sqliteTable(
   ],
 );
 
+// One day of a repeating event that a member deleted from their own calendar while the rest of the
+// series stayed. Told to the member and never acted on: the event keeps the day. `open` until they
+// answer, `left` once they say to leave it, `restoring` while a pass is asked to put the day back.
+// `day_remote_id` is the provider's handle for putting the day back, null where it has none.
+export const connectionSyncDayIssue = sqliteTable(
+  "connection_sync_day_issue",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    localKind: text("local_kind", { enum: ["matter_event", "firm_event"] }).notNull(),
+    localId: text("local_id").notNull(),
+    occurrenceOn: text("occurrence_on").notNull(), // the civil day of the series that is gone
+    state: text("state", { enum: ["open", "left", "restoring"] }).notNull(),
+    dayRemoteId: text("day_remote_id"),
+    sentJson: text("sent_json").notNull(), // the day as the series sent it
+    detectedAt: text("detected_at").notNull(),
+    settledAt: text("settled_at"),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.connectionId, table.localKind, table.localId, table.occurrenceOn],
+    }),
+    check(
+      "connection_sync_day_issue_local_kind_check",
+      sql`${table.localKind} IN ('matter_event', 'firm_event')`,
+    ),
+    check(
+      "connection_sync_day_issue_state_check",
+      sql`${table.state} IN ('open', 'left', 'restoring')`,
+    ),
+    check(
+      "connection_sync_day_issue_occurrence_on_shape_check",
+      civilDateShape(table.occurrenceOn),
+    ),
+  ],
+);
+
 // Which of a member's own calendars at their provider the firm's calendar shows back to them. The
 // member's choice, one row per calendar chosen; no row means nothing of theirs is read. The name
 // is the calendar's as it stood when chosen, shown where the provider cannot be asked.

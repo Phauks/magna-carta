@@ -11,6 +11,11 @@
  * how it already sits. Then the turned document is cut into runs of consecutive pages in the new
  * order, and the runs are joined. A run keeps its pages' bookmarks and form fields, which a
  * page-by-page copy would lose, so runs are kept as long as the order allows.
+ *
+ * Pages inserted from another file are numbered on past the original's last page. The engine joins
+ * each inserted file onto the end of the original before it does anything else, so those numbers
+ * are where the pages really sit in the document the plan is carried out on, and every other step
+ * works unchanged.
  */
 
 /** A quarter-turn count expressed in degrees, clockwise, as the engine takes it. */
@@ -18,7 +23,10 @@ export type PageTurn = 0 | 90 | 180 | 270;
 
 /** One page in the arrangement. */
 export interface ArrangedPage {
-  /** Zero-based index of the page in the original document. Also the page's identity here. */
+  /**
+   * Zero-based index of the page in the original document, or past its end for a page inserted
+   * from another file. Also the page's identity here.
+   */
   readonly source: number;
   /** How far the reader has turned it, clockwise, on top of how it already sits. */
   readonly turn: PageTurn;
@@ -134,6 +142,49 @@ export function buildPlan(pages: readonly ArrangedPage[]): ArrangementPlan {
     }
   }
   return { turns, runs };
+}
+
+/**
+ * Where inserted pages go: before or after the page now at a reader's position (counting from
+ * one, as the grid numbers them), or after the last page.
+ */
+export type InsertPlace =
+  | { readonly kind: "before"; readonly position: number }
+  | { readonly kind: "after"; readonly position: number }
+  | { readonly kind: "end" };
+
+/**
+ * The index in the arrangement that inserted pages start at. A position past either end is held
+ * to the nearest end, so a stale number never throws a page off the list.
+ */
+export function insertionIndex(pages: readonly ArrangedPage[], place: InsertPlace): number {
+  if (place.kind === "end") return pages.length;
+  const index = Math.min(Math.max(Math.trunc(place.position), 1), Math.max(pages.length, 1)) - 1;
+  return Math.min(place.kind === "before" ? index : index + 1, pages.length);
+}
+
+/**
+ * Put another file's pages into the arrangement. The pages are numbered on from `firstSource`,
+ * which is where they sit in the document the engine works from: the original with each inserted
+ * file joined on after it (`arrange-document.ts`). Their own order is kept and none is turned.
+ */
+export function insertPages(
+  pages: readonly ArrangedPage[],
+  firstSource: number,
+  count: number,
+  place: InsertPlace,
+): ArrangedPage[] {
+  const at = insertionIndex(pages, place);
+  const inserted = Array.from({ length: count }, (_, offset) => ({
+    source: firstSource + offset,
+    turn: 0 as const,
+  }));
+  return [...pages.slice(0, at), ...inserted, ...pages.slice(at)];
+}
+
+/** Whether a page came from another file rather than the document being edited. */
+export function wasInserted(page: ArrangedPage, originalPageCount: number): boolean {
+  return page.source >= originalPageCount;
 }
 
 /**

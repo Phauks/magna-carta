@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a7a163b3-8a31-46a5-a60a-4b697bfe9c8d",
+  "id": "60c1ab6d-39a4-4786-b325-b5c865180f44",
   "prevId": "9b48d913-3e99-4d7f-bfc2-e5562c33d434",
   "tables": {
     "account_balance": {
@@ -2426,6 +2426,116 @@
         "conflicts_recheck_request_satisfaction_check": {
           "name": "conflicts_recheck_request_satisfaction_check",
           "value": "(\"conflicts_recheck_request\".\"satisfied_by_check_id\" IS NULL) = (\"conflicts_recheck_request\".\"satisfied_at\" IS NULL)"
+        }
+      }
+    },
+    "connection_sync_day_issue": {
+      "name": "connection_sync_day_issue",
+      "columns": {
+        "connection_id": {
+          "name": "connection_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "local_kind": {
+          "name": "local_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "local_id": {
+          "name": "local_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "occurrence_on": {
+          "name": "occurrence_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "day_remote_id": {
+          "name": "day_remote_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sent_json": {
+          "name": "sent_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "detected_at": {
+          "name": "detected_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "settled_at": {
+          "name": "settled_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "connection_sync_day_issue_connection_id_integration_connection_id_fk": {
+          "name": "connection_sync_day_issue_connection_id_integration_connection_id_fk",
+          "tableFrom": "connection_sync_day_issue",
+          "tableTo": "integration_connection",
+          "columnsFrom": [
+            "connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "connection_sync_day_issue_connection_id_local_kind_local_id_occurrence_on_pk": {
+          "columns": [
+            "connection_id",
+            "local_kind",
+            "local_id",
+            "occurrence_on"
+          ],
+          "name": "connection_sync_day_issue_connection_id_local_kind_local_id_occurrence_on_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "connection_sync_day_issue_local_kind_check": {
+          "name": "connection_sync_day_issue_local_kind_check",
+          "value": "\"connection_sync_day_issue\".\"local_kind\" IN ('matter_event', 'firm_event')"
+        },
+        "connection_sync_day_issue_state_check": {
+          "name": "connection_sync_day_issue_state_check",
+          "value": "\"connection_sync_day_issue\".\"state\" IN ('open', 'left', 'restoring')"
+        },
+        "connection_sync_day_issue_occurrence_on_shape_check": {
+          "name": "connection_sync_day_issue_occurrence_on_shape_check",
+          "value": "\"connection_sync_day_issue\".\"occurrence_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
         }
       }
     },
@@ -12277,27 +12387,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'open'"
-        },
-        "status_note_ciphertext": {
-          "name": "status_note_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status_changed_at": {
-          "name": "status_changed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status_changed_by": {
-          "name": "status_changed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "reported_by": {
           "name": "reported_by",

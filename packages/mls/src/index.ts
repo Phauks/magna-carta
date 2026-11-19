@@ -66,26 +66,9 @@ function guarded<T>(act: () => T): T {
   }
 }
 
-/**
- * Why the group says encryption is paused, as bits: the server can hear the meeting while any of these
- * runs. Zero is encrypted.
- */
-export const PAUSE_REASONS = { recording: 0b001, captions: 0b010, phone: 0b100 } as const;
-export type PauseReason = keyof typeof PAUSE_REASONS;
-
-/** The reasons a set of pause bits names, in a fixed order. */
-export function pauseReasons(bits: number): readonly PauseReason[] {
-  return (Object.keys(PAUSE_REASONS) as PauseReason[]).filter(
-    (reason) => (bits & PAUSE_REASONS[reason]) !== 0,
-  );
-}
-
-/** The bits for a set of pause reasons. */
-export function pauseBits(reasons: Iterable<PauseReason>): number {
-  let bits = 0;
-  for (const reason of reasons) bits |= PAUSE_REASONS[reason];
-  return bits;
-}
+// The pause bits live in `./pause`, which needs no WebAssembly, so a screen can name a pause without
+// loading the engine. Re-exported here for the session's own callers.
+export { PAUSE_REASONS, pauseBits, pauseReasons, type PauseReason } from "./pause.ts";
 
 export interface GroupMember {
   readonly leafIndex: number;

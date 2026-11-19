@@ -139,11 +139,12 @@ export type FirmScopedObjectClass =
   // editor and never printed. It belongs to the account, not to any matter.
   | "check-stock-scan"
 
-  // A file a firm gave a record transfer, kept unchanged, and the report of a pass over one. Both
-  // belong to the firm and to no matter: a source file is a list of many matters or of none, and
-  // a report names rows of such a file.
+  // A file a firm gave a record transfer, kept unchanged, the report of a pass over one, and the
+  // mapping a person is still working on for one. All three belong to the firm and to no matter: a
+  // source file is a list of many matters or of none, and a report and a mapping describe such a file.
   | "transfer-source-file"
   | "transfer-pass-report"
+  | "transfer-file-mapping"
   // The screenshot a member sent with a problem report, covered parts already painted out. It is a
   // picture of whatever screen they were on, which may span matters or be none, and it belongs to
   // the report, which belongs to the firm.
@@ -186,6 +187,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "check-stock-scan",
   "transfer-source-file",
   "transfer-pass-report",
+  "transfer-file-mapping",
   "incident-screenshot",
 ];
 

@@ -9,6 +9,11 @@ import {
 } from "../src/lib/meetings/client/encryption-group.ts";
 import { FrameCipher } from "../src/lib/meetings/client/frame-encryption.ts";
 import {
+  encryptionState,
+  type EncryptionState,
+  pauseBitsWith,
+} from "../src/lib/meetings/client/encryption-status.ts";
+import {
   type FrameEncryptionSeams,
   type FrameTransformTarget,
   MeetingEncryption,
@@ -149,6 +154,14 @@ function lastEpoch(browser: Browser): GroupEpoch {
   return epoch;
 }
 
+function identities(browser: Browser): readonly string[] {
+  return lastEpoch(browser).members.map((member) => member.identity);
+}
+
+function stateOf(browser: Browser): EncryptionState {
+  return encryptionState({ encrypted: true, standing: "member", pause: lastEpoch(browser).pause });
+}
+
 function sameKeys(browsers: readonly Browser[]): void {
   const [first, ...rest] = browsers.map(lastEpoch);
   for (const other of rest) {
@@ -205,6 +218,49 @@ describe("joining an encrypted meeting's key group", () => {
     expect(lastEpoch(host).pause).toBe(0b001);
     expect(lastEpoch(alice).pause).toBe(0b001);
     sameKeys([host, alice]);
+  });
+
+  it("names who the verified group holds, the same on every screen, and drops whoever left", () => {
+    const room = new FakeRoom();
+    const host = room.join("stay_host");
+    const alice = room.join("stay_alice");
+    const bob = room.join("stay_bob");
+    expect(new Set(identities(host))).toEqual(new Set(["stay_host", "stay_alice", "stay_bob"]));
+    expect(identities(alice)).toEqual(identities(host));
+    expect(identities(bob)).toEqual(identities(host));
+    room.leave("stay_alice");
+    expect(new Set(identities(host))).toEqual(new Set(["stay_host", "stay_bob"]));
+    expect(identities(bob)).toEqual(identities(host));
+  });
+
+  it("keeps the pause while any reason holds, and resumes under a key the pause never used", () => {
+    const room = new FakeRoom();
+    const host = room.join("stay_host");
+    const alice = room.join("stay_alice");
+    expect(stateOf(alice)).toEqual({ kind: "on" });
+    const encryptedKey = [...lastEpoch(alice).baseKey];
+
+    // Recording, then captions on top of it: one pause naming both.
+    host.group.proposePause(pauseBitsWith(0, "recording", true));
+    room.flush();
+    host.group.proposePause(pauseBitsWith(lastEpoch(host).pause, "captions", true));
+    room.flush();
+    expect(stateOf(alice)).toEqual({ kind: "paused", reasons: ["recording", "captions"] });
+
+    // The recording stops; captions still hold the pause.
+    host.group.proposePause(pauseBitsWith(lastEpoch(host).pause, "recording", false));
+    room.flush();
+    expect(stateOf(alice)).toEqual({ kind: "paused", reasons: ["captions"] });
+    const pausedKey = [...lastEpoch(alice).baseKey];
+
+    // Captions off: encrypted again, under a new epoch's key.
+    host.group.proposePause(pauseBitsWith(lastEpoch(host).pause, "captions", false));
+    room.flush();
+    expect(stateOf(alice)).toEqual({ kind: "on" });
+    expect(stateOf(host)).toEqual({ kind: "on" });
+    sameKeys([host, alice]);
+    expect([...lastEpoch(alice).baseKey]).not.toEqual(pausedKey);
+    expect([...lastEpoch(alice).baseKey]).not.toEqual(encryptedKey);
   });
 });
 

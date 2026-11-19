@@ -1,4 +1,13 @@
 import {
+  deleteSyncDayIssueStatement,
+  deleteSyncDayIssuesWithoutLinkStatement,
+  raiseSyncDayIssueStatement,
+  selectSyncDayIssuesStatement,
+  setSyncDayIssueStateStatement,
+  type SyncDayIssueKey,
+  type SyncDayIssueRow,
+} from "@magna-carta/calendar/sync-day-issue-statements";
+import {
   deleteSyncIssueStatement,
   deleteSyncIssuesWithoutLinkStatement,
   raiseSyncIssueStatement,
@@ -20,6 +29,7 @@ import type {
   ProviderEventWrite,
 } from "@magna-carta/calendar/sync-port";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { addCalendarDays, civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { isOccurrenceOf, movedLikeOccurrence } from "@magna-carta/civil-time/recurrence";
 import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
@@ -46,8 +56,13 @@ import type { IntegrationProblem } from "@magna-carta/integrations/problem";
 // comparison above can see. Each series' changed days are asked for, and a day that reads
 // differently is carried to the event as that day's own change, exactly as "this event only" does
 // in the event's own window. A day whose change cannot be carried is written back as it was sent:
-// there is no question to ask about one day, and a day that reads wrong is the worse outcome. A
-// day the member deleted is not seen, and is never a cancellation.
+// there is no question to ask about one day, and a day that reads wrong is the worse outcome.
+//
+// ONE DAY OF A SERIES, DELETED ON ITS OWN, is told to the member and changes nothing: by the
+// owner's ruling it is listed on their Calendar Sync page, where they may leave it or, at a
+// provider that can, have it put back. It is never a cancellation. The days this platform itself
+// took out of the provider's series (a day with a row of its own) are set aside, as is a day the
+// rule does not fall on, and a day more than a month gone, which nobody needs to be asked about.
 //
 // Only copies this platform wrote are read. The provider is asked for the events carrying the
 // platform's own mark and for nothing else, so an event the member made themselves is never seen.
@@ -56,8 +71,11 @@ import type { IntegrationProblem } from "@magna-carta/integrations/problem";
 // asks for only this many confirmations. The rest wait for the next pass.
 const REMOVAL_CONFIRMATIONS_PER_PASS = 25;
 
-// A pass asks about the changed days of only this many series. Each is one request.
+// A pass asks about the changed and deleted days of only this many series. Each is two requests.
 const SERIES_LOOKS_PER_PASS = 100;
+
+// A deleted day further back than this is not raised.
+const DELETED_DAY_DAYS_BACK = 31;
 
 const blankToNull = (text: string | null): string | null =>
   text === null || text.trim() === "" ? null : text.trim();
@@ -302,6 +320,12 @@ export async function noticeProviderChanges(
   }
 
   await deleteSyncIssuesWithoutLinkStatement(database, connectionId).run();
+  await deleteSyncDayIssuesWithoutLinkStatement(database, connectionId).run();
+  const dayIssues = await selectSyncDayIssuesStatement(
+    database,
+    connectionId,
+  ).all<SyncDayIssueRow>();
+  const earliestDeletedDay = addCalendarDays(civilDateOf(new Date(stamp)), -DELETED_DAY_DAYS_BACK);
 
   let seriesLooksLeft = SERIES_LOOKS_PER_PASS;
   for (const copy of input.desired) {
@@ -346,6 +370,66 @@ export async function noticeProviderChanges(
       });
       if (!written.ok) return { kind: "stopped", problem: written.problem, report };
       if (written.value.found) report.putBack += 1;
+    }
+
+    if (copy.localKind === "deadline") continue;
+    const deleted = await port.listSeriesDeletedDays(link.remote_event_id);
+    if (!deleted.ok) return { kind: "stopped", problem: deleted.problem, report };
+    if (deleted.value === null) continue;
+    const gone = new Map<string, string | null>();
+    for (const day of deleted.value) {
+      const occurrenceOn = zonedReading(
+        day.originalStartsAtMilliseconds,
+        copy.event.timeZone,
+      ).civilDate;
+      if (occurrenceOn < earliestDeletedDay) continue;
+      if (repeats.skippedDays.includes(occurrenceOn)) continue;
+      if (!isOccurrenceOf(repeats.rule, copy.event.startsOn, occurrenceOn)) continue;
+      gone.set(occurrenceOn, day.dayRemoteId);
+    }
+    const dayKey = (occurrenceOn: string): SyncDayIssueKey => ({
+      connectionId,
+      localKind: copy.localKind,
+      localId: copy.localId,
+      occurrenceOn,
+    });
+    const known = new Set<string>();
+    for (const row of dayIssues.results) {
+      if (row.local_kind !== copy.localKind || row.local_id !== copy.localId) continue;
+      const key = dayKey(row.occurrence_on);
+      if (row.state === "restoring") {
+        // The member asked for the day back. One try: a day the provider will not put back is
+        // handed to the member again, with the answer that is left.
+        const restored =
+          row.day_remote_id === null ? null : await port.restoreSeriesDay(row.day_remote_id);
+        if (restored !== null && !restored.ok) {
+          return { kind: "stopped", problem: restored.problem, report };
+        }
+        if (restored?.value.found === true) {
+          await deleteSyncDayIssueStatement(database, key).run();
+          report.putBack += 1;
+        } else {
+          await setSyncDayIssueStateStatement(database, key, "restoring", "open", stamp).run();
+        }
+        known.add(row.occurrence_on);
+        continue;
+      }
+      // The day is back, or is no longer one of the series' days: nothing left to ask.
+      if (!gone.has(row.occurrence_on)) {
+        await deleteSyncDayIssueStatement(database, key).run();
+        continue;
+      }
+      known.add(row.occurrence_on);
+    }
+    for (const [occurrenceOn, dayRemoteId] of gone) {
+      if (known.has(occurrenceOn)) continue;
+      await raiseSyncDayIssueStatement(
+        database,
+        dayKey(occurrenceOn),
+        { dayRemoteId, sentJson: JSON.stringify(readingOfSeriesDay(seriesSent, occurrenceOn)) },
+        stamp,
+      ).run();
+      report.flagged += 1;
     }
   }
   return { kind: "looked", report };
