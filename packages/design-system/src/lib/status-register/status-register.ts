@@ -105,7 +105,10 @@ export type StatusKey =
   | "index-partly-indexed"
   | "index-turned-on"
   | "index-turned-off"
-  | "index-not-connected";
+  | "index-not-connected"
+  // A book item that reached a trust reconciliation after it was started. Prefixed for the same
+  // reason the community words are: "new" is an ordinary word.
+  | "reconciliation-new";
 
 /**
  * How a status shows itself.
@@ -461,6 +464,12 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     tone: "neutral",
     meaning:
       "Search isn't connected yet, so nothing here can be searched, whatever the firm's setting says.",
+    presentation: "chip",
+  },
+  "reconciliation-new": {
+    label: "New",
+    tone: "neutral",
+    meaning: "Recorded after this reconciliation was started, dated inside its period.",
     presentation: "chip",
   },
 };

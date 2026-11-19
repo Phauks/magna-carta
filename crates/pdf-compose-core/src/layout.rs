@@ -70,6 +70,20 @@ pub(crate) enum Mark {
         thickness: f32,
         ink: Ink,
     },
+    /// Text turned about a point: the watermark. `x` and `baseline` are measured along the
+    /// turned line from `center`, and `cos`/`sin` are the turn, so render only applies them.
+    TurnedText {
+        center_x: f32,
+        center_y: f32,
+        cos: f32,
+        sin: f32,
+        x: f32,
+        baseline: f32,
+        face: Face,
+        size: f32,
+        ink: Ink,
+        text: String,
+    },
     /// The document's `index`-th image block.
     Image {
         index: usize,
@@ -1730,7 +1744,16 @@ pub(crate) fn lay_out(
         .and_then(|_| images.get(image_index).map(|size| (image_index, *size)));
     let mut pages = flow.pages;
     let count = pages.len();
+    let watermark = document
+        .watermark
+        .as_deref()
+        .filter(|text| !text.trim().is_empty())
+        .map(|text| watermark_mark(measurer, &page, text));
     for (index, laid) in pages.iter_mut().enumerate() {
+        // First, so everything else on the page is drawn over it.
+        if let Some(mark) = &watermark {
+            laid.marks.insert(0, mark.clone());
+        }
         if let Some(header) = &document.header {
             let baseline = page.margin_top / 2.0 + RUNNING.size / 2.0;
             running_line(
@@ -1786,6 +1809,37 @@ pub(crate) fn lay_out(
         }
     }
     Ok(pages)
+}
+
+/// How far the watermark is turned from the horizontal, rising to the right.
+const WATERMARK_ANGLE_DEGREES: f32 = 40.0;
+/// The watermark's largest size, and how much of the page's diagonal it may span.
+const WATERMARK_MAXIMUM_SIZE: f32 = 150.0;
+const WATERMARK_SPAN: f32 = 0.6;
+
+/// The watermark, centred on the page and turned so it rises to the right.
+fn watermark_mark(measurer: &mut Measurer, page: &PageSetup, text: &str) -> Mark {
+    let text = clean(text);
+    let text = text.as_str();
+    let diagonal = (page.width * page.width + page.height * page.height).sqrt();
+    let unit = measurer.width(Face::Bold, 100.0, text).max(1.0);
+    let size = (WATERMARK_SPAN * diagonal / unit * 100.0).min(WATERMARK_MAXIMUM_SIZE);
+    let width = measurer.width(Face::Bold, size, text);
+    // y runs downward, so rising to the right is a turn the other way.
+    let angle = -WATERMARK_ANGLE_DEGREES.to_radians();
+    Mark::TurnedText {
+        center_x: page.width / 2.0,
+        center_y: page.height / 2.0,
+        cos: angle.cos(),
+        sin: angle.sin(),
+        x: -width / 2.0,
+        // A capital is about seven tenths of the size tall: this sets it on the centre.
+        baseline: size * 0.35,
+        face: Face::Bold,
+        size,
+        ink: Ink::Gray(228),
+        text: text.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -2166,6 +2220,54 @@ mod tests {
             text_named(&pages[0], "Total").2,
             text_named(&plain_total[0], "Total").2
         );
+    }
+
+    #[test]
+    fn a_watermark_is_drawn_first_on_every_page_centred_and_turned() {
+        let family = FontFamily::bundled();
+        let mut measurer = Measurer::new(&family).unwrap();
+        let document = ComposedDocument {
+            watermark: Some("DRAFT".to_string()),
+            blocks: vec![
+                Block::Paragraph(Paragraph::plain("One")),
+                Block::PageBreak,
+                Block::Paragraph(Paragraph::plain("Two")),
+            ],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&document, &[], &mut measurer).unwrap();
+        assert_eq!(pages.len(), 2);
+        for laid in &pages {
+            let Some(Mark::TurnedText {
+                center_x,
+                center_y,
+                sin,
+                x,
+                size,
+                text,
+                ..
+            }) = laid.marks.first()
+            else {
+                panic!("the watermark is not the first mark");
+            };
+            assert_eq!(text, "DRAFT");
+            assert_eq!(*center_x, document.page.width / 2.0);
+            assert_eq!(*center_y, document.page.height / 2.0);
+            assert!(*sin < 0.0, "it rises to the right");
+            let width = measurer.width(Face::Bold, *size, "DRAFT");
+            assert!((x + width / 2.0).abs() < 0.01, "it is centred on the page");
+            assert!(*size <= WATERMARK_MAXIMUM_SIZE);
+        }
+
+        let plain = ComposedDocument {
+            blocks: vec![Block::Paragraph(Paragraph::plain("One"))],
+            ..ComposedDocument::default()
+        };
+        let pages = lay_out(&plain, &[], &mut measurer).unwrap();
+        assert!(!pages[0]
+            .marks
+            .iter()
+            .any(|mark| matches!(mark, Mark::TurnedText { .. })));
     }
 
     #[test]
