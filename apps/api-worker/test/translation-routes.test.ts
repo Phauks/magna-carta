@@ -67,9 +67,15 @@ let settingWrites = 0;
 async function setTranslationEnabled(enabled: boolean): Promise<void> {
   settingWrites += 1;
   const response = await app.request(
-    ...request("PATCH", "firm/translation-settings", ownerCookie, { enabled }, {
-      "Idempotency-Key": `translation-switch-${String(settingWrites)}`,
-    }),
+    ...request(
+      "PATCH",
+      "firm/translation-settings",
+      ownerCookie,
+      { enabled },
+      {
+        "Idempotency-Key": `translation-switch-${String(settingWrites)}`,
+      },
+    ),
     KEYED,
   );
   expect(response.status).toBe(200);
