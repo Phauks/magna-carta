@@ -7,14 +7,14 @@
 - id: payments
   name: Payments
   scope: Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
-  status: designed
+  status: partial
   adrs: ADR-0032
   spec: docs/specs/2026-08-15-payments-design.md
-  evidence: Design spec and implementation plan exist; no payments package, adapter, or rail code, and the invoicing substrate on main processes no money. Seven build-gating owner flags stand between the plan and a first commit.
+  evidence: A firm can record a payment it received by hand against a bill (payments.manual-receipt). No payments package, port, adapter or electronic rail yet; the processor was rechecked on 2026-11-19 (docs/research/2026-11-19-payment-processor-recheck.md).
   audience: public
   public-name: Client payments
   public-summary: Let a client pay a bill by bank transfer or card, with card fees kept away from trust money.
-  awaiting-owner: The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
+  awaiting-owner: The manually recorded receipt shipped first, as the design recommended. What is left to confirm is the order of the electronic rails: the operating rail next, then the trust rail once a returned-deposit movement kind exists and the processor has confirmed in writing that the trust account is outside its debit rights and lien. Payments design flag K2.
 
 - id: payments.port
   name: Payments port
@@ -33,7 +33,7 @@
   surface: screen
   slices: 3-4-billing-and-invoicing
   spec: docs/specs/2026-08-15-payments-design.md
-  evidence: packages/billing/src/receipt.ts (recordPaymentReceipt: Dr Operating Bank / Cr Accounts Receivable plus a payment application), the append-only payment_receipt table, POST and GET /api/v1/billing/invoices/{invoiceId}/payments, and Record Payment in the bill's Payments & Credits tab (apps/web/src/lib/billing/record-payment-dialog.svelte).
+  evidence: packages/billing/src/receipt.ts (recordPaymentReceipt: Dr Operating Bank / Cr Accounts Receivable plus a payment application), the append-only payment_receipt table, POST /api/v1/billing/invoices/{invoiceId}/payments, and Record Payment in the bill's Payments & Credits tab (apps/web/src/lib/billing/record-payment-dialog.svelte).
   audience: public
   public-name: Record a payment
   public-summary: Mark a bill as paid when a client sends a check, cash or a bank transfer.

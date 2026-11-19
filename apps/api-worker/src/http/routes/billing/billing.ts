@@ -47,14 +47,12 @@ import {
   issueCreditNote,
 } from "@magna-carta/billing/credit-note";
 import { recordInvoiceDelivery } from "@magna-carta/billing/delivery";
-import { PAYMENT_RECEIPT_METHODS, recordPaymentReceipt } from "@magna-carta/billing/receipt";
 import {
   readCreditNoteLinesForNotes,
   readCreditNotesForInvoicePage,
   readInvoiceDeliveries,
   readInvoiceDeliveryState,
   readOpenClientCreditsForClientPage,
-  readPaymentReceiptsForInvoice,
 } from "@magna-carta/billing/statements";
 import { addFlatFeeToDraft } from "@magna-carta/billing/flat-fee";
 import {
@@ -122,7 +120,7 @@ const FINALIZE = "billing:finalize" as const;
 // draft into evidence, applying takes somebody else's money against that evidence, and the migration
 // that seeded these put `billing:apply` on the same roles `trust:manage` reaches for exactly that
 // reason.
-const APPLY = "billing:apply" as const;
+export const APPLY = "billing:apply" as const;
 // Correcting a bill that has already been issued. Separate from finalizing for the same reason
 // applying is: issuing a credit note, giving up a receivable, or unwinding an application each
 // change what a client owes on a document the firm has already handed over, and a billing clerk who
@@ -133,7 +131,7 @@ const CONFIGURE = "billing:configure" as const;
 // A real calendar date, not a shape. The bare regex accepts 2026-02-30 and next week alike; both
 // reach the ledger's own check at the finalize posting, and the aging read turns an unparseable
 // as-of date into NaN, which fails every bucket comparison and reports the whole receivable as 90+.
-const civilDate = z
+export const civilDate = z
   .string()
   .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
@@ -722,45 +720,6 @@ const ApplicationAck = z
   .object({ applicationId: z.string(), invoiceId: z.string(), matterId: z.string() })
   .openapi("BillingApplicationAck");
 
-const PaymentReceiptRequest = z
-  .object({
-    matterId: identifierField("matter"),
-    amountMinor: z.number().int().positive(),
-    method: z.enum(PAYMENT_RECEIPT_METHODS),
-    reference: z.string().max(200).nullable().optional(),
-    effectiveDate: civilDate,
-  })
-  .openapi("BillingPaymentReceiptRequest");
-
-const PaymentReceiptAck = z
-  .object({
-    receiptId: z.string(),
-    applicationId: z.string(),
-    invoiceId: z.string(),
-    matterId: z.string(),
-  })
-  .openapi("BillingPaymentReceiptAck");
-
-const PaymentReceiptListResponse = z
-  .object({
-    data: z.array(
-      z.object({
-        id: z.string(),
-        applicationId: z.string(),
-        matterId: z.string(),
-        amountMinor: z.number().int(),
-        currency: z.string(),
-        effectiveDate: z.string(),
-        method: z.enum(PAYMENT_RECEIPT_METHODS),
-        reference: z.string().nullable(),
-        reversed: z.boolean(),
-        recordedBy: z.string().nullable(),
-        recordedAt: z.string(),
-      }),
-    ),
-  })
-  .openapi("BillingPaymentReceiptListResponse");
-
 const ClientCreditListResponse = z
   .object({
     data: z.array(
@@ -974,7 +933,7 @@ const readErrorResponses = {
 // Plain objects, deliberately NOT `as const`: a const-asserted spread deep-freezes the
 // content-schema literal in a way that breaks zod-openapi's match of the handler's typed problem
 // responses to these status codes — the same note custom-fields.ts carries.
-const mutationResponses = {
+export const mutationResponses = {
   400: errorResponses[400],
   401: errorResponses[401],
   403: errorResponses[403],
@@ -992,7 +951,7 @@ type BillingPermission =
   | typeof CREDIT
   | typeof CONFIGURE;
 
-function writeMeta(operationId: string, permission: BillingPermission): RouteMeta {
+export function writeMeta(operationId: string, permission: BillingPermission): RouteMeta {
   return {
     operationId,
     surface: "app",
@@ -1668,40 +1627,6 @@ const writeOffRoute = defineOpenAPIRoute(writeMeta("billing.writeOffBalance", CR
   },
 });
 
-const recordPaymentRoute = defineOpenAPIRoute(writeMeta("billing.recordPayment", APPLY), {
-  method: "post",
-  path: "/api/v1/billing/invoices/{invoiceId}/payments",
-  description:
-    "Records a payment the firm received by hand against what one matter owes on a bill: a check, cash, a bank transfer, or a card run on the firm's own terminal. The money is booked into the firm's operating bank account and the bill's balance comes down by the same amount. It cannot exceed what the matter still owes on the bill; record what is owed and return or credit the rest. Money a client sends to be held in trust is a trust deposit, not a payment, and is recorded on the client's trust ledger instead. A payment recorded in error is undone by reversing it, which keeps both records.",
-  request: {
-    headers: idempotencyKeyHeader,
-    params: invoiceParam,
-    body: { content: { "application/json": { schema: PaymentReceiptRequest } }, required: true },
-  },
-  responses: {
-    201: {
-      description: "The payment was recorded",
-      content: { "application/json": { schema: PaymentReceiptAck } },
-    },
-    ...mutationResponses,
-  },
-});
-
-const listPaymentsRoute = defineOpenAPIRoute(readMeta("billing.listPayments"), {
-  method: "get",
-  path: "/api/v1/billing/invoices/{invoiceId}/payments",
-  description:
-    "Every payment recorded by hand against one bill, oldest first, including any that were later reversed, which are marked. Nothing here is ever edited or removed.",
-  request: { params: invoiceParam },
-  responses: {
-    200: {
-      description: "The bill's recorded payments",
-      content: { "application/json": { schema: PaymentReceiptListResponse } },
-    },
-    ...readErrorResponses,
-  },
-});
-
 const clientCreditsRoute = defineOpenAPIRoute(readMeta("billing.clientCredits"), {
   method: "get",
   path: "/api/v1/billing/clients/{clientEntityId}/credits",
@@ -1812,7 +1737,7 @@ const contingencyResidualRoute = defineOpenAPIRoute(readMeta("billing.contingenc
 
 // A refusal's HTTP status is a property of what the refusal MEANS, so the mapping lives in one place
 // rather than at nine call sites that would drift.
-function billingErrorResponse(
+export function billingErrorResponse(
   c: Context,
   error: BillingValidationError,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
@@ -1864,9 +1789,8 @@ function billingErrorResponse(
   // Both ceilings move for the same reason and take the same remedy: retry against the balance as it
   // now stands, or aim the correction somewhere else. A conflict rather than a refusal on the merits.
   if (
-    error.code === "earned-fee-exceeds-unpaid-balance" ||
-    error.code === "write-off-exceeds-unpaid-balance" ||
-    error.code === "payment-exceeds-unpaid-balance" ||
+    // An earned-fee transfer, a write-off, or a payment recorded by hand.
+    error.code.endsWith("-exceeds-unpaid-balance") ||
     error.code === "client-credit-exhausted"
   ) {
     return problemJson(c, {
@@ -1915,7 +1839,7 @@ function billingErrorResponse(
   });
 }
 
-type BillingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
+export type BillingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 // The commit's outcome, kept separate from the HTTP reply so each route can name its own success
 // status literal — a PATCH answers 200 and a create answers 201, and a helper that returned both
@@ -1939,70 +1863,70 @@ async function readApprovalRequired(database: SqlDatabase): Promise<boolean> {
   return (await readFirmSetting(database, approvalRequiredDefinition)) ?? false;
 }
 
-export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): void {
-  // The shared idempotent commit: one batch carrying the business statements, the idempotency
-  // record, and the outbox messages. Everything a billing mutation does commits together or not at
-  // all — which for finalization is the whole point.
-  async function runBillingEffect<Body>(
-    c: Context,
-    responseCode: 200 | 201,
-    compose: (actor: UserId) => Promise<{ write: EffectWrite; body: Body }>,
-  ): Promise<BillingOutcome<Body>> {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const now = () => new Date().toISOString();
-    let result;
-    try {
-      result = await runIdempotentEffect({
-        database: firm.firmDatabase,
-        key: idempotency.key,
-        fingerprint: idempotency.fingerprint,
-        now,
-        effect: async () => {
-          const composed = await compose(userId);
-          return {
-            write: composed.write,
-            responseCode,
-            responseBody: canonicalJsonStringify(composed.body),
-          };
-        },
-      });
-    } catch (caught) {
-      if (caught instanceof BillingValidationError) {
-        return { kind: "refused", response: billingErrorResponse(c, caught) };
-      }
-      // The ledger refuses on its own terms too — a future or malformed issue date on a finalize
-      // reaches validateEntry, not this package's rules. A different error class, so without this
-      // arm it reaches the app error boundary and a member gets a 500 for a typo.
-      if (caught instanceof LedgerValidationError) {
-        return { kind: "refused", response: problemResponseForLedgerRefusal(c, caught) };
-      }
-      // The apply-funds path composes trust's transfer through trust's own composer, so the trust
-      // rules refuse on their own terms here — money under a disputed-funds hold, a closed account,
-      // an office with no jurisdiction recorded, a matter that holds no client ledger. Billing does
-      // not restate any of them, and the mapping is the one trust's own routes use.
-      if (caught instanceof TrustValidationError) {
-        return { kind: "refused", response: problemResponseForTrustRefusal(c, caught) };
-      }
-      throw caught;
+// The shared idempotent commit: one batch carrying the business statements, the idempotency
+// record, and the outbox messages. Everything a billing mutation does commits together or not at
+// all — which for finalization is the whole point.
+export async function runBillingEffect<Body>(
+  c: Context,
+  responseCode: 200 | 201,
+  compose: (actor: UserId) => Promise<{ write: EffectWrite; body: Body }>,
+): Promise<BillingOutcome<Body>> {
+  const firm = requireChokepointFirmContext(c);
+  const userId = requireChokepointUserId(c);
+  const idempotency = requireChokepointIdempotency(c);
+  const now = () => new Date().toISOString();
+  let result;
+  try {
+    result = await runIdempotentEffect({
+      database: firm.firmDatabase,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const composed = await compose(userId);
+        return {
+          write: composed.write,
+          responseCode,
+          responseBody: canonicalJsonStringify(composed.body),
+        };
+      },
+    });
+  } catch (caught) {
+    if (caught instanceof BillingValidationError) {
+      return { kind: "refused", response: billingErrorResponse(c, caught) };
     }
-    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
-      return { kind: "refused", response: problemResponseForIdempotencyConflict(c, result) };
+    // The ledger refuses on its own terms too — a future or malformed issue date on a finalize
+    // reaches validateEntry, not this package's rules. A different error class, so without this
+    // arm it reaches the app error boundary and a member gets a 500 for a typo.
+    if (caught instanceof LedgerValidationError) {
+      return { kind: "refused", response: problemResponseForLedgerRefusal(c, caught) };
     }
-    if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-    return { kind: "committed", body: JSON.parse(result.responseBody ?? "{}") as Body };
+    // The apply-funds path composes trust's transfer through trust's own composer, so the trust
+    // rules refuse on their own terms here — money under a disputed-funds hold, a closed account,
+    // an office with no jurisdiction recorded, a matter that holds no client ledger. Billing does
+    // not restate any of them, and the mapping is the one trust's own routes use.
+    if (caught instanceof TrustValidationError) {
+      return { kind: "refused", response: problemResponseForTrustRefusal(c, caught) };
+    }
+    throw caught;
   }
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+    return { kind: "refused", response: problemResponseForIdempotencyConflict(c, result) };
+  }
+  if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+  return { kind: "committed", body: JSON.parse(result.responseBody ?? "{}") as Body };
+}
 
-  // Wall-clock and randomness are ambient at the runtime edge and injected everywhere below it: the
-  // domain package holds no clock, so this is where one is supplied.
-  const clockOptions = () => ({
-    clock: {
-      now: () => new Date().toISOString(),
-      today: () => todayInUtc(),
-    },
-  });
+// Wall-clock and randomness are ambient at the runtime edge and injected everywhere below it: the
+// domain package holds no clock, so this is where one is supplied.
+export const clockOptions = () => ({
+  clock: {
+    now: () => new Date().toISOString(),
+    today: () => todayInUtc(),
+  },
+});
 
+export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): void {
   // POST /api/v1/billing/invoices — open a working document
   app.openapi(
     { ...createInvoiceRoute, middleware: chokepointMiddleware(chokepoint, createInvoiceRoute) },
@@ -2994,72 +2918,6 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
       );
       if (outcome.kind === "refused") return outcome.response;
       return c.json(outcome.body, 201);
-    },
-  );
-
-  app.openapi(
-    { ...recordPaymentRoute, middleware: chokepointMiddleware(chokepoint, recordPaymentRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const { invoiceId } = c.req.valid("param");
-      const request = c.req.valid("json");
-      const outcome = await runBillingEffect<z.infer<typeof PaymentReceiptAck>>(
-        c,
-        201,
-        async (recordedBy) => {
-          const composed = await recordPaymentReceipt(
-            firm.firmDatabase,
-            {
-              invoiceId,
-              matterId: request.matterId,
-              amountMinor: request.amountMinor,
-              method: request.method,
-              reference: request.reference ?? null,
-              effectiveDate: request.effectiveDate,
-              recordedBy,
-            },
-            clockOptions(),
-          );
-          return {
-            write: composed.effect,
-            body: {
-              receiptId: composed.receiptId,
-              applicationId: composed.applicationId,
-              invoiceId,
-              matterId: request.matterId,
-            },
-          };
-        },
-      );
-      if (outcome.kind === "refused") return outcome.response;
-      return c.json(outcome.body, 201);
-    },
-  );
-
-  app.openapi(
-    { ...listPaymentsRoute, middleware: chokepointMiddleware(chokepoint, listPaymentsRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const { invoiceId } = c.req.valid("param");
-      const receipts = await readPaymentReceiptsForInvoice(firm.firmDatabase, invoiceId);
-      return c.json(
-        {
-          data: receipts.map((receipt) => ({
-            id: receipt.id,
-            applicationId: receipt.applicationId,
-            matterId: receipt.matterId,
-            amountMinor: receipt.amountMinor,
-            currency: receipt.currency,
-            effectiveDate: receipt.effectiveDate,
-            method: receipt.method,
-            reference: receipt.reference,
-            reversed: receipt.reversedByApplicationId !== null,
-            recordedBy: receipt.recordedBy,
-            recordedAt: receipt.recordedAt,
-          })),
-        } as never,
-        200,
-      );
     },
   );
 

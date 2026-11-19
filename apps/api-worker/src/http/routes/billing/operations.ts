@@ -20,7 +20,6 @@ export const OPERATIONS: readonly string[] = [
   "billing.listCreditNotes",
   "billing.listDeliveries",
   "billing.listInvoices",
-  "billing.listPayments",
   "billing.listRecoveries",
   "billing.matterUnbilled",
   "billing.receivablesAging",

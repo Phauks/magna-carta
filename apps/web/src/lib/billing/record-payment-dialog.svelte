@@ -42,8 +42,9 @@
 
   const fieldPrefix = $props.id();
 
+  const CHECK = { value: "check", label: "Check", reference: "Check Number" } as const;
   const METHOD_ITEMS: readonly { value: PaymentMethod; label: string; reference: string }[] = [
-    { value: "check", label: "Check", reference: "Check Number" },
+    CHECK,
     { value: "bank_transfer", label: "Bank Transfer", reference: "Confirmation Number" },
     { value: "cash", label: "Cash", reference: "Receipt Number" },
     { value: "card_terminal", label: "Card", reference: "Approval Code" },
@@ -66,7 +67,7 @@
   }
 
   // The Select works in plain strings; the closed union is restored on the way out.
-  const chosen = $derived(METHOD_ITEMS.find((item) => item.value === method) ?? METHOD_ITEMS[0]);
+  const chosen = $derived(METHOD_ITEMS.find((item) => item.value === method) ?? CHECK);
 
   const started = $derived(reference.trim() !== "" || amountText !== amountFieldText(ceiling));
 

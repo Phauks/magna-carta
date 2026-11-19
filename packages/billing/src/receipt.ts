@@ -9,7 +9,9 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { postEntry } from "@magna-carta/ledger/post-entry";
-import { currencyFromCode, money } from "@magna-carta/money/money";
+import { greaterThan } from "@magna-carta/money/compare";
+import { toMinor } from "@magna-carta/money/format";
+import { currencyFromCode, money, subtract } from "@magna-carta/money/money";
 import { readAccountRoleMap, resolveAccountRole } from "./account-roles.ts";
 import { composeInvoiceApplication, issueDateOfFinalizedInvoice } from "./application.ts";
 import { BillingValidationError } from "./billing-validation.ts";
@@ -112,8 +114,13 @@ export async function recordPaymentReceipt(
       `invoice ${input.invoiceId} does not bill matter ${input.matterId}, so it carries no balance on that matter to pay`,
     );
   }
-  const unpaidMinor = balance.totalMinor - balance.appliedMinor;
-  if (input.amountMinor > unpaidMinor) {
+  const currencyValue = currencyFromCode(invoice.currency);
+  const unpaid = subtract(
+    money(balance.totalMinor, currencyValue),
+    money(balance.appliedMinor, currencyValue),
+  );
+  const unpaidMinor = toMinor(unpaid);
+  if (greaterThan(money(input.amountMinor, currencyValue), unpaid)) {
     throw new BillingValidationError(
       "payment-exceeds-unpaid-balance",
       `matter ${input.matterId} still owes ${unpaidMinor} on invoice ${input.invoiceId} and this records ${input.amountMinor}: record what the bill is owed, and return or credit the rest`,
@@ -121,7 +128,6 @@ export async function recordPaymentReceipt(
   }
 
   const roleMap = await readAccountRoleMap(database);
-  const currencyValue = currencyFromCode(invoice.currency);
   const posting = await postEntry(
     database,
     {

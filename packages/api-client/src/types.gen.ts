@@ -3056,6 +3056,21 @@ export type BillingContingencyResidualResponse = {
     }>;
 };
 
+export type BillingPaymentReceiptAck = {
+    receiptId: string;
+    applicationId: string;
+    invoiceId: string;
+    matterId: string;
+};
+
+export type BillingPaymentReceiptRequest = {
+    matterId: string;
+    amountMinor: number;
+    method: 'check' | 'cash' | 'bank_transfer' | 'card_terminal';
+    reference?: string | null;
+    effectiveDate: string;
+};
+
 export type DownloadSnapshotCreatedResponse = {
     id: string;
     expiresAt: string;
@@ -19765,6 +19780,60 @@ export type BillingContingencyResidualResponses = {
 };
 
 export type BillingContingencyResidualResponse2 = BillingContingencyResidualResponses[keyof BillingContingencyResidualResponses];
+
+export type BillingRecordPaymentData = {
+    body: BillingPaymentReceiptRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        invoiceId: string;
+    };
+    query?: never;
+    url: '/api/v1/billing/invoices/{invoiceId}/payments';
+};
+
+export type BillingRecordPaymentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the invoice is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BillingRecordPaymentError = BillingRecordPaymentErrors[keyof BillingRecordPaymentErrors];
+
+export type BillingRecordPaymentResponses = {
+    /**
+     * The payment was recorded
+     */
+    201: BillingPaymentReceiptAck;
+};
+
+export type BillingRecordPaymentResponse = BillingRecordPaymentResponses[keyof BillingRecordPaymentResponses];
 
 export type DownloadsRecordSnapshotData = {
     body: DownloadSnapshotRequest;

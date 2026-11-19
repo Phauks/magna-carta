@@ -1804,6 +1804,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // the line trust_transfer.authorized_by sits on — and whose money it was resolves through the
   // invoice and the trust transfer, never through a column here.
   "invoice_application",
+  // How a payment recorded by hand arrived: the application it stands beside, a method from a closed
+  // list, the firm's own reference (a check number, a transfer confirmation, a card approval code),
+  // and member provenance (recorded_by), on the invoice_application line. Whose payment it was
+  // resolves through the application's invoice.
+  "payment_receipt",
   // The numbering pair is a sequence: a scope key, a counter, and which invoice consumed which
   // value. Nothing about any person.
   "invoice_number_counter",

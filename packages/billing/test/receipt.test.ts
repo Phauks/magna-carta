@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { toMinor } from "@magna-carta/money/format";
+import { currencyFromCode, money, subtract } from "@magna-carta/money/money";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { InvoiceId, MatterId } from "@magna-carta/identifiers/types";
 import { composeApplicationReversal } from "../src/credit-note.ts";
@@ -23,6 +25,7 @@ import {
   type BillingFixture,
 } from "./support.ts";
 
+const USD = currencyFromCode("USD");
 const RECEIPT_ROLES = ["accounts_receivable", "fee_income", "operating_bank"] as const;
 const FINALIZE_DATES = { issueDate: "2026-08-03", dueDate: "2026-09-04" } as const;
 
@@ -60,7 +63,7 @@ async function unpaidMinor(fixture: BillingFixture, bill: FinalizedBill): Promis
   const balances = await readInvoiceMatterBalances(fixture.database, bill.invoiceId);
   const balance = balances.find((row) => row.matterId === bill.matterId);
   if (!balance) throw new Error("the fixture bill has no balance row");
-  return balance.totalMinor - balance.appliedMinor;
+  return toMinor(subtract(money(balance.totalMinor, USD), money(balance.appliedMinor, USD)));
 }
 
 async function accountBalanceMinor(fixture: BillingFixture, accountId: string): Promise<number> {
