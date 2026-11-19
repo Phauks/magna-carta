@@ -293,10 +293,32 @@ series carried onto that day is applied as that day's own change through
 permission and detail limits as any edit carried back, so the day gets a row of its own and the
 next pass sends that row and takes the day out of the Graph series. A change that cannot be
 carried is written back onto that day as it was sent. No question is raised for one day, because
-`connection_sync_issue` is keyed by copy and a series is one copy. A day the member deleted is not
-among the exceptions, is not noticed, and cancels nothing
+`connection_sync_issue` is keyed by copy and a series is one copy
 (`apps/api-worker/src/calendar-sync/provider-changes.ts`, `listSeriesChangedDays` and
 `updateSeriesDay` on the port).
+
+As built, a day a member deletes from a series in their own calendar is listed for them and
+cancels nothing (owner ruling 2026-11-19, chosen over "do nothing" and "cancel that day"). After
+the changed days, each series copy that is not a deadline is asked for its deleted days
+(`listSeriesDeletedDays`): Google's `instances` with `showDeleted=true`, keeping the instances
+marked cancelled
+([events.instances](https://developers.google.com/workspace/calendar/api/v3/reference/events/instances));
+Graph's `cancelledOccurrences` on the series master
+([event resource](https://learn.microsoft.com/en-us/graph/api/resources/event?view=graph-rest-1.0)).
+A day this side took out itself (it has a row of its own), a day the rule does not fall on, and a
+day more than 31 days gone are set aside. Each remaining day is one row in
+`connection_sync_day_issue`, keyed by copy and day, and is listed with the member's other
+questions carrying `occurrenceOn` and `canPutBack`. Leave It keeps the row as `left`, so the day
+is not asked about again. Put Back sets it to `restoring`, and the next pass calls
+`restoreSeriesDay` once: put back, the row goes; refused, it is a question again. A row whose day
+is back, or whose copy is gone, is removed by the pass.
+
+Two things here are unverified against the live services. Google's guide documents cancelling an
+instance by writing `status: "cancelled"`
+([recurring events](https://developers.google.com/workspace/calendar/api/guides/recurringevents))
+and not the reverse, so writing `status: "confirmed"` to put a day back is an inference. Graph
+gives no format for a `cancelledOccurrences` value and no way to restore one, so the adapter reads
+only a trailing date, gives no handle, and Put Back is not offered for an Outlook account.
 
 One changed or cancelled occurrence is an exception row (`recurrence_parent_id` plus
 `recurrence_occurrence_on`) and an exception instance at the provider. "This and all later events" is

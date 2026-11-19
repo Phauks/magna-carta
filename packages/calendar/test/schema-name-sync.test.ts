@@ -5,6 +5,7 @@ import {
   calendarSyncFirmLimit,
   calendarSyncLink,
   calendarSyncRule,
+  connectionSyncDayIssue,
   connectionSyncIssue,
   firmEvent,
   firmEventParticipant,
@@ -80,6 +81,16 @@ import {
   markSyncLinkSyncedStatement,
   selectSyncLinksStatement,
 } from "../src/sync-link-statements.ts";
+import {
+  CONNECTION_SYNC_DAY_ISSUE_TABLE,
+  deleteSyncDayIssueStatement,
+  deleteSyncDayIssuesStatement,
+  deleteSyncDayIssuesWithoutLinkStatement,
+  raiseSyncDayIssueStatement,
+  selectSyncDayIssueStatement,
+  selectSyncDayIssuesStatement,
+  setSyncDayIssueStateStatement,
+} from "../src/sync-day-issue-statements.ts";
 import {
   CONNECTION_SYNC_ISSUE_TABLE,
   deleteSyncIssueStatement,
@@ -602,6 +613,36 @@ describe("schema name sync (calendar SQL pinned to @magna-carta/database)", () =
       deleteSyncIssuesStatement(stub, connectionId),
     ]) {
       expectOnlyKnownIdentifiers(sqlOf(statement), issueColumns, "sync issue");
+    }
+  });
+
+  it("every column the sync day issue SQL names exists in the schema", () => {
+    expect(getTableConfig(connectionSyncDayIssue).name).toBe(CONNECTION_SYNC_DAY_ISSUE_TABLE);
+    const connectionId = "integrationConnection_x" as never;
+    const key = {
+      connectionId,
+      localKind: "matter_event",
+      localId: "matterEvent_x",
+      occurrenceOn: "2026-12-01",
+    } as const;
+    const dayIssueColumns = new Set([
+      CONNECTION_SYNC_DAY_ISSUE_TABLE,
+      ...columnsOf(connectionSyncDayIssue),
+      // The sweep of questions whose copy was taken back reads the link table beside it.
+      CALENDAR_SYNC_LINK_TABLE,
+      "link",
+      "excluded",
+    ]);
+    for (const statement of [
+      selectSyncDayIssuesStatement(stub, connectionId),
+      selectSyncDayIssueStatement(stub, key),
+      raiseSyncDayIssueStatement(stub, key, { dayRemoteId: null, sentJson: "{}" }, "t"),
+      setSyncDayIssueStateStatement(stub, key, "open", "left", "t"),
+      deleteSyncDayIssueStatement(stub, key),
+      deleteSyncDayIssuesWithoutLinkStatement(stub, connectionId),
+      deleteSyncDayIssuesStatement(stub, connectionId),
+    ]) {
+      expectOnlyKnownIdentifiers(sqlOf(statement), dayIssueColumns, "sync day issue");
     }
   });
 });

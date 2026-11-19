@@ -16,6 +16,7 @@ import type {
   TrustChecksResponse,
 } from "./checks-api.ts";
 import type { TrustChecksService } from "./checks-service.ts";
+import { saveToTarget } from "$lib/export/save-target.ts";
 import { composeCheckPdf, openPdf } from "./check-pdf.ts";
 import { nextUnusedNumber } from "./checks-model.ts";
 
@@ -80,6 +81,26 @@ function registerRow(
   };
 }
 
+/** The same check, issued on another day and, where it was voided, voided on a later one. */
+function on(
+  row: TrustCheckRegisterRow,
+  issuedOn: string,
+  voidedOn?: string,
+): TrustCheckRegisterRow {
+  const numberedAt = `${issuedOn}T16:00:00.000Z`;
+  return {
+    ...row,
+    effectiveDate: issuedOn,
+    numberedAt,
+    lastEventAt:
+      row.lastEventAt === null
+        ? null
+        : voidedOn === undefined
+          ? `${issuedOn}T16:05:00.000Z`
+          : `${voidedOn}T16:00:00.000Z`,
+  };
+}
+
 function initial(): TrustChecksResponse {
   const toPrint = [
     queueRow(
@@ -115,26 +136,47 @@ function initial(): TrustChecksResponse {
     // Printed before a check was recorded as printed at once: it reads exactly like the rest.
     registerRow(10_417, "numbered", "Reno Courier Service", 4_500, "26-0122", "Okafor Estate"),
     registerRow(10_418, "printed", "Silver State Appraisals", 45_000, "26-0122", "Okafor Estate"),
-    registerRow(10_419, "printed", "Maria Delgado", 1_840_000, "26-0087", "Delgado Settlement"),
-    registerRow(
-      10_398,
-      "voided",
-      "Jordan Smith",
-      125_050,
-      "26-0098",
-      "Smith v. Clearwater Logistics",
-      "Lost in the mail; stop payment placed",
+    on(
+      registerRow(10_419, "printed", "Maria Delgado", 1_840_000, "26-0087", "Delgado Settlement"),
+      "2026-11-03",
     ),
-    registerRow(
-      10_420,
-      "spoiled",
-      "Nevada Court Reporters",
-      61_500,
-      "26-0110",
-      "Reyes Deposition",
-      "Misprinted",
+    // Printed in October and voided in November, so the positive pay file for November reports it.
+    on(
+      registerRow(
+        10_398,
+        "voided",
+        "Jordan Smith",
+        125_050,
+        "26-0098",
+        "Smith v. Clearwater Logistics",
+        "Lost in the mail; stop payment placed",
+      ),
+      "2026-10-14",
+      "2026-11-10",
     ),
-    registerRow(10_421, "printed", "Nevada Court Reporters", 61_500, "26-0110", "Reyes Deposition"),
+    on(
+      registerRow(
+        10_420,
+        "spoiled",
+        "Nevada Court Reporters",
+        61_500,
+        "26-0110",
+        "Reyes Deposition",
+        "Misprinted",
+      ),
+      "2026-11-05",
+    ),
+    on(
+      registerRow(
+        10_421,
+        "printed",
+        "Nevada Court Reporters",
+        61_500,
+        "26-0110",
+        "Reyes Deposition",
+      ),
+      "2026-11-05",
+    ),
   ];
   return {
     nextCheckNumber: nextUnusedNumber(
@@ -296,8 +338,11 @@ export function galleryChecksService(): TrustChecksService {
     async voidNextNumber(_account, reason) {
       await settle();
       const checkNumber = nextNumber();
+      const now = new Date().toISOString();
       data.register.push({
         ...registerRow(checkNumber, "voided", "", 0, "", "", reason),
+        numberedAt: now,
+        lastEventAt: now,
         trustMovementId: null,
         payee: null,
         amountMinor: null,
@@ -334,5 +379,7 @@ export function galleryChecksService(): TrustChecksService {
     },
     composePdf: composeCheckPdf,
     openPdf,
+    // A real download, so the file the gallery makes can be opened and read.
+    saveFile: saveToTarget,
   };
 }

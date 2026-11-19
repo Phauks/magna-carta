@@ -144,6 +144,8 @@ describe("a copy the member changed in Outlook", () => {
     sent,
     found: { ...sent, startsAtTime: "14:00", endsAtTime: "15:30" },
     detectedAt: "2026-11-10T12:00:00.000Z",
+    occurrenceOn: null,
+    canPutBack: true,
   } as const;
 
   it("states when each side happens, on the event's own wall clock", () => {
@@ -162,6 +164,14 @@ describe("a copy the member changed in Outlook", () => {
     ).toBe('Titled "Hearing (moved)" · No location');
     expect(foundText({ ...issue, kind: "removed", found: null })).toBe("Deleted in Outlook");
     expect(foundText({ ...issue, kind: "not_sent", found: null })).toContain("Not sent");
+  });
+
+  it("states one deleted day of a repeating event as that day, in a row of its own", () => {
+    const day = { ...issue, kind: "removed", found: null, occurrenceOn: "2026-12-08" } as const;
+    expect(foundText(day)).toBe("This day deleted in Outlook");
+    expect(foundText(day, "Google Calendar")).toBe("This day deleted in Google Calendar");
+    expect(issueKey(day)).toBe("matter_event:matterEvent_1:2026-12-08");
+    expect(issueKey(day)).not.toBe(issueKey(issue));
   });
 
   it("keys a row by its copy and offers its answers in a trailing column", () => {

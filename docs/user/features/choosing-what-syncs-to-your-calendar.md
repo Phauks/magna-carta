@@ -77,8 +77,12 @@ This works the way editing the event in Magna Carta does, so it has the same lim
   the series to a different first day cannot; that appears under **Different in Outlook**.
 - Changing a single day of a series in Outlook changes that day in Magna Carta and leaves the rest
   of the series alone, the way **This Event Only** does. The day may move to another date. If you
-  do not have permission to edit the calendar, the day is put back as it was. Deleting a single
-  day in Outlook is not picked up and calls nothing off, so call a day off in Magna Carta.
+  do not have permission to edit the calendar, the day is put back as it was.
+- Deleting a single day of a series in Outlook or Google calls nothing off. The day appears on this
+  page under **Different in Outlook** or **Different in Google Calendar**. **Leave It** keeps your
+  calendar as you made it. For a Google account, **Put Back** returns the day to your Google
+  calendar; Outlook has no way to put one day back, so only **Leave It** is offered there. To call
+  a day off for everyone, do it in Magna Carta.
 - Notes are not carried back.
 
 Deleting your copy in Outlook never cancels the event. A deleted copy appears on this page under
