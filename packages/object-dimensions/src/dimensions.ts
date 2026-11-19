@@ -139,6 +139,10 @@ export type FirmScopedObjectClass =
   // editor and never printed. It belongs to the account, not to any matter.
   | "check-stock-scan"
 
+  // A file kept with a trust bank reconciliation: the bank's statement, a deposit slip. It belongs
+  // to the trust account's period, not to any matter.
+  | "trust-reconciliation-file"
+
   // A file a firm gave a record transfer, kept unchanged, the report of a pass over one, and the
   // mapping a person is still working on for one. All three belong to the firm and to no matter: a
   // source file is a list of many matters or of none, and a report and a mapping describe such a file.
@@ -185,6 +189,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "member-photo",
   "directory-photo",
   "check-stock-scan",
+  "trust-reconciliation-file",
   "transfer-source-file",
   "transfer-pass-report",
   "transfer-file-mapping",

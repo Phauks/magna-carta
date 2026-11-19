@@ -19,6 +19,7 @@ import Microscope from "@lucide/svelte/icons/microscope";
 import Package from "@lucide/svelte/icons/package";
 import Landmark from "@lucide/svelte/icons/landmark";
 import Receipt from "@lucide/svelte/icons/receipt";
+import BookCheck from "@lucide/svelte/icons/book-check";
 import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 
 /** A screen the way back leads to, spelled out — for destinations outside the sidebar registry. */
@@ -85,6 +86,13 @@ export const TRUST_CHECKS_BACK: BackDestination = {
   href: "/trust/checks",
   label: "Checks",
   icon: Receipt,
+};
+
+/** One trust account's Reconciliation list, the screen a reconciliation sits under. */
+export const RECONCILIATION_BACK: BackDestination = {
+  href: "/reconciliation",
+  label: "Reconciliation",
+  icon: BookCheck,
 };
 
 /** A spelled-out way back, opened on one trust account. */
