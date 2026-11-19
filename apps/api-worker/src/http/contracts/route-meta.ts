@@ -123,8 +123,11 @@ export interface RouteMeta {
    * different things (a meeting's invitation, a request's signer) and a handler of one must never be
    * handed the other. Registration holds it to the guest lane's terms: `authenticated: false`,
    * `permission: null`, `surface: "app"` and `resource: "firm"`, and never beside `guestLane`.
+   *
+   * `"signed-copy"` is the link the completion email carries: the same signer, a different kind of
+   * token, admitted only once the request is completed and sealed, for a fixed time after sealing.
    */
-  signerLane?: "link";
+  signerLane?: "link" | "signed-copy";
 }
 
 // The meta as attached to a defined route: optional fields resolved to their defaults, so the

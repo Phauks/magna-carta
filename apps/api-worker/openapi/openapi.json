@@ -18536,6 +18536,38 @@
           "requestIds"
         ]
       },
+      "SignedCopyView": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "firmName": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "sealedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "documentFileName": {
+            "type": "string"
+          },
+          "certificateFileName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "firmName",
+          "senderName",
+          "sealedAt",
+          "documentFileName",
+          "certificateFileName"
+        ]
+      },
       "SessionLaunchResponse": {
         "type": "object",
         "properties": {
@@ -82595,6 +82627,203 @@
           },
           "422": {
             "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy": {
+      "get": {
+        "description": "What the link to a signed copy opens: the document's title, who sent it, and when it was sealed. Writes nothing.",
+        "operationId": "signer.readSignedCopy",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signed copy's details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedCopyView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy/document": {
+      "get": {
+        "description": "The sealed, signed copy of the document, as a PDF.",
+        "operationId": "signer.readSignedCopyDocument",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopyDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signed copy",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy/certificate": {
+      "get": {
+        "description": "The Certificate of Completion filed beside the signed copy, as a PDF.",
+        "operationId": "signer.readSignedCopyCertificate",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopyCertificate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The certificate",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
             "content": {
               "application/problem+json": {
                 "schema": {
