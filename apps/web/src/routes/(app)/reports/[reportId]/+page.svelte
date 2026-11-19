@@ -397,8 +397,11 @@
             : `as known at the end of ${formatDate(knowledgeDateOf(scope.knownAsOf, subjectZone))}`;
       return [officeName, when, known].filter((part) => part !== null).join(" · ");
     }
+    // A client report states the client's name alone, as the approved board does; the file's own
+    // subtitle keeps the handle beside it.
+    const clientName: string | null = built?.scope.client === true ? (chosenClient?.name ?? null) : null;
     const subjectName =
-      (built?.scope.client === true ? (chosenClient?.name ?? null) : null) ??
+      clientName ??
       presentation?.subtitle ??
       accountChoices.find((choice) => choice.value === scope.subject)?.label ??
       null;
