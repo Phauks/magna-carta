@@ -121,3 +121,17 @@ export function countLinksBySourceSystemStatement(
     )
     .bind(assertSourceSystem(sourceSystem));
 }
+
+// The matters a run brought in that are still live: the ones a conflicts check is asked for when
+// the run is accepted. A closed matter stays findable by other matters' checks and is not itself
+// screened, which is the rule the conflicts check keeps for every closed matter.
+export function selectLiveMattersLinkedByRunStatement(
+  database: SqlDatabase,
+  transferRunId: TransferRunId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT matter.id AS id FROM ${SOURCE_RECORD_LINK_TABLE} AS link JOIN matter ON matter.id = link.local_id WHERE link.transfer_run_id = ?1 AND link.local_table = 'matter' AND matter.status IN ('intake', 'consultation', 'open', 'hold') AND matter.system_key IS NULL ORDER BY matter.id`,
+    )
+    .bind(transferRunId);
+}

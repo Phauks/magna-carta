@@ -55,6 +55,7 @@ const READING_KIND = "reading";
  * `@magna-carta/identifiers`' prefix table and the record window's header set are held to.
  */
 export const ACT_VERBS = new Set([
+  "accept",
   "add",
   "adopt",
   "amend",
@@ -110,6 +111,7 @@ export const ACT_VERBS = new Set([
   "satisfy",
   "send",
   "set",
+  "stop",
   "supersede",
   "transfer",
   "upload",
