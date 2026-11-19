@@ -752,7 +752,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Claude"
         },
         "load-profile": {
           "state": "n/a"
@@ -764,7 +765,7 @@
       },
       "branch": "main",
       "activeWork": null,
-      "next": "Deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists), then provision the platform seal identity with pnpm run platform-seal-certificate; after that, timestamp/LTV levels behind a TSA, independent-validator (pyHanko/DSS) conformance, cross-reference-stream originals in the seal primitive (classic tables only today), and the consumer/UI surfaces.",
+      "next": "Deploy magna-carta-sign before the app worker (the SIGN_SERVICE binding blocks the app-worker deploy until the sign worker exists), then provision the platform seal identity with pnpm run platform-seal-certificate; after that, timestamp/LTV levels behind a TSA, independent-validator (pyHanko/DSS) conformance, cross-reference-stream originals in the seal primitive (classic tables only today). The PDF Editor tools and the signing flow are on main (PRs #803, #939, #957); emailing signers the signed copy is the next signing step.",
       "links": {
         "spec": "docs/specs/2026-07-17-slice-2-5-pdf-services-esignature-analysis.md",
         "plan": null,
@@ -2627,7 +2628,7 @@
           "by": "Claude"
         }
       },
-      "branch": "claude/project-thread-ezg0ip",
+      "branch": "main",
       "activeWork": null,
       "next": "Recording, transcripts, summaries and captions are built and switched off until the owner steps in the operations runbook (Turning meeting recording on) are done; stronger noise removal and personal rooms are built; then guests by name and email, and end-to-end encryption",
       "links": {
@@ -2703,8 +2704,8 @@
           "state": "done"
         }
       },
-      "branch": "claude/project-thread-rixee1",
-      "activeWork": "docs/active-work/claude/project-thread-rixee1.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "one file indexed and found end to end in production now that the SEARCH_SERVICE binding is declared, the owner's answer on whether calendar events are searched across matters, then the per-split word summary that lets the words inside files answer for every matter",
       "links": {
         "spec": "docs/specs/2026-11-10-indexing-and-discovery-design.md",

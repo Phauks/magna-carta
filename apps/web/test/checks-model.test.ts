@@ -2,24 +2,21 @@ import { describe, expect, it } from "vitest";
 import { MICR_BAND_TOP_MILS, fieldHeightMils } from "@magna-carta/trust/check-layout";
 import {
   addedField,
-  answerConsequence,
+  checkRunText,
   checkStatusLabel,
+  checkStatusTone,
   clampedPosition,
   clampedWidth,
-  joinedNames,
   kindsToAdd,
-  loadPaperLine,
   milsFromInches,
   nextUnusedNumber,
   numberAlreadyUsed,
-  paymentsToReprint,
   previewNumbers,
   printedRows,
   settledReasonText,
   shiftProblem,
   typedCheckNumber,
   voidedRows,
-  waitingRows,
 } from "../src/lib/trust/checks/checks-model.ts";
 import type { TrustCheckRegisterRow } from "../src/lib/trust/checks/checks-api.ts";
 
@@ -52,17 +49,19 @@ describe("the register's three lists", () => {
     row(0, "numbered"),
   ];
 
-  it("puts printed and unanswered numbers on Printed, misprinted and voided on Voided", () => {
+  it("puts printed and older numbered checks on Printed, spoiled and voided on Voided", () => {
     expect(printedRows(register).map((entry) => entry.checkNumber)).toEqual([3, 1, 0]);
     expect(voidedRows(register).map((entry) => entry.checkNumber)).toEqual([2, 4]);
   });
 
-  it("lists the unanswered checks oldest number first", () => {
-    expect(waitingRows(register).map((entry) => entry.checkNumber)).toEqual([0, 3]);
+  it("shows an older numbered check exactly like a printed one", () => {
+    expect(checkStatusLabel("numbered")).toBe("Printed");
+    expect(checkStatusTone("numbered")).toBe(checkStatusTone("printed"));
   });
 
-  it("calls a misprint Misprinted, whatever the older reason said", () => {
-    expect(checkStatusLabel("spoiled")).toBe("Misprinted");
+  it("shows an older misprint as Voided, with Misprinted as its reason", () => {
+    expect(checkStatusLabel("spoiled")).toBe("Voided");
+    expect(checkStatusTone("spoiled")).toBe(checkStatusTone("voided"));
     const misprint = { status: "spoiled" as const, settledReason: "Spoiled in printing" };
     expect(settledReasonText(misprint)).toBe("Misprinted");
     expect(settledReasonText({ status: "voided", settledReason: "Lost in the mail" })).toBe(
@@ -84,13 +83,9 @@ describe("the check numbers", () => {
     expect(typedCheckNumber("")).toBeNull();
   });
 
-  it("says which paper to load", () => {
-    expect(loadPaperLine(10_422, 3)).toBe(
-      "Load checks 10422 to 10424 in the printer, facing the way your printer takes them.",
-    );
-    expect(loadPaperLine(10_422, 1)).toBe(
-      "Load check 10422 in the printer, facing the way your printer takes it.",
-    );
+  it("reads a run of check numbers", () => {
+    expect(checkRunText(10_422, 3)).toBe("10422 to 10424");
+    expect(checkRunText(10_422, 1)).toBe("10422");
   });
 
   it("knows the server's refusal of a used number", () => {
@@ -105,61 +100,10 @@ describe("the check numbers", () => {
 });
 
 describe("previewing numbers", () => {
-  it("numbers the chosen payments in the order shown, from the next number", () => {
+  it("numbers the chosen payments in the order shown, from the first check number", () => {
     const previews = previewNumbers(["b", "a"], 10_422);
     expect(previews.get("b")).toBe(10_422);
     expect(previews.get("a")).toBe(10_423);
-  });
-});
-
-describe("what answering will do", () => {
-  const checks = [
-    {
-      trustCheckId: "one",
-      checkNumber: 10_422,
-      payee: "Desert Title Company",
-      amountText: "",
-      trustMovementId: "a",
-    },
-    {
-      trustCheckId: "two",
-      checkNumber: 10_423,
-      payee: "Jordan Smith",
-      amountText: "",
-      trustMovementId: "b",
-    },
-    {
-      trustCheckId: "three",
-      checkNumber: 10_424,
-      payee: "Jordan Smith",
-      amountText: "",
-      trustMovementId: "c",
-    },
-  ];
-
-  it("says every check will be recorded as printed when none is misprinted", () => {
-    expect(answerConsequence(checks, {})).toBe("All 3 will be recorded as printed.");
-    expect(answerConsequence(checks.slice(0, 1), {})).toBe("10422 will be recorded as printed.");
-  });
-
-  it("names the misprinted numbers and each payee once", () => {
-    expect(answerConsequence(checks, { three: "spoiled" })).toBe(
-      "10424 will be voided as misprinted, and you can print Jordan Smith again on the next number.",
-    );
-    expect(answerConsequence(checks, { one: "spoiled", two: "spoiled", three: "spoiled" })).toBe(
-      "10422, 10423 and 10424 will be voided as misprinted, and you can print Desert Title Company and Jordan Smith again on the next number.",
-    );
-  });
-
-  it("hands back the misprinted checks' payments to print again, in number order", () => {
-    expect(paymentsToReprint(checks, { three: "spoiled", one: "spoiled" })).toEqual(["a", "c"]);
-    expect(paymentsToReprint(checks, {})).toEqual([]);
-  });
-
-  it("joins names the way a sentence does", () => {
-    expect(joinedNames([])).toBe("");
-    expect(joinedNames(["A"])).toBe("A");
-    expect(joinedNames(["A", "B", "C"])).toBe("A, B and C");
   });
 });
 
