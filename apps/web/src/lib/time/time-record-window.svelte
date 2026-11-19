@@ -646,7 +646,7 @@
     const outcome = await attachTimeEntryFile(fetch, entry.id, fileId, writeKey());
     if (outcome.kind !== "ok") {
       attachmentFailure =
-        "The file was not attached. The entry and the document are both unchanged.";
+        "The file wasn't attached. The entry and the document are both unchanged.";
       return;
     }
     await refreshAttachments();
@@ -1077,7 +1077,7 @@
       />
     </div>
   {:else if mode === "units"}
-    <Label for={fieldId}>Units</Label>
+    <Label necessity="required" for={fieldId}>Units</Label>
     <Input
       id={fieldId}
       class="w-96"
@@ -1089,7 +1089,7 @@
       onblur={() => (unitsDraft = null)}
     />
   {:else}
-    <Label for={fieldId}>Time Worked</Label>
+    <Label necessity="required" for={fieldId}>Time Worked</Label>
     <Input
       id={fieldId}
       placeholder="Time Worked"
@@ -1137,7 +1137,7 @@
     set.labelFor(chosen) === "" ? recordedCodeText(label, chosen) : set.labelFor(chosen)}
   {@const committed = recorded === "" ? NO_CODE_LABEL : recorded}
   <div class="flex flex-col gap-4">
-    <Label for={fieldId}>{label}</Label>
+    <Label necessity="optional" for={fieldId}>{label}</Label>
     {#if readOnly}
       <Input id={fieldId} value={committed} disabled placeholder={label} />
     {:else}
@@ -1221,7 +1221,7 @@
     {/if}
 
     <div class="flex flex-col gap-4">
-      <Label for="time-record-description">Description</Label>
+      <Label necessity="required" for="time-record-description">Description</Label>
       <!-- No resize handle, deliberately: the window holds its size, so a long description scrolls
            inside its own field and the pane scrolls past it — the entry never grows under it. -->
       <Textarea
@@ -1249,7 +1249,7 @@
       word Internal in the label had already said.
     -->
     <div class="flex flex-col gap-4" data-internal-only="true">
-      <Label for="time-record-memo">Internal Memo</Label>
+      <Label necessity="optional" for="time-record-memo">Internal Memo</Label>
       <Textarea
         id="time-record-memo"
         class="resize-none"
@@ -1265,7 +1265,7 @@
     <div class="grid gap-12 @md:grid-cols-3">
       <div class="flex flex-col gap-4">
         <!-- The product's own calendar, not the browser's: one themed picker on every surface. -->
-        <DatePicker
+        <DatePicker necessity="required"
           label="Work Date"
           value={workDateText === "" ? undefined : parseDate(workDateText)}
           disabled={readOnly}
@@ -1287,7 +1287,7 @@
         or billed entry is evidence, and the answer there is a void and a fresh record.
       -->
       <div class="flex flex-col gap-4">
-        <Label for="time-record-matter">Matter</Label>
+        <Label necessity="required" for="time-record-matter">Matter</Label>
         <MatterPicker
           inputId="time-record-matter"
           {matters}
@@ -1302,7 +1302,7 @@
       </div>
 
       <div class="flex flex-col gap-4">
-        <Label for="time-record-staff">Staff</Label>
+        <Label necessity="required" for="time-record-staff">Staff</Label>
         {#if readOnly}
           <Input id="time-record-staff" value={timekeeperName} disabled placeholder="Staff" />
         {:else}
@@ -1398,7 +1398,7 @@
         offer, so the field says that rather than presenting an empty list.
       -->
       <div class="flex flex-col gap-4">
-        <Label for="time-record-task">Task</Label>
+        <Label necessity="optional" for="time-record-task">Task</Label>
         {#if readOnly}
           <Input
             id="time-record-task"
@@ -1426,7 +1426,7 @@
               id="time-record-task"
               fieldName="Task"
               readonly
-              title="The task on this matter this time was for. Optional."
+              title="The task on this matter this time was for."
               onfocus={() => (taskListOpen = true)}
               onclick={() => (taskListOpen = true)}
             />
@@ -1464,7 +1464,7 @@
       </div>
       <span class="pb-8 text-text-subtle" aria-hidden="true">&times;</span>
       <div class="flex min-w-0 flex-1 flex-col gap-4">
-        <Label for="time-record-rate">Rate</Label>
+        <Label necessity="optional" for="time-record-rate">Rate</Label>
         {#if readOnly || !billable}
           <!-- Nothing is charged on non-billable time, so there is no rate to set: the line says
                so rather than offering a field whose value could never be used. -->

@@ -108,17 +108,17 @@ export function buildFailureTrace(
     ...(failure === null ? [] : [entry("kind", causeLabel(failure))]),
     entry("build", environment.buildIdentity),
     entry("route", environment.route),
-    entry("request", failure?.request ?? "(no failing call — reported by hand)"),
+    entry("request", failure?.request ?? "(no failing call, reported by hand)"),
     entry("failed", failure?.failedAt.toISOString() ?? "(not a caught failure)"),
     ...(failure?.cause === undefined ? [] : [entry("cause", failure.cause)]),
     entry("copied", environment.copiedAt.toISOString()),
   ];
 
   if (failure === null) {
-    opening.push(entry("answer", "nothing failed — this report was raised by a person"));
+    opening.push(entry("answer", "nothing failed. A person sent this report."));
   } else if (problem === null) {
     // The distinction that changes what a person should do about it, stated rather than implied.
-    opening.push(entry("answer", "nothing answered — the request did not complete"));
+    opening.push(entry("answer", "couldn't connect. The request didn't finish."));
   } else {
     opening.push(entry("status", String(problem.status)));
     opening.push(entry("problem type", problem.type, NOT_STATED));

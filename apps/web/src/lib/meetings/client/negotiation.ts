@@ -94,7 +94,7 @@ export class MeetingNegotiation {
   describeLocal(peerConnection: RTCPeerConnection): SessionDescription {
     const local = peerConnection.localDescription;
     if (local === null) {
-      throw new Error("The browser did not describe its own connection.");
+      throw new Error("The browser didn't report its connection.");
     }
     return { type: local.type, sdp: local.sdp };
   }

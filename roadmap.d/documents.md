@@ -348,21 +348,22 @@
   scope: Soft-delete trash window (Standard) then IA cold retention then policy-driven destruction blocked by holds; default retention indefinite.
   status: partial
   adrs: ADR-0049
-  evidence: Soft-delete/restore statements exist; no trash-expiry IA transition or destruction lever found in the tree.
+  evidence: Trash and restore and the trash-expiry move to Infrequent Access are built; policy-driven destruction is not.
 
 - id: documents.versioning.deleted-lifecycle.trash
   name: Trash & restore
   scope: Soft-delete hides the record from the File Manager (firm-scoped state change, bytes untouched); restore clears the flag in place.
   status: shipped
-  surface: awaiting-screen
-  evidence: softDeleteFileStatement + undelete in packages/file-manager/src/file-statements.ts; deleted_at filters in queries.ts.
+  surface: screen
+  evidence: softDeleteFileStatement + undelete in packages/file-manager/src/file-statements.ts; deleted_at filters in queries.ts. The matter file manager's Deleted Files view lists and restores them, with a Leaves Trash column.
 
 - id: documents.versioning.deleted-lifecycle.cold-retention
   name: Trash-expiry IA transition
   scope: After the trash window, deleted objects transition Standard to IA in place via the same server-side copy used for superseded versions.
-  status: not-started
+  status: shipped
+  surface: screen
   adrs: ADR-0049
-  evidence: tiering-sweep.ts documents that it only touches superseded versions, never deletes.
+  evidence: apps/api-worker/src/background/editing/tiering-sweep.ts also moves every version of a file deleted longer ago than the firm's trash window (listExpiredTrashVersions in packages/file-manager/src/queries.ts) when the firm's deleted-file policy says archive. The policy is the per-firm setting in packages/file-manager/src/deleted-file-settings.ts (default 30 days, then archive), read and written at /api/v1/firm/deleted-file-policy and set on Settings, Deleted Files; each matter's Deleted Files list shows when a file leaves Trash. No migration: the setting rides the per-firm key/value table.
 
 - id: documents.versioning.deleted-lifecycle.destruction
   name: Policy-driven destruction
@@ -370,6 +371,7 @@
   status: not-started
   adrs: ADR-0049
   evidence: No hard-delete path for file bytes in the tree; decision recorded in ADR-0049.
+  notes: Blocked on a hold to honour. Custody holds exist (custody_hold, on packets) and discovery holds its own sets, but there is no legal hold on a matter or a file, and the firm's settings promise destruction never happens under one.
 
 - id: documents.preview
   name: Inline file preview
@@ -468,7 +470,7 @@
   scope: Upload-and-submit conversion endpoints in the OpenAPI contract.
   status: shipped
   surface: awaiting-screen
-  evidence: apps/api-worker/src/http/routes/documents/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions.
+  evidence: apps/api-worker/src/http/routes/documents/conversions.ts (/api/v1/conversions/upload, /api/v1/conversions submit) + apps/api-worker/src/conversions. The submit body takes optional options (maxDimension, quality, grayscale; contract in packages/conversion/src/contract.ts), checked against packages/conversion/src/options.ts and refused with 422 unsupported-conversion-option where the conversion's final engine cannot honour one.
   notes: Execution currently limited to the built engine edges (raster, image-to-PDF).
 
 - id: documents.conversion.raster
@@ -477,7 +479,7 @@
   status: shipped
   surface: awaiting-screen
   spec: docs/specs/2026-06-23-slice-2-4d-raster-engine-design.md
-  evidence: containers/raster + apps/convert-worker/src/raster-engine-container.ts + forward-convert.ts.
+  evidence: containers/raster + apps/convert-worker/src/raster-engine-container.ts + forward-convert.ts. Honours per-job options from the x-max-dimension, x-quality and x-grayscale headers (containers/raster/src/convert.rs, ConvertOptions): shrink to a longest side without enlarging, grayscale, and JPEG quality; anything malformed or unhonourable is a 400.
 
 - id: documents.conversion.image-to-pdf
   name: Image to PDF
@@ -543,8 +545,8 @@
   status: shipped
   surface: screen
   spec: docs/specs/2026-06-22-tools-file-converter-design.md
-  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch.
-  notes: The "Convert With Options" entry from the file manager rulings is not built; every target converts with the engine's defaults.
+  evidence: The File Workbench Convert tab runs conversions (apps/web/src/lib/tools/file-workbench/conversion-run.ts through /api/v1/conversions upload, submit and status) for the whole selection and offers each copy to save or to put on the bench. The matter file manager's Convert flyout (file-menu-model.ts conversionChoicesFor) offers the graph's targets as extensions and files the copy beside the original through the ordinary upload batch. Convert with Options (apps/web/src/lib/tools/file-workbench/convert-options-dialog.svelte) is the flyout's last entry and a button on the Convert tab; it picks the target and the settings that target accepts (conversion-options.ts) and runs the same flow.
+  notes: Settings exist only where an engine honours them, which today is the raster engine (image targets, and an image going to PDF). Office, OCR, email and video targets convert with their engine's defaults, and Convert with Options is not offered for a file whose targets take no setting.
 
 - id: documents.pdf
   name: PDF services
@@ -691,7 +693,7 @@
   scope: User-facing PDF tools (redact, Bates, forms, secure, etc.) in a PDF Editor beside the reader and a PDF tab in the File Workbench.
   status: partial
   surface: screen
-  evidence: apps/web/src/lib/pdf-editor (the PDF Editor at /documents/[id]/pdf; Pages is built, reordering, turning and deleting pages saved as a new version, with extract and split filing new files; Redact is built, filing a redacted copy and a redaction log beside the original); Bates, Watermark, Secure, Forms, inserting pages from another file, and the workbench PDF tab are next.
+  evidence: apps/web/src/lib/pdf-editor (the PDF Editor at /documents/[id]/pdf; Pages is built, reordering, turning and deleting pages saved as a new version, with extract and split filing new files; Bates is built, filing a numbered copy beside the original; Watermark is built, words or an image on all or some pages, filed beside the original; Secure is built, counting what the file carries and saving an AES-256 protected copy with permissions, optionally scrubbed first; Forms is built, filling a form's answers and optionally flattening it, saved as a new version; Redact is built, filing a redacted copy and a redaction log beside the original); a per-matter running Bates counter, inserting pages from another file, and the workbench PDF tab are next.
 
 - id: documents.esignature
   name: E-signature
@@ -699,7 +701,7 @@
   status: partial
   slices: 2-5-pdf-services-e-signature-core
   adrs: ADR-0045, ADR-0205, ADR-0206
-  evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/api-worker/src/http/routes/documents/document-seal.ts on main; the signing flow, field placement, and adoption UI are not started.
+  evidence: packages/signing + apps/sign-worker + crates/pdf-core seal primitive + apps/api-worker/src/http/routes/documents/document-seal.ts; the signing flow from field placement through sealing on completion is built (documents.esignature.signing-flow).
   audience: public
   public-name: Electronic signatures
   public-summary: Send a document for signature and get the signed copy back with a record of who signed it and when.
@@ -718,8 +720,10 @@
 - id: documents.esignature.signing-flow
   name: Signing flow & adoption UI
   scope: Client-side field placement, signing UI, signature adoption (type/draw/upload).
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-11-13-signing-flow-design.md
+  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. the hourly reminder and expiry pass in apps/api-worker/src/signing/signing-sweep.ts; a colleague signing in the app on the member routes in apps/api-worker/src/http/routes/documents/my-signing-routes.ts (the same handlers through the member lane in signer-lanes.ts), told by the documents.signing.memberTurn notification raised from apps/api-worker/src/signing/member-turn.ts, on the page at apps/web/src/routes/(app)/documents/[id]/sign; sealing on completion in apps/api-worker/src/signing/seal-completed.ts, raised by the signing.completed outbox topic with the hourly pass as its backstop, which draws what each signer gave into their boxes (place_marks in crates/pdf-core/src/marks.rs, run by the sign worker before the seal) and files the signed copy as a new version with its Certificate of Completion beside it. Emailing signers the signed copy is next.
 
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion
@@ -727,14 +731,14 @@
   status: partial
   surface: awaiting-screen
   slices: 2-5-pdf-services-e-signature-core
-  evidence: packages/signing/src/esign.ts holds the ESIGN/UETA model and the Certificate of Completion assemble-and-render path; the seal route sets signing time and observed IP server-side and emits a redacted esign.sealed audit event.
-  notes: The certificate can be assembled and rendered, but nothing yet captures a signer's consent through a signing flow, and the certificate is not stored against a document.
+  evidence: packages/signing/src/esign.ts holds the ESIGN/UETA model and the Certificate of Completion assemble-and-render path; the seal route sets signing time and observed IP server-side and emits a redacted esign.sealed audit event. A completed signing request is sealed by apps/api-worker/src/signing/seal-completed.ts with each signer's consent, signing address and browser as the request observed them, and the certificate is filed beside the signed copy and named on the request (signing_request.certificate_file_id).
 
 - id: documents.esignature.attribution
   name: Attribution assurance tiers
   scope: Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
-  status: not-started
-  evidence: No artifact in the tree.
+  status: partial
+  surface: screen
+  evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the emailed link and the emailed six-digit code are checked on the signer lane (apps/api-worker/src/signing/signer-service.ts). Signing in to the firm is signable in the app: the member lane finds the session's user on the request and never asks for a link or a code. SMS codes, ID checks and portal sign-in are not offered.
 
 - id: documents.esignature.vendor-port
   name: Vendor adapter seam
@@ -914,7 +918,7 @@
   slices: metadata-inspector-scrubber
   adrs: ADR-0123
   spec: docs/specs/2026-06-22-metadata-tool-design.md
-  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts + the File Workbench Metadata tab; XLSX/PPTX reading, HEIC/PDF and the container engine still to come.
+  evidence: @magna-carta/metadata + apps/api-worker/src/http/routes/files/metadata.ts + the File Workbench Metadata tab, which lists each value per kind (FindingField, read by packages/metadata/src/ooxml/fields.ts and src/image/{exif,xmp,iptc}.ts); the API route publishes counts only (withoutFieldValues). XLSX/PPTX reading, HEIC/PDF and the container engine still to come.
   audience: public
   public-name: Metadata scrubbing
   public-summary: See what is hidden inside a file — tracked changes, comments, author details, the place a photograph was taken — and strip it out before you send it.
@@ -924,14 +928,14 @@
   scope: Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
   status: shipped
   surface: screen
-  evidence: packages/metadata/src/ooxml + engine.ts/port.ts.
+  evidence: packages/metadata/src/ooxml (inspect.ts counts, fields.ts reads the values) + engine.ts/port.ts; test/ooxml-fields.test.ts.
 
 - id: documents.metadata.image
   name: Image metadata
   scope: Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
   status: shipped
   surface: screen
-  evidence: packages/metadata/src/image + tests.
+  evidence: packages/metadata/src/image (EXIF, XMP, IPTC and PNG text values read beside the segment surgery) + test/image-fields.test.ts.
 
 - id: documents.metadata.extended-formats
   name: HEIC / PDF / container-engine metadata

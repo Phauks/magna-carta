@@ -11,6 +11,7 @@ import {
   readAccountsReceivableAgingAsOf,
   readApplicationRegister,
   readInvoiceRegister,
+  readMatterAttributions,
 } from "../src/queries.ts";
 import {
   billingFixture,
@@ -177,5 +178,35 @@ describe("the application register", () => {
       ["reversal", "write_off", -5_000, "2026-07-17"],
     ]);
     expect(register.rows[2]?.reason).toBe("Entered twice");
+  });
+});
+
+describe("the matter attributions", () => {
+  it("names each matter's type and responsible attorney, and nothing for an unknown id", async () => {
+    const { fixture, alder } = await book();
+    await fixture.database
+      .prepare(
+        "INSERT INTO matter_type (id, name, active, created_at, updated_at) VALUES ('matter_type_family', 'Family law', 1, ?1, ?1)",
+      )
+      .bind("2026-07-01T00:00:00.000Z")
+      .run();
+    await fixture.database
+      .prepare("UPDATE matter SET matter_type_id = 'matter_type_family' WHERE id = ?1")
+      .bind(alder.matterId)
+      .run();
+    const attributions = await readMatterAttributions(fixture.database, [
+      alder.matterId,
+      "matter_unknown",
+    ]);
+    expect(attributions).toEqual([
+      {
+        matterId: alder.matterId,
+        matterTypeId: "matter_type_family",
+        matterTypeName: "Family law",
+        responsibleMemberId: fixture.memberUserId,
+        responsibleName: "Responsible Attorney",
+      },
+    ]);
+    expect(await readMatterAttributions(fixture.database, [])).toEqual([]);
   });
 });

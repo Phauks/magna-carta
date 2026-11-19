@@ -18,7 +18,11 @@ calls this engine over the `CONVERT` service binding). **Deploy:**
 
 - `src/lib.rs` — the axum router; `POST /convert` extracts `x-source-format`, `x-target-format`,
   and `x-recipe` from request headers, calls `convert()`, and maps `ConvertError` variants to HTTP
-  status codes (415 unsupported, 422 decode failure, 500 encode failure). `GET /ready` returns 200.
+  status codes (415 unsupported, 422 decode failure, 500 encode failure, 400 a malformed or
+  unhonourable option). It also reads the member's optional per-job choices from `x-max-dimension`
+  (shrink so the longest side is at most N pixels, 16 to 40 000, never enlarges), `x-quality`
+  (JPEG only, 1 to 100) and `x-grayscale` (`true`/`false`) into `ConvertOptions`. `GET /ready`
+  returns 200.
 - `src/convert.rs` — `convert()`: maps format identifiers → `image::ImageFormat`, applies
   `decode_limits()` before decoding, handles the JPEG alpha-flatten path (JPEG has no alpha channel;
   RGBA input is composited to RGB before encoding), then encodes to the target format. When
@@ -94,8 +98,13 @@ engines bind C runtimes), but this engine will remain host-testable.
   WebP encoding is not available without pulling in `libwebp`; if lossy compression is needed for
   specific recipes, design a separate recipe path rather than enabling a C dep.
 - The `x-recipe` header is required by the router and forwarded to `convert()` as `_recipe`, where
-  it is currently unused. It is the extension point for future per-recipe transforms (resize, quality
-  tuning, colour profile conversion). Keep it wired through even while the value is ignored.
+  it is currently unused. It names the conversion EDGE and is the same for every job crossing it, so
+  it is the extension point for per-edge variants (page geometry). Per-JOB choices (size, grey, JPEG
+  quality) travel as their own headers into `ConvertOptions` instead. Keep the recipe wired through
+  even while the value is ignored.
+- **An option is honoured or refused, never ignored.** A quality for a non-JPEG target, or any value
+  out of range, is a 400. The app worker only sends the options `packages/conversion/src/options.ts`
+  says the final hop accepts; keep that table and `ConvertOptions::parse` in step.
 - GIF encoding supports only a 256-colour palette (an `image` crate limitation). A GIF-to-GIF
   transcode through a full-colour intermediate (`DynamicImage`) may shift colours. This is a known
   limitation; do not add a special-case bypass without testing round-trip fidelity.

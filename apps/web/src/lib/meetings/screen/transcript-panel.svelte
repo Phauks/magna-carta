@@ -224,8 +224,8 @@
         <FailureNotice
           failure={failureOf(transcriptRead.error)}
           subject="This recording"
-          fallback="This recording's transcript could not be read."
-          whenSilent="Nothing answered. This recording's transcript could not be read."
+          fallback="Couldn't load this recording's transcript."
+          whenSilent="Couldn't connect. Couldn't load this recording's transcript. Try again."
           onRetry={() => void transcriptRead.refetch()}
         />
       {/snippet}

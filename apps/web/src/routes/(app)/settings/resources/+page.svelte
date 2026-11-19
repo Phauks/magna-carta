@@ -283,7 +283,7 @@
     {#if readFailure !== null && resources === null}
       <FailureNotice
         failure={readFailure}
-        title="The Resources Could Not Be Read"
+        title="Couldn't Load the Resources"
         fallback="The firm's rooms and resources were not read."
         onRetry={() => void load()}
       />
@@ -333,7 +333,7 @@
   {#snippet fields()}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-4">
-        <Label for="resource-name">Name</Label>
+        <Label necessity="required" for="resource-name">Name</Label>
         <Input id="resource-name" bind:value={draft.name} />
       </div>
       <div class="flex flex-col gap-4">
@@ -355,11 +355,11 @@
         />
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="resource-capacity">Seats</Label>
+        <Label necessity="optional" for="resource-capacity">Seats</Label>
         <Input id="resource-capacity" inputmode="numeric" bind:value={draft.capacity} />
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="resource-notes">Notes</Label>
+        <Label necessity="optional" for="resource-notes">Notes</Label>
         <Textarea id="resource-notes" class="resize-none" rows={3} bind:value={draft.notes} />
       </div>
     </div>

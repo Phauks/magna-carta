@@ -16,7 +16,7 @@ import { reverseEntry } from "@magna-carta/ledger/reverse-entry";
 import type { EntryLineInput } from "@magna-carta/ledger/types";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { readAccountRoleMap, resolveAccountRole } from "./account-roles.ts";
-import { composeInvoiceApplication } from "./application.ts";
+import { composeInvoiceApplication, issueDateOfFinalizedInvoice } from "./application.ts";
 import { BillingValidationError } from "./billing-validation.ts";
 import { BILLING_AGGREGATE_KEY } from "./draft.ts";
 import { aggregateMinor } from "./line-amounts.ts";
@@ -126,7 +126,14 @@ function requirePositiveWholeMinor(amountMinor: number, subject: string): void {
   }
 }
 
-async function requireFinalizedInvoice(database: SqlDatabase, invoiceId: InvoiceId) {
+// The correction's own effective date is checked here, beside the bill it is against, so a credit note
+// that would open only a client credit (a bill already paid in full) is refused the same way as one
+// that reaches the application door, which checks it again.
+async function requireFinalizedInvoice(
+  database: SqlDatabase,
+  invoiceId: InvoiceId,
+  effectiveDate: string,
+) {
   const invoice = await readInvoice(database, invoiceId);
   if (!invoice) {
     throw new BillingValidationError("unknown-invoice", `no such invoice: ${invoiceId}`);
@@ -137,7 +144,14 @@ async function requireFinalizedInvoice(database: SqlDatabase, invoiceId: Invoice
       `invoice ${invoiceId} is ${invoice.status}: a correction stands beside a bill that was issued, and a ${invoice.status} invoice was never issued — edit the draft instead`,
     );
   }
-  return invoice;
+  const issueDate = issueDateOfFinalizedInvoice(invoice);
+  if (effectiveDate < issueDate) {
+    throw new BillingValidationError(
+      "application-before-invoice-issued",
+      `invoice ${invoiceId} was issued on ${issueDate} and this correction takes effect on ${effectiveDate}: nothing can be set against a bill before the bill existed, so date it on or after ${issueDate}`,
+    );
+  }
+  return { ...invoice, issueDate };
 }
 
 // The unpaid remainder per matter, read before the batch so a refusal is a sentence. It is NOT the
@@ -197,7 +211,7 @@ export async function issueCreditNote(
     );
   }
 
-  const invoice = await requireFinalizedInvoice(database, input.invoiceId);
+  const invoice = await requireFinalizedInvoice(database, input.invoiceId, input.effectiveDate);
   const currency = invoice.currency;
   const unpaidByMatter = await readUnpaidByMatter(database, input.invoiceId);
   const invoiceLines = await readInvoiceLines(database, input.invoiceId);
@@ -402,6 +416,7 @@ export async function issueCreditNote(
           amountMinor: matter.appliedMinor,
           currency,
           effectiveDate: input.effectiveDate,
+          invoiceIssueDate: invoice.issueDate,
           creditNoteId,
           appliedBy: input.issuedBy,
         },
@@ -474,7 +489,7 @@ export async function composeInvoiceWriteOff(
       "a write-off states why the firm gave up the receivable: an unexplained one is indistinguishable from a mistake",
     );
   }
-  const invoice = await requireFinalizedInvoice(database, input.invoiceId);
+  const invoice = await requireFinalizedInvoice(database, input.invoiceId, input.effectiveDate);
   const unpaidByMatter = await readUnpaidByMatter(database, input.invoiceId);
   const unpaidMinor = unpaidByMatter.get(input.matterId);
   if (unpaidMinor === undefined) {
@@ -522,6 +537,7 @@ export async function composeInvoiceWriteOff(
       amountMinor: input.amountMinor,
       currency: invoice.currency,
       effectiveDate: input.effectiveDate,
+      invoiceIssueDate: invoice.issueDate,
       entryId: posting.entryId,
       reason: input.reason,
       appliedBy: input.writtenOffBy,
@@ -596,7 +612,7 @@ export async function applyClientCreditToInvoice(
       `client credit ${input.clientCreditId} has ${credit.remainingMinor} left and this applies ${input.amountMinor}: a credit cannot be given back twice`,
     );
   }
-  const invoice = await requireFinalizedInvoice(database, input.invoiceId);
+  const invoice = await requireFinalizedInvoice(database, input.invoiceId, input.effectiveDate);
   if (invoice.clientEntityId !== credit.clientEntityId) {
     throw new BillingValidationError(
       "client-credit-client-mismatch",
@@ -656,6 +672,7 @@ export async function applyClientCreditToInvoice(
       amountMinor: input.amountMinor,
       currency: invoice.currency,
       effectiveDate: input.effectiveDate,
+      invoiceIssueDate: invoice.issueDate,
       clientCreditId: input.clientCreditId,
       entryId: posting.entryId,
       appliedBy: input.appliedBy,
@@ -738,6 +755,17 @@ export async function composeApplicationReversal(
       `unreachable: ${original.kind} application ${input.applicationId} has no posting to reverse`,
     );
   }
+  if (input.effectiveDate < original.effectiveDate) {
+    throw new BillingValidationError(
+      "application-reversal-before-original",
+      `application ${input.applicationId} took effect on ${original.effectiveDate} and the reversal on ${input.effectiveDate}: a reversal cannot take effect before what it reverses, so date it on or after ${original.effectiveDate}`,
+    );
+  }
+  const originalInvoice = await readInvoice(database, original.invoiceId);
+  if (!originalInvoice) {
+    throw new Error(`unreachable: application ${input.applicationId} names no invoice`);
+  }
+  const originalInvoiceIssueDate = issueDateOfFinalizedInvoice(originalInvoice);
 
   const reversal = await reverseEntry(
     database,
@@ -758,6 +786,8 @@ export async function composeApplicationReversal(
       amountMinor: original.amountMinor,
       currency: original.currency,
       effectiveDate: input.effectiveDate,
+      invoiceIssueDate: originalInvoiceIssueDate,
+      reversesEffectiveDate: original.effectiveDate,
       reversesApplicationId: original.id,
       entryId: reversal.entryId,
       reason: input.reason,

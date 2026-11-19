@@ -51,7 +51,12 @@
 
   function failureOf(outcome: Exclude<ApiOutcome<unknown>, { kind: "ok" }>): string {
     if (outcome.kind === "transport") return "Couldn't connect. The file was not changed.";
-    if (outcome.problem.status === 503) return "The repair engine is not running yet. The file was not changed.";
+    // The server answers 503 for two different faults and names them apart by title: no engine
+    // connected to this deployment at all, or an engine that is connected and failing.
+    if (outcome.problem.status === 503)
+      return outcome.problem.title === "Recovery engine unavailable"
+        ? "File repair is not set up on this server yet. The file was not changed."
+        : "The repair engine returned an error. The file was not changed. Try again in a minute, and report it if it keeps happening.";
     if (outcome.problem.status === 413) return "This file is larger than the repair engine takes.";
     return problemGuidance(outcome.problem).message;
   }

@@ -33,7 +33,7 @@
 
 <div class="flex flex-col gap-16">
   <div class="flex flex-col gap-8">
-    <Label for="{fieldPrefix}-parties">Parties</Label>
+    <Label necessity="required" for="{fieldPrefix}-parties">Parties</Label>
     <!-- A check takes directory entities, never typed names: the one picker, in multiple mode. -->
     <DirectoryEntityPicker
       search={partySearch}

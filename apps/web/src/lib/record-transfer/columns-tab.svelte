@@ -352,7 +352,7 @@
       <div class="flex flex-wrap gap-16">
         {#if current.recordKind === "matter"}
           <div class="w-full max-w-sm">
-            <LabelledField
+            <LabelledField necessity="required"
               label="Time Zone of the Dates"
               error={attempted && (problems?.timeZoneMissing ?? false)
                 ? "Choose a time zone."

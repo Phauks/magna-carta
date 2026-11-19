@@ -3,9 +3,12 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
+import { insertIndexSplitStatement } from "@magna-carta/data-access/index-split-statements";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { FirmId, IndexSplitId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import { searchIndexingEnabledDefinition } from "@magna-carta/search/settings";
 import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -311,9 +314,48 @@ describe("the answer says what it did not look at", () => {
       answer.groups
         .filter((entry) => entry.skipped === "one-matter-only")
         .map((entry) => entry.source),
-    ).toEqual(["file-contents", "calendar"]);
+    ).toEqual(["calendar"]);
     for (const entry of answer.groups) {
       if (entry.skipped === "one-matter-only") expect(entry.hits).toEqual([]);
+    }
+  });
+
+  it("says why the words inside files did not answer, and never that nothing matched", async () => {
+    const database = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const setIndexing = (enabled: boolean) =>
+      writeFirmSettingStatement(
+        database,
+        searchIndexingEnabledDefinition,
+        enabled,
+        "2026-11-14T00:00:00.000Z",
+      ).run();
+    // A firm starts with file indexing off, and is told so.
+    expect(group(await search("easement"), "file-contents").skipped).toBe("not-indexed");
+    try {
+      await setIndexing(true);
+      // On, with no file indexed on any matter this search reaches: no index holds anything to
+      // ask, and that is an answer with nothing in it.
+      const nothingIndexed = group(await search("easement"), "file-contents");
+      expect(nothingIndexed.skipped).toBeNull();
+      expect(nothingIndexed.hits).toEqual([]);
+      // A matter with something indexed is asked. The test pool's search service refuses every
+      // operation, which is an engine that did not answer.
+      await insertIndexSplitStatement(database, {
+        id: "indexSplit_acrossMattersRoute0001" as IndexSplitId,
+        matterId: firstMatterId as MatterId,
+        corpusKind: "matter",
+        corpusId: firstMatterId,
+        documentId: null,
+        version: null,
+        objectKey: `search/${firstMatterId}/splits/route.split`,
+        documentCount: 1,
+        sizeBytes: 1,
+        schemaGeneration: 2,
+        createdAt: "2026-11-14T00:00:00.000Z",
+      }).run();
+      expect(group(await search("easement"), "file-contents").skipped).toBe("engine-unavailable");
+    } finally {
+      await setIndexing(false);
     }
   });
 

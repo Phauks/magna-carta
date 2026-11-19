@@ -4,7 +4,8 @@ import {
   setVersionStorageClassStatement,
 } from "@magna-carta/file-manager/file-statements";
 import { meterTierChangeStatements } from "@magna-carta/file-manager/metering-statements";
-import { listTierableVersions } from "@magna-carta/file-manager/queries";
+import { readDeletedFilePolicy } from "@magna-carta/file-manager/deleted-file-settings";
+import { listExpiredTrashVersions, listTierableVersions } from "@magna-carta/file-manager/queries";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
@@ -16,8 +17,11 @@ import { listReachableActiveFirms } from "../scheduled.ts";
 // cron — a per-firm scan, too heavy for the */5 sweep). For each reachable firm it finds clean,
 // still-Standard versions that are SUPERSEDED (not the file's current version) and committed before the
 // IA-minimum window, moves each object's storage class in place, and shifts the storage_meter from the
-// Standard bucket to the IA bucket in the same batch. It NEVER tiers the live/current version and NEVER
-// deletes — tiering only ever touches cold, superseded history.
+// Standard bucket to the IA bucket in the same batch. It NEVER tiers a live file's current version and
+// NEVER deletes. The second candidate set is a deleted file whose time in Trash is over: when the
+// firm's deleted-file policy says "archive", all of that file's versions move too, current one
+// included (@magna-carta/file-manager/deleted-file-settings). Restoring the file later reads the same
+// object from Infrequent Access; nothing is copied back.
 
 // R2's Infrequent-Access class carries a 30-day minimum-duration billing floor, so tiering an object
 // that might soon be deleted or re-promoted would waste money. The conservative trigger only tiers
@@ -81,7 +85,23 @@ export async function runTieringSweep(
         continue;
       }
       const { bucket } = resolveFirmBucket(env, firm.bucketName);
-      const candidates = await listTierableVersions(firm.database, cutoffIso, perFirmCap);
+      const superseded = await listTierableVersions(firm.database, cutoffIso, perFirmCap);
+      const policy = await readDeletedFilePolicy(firm.database);
+      const trashCutoffIso = new Date(nowMs - policy.trashDays * 24 * 60 * 60 * 1000).toISOString();
+      const expiredTrash =
+        policy.afterTrash === "archive" && superseded.length < perFirmCap
+          ? await listExpiredTrashVersions(
+              firm.database,
+              trashCutoffIso,
+              perFirmCap - superseded.length,
+            )
+          : [];
+      // A superseded version of a deleted file can be in both sets; it is moved once.
+      const seen = new Set(superseded.map((version) => version.id));
+      const candidates = [
+        ...superseded,
+        ...expiredTrash.filter((version) => !seen.has(version.id)),
+      ];
       for (const version of candidates) {
         // Move the object's class first (idempotent at R2). Then flip the DB class on its OWN guarded
         // statement and read whether it actually changed a row: the meter shift is committed ONLY when

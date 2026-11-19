@@ -357,6 +357,22 @@ describe("applying trust funds — what it refuses, and why", () => {
     );
   });
 
+  it("refuses a transfer dated before the bill was issued, before any trust movement is composed", async () => {
+    const funded = await fundedMatter(500_00, 900_00);
+    await expect(
+      applyTrustFundsToInvoices(
+        funded.fixture.database,
+        {
+          ...applyInput(funded, [{ invoiceId: funded.bill.invoiceId, amountMinor: 100_00 }]),
+          effectiveDate: "2026-08-04",
+        },
+        options,
+      ),
+    ).rejects.toThrow(
+      expect.objectContaining({ code: "application-before-invoice-issued" }) as Error,
+    );
+  });
+
   it("refuses an invoice that bills a different matter", async () => {
     const funded = await fundedMatter(500_00, 800_00);
     const { fixture } = funded;
@@ -510,6 +526,7 @@ describe("the one application door", () => {
           amountMinor: 100_00,
           currency: "USD",
           effectiveDate: "2026-08-05",
+          invoiceIssueDate: "2026-08-01",
           appliedBy: fixture.memberUserId,
         },
         options,
@@ -530,6 +547,7 @@ describe("the one application door", () => {
             amountMinor,
             currency: "USD",
             effectiveDate: "2026-08-05",
+            invoiceIssueDate: "2026-08-01",
             trustTransferId: null,
             appliedBy: fixture.memberUserId,
           },
@@ -537,6 +555,38 @@ describe("the one application door", () => {
         ),
       ).toThrow(BillingValidationError);
     }
+  });
+
+  it("refuses an application dated before its bill, and a reversal dated before what it reverses", async () => {
+    const fixture = await billingFixture();
+    const base = {
+      invoiceId: "invoice_x" as InvoiceId,
+      matterId: "matter_x" as MatterId,
+      amountMinor: 100_00,
+      currency: "USD",
+      invoiceIssueDate: "2026-08-05",
+      appliedBy: fixture.memberUserId,
+    };
+    expect(() =>
+      composeInvoiceApplication(
+        fixture.database,
+        { ...base, kind: "write_off", effectiveDate: "2026-08-04", reason: "Uncollectable" },
+        options,
+      ),
+    ).toThrow(expect.objectContaining({ code: "application-before-invoice-issued" }) as Error);
+    expect(() =>
+      composeInvoiceApplication(
+        fixture.database,
+        {
+          ...base,
+          kind: "reversal",
+          effectiveDate: "2026-08-06",
+          reversesEffectiveDate: "2026-08-07",
+          reason: "Wrong bill",
+        },
+        options,
+      ),
+    ).toThrow(expect.objectContaining({ code: "application-reversal-before-original" }) as Error);
   });
 
   it("keeps an application append-only once it is written", async () => {

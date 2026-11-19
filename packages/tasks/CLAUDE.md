@@ -37,6 +37,8 @@ scoped against a wider brief in
   `apps/api-worker/src/background/tasks/recurring-task-pass.ts` commits for `scheduled` repeats
 - `src/comment-service.ts` / `src/comment-statements.ts` — a task's flat comment thread: add,
   reword and remove (the author's alone), the colleagues a comment names, and who is told
+- `src/task-workload.ts` — `readTaskWorkload`: each member's open, overdue and undated counts for
+  the Tasks by Person report, grouped in SQL by what the overdue comparison needs. Counts only
 - `src/close-advisory.ts` — the count that rides a successful matter close and can never block one
 - `src/plan-statements.ts` — the plan's SQL: the offered-plans read, the matter anchor cut from
   `opened_at`, the role resolution, and the template chain walk

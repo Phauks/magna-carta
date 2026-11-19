@@ -495,6 +495,20 @@ export const communicationsCallerLookup = defineMetric("communications.caller_lo
   "outcome",
 ] as const);
 
+// An engine behind a file tool (text recognition, file repair) answered with an error, so the route
+// told the member it failed. A Container that cannot start shows as status 500 or 503 with code
+// "none"; a file the engine choked on carries the engine's own code. No dimension holds file content.
+//   engine:    ocr | file-repair
+//   operation: recognize | searchable | diagnose | repair | carve
+//   status:    the engine's HTTP status
+//   code:      the engine's error code, or none
+export const filesEngineFailure = defineMetric("files.engine_failure", [
+  "engine",
+  "operation",
+  "status",
+  "code",
+] as const);
+
 // The catalog itself, derived from the declarations above so it cannot drift from them.
 // Task copies the scheduled pass wrote for repeating tasks that fall due by date rather than on
 // completion. A firm with repeating tasks and a flat zero here means the cron pass stopped writing.
@@ -508,6 +522,25 @@ export const searchRecordIndexPlacesRebuilt = defineMetric(
   "search.record_index.places_rebuilt",
   [] as const,
 );
+
+// Signing requests the hourly pass closed because their last moment passed with signers still owed.
+export const signingRequestsExpired = defineMetric("signing.requests_expired", [] as const);
+
+// Reminders the hourly pass recorded on open signing requests, counted per request reminded.
+export const signingRequestsReminded = defineMetric("signing.requests_reminded", [] as const);
+
+// Reminder mails the hourly pass could not hand to the mail service. Non-zero means a signer is
+// waiting on a reminder the request's activity says was sent.
+export const signingRemindersUndelivered = defineMetric(
+  "signing.reminders_undelivered",
+  [] as const,
+);
+
+// Each attempt to seal a completed signing request that did something, by how it ended: sealed,
+// document-changed (the sent bytes no longer match), not-configured (no signing identity yet) or
+// refused (the sealing service would not seal these bytes). Anything but sealed leaves a request
+// a member is waiting on.
+export const signingSealOutcome = defineMetric("signing.seal_outcome", ["outcome"] as const);
 
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
@@ -578,11 +611,16 @@ const CATALOG: readonly MetricDefinition[] = [
   downloadsShelfSwept,
   addressesLookup,
   communicationsCallerLookup,
+  filesEngineFailure,
   exportsCopyProduced,
   exportsCopyRequestFailed,
   exportsCopyMalformedPayload,
   tasksRecurringWrites,
   searchRecordIndexPlacesRebuilt,
+  signingRequestsExpired,
+  signingRequestsReminded,
+  signingRemindersUndelivered,
+  signingSealOutcome,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

@@ -293,13 +293,13 @@ function acceptsConstraints(track: MediaStreamTrack | undefined): track is Media
 }
 
 /** What a refused microphone treatment reads as. Said in the panel, never as a toast. */
-export const AUDIO_TREATMENT_REFUSED = "Your browser did not change how it treats your microphone.";
+export const AUDIO_TREATMENT_REFUSED = "Your browser didn't change how it handles your microphone.";
 
 /** What a refused background blur reads as, in whichever direction it was asked. */
 export function blurRefusal(wanted: boolean): string {
   return wanted
-    ? "Your browser did not blur your background."
-    : "Your browser did not stop blurring your background.";
+    ? "Your browser didn't blur your background."
+    : "Your browser didn't stop blurring your background.";
 }
 
 /**
@@ -412,29 +412,29 @@ export function passThroughEffects(known: KnownConstraintNames = {}): MediaEffec
  * member needs, and it is the whole line.
  */
 export function audioTreatmentStatement(audio: AudioTreatment): string {
-  if (audio.noiseSuppression === null) return "Your browser decides this and does not report it.";
+  if (audio.noiseSuppression === null) return "Your browser decides this and doesn't report it.";
   const echo = audio.echoCancellation === true;
   const gain = audio.autoGainControl === true;
   if (echo && gain) return "Your browser is also cancelling echo and managing gain.";
   if (echo) return "Your browser is also cancelling echo.";
   if (gain) return "Your browser is also managing gain.";
-  return "Your browser is not cancelling echo or managing gain.";
+  return "Your browser isn't cancelling echo or managing gain.";
 }
 
 /** The one line a background section is, where the machine rather than the product decides it. */
 export function platformBlurStatement(platformBlur: boolean | null): string {
-  if (platformBlur === true) return "Background blur is on, set in your computer's own settings.";
-  if (platformBlur === false) return "Background blur is off, set in your computer's own settings.";
-  return "Background blur is set in your computer's own settings.";
+  if (platformBlur === true) return "Background blur is on in your computer's settings.";
+  if (platformBlur === false) return "Background blur is off in your computer's settings.";
+  return "Background blur is set in your computer's settings.";
 }
 
 /** The one line a background section is, where this browser offers no blur at all. */
-export const BLUR_UNAVAILABLE_STATEMENT = "Background blur is not available in this browser.";
+export const BLUR_UNAVAILABLE_STATEMENT = "Background blur isn't available in this browser.";
 
 /** The line beneath the noise switch while the product's own filter is cleaning the microphone. */
 export const NOISE_REMOVAL_ON_STATEMENT =
-  "Background noise is being removed on this computer before anyone hears you.";
+  "Background noise is removed on this computer before anyone hears you.";
 
 /** What the stronger filter does and costs, said once beneath its switch. */
 export const NOISE_REMOVAL_DESCRIPTION =
-  "Removes fans, typing and street noise more thoroughly than your browser does. Uses a little more of your computer's power.";
+  "Removes fans, typing and street noise better than your browser does. Uses a little more of your computer's power.";

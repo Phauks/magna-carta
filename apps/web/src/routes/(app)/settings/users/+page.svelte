@@ -361,11 +361,11 @@
         follow it.
       </p>
       <div class="flex flex-col gap-4">
-        <Label for="invite-name">Name</Label>
+        <Label necessity="required" for="invite-name">Name</Label>
         <Input id="invite-name" bind:value={inviteName} />
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="invite-email">Email</Label>
+        <Label necessity="required" for="invite-email">Email</Label>
         <Input id="invite-email" type="email" bind:value={inviteEmail} />
       </div>
       <div class="flex flex-col gap-4">

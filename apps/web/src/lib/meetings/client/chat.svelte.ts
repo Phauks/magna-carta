@@ -61,7 +61,8 @@ export const CHAT_BACKSTOP_POLL_INTERVAL_MILLISECONDS = 15_000;
 export interface MeetingChatSeams {
   /** One page of the transcript, continuing from the cursor the last page answered with. */
   list: (cursor: string | null) => Promise<MeetingWrite<MeetingMessagePage>>;
-  send: (body: string) => Promise<MeetingWrite<MeetingMessage>>;
+  /** Say something, pointing at one of the meeting's matter's files where one is shared. */
+  send: (body: string, attachedFileId: string | null) => Promise<MeetingWrite<MeetingMessage>>;
   redact: (messageId: string) => Promise<MeetingWrite<MeetingMessage>>;
   /** Start ticking, and answer with the way to stop. A seam for the reason the sampling tick is. */
   every: (milliseconds: number, tick: () => void) => () => void;
@@ -77,7 +78,7 @@ export interface MeetingChatSeams {
 export function meetingChatSeams(meetingId: () => string): MeetingChatSeams {
   return {
     list: (cursor) => readMeetingMessages(meetingId(), cursor),
-    send: (body) => sendMeetingMessage(meetingId(), body),
+    send: (body, attachedFileId) => sendMeetingMessage(meetingId(), body, attachedFileId),
     redact: (messageId) => redactMeetingMessage(meetingId(), messageId),
     every: (milliseconds, tick) => {
       const ticking = setInterval(tick, milliseconds);
@@ -235,14 +236,15 @@ export class MeetingChat {
    * Say something. Answers whether it reached the record, so a composer clears only what was sent.
    *
    * The body is trimmed here because the record is what somebody said, and trailing newlines from
-   * a field are not part of that. An empty one is not a message and never leaves the browser.
+   * a field are not part of that. An empty one is not a message and never leaves the browser,
+   * unless it shares a file: the file is then what was said, and the record names it.
    */
-  async send(body: string): Promise<boolean> {
+  async send(body: string, attachedFileId: string | null = null): Promise<boolean> {
     const stated = body.trim();
-    if (stated === "" || this.sending) return false;
+    if ((stated === "" && attachedFileId === null) || this.sending) return false;
     this.sending = true;
     this.writeFailure = null;
-    const outcome = await this.#seams.send(stated);
+    const outcome = await this.#seams.send(stated, attachedFileId);
     this.sending = false;
     if (outcome.kind !== "ok") {
       this.writeFailure = outcome.failure;

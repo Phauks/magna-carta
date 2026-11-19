@@ -611,6 +611,50 @@ export async function listTierableVersions(
   }));
 }
 
+// Every still-Standard clean version of a file whose time in Trash is over: deleted before the
+// cutoff (the firm's trash window back from now). The current version is included, because a deleted
+// file's current version is as cold as its history. The tiering sweep moves these to Infrequent
+// Access when the firm's deleted-file policy says "archive"; a restored file has no deleted_at and
+// drops out of the scan at once.
+export function listExpiredTrashVersionsStatement(
+  database: SqlDatabase,
+  deletedBeforeIso: string,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.artifact_role ` +
+        `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
+        `WHERE v.status = 'clean' AND v.storage_class = 'standard' ` +
+        `AND f.deleted_at IS NOT NULL AND f.deleted_at < ?1 ` +
+        `LIMIT ?2`,
+    )
+    .bind(deletedBeforeIso, limit);
+}
+
+export async function listExpiredTrashVersions(
+  database: SqlDatabase,
+  deletedBeforeIso: string,
+  limit: number,
+): Promise<TierableVersion[]> {
+  const { results } = await listExpiredTrashVersionsStatement(
+    database,
+    deletedBeforeIso,
+    limit,
+  ).all<{
+    id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+    artifact_role: string;
+  }>();
+  return results.map((row) => ({
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes ?? 0,
+    artifactRole: row.artifact_role,
+  }));
+}
+
 export interface ConflictPendingVersion {
   readonly id: FileVersionId;
   readonly versionNumber: number;

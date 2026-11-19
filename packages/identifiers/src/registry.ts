@@ -239,6 +239,13 @@ export const ENTITY_PREFIXES = {
   trustUnclaimedFundsReview: "trustUnclaimedFundsReview",
   trustUnclaimedFundsContactAttempt: "trustUnclaimedFundsContactAttempt",
   trustUnclaimedFundsReviewClosure: "trustUnclaimedFundsReviewClosure",
+  // Check printing. A `trustCheck` is one check number used on a trust account, printed for a
+  // disbursement or voided unprinted; a `trustCheckEvent` is one append-only fact about it (printed,
+  // spoiled, voided); a `trustCheckStock` is one saved version of where each field prints on the
+  // firm's check paper.
+  trustCheck: "trustCheck",
+  trustCheckEvent: "trustCheckEvent",
+  trustCheckStock: "trustCheckStock",
   // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
   // entities); an `invoiceLine` is what the client is told, in presentation order; an
   // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the
@@ -447,6 +454,15 @@ export const ENTITY_PREFIXES = {
   magnusConversation: "magnusConversation",
   magnusTurn: "magnusTurn",
   magnusFolder: "magnusFolder",
+  // Signing — a document sent for electronic signature. A `signingRequest` is one request on one
+  // file version (the certificate calls it the envelope); a `signingSigner` is one person asked to
+  // sign it, in an order; a `signingField` is one box on one page that one signer completes; a
+  // `signingEvent` is one append-only line of what happened, which the Certificate of Completion
+  // prints as its audit log.
+  signingRequest: "signingRequest",
+  signingSigner: "signingSigner",
+  signingField: "signingField",
+  signingEvent: "signingEvent",
   magnusArtifact: "magnusArtifact",
   // Discovery — the corpus of documents under review on a matter. A `reviewSet` is one named corpus
   // with its own index, lifecycle, and access story; a `recordCustodian` is whose electronic records

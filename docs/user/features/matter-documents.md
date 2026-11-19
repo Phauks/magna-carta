@@ -237,6 +237,8 @@ Two things are outside them. Deleting a **folder** cannot be undone; when you de
 says so and points you at **Deleted Files**, where the documents it held can still be brought back
 one by one. And undo does not survive a reload: it is for the change you just made.
 
+A deleted file waits in **Deleted Files** for as long as your firm has chosen, 30 days unless it chose otherwise, and the **Leaves Trash** column says when that is. After it the file moves to cheaper archive storage and the column says **Archived**, but it can still be brought back the same way. Nothing in Deleted Files is ever destroyed. See [Deleted files](../admin/deleted-files.md).
+
 ### Where you are in the folders
 
 The strip above the list is the path to the folder you are in, starting at the home icon. Home is
@@ -391,6 +393,8 @@ A small bundle downloads straight away. A large one is built in the background: 
 Right-click a file and open **Convert**. The list shows what that kind of file can become, by its ending: **To pdf**, **To odt**, **To txt** and so on. Where one ending covers two kinds, the second says which, as in **To pdf (Searchable PDF)**.
 
 Choose one, and a note above the list follows the file while it is read, sent and converted. The converted copy is then filed in the same folder as the original, through the same upload and safety check as any file you add, so it appears in the upload tray. If the folder already holds a file with that name, both are kept. The original is never changed.
+
+For a picture, the last entry in the list is **Convert with Options**. It opens a short form where you pick the format and, for that format, a **Longest Side** to shrink the picture to, **Grayscale**, and for JPEG a **Quality**. Press **Convert**, and the copy is made and filed beside the original the same way. Documents, emails and videos have no settings, so their list has no **Convert with Options**.
 
 Convert is offered on one file at a time. To convert many files at once, use the **Convert** tab on the File Workbench.
 

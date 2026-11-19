@@ -25,12 +25,15 @@ import { fetchHttpClient, type HttpClient } from "@magna-carta/integrations/http
 import type { Bindings } from "../../../bindings.ts";
 import {
   calendarProviderOfAdapter,
+  resolveApplicationOfAdapter,
   resolveCalendarApplication,
 } from "../../../calendar-sync/calendar-providers.ts";
+import { memberCalendarCredentialStore } from "../../../calendar-sync/member-credential-store.ts";
 import {
   integrationCredentialStoreForFirm,
   type CredentialStoreForFirm,
 } from "../../../plugins/credential-store.ts";
+import { protectedReadContext } from "../../../protected-read-context.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -172,11 +175,9 @@ export function registerConnectedAccountsRoutes(
   deps: ConnectedAccountsRouteDeps = {},
 ): void {
   const now = deps.now ?? (() => new Date());
-  registerConnectedAccountSignInRoutes(app, chokepoint, {
-    http: deps.http ?? fetchHttpClient(),
-    credentialStoreForFirm: deps.credentialStoreForFirm ?? integrationCredentialStoreForFirm,
-    now,
-  });
+  const http = deps.http ?? fetchHttpClient();
+  const credentialStoreForFirm = deps.credentialStoreForFirm ?? integrationCredentialStoreForFirm;
+  registerConnectedAccountSignInRoutes(app, chokepoint, { http, credentialStoreForFirm, now });
 
   // GET /api/v1/me/connected-accounts
   app.openapi(
@@ -224,18 +225,38 @@ export function registerConnectedAccountsRoutes(
       const { id } = c.req.valid("param");
       // Found through the member's own principal and never by the id alone, so one member's id in
       // another member's request finds nothing.
-      const existing = await selectConnectionStatement(
+      // The member may hold an account at each provider; the one named is looked for among theirs.
+      const { results: own } = await selectConnectionStatement(
         firm.firmDatabase,
         CALENDAR_SYNC_CATEGORY,
         userId,
-      ).first<{ id: string; adapter_id: string; credential_ref: string }>();
-      if (existing === null || existing.id !== id) {
+      ).all<{ id: string; adapter_id: string; credential_ref: string }>();
+      const existing = own.find((row) => row.id === id) ?? null;
+      if (existing === null) {
         return problemJson(c, {
           type: "not-found",
           title: "Not found",
           status: 404,
           detail: "You have no such connected account.",
         });
+      }
+      // Before the token is deleted, the provider is told the grant is over, where it can be told.
+      // Never a reason to keep the account: whatever the provider answers, or if it cannot be
+      // reached, everything below still goes.
+      const application = resolveApplicationOfAdapter(c.env, c.req.url, existing.adapter_id);
+      if (application?.revokeGrant !== undefined) {
+        try {
+          const credential = await memberCalendarCredentialStore(
+            protectedReadContext(c),
+            userId,
+            credentialStoreForFirm,
+          ).get(existing.credential_ref);
+          if (credential?.kind === "oauth") {
+            await application.revokeGrant(http, credential.refreshToken);
+          }
+        } catch {
+          // A token that cannot be opened cannot be withdrawn; it is deleted below all the same.
+        }
       }
       const instant = now().toISOString();
       await commitEffectBatch(

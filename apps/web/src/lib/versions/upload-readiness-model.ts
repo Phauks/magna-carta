@@ -122,7 +122,7 @@ export function copyReportForUploadReadiness(report: UploadReadinessReport): str
   ];
   for (const check of report.checks) {
     lines.push(
-      `${UPLOAD_READINESS_CHECK_LABELS[check.id]}: ${UPLOAD_READINESS_OUTCOME_LABELS[check.outcome]} — ${check.detail}`,
+      `${UPLOAD_READINESS_CHECK_LABELS[check.id]}: ${UPLOAD_READINESS_OUTCOME_LABELS[check.outcome]}. ${check.detail}`,
     );
   }
   return lines.join("\n");

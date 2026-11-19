@@ -37,6 +37,8 @@ export interface DomainDeps {
   readonly sealPort?: SealPort;
   readonly humanVerification?: HumanVerificationGateOptions;
   readonly meetingGuestMail?: (env: Bindings) => SendEmail;
+  /** The mail a signing request's signers are sent through; tests capture it. */
+  readonly signingMail?: (env: Bindings) => SendEmail;
   readonly connectedAccounts?: ConnectedAccountsRouteDeps;
 }
 

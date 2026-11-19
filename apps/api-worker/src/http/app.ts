@@ -61,6 +61,7 @@ export interface CreateAppOptions {
   // out of the captured message because the server hands it to nobody else. Production sends
   // through the environment's email adapter.
   meetingGuestMail?: (env: Bindings) => SendEmail;
+  signingMail?: (env: Bindings) => SendEmail;
   // Overrides the calendar provider behind the connected-accounts routes for tests (a fake
   // provider and a fixed clock). Production reaches Microsoft with the global fetch.
   connectedAccounts?: ConnectedAccountsRouteDeps;
@@ -181,6 +182,7 @@ export function createApp(options: CreateAppOptions = {}) {
     sealPort: options.sealPort,
     humanVerification: options.humanVerification,
     meetingGuestMail: options.meetingGuestMail,
+    signingMail: options.signingMail,
     connectedAccounts: options.connectedAccounts,
   };
   for (const module of DOMAIN_MODULES) module.mount(app, chokepoint, domainDeps);

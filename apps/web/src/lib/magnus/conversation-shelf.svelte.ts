@@ -40,9 +40,7 @@ export class ConversationShelf {
   folderFailure = $state<Failure | null>(null);
   /** The sections the reader has open. Pinned and General start open; folders start folded. */
   openSections = $state<string[]>([PINNED_SECTION, GENERAL_SECTION]);
-  readonly pinned = new PagedList<MagnusConversation>(
-    "Your pinned conversations could not be read.",
-  );
+  readonly pinned = new PagedList<MagnusConversation>("Couldn't load your pinned conversations.");
   readonly #lists = new SvelteMap<string, PagedList<MagnusConversation>>();
   readonly #fetch: typeof fetch;
   readonly #reader: (filter: ShelfFilter) => PageReader<MagnusConversation>;
@@ -60,9 +58,7 @@ export class ConversationShelf {
   listFor(folderId: string): PagedList<MagnusConversation> {
     const existing = this.#lists.get(folderId);
     if (existing !== undefined) return existing;
-    const made = new PagedList<MagnusConversation>(
-      "This folder's conversations could not be read.",
-    );
+    const made = new PagedList<MagnusConversation>("Couldn't load this folder's conversations.");
     made.reset(`${this.#subject}:${folderId}`);
     this.#lists.set(folderId, made);
     return made;

@@ -57,14 +57,14 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   // the recording state on a meeting's summary. Their bodies belong in packages/meetings/src/contract.ts.
   "calendar/calendar.ts": { lines: 3607, shapes: 4 },
   "communications/communications.ts": { lines: 1034, shapes: 9 },
-  "communications/meeting-chat.ts": { lines: 634, shapes: 3 },
+  "communications/meeting-chat.ts": { lines: 597, shapes: 3 },
   "communications/meeting-hosting.ts": { lines: 598, shapes: 5 },
   "communications/meeting-inspect.ts": { lines: 243, shapes: 9 },
   "communications/meeting-lobby.ts": { lines: 564, shapes: 7 },
   "communications/meeting-polls.ts": { lines: 860, shapes: 5 },
   "communications/meeting-questions.ts": { lines: 839, shapes: 3 },
   "communications/meeting-summary.ts": { lines: 761, shapes: 6 },
-  "communications/meetings-guest.ts": { lines: 1419, shapes: 8 },
+  "communications/meetings-guest.ts": { lines: 1398, shapes: 8 },
   "communications/meetings.ts": { lines: 2719, shapes: 16 },
   // Raised from 1364 lines when the postage-account permission and the server-side label fee landed;
   // the growth is the comments that say who may change the account and why the fee is not sent in.
@@ -78,7 +78,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "discovery/discovery-coding.ts": { lines: 1347, shapes: 21 },
   "discovery/discovery-review-reads.ts": { lines: 742, shapes: 9 },
   "discovery/discovery.ts": { lines: 1607, shapes: 16 },
-  "documents/conversions.ts": { lines: 423, shapes: 6 },
   "documents/templates.ts": { lines: 2029, shapes: 26 },
   "email/auto-file-rules.ts": { lines: 1135, shapes: 8 },
   "email/capture-addresses.ts": { lines: 728, shapes: 4 },
@@ -89,14 +88,18 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   "files/downloads-register.ts": { lines: 578, shapes: 7 },
   "files/downloads.ts": { lines: 591, shapes: 3 },
   "files/file-integrity.ts": { lines: 370, shapes: 5 },
-  "files/file-repair.ts": { lines: 711, shapes: 10 },
+  // Raised when each engine failure began to be counted (one call per failing branch, the helper is
+  // in files/engine-failure.ts).
+  "files/file-repair.ts": { lines: 718, shapes: 10 },
   "files/file-scans.ts": { lines: 324, shapes: 5 },
   // Raised from 2161 lines and 21 shapes when main brought in the version-changes route and its
   // three response shapes, which were written before this ledger existed.
   "files/files.ts": { lines: 2293, shapes: 24 },
   "files/folders.ts": { lines: 437, shapes: 7 },
   "files/metadata.ts": { lines: 235, shapes: 5 },
-  "files/ocr.ts": { lines: 320, shapes: 6 },
+  // Raised when each engine failure began to be counted (one call per failing branch, the helper is
+  // in files/engine-failure.ts).
+  "files/ocr.ts": { lines: 324, shapes: 6 },
   "files/recovery.ts": { lines: 450, shapes: 7 },
   "files/uploads.ts": { lines: 1005, shapes: 15 },
   "firm/classification-type-routes.ts": { lines: 426, shapes: 6 },

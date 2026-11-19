@@ -4,7 +4,7 @@
    * version in force moves.
    *
    * WHAT IT HAS TO SAY IS FIXED, not editorial. Four facts a member must hold before they type:
-   * the message leaves the platform for an outside model provider; the assistant sees what they
+   * the message goes to an outside AI provider; the assistant sees what they
    * type in that conversation, the text of the files they attach to it and, where they turn it on,
    * their own other conversations on the same matter, and nothing else; it
    * can do nothing but answer and write drafts kept in the conversation; and the transcript, with
@@ -40,24 +40,24 @@
    */
   const STATEMENTS: readonly { heading: string; body: string }[] = [
     {
-      heading: "What you type leaves the platform",
-      body: "Your message is sent out through the platform's model gateway to an outside model provider, which is what produces the answer.",
+      heading: "What you type goes to an outside AI provider",
+      body: "Your message goes through Magna Carta to an outside AI provider, which writes the answer.",
     },
     {
-      heading: "Magnus sees what you type, and the files you attach",
-      body: "It reads the messages in the conversation you are in, and the readable text of any file you attach to it from the matter's own files. If you turn it on for a conversation kept on a matter, it also reads your own other conversations on that matter, never a colleague's. Nothing else: no other documents, no calendar, no directory. Keeping a conversation on a matter's file does not, by itself, let it read the matter.",
+      heading: "Magnus sees only what you type and the files you attach",
+      body: "Magnus reads the messages in this conversation and the text of any matter file you attach. On a matter, you can also let it read your other conversations on that matter, but never another staff member's. It reads nothing else: no other documents, calendar or directory. Putting a conversation on a matter doesn't let Magnus read the matter.",
     },
     {
       heading: "Magnus can only answer and draft",
-      body: "It answers, and when you ask for a draft it writes it as a document kept in the conversation, with every version. It cannot file, send, or delete anything, or change the firm's records. Whatever it suggests, you do.",
+      body: "It answers questions and writes drafts, which stay in the conversation with every version. It can't file, send or delete anything, or change the firm's records. You act on what it suggests.",
     },
     {
-      heading: "Transcripts are kept as firm records",
-      body: "What you ask, what it answers and the documents it writes stay on the firm's record, readable by you and by anyone the firm has given permission to read them. They are never visible to clients.",
+      heading: "Conversations are firm records",
+      body: "Your questions, its answers and its drafts stay on the firm's record. You and anyone the firm allows can read them. Clients never see them.",
     },
     {
       heading: "Magnus can be wrong",
-      body: "Its output is not legal advice, and you are responsible for verifying anything you rely on.",
+      body: "Its answers aren't legal advice. You're responsible for checking anything you rely on.",
     },
   ];
 </script>

@@ -113,7 +113,7 @@ describe("an absent fact is stated, not dropped", () => {
       { request: "GET /x", failedAt: FAILED_AT, problem: null },
       { ...ENVIRONMENT, online: false },
     );
-    expect(trace).toContain("nothing answered");
+    expect(trace).toContain("couldn't connect");
     expect(lineFor(trace, "network")).toBe("offline");
   });
 

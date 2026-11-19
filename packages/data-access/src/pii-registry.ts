@@ -485,6 +485,72 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // behind, and erasing either half would erase the evidence. The address the link went to is not
   // here at all; the invitation names the Directory row, and the address stays the Directory's fact.
   {
+    table: "signing_request",
+    subjectKey: "created_by_user_id",
+    action: "retain-under-matter",
+    note: "who sent a document for signature is provenance on the request, printed on its certificate",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "name",
+    action: "retain-under-matter",
+    note: "who was asked to sign is what the signed record and its certificate say happened",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "email",
+    action: "retain-under-matter",
+    note: "where the request was sent is part of the attribution the certificate prints",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "user_id",
+    action: "retain-under-matter",
+    note: "the member who signed is the signature's attribution",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "decline_reason",
+    action: "retain-under-matter",
+    note: "a signer's reason for declining is part of the request's record",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "signature_object_key",
+    action: "retain-under-matter",
+    note: "the adopted signature image is the mark on the signed record",
+  },
+  {
+    table: "signing_signer",
+    subjectKey: "initials_object_key",
+    action: "retain-under-matter",
+    note: "the adopted initials image is the mark on the signed record",
+  },
+  {
+    table: "signing_field",
+    subjectKey: "value_text",
+    action: "retain-under-matter",
+    note: "what a signer wrote into a field is part of the signed record",
+  },
+  {
+    table: "signing_event",
+    subjectKey: "actor",
+    action: "retain-under-matter",
+    note: "who did each step is the certificate's audit log",
+  },
+  {
+    table: "signing_event",
+    subjectKey: "observed_ip",
+    action: "retain-under-matter",
+    note: "the server-observed address is the attribution evidence the certificate prints",
+  },
+  {
+    table: "signing_event",
+    subjectKey: "user_agent",
+    action: "retain-under-matter",
+    note: "the server-observed browser is attribution evidence the certificate prints",
+  },
+  {
     table: "meeting_guest_invitation",
     subjectKey: "entity_id",
     action: "retain-under-matter",
@@ -823,6 +889,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // report-manual treatment on the same reasoning. It is not merely a draft of the movement: a
   // request that was refused or withdrawn has no movement to inherit, and who the firm was ASKED to
   // pay is a record of its own on an append-only row.
+  // A printed check names its payee as the movement it pays named them, copied at numbering so the
+  // check register reads alone after the fact: the same free-text residue on the same retention
+  // basis, on a row that is append-only by trigger.
+  {
+    table: "trust_check",
+    subjectKey: "payee",
+    action: "report-manual",
+    note: "the payee printed on a trust check, copied from the disbursement it paid, held as free text with no structured subject",
+  },
   {
     table: "trust_disbursement_request",
     subjectKey: "payee",
@@ -1708,6 +1783,12 @@ export const NO_PII_TABLES: readonly string[] = [
   // in the whole group is the contact an attempt used, registered above.
   "trust_unclaimed_funds_review",
   "trust_unclaimed_funds_review_closure",
+  // Check printing's other two rows. An event is a kind, a reason the firm wrote about a piece of
+  // paper (jammed, lost in the mail) and the member who recorded it; a stock is where each field
+  // prints on the firm's own check paper and the object key of a scan of a BLANK check. Neither names
+  // a client, a matter or a payee.
+  "trust_check_event",
+  "trust_check_stock",
   // Billing. The two tables with a subject reference (invoice, invoice_line) are registered in
   // PII_TABLES above; these five carry none of their own.
   // A claim says which work-in-progress row an invoice took. It is two handles, an amount, and two

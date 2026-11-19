@@ -112,7 +112,7 @@
   {:else}
   <div class="grid items-end gap-8" style="grid-template-columns: minmax(0, 1.4fr) 10rem minmax(0, 1fr) auto auto">
     <div class="flex flex-col gap-8">
-      <Label for={organizationInputId}>Organization</Label>
+      <Label necessity="required" for={organizationInputId}>Organization</Label>
       <DirectoryEntityPicker
         {search}
         kinds={["organization"]}
@@ -124,7 +124,7 @@
       />
     </div>
     <div class="flex flex-col gap-8">
-      <Label id={relationshipLabelId}>Relationship</Label>
+      <Label necessity="required" id={relationshipLabelId}>Relationship</Label>
       <Select.Root
         type="single"
         items={relationshipItems}
@@ -142,7 +142,7 @@
         </Select.Content>
       </Select.Root>
     </div>
-    <LabelledField label="Role">
+    <LabelledField necessity="optional" label="Role">
       {#snippet children({ props })}
         <Input {...props} bind:value={role} {disabled} placeholder={placeholderOf("Role")} />
       {/snippet}

@@ -25,11 +25,9 @@
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import HonorificField from "$lib/names/honorific-field.svelte";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import PenLine from "@lucide/svelte/icons/pen-line";
@@ -44,6 +42,8 @@
     type DirectoryNameRole,
   } from "./directory-api.ts";
   import { appendableNameRoles, nameRoleLabel } from "./directory-vocabulary.ts";
+  import type { PersonNameDraft } from "./person-draft.ts";
+  import PersonNameFields from "./sections/person-name-fields.svelte";
   import { directoryEntityName, entityDetailIdentifier } from "./entity-presentation.ts";
 
   let {
@@ -186,18 +186,14 @@
   let editing = $state<"change" | "add" | null>(null);
   let saving = $state(false);
   let role = $state<DirectoryNameRole>("former");
-  let prefix = $state("");
-  let given = $state("");
-  let middle = $state("");
-  let family = $state("");
-  let suffix = $state("");
+  let parts = $state<PersonNameDraft>({ prefix: "", given: "", middle: "", family: "", suffix: "" });
   let legalName = $state("");
   let writeFailure = $state<StatedFailure | null>(null);
 
   // A NAME, NOT TWO NAMES. A person with one name is an ordinary person, and a record that refuses
   // them files them under something they are not called. person-draft.ts holds the same rule for the
   // New Person panel; the missing last name is stated as a warning below, never as a refusal.
-  const ready = $derived(kind === "person" ? given.trim() !== "" : legalName.trim() !== "");
+  const ready = $derived(kind === "person" ? parts.given.trim() !== "" : legalName.trim() !== "");
 
   const refusal = $derived.by((): string | undefined => {
     if (ready) return undefined;
@@ -205,18 +201,14 @@
   });
 
   const warning = $derived(
-    kind === "person" && given.trim() !== "" && family.trim() === ""
+    kind === "person" && parts.given.trim() !== "" && parts.family.trim() === ""
       ? "This name has no last name. The first name is used for searches and conflicts checks."
       : null,
   );
 
   function reset(): void {
     role = kind === "person" ? "former" : "dba";
-    prefix = "";
-    given = "";
-    middle = "";
-    family = "";
-    suffix = "";
+    parts = { prefix: "", given: "", middle: "", family: "", suffix: "" };
     legalName = "";
     writeFailure = null;
   }
@@ -226,11 +218,13 @@
   function seedFromCurrent(): void {
     writeFailure = null;
     if (entity.kind === "person") {
-      prefix = entity.person.prefix ?? "";
-      given = entity.person.given ?? "";
-      middle = entity.person.middle ?? "";
-      family = entity.person.family ?? "";
-      suffix = entity.person.suffix ?? "";
+      parts = {
+        prefix: entity.person.prefix ?? "",
+        given: entity.person.given ?? "",
+        middle: entity.person.middle ?? "",
+        family: entity.person.family ?? "",
+        suffix: entity.person.suffix ?? "",
+      };
     } else {
       legalName = entity.organization.legalName ?? "";
     }
@@ -244,14 +238,14 @@
     suffix: string | null;
   } {
     const fields = {
-      given: given.trim(),
-      prefix: prefix.trim() === "" ? null : prefix.trim(),
-      middle: middle.trim() === "" ? null : middle.trim(),
-      suffix: suffix.trim() === "" ? null : suffix.trim(),
+      given: parts.given.trim(),
+      prefix: parts.prefix.trim() === "" ? null : parts.prefix.trim(),
+      middle: parts.middle.trim() === "" ? null : parts.middle.trim(),
+      suffix: parts.suffix.trim() === "" ? null : parts.suffix.trim(),
     };
     // Absent rather than empty: a person with one name has no family name, and the contract takes
     // an omitted field as "there is none" and an empty string as a value that cannot be one.
-    return family.trim() === "" ? fields : { ...fields, family: family.trim() };
+    return parts.family.trim() === "" ? fields : { ...fields, family: parts.family.trim() };
   }
 
   async function submitAdd(): Promise<ActionOutcome> {
@@ -322,48 +316,7 @@
 
 {#snippet nameFields(busy: boolean)}
   {#if kind === "person"}
-    <!-- The same words, in the same order, as the New Person panel (sections/names-section.svelte):
-         a name entered one way and corrected another is how a record ends up carrying two
-         spellings of one convention. -->
-    <FieldRow>
-      <LabelledField label="First Name">
-        {#snippet children({ props })}
-          <Input
-            {...props}
-            disabled={busy}
-            bind:value={given}
-            placeholder={placeholderOf("First Name")}
-          />
-        {/snippet}
-      </LabelledField>
-      <LabelledField label="Middle Name">
-        {#snippet children({ props })}
-          <Input
-            {...props}
-            disabled={busy}
-            bind:value={middle}
-            placeholder={placeholderOf("Middle Name")}
-          />
-        {/snippet}
-      </LabelledField>
-      <LabelledField label="Last Name">
-        {#snippet children({ props })}
-          <Input {...props} disabled={busy} bind:value={family} placeholder={placeholderOf("Last Name")} />
-        {/snippet}
-      </LabelledField>
-    </FieldRow>
-    <FieldRow>
-      <LabelledField label="Prefix">
-        {#snippet children({ props })}
-          <HonorificField part="prefix" bind:value={prefix} disabled={busy} inputProps={props} />
-        {/snippet}
-      </LabelledField>
-      <LabelledField label="Suffix">
-        {#snippet children({ props })}
-          <HonorificField part="suffix" bind:value={suffix} disabled={busy} inputProps={props} />
-        {/snippet}
-      </LabelledField>
-    </FieldRow>
+    <PersonNameFields bind:parts disabled={busy} />
     {#if warning !== null}
       <Alert.Root variant="warning">
         <Alert.Title>This Name Has No Last Name</Alert.Title>
@@ -371,7 +324,7 @@
       </Alert.Root>
     {/if}
   {:else}
-    <LabelledField label="Name">
+    <LabelledField necessity="required" label="Name">
       {#snippet children({ props })}
         <Input {...props} disabled={busy} bind:value={legalName} placeholder={placeholderOf("Name")} />
       {/snippet}
@@ -381,8 +334,9 @@
 
 <section class="flex flex-col gap-16">
   {#if editing !== null}
-    <!-- The act, open in place inside the card. -->
-    <div class="flex flex-col gap-12 rounded-md bg-surface-sunken p-12">
+    <!-- The act, open in place inside the card, laid out as New Person lays out a name: the same
+         fields (sections/person-name-fields.svelte), and an other name's kind above them. -->
+    <div class="flex flex-col gap-12">
       {#if writeFailure !== null}
         <FailureNotice
           failure={writeFailure.failure}
@@ -398,8 +352,8 @@
           Name.
         </p>
       {:else}
-        <div class="flex flex-col gap-8">
-          <Label id="add-name-role-label">Role</Label>
+        <div class="flex flex-col gap-8" style="width: 12rem">
+          <Label id="add-name-role-label">Other Name</Label>
           <Select.Root
             type="single"
             items={roleItems}
@@ -407,7 +361,7 @@
             allowDeselect={false}
             disabled={saving}
           >
-            <Select.Trigger class="min-w-64" aria-labelledby="add-name-role-label">
+            <Select.Trigger aria-labelledby="add-name-role-label">
               <Select.Value />
             </Select.Trigger>
             <Select.Content>
@@ -468,6 +422,9 @@
     </div>
   {/if}
 
+  <!-- While the name is being edited its fields are the name; the list would show it a second
+       time, in a different shape, beside them. -->
+  {#if editing !== "change"}
   <LoadingRegion
     loading={names === null}
     {refreshing}
@@ -492,6 +449,7 @@
     {/snippet}
     {@render nameTable(names ?? [])}
   </LoadingRegion>
+  {/if}
 </section>
 
 <!-- One table for the rows, for the shape they take while they are read, and for the empty body

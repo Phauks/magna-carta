@@ -2,12 +2,12 @@
  * The Recent Errors tab's read, from the control plane's own error record first.
  *
  * Every problem the API answers and every crash the app reports is kept in `error_record` for thirty
- * days (src/http/error-record.ts, src/http/routes/platform/client-errors.ts), so the tab no longer
- * waits on a Workers Logs token to show a member's failure. What the record cannot hold is a failure
- * nobody was shown — a sweep, a queue consumer, a Cron pass — which only Workers Logs has; where a
- * log-read token is set, those background failures are read from there (./recent-errors.ts) and
- * joined on. The request failures Workers Logs also holds are left out of that read, because the
- * record already has each of them.
+ * days (src/http/error-record.ts, src/http/routes/platform/client-errors.ts), and so is every
+ * failure nobody was shown — a sweep, a queue consumer, a Cron pass — through the failed-operation tap
+ * (./background-error-record.ts), so the tab needs no Workers Logs token. Where a log-read token IS
+ * set, Workers Logs adds what the record cannot hold: background failures of the other Workers, and
+ * this one's from before the tap existed. A log group whose newest Error ID the record already holds
+ * is left out of that read, so a failure is counted once.
  */
 import {
   selectErrorRecordGroupsStatement,
@@ -55,7 +55,7 @@ export type RecordedErrorsReport =
 
 function fromRow(row: ErrorRecordGroupRow): RecordedErrorGroup {
   return {
-    source: row.source === "browser" ? "browser" : "server",
+    source: row.source === "browser" || row.source === "background" ? row.source : "server",
     latestErrorId: row.latest_error_id,
     service: row.service,
     where: row.operation,
@@ -110,7 +110,11 @@ export async function readRecordedErrors(
     return { state: "unreachable", backgroundState };
   }
 
-  const groups = [...rows.map(fromRow), ...background].sort((left, right) =>
+  const recorded = new Set(rows.map((row) => row.latest_error_id));
+  const unrecorded = background.filter(
+    (group) => group.latestErrorId === null || !recorded.has(group.latestErrorId),
+  );
+  const groups = [...rows.map(fromRow), ...unrecorded].sort((left, right) =>
     right.lastSeen.localeCompare(left.lastSeen),
   );
   return {

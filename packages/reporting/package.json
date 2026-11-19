@@ -18,7 +18,17 @@
     "./operational/operational-volumes": "./src/operational/operational-volumes.ts",
     "./financial/invoice-register": "./src/financial/invoice-register.ts",
     "./financial/payments-applied": "./src/financial/payments-applied.ts",
-    "./financial/matter-balances": "./src/financial/matter-balances.ts"
+    "./financial/client-statement": "./src/financial/client-statement.ts",
+    "./financial/matter-balances": "./src/financial/matter-balances.ts",
+    "./operational/matters-list": "./src/operational/matters-list.ts",
+    "./financial/aged-work-in-progress": "./src/financial/aged-work-in-progress.ts",
+    "./financial/revenue": "./src/financial/revenue.ts",
+    "./productivity/daily-time": "./src/productivity/daily-time.ts",
+    "./productivity/matter-productivity": "./src/productivity/matter-productivity.ts",
+    "./operational/client-list": "./src/operational/client-list.ts",
+    "./productivity/task-workload": "./src/productivity/task-workload.ts",
+    "./operational/change-log": "./src/operational/change-log.ts",
+    "./financial/matter-billing-guide": "./src/financial/matter-billing-guide.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -28,10 +38,12 @@
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/costs": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
+    "@magna-carta/tasks": "workspace:*",
     "@magna-carta/timekeeping": "workspace:*",
     "@magna-carta/trust": "workspace:*",
     "zod": "catalog:"

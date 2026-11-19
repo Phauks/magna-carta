@@ -53,7 +53,12 @@
 
   function failureOf(outcome: Exclude<ApiOutcome<unknown>, { kind: "ok" }>): string {
     if (outcome.kind === "transport") return "Couldn't connect. Nothing was read.";
-    if (outcome.problem.status === 503) return "The recognition engine is not running yet.";
+    // The server answers 503 for two different faults and names them apart by title: no engine
+    // connected to this deployment at all, or an engine that is connected and failing.
+    if (outcome.problem.status === 503)
+      return outcome.problem.title === "Recognition engine unavailable"
+        ? "Text recognition is not set up on this server yet."
+        : "The recognition engine returned an error. Try again in a minute, and report it if it keeps happening.";
     if (outcome.problem.status === 413) return "This file is larger than the recognition engine takes.";
     if (outcome.problem.status === 422) return "The engine could not read this file.";
     return problemGuidance(outcome.problem).message;

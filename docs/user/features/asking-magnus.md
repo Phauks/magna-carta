@@ -67,10 +67,10 @@ is the same standard you would apply to a memo from someone whose work you have 
 ## Before Your First Question
 
 The first time you open Magnus you are shown a short disclosure and asked to accept it. It says what
-is on this page: what leaves the platform, what Magnus can see, what it can do, that transcripts are
-kept, and that it can be wrong. You accept it once. If it changes in a way that matters, you are
-asked again: when Magnus gained the ability to read attached files, everybody was asked once more,
-and again when it gained the pane, its documents and the switch for your other conversations.
+is on this page: what goes to an outside AI provider, what Magnus can see, what it can do, that
+conversations are kept, and that it can be wrong. You accept it once. If it changes, you are asked
+again: when Magnus gained the ability to read attached files, when it gained the pane, its documents
+and the switch for your other conversations, and when the disclosure was reworded more plainly.
 
 ## What Happens to What You Type
 
@@ -99,13 +99,14 @@ shows the time it was sent, and the copy button beneath it puts that message's w
 clipboard.
 
 The open conversation's name sits at the top with the matter it is kept on in small print beneath
-it, or "Not kept on a matter". Inside a matter's own Magnus section the matter is already named at
+it, or "Not on a matter". Inside a matter's own Magnus section the matter is already named at
 the top of the page, so that line is left out.
 
 ## Editing or Removing Your Own Message
 
 Under each message you sent there are two more buttons beside the copy button. They are there only
-in a conversation you started, and only when Magnus is not in the middle of an answer.
+in a conversation you started. You can use them while Magnus is still answering: editing or removing
+a message stops that answer, and an edit asks again with the new version.
 
 - **Edit and Ask Again** (the pencil) puts your message back in the box so you can change it. Press
   **Send Edit** and Magnus answers the new version. Your old message and everything after it leave

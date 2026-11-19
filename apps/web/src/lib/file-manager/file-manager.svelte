@@ -108,12 +108,15 @@
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
   import { getFormat } from "@magna-carta/conversion/registry";
+  import { readDeletedFilePolicy } from "./deleted-file-policy-draft.svelte.ts";
   import {
     browserConversionPorts,
     convertedName,
     runConversion,
     type ConversionStage,
   } from "$lib/tools/file-workbench/conversion-run.ts";
+  import type { ConversionOptions } from "@magna-carta/conversion/options";
+  import ConvertOptionsDialog from "$lib/tools/file-workbench/convert-options-dialog.svelte";
   import {
     MatterFileIndex,
     fileKey,
@@ -126,6 +129,7 @@
     archiveColumns,
     browseColumns,
     deletedColumns,
+    type TrashPolicy,
     historyColumns,
     locatedColumns,
     safetyKeyOf,
@@ -166,7 +170,13 @@
     type Issue,
   } from "./file-analysis.ts";
   import { capability, waitingReason } from "./file-manager-availability.ts";
-  import { backgroundMenu, conversionSourceOf, rowMenu, type FileMenuCommand } from "./file-menu-model.ts";
+  import {
+    backgroundMenu,
+    conversionChoicesFor,
+    conversionSourceOf,
+    rowMenu,
+    type FileMenuCommand,
+  } from "./file-menu-model.ts";
   import { FileManagerState, type FileManagerView } from "./file-manager-state.svelte.ts";
   import FileManagerToolbar from "./file-manager-toolbar.svelte";
   import FileManagerFooter from "./file-manager-footer.svelte";
@@ -1080,7 +1090,18 @@
     converting: "Converting",
   };
 
-  async function convertMatterFile(file: MatterFile, formatId: string): Promise<void> {
+  /** The file Convert With Options is open for, or null while the dialog is closed. */
+  let convertOptionsFile = $state<MatterFile | null>(null);
+  let convertOptionsOpen = $state(false);
+  const convertOptionsSource = $derived(
+    convertOptionsFile === null ? undefined : conversionSourceOf(convertOptionsFile),
+  );
+
+  async function convertMatterFile(
+    file: MatterFile,
+    formatId: string,
+    options?: ConversionOptions,
+  ): Promise<void> {
     const target = getFormat(formatId);
     if (target === undefined || file.currentVersionId === null) return;
     const from = conversionSourceOf(file);
@@ -1097,9 +1118,16 @@
       actionFailure = `${file.name} could not be read, so nothing was converted.`;
       return;
     }
-    const outcome = await runConversion(browserConversionPorts(), bytes, from, target.id, (stage) => {
-      conversionProgress = { title: "Converting", text: `${CONVERSION_STAGE_WORDS[stage]} ${file.name}.` };
-    });
+    const outcome = await runConversion(
+      browserConversionPorts(),
+      bytes,
+      from,
+      target.id,
+      (stage) => {
+        conversionProgress = { title: "Converting", text: `${CONVERSION_STAGE_WORDS[stage]} ${file.name}.` };
+      },
+      options,
+    );
     conversionProgress = null;
     if (outcome.kind === "failed") {
       actionFailure = `${file.name} was not converted. ${outcome.message}`;
@@ -1777,6 +1805,18 @@
   let historyCursor = $state<string | null>(null);
   let historyLoading = $state(false);
 
+  // The firm's deleted-file policy, read once the Deleted Files view is first opened, so each row can
+  // say when it leaves Trash. A failed read leaves the column blank rather than guessing a window.
+  let trashPolicy = $state<TrashPolicy | null>(null);
+  let trashPolicyAsked = false;
+  $effect(() => {
+    if (manager.view !== "deleted" || trashPolicyAsked) return;
+    trashPolicyAsked = true;
+    void readDeletedFilePolicy().then((outcome) => {
+      if (outcome.kind === "ok") trashPolicy = outcome.value;
+    });
+  });
+
   $effect(() => {
     void reloadToken;
     if (manager.view !== "deleted") return;
@@ -1837,7 +1877,12 @@
 
   const deletedGrid = DataTable.createDataTableGrid<DeletedFileSummary>({
     columns: () =>
-      deletedColumns({ index, hideExtensions: manager.hideExtensions, documentTypeName }),
+      deletedColumns({
+        index,
+        hideExtensions: manager.hideExtensions,
+        documentTypeName,
+        trashPolicy,
+      }),
     rows: () => (manager.view === "deleted" ? [...deletedFiles] : []),
     rowKey: (row) => row.id,
     itemNoun: { singular: "deleted file", plural: "deleted files" },
@@ -2403,6 +2448,12 @@
                 const only = menuTargets[0];
                 if (menuTargets.length === 1 && only?.kind === "file") void convertMatterFile(only.file, formatId);
               }}
+              onConvertWithOptions={() => {
+                const only = menuTargets[0];
+                if (menuTargets.length !== 1 || only?.kind !== "file") return;
+                convertOptionsFile = only.file;
+                convertOptionsOpen = true;
+              }}
               onPickIcon={(icon) => {
                 for (const row of menuFolderRows) {
                   if (row.kind !== "folder") continue;
@@ -2619,6 +2670,29 @@
   preselected={uploadPreselected}
   onStart={startUploadBatch}
   onDismiss={reload}
+/>
+
+<!-- Convert With Options: the flyout's last entry. The targets read as extensions, as the flyout's
+     quick converts do, without the flyout's "To" since the field is already labelled Convert To. -->
+<ConvertOptionsDialog
+  bind:open={convertOptionsOpen}
+  summary={convertOptionsFile?.name ?? ""}
+  targets={convertOptionsFile === null
+    ? []
+    : conversionChoicesFor(convertOptionsFile).map((choice) => ({
+        id: choice.id,
+        label: choice.label.replace(/^To /, ""),
+      }))}
+  sources={convertOptionsSource === undefined ? [] : [convertOptionsSource]}
+  onConfirm={async (targetId, options) => {
+    const file = convertOptionsFile;
+    if (file === null) return "refused";
+    void convertMatterFile(file, targetId, options);
+    return "committed";
+  }}
+  onDismiss={() => {
+    convertOptionsFile = null;
+  }}
 />
 
 <BundleDialog

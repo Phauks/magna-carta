@@ -14,7 +14,7 @@
  *   - The Safety cell speaks only the status register's safety words.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
-import { formatInstant } from "@magna-carta/design-system/formatters";
+import { formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { DeletedFileSummary, FileHistoryEntry, MatterFile } from "./matter-file-api.ts";
 import type { ArchiveRow } from "./archive-browse.ts";
@@ -234,6 +234,17 @@ export function locatedColumns(context: FileColumnContext): GridColumn<FileManag
   return [...columns.slice(0, at), location, ...columns.slice(at)];
 }
 
+/** The firm's deleted-file policy, as the Deleted Files view reads it. */
+export interface TrashPolicy {
+  readonly trashDays: number;
+  readonly afterTrash: "archive" | "keep-standard";
+}
+
+/** The instant a file deleted at `deletedAtIso` leaves Trash, as an ISO string. */
+export function leavesTrashAt(deletedAtIso: string, trashDays: number): string {
+  return new Date(Date.parse(deletedAtIso) + trashDays * 24 * 60 * 60 * 1000).toISOString();
+}
+
 /**
  * The Deleted Files view's columns: the file's identity plus the two facts that only make sense
  * here — when it went and who sent it — because sorting by deletion time is the whole reason a
@@ -241,9 +252,19 @@ export function locatedColumns(context: FileColumnContext): GridColumn<FileManag
  * folder went with the file says so rather than reading blank.
  */
 export function deletedColumns(
-  context: Pick<FileColumnContext, "index" | "hideExtensions" | "documentTypeName">,
+  context: Pick<FileColumnContext, "index" | "hideExtensions" | "documentTypeName"> & {
+    /**
+     * The firm's deleted-file policy, once read: how many days a file waits in Trash and what
+     * happens after. Null while it is being read, and the Leaves Trash column says nothing yet.
+     */
+    readonly trashPolicy?: TrashPolicy | null;
+    /** The present moment, injected so a test can hold it still. */
+    readonly now?: () => number;
+  },
 ): GridColumn<DeletedFileSummary>[] {
   const { index, hideExtensions, documentTypeName } = context;
+  const trashPolicy = context.trashPolicy ?? null;
+  const now = context.now ?? Date.now;
   const wasIn = (row: DeletedFileSummary): string => {
     if (row.folderId === null) return "Home";
     return index.folderById(row.folderId) === undefined
@@ -291,6 +312,22 @@ export function deletedColumns(
       value: (row) => row.deletedAt,
       // When it happened matters to the minute here; the type's date-only text is not enough.
       text: (row) => formatInstant(row.deletedAt),
+    },
+    {
+      // When the file leaves Trash under the firm's policy. Past that moment it has been archived
+      // (or kept where it was, when the firm chose that); either way it can still be restored.
+      id: "leavesTrash",
+      label: "Leaves Trash",
+      type: "date",
+      filter: "dateRange",
+      value: (row) =>
+        trashPolicy === null ? null : leavesTrashAt(row.deletedAt, trashPolicy.trashDays),
+      text: (row) => {
+        if (trashPolicy === null) return "";
+        const leaves = leavesTrashAt(row.deletedAt, trashPolicy.trashDays);
+        if (Date.parse(leaves) > now()) return formatInstantDate(leaves);
+        return trashPolicy.afterTrash === "archive" ? "Archived" : "Out of Trash";
+      },
     },
     {
       id: "deletedBy",

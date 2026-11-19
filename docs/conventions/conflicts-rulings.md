@@ -321,3 +321,16 @@ beneath them. Rows here supersede R1 where they say so.
   counsel's firm or Co-counsel's firm, so the next check searches it as a party. Before this, a
   counsel's firm was reached only through the relationship walk, and only if the relationship was
   recorded.
+- **2026-11-16, fix.** A run's `subjectParties` (on the check read and the firm's log) is read from
+  the run's record (`conflicts_check.subject_parties_json`, which holds every seed, a matter's
+  parties included) once the run has one, and from the request's named subjects before then
+  (`searchedEntityIdsOf` in `packages/conflicts/src/check-run.ts`). Reading the request alone
+  reported a check run against a matter as searching nobody.
+- **2026-11-16, owner.** "might be and weak are horrendous match names. High, Medium, Low." A
+  result's strength reads **Exact** (an identifier match), then **High**, **Medium**, **Low** for the
+  three name tiers (`STRENGTH_LABELS` in `apps/web/src/lib/conflicts/check-results.ts`).
+- **2026-11-16, owner, matter Parties tab.** One Add: the header's New Party, so the tab's own Add…
+  is off there (`addControl={false}` on `RecordParties`). A party's role is changed in its row,
+  saved on pick; the server severs the old link and opens a new one, so old reports stay
+  reproducible. The act that takes a party off a record is **Delete**, not Remove; the confirmation
+  still says the person stays in the Directory. The Conflicts column stays.

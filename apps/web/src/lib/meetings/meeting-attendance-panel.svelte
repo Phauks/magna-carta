@@ -86,8 +86,8 @@
       <FailureNotice
         failure={failureOf(attendanceRead.error)}
         subject="This meeting"
-        fallback="Who was in this meeting could not be read."
-        whenSilent="Nothing answered. Who was in this meeting could not be read."
+        fallback="Couldn't load who was in this meeting."
+        whenSilent="Couldn't connect. Couldn't load who was in this meeting. Try again."
         onRetry={() => void attendanceRead.refetch()}
       />
     {:else}

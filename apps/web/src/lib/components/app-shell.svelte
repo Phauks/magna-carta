@@ -105,6 +105,7 @@
   import { SETTLED_EVENT, type LoadingSettledDetail } from "@magna-carta/design-system/loading-region";
   import { record } from "$lib/diagnostics/breadcrumbs.ts";
   import type { Snippet } from "svelte";
+  import { untrack } from "svelte";
 
   let { children }: { children: Snippet } = $props();
 
@@ -178,6 +179,31 @@
   // preference governs the rail. Turning the preference off leaves the rail wherever it sits.
   $effect(() => {
     if (hoverExpand && !customizing) collapsed = true;
+  });
+
+  /*
+   * A PHONE-WIDTH SCREEN RESTS ON THE ICON RAIL. The full sidebar is about two thirds of a phone's
+   * width, which left every page a sliver beside it. Below Tailwind's `md` breakpoint (48rem, the
+   * same width the screens use to stack their own columns) the rail collapses whenever the screen
+   * arrives at that width; the member can still open it, and widening the screen again puts the
+   * rail back the way it rested before.
+   */
+  $effect(() => {
+    const narrow = window.matchMedia("(width < 48rem)");
+    // Read without tracking: this effect wires a listener once, and must not re-run (and collapse
+    // the rail again) every time the member opens it on a phone.
+    let restingCollapsed = untrack(() => collapsed);
+    function follow(): void {
+      if (narrow.matches) {
+        restingCollapsed = collapsed;
+        collapsed = true;
+      } else {
+        collapsed = restingCollapsed || (hoverExpand && !customizing);
+      }
+    }
+    if (narrow.matches) untrack(follow);
+    narrow.addEventListener("change", follow);
+    return () => narrow.removeEventListener("change", follow);
   });
 
   /*
@@ -402,7 +428,7 @@
                     </span>
                     <Sidebar.MenuButton
                       aria-roledescription="Reorderable sidebar destination"
-                      aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
+                      aria-label="{destination.label}. Alt plus Arrow Up or Arrow Down moves it"
                       aria-disabled={fixed ? "true" : undefined}
                       data-arrived={isNewArrival(destination.id) ? "true" : undefined}
                       onkeydown={(event) => onEditKeydown(event, group, destination)}
@@ -658,7 +684,12 @@
              profile menu (owner correction, 2026-08-29: "put build versions to the left of
              those buttons"). The signed-out frame ($lib/auth/auth-frame.svelte) seats it by the
              same rule, so the chip does not move when a visitor signs in. -->
-        <VersionChip />
+        <!-- On a phone-width screen the chip and the two trays stand aside (`max-md:hidden`), so the
+             bell, the timer and the profile menu stay on screen: with all six the band ran past the
+             screen's edge and the profile menu could not be reached. -->
+        <div class="contents max-md:hidden">
+          <VersionChip />
+        </div>
         <!-- The notification bell. Its own component, like the download and upload trays beside
              it: the badge, the tray's read and the settle-on-follow are one subject, and the shell
              stays a shell. -->
@@ -677,7 +708,9 @@
              failures and the way to the folder it landed in while the reader works elsewhere. Its
              anatomy belongs to the file surface ($lib/file-manager/upload-tray.svelte); the
              shell seats it and does nothing else with it. -->
-        <UploadTray />
+        <div class="contents max-md:hidden">
+          <UploadTray />
+        </div>
         <!-- The download tray, seated beside the Time Sheet's handle on the owner's direction: what the
              platform has made for this member, reachable from the top of the app rather than only
              from the sidebar row. Clicking it gives the overview and offers the full register at
@@ -685,7 +718,9 @@
              browser's own download manager drives, so there is no progress here to show. Its
              anatomy and every read it makes belong to the export surface
              ($lib/export/download-tray.svelte); the shell seats it and does nothing else with it. -->
-        <DownloadTray />
+        <div class="contents max-md:hidden">
+          <DownloadTray />
+        </div>
         {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.developerToolkitInHeader}
           <!-- The developer console (modular tooling; motion tuning first). The dynamic import
                inside a DEV-gated branch keeps every byte of it out of production bundles.

@@ -12,9 +12,11 @@ import {
 } from "@magna-carta/search/contract";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { Bindings } from "../../../bindings.ts";
+import { matterFileContentsSearcherFor } from "../../../search/matter-file-contents.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointPermissions,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
@@ -40,8 +42,11 @@ import { matterNarrowingQuery, matterNarrowingsOf } from "./matter-narrowing-que
 //
 // WHAT IT COSTS IS BOUNDED BEFORE IT RUNS. A source reading the record index draws on the newest
 // matches up to a cap, whatever the firm holds, and the answer is marked `broad` when the cap
-// decided it. The one source that reads a table (file and folder names) reads short rows of one
-// kind. Both readings are in packages/matter-search/scripts/measure-across-matters.mts.
+// decided it. A source that reads a table (file and folder names, parties, invoice lines, custody
+// packets) reads short rows of one kind. Those readings are in
+// packages/matter-search/scripts/measure-across-matters.mts. The words inside files are in an index
+// kept one matter at a time, so that source is asked only where the search reaches few enough
+// matters to ask each, and says `too-many-matters` where it reaches more.
 //
 // A MEMBER MAY NARROW THE REACH AND NOT WIDEN IT. `mine` and `clientEntityId` are composed inside
 // the predicate with AND, so a narrowed search answers from the matters the member may see AND
@@ -86,8 +91,10 @@ const searchRoute = defineOpenAPIRoute(searchMeta, {
     "Searches every matter the member may see, answering one group per place in the order a " +
     "matter's own sections read in. Each hit names its matter and links to its own section there. " +
     "Pass `in` (repeatable) to narrow to named places. A place that contributed nothing says why: " +
-    "`one-matter-only` is a place searched inside a matter and not across them, and `permission` " +
-    "is one the member lacks the capability for. `broad` is true when the words are in more of " +
+    "`one-matter-only` is a place searched inside a matter and not across them, `permission` " +
+    "is one the member lacks the capability for, and `too-many-matters` is a place searched only " +
+    "where the search reaches few enough matters to ask each one, which a member changes by " +
+    "narrowing it to `fewMattersLimit` matters or fewer. `broad` is true when the words are in more of " +
     "the firm's records than one search reads; the groups then hold the most recent records with " +
     "those words and not every one. A long text is quoted at the stretch the words are in, and " +
     "`titleMarks` and `snippetMarks` say where they are in what is shown. `mine=true` narrows the " +
@@ -169,6 +176,7 @@ function wireAnswer(
   return {
     query: answer.query,
     broad: answer.broad,
+    fewMattersLimit: answer.fewMattersLimit,
     groups: answer.groups.map((group) => ({
       source: group.source,
       section: group.section,
@@ -211,6 +219,7 @@ export function registerSearchAcrossMattersRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { q, in: places, limit, ...narrowed } = c.req.valid("query");
+      const logger = c.get("logger");
       const narrowing = narrowingOf(matterNarrowingsOf(requireChokepointUserId(c), narrowed));
       const answer = await runSearchAcrossMatters({
         database: firm.firmDatabase,
@@ -225,6 +234,14 @@ export function registerSearchAcrossMattersRoutes(
         sourceKeys: sourceKeysFrom(places),
         permissions: requireChokepointPermissions(c),
         limit: limit ?? DEFAULT_HITS_PER_SOURCE,
+        // The words inside files are in an index outside the firm's database. The searcher costs
+        // nothing to build, and asks the index only when that place is among those selected and
+        // the search reaches few enough matters.
+        fileContents: matterFileContentsSearcherFor(
+          c.env,
+          requireChokepointFirmId(c),
+          logger === undefined ? {} : { logger },
+        ),
       });
       const labels = await readMatterLabels(firm.firmDatabase, answer);
       return c.json(wireAnswer(answer, labels), 200);

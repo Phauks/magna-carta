@@ -2,11 +2,10 @@
  * What the Build Information panel remembers between openings: which of its sections are folded
  * away.
  *
- * There are FOUR and they sit SIDE BY SIDE — Deployment, Workers, Database, Upload readiness.
- * Workers used to be a drawer inside Deployment, which put the fleet two folds deep and made "is
- * anything not answering" a question a reader reached through "what build is live". They are
- * separate questions, so they are separate carets. Each remembers itself, because folding one away
- * is not a statement about the others.
+ * There are FOUR and they sit SIDE BY SIDE — Deployment, Features, Database, Upload readiness.
+ * The fleet and the outside services no longer fold on their own: System Status shows each beside
+ * the features it powers, in one table. Each fold remembers itself, because folding one away is
+ * not a statement about the others.
  *
  * THE FOLDS ARE A REGISTRY, not four exported constants. They were four, and the fourth arrived
  * without the doc comment the other three carry and without the header sentence above being
@@ -67,18 +66,13 @@ function createSectionFold(sectionId: string): SectionFoldPreference {
  * Every folding section of the panel, by id.
  *
  * ADD A SECTION HERE and it has a remembered fold with no further edit. The ids are stored state
- * (see foldStorageKey): `fleet` keeps its original name now that the section is called Workers,
- * because the key names a fold a reader already set and changing it would silently undo it.
+ * (see foldStorageKey): renaming one would silently undo a fold a reader already set.
  */
 export const PANEL_SECTION_FOLDS = {
   /** The API and the Worker serving this page, and how the two compare. */
   deployment: createSectionFold("deployment"),
   /** The features the deployment can switch on, and which are working. */
   features: createSectionFold("features"),
-  /** The rest of the fleet. */
-  fleet: createSectionFold("fleet"),
-  /** The outside services the deployment depends on (Cloudflare Realtime). */
-  connected: createSectionFold("connected"),
   /** The connection to this firm's own data. */
   database: createSectionFold("database"),
   /** Whether a file chosen in this browser can reach the firm's storage. */

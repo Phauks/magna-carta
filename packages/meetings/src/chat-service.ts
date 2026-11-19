@@ -6,6 +6,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type {
+  FileId,
   MeetingGuestInvitationId,
   MeetingGuestStayId,
   MeetingId,
@@ -16,6 +17,7 @@ import {
   insertGuestMeetingMessageStatement,
   insertMeetingMessageStatement,
   readMeetingMessage,
+  readShareableMeetingFile,
   redactMeetingMessageStatement,
 } from "./chat-statements.ts";
 import type { MeetingMessageEntry } from "./chat-types.ts";
@@ -66,7 +68,7 @@ export interface MeetingChatOptions {
 export async function postMeetingMessage(
   database: SqlDatabase,
   meetingId: MeetingId,
-  input: { readonly body: string },
+  input: { readonly body: string; readonly attachedFileId?: FileId | null },
   options: MeetingChatOptions,
 ): Promise<{ message: MeetingMessageEntry; effect: EffectWrite }> {
   const meeting = await readMeeting(database, meetingId, options.visibility);
@@ -86,7 +88,17 @@ export async function postMeetingMessage(
     refuse("meeting-not-joined", "you are not in this meeting");
   }
 
-  const body = assertMessageBody(input.body);
+  // A FILE IS SHARED BY POINTING AT IT. It has to be one of the files of the matter the meeting is
+  // on, read through the meeting the caller already reached, so a chat can never carry a file from a
+  // matter the room is not about. A line that is only the file says the file's name.
+  const attachedFile =
+    input.attachedFileId === undefined || input.attachedFileId === null
+      ? null
+      : ((await readShareableMeetingFile(database, meetingId, input.attachedFileId)) ??
+        refuseChat("meeting-message-file-unavailable", "that file cannot be shared here"));
+  const body = assertMessageBody(
+    attachedFile !== null && input.body.trim() === "" ? attachedFile.name : input.body,
+  );
   const now = options.clock.now();
   const messageId = newIdentifier("meetingMessage", options.randomSource);
   return {
@@ -102,6 +114,7 @@ export async function postMeetingMessage(
       body,
       redactedAt: null,
       redactedByUserId: null,
+      attachedFile,
     },
     effect: {
       statements: [
@@ -111,6 +124,7 @@ export async function postMeetingMessage(
           attendanceId: stay.id,
           body,
           now,
+          attachedFileId: attachedFile?.id ?? null,
         }),
         domainAuditStatement(database, {
           event: "meetings.chat.messageSent",
@@ -126,6 +140,8 @@ export async function postMeetingMessage(
             participantId: stay.id,
             sentAt: now,
             bodyLength: body.length,
+            // Which of the matter's files was shown, by handle: never its name or its contents.
+            attachedFileId: attachedFile?.id ?? null,
           },
         }),
       ],
@@ -171,6 +187,7 @@ export async function postGuestMeetingMessage(
       body,
       redactedAt: null,
       redactedByUserId: null,
+      attachedFile: null,
     },
     effect: {
       statements: [

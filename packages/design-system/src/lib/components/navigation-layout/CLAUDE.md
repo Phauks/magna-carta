@@ -55,7 +55,9 @@ by hand at two widths with two scroll treatments.
   `lg`. Nothing in the design language decides a breakpoint; `lg` is where the safe-browse
   website shell already stacks its two panes, and a navigation pinned on top would eat the
   viewport on a long nav. A recipe cannot carry a breakpoint (a literal length is banned in
-  `components.css`), so the stacking is `max-lg:` / `lg:` utilities on the elements.
+  `components.css`), so the stacking is `max-lg:` / `lg:` utilities on the elements. Stacked, the
+  navigation column takes the full width (`max-lg:w-auto`): its measure plus gutters is wider than a
+  phone.
 
 ### The row, the one thing the column does NOT draw itself
 

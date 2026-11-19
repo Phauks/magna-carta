@@ -1,6 +1,6 @@
 <script lang="ts" module>
   /** What an anonymous poll says above its options. The whole of what it promises, and no more. */
-  export const NOT_ATTRIBUTED_SENTENCE = "Answers are not shown with names";
+  export const NOT_ATTRIBUTED_SENTENCE = "Answers are shown without names";
 </script>
 
 <script lang="ts">
@@ -584,7 +584,7 @@
           <h3 id="meeting-new-poll-heading" class="text-sm font-medium">New Poll</h3>
 
           <div class="flex flex-col gap-4">
-            <Label for="meeting-new-poll-question">Question</Label>
+            <Label necessity="required" for="meeting-new-poll-question">Question</Label>
             <Textarea id="meeting-new-poll-question" bind:value={question} rows={2} />
             {#if questionRoomLeft <= ROOM_LEFT_STATED_FROM}
               <p class="text-xs text-text-muted">
@@ -660,7 +660,7 @@
             {/if}
             <div class="flex items-center gap-8">
               <Switch aria-labelledby="meeting-new-poll-names-label" bind:checked={hideNames} />
-              <Label id="meeting-new-poll-names-label">Do not show names with answers</Label>
+              <Label id="meeting-new-poll-names-label">Don't show names with answers</Label>
             </div>
           </div>
 
@@ -729,8 +729,7 @@
 
   {#snippet fields()}
     <p class="text-sm">
-      Nobody can answer it once it is closed, and it cannot be opened again. The answers already
-      given stay on the meeting's record.
+      Nobody can answer once it's closed, and it can't be reopened. The answers already given stay on the meeting's record.
     </p>
   {/snippet}
 </ActionDialog>
@@ -745,7 +744,7 @@
       label="Reading who answered this poll"
     >
       {#snippet failure()}
-        <p class="text-sm">Who answered this poll could not be read.</p>
+        <p class="text-sm">Couldn't load who answered this poll.</p>
         {#if reading !== null}
           {@const poll = reading}
           <div>

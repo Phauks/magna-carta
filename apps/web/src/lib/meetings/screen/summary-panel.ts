@@ -62,15 +62,14 @@ export function summaryStateWord(summary: { readonly state: MeetingSummaryStateV
  */
 export const SUMMARY_REFUSAL_WORDS: Readonly<Record<MeetingSummaryRefusalView, string>> =
   Object.freeze({
-    disabled: "Meeting summaries are switched off for this firm.",
+    disabled: "Meeting summaries are turned off for this firm.",
     "not-eligible":
-      "AI processing is not switched on for this firm. It is switched on in AI and the Assistant, " +
-      "under Settings.",
+      "AI isn't turned on for this firm. Turn it on under Settings, in AI and the Assistant.",
     "transcript-empty": "Nothing was said in this recording, so there is nothing to summarize.",
   });
 
 /** What a summary refused for a reason this screen has no words for yet says instead. */
-const UNWORDED_REFUSAL = "This summary was not written.";
+const UNWORDED_REFUSAL = "This summary wasn't written.";
 
 /**
  * The Error ID a failed summary was recorded under, or null where it carries none. Only a FAILED
@@ -157,11 +156,11 @@ export function summaryBody(
  * platform wrote is a characterization of the conversation, and the record is the transcript.
  */
 export const SUMMARY_CHARACTERIZATION =
-  "Written by the platform from the transcript: a characterization of the conversation, not a record of it.";
+  "Written by AI from the transcript. It describes the conversation and isn't a record of it.";
 
 /** What a confirmation to write the summary again says will happen, and what will not. */
 export const SUMMARY_RERUN_CONSEQUENCE =
-  "The summary and its action items are replaced. Tasks already made from them are kept.";
+  "The summary and its action items are replaced. Tasks already made from them stay.";
 
 /** Who an action item belongs to, or that it belongs to nobody the transcript named exactly. */
 export function actionItemOwnerWords(item: Pick<MeetingSummaryActionItemView, "owner">): string {
@@ -226,7 +225,7 @@ export function taskAssigneeWords(
   assign: boolean,
 ): string {
   const name = item.owner?.displayName.trim() ?? "";
-  if (item.owner === null || name === "") return "Assigned to nobody: no owner was named.";
+  if (item.owner === null || name === "") return "Not assigned. No owner was named.";
   return assign ? `Assigned to ${name}.` : "Assigned to nobody.";
 }
 
@@ -237,7 +236,7 @@ export const MADE_WITHOUT_OWNER_WORDS = permissionRefusal(
 );
 
 /** What the row says where somebody else made the task first. */
-export const ALREADY_TASKED_WORDS = "Somebody had already made a task of this item.";
+export const ALREADY_TASKED_WORDS = "Someone already made a task from this item.";
 
 /**
  * The summary as it stands once a task has been made of one item: the item replaced by the one the

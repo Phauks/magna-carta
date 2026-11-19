@@ -50,7 +50,7 @@
   <FailureNotice
     failure={data.failure}
     subject="The document"
-    fallback="The document could not be read."
+    fallback="Couldn't load the document."
     whenSilent="Couldn't connect while reading the document."
     onRetry={() => void invalidateAll()}
   />

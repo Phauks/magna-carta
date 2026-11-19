@@ -15,8 +15,15 @@
    * screen needs to be improved in matters as well"). Name, role, capacity, and whether the matter's
    * latest conflicts check searched the party. A party linked after that check has never been
    * searched for this matter, and the row says so in the warning tone, because that is the gap a
-   * conflicts procedure exists to close. The tab still owns the add row and the Remove confirmation:
+   * conflicts procedure exists to close. The tab still owns the add row and the Delete confirmation:
    * this screen only lays the rows out.
+   *
+   * THE ROLE IS CHANGED IN THE ROW, and adding starts only from the header's New Party (owner's
+   * ruling, 2026-11-16). A party who turns out to be opposing rather than a witness is the same
+   * person in a different part, so the role cell is a choice field and picking another role saves
+   * it; the server closes the old link and opens the new one, so earlier conflicts reports still
+   * read as they were run. The tab's own Add… beneath the table is turned off, because the header
+   * already offers the act and two Add controls read as two different acts.
    *
    * COUNSEL ARE READ WITH THEIR FIRM (owner's ask, 2026-11-14). A counsel's row names the firm the
    * Directory says they practice with, and offers to put that firm on the matter as counsel's firm,
@@ -34,7 +41,8 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
   import FieldLabel from "@magna-carta/design-system/field-label";
-  import Unlink from "@lucide/svelte/icons/unlink";
+  import * as Select from "@magna-carta/design-system/select";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import Building2 from "@lucide/svelte/icons/building-2";
   import { readDirectoryEdges } from "$lib/directory/directory-api.ts";
   import { todayCivil } from "$lib/calendar/calendar-window.ts";
@@ -53,6 +61,7 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { matterSections } from "$lib/matters/sections.ts";
   import {
+    changeMatterPartyRole,
     linkMatterParty,
     listMatterParties,
     roleLabel,
@@ -350,6 +359,40 @@
     );
   }
 
+  /** The roles a row's choice field offers: the firm's list, plus the row's own where it typed one. */
+  function roleItemsFor(party: RecordParty): { value: string; label: string }[] {
+    const role = party.role;
+    if (role === undefined || PARTY_ROLE_OPTIONS.some((option) => option.value === role)) {
+      return [...PARTY_ROLE_OPTIONS];
+    }
+    return [...PARTY_ROLE_OPTIONS, { value: role, label: party.roleLabel ?? role }];
+  }
+
+  /** The row whose role is being saved, so the fields hold still until the list is read again. */
+  let changingRole = $state<string | null>(null);
+
+  async function changeRole(party: RecordParty, role: string): Promise<void> {
+    if (role === "" || role === party.role || changingRole !== null) return;
+    changingRole = party.identifier;
+    writeFailure = null;
+    const result = await changeMatterPartyRole(
+      fetch,
+      party.identifier,
+      { role, capacity: party.capacity ?? null },
+      crypto.randomUUID(),
+    );
+    changingRole = null;
+    if (result.kind === "ok") {
+      reloadToken += 1;
+      return;
+    }
+    writeFailure = stated(
+      result.failure,
+      "Couldn't change the party's role.",
+      "Couldn't connect. The party keeps their role.",
+    );
+  }
+
   async function unlink(party: RecordParty): Promise<void> {
     writeFailure = null;
     const result = await unlinkMatterParty(fetch, party.identifier, crypto.randomUUID());
@@ -359,7 +402,7 @@
     }
     writeFailure = stated(
       result.failure,
-      "Couldn't remove the party from this matter.",
+      "Couldn't delete the party from this matter.",
       "The party is still on this matter.",
     );
   }
@@ -407,6 +450,7 @@
       onLink={(request) => void link(request)}
       onUnlink={(party) => void unlink(party)}
       onOpen={openParty}
+      addControl={false}
     >
       {#snippet rows({ parties: shown, removeLabel, askToRemove })}
         <DataTable.Root>
@@ -416,7 +460,7 @@
               <DataTable.Head>Role</DataTable.Head>
               <DataTable.Head>Capacity</DataTable.Head>
               {#if conflictsReadable}<DataTable.Head>Conflicts</DataTable.Head>{/if}
-              <DataTable.Head><span class="sr-only">Remove</span></DataTable.Head>
+              <DataTable.Head><span class="sr-only">Delete</span></DataTable.Head>
             </DataTable.Row>
           </DataTable.Header>
           <DataTable.Body>
@@ -459,7 +503,32 @@
                     {/if}
                   </div>
                 </DataTable.Cell>
-                <DataTable.Cell>{party.roleLabel ?? party.role ?? ""}</DataTable.Cell>
+                <DataTable.Cell>
+                  {@const roleItems = roleItemsFor(party)}
+                  <!-- The trigger fills its container, so the container sets its width. -->
+                  <div class="w-56 max-w-full">
+                  <Select.Root
+                    type="single"
+                    items={roleItems}
+                    allowDeselect={false}
+                    disabled={!mayEdit || changingRole !== null}
+                    value={party.role ?? ""}
+                    onValueChange={(picked) => void changeRole(party, picked)}
+                  >
+                    <Select.Trigger
+                      aria-label={`Role of ${party.name}`}
+                      title={mayEdit ? undefined : linkDisabledReason}
+                    >
+                      <Select.Value placeholder="Role" />
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each roleItems as item (item.value)}
+                        <Select.Item value={item.value} label={item.label} />
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                  </div>
+                </DataTable.Cell>
                 <DataTable.Cell>{party.capacity ?? ""}</DataTable.Cell>
                 {#if conflictsReadable}
                   <DataTable.Cell>
@@ -486,8 +555,8 @@
                     aria-label={removeLabel(party)}
                     onclick={() => askToRemove(party)}
                   >
-                    <Unlink class="size-16" aria-hidden="true" />
-                    Remove
+                    <Trash2 class="size-16" aria-hidden="true" />
+                    Delete
                   </Button>
                 </DataTable.Cell>
               </DataTable.Row>

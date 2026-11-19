@@ -11,6 +11,7 @@ import {
 } from "./build.ts";
 import {
   MatterSearchSourceRegistry,
+  type AcrossMattersSearchRequest,
   type MatterSearchSource,
   type SourceSearchRequest,
 } from "./registry.ts";
@@ -20,6 +21,7 @@ import {
   candidatesFrom,
   passagesToAskFor,
   quoteCandidates,
+  quoteCandidatesAcrossMatters,
 } from "../file-contents.ts";
 import type { MatterSearchHit, MatterSearchRawRow } from "../types.ts";
 
@@ -337,6 +339,31 @@ function fileContentsStatement(request: SourceSearchRequest, fileIds: readonly s
   });
 }
 
+// The same re-read with no matter bound: the files the indexes named, on whichever matters the
+// reader may see and chose. A file the firm has deleted is not part of an answer across matters, as
+// it is not for a name match there.
+function fileContentsAcrossMattersStatement(
+  request: AcrossMattersSearchRequest,
+  fileIds: readonly string[],
+) {
+  return visibleMattersSearchSelect(request.database, {
+    request,
+    from: `${FILE_TABLE} LEFT JOIN ${FOLDER_TABLE} ON ${FOLDER_TABLE}.id = ${FILE_TABLE}.folder_id`,
+    idColumn: `${FILE_TABLE}.id`,
+    matterExpression: `${FILE_TABLE}.matter_id`,
+    sortExpression: `${FILE_TABLE}.created_at`,
+    titleExpression: `${FILE_TABLE}.name`,
+    snippetExpression: "NULL",
+    secondaryExpression: `${FOLDER_TABLE}.name`,
+    actorExpression: "NULL",
+    conditions: [
+      `${FILE_TABLE}.id IN (${fileIds.map(() => "?").join(", ")})`,
+      `${FILE_TABLE}.deleted_at IS NULL`,
+    ],
+    bindings: [...fileIds],
+  });
+}
+
 const fileContentsSource: MatterSearchSource = {
   key: "file-contents",
   sectionSlug: "files",
@@ -391,6 +418,63 @@ const fileContentsSource: MatterSearchSource = {
     };
   },
   project: projectInto("file-contents", "files"),
+  // The words inside files on the matters a search reaches, where those are few enough to name.
+  //
+  // THERE IS NO INDEX OF EVERY MATTER'S FILES. Each matter's files are indexed apart, which is what
+  // lets a matter's index be rebuilt or removed alone and keeps a review set's text out of reach,
+  // so a search across matters asks the matters one at a time. That is affordable for a client's
+  // matters and not for a firm's, so this source answers when the request names the matters it
+  // reaches and says `too-many-matters` when it does not. A reader changes that by choosing fewer.
+  //
+  // WHAT IS SAID FIRST IS WHAT A READER CAN LEAST CHANGE. No service, the firm's switch being off
+  // and the service failing are each said before "too many matters", so nobody narrows a search to
+  // be told then that there was nothing to ask. The searcher is asked with no matters in that case,
+  // which costs it the firm's setting and no question of any index.
+  //
+  // The indexes name candidates and nothing more, as inside a matter. The statement re-reads those
+  // files under the visible-matter predicate, which already carries the reader's narrowing, and a
+  // result is filed on the matter the database says, whichever index named it.
+  acrossMatters: {
+    reads: "file-contents",
+    matchedFields: ["the text inside files"],
+    buildStatements: () => [],
+    prepare: async (request) => {
+      const searcher = request.fileContents ?? null;
+      if (searcher === null || searcher.queryMatters === undefined) {
+        return { kind: "skipped", reason: "engine-not-connected" };
+      }
+      const queryText = keywordQueryText(request.query);
+      if (queryText === null) return { kind: "candidates", statements: [], arrange: () => [] };
+      const fileLimit = request.limit + 1;
+      const answer = await searcher.queryMatters({
+        matterIds: request.reachedMatterIds ?? [],
+        queryText,
+        limit: passagesToAskFor(fileLimit),
+      });
+      if (answer.kind === "off") return { kind: "skipped", reason: "not-indexed" };
+      if (answer.kind === "not-connected") {
+        return { kind: "skipped", reason: "engine-not-connected" };
+      }
+      if (answer.kind === "unavailable") return { kind: "skipped", reason: "engine-unavailable" };
+      if (request.reachedMatterIds === undefined) {
+        return { kind: "skipped", reason: "too-many-matters" };
+      }
+      const candidates = candidatesFrom(answer.passages, fileLimit);
+      if (candidates.length === 0) return { kind: "candidates", statements: [], arrange: () => [] };
+      return {
+        kind: "candidates",
+        statements: [
+          fileContentsAcrossMattersStatement(
+            request,
+            candidates.map((candidate) => candidate.fileId),
+          ),
+        ],
+        arrange: (rows) => arrangeByCandidates(rows, candidates),
+        quote: (rows) =>
+          quoteCandidatesAcrossMatters(rows, candidates, { readerText: request.query, searcher }),
+      };
+    },
+  },
 };
 
 // ---- custody ---------------------------------------------------------------------------------

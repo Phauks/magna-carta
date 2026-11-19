@@ -15,14 +15,11 @@
 </script>
 
 {#if state === "firm-ineligible"}
-  <EmptyState title="This Firm Has Not Enabled AI Processing">
-    The firm has not consented to sending its content to an outside model provider, so Magnus cannot
-    answer anything. That is the firm's decision to make: an administrator records it in the firm's
-    settings.
+  <EmptyState title="This Firm Hasn't Turned On AI">
+    The firm hasn't agreed to send its content to an outside model provider, so Magnus can't answer. An administrator can record that choice in the firm's settings.
   </EmptyState>
 {:else}
-  <EmptyState title="Magnus Is Not Turned On For This Firm">
-    The firm has consented to AI processing but has not turned the assistant on. An administrator
-    turns it on in the firm's settings.
+  <EmptyState title="Magnus Isn't Turned On for This Firm">
+    The firm agreed to AI use but hasn't turned on Magnus. An administrator can turn it on in the firm's settings.
   </EmptyState>
 {/if}

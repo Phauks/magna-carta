@@ -45,6 +45,7 @@
     "./contents-manifest": "./src/contents-manifest.ts",
     "./bundle-manifest": "./src/bundle-manifest.ts",
     "./scan-policy-settings": "./src/scan-policy-settings.ts",
+    "./deleted-file-settings": "./src/deleted-file-settings.ts",
     "./editing-policy-settings": "./src/editing-policy-settings.ts"
   },
   "scripts": {

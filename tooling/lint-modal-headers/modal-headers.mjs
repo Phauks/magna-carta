@@ -56,6 +56,7 @@ const READING_KIND = "reading";
  */
 export const ACT_VERBS = new Set([
   "add",
+  "adopt",
   "amend",
   "answer",
   "apply",
@@ -69,6 +70,8 @@ export const ACT_VERBS = new Set([
   "close",
   "confirm",
   "continue",
+  "convert",
+  "decline",
   "delete",
   "deny",
   "describe",

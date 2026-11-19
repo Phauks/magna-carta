@@ -249,7 +249,7 @@
             {#if isKept}
               <div class="flex flex-wrap items-end gap-16 pl-24">
                 <div class="flex flex-col gap-4">
-                  <DatePicker
+                  <DatePicker necessity="optional"
                     label="Due"
                     value={civilDateValue(dates[task.taskTemplateId])}
                     onValueChange={(next) =>
@@ -258,7 +258,7 @@
                   />
                 </div>
                 <div class="flex flex-col gap-4">
-                  <Label for={`plan-assignee-${task.taskTemplateId}`}>Assigned to</Label>
+                  <Label necessity="optional" for={`plan-assignee-${task.taskTemplateId}`}>Assigned to</Label>
                   <Select.Root
                     type="single"
                     bind:value={assignees[task.taskTemplateId]}

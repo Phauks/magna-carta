@@ -9,7 +9,8 @@ import {
 } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
+import type { FileId, MeetingId, MeetingMessageId } from "@magna-carta/identifiers/types";
+import { identifierPattern } from "@magna-carta/identifiers/validate";
 import {
   postMeetingMessage,
   redactMeetingMessage,
@@ -25,6 +26,7 @@ import {
   MAX_MEETING_MESSAGE_PAGE_SIZE,
   MEETING_PARTICIPANT_KINDS,
 } from "@magna-carta/meetings/chat-types";
+import { MeetingMessageFile } from "@magna-carta/meetings/chat-contract";
 import { MeetingChatValidationError } from "@magna-carta/meetings/chat-validation";
 import { readMeeting } from "@magna-carta/meetings/meeting-statements";
 import { MeetingValidationError } from "@magna-carta/meetings/validation";
@@ -49,6 +51,7 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 // One refusal for every way a room is out of reach is a rule that only holds if every door in the
 // family gives the same answer, and two copies of the switch are two places for that to stop being
 // true.
+import { chatErrorResponse } from "./meeting-chat-refusals.ts";
 import { meetingErrorResponse, meetingRoomFor } from "./meetings.ts";
 import { assertPermission } from "@magna-carta/access-control/registry";
 
@@ -88,10 +91,11 @@ const SendMessageRequest = z
     // Bounded here as well as in the domain package and on the row, so a body past the ceiling is
     // refused before it is read rather than after. The domain trims the edges before measuring, so
     // this bound is deliberately generous by the whitespace a browser's Enter key leaves behind.
-    body: z
-      .string()
-      .min(1)
-      .max(MAX_MEETING_MESSAGE_LENGTH + 64),
+    // May be empty only beside a file, when the line says the file's name; the domain refuses an
+    // empty line with nothing shared.
+    body: z.string().max(MAX_MEETING_MESSAGE_LENGTH + 64),
+    // One of the meeting's matter's files, shared with the line.
+    attachedFileId: z.string().regex(identifierPattern("file")).nullable().optional(),
   })
   .openapi("SendMeetingMessageRequest");
 
@@ -112,6 +116,9 @@ export const MeetingMessage = z
     body: z.string(),
     redactedAt: z.string().nullable(),
     redactedByUserId: z.string().nullable(),
+    // A file shared with the line, by its handle and its name now. Null on an ordinary line, once
+    // the line is taken back, and once the file is deleted.
+    attachedFile: MeetingMessageFile.nullable(),
   })
   .openapi("MeetingMessage");
 
@@ -322,50 +329,6 @@ function notFound(c: Context): ProblemResponse<404> {
   });
 }
 
-function chatErrorResponse(
-  c: Context,
-  caught: MeetingChatValidationError,
-): ProblemResponse<403> | ProblemResponse<404> | ProblemResponse<422> {
-  switch (caught.code) {
-    // A handle naming nothing and a message in another meeting, kept indistinguishable for the
-    // reason an unreachable room is.
-    case "meeting-message-not-found":
-      return problemJson(c, {
-        type: "meeting-message-not-found",
-        title: "Not found",
-        status: 404,
-        detail: caught.message,
-      });
-    case "meeting-message-too-long":
-      return problemJson(c, {
-        type: "meeting-message-too-long",
-        title: "That message is too long",
-        status: 422,
-        detail: caught.message,
-      });
-    // Empty is an ordinary shape refusal — there is nothing specific for a surface to do about it
-    // beyond what a validation problem already says.
-    case "meeting-message-empty":
-      return problemJson(c, {
-        type: "validation",
-        title: "That message is empty",
-        status: 422,
-        detail: caught.message,
-      });
-    // Somebody else's words, and the caller is not hosting. A permission answer rather than an
-    // absence, because the message is one they can see in the transcript — pretending it is not
-    // there would be a worse answer than saying it is not theirs to remove.
-    case "meeting-message-not-redactable":
-      return problemJson(c, {
-        type: "permission-denied",
-        title: "Permission denied",
-        status: 403,
-        detail: caught.message,
-        requestAccess: false,
-      });
-  }
-}
-
 // ---- helpers ----
 
 function serviceOptions(c: Context<{ Bindings: Bindings; Variables: AppVariables }>) {
@@ -510,13 +473,13 @@ export function registerMeetingChatRoutes(
       const firm = requireChokepointFirmContext(c);
       const idempotency = requireChokepointIdempotency(c);
       const { meetingId } = c.req.valid("param");
-      const { body } = c.req.valid("json");
+      const { body, attachedFileId } = c.req.valid("json");
 
       const outcome = await commitChatEffect(c, firm.firmDatabase, idempotency, async () => {
         const sent = await postMeetingMessage(
           firm.firmDatabase,
           meetingId as MeetingId,
-          { body },
+          { body, attachedFileId: (attachedFileId ?? null) as FileId | null },
           serviceOptions(c),
         );
         return { message: sent.message, responseCode: 201, effect: sent.effect };

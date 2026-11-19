@@ -245,12 +245,12 @@
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <Label for="new-packet-name">Name</Label>
+        <Label necessity="required" for="new-packet-name">Name</Label>
         <Input id="new-packet-name" disabled={busy} bind:value={draft.name} />
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="new-packet-owner">Held for</Label>
+        <Label necessity="required" for="new-packet-owner">Held for</Label>
         {#if draft.owners.length > 0}
           <ul class="flex flex-col gap-8">
             {#each draft.owners as owner (owner.entityId)}
@@ -285,7 +285,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="new-packet-container">Container</Label>
+        <Label necessity="required" for="new-packet-container">Container</Label>
         <ContainerPicker
           inputId="new-packet-container"
           {locations}
@@ -297,7 +297,7 @@
 
       <div class="grid gap-16 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label for="new-packet-depositor">Handed over by</Label>
+          <Label necessity="optional" for="new-packet-depositor">Handed over by</Label>
           {#if depositorName === null}
             <OwnerPicker
               inputId="new-packet-depositor"
@@ -323,7 +323,7 @@
         <div class="flex flex-col gap-8">
           <!-- When the firm actually took it, which is not when this row is being typed. Property
                is regularly logged years after it was handed over. -->
-          <DatePicker
+          <DatePicker necessity="optional"
             label="Handed over on"
             value={depositedAtValue}
             onValueChange={recordDepositedAt}
@@ -332,7 +332,7 @@
       </div>
 
       <div class="flex flex-col gap-8">
-        <Label for="new-packet-notes">Notes</Label>
+        <Label necessity="optional" for="new-packet-notes">Notes</Label>
         <Textarea id="new-packet-notes" rows={2} disabled={busy} bind:value={draft.notes} />
       </div>
 

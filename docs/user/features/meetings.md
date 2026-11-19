@@ -279,6 +279,29 @@ message for whoever is running the meeting. The words go and the line stays, say
 was taken back. Nothing is deleted outright, because the record is an account of what happened, and
 that something was said and then removed is part of what happened.
 
+### Sharing a file in chat
+
+In a meeting kept on a matter, the paperclip beside **Send** shares one of the matter's files. It
+offers two choices:
+
+- **Existing File** picks a file already on the matter, from the same list you pick documents from
+  elsewhere.
+- **Upload File** takes a file from your computer, puts it on the matter in a folder called
+  **Meeting files** (made the first time somebody uploads from a meeting), and then shares it.
+
+Anything typed in the message box goes with the file. The line in chat names the file, and choosing
+it opens the file the way it opens anywhere on the matter, under the same checks and permissions. A
+file the check refuses is left on the matter and not shared. If the file is later deleted from the
+matter, or the line is taken back, the line stops linking to it.
+
+A meeting that is not kept on a matter (a firm event, or your own room before you move it onto a
+matter) has nowhere to file anything, so it offers no paperclip.
+
+**Guests can open a shared file while they are in the meeting.** A guest sees the file in the chat
+and can open it until they leave or the meeting ends. They can open only files somebody shared in
+that meeting's chat, never anything else on the matter. A file whose line is taken back, or that is
+deleted from the matter, stops opening for them too. Guests cannot share files themselves.
+
 ## Raising your hand and reacting
 
 Two ways to say something without interrupting anybody, and neither is kept: a raised hand and a
@@ -914,6 +937,7 @@ room.
   in to the firm. A guest from outside is still invited to a particular meeting.
 - **A seventh reaction.** The six are a closed set. Nothing lets you add one, and nothing here takes
   free text or an emoji — a firm's client can be watching the screen.
+- **Files in a meeting with no matter.** Only a meeting kept on a matter can share files in chat.
 - **A gallery of ready-made backgrounds.** **Image** uses a picture you choose from your own
   computer; there is no built-in set to pick from yet.
 

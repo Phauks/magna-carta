@@ -141,4 +141,65 @@ describe("runTieringSweep", () => {
     // Nothing is deleted — v1's object still exists in R2.
     expect(await env.R2.get(`files/${fileId}/${v1}`)).not.toBeNull();
   });
+
+  it("archives a deleted file once its time in Trash is over, under the firm's policy", async () => {
+    const matterId = newIdentifier("matter");
+    await firmDb
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Trash', 'open', ?2, ?3, ?3)",
+      )
+      .bind(matterId, MEMBER, daysAgo(100))
+      .run();
+
+    async function deletedFile(name: string, deletedDaysAgo: number): Promise<string> {
+      const fileId = newIdentifier("file");
+      await firmDb
+        .prepare(
+          "INSERT INTO file (id, matter_id, name, current_version_id, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, NULL, ?4, ?4, ?5)",
+        )
+        .bind(fileId, matterId, name, daysAgo(100), daysAgo(deletedDaysAgo))
+        .run();
+      const versionId = await seedVersion(fileId, 1, "standard", daysAgo(90), 100);
+      await firmDb
+        .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+        .bind(fileId, versionId)
+        .run();
+      return versionId;
+    }
+
+    const longGone = await deletedFile("Old Draft.docx", 45);
+    const recent = await deletedFile("New Draft.docx", 10);
+
+    const tiered: string[] = [];
+    const tierObject = async (_bucket: R2Bucket, key: string) => {
+      tiered.push(key);
+    };
+
+    // The firm keeps deleted files on Standard: nothing moves, however long they have waited.
+    await firmDb
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES ('documents.deleted_file_policy', ?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      )
+      .bind(JSON.stringify({ trashDays: 30, afterTrash: "keep-standard" }), daysAgo(1))
+      .run();
+    await runTieringSweep(env, { now: NOW_MS, tierObject });
+    expect(await storageClassOf(longGone)).toBe("standard");
+
+    // A sixty-day window: forty-five days in Trash is not yet long enough.
+    await firmDb
+      .prepare("UPDATE setting SET value = ?1 WHERE key = 'documents.deleted_file_policy'")
+      .bind(JSON.stringify({ trashDays: 60, afterTrash: "archive" }))
+      .run();
+    await runTieringSweep(env, { now: NOW_MS, tierObject });
+    expect(await storageClassOf(longGone)).toBe("standard");
+
+    // The default thirty days: the long-deleted file's current version moves; the recent one waits.
+    await firmDb.prepare("DELETE FROM setting WHERE key = 'documents.deleted_file_policy'").run();
+    await runTieringSweep(env, { now: NOW_MS, tierObject });
+    expect(await storageClassOf(longGone)).toBe("infrequent_access");
+    expect(await storageClassOf(recent)).toBe("standard");
+    expect(tiered.some((key) => key.endsWith(longGone))).toBe(true);
+    // Archived, never destroyed.
+    expect(tiered.some((key) => key.endsWith(recent))).toBe(false);
+  });
 });

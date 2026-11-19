@@ -105,7 +105,7 @@
        The Record button below carries the same reason, which is where a reader looks first. -->
   <div class="grid max-w-xl grid-cols-2 gap-16">
     <div class="flex flex-col gap-8" title={editDisabledReason}>
-      <DatePicker
+      <DatePicker necessity="optional"
         label="Date of birth"
         value={civilDateValue(dateOfBirth)}
         onValueChange={(next) => (dateOfBirth = civilDateTextOrEmpty(next))}
@@ -113,7 +113,7 @@
       />
     </div>
     <div class="flex flex-col gap-8" title={editDisabledReason}>
-      <DatePicker
+      <DatePicker necessity="optional"
         label="Date of death"
         value={civilDateValue(dateOfDeath)}
         onValueChange={(next) => (dateOfDeath = civilDateTextOrEmpty(next))}

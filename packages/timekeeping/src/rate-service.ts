@@ -161,7 +161,6 @@ export async function reRateUnbilledDrafts(
   for (const row of results) {
     const resolution = await resolveRate(database, {
       matterId: row.matter_id,
-      clientId: null,
       timekeeperUserId: row.timekeeper_user_id,
       roleId: null,
       workDate: row.work_date,

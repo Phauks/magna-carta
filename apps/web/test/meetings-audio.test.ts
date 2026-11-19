@@ -176,7 +176,7 @@ describe("the control bar in a call", () => {
     const named = labels(rendered);
     expect(named).toContain("Turn your camera off");
     expect(named).toContain("Share your screen");
-    expect(named).toContain("Show whoever is talking, large");
+    expect(named).toContain("Show Who Is Talking, Large");
     expect(named).toContain("End Meeting");
   });
 
