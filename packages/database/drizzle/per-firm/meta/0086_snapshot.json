@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "09be3d56-3c53-4566-9bd7-768f0e7e8e2f",
+  "id": "25e5b5f6-48c2-4ceb-a5c0-6d323cc21524",
   "prevId": "e48aaf40-3220-4400-9823-6dd69ec5989e",
   "tables": {
     "account_balance": {
@@ -481,6 +481,220 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "bates_range": {
+      "name": "bates_range",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "digits": {
+          "name": "digits",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "first_number": {
+          "name": "first_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_number": {
+          "name": "last_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_file_id": {
+          "name": "source_file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "exhibit_set_id": {
+          "name": "exhibit_set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "stamped_file_id": {
+          "name": "stamped_file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "stamped_file_saved_at": {
+          "name": "stamped_file_saved_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "bates_range_matter_prefix_first_unique_index": {
+          "name": "bates_range_matter_prefix_first_unique_index",
+          "columns": [
+            "matter_id",
+            "prefix",
+            "first_number"
+          ],
+          "isUnique": true
+        },
+        "bates_range_matter_created_index": {
+          "name": "bates_range_matter_created_index",
+          "columns": [
+            "matter_id",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "bates_range_source_file_index": {
+          "name": "bates_range_source_file_index",
+          "columns": [
+            "source_file_id"
+          ],
+          "isUnique": false
+        },
+        "bates_range_stamped_file_index": {
+          "name": "bates_range_stamped_file_index",
+          "columns": [
+            "stamped_file_id"
+          ],
+          "isUnique": false
+        },
+        "bates_range_exhibit_set_index": {
+          "name": "bates_range_exhibit_set_index",
+          "columns": [
+            "exhibit_set_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "bates_range_matter_id_matter_id_fk": {
+          "name": "bates_range_matter_id_matter_id_fk",
+          "tableFrom": "bates_range",
+          "tableTo": "matter",
+          "columnsFrom": [
+            "matter_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "bates_range_source_file_id_file_id_fk": {
+          "name": "bates_range_source_file_id_file_id_fk",
+          "tableFrom": "bates_range",
+          "tableTo": "file",
+          "columnsFrom": [
+            "source_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "bates_range_exhibit_set_id_exhibit_set_id_fk": {
+          "name": "bates_range_exhibit_set_id_exhibit_set_id_fk",
+          "tableFrom": "bates_range",
+          "tableTo": "exhibit_set",
+          "columnsFrom": [
+            "exhibit_set_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "bates_range_stamped_file_id_file_id_fk": {
+          "name": "bates_range_stamped_file_id_file_id_fk",
+          "tableFrom": "bates_range",
+          "tableTo": "file",
+          "columnsFrom": [
+            "stamped_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "bates_range_purpose_check": {
+          "name": "bates_range_purpose_check",
+          "value": "\"bates_range\".\"purpose\" IN ('pdfEditor', 'exhibitPackage')"
+        },
+        "bates_range_numbers_check": {
+          "name": "bates_range_numbers_check",
+          "value": "\"bates_range\".\"first_number\" >= 0 AND \"bates_range\".\"last_number\" >= \"bates_range\".\"first_number\""
+        },
+        "bates_range_digits_check": {
+          "name": "bates_range_digits_check",
+          "value": "\"bates_range\".\"digits\" BETWEEN 1 AND 12"
+        },
+        "bates_range_prefix_length_check": {
+          "name": "bates_range_prefix_length_check",
+          "value": "length(\"bates_range\".\"prefix\") <= 40"
+        },
+        "bates_range_saved_shape_check": {
+          "name": "bates_range_saved_shape_check",
+          "value": "(\"bates_range\".\"stamped_file_id\" IS NULL) = (\"bates_range\".\"stamped_file_saved_at\" IS NULL)"
+        }
+      }
     },
     "calendar_event_link": {
       "name": "calendar_event_link",
@@ -12327,501 +12541,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "in_out_entry": {
-      "name": "in_out_entry",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "number": {
-          "name": "number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "from_kind": {
-          "name": "from_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "from_user_id": {
-          "name": "from_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "from_entity_id": {
-          "name": "from_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "from_name": {
-          "name": "from_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "kept_at": {
-          "name": "kept_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'waiting'"
-        },
-        "dropped_off_at": {
-          "name": "dropped_off_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recorded_by_user_id": {
-          "name": "recorded_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "picked_up_at": {
-          "name": "picked_up_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "picked_up_by_kind": {
-          "name": "picked_up_by_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "picked_up_by_user_id": {
-          "name": "picked_up_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "picked_up_by_entity_id": {
-          "name": "picked_up_by_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "picked_up_by_name": {
-          "name": "picked_up_by_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "identity_checked": {
-          "name": "identity_checked",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "handed_over_by_user_id": {
-          "name": "handed_over_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "custody_packet_id": {
-          "name": "custody_packet_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "moved_to_custodian_at": {
-          "name": "moved_to_custodian_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "moved_by_user_id": {
-          "name": "moved_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "in_out_entry_number_unique_index": {
-          "name": "in_out_entry_number_unique_index",
-          "columns": [
-            "number"
-          ],
-          "isUnique": true
-        },
-        "in_out_entry_status_dropped_off_at_index": {
-          "name": "in_out_entry_status_dropped_off_at_index",
-          "columns": [
-            "status",
-            "dropped_off_at",
-            "id"
-          ],
-          "isUnique": false
-        },
-        "in_out_entry_dropped_off_at_index": {
-          "name": "in_out_entry_dropped_off_at_index",
-          "columns": [
-            "dropped_off_at",
-            "id"
-          ],
-          "isUnique": false
-        },
-        "in_out_entry_matter_index": {
-          "name": "in_out_entry_matter_index",
-          "columns": [
-            "matter_id"
-          ],
-          "isUnique": false
-        },
-        "in_out_entry_custody_packet_index": {
-          "name": "in_out_entry_custody_packet_index",
-          "columns": [
-            "custody_packet_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "in_out_entry_matter_id_matter_id_fk": {
-          "name": "in_out_entry_matter_id_matter_id_fk",
-          "tableFrom": "in_out_entry",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "in_out_entry_custody_packet_id_custody_packet_id_fk": {
-          "name": "in_out_entry_custody_packet_id_custody_packet_id_fk",
-          "tableFrom": "in_out_entry",
-          "tableTo": "custody_packet",
-          "columnsFrom": [
-            "custody_packet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "in_out_entry_description_check": {
-          "name": "in_out_entry_description_check",
-          "value": "length(\"in_out_entry\".\"description\") > 0"
-        },
-        "in_out_entry_from_name_check": {
-          "name": "in_out_entry_from_name_check",
-          "value": "length(\"in_out_entry\".\"from_name\") > 0"
-        },
-        "in_out_entry_from_kind_check": {
-          "name": "in_out_entry_from_kind_check",
-          "value": "\"in_out_entry\".\"from_kind\" IN ('member', 'entity', 'external')"
-        },
-        "in_out_entry_from_shape_check": {
-          "name": "in_out_entry_from_shape_check",
-          "value": "(\"in_out_entry\".\"from_kind\" = 'member' AND \"in_out_entry\".\"from_user_id\" IS NOT NULL) OR (\"in_out_entry\".\"from_kind\" = 'entity' AND \"in_out_entry\".\"from_entity_id\" IS NOT NULL) OR (\"in_out_entry\".\"from_kind\" = 'external')"
-        },
-        "in_out_entry_status_check": {
-          "name": "in_out_entry_status_check",
-          "value": "\"in_out_entry\".\"status\" IN ('waiting', 'picked_up', 'moved_to_custodian')"
-        },
-        "in_out_entry_picked_up_shape_check": {
-          "name": "in_out_entry_picked_up_shape_check",
-          "value": "(\"in_out_entry\".\"status\" = 'picked_up') = (\"in_out_entry\".\"picked_up_at\" IS NOT NULL AND \"in_out_entry\".\"picked_up_by_name\" IS NOT NULL AND \"in_out_entry\".\"picked_up_by_kind\" IS NOT NULL)"
-        },
-        "in_out_entry_picked_up_by_kind_check": {
-          "name": "in_out_entry_picked_up_by_kind_check",
-          "value": "\"in_out_entry\".\"picked_up_by_kind\" IS NULL OR \"in_out_entry\".\"picked_up_by_kind\" IN ('member', 'entity', 'external')"
-        },
-        "in_out_entry_moved_shape_check": {
-          "name": "in_out_entry_moved_shape_check",
-          "value": "(\"in_out_entry\".\"status\" = 'moved_to_custodian') = (\"in_out_entry\".\"custody_packet_id\" IS NOT NULL AND \"in_out_entry\".\"moved_to_custodian_at\" IS NOT NULL)"
-        },
-        "in_out_entry_identity_checked_check": {
-          "name": "in_out_entry_identity_checked_check",
-          "value": "\"in_out_entry\".\"identity_checked\" IS NULL OR \"in_out_entry\".\"identity_checked\" IN (0, 1)"
-        }
-      }
-    },
-    "in_out_entry_number_allocation": {
-      "name": "in_out_entry_number_allocation",
-      "columns": {
-        "scope_key": {
-          "name": "scope_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "drawn_value": {
-          "name": "drawn_value",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "entry_id": {
-          "name": "entry_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "allocated_at": {
-          "name": "allocated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "in_out_entry_number_allocation_entry_index": {
-          "name": "in_out_entry_number_allocation_entry_index",
-          "columns": [
-            "entry_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "in_out_entry_number_allocation_entry_id_in_out_entry_id_fk": {
-          "name": "in_out_entry_number_allocation_entry_id_in_out_entry_id_fk",
-          "tableFrom": "in_out_entry_number_allocation",
-          "tableTo": "in_out_entry",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "in_out_entry_number_allocation_scope_key_drawn_value_pk": {
-          "columns": [
-            "scope_key",
-            "drawn_value"
-          ],
-          "name": "in_out_entry_number_allocation_scope_key_drawn_value_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "in_out_entry_number_counter": {
-      "name": "in_out_entry_number_counter",
-      "columns": {
-        "scope_key": {
-          "name": "scope_key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "next_value": {
-          "name": "next_value",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "in_out_entry_number_counter_next_value_check": {
-          "name": "in_out_entry_number_counter_next_value_check",
-          "value": "\"in_out_entry_number_counter\".\"next_value\" > 0"
-        }
-      }
-    },
-    "in_out_entry_recipient": {
-      "name": "in_out_entry_recipient",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "entry_id": {
-          "name": "entry_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "entity_id": {
-          "name": "entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "in_out_entry_recipient_entry_index": {
-          "name": "in_out_entry_recipient_entry_index",
-          "columns": [
-            "entry_id",
-            "position"
-          ],
-          "isUnique": false
-        },
-        "in_out_entry_recipient_user_index": {
-          "name": "in_out_entry_recipient_user_index",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
-        },
-        "in_out_entry_recipient_entity_index": {
-          "name": "in_out_entry_recipient_entity_index",
-          "columns": [
-            "entity_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "in_out_entry_recipient_entry_id_in_out_entry_id_fk": {
-          "name": "in_out_entry_recipient_entry_id_in_out_entry_id_fk",
-          "tableFrom": "in_out_entry_recipient",
-          "tableTo": "in_out_entry",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "in_out_entry_recipient_name_check": {
-          "name": "in_out_entry_recipient_name_check",
-          "value": "length(\"in_out_entry_recipient\".\"name\") > 0"
-        },
-        "in_out_entry_recipient_kind_check": {
-          "name": "in_out_entry_recipient_kind_check",
-          "value": "\"in_out_entry_recipient\".\"kind\" IN ('member', 'entity', 'external')"
-        },
-        "in_out_entry_recipient_shape_check": {
-          "name": "in_out_entry_recipient_shape_check",
-          "value": "(\"in_out_entry_recipient\".\"kind\" = 'member' AND \"in_out_entry_recipient\".\"user_id\" IS NOT NULL) OR (\"in_out_entry_recipient\".\"kind\" = 'entity' AND \"in_out_entry_recipient\".\"entity_id\" IS NOT NULL) OR (\"in_out_entry_recipient\".\"kind\" = 'external')"
-        }
-      }
     },
     "incident": {
       "name": "incident",

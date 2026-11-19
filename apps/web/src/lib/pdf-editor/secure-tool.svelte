@@ -212,7 +212,7 @@
   </div>
 {:else}
   <div class="flex min-h-0 flex-1">
-    <div class="mc-scrollbar flex min-h-0 min-w-0 flex-1 items-start justify-center overflow-auto bg-surface-sunken p-24">
+    <div class="mc-scrollbar hidden min-h-0 min-w-0 flex-1 items-start justify-center md:flex overflow-auto bg-surface-sunken p-24">
       {#if sizes[0] !== undefined}
         {@const box = pageDisplaySize(sizes[0], PREVIEW_ZOOM)}
         <div class="flex-none border border-border-default bg-surface-raised" style="width: {box.width}px; height: {box.height}px">
@@ -221,7 +221,7 @@
       {/if}
     </div>
 
-    <aside aria-label="Protection" class="mc-scrollbar flex min-h-0 w-384 shrink-0 flex-col gap-16 overflow-auto border-s border-border-default bg-surface-default p-16">
+    <aside aria-label="Protection" class="mc-scrollbar flex min-h-0 w-full shrink-0 md:w-sm flex-col gap-16 overflow-auto border-s border-border-default bg-surface-default p-16">
       <div class="flex flex-col gap-8">
         <h2 class="text-sm font-semibold">What This File Carries</h2>
         <DataTable.Root class="w-full">

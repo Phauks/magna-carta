@@ -95,8 +95,10 @@ The answers are saved as a new version of the same file, and earlier versions ar
 Bates numbering prints a running number on every page, such as **SMITH-000041**, so each page of
 a production can be cited.
 
-1. Enter a **Prefix** and, if you use one, a **Suffix**.
-2. Set the **First Number**. For a second production, start where the last one stopped.
+1. Enter a **Prefix** and, if you use one, a **Suffix**. The tab opens on the prefix last used on
+   this matter.
+2. The **First Number** is filled in for you: the next number not yet stamped under that prefix on
+   this matter. Change it only if you need to start somewhere else.
 3. Set the **Digits**. Numbers shorter than this are padded with zeros, so 6 digits writes 41 as 000041.
 4. Choose the **Position**, **Typeface** and **Size**. The first and last pages show where the
    number will go.
@@ -104,7 +106,12 @@ a production can be cited.
 
 The numbered copy is saved beside the original, named with its first and last numbers, for example
 **Production (SMITH-000001 to SMITH-000016).pdf**. The message afterwards tells you the number the
-next production should start at.
+next stamp under that prefix starts at.
+
+Each matter keeps one log of its Bates numbers. Every number you stamp is recorded there with the
+file it was stamped on, the numbered copy, and who stamped it and when, and is never handed out
+again, even if the numbered copy was not saved. If you type a first number that has already been
+stamped under the same prefix, nothing is numbered and the message tells you the next free number.
 
 Numbering adds text to each page and removes nothing. To withhold something, redact it first, then
 number the redacted copy.
