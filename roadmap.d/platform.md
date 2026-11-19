@@ -60,12 +60,12 @@
 - id: platform.workers-api.domain-modules
   name: Domain-module route tree
   scope: The route surface as about twenty domain modules behind a manifest, contract shapes in the domain packages, an HTTP-versus-background import boundary, and the fitness tests that hold the shape.
-  status: in-build
+  status: partial
   surface: internal
   slices: api-worker-domain-modules
   spec: docs/specs/2026-09-18-api-worker-domain-modules-design.md
   evidence: apps/api-worker/src/http/ (the app, the chokepoint, the contracts, the middleware, and routes/manifest.ts over 21 domain directories) beside apps/api-worker/src/background/ (every consumer and sweep, scheduled.ts), held apart by test/http-background-boundary-scan.test.ts; contract shapes still inline
-  notes: In flight on docs/active-work/claude/adoring-ride-fe94q5.md. Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric.
+  notes: The branch in docs/active-work/claude/adoring-ride-fe94q5.md holds unlanded work, idle since 2026-11-09 with no pull request. Lazy per-domain loading deferred pending a recorded startup trend; the background orchestration stays in this Worker per the extraction rubric.
 
 - id: platform.workers-api.public-api-host
   name: Public API host
@@ -652,7 +652,7 @@
   name: Record transfer from a system a firm is leaving
   scope: The framework that brings a firm's records in from another practice-management system (LEAP first) — readers, a staging store, mapping rules, the source-record link, a loader, a rehearsal report and the trust gate before cutover.
   status: partial
-  surface: internal
+  surface: screen
   adrs: ADR-0021
   spec: docs/specs/2026-11-10-record-transfer-framework-design.md
   evidence: packages/record-transfer (runs, source files, the delimited-text reader, mapping rules and loaders for people, organizations and matters, the pass and its report); apps/api-worker/src/http/routes/record-transfer (start a run, upload a file, ask for a pass) and apps/api-worker/src/background/record-transfer/pass-consumer.ts (the pass on the queue); apps/web/src/routes/(app)/record-transfer (the list of runs and a run's file-by-file workspace: upload, columns, report, sample). No money, no documents, no trust gate, no accepting a run yet

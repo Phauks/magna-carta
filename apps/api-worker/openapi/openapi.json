@@ -18536,6 +18536,38 @@
           "requestIds"
         ]
       },
+      "SignedCopyView": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "firmName": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "sealedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "documentFileName": {
+            "type": "string"
+          },
+          "certificateFileName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "firmName",
+          "senderName",
+          "sealedAt",
+          "documentFileName",
+          "certificateFileName"
+        ]
+      },
       "SessionLaunchResponse": {
         "type": "object",
         "properties": {
@@ -48997,51 +49029,6 @@
         "required": [
           "recorded",
           "checkNumber"
-        ]
-      },
-      "RecordTrustCheckResultsRequest": {
-        "type": "object",
-        "properties": {
-          "trustAccountId": {
-            "type": "string",
-            "pattern": "^trustAccount_[A-Za-z0-9_-]{21}$"
-          },
-          "results": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "trustCheckId": {
-                  "type": "string",
-                  "pattern": "^trustCheck_[A-Za-z0-9_-]{21}$"
-                },
-                "outcome": {
-                  "type": "string",
-                  "enum": [
-                    "printed",
-                    "spoiled"
-                  ]
-                },
-                "reason": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "maxLength": 500
-                }
-              },
-              "required": [
-                "trustCheckId",
-                "outcome"
-              ]
-            },
-            "minItems": 1,
-            "maxItems": 100
-          }
-        },
-        "required": [
-          "trustAccountId",
-          "results"
         ]
       },
       "VoidTrustCheckRequest": {
@@ -82596,6 +82583,203 @@
           },
           "422": {
             "description": "What was sent cannot be used",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy": {
+      "get": {
+        "description": "What the link to a signed copy opens: the document's title, who sent it, and when it was sealed. Writes nothing.",
+        "operationId": "signer.readSignedCopy",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signed copy's details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedCopyView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy/document": {
+      "get": {
+        "description": "The sealed, signed copy of the document, as a PDF.",
+        "operationId": "signer.readSignedCopyDocument",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopyDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The signed copy",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/signer/signed-copy/certificate": {
+      "get": {
+        "description": "The Certificate of Completion filed beside the signed copy, as a PDF.",
+        "operationId": "signer.readSignedCopyCertificate",
+        "tags": [
+          "signer"
+        ],
+        "x-mc-operationId": "signer.readSignedCopyCertificate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-signerLane": "signed-copy",
+        "x-mc-tags": [
+          "signer"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The certificate",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a link this deployment made, or the copy is no longer held",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The link expired or was replaced, or the copy is not sealed yet",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -147200,131 +147384,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PrintTrustChecksResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks the capability",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The trust account or check is unknown",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The check was already answered, or the Idempotency-Key is still in progress",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The trust rules refuse this",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/trust/checks/results": {
-      "post": {
-        "description": "Says which checks of a print came out right and which were spoiled. A spoiled check keeps its number in the register and its payment goes back to the print queue.",
-        "operationId": "trust.recordCheckResults",
-        "tags": [
-          "trust"
-        ],
-        "x-mc-operationId": "trust.recordCheckResults",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "trust:manage",
-        "x-mc-resource": "firm",
-        "x-mc-audited": true,
-        "x-mc-idempotency": "required",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "trust"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "idempotency-key",
-            "in": "header"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RecordTrustCheckResultsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Recorded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrustCheckAcknowledgement"
                 }
               }
             }

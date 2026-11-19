@@ -25,10 +25,16 @@ After this design:
 
 1. A disbursement recorded with method `check` and no reference lands in the account's **To print**
    queue.
-2. The person picks the checks to print. The server numbers them from the account's next number in
-   one batch, and the browser composes a PDF with each field at its stored position on the paper.
-3. After printing, the person answers per check: **printed** or **spoiled**. A spoiled check is
-   voided with its number kept, and the payment goes back to To print for a new number.
+2. The person picks the checks to print and the first number. The browser composes a PDF from the
+   queue rows and the stock, each field at its stored position on the paper, and opens it; nothing
+   is stored yet. Once the checks are out of the printer the person marks them printed, and only
+   then does the server number them in one batch (owner ruling 2026-11-19: no confirm window
+   before the PDF, the confirmation comes after it).
+3. A printed check is assumed right (owner ruling 2026-11-19): marking them printed records each
+   check as printed in the same batch that numbers it, and nobody is asked which came out right. A check that jammed or
+   came out wrong is **returned to the list** from its row: that voids it with its number kept (reason
+   `Misprinted` unless the person writes another), and the payment goes back to To print, where the
+   next print gives it a new number. There is no separate reprint step.
 4. A check that already left the office can be **voided** later (lost, stale, stopped). Voiding
    records the fact and returns the payment to To print for a replacement. It never moves money:
    cancelling the payment itself is a trust movement under the authorization policy, and the dialog
@@ -58,9 +64,11 @@ of its own stock; this does.
 
 **`trust_check_event`**: append-only. `check_id`, `kind` (`printed`, `spoiled`, `voided`), `reason`
 (required on `spoiled` and `voided`), `recorded_by`, `recorded_at`. The current status is the latest
-event, or `numbered` when there is none (the batch was printed and nobody has answered yet). Allowed
+event, or `numbered` when there is none (only checks printed before 2026-11-19, when a person still
+answered for each one; they read as printed). Allowed
 sequences: `numbered → printed → voided`, `numbered → spoiled`, `numbered → voided`. Triggers refuse
-any other.
+any other. Since 2026-11-19 a print writes the `printed` event beside each `trust_check` row, and a
+misprint is a `voided` event; `spoiled` stays only for the rows that already carry it.
 
 Why two tables rather than a status column: every trust record here is append-only so the history
 an examiner asks about is the row set itself. A status column would be an UPDATE.
@@ -73,12 +81,13 @@ number is not a `@magna-carta/sequence-numbering` scheme: the register's schemes
 firm writes, counters the platform owns, and draft holds a panel gives back, and none of the three
 fits a number fixed by a box of paper. The rule here is instead:
 
-- The number is in the person's hands (owner ruling 2026-11-16). The **next number** for an account
-  is the first number at or after the stock's `starting_check_number` that no check on the account
-  carries, so a firm that loads a box numbered lower than its last check says so and prints from it.
-  The confirm-print step shows the first number and lets the person change it for that batch; a
-  batch that would land on a used number is refused (`check-number-used`), so a number is still
-  never reused.
+- The number is in the person's hands (owner rulings 2026-11-16 and 2026-11-19). The **next
+  number** for an account follows the paper: one past the last check printed on the account, or the
+  stock's `starting_check_number` when the stock was saved after that print (that is how a firm says
+  it loaded a new box, higher or lower). If that number is taken, it is the first free number after
+  it. The Checks screen shows the first number beside Print and lets the person change it for the
+  batch; a batch that would land on a used number is refused (`check-number-used`), so a number is
+  still never reused.
 - A print batch reads the next number and inserts consecutive rows. The unique index on
   `(trust_account_id, check_number)` refuses a second batch that read the same number, and the route
   retries once on that conflict.
@@ -156,7 +165,7 @@ Amount in words is one pure function, tested to the cent ("Three thousand and 00
 
 ## 5. Capabilities
 
-Printing, answering and voiding run under `trust:manage`, the permission that already governs
+Printing and voiding run under `trust:manage`, the permission that already governs
 recording statements. Saving stock does too. Reading the register runs under `trust:read`. The money
 moved when the disbursement was approved; printing does not move money, so it takes no second
 person.

@@ -584,10 +584,10 @@
   name: True redaction (rasterize route)
   scope: Content-removing redaction via the rasterize route — underlying content destroyed, not covered.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0134
   spec: docs/specs/2026-06-22-pdf-slice-2-redaction-design.md
-  evidence: crates/pdf-core/src/redact.rs; feasibility findings at docs/specs/2026-06-22-pdf-redaction-feasibility-findings.md.
+  evidence: crates/pdf-core/src/redact.rs; feasibility findings at docs/specs/2026-06-22-pdf-redaction-feasibility-findings.md; the Redact tool in the PDF Editor (apps/web/src/lib/pdf-editor/redact-tool.svelte) files a redacted copy and a redaction log.
   notes: Resolves in-house the AGPL-engine dilemma the white paper carried to Discovery.
 
 - id: documents.pdf.redaction-detector
@@ -622,36 +622,36 @@
   name: Bates numbering
   scope: Bates stamping across documents with configurable format/position.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0142
   spec: docs/specs/2026-06-23-pdf-bates-numbering-design.md
-  evidence: crates/pdf-core/src/bates.rs; configurability plan at docs/specs/2026-06-25-pdf-bates-configurability-plan.md.
+  evidence: crates/pdf-core/src/bates.rs; configurability plan at docs/specs/2026-06-25-pdf-bates-configurability-plan.md; the Bates tool in the PDF Editor (apps/web/src/lib/pdf-editor/bates-tool.svelte) files a numbered copy.
 
 - id: documents.pdf.forms
   name: PDF form fill
   scope: AcroForm form filling in the pure-Rust engine.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0152
   spec: docs/specs/2026-06-25-pdf-forms-design.md
-  evidence: crates/pdf-core/src/forms/.
+  evidence: crates/pdf-core/src/forms/; the Forms tool in the PDF Editor (apps/web/src/lib/pdf-editor/forms-tool.svelte) fills and optionally flattens a form.
   notes: XFA not in scope of the built module.
 
 - id: documents.pdf.watermark
   name: Stamp / watermark
   scope: Stamping and watermarking pages.
   status: shipped
-  surface: awaiting-screen
-  evidence: crates/pdf-core/src/watermark.rs.
+  surface: screen
+  evidence: crates/pdf-core/src/watermark.rs; the Watermark tool in the PDF Editor (apps/web/src/lib/pdf-editor/watermark-tool.svelte).
 
 - id: documents.pdf.secure
   name: Secure / encrypt
   scope: PDF encryption, passwords, and permissions (plus decrypt support).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0159
   spec: docs/specs/2026-06-26-pdf-secure-encrypt-design.md
-  evidence: crates/pdf-core/src/secure.rs + decrypt.rs.
+  evidence: crates/pdf-core/src/secure.rs + decrypt.rs; the Secure tool in the PDF Editor (apps/web/src/lib/pdf-editor/secure-tool.svelte) saves a protected copy.
 
 - id: documents.pdf.generate
   name: Generate primitives
@@ -684,9 +684,9 @@
   name: Merge / split / rotate / flatten
   scope: Page-level manipulation operations promised for the PDF service.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: All four operations are built and reachable. merge, split and rotate are public functions in crates/pdf-core/src/generate.rs and form flattening is in src/forms/flatten.rs, and each is exposed at the WASM edge in src/wasm.rs as mergeDocuments, splitDocument, rotatePages and flattenForm. The node read not-started because it looked for a module of its own — there is not one, and there did not need to be: generate.rs is the shared home, which is why documents.pdf.generate already claimed the same file.
-  notes: Backend only, no screen — the tool surfaces are documents.pdf.tool-uis. The split path is deliberately safety-aware rather than a plain page copy: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page when that action points at an excluded one, behind a fail-closed gate.
+  notes: Reached from the Pages tool in the PDF Editor (apps/web/src/lib/pdf-editor/pages-tool.svelte): reorder, turn, delete, extract and split. The split path is deliberately safety-aware rather than a plain page copy: it drops the catalog OpenAction, AA and Names because they reference pages across the whole document, and strips an action from an annotation on a kept page when that action points at an excluded one, behind a fail-closed gate.
 
 - id: documents.pdf.tool-uis
   name: PDF tool UIs
@@ -723,7 +723,7 @@
   status: partial
   surface: screen
   spec: docs/specs/2026-11-13-signing-flow-design.md
-  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. the hourly reminder and expiry pass in apps/api-worker/src/signing/signing-sweep.ts; a colleague signing in the app on the member routes in apps/api-worker/src/http/routes/documents/my-signing-routes.ts (the same handlers through the member lane in signer-lanes.ts), told by the documents.signing.memberTurn notification raised from apps/api-worker/src/signing/member-turn.ts, on the page at apps/web/src/routes/(app)/documents/[id]/sign; sealing on completion in apps/api-worker/src/signing/seal-completed.ts, raised by the signing.completed outbox topic with the hourly pass as its backstop, which draws what each signer gave into their boxes (place_marks in crates/pdf-core/src/marks.rs, run by the sign worker before the seal) and files the signed copy as a new version with its Certificate of Completion beside it. Emailing signers the signed copy is next.
+  evidence: packages/signing/src/request.ts (the request model and its transitions); the signing tables in packages/database/src/per-firm-schema.ts; apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signing-requests.ts (create, save, send, remind, cancel); the PDF Editor's Signature tab in apps/web/src/lib/pdf-editor/signing-tool.svelte (field placement, review and send, the status panel); the outside signer's link, lane and nine routes in apps/api-worker/src/signing and apps/api-worker/src/http/routes/documents/signers.ts; the signer's page with code, consent, adoption, the field walk, finish and decline in apps/web/src/lib/signing. the hourly reminder and expiry pass in apps/api-worker/src/signing/signing-sweep.ts; a colleague signing in the app on the member routes in apps/api-worker/src/http/routes/documents/my-signing-routes.ts (the same handlers through the member lane in signer-lanes.ts), told by the documents.signing.memberTurn notification raised from apps/api-worker/src/signing/member-turn.ts, on the page at apps/web/src/routes/(app)/documents/[id]/sign; sealing on completion in apps/api-worker/src/signing/seal-completed.ts, raised by the signing.completed outbox topic with the hourly pass as its backstop, which draws what each signer gave into their boxes (place_marks in crates/pdf-core/src/marks.rs, run by the sign worker before the seal) and files the signed copy as a new version with its Certificate of Completion beside it. Once sealed, each outside signer is emailed a link to the signed copy and its certificate, good for 30 days (mailSignedCopies in apps/api-worker/src/signing/signer-delivery.ts; the signed-copy lane and routes in apps/api-worker/src/http/routes/documents/signed-copy.ts; the page at apps/web/src/routes/sign/copy/[token]).
 
 - id: documents.esignature.audit-trail
   name: Audit trail & certificate of completion

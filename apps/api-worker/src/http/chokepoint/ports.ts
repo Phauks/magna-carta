@@ -36,8 +36,18 @@ import { meetingGuestRefused } from "@magna-carta/telemetry/events";
 import { constantTimeStringEquals } from "../../constant-time.ts";
 import { readGuestCredential } from "../../meetings/guest-token.ts";
 import { guestLinkRefusalFor } from "../../meetings/guest-refusals.ts";
-import { hashSignerSecret, readSignerLink } from "../../signing/signer-link.ts";
-import { signerLinkRefusal, signerLinkRefusalFor } from "../../signing/signer-refusals.ts";
+import {
+  SIGNED_COPY_TOKEN_TYPE,
+  SIGNER_LINK_TOKEN_TYPE,
+  hashSignerSecret,
+  readSignerLink,
+} from "../../signing/signer-link.ts";
+import {
+  signedCopyRefusal,
+  signedCopyRefusalFor,
+  signerLinkRefusal,
+  signerLinkRefusalFor,
+} from "../../signing/signer-refusals.ts";
 import { readSignerLinkState } from "../../signing/signer-statements.ts";
 import type { SigningRequestId, SigningSignerId } from "@magna-carta/identifiers/types";
 
@@ -438,10 +448,15 @@ async function resolveFirmForLane(c: Context, firmId: FirmId): Promise<FirmConte
 
 function makeSignerLane(): SignerLanePort<FirmContext> {
   return {
-    verifySignerLink: async (c, presented) => {
+    verifySignerLink: async (c, presented, kind) => {
       if (presented === null) return null;
       const env = (c as Context<{ Bindings: Bindings }>).env;
-      const read = await readSignerLink(env.AUTH_SECRET, presented, Math.floor(Date.now() / 1000));
+      const read = await readSignerLink(
+        env.AUTH_SECRET,
+        presented,
+        Math.floor(Date.now() / 1000),
+        kind === "link" ? SIGNER_LINK_TOKEN_TYPE : SIGNED_COPY_TOKEN_TYPE,
+      );
       if (read === null) return null;
       const grant: ChokepointSignerGrant = {
         firmId: read.link.firmId,
@@ -449,7 +464,11 @@ function makeSignerLane(): SignerLanePort<FirmContext> {
         signerId: read.link.signerId,
         secretVersion: read.link.secretVersion,
       };
-      if (read.outcome === "expired") return { refusal: signerLinkRefusalFor("expired"), grant };
+      if (read.outcome === "expired") {
+        const expired =
+          kind === "link" ? signerLinkRefusalFor("expired") : signedCopyRefusalFor("expired");
+        return { refusal: expired, grant };
+      }
       return { ...grant, secret: read.link.secret };
     },
 
@@ -457,7 +476,7 @@ function makeSignerLane(): SignerLanePort<FirmContext> {
 
     // THE ROW IS THE AUTHORITY: a corrected link, a cancelled, declined or finished request, or one
     // past its last day refuses a perfectly-signed link here, with a sentence its holder can act on.
-    confirmSignerLinkIsLive: async (_c, firmContext, link) => {
+    confirmSignerLinkIsLive: async (_c, firmContext, link, kind) => {
       const state = await readSignerLinkState(
         firmContext.firmDatabase,
         link.requestId as SigningRequestId,
@@ -468,6 +487,17 @@ function makeSignerLane(): SignerLanePort<FirmContext> {
         storedHash === null
           ? false
           : await constantTimeStringEquals(await hashSignerSecret(link.secret), storedHash);
+      if (kind === "signed-copy") {
+        const copyCode = signedCopyRefusal({
+          found: state !== undefined,
+          secretMatches,
+          storedVersion: state?.secretVersion ?? -1,
+          presentedVersion: link.secretVersion,
+          requestStatus: state?.requestStatus ?? "draft",
+          sealedAt: state?.sealedAt ?? null,
+        });
+        return copyCode === null ? null : signedCopyRefusalFor(copyCode);
+      }
       const code = signerLinkRefusal({
         found: state !== undefined,
         secretMatches,
