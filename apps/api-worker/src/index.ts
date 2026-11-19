@@ -81,6 +81,11 @@ export { DocumentSession } from "./editing/document-session.ts";
 export { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 export { SafeBrowseSession } from "./safe-browse/safe-browse-session.ts";
 
+// The named entrypoint another Worker hands its logged failures to over a service binding, so they
+// land in the error record this Worker keeps (src/system-status/error-record-intake.ts). Reached only
+// through a binding that names it; it has no public route.
+export { ErrorRecordIntake } from "./system-status/error-record-intake.ts";
+
 // Each handler resolves the secrets bound from the account's Secrets Store into the plain strings the
 // rest of the Worker reads (src/stored-secrets.ts). With none bound it returns the same env, unread.
 //
