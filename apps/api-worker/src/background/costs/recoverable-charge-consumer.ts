@@ -23,7 +23,10 @@ import {
   type NaturalLanguageFeedDeletionPayload,
 } from "@magna-carta/search/natural-language-topics";
 import { RECORD_INDEX_REBUILD_REQUESTED_TOPIC } from "@magna-carta/search/record-index-topics";
-import { TRANSFER_PASS_REQUESTED_TOPIC } from "@magna-carta/record-transfer/transfer-requests";
+import {
+  TRANSFER_PASS_REQUESTED_TOPIC,
+  TRANSFER_RUN_ACCEPTED_TOPIC,
+} from "@magna-carta/record-transfer/transfer-requests";
 import {
   SIGNING_COMPLETED_TOPIC,
   type SigningCompletedPayload,
@@ -33,6 +36,7 @@ import { sealRequestForFirm } from "../../signing/sealing-wiring.ts";
 import { consumeRecheckRequest } from "../conflicts/recheck-request-consumer.ts";
 import { consumeRecheckRun } from "../conflicts/recheck-run-consumer.ts";
 import { consumeTransferPassRequest } from "../record-transfer/pass-consumer.ts";
+import { consumeTransferRunAccepted } from "../record-transfer/run-accepted-consumer.ts";
 import { CAPTURE_ROUTE_TOPIC } from "../../emails/capture-address-service.ts";
 import { FILE_VERSION_COMMITTED_TOPIC } from "@magna-carta/file-manager/topics";
 import {
@@ -150,6 +154,9 @@ const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
   // A member asked for a pass over a record transfer's source file. The pass reads the file from
   // the firm's bucket and loads its rows. See ../record-transfer/pass-consumer.ts.
   [TRANSFER_PASS_REQUESTED_TOPIC]: consumeTransferPassRequest,
+  // A member accepted a record transfer run: ask for the conflicts checks that were withheld while
+  // its matters arrived. See ../record-transfer/run-accepted-consumer.ts.
+  [TRANSFER_RUN_ACCEPTED_TOPIC]: consumeTransferRunAccepted,
   // The last signer finished: seal the request and file the signed copy and its certificate. See
   // ../../signing/seal-completed.ts.
   [SIGNING_COMPLETED_TOPIC]: handleSigningCompleted,

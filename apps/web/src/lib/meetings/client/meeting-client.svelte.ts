@@ -136,6 +136,14 @@ import {
 } from "./signaling.ts";
 import type { GroupEpoch, GroupStanding } from "./encryption-group.ts";
 import { type FrameEncryptionSeams, MeetingEncryption } from "./meeting-encryption.ts";
+import {
+  encryptionState,
+  type EncryptionState,
+  keyGroupMembers,
+  type KeyGroupMember,
+  pauseBitsWith,
+  type PauseReason,
+} from "./encryption-status.ts";
 import { browserNamingSeams, MeetingNaming } from "./naming.ts";
 import {
   MeetingSubscriptions,
@@ -565,6 +573,25 @@ export class MeetingClient {
   securityCode = $state<string | null>(null);
   /** Whether the group says a recording, captions or a phone caller has paused the sealing. */
   encryptionPaused = $state(false);
+  /** The pause bits of the last epoch this browser verified; zero is encrypted. */
+  encryptionPauseBits = $state(0);
+  /** Who the verified key group holds, by leaf, each identity a stay. Empty outside the group. */
+  encryptionGroupMembers = $state<GroupEpoch["members"]>([]);
+  /**
+   * What the pause banner, the security panel and the header read: off, connecting, on, paused
+   * (with every reason that holds) or failed. Read from the verified group state alone.
+   */
+  get encryptionState(): EncryptionState {
+    return encryptionState({
+      encrypted: this.encrypted,
+      standing: this.encryptionStanding,
+      pause: this.encryptionPauseBits,
+    });
+  }
+  /** Who is in the key group, named from the roster where it holds the stay. */
+  get encryptionMembers(): readonly KeyGroupMember[] {
+    return keyGroupMembers(this.encryptionGroupMembers, this.participants, this.participantId);
+  }
   /**
    * What this room carries, as the join stated it. It decides what is captured and what is offered,
    * and it never changes while a meeting is open — the room refuses a picture published into a call,
@@ -1018,7 +1045,10 @@ export class MeetingClient {
             send: (frame) => this.#signaling.send(frame),
             onStanding: (standing) => {
               this.encryptionStanding = standing;
-              if (standing !== "member") this.securityCode = null;
+              if (standing !== "member") {
+                this.securityCode = null;
+                this.encryptionGroupMembers = [];
+              }
             },
             onEpoch: (epoch) => this.#noteEpoch(epoch),
           });
@@ -1045,6 +1075,21 @@ export class MeetingClient {
   #noteEpoch(epoch: GroupEpoch): void {
     this.securityCode = epoch.securityCode;
     this.encryptionPaused = epoch.pause !== 0;
+    this.encryptionPauseBits = epoch.pause;
+    this.encryptionGroupMembers = epoch.members;
+  }
+
+  /**
+   * A host starting or stopping one of the three things that pause encryption: a proposal to the
+   * group that keeps every other reason that holds. The banner moves only when the committed epoch
+   * says so, never on this press, so a pause nobody committed is never shown and a server that
+   * claims one cannot make it true. Nothing in a meeting opened in the clear.
+   */
+  setEncryptionPause(reason: PauseReason, running: boolean): void {
+    if (this.#encryption === null || this.encryptionStanding !== "member") return;
+    const wanted = pauseBitsWith(this.encryptionPauseBits, reason, running);
+    if (wanted === this.encryptionPauseBits) return;
+    this.#encryption.proposePause(wanted);
   }
 
   /**
@@ -2255,5 +2300,7 @@ export class MeetingClient {
     this.encryptionStanding = "off";
     this.securityCode = null;
     this.encryptionPaused = false;
+    this.encryptionPauseBits = 0;
+    this.encryptionGroupMembers = [];
   }
 }

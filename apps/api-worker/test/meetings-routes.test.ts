@@ -123,6 +123,7 @@ interface MeetingSummary {
   liveCount: number;
   configured: boolean;
   title: string;
+  encrypted: boolean;
 }
 
 const EVENT_COLUMNS =
@@ -334,6 +335,55 @@ describe("starting a meeting on an event", () => {
     expect(
       (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${quiet}`, ownerCookie))).medium,
     ).toBe("video");
+  });
+
+  it("opens it end-to-end encrypted unless the host switched it off, and only where the deployment allows", async () => {
+    const encryptingEnvironment = { ...ROUTED_ENVIRONMENT, MEETINGS_END_TO_END_ENCRYPTION: "on" };
+    async function encryptedAfterStart(
+      body: Record<string, unknown>,
+      environment: Record<string, unknown>,
+    ): Promise<boolean> {
+      const started = await post(
+        "/api/v1/meetings",
+        ownerCookie,
+        { eventKind: "matter", eventId: await freshEvent("Encrypted conference"), ...body },
+        environment,
+      );
+      expect(started.status).toBe(201);
+      const { id } = await readJson<StartedMeeting>(started);
+      return (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${id}`, ownerCookie)))
+        .encrypted;
+    }
+
+    // A Start that says nothing is encrypted: on by default, the host's to switch off.
+    expect(await encryptedAfterStart({}, encryptingEnvironment)).toBe(true);
+    // The host switched it off at Start, and the room opens in the clear.
+    expect(await encryptedAfterStart({ encrypted: false }, encryptingEnvironment)).toBe(false);
+    // A deployment that does not open meetings encrypted yet opens every one in the clear, whatever
+    // the host asked for, and the summary says so.
+    expect(await encryptedAfterStart({ encrypted: true }, ROUTED_ENVIRONMENT)).toBe(false);
+  });
+
+  it("keeps the first Start's encryption when a second Start asks for the other", async () => {
+    const encryptingEnvironment = { ...ROUTED_ENVIRONMENT, MEETINGS_END_TO_END_ENCRYPTION: "on" };
+    const eventId = await freshEvent("Encrypted hearing");
+    const first = await post(
+      "/api/v1/meetings",
+      ownerCookie,
+      { eventKind: "matter", eventId, encrypted: true },
+      encryptingEnvironment,
+    );
+    const { id } = await readJson<StartedMeeting>(first);
+    const second = await post(
+      "/api/v1/meetings",
+      ownerCookie,
+      { eventKind: "matter", eventId, encrypted: false },
+      encryptingEnvironment,
+    );
+    expect(second.status).toBe(200);
+    expect(
+      (await readJson<MeetingSummary>(await get(`/api/v1/meetings/${id}`, ownerCookie))).encrypted,
+    ).toBe(true);
   });
 
   it("is refused for a member who may attend but not convene", async () => {

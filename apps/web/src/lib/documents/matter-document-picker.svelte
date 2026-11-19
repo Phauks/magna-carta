@@ -23,6 +23,7 @@
     noMatterNote,
     noFilesNote,
     chosenNoun,
+    accepts,
     disabled = false,
   }: {
     /** The chosen file's handle, or null where none has been chosen. */
@@ -37,8 +38,13 @@
     noMatterNote: string;
     /** What to say where the matter holds no files yet. */
     noFilesNote: string;
-    /** What the chosen file will be recorded as: "the evidencing document", "the signed agreement". */
-    chosenNoun: string;
+    /**
+     * What the chosen file will be recorded as: "the evidencing document", "the signed agreement".
+     * Omitted where choosing a file records nothing, and then no sentence is drawn under the field.
+     */
+    chosenNoun?: string;
+    /** Which of the matter's files may be chosen, where only some can be used. Omitted, all of them. */
+    accepts?: (document: DocumentSummary) => boolean;
     disabled?: boolean;
   } = $props();
   let documents = $state<readonly DocumentSummary[]>([]);
@@ -61,7 +67,8 @@
       if (!live) return;
       reading = false;
       if (outcome.kind === "ok") {
-        documents = outcome.value.data;
+        documents =
+          accepts === undefined ? outcome.value.data : outcome.value.data.filter(accepts);
         readFailed = false;
         return;
       }
@@ -118,6 +125,6 @@
   <p class="text-xs text-text-muted">Reading the matter's files.</p>
 {:else if documents.length === 0}
   <p class="text-xs text-text-muted">{noFilesNote}</p>
-{:else if chosen !== null}
+{:else if chosen !== null && chosenNoun !== undefined}
   <p class="text-xs text-text-muted">{chosen.name} will be recorded as {chosenNoun}.</p>
 {/if}

@@ -6,6 +6,7 @@ import { registerAssembliesRoutes } from "./assemblies.ts";
 import { registerConversionRoutes } from "./conversions.ts";
 import { registerDocumentSealRoutes } from "./document-seal.ts";
 import { emailAdapterForEnv } from "../../../auth-instance.ts";
+import { registerSignedCopyRoutes } from "./signed-copy.ts";
 import { registerSignerRoutes } from "./signers.ts";
 import { registerSigningRequestRoutes } from "./signing-requests.ts";
 import { registerTemplatesRoutes } from "./templates.ts";
@@ -27,6 +28,8 @@ export function mountDocuments(
   registerSigningRequestRoutes(domain, chokepoint, deps.signingMail ?? emailAdapterForEnv);
   // An outside signer's own routes, on the chokepoint's signer lane.
   registerSignerRoutes(domain, chokepoint, deps.signingMail ?? emailAdapterForEnv);
+  // The signed copy and its certificate, behind the link the completion email carries.
+  registerSignedCopyRoutes(domain, chokepoint);
   // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
   // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
   registerDocumentEditingRoutes(domain, chokepoint);

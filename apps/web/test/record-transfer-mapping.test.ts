@@ -9,11 +9,16 @@
 import { describe, expect, it } from "vitest";
 import {
   blankMapping,
+  codeIsMatched,
+  codeMatchingLabel,
+  codeMatchingOf,
   delimiterHintedBy,
   KEY_ONLY,
   keyColumnOf,
+  mappingFingerprint,
   mappingFromStated,
   mappingProblems,
+  openingMapping,
   passRequestFrom,
   recordKindOfFileKind,
   type FileMapping,
@@ -24,7 +29,9 @@ import {
   latestFinishedPassOf,
   latestPassOf,
   passFailureLabel,
+  rejectedRowsFileName,
   rejectionLabel,
+  runStatusLabel,
   runSummary,
   type TransferPass,
   type TransferSourceFile,
@@ -317,5 +324,183 @@ describe("a run's counts", () => {
         lineNumber: 7,
       }),
     ).toBe("A quoted value is never closed. Line 7.");
+  });
+});
+
+describe("the mapping a file opens on", () => {
+  const saved = { ...blankMapping("matter", DEFAULTS), dateOrder: "day-month-year" as const };
+  const stated = { ...blankMapping("matter", DEFAULTS), dateOrder: "year-month-day" as const };
+
+  it("is the saved one for a file that has never been run", () => {
+    const opening = openingMapping({
+      saved: { mapping: saved, savedAt: "2026-11-18T10:00:00.000Z" },
+      stated: null,
+      passRequestedAt: null,
+    });
+    expect(opening).toEqual({ mapping: saved, source: "saved" });
+  });
+
+  it("is nothing where nothing is saved and the file has never been run", () => {
+    expect(openingMapping({ saved: null, stated: null, passRequestedAt: null })).toEqual({
+      mapping: null,
+      source: "none",
+    });
+  });
+
+  it("is what the latest pass ran under when the mapping was saved before that pass", () => {
+    const opening = openingMapping({
+      saved: { mapping: saved, savedAt: "2026-11-18T10:00:00.000Z" },
+      stated,
+      passRequestedAt: "2026-11-18T10:05:00.000Z",
+    });
+    expect(opening).toEqual({ mapping: stated, source: "stated" });
+  });
+
+  it("is the saved one when it was saved after the latest pass was asked for", () => {
+    const opening = openingMapping({
+      saved: { mapping: saved, savedAt: "2026-11-18T10:06:00.000Z" },
+      stated,
+      passRequestedAt: "2026-11-18T10:05:00.000Z",
+    });
+    expect(opening).toEqual({ mapping: saved, source: "saved" });
+  });
+
+  it("compares the two moments as moments, whatever zone each is written in", () => {
+    const opening = openingMapping({
+      saved: { mapping: saved, savedAt: "2026-11-18T21:00:00+11:00" },
+      stated,
+      passRequestedAt: "2026-11-18T10:05:00.000Z",
+    });
+    expect(opening.source).toBe("stated");
+  });
+
+  it("falls back to the saved one where the pass's rules could not be read", () => {
+    const opening = openingMapping({
+      saved: { mapping: saved, savedAt: "2026-11-18T10:00:00.000Z" },
+      stated: null,
+      passRequestedAt: "2026-11-18T10:05:00.000Z",
+    });
+    expect(opening.source).toBe("saved");
+  });
+
+  it("is what the pass ran under where nothing is saved", () => {
+    expect(
+      openingMapping({ saved: null, stated, passRequestedAt: "2026-11-18T10:05:00.000Z" }),
+    ).toEqual({ mapping: stated, source: "stated" });
+  });
+});
+
+describe("whether a mapping has changed since it was saved", () => {
+  it("does not depend on the order columns and codes were touched in", () => {
+    const first: FileMapping = {
+      ...blankMapping("matter", DEFAULTS),
+      assignments: { Number: hold("number"), Title: hold("title") },
+      members: { AL: "member-one", BK: "member-two" },
+    };
+    const second: FileMapping = {
+      ...blankMapping("matter", DEFAULTS),
+      assignments: { Title: hold("title"), Number: hold("number") },
+      members: { BK: "member-two", AL: "member-one" },
+    };
+    expect(mappingFingerprint(first)).toBe(mappingFingerprint(second));
+  });
+
+  it("differs when any statement differs", () => {
+    const base: FileMapping = {
+      ...blankMapping("matter", DEFAULTS),
+      assignments: { Party: hold("party", { role: "witness" }) },
+    };
+    const fingerprint = mappingFingerprint(base);
+    expect(mappingFingerprint({ ...base, delimiter: "tab" })).not.toBe(fingerprint);
+    expect(mappingFingerprint({ ...base, otherwiseMember: "member-one" })).not.toBe(fingerprint);
+    expect(mappingFingerprint({ ...base, matterTypes: { CONV: "type-one" } })).not.toBe(
+      fingerprint,
+    );
+    expect(
+      mappingFingerprint({ ...base, assignments: { Party: hold("party", { role: "expert" }) } }),
+    ).not.toBe(fingerprint);
+  });
+});
+
+describe("which of a column's codes are matched", () => {
+  const codes = [
+    { value: "CONV", rowCount: 40 },
+    { value: "LIT", rowCount: 12 },
+    { value: "FAM", rowCount: 3 },
+  ];
+
+  it("counts the file's own codes that have no match", () => {
+    expect(codeMatchingOf(codes, { CONV: "type-one" })).toEqual({ total: 3, unmatched: 2 });
+    expect(codeMatchingLabel(codeMatchingOf(codes, { CONV: "type-one" }))).toBe(
+      "2 of 3 not matched",
+    );
+  });
+
+  it("settles once every code is matched, and ignores a match the file has no code for", () => {
+    const matches = { CONV: "type-one", LIT: "type-two", FAM: "type-three", OLD: "type-four" };
+    expect(codeMatchingOf(codes, matches)).toEqual({ total: 3, unmatched: 0 });
+    expect(codeMatchingLabel(codeMatchingOf(codes, matches))).toBe("All 3 matched");
+  });
+
+  it("compares a trimmed value exactly", () => {
+    expect(codeIsMatched(" CONV ", { CONV: "type-one" })).toBe(true);
+    expect(codeIsMatched("conv", { CONV: "type-one" })).toBe(false);
+    expect(codeIsMatched("CON", { CONV: "type-one" })).toBe(false);
+  });
+
+  it("does not count a code whose match has not been chosen", () => {
+    expect(codeIsMatched("CONV", { CONV: "" })).toBe(false);
+  });
+
+  it("is not fooled by a code named like something every object has", () => {
+    expect(codeIsMatched("constructor", {})).toBe(false);
+    expect(codeIsMatched("toString", {})).toBe(false);
+  });
+
+  it("counts a code once however it is spaced, and passes over an empty value", () => {
+    const spaced = [
+      { value: "AL", rowCount: 5 },
+      { value: " AL", rowCount: 1 },
+      { value: "", rowCount: 9 },
+    ];
+    expect(codeMatchingOf(spaced, {})).toEqual({ total: 1, unmatched: 1 });
+  });
+
+  it("says so where the column has no codes", () => {
+    expect(codeMatchingLabel(codeMatchingOf([], { CONV: "type-one" }))).toBe("No codes");
+  });
+});
+
+describe("how a run's ending reads", () => {
+  const run = {
+    id: "run-one",
+    sourceSystem: "leap",
+    label: "Rehearsal 1",
+    startedBy: "member-one",
+    startedAt: "2026-11-18T09:00:00.000Z",
+    completedAt: null,
+    abandonedAt: null,
+  };
+
+  it("is Open, Accepted or Stopped", () => {
+    expect(runStatusLabel(run)).toBe("Open");
+    expect(runStatusLabel({ ...run, completedAt: "2026-11-18T12:00:00.000Z" })).toBe("Accepted");
+    expect(runStatusLabel({ ...run, abandonedAt: "2026-11-18T12:00:00.000Z" })).toBe("Stopped");
+  });
+
+  it("no longer says what stands before accepting a run that has ended", () => {
+    expect(runSummary([], [], false)).toBe("No files.");
+  });
+});
+
+describe("the name the rejected rows are saved under", () => {
+  it("is the file's own name without its ending", () => {
+    expect(rejectedRowsFileName("matters.csv")).toBe("rejected-rows-matters.csv");
+    expect(rejectedRowsFileName("Matter List 2026.txt")).toBe("rejected-rows-Matter List 2026.csv");
+  });
+
+  it("replaces what a file name cannot have, and never comes out empty", () => {
+    expect(rejectedRowsFileName("a/b:c.csv")).toBe("rejected-rows-a-b-c.csv");
+    expect(rejectedRowsFileName(".csv")).toBe("rejected-rows-file.csv");
   });
 });

@@ -13,11 +13,15 @@
    * the number the batch is sent with. A number the server refuses as already used turns the field
    * red and the server's own sentence stands in the screen's failure band.
    *
-   * PRINTING IS ONE QUESTION. Confirm Print reads the batch back (how many, the total, the numbers);
-   * Print Checks numbers it, records every check as printed, and the browser composes the PDF off
-   * the main thread and hands it to a new tab. Nothing more is asked: a check is assumed printed
-   * right. One that was not is returned from its row with Return to List, which voids the number,
-   * keeps it on the Voided list with the reason, and puts the payment back on To Print.
+   * PRINTING OPENS THE PDF FIRST AND RECORDS SECOND. Print composes the chosen checks in the
+   * browser, off the main thread, from the payments already read and the numbers previewed beside
+   * them, and opens the PDF in a new tab. Nothing is recorded yet: the button turns into Mark N
+   * Printed with Cancel beside it. Mark N Printed sends the batch to the print route, which numbers
+   * it from the same first number in the same order and records every check printed; Cancel
+   * records nothing. Changing the chosen payments or the first number while it waits drops back to
+   * Print, because the opened PDF no longer matches. A check that later proves misprinted is
+   * returned from its row with Return to List, which voids the number, keeps it on the Voided list
+   * with the reason, and puts the payment back on To Print.
    *
    * VOIDING NEVER MOVES MONEY. What the screen can do is read off the session once by the route and
    * handed in as one refusal, the same sentence on every control it governs.
@@ -38,16 +42,17 @@
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
   import Printer from "@lucide/svelte/icons/printer";
+  import Check from "@lucide/svelte/icons/check";
   import Ban from "@lucide/svelte/icons/ban";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import Settings2 from "@lucide/svelte/icons/settings-2";
+  import FileDown from "@lucide/svelte/icons/file-down";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { withAccount, type BackDestination } from "$lib/screen/screen-header.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { Failure } from "$lib/api/problem.ts";
   import { trustMoneyText } from "$lib/trust/firm-trust-vocabulary.ts";
   import type {
-    PrintTrustChecksResponse,
     TrustCheckRegisterRow,
     TrustCheckToPrint,
     TrustChecksResponse,
@@ -64,16 +69,20 @@
   import {
     checkStatusLabel,
     checkStatusTone,
+    markPrintedLabel,
     numberAlreadyUsed,
+    openedToPrintText,
     previewNumbers,
+    printButtonLabel,
+    printableChecks,
     printedRows,
     typedCheckNumber,
     voidedRows,
     type ChecksView,
   } from "./checks-model.ts";
-  import CheckConfirmPrintDialog from "./check-confirm-print-dialog.svelte";
   import CheckReturnDialog from "./check-return-dialog.svelte";
   import CheckVoidDialog from "./check-void-dialog.svelte";
+  import PositivePayDialog from "./positive-pay-dialog.svelte";
 
   let {
     trustAccountId,
@@ -82,7 +91,6 @@
     service,
     memberName,
     manageRefusal,
-    opening,
   }: {
     trustAccountId: string;
     /** Where the screen was entered from; the account is added to it. */
@@ -94,14 +102,6 @@
     memberName: (identifier: string) => string;
     /** Why this reader may not print or void, or undefined where they may. */
     manageRefusal: string | undefined;
-    /**
-     * A panel to open once the first read lands, for the developer gallery's screenshots of states
-     * a reader reaches only by pressing through: Confirm Print for the waiting payments, or Return
-     * to List for one printed check.
-     */
-    opening?:
-      | { readonly panel: "print" }
-      | { readonly panel: "return"; readonly trustCheckId: string };
   } = $props();
 
   // ---- the read ----------------------------------------------------------------------------------
@@ -135,17 +135,7 @@
       if (arrived.length > 0) chosen = new Set([...chosen, ...arrived]);
     }
     seen = new Set(keys);
-    if (opening !== undefined && !opened) {
-      opened = true;
-      if (opening.panel === "print") void askToPrint();
-      else {
-        const trustCheckId = opening.trustCheckId;
-        const row = outcome.value.register.find((entry) => entry.trustCheckId === trustCheckId);
-        if (row !== undefined) returnToList(row);
-      }
-    }
   }
-  let opened = false;
 
   let started = false;
   $effect(() => {
@@ -262,9 +252,6 @@
   // ---- printing ----------------------------------------------------------------------------------
 
   const chosenCount = $derived(chosenInOrder.length);
-  const printLabel = $derived(
-    chosenCount === 0 ? "Print Checks" : chosenCount === 1 ? "Print 1 Check" : `Print ${chosenCount} Checks`,
-  );
   const printRefusal = $derived.by((): string | undefined => {
     if (manageRefusal !== undefined) return manageRefusal;
     if (data === null) return "Reading this account's checks.";
@@ -273,92 +260,55 @@
     return undefined;
   });
 
-  let printing = $state(false);
-  let printKey = "";
-  let printKeyFor = "";
-  /** The print the server refused over a number already used, shown beside the field. */
+  /**
+   * The batch whose PDF is open and not yet marked printed: the payments in print order, the
+   * number they start on, and the key its Mark Printed press sends, so pressing again after a
+   * failure is a retry.
+   */
+  let opened = $state<{
+    readonly identifiers: readonly string[];
+    readonly first: number;
+    readonly key: string;
+  } | null>(null);
+  /** The PDF is being made. */
+  let composing = $state(false);
+  /** Mark Printed is with the server. */
+  let marking = $state(false);
+  /** The print the server refused, shown in the failure band. */
   let printFailure = $state<Failure | null>(null);
   let pdfFailure = $state<Failure | null>(null);
-  let lastBatch = $state<PrintTrustChecksResponse | null>(null);
 
-  // ---- confirm print -----------------------------------------------------------------------------
-
-  /** The payments Confirm Print is asking about, in print order, and the number they start on. */
-  let confirming = $state<{ payments: readonly TrustCheckToPrint[]; first: number }>({
-    payments: [],
-    first: 1,
+  // A changed choice, order or first number no longer matches the PDF that is open.
+  $effect(() => {
+    const identifiers = chosenInOrder;
+    const firstNumber = first;
+    const batch = untrack(() => opened);
+    if (batch === null) return;
+    const same =
+      firstNumber === batch.first &&
+      identifiers.length === batch.identifiers.length &&
+      identifiers.every((identifier, index) => identifier === batch.identifiers[index]);
+    if (!same) untrack(() => (opened = null));
   });
-  let confirmOpen = $state(false);
 
-  async function askToPrint(): Promise<void> {
+  async function openToPrint(): Promise<void> {
     if (data === null || chosenCount === 0 || first === null) return;
-    if (data.stock === null) {
+    const stock = data.stock;
+    if (stock === null) {
       await goto(stockHref);
       return;
     }
-    const byIdentifier = new Map(toPrint.map((row) => [row.trustMovementId, row]));
-    confirming = {
-      payments: chosenInOrder.flatMap((identifier) => {
-        const row = byIdentifier.get(identifier);
-        return row === undefined ? [] : [row];
-      }),
-      first,
-    };
-    confirmOpen = true;
-  }
-
-  /**
-   * Number the batch, record it as printed, and open its PDF. A failure Confirm Print can retry is
-   * handed back to it; a number already used is the screen's to fix, so the panel closes on it.
-   */
-  async function print(): Promise<Failure | null> {
-    const identifiers = confirming.payments.map((row) => row.trustMovementId);
-    const firstNumber = confirming.first;
-    // One key per batch and first number: pressing again for the same after a failure is a retry.
-    const batch = `${firstNumber}:${identifiers.join(",")}`;
-    if (printKeyFor !== batch) {
-      printKey = crypto.randomUUID();
-      printKeyFor = batch;
-    }
-    printing = true;
+    const identifiers = [...chosenInOrder];
+    const firstNumber = first;
+    composing = true;
     pdfFailure = null;
     printFailure = null;
-    const outcome = await service.print(trustAccountId, identifiers, printKey, firstNumber);
-    if (outcome.kind !== "ok") {
-      printing = false;
-      if (numberAlreadyUsed(outcome.failure.problem?.detail)) {
-        printFailure = outcome.failure;
-        refusedText = String(firstNumber);
-        return null;
-      }
-      return outcome.failure;
-    }
-    printKeyFor = "";
-    lastBatch = outcome.value;
-    await composeBatch(outcome.value);
-    printing = false;
-    void load();
-    return null;
-  }
-
-  async function composeBatch(batch: PrintTrustChecksResponse): Promise<void> {
-    if (batch.stock === null) return;
     try {
       const pdf = await service.composePdf(
-        checkBatchDocument(
-          batch.stock,
-          batch.checks.map((check) => ({
-            checkNumber: check.checkNumber,
-            payee: check.payee,
-            amountMinor: check.amountMinor,
-            effectiveDate: check.effectiveDate,
-            memo: check.memo,
-            matterNumber: check.matterNumber,
-            matterTitle: check.matterTitle,
-          })),
-        ),
+        checkBatchDocument(stock, printableChecks(toPrint, identifiers, firstNumber)),
       );
       service.openPdf(pdf);
+      opened = { identifiers, first: firstNumber, key: crypto.randomUUID() };
     } catch (error) {
       pdfFailure = {
         problem: null,
@@ -366,7 +316,38 @@
         failedAt: new Date(),
         cause: error instanceof CheckPdfError ? error.message : String(error),
       };
+    } finally {
+      composing = false;
     }
+  }
+
+  /** Number the opened batch and record it printed. A number already used goes back to Print. */
+  async function markPrinted(): Promise<void> {
+    const batch = opened;
+    if (batch === null) return;
+    marking = true;
+    printFailure = null;
+    const outcome = await service.print(
+      trustAccountId,
+      batch.identifiers,
+      batch.key,
+      batch.first,
+    );
+    marking = false;
+    if (outcome.kind !== "ok") {
+      printFailure = outcome.failure;
+      if (numberAlreadyUsed(outcome.failure.problem?.detail)) {
+        refusedText = String(batch.first);
+        opened = null;
+      }
+      return;
+    }
+    opened = null;
+    void load();
+  }
+
+  function cancelPrint(): void {
+    opened = null;
   }
 
   // ---- return to list ----------------------------------------------------------------------------
@@ -399,6 +380,10 @@
     voidingNumber = data.nextCheckNumber;
     voidOpen = true;
   }
+
+  // ---- positive pay file -------------------------------------------------------------------------
+
+  let positivePayOpen = $state(false);
 
   const counts = $derived({ toPrint: toPrint.length, printed: printed.length, voided: voided.length });
 </script>
@@ -482,6 +467,10 @@
     <Ban class="size-16 shrink-0" aria-hidden="true" />
     Void Next Number
   </DropdownMenu.Item>
+  <DropdownMenu.Item disabled={data === null} onSelect={() => (positivePayOpen = true)}>
+    <FileDown class="size-16 shrink-0" aria-hidden="true" />
+    Positive Pay File
+  </DropdownMenu.Item>
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col gap-16">
@@ -495,15 +484,28 @@
       {#if !narrow.current}
         <Button variant="secondary" href={stockHref}>Check Stock</Button>
       {/if}
-      <Button
-        variant="primary"
-        disabled={printRefusal !== undefined || printing}
-        title={data?.stock === null ? "Set up this account's check stock first." : printRefusal}
-        onclick={() => void askToPrint()}
-      >
-        <Printer class="size-16" aria-hidden="true" />
-        {printing ? "Printing" : printLabel}
-      </Button>
+      {#if opened !== null}
+        <Button variant="secondary" disabled={marking} onclick={cancelPrint}>Cancel</Button>
+        <Button
+          variant="primary"
+          disabled={manageRefusal !== undefined || marking}
+          title={manageRefusal}
+          onclick={() => void markPrinted()}
+        >
+          <Check class="size-16" aria-hidden="true" />
+          {marking ? "Saving" : markPrintedLabel(opened.identifiers.length)}
+        </Button>
+      {:else}
+        <Button
+          variant="primary"
+          disabled={printRefusal !== undefined || composing}
+          title={data?.stock === null ? "Set up this account's check stock first." : printRefusal}
+          onclick={() => void openToPrint()}
+        >
+          <Printer class="size-16" aria-hidden="true" />
+          {composing ? "Opening" : printButtonLabel(chosenCount)}
+        </Button>
+      {/if}
     {/snippet}
   </ScreenHeader>
 
@@ -518,18 +520,16 @@
     {#if printFailure !== null}
       <FailureNotice
         failure={printFailure}
-        title="The Checks Were Not Printed"
-        fallback="No number was used. The payments are still waiting to be printed."
+        title="The Checks Were Not Marked Printed"
+        fallback="No number was used. The payments are still on To Print."
       />
     {/if}
-    {#if pdfFailure !== null && lastBatch !== null}
+    {#if pdfFailure !== null}
       <FailureNotice
         failure={pdfFailure}
         title="The Check PDF Could Not Be Made"
-        fallback="The checks are recorded as printed. Make the PDF again before you print."
-        onRetry={() => {
-          if (lastBatch !== null) void composeBatch(lastBatch).then(() => (pdfFailure = null));
-        }}
+        fallback="Nothing was recorded. Try again."
+        onRetry={() => void openToPrint()}
       />
     {/if}
 
@@ -559,7 +559,7 @@
               inputmode="numeric"
               autocomplete="off"
               class="tabular-nums"
-              disabled={manageRefusal !== undefined || printing}
+              disabled={manageRefusal !== undefined || marking}
             />
           {/snippet}
         </LabelledField>
@@ -567,6 +567,11 @@
     </div>
 
     <div class="flex min-h-0 flex-1 flex-col gap-8">
+      {#if opened !== null}
+        <p class="text-sm text-text-muted" role="status">
+          {openedToPrintText(opened.first, opened.identifiers.length)}
+        </p>
+      {/if}
       {#if view === "to-print"}
         <DataTable.Grid
           grid={queueGrid}
@@ -599,16 +604,6 @@
   {/if}
 </div>
 
-<CheckConfirmPrintDialog
-  bind:open={confirmOpen}
-  payments={confirming.payments}
-  firstCheckNumber={confirming.first}
-  {accountName}
-  money={(amountMinor) => money(amountMinor)}
-  {manageRefusal}
-  onPrint={print}
-/>
-
 <CheckReturnDialog
   bind:open={returnOpen}
   {trustAccountId}
@@ -623,4 +618,11 @@
   checkNumber={voidingNumber}
   {service}
   onVoided={() => void load()}
+/>
+
+<PositivePayDialog
+  bind:open={positivePayOpen}
+  accountName={accountName ?? "Trust Account"}
+  register={data?.register ?? []}
+  {service}
 />

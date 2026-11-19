@@ -17,6 +17,7 @@ import {
   type SaveTrustCheckStockRequest,
   type TrustChecksResponse,
 } from "./checks-api.ts";
+import { saveToTarget } from "$lib/export/save-target.ts";
 import { composeCheckPdf, openPdf } from "./check-pdf.ts";
 import type {
   SaveTrustCheckStockResponse,
@@ -53,6 +54,8 @@ export interface TrustChecksService {
   composePdf(document: ComposeDocument): Promise<Blob>;
   /** Hand the PDF to the browser to print from. */
   openPdf(pdf: Blob): void;
+  /** Save a file the screen made to this computer, where the member's downloads go. */
+  saveFile(content: string, filename: string, contentType: string): Promise<unknown>;
 }
 
 export const liveTrustChecksService: TrustChecksService = {
@@ -64,4 +67,5 @@ export const liveTrustChecksService: TrustChecksService = {
   readScanUrl: readTrustCheckStockScanUrl,
   composePdf: composeCheckPdf,
   openPdf,
+  saveFile: saveToTarget,
 };

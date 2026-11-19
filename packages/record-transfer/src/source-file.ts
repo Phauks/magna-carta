@@ -69,6 +69,15 @@ export function transferSourceFileObjectKey(
   return `transfers/${transferRunId}/${transferSourceFileId}`;
 }
 
+// Where the mapping a person is still working on for a file is kept: one object, replaced whole on
+// each save, under the run's own prefix so releasing a run's objects takes it too.
+export function transferFileMappingObjectKey(
+  transferRunId: TransferRunId,
+  transferSourceFileId: TransferSourceFileId,
+): string {
+  return `transfers/${transferRunId}/mappings/${transferSourceFileId}.json`;
+}
+
 // One row of a source file as a reader hands it on: its position and its values, uninterpreted.
 // `rowNumber` counts data rows from 1 and is what a link, a rejection and the run's report cite.
 // `lineNumber` is the line of the file the row starts on, which is what a person opening the file in
