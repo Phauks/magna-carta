@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   accessCodeEmail,
   lastDayOf,
+  signedCopyEmail,
   signingReminderEmail,
   signingRequestEmail,
   type SigningLetterFacts,
@@ -50,5 +51,23 @@ describe("a signer's mail", () => {
     expect(mail.text).toContain("012345");
     expect(mail.text).toContain("10 minutes");
     expect(mail.text).not.toContain("/sign/");
+  });
+});
+
+describe("the mail that carries the signed copy", () => {
+  it("names the sender and the document, carries the copy link, and never the document", () => {
+    const mail = signedCopyEmail({
+      firmName: "Goldsmith Law",
+      senderName: "Trevor Goldsmith",
+      title: "Engagement.pdf",
+      linkWorksUntil: lastDayOf("2026-12-13T17:30:00.000Z"),
+      origin: "https://app.example.com",
+      token: "abc.def",
+    });
+    expect(mail.subject).toBe("Completed: Engagement.pdf");
+    expect(mail.text).toContain("Trevor Goldsmith at Goldsmith Law");
+    expect(mail.text).toContain("https://app.example.com/sign/copy/abc.def");
+    expect(mail.text).toContain("Certificate of Completion");
+    expect(mail.text).toContain("UTC");
   });
 });

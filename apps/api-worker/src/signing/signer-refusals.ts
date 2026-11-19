@@ -86,3 +86,52 @@ export function signerLinkRefusal(input: {
       return Date.parse(input.expiresAt) <= Date.parse(input.now) ? "expired" : null;
   }
 }
+
+/** Why a link to a signed copy cannot be used. */
+export type SignedCopyRefusalCode = "not-valid" | "expired" | "not-ready";
+
+export function signedCopyRefusalFor(code: SignedCopyRefusalCode): GuestLaneRefusal {
+  switch (code) {
+    case "not-valid":
+      return {
+        type: "signing-link-not-valid",
+        status: 410,
+        title: "This link no longer works",
+        detail: "Ask whoever sent you the document for a copy.",
+      };
+    case "expired":
+      return {
+        type: "signing-link-expired",
+        status: 410,
+        title: "This link has expired",
+        detail:
+          "The link to download the signed copy has expired. Ask whoever sent you the document for a copy.",
+      };
+    case "not-ready":
+      return {
+        type: "signed-copy-not-ready",
+        status: 410,
+        title: "The signed copy is not ready",
+        detail: "The signed copy is still being prepared. Try the link again in a few minutes.",
+      };
+  }
+}
+
+/**
+ * What the signer's row and the request say about a link to the signed copy. The request's own last
+ * day to sign does not apply: the copy link has its own lifetime, carried in the token.
+ */
+export function signedCopyRefusal(input: {
+  readonly found: boolean;
+  readonly secretMatches: boolean;
+  readonly storedVersion: number;
+  readonly presentedVersion: number;
+  readonly requestStatus: RequestStatus;
+  readonly sealedAt: string | null;
+}): SignedCopyRefusalCode | null {
+  if (!input.found || !input.secretMatches || input.storedVersion !== input.presentedVersion) {
+    return "not-valid";
+  }
+  if (input.requestStatus !== "completed") return "not-valid";
+  return input.sealedAt === null ? "not-ready" : null;
+}

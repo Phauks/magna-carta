@@ -17,46 +17,24 @@
  * whatever it left pending to its execution context (src/http/telemetry-middleware.ts). A failed write is
  * swallowed WITHOUT logging: logged as `operation.failed`, it would be handed straight back here.
  */
-import { insertErrorRecordStatement } from "@magna-carta/data-access/error-record-statements";
+import {
+  ERROR_RECORD_WRITE_OPERATION,
+  errorRecordFromFailureEvent,
+  insertErrorRecordStatement,
+} from "@magna-carta/data-access/error-record-statements";
 import type { TelemetryEvent } from "@magna-carta/telemetry/event";
 import { setFailedOperationTap } from "@magna-carta/telemetry/failed-operation-tap";
 import { serviceIdentity } from "@magna-carta/telemetry/service-identity";
 import type { Bindings } from "../bindings.ts";
 import { trackBackgroundWork } from "../http/deferred-work.ts";
 
-/** The operation whose failure is the record's own: never written back into it. */
-export const ERROR_RECORD_WRITE_OPERATION = "error-record:write";
+export { ERROR_RECORD_WRITE_OPERATION };
 
 const pending = new Set<Promise<unknown>>();
 
-function text(value: unknown): string | null {
-  return typeof value === "string" && value !== "" ? value : null;
-}
-
-/** The row a background failure becomes, or null where the event cannot be one. */
+/** The row a logged failure becomes, or null where the event cannot be one. */
 export function backgroundFailureRow(event: TelemetryEvent, service: string) {
-  const errorId = text(event.fields.errorId);
-  const operation = text(event.fields.operation);
-  if (errorId === null || operation === null || operation === ERROR_RECORD_WRITE_OPERATION) {
-    return null;
-  }
-  return {
-    errorId,
-    recordedAt: text(event.at) ?? new Date().toISOString(),
-    source: "background",
-    service,
-    operation,
-    status: null,
-    problemType: null,
-    title: null,
-    errorName: text(event.fields.errorName),
-    messageHead: text(event.fields.messageHead),
-    location: null,
-    build: null,
-    firmId: null,
-    userId: null,
-    correlationId: text(event.correlationId),
-  } as const;
+  return errorRecordFromFailureEvent(event, service);
 }
 
 /** Install the tap over this env's control-plane database. Idempotent; the env is stable per isolate. */

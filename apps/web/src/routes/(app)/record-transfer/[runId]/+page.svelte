@@ -5,12 +5,20 @@
    *
    * ONE READ FEEDS THE SCREEN. The run answers with its files and its passes, and everything the
    * header and the left panel say is counted from the latest pass of each file. What is read per
-   * file is read when the file is selected: its first rows, what its latest pass was asked with,
-   * and that pass's report.
+   * file is read when the file is selected: its first rows, its saved mapping, what its latest pass
+   * was asked with, and that pass's report.
    *
    * A PASS RUNS AWAY FROM THE REQUEST. Asking for one answers at once, and the pass is then asked
    * about every few seconds until it ends. Each answer is written into the run's cached read, so
    * the badges, the summary and the tabs all move together.
+   *
+   * A MAPPING IS SAVED WHEN SAVE IS PRESSED, and not before. Asking for a pass is a commit too, so
+   * it saves the mapping the pass runs with. A file opens on the mapping it was saved with. A file
+   * that has been run opens on what its latest pass ran under, unless the mapping was saved after
+   * that pass was asked for.
+   *
+   * A RUN ENDS ONE OF TWO WAYS, from the page's menu: accepted or stopped. After either, the page
+   * reads the run and changes nothing in it.
    *
    * WHAT A FILE HOLDS is known from its latest pass. Before any pass it is the answer given when the
    * file was uploaded, which this page remembers for the session and which also rides on the file
@@ -23,44 +31,60 @@
     matterTypesListOptions,
     membersListOptions,
     recordTransferGetRunOptions,
+    recordTransferListRunsQueryKey,
+    type RecordTransferRun,
     type RecordTransferRunResponse,
   } from "@magna-carta/api-client";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as Card from "@magna-carta/design-system/card";
   import ChoiceRow from "@magna-carta/design-system/choice-row";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import * as Tabs from "@magna-carta/design-system/tabs";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
+  import CircleStop from "@lucide/svelte/icons/circle-stop";
   import { failureOf } from "$lib/api/api-client.ts";
   import { queryClient, SESSION_STABLE } from "$lib/api/screen-data.ts";
   import { readerTimeZone } from "$lib/calendar/calendar-api.ts";
+  import { saveToTarget } from "$lib/export/save-target.ts";
   import { firmOffices } from "$lib/offices/firm-offices.svelte.ts";
   import type { ChoiceOption } from "$lib/components/choice-picker.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import ColumnsTab from "$lib/record-transfer/columns-tab.svelte";
+  import EndRunDialog from "$lib/record-transfer/end-run-dialog.svelte";
   import ReportTab from "$lib/record-transfer/report-tab.svelte";
   import SampleTab from "$lib/record-transfer/sample-tab.svelte";
   import UploadFileDialog from "$lib/record-transfer/upload-file-dialog.svelte";
   import {
     blankMapping,
+    columnHolding,
     delimiterHintedBy,
     fileKindChoiceFor,
+    mappingFingerprint,
     mappingFromStated,
     mappingProblems,
+    openingMapping,
     passRequestFrom,
     type FileMapping,
     type MappingDefaults,
+    type MappingSaveState,
     type TransferRecordKind,
   } from "$lib/record-transfer/column-mapping.ts";
   import {
+    downloadRejectedRows,
+    listSourceFileColumnValues,
     previewSourceFile,
+    readSourceFileMapping,
     readTransferPass,
     readTransferPassReport,
     readTransferPassRules,
     requestTransferPass,
+    saveSourceFileMapping,
+    type ColumnCodesRead,
     type TransferPassOutcome,
   } from "$lib/record-transfer/record-transfer-api.ts";
   import {
@@ -75,8 +99,10 @@
     passStateLabel,
     recordKindLabel,
     recordKindOfFile,
+    rejectedRowsFileName,
     reportCount,
     runIsOpen,
+    runStatusLabel,
     runSummary,
     type CutoverStanding,
     type TransferPass,
@@ -190,8 +216,8 @@
   );
 
   /**
-   * Read a file's first rows, and settle the mapping its Columns tab opens on: the one its latest
-   * pass ran under, or a blank one for what the file holds.
+   * Read a file's first rows, and settle the mapping its Columns tab opens on: the saved one, the
+   * one its latest pass ran under, or a blank one for what the file holds.
    */
   async function prepareFile(
     file: TransferSourceFile,
@@ -206,15 +232,38 @@
     // A blank mapping starts on the firm's time zone, so the offices are in hand before one is made.
     await firmOffices.load(fetch);
     let settled = mappings[file.id] ?? null;
-    if (settled === null && pass !== null) {
-      const rules = await readTransferPassRules(runId, pass.id);
-      if (rules.kind === "ok") settled = mappingFromStated(rules.value, defaults);
+    let source: "saved" | "stated" | "none" = "none";
+    if (settled === null) {
+      const [rules, saved] = await Promise.all([
+        pass === null ? null : readTransferPassRules(runId, pass.id),
+        readSourceFileMapping(runId, file.id),
+      ]);
+      // A saved mapping that can't be read is not the same as none. Opening blank over it would
+      // save the blank one in its place, so the file waits for the read.
+      if (saved.kind !== "ok") {
+        previewFailures = {
+          ...previewFailures,
+          [file.id]: stated(saved.failure, "The saved columns of this file couldn't be read."),
+        };
+        preparing.delete(file.id);
+        return;
+      }
+      const opening = openingMapping({
+        saved: saved.value.saved,
+        stated: rules?.kind === "ok" ? mappingFromStated(rules.value, defaults) : null,
+        passRequestedAt: pass?.requestedAt ?? null,
+      });
+      settled = opening.mapping;
+      source = opening.source;
+      if (opening.mapping !== null && opening.source === "saved") {
+        declared = { ...declared, [file.id]: opening.mapping.recordKind };
+      }
     }
     if (settled === null && kind !== null) settled = blankMapping(kind, defaults);
 
     let delimiter = settled?.delimiter ?? "comma";
     let read = await previewSourceFile(runId, file.id, delimiter);
-    if (read.kind === "ok" && pass === null) {
+    if (read.kind === "ok" && source === "none" && pass === null) {
       // A header read as one column that still has another delimiter in it was read wrongly.
       const hinted = delimiterHintedBy(read.value.columns);
       if (hinted !== null && hinted !== delimiter) {
@@ -227,7 +276,16 @@
     }
     if (read.kind === "ok") {
       previews = { ...previews, [file.id]: read.value };
-      if (settled !== null) mappings = { ...mappings, [file.id]: { ...settled, delimiter } };
+      if (settled !== null && mappings[file.id] === undefined) {
+        const opened = { ...settled, delimiter };
+        mappings = { ...mappings, [file.id]: opened };
+        // A saved mapping, or one a pass ran under, is already kept, so a change is measured
+        // against it. A blank one is kept nowhere and stands as not saved.
+        if (source !== "none") {
+          lastKept = { ...lastKept, [file.id]: mappingFingerprint(opened) };
+        }
+        if (source === "saved") savedFiles = { ...savedFiles, [file.id]: true };
+      }
     } else {
       previewFailures = {
         ...previewFailures,
@@ -249,7 +307,174 @@
   function chooseKind(recordKind: TransferRecordKind): void {
     if (selectedFile === null) return;
     declared = { ...declared, [selectedFile.id]: recordKind };
-    mappings = { ...mappings, [selectedFile.id]: blankMapping(recordKind, defaults) };
+    changeMapping(selectedFile.id, blankMapping(recordKind, defaults));
+  }
+
+  /*
+   * Saving a mapping. Each file has the fingerprint of the mapping that is kept for it: the one
+   * last saved, or the one it opened on where that came from a save or a pass. A mapping that
+   * differs from it has changes that are not saved.
+   */
+  let lastKept = $state<Record<string, string>>({});
+  /** Files whose mapping stands as saved, which is what lets the Columns tab say so. */
+  let savedFiles = $state<Record<string, boolean>>({});
+  let savingFiles = $state<Record<string, boolean>>({});
+  let saveFailures = $state<Record<string, StatedFailure>>({});
+
+  function mappingIsUnsaved(fileId: string): boolean {
+    const current = mappings[fileId];
+    return current !== undefined && mappingFingerprint(current) !== lastKept[fileId];
+  }
+
+  async function saveMapping(fileId: string): Promise<void> {
+    const current = mappings[fileId];
+    if (current === undefined || !open || savingFiles[fileId] === true) return;
+    if (!mappingIsUnsaved(fileId)) return;
+    const sent = $state.snapshot(current) as FileMapping;
+    const fingerprint = mappingFingerprint(sent);
+    savingFiles = { ...savingFiles, [fileId]: true };
+    const { [fileId]: _cleared, ...remaining } = saveFailures;
+    saveFailures = remaining;
+    const outcome = await saveSourceFileMapping(runId, fileId, sent);
+    savingFiles = { ...savingFiles, [fileId]: false };
+    if (outcome.kind !== "ok") {
+      saveFailures = {
+        ...saveFailures,
+        [fileId]: stated(
+          outcome.failure,
+          "The columns couldn't be saved. Your changes are still on this page.",
+        ),
+      };
+      return;
+    }
+    lastKept = { ...lastKept, [fileId]: fingerprint };
+    savedFiles = { ...savedFiles, [fileId]: true };
+  }
+
+  function changeMapping(fileId: string, next: FileMapping): void {
+    mappings = { ...mappings, [fileId]: next };
+  }
+
+  const saveState = $derived.by<MappingSaveState>(() => {
+    if (selectedFile === null || mapping === null) return "idle";
+    const fileId = selectedFile.id;
+    if (savingFiles[fileId] === true) return "saving";
+    // A run that has ended takes no save, so its mapping is read and nothing is said about it.
+    if (mappingIsUnsaved(fileId)) return open ? "unsaved" : "idle";
+    return savedFiles[fileId] === true ? "saved" : "idle";
+  });
+
+  /*
+   * The codes of a matter type or staff column, read once per column and kept for the page's life.
+   * A file never changes, so neither do its codes.
+   */
+  let columnCodes = $state<Record<string, ColumnCodesRead>>({});
+  const READING_CODES: ColumnCodesRead = { kind: "reading" };
+
+  function codesKey(fileId: string, current: FileMapping, column: string): string {
+    return JSON.stringify([fileId, current.delimiter, column]);
+  }
+
+  async function readColumnCodes(fileId: string, current: FileMapping, column: string): Promise<void> {
+    const key = codesKey(fileId, current, column);
+    columnCodes = { ...columnCodes, [key]: READING_CODES };
+    const read = await listSourceFileColumnValues(runId, fileId, column, current.delimiter);
+    columnCodes = {
+      ...columnCodes,
+      [key]:
+        read.kind === "ok"
+          ? { kind: "read", codes: read.value.values, truncated: read.value.truncated }
+          : {
+              kind: "failed",
+              failure: stated(read.failure, "The codes in this column couldn't be read."),
+            },
+    };
+  }
+
+  const matterTypeColumn = $derived(
+    mapping === null || preview === null
+      ? undefined
+      : columnHolding(mapping, preview.columns, "matterType"),
+  );
+  const memberColumn = $derived(
+    mapping === null || preview === null
+      ? undefined
+      : columnHolding(mapping, preview.columns, "responsibleMember"),
+  );
+
+  function codesOf(column: string | undefined): ColumnCodesRead {
+    if (selectedFile === null || mapping === null || column === undefined) return READING_CODES;
+    return columnCodes[codesKey(selectedFile.id, mapping, column)] ?? READING_CODES;
+  }
+
+  const matterTypeCodes = $derived(codesOf(matterTypeColumn));
+  const memberCodes = $derived(codesOf(memberColumn));
+
+  $effect(() => {
+    const file = selectedFile;
+    const current = mapping;
+    if (file === null || current === null) return;
+    for (const column of [matterTypeColumn, memberColumn]) {
+      if (column === undefined) continue;
+      if (columnCodes[codesKey(file.id, current, column)] !== undefined) continue;
+      untrack(() => void readColumnCodes(file.id, current, column));
+    }
+  });
+
+  /** Ask again for the codes of the selected file's columns whose read failed. */
+  function retryColumnCodes(): void {
+    if (selectedFile === null || mapping === null) return;
+    const kept = { ...columnCodes };
+    for (const column of [matterTypeColumn, memberColumn]) {
+      if (column === undefined) continue;
+      const key = codesKey(selectedFile.id, mapping, column);
+      if (kept[key]?.kind === "failed") delete kept[key];
+    }
+    columnCodes = kept;
+  }
+
+  /* Saving the rows a finished pass rejected, as a file. */
+  let downloading = $state<Record<string, boolean>>({});
+  let downloadFailures = $state<Record<string, StatedFailure>>({});
+
+  async function downloadRejected(): Promise<void> {
+    if (selectedFile === null || finishedPass === null) return;
+    const passId = finishedPass.id;
+    if (downloading[passId] === true) return;
+    const fileName = rejectedRowsFileName(selectedFile.fileName);
+    downloading = { ...downloading, [passId]: true };
+    const { [passId]: _cleared, ...remaining } = downloadFailures;
+    downloadFailures = remaining;
+    const outcome = await downloadRejectedRows(runId, passId);
+    if (outcome.kind === "ok") {
+      await saveToTarget(outcome.value, fileName, "text/csv");
+    } else {
+      downloadFailures = {
+        ...downloadFailures,
+        [passId]: stated(outcome.failure, "The rejected rows couldn't be downloaded. Try again."),
+      };
+    }
+    downloading = { ...downloading, [passId]: false };
+  }
+
+  const rejectedDownload = $derived(
+    finishedPass === null || (finishedPass.counts?.rejected ?? 0) === 0
+      ? null
+      : {
+          busy: downloading[finishedPass.id] === true,
+          failure: downloadFailures[finishedPass.id] ?? null,
+        },
+  );
+
+  /* Ending the run. */
+  let acceptOpen = $state(false);
+  let stopOpen = $state(false);
+
+  function ended(endedRun: RecordTransferRun): void {
+    queryClient.setQueryData<RecordTransferRunResponse>(runOptions.queryKey, (current) =>
+      current === undefined ? current : { ...current, run: endedRun },
+    );
+    void queryClient.invalidateQueries({ queryKey: recordTransferListRunsQueryKey() });
   }
 
   /* A pass's report, read once it has ended and kept for the page's life. */
@@ -347,6 +572,9 @@
       return;
     }
     requesting = true;
+    // Asking for a pass commits the mapping it runs with. The pass goes ahead whether or not the
+    // save does, and a save that fails says so above the tabs.
+    void saveMapping(file.id);
     const outcome = await requestTransferPass(runId, request, crypto.randomUUID());
     requesting = false;
     if (outcome.kind !== "ok") {
@@ -377,7 +605,10 @@
     return "neutral";
   }
 
-  const summary = $derived(runRead.data === undefined ? "" : runSummary(files, passes));
+  const summary = $derived(runRead.data === undefined ? "" : runSummary(files, passes, open));
+  const saveFailure = $derived(
+    selectedFile === null ? null : (saveFailures[selectedFile.id] ?? null),
+  );
   const checks = $derived(cutoverChecks(files, passes, declared));
   const reportTotal = $derived(
     finishedPass?.counts === null || finishedPass?.counts === undefined
@@ -412,12 +643,30 @@
 <div class="flex flex-col gap-24">
   <ScreenHeader title={run?.label ?? "Record Transfer"} back="record-transfer">
     {#snippet meta()}
+      {#if run !== null && !open}
+        <Badge variant={run.completedAt === null ? "neutral" : "success"}>
+          {runStatusLabel(run)}
+        </Badge>
+      {/if}
       {summary}
     {/snippet}
     {#snippet actions()}
       <div class="hidden items-center gap-8 sm:flex">
         {@render runActions()}
       </div>
+    {/snippet}
+    {#snippet pageMenu()}
+      <!-- The two ways a run ends. Each is asked once in a run's life and is about the run as a
+           whole, so they stand in the page's menu and the row keeps the work on a file. Disabled
+           and still shown once the run has ended, so the menu keeps one shape. -->
+      <DropdownMenu.Item disabled={!open} onSelect={() => (acceptOpen = true)}>
+        <CircleCheck class="size-16 shrink-0" aria-hidden="true" />
+        Accept Run
+      </DropdownMenu.Item>
+      <DropdownMenu.Item disabled={!open} onSelect={() => (stopOpen = true)}>
+        <CircleStop class="size-16 shrink-0" aria-hidden="true" />
+        Stop Run
+      </DropdownMenu.Item>
     {/snippet}
   </ScreenHeader>
   <div class="flex flex-wrap items-center gap-8 sm:hidden">
@@ -525,6 +774,16 @@
             onRetry={() => void runPass()}
           />
         {/if}
+        {#if saveFailure !== null && selectedFile !== null}
+          {@const fileId = selectedFile.id}
+          <FailureNotice
+            failure={saveFailure.failure}
+            title="The Columns Were Not Saved"
+            fallback={saveFailure.fallback}
+            whenSilent={saveFailure.whenSilent}
+            onRetry={() => void saveMapping(fileId)}
+          />
+        {/if}
         <Tabs.Root bind:value={tab}>
           <Tabs.List>
             <Tabs.Trigger value="columns">Columns</Tabs.Trigger>
@@ -554,10 +813,17 @@
               {referenceOptions}
               {matterTypeOptions}
               {memberOptions}
+              {matterTypeCodes}
+              {memberCodes}
+              onRetryCodes={retryColumnCodes}
+              {saveState}
+              onSave={() => {
+                if (selectedFile !== null) void saveMapping(selectedFile.id);
+              }}
               disabled={!open}
               onChange={(next) => {
                 if (selectedFile === null) return;
-                mappings = { ...mappings, [selectedFile.id]: next };
+                changeMapping(selectedFile.id, next);
               }}
               onChooseKind={chooseKind}
             />
@@ -576,6 +842,8 @@
                 const { [finishedPass.id]: _cleared, ...remaining } = reportFailures;
                 reportFailures = remaining;
               }}
+              {rejectedDownload}
+              onDownloadRejected={() => void downloadRejected()}
             />
           </Tabs.Content>
 
@@ -604,4 +872,13 @@
   {runId}
   runLabel={run?.label ?? ""}
   onUploaded={uploaded}
+/>
+
+<EndRunDialog
+  bind:acceptOpen
+  bind:stopOpen
+  {runId}
+  runLabel={run?.label ?? ""}
+  passInFlight={anyInFlight}
+  onEnded={ended}
 />

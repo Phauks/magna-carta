@@ -13,6 +13,7 @@
   "dependencies": {
     "@magna-carta/build-identity": "workspace:*",
     "@magna-carta/community": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/status": "workspace:*",
     "@magna-carta/telemetry": "workspace:*",

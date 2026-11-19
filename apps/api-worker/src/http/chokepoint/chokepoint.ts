@@ -113,11 +113,15 @@ export interface ChokepointSignerGrant {
   readonly secretVersion: number;
 }
 
+/** Which link a signer route is admitted by: the signing link, or the link to the signed copy. */
+export type SignerLaneKind = "link" | "signed-copy";
+
 /** The three questions, asked in the guest lane's order and refused on the guest lane's terms. */
 export interface SignerLanePort<FirmContext> {
   verifySignerLink: (
     c: Context,
     presented: string | null,
+    kind: SignerLaneKind,
   ) => Promise<
     | (ChokepointSignerGrant & { readonly secret: string })
     | { readonly refusal: GuestLaneRefusal; readonly grant: ChokepointSignerGrant }
@@ -131,6 +135,7 @@ export interface SignerLanePort<FirmContext> {
     c: Context,
     firmContext: FirmContext,
     link: ChokepointSignerGrant & { readonly secret: string },
+    kind: SignerLaneKind,
   ) => Promise<GuestLaneRefusal | null>;
 }
 
@@ -403,6 +408,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
   async function admitSigner(
     c: Context,
     meta: RouteMeta,
+    kind: SignerLaneKind,
     continueToHandler: () => Promise<Response | void>,
   ): Promise<Response | void> {
     const reservedAbsence = () =>
@@ -418,6 +424,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
     const link = await port.verifySignerLink(
       c,
       header === undefined || header === "" ? null : header,
+      kind,
     );
     if (link === null) {
       const verdict = await ports.rateLimiter.check(meta.rateLimit, clientRateLimitKey(c));
@@ -438,7 +445,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
     };
     const firmContext = await port.resolveSignerFirmContext(c, grant);
     if (firmContext === null) return reservedAbsence();
-    const refusal = await port.confirmSignerLinkIsLive(c, firmContext, link);
+    const refusal = await port.confirmSignerLinkIsLive(c, firmContext, link, kind);
     if (refusal !== null) return problemJson(c, refusal);
     c.set("chokepointSignerGrant", grant);
     c.set("chokepointFirmId", grant.firmId);
@@ -552,7 +559,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
       // a member's cookie and a guest's link at once, meets one answer rather than a session path
       // deciding what to make of a credential it was never built to read.
       if (meta.signerLane !== undefined) {
-        return await admitSigner(c, meta, runIdempotencyAndHandler);
+        return await admitSigner(c, meta, meta.signerLane, runIdempotencyAndHandler);
       }
       // A signing link is never a key to anything else either.
       const signerHeader = c.req.header(SIGNER_LINK_CREDENTIAL_HEADER);

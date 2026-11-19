@@ -136,4 +136,4 @@ Each lands as its own pull request; until step 4 a completed request waits unsea
 
 - The consent wording in section 8.
 - How long an unsigned request lives by default (the mockup shows 30 days).
-- Whether outside signers get the signed copy by emailed link (proposed) or as an attachment.
+- ~~Whether outside signers get the signed copy by emailed link (proposed) or as an attachment.~~ Built as the emailed link, good for 30 days from the sealing; an attachment would put the document in every mailbox it passes through.

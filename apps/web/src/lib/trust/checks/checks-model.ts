@@ -15,6 +15,7 @@ import {
   type CheckFieldKind,
 } from "@magna-carta/trust/check-layout";
 import type { TrustCheckRegisterRow, TrustCheckToPrint } from "./checks-api.ts";
+import type { PrintableCheck } from "./check-document.ts";
 
 // ---- the register's three lists ------------------------------------------------------------------
 
@@ -81,6 +82,50 @@ export function previewNumbers(
   firstCheckNumber: number,
 ): ReadonlyMap<string, number> {
   return new Map(chosenInOrder.map((identifier, index) => [identifier, firstCheckNumber + index]));
+}
+
+/**
+ * What each chosen payment prints, numbered the way the print route numbers them: the first check
+ * number, then one more for each payment in the order given. Built from the waiting payments the
+ * screen has already read, so the PDF opens before anything is recorded.
+ */
+export function printableChecks(
+  toPrint: readonly TrustCheckToPrint[],
+  chosenInOrder: readonly string[],
+  firstCheckNumber: number,
+): PrintableCheck[] {
+  const byIdentifier = new Map(toPrint.map((row) => [row.trustMovementId, row]));
+  const payments = chosenInOrder.flatMap((identifier) => {
+    const row = byIdentifier.get(identifier);
+    return row === undefined ? [] : [row];
+  });
+  return payments.map((row, index) => ({
+    checkNumber: firstCheckNumber + index,
+    payee: row.payee,
+    amountMinor: row.amountMinor,
+    effectiveDate: row.effectiveDate,
+    memo: row.memo,
+    matterNumber: row.matterNumber,
+    matterTitle: row.matterTitle,
+  }));
+}
+
+/** The print button: "Print 3 Checks", "Print 1 Check", or "Print Checks" with none chosen. */
+export function printButtonLabel(count: number): string {
+  if (count === 0) return "Print Checks";
+  return count === 1 ? "Print 1 Check" : `Print ${count} Checks`;
+}
+
+/** The button that records an opened batch: "Mark 3 Printed", or "Mark 1 Printed". */
+export function markPrintedLabel(count: number): string {
+  return `Mark ${count} Printed`;
+}
+
+/** The line under the lists while an opened batch waits to be marked printed. */
+export function openedToPrintText(firstCheckNumber: number, count: number): string {
+  return count === 1
+    ? `Check ${firstCheckNumber} opened to print.`
+    : `Checks ${checkRunText(firstCheckNumber, count)} opened to print.`;
 }
 
 /** "the payment to Desert Title Company" as the queue's row names it, for an accessible name. */
