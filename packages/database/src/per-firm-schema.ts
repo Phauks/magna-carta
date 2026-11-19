@@ -1640,10 +1640,17 @@ export const incident = sqliteTable("incident", {
   // exists; the plaintext `description` is dropped in a later slice after a verification window.
   descriptionCiphertext: text("description_ciphertext"),
   context: text("context").notNull(), // JSON { route, appVersion, clientAt }
-  screenshotKey: text("screenshot_key"), // R2 seam, nullable; the UI slice populates capture/upload
-  // Lifecycle stays open text (not an enum): the diagnostics agent defines the states it transitions
-  // through later — constraining now would be premature (no consumer exists yet).
+  // The firm-bucket key of the reporter's screenshot, covered parts already painted out on their
+  // device before upload. Null when none was sent. Written once, by the reporter, after the row.
+  screenshotKey: text("screenshot_key"),
+  // open (shown as Received) | investigating | fixed | closed. Open text rather than a CHECK, so a
+  // state the diagnostics agent adds later is a code change, not a table rebuild.
   status: text("status").notNull().default("open"),
+  // The answerer's note to the reporter with the latest status, sealed under the firm key like the
+  // description. Null when the status changed without one.
+  statusNoteCiphertext: text("status_note_ciphertext"),
+  statusChangedAt: text("status_changed_at"), // ISO-8601 instant; null until first answered
+  statusChangedBy: text("status_changed_by").$type<UserId>(), // who set the status; null until then
   reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no cross-plane FK
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });

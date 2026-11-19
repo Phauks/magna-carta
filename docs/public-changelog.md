@@ -15,6 +15,74 @@ behind it.
 
 Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 
+## 2026-11-19
+
+### Added
+
+- Record Transfer now keeps the column mapping you are working on, shows how many of a file's codes you have matched, lets you download the rows that were not brought in with the reason for each, and lets you accept a run when it is right or stop it when it is not.
+- If you delete one day of a repeating event in Outlook or Google, Calendar Sync now lists that day so you can decide what to do. Nothing is called off in Magna Carta. With Google you can put the day back from that page.
+- Colleagues you add as signers can now sign inside Magna Carta. They get a notification when it is their turn, and the PDF Editor's Signature tab shows Sign Now.
+- Pictures can now be converted with settings: shrink to a longest side, grayscale, and JPEG quality. Use **Convert with Options** in a file's Convert menu or on the File Workbench Convert tab. The original is never changed.
+- **Guests can open files shared in a meeting's chat.** While a guest is in the meeting, they can open any file somebody shared in its chat. They cannot reach anything else on the matter.
+- In the PDF Editor's Pages tool, **Insert Pages** adds the pages of another PDF, from the matter or
+  from your computer, before or after any page or at the end, and saves the result as a new version.
+- A new Aged Expenses report shows unbilled costs by how long ago they were incurred.
+- A new Change Log report shows who changed people, organizations, matters and trust account rules, and when.
+- **You can now run a Client Statement of Account.** Choose Reports, then Client Statement of
+  Account, and pick the client in the Client field beside the period. The statement shows what the
+  client owed at the start, each bill and payment with the balance after it, what they owed at the
+  end, and the bills still unpaid.
+- A client statement of account (opening balance, every bill, payment and credit with a running balance, closing balance and unpaid bills) can now be produced through the API; it reaches the Reports page once its client picker is chosen.
+- A new Matter Billing Guide report shows how each open matter is billed today: its fee agreement, its terms and the rates set for it.
+- A new Revenue report shows what was billed and collected in a period, by office, matter type and responsible attorney.
+- When everyone has signed, the signed copy is sealed and saved as the document's newest version, with its Certificate of Completion beside it.
+- Once a document is signed and sealed, everyone outside the firm who signed it is emailed a link to download the signed copy and its Certificate of Completion.
+- **Positive pay file for trust checks.** On a trust account's Checks screen, open the ... menu and
+  choose Positive Pay File. Pick the dates, enter the bank account number, and download the list of
+  checks issued and voided to upload to your bank.
+
+### Changed
+
+- You can connect your Outlook and Google calendars at the same time. A change you make to a shared event in one of them reaches Magna Carta and then your other calendar. Disconnecting Google now also removes Magna Carta from your Google account's list of apps.
+- An Error ID shown by the document editor or the community forum can now be looked up in System Status, and those failures appear in Recent Errors without any setup.
+- **Fewer dead ends when something fails.** A failure caused by the state a record is in, such as a cost already on a finalized bill, no longer offers a Retry that would only be refused again. A crash on a meeting guest's page is now kept against its reference, so it can be looked up like any other. Failures in scheduled and background work now appear in Recent Errors without any setup.
+- You can change a party's role on a matter straight from the Parties table: pick the new role and it
+  is saved. Taking someone off a matter is now called **Delete**, and adding a party starts from **New
+  Party** at the top of the matter rather than a second Add button below the table. Conflicts results
+  now say how strong a match is as **Exact**, **High**, **Medium** or **Low**.
+- The Metadata tab on the File Workbench now shows what a file actually says: who wrote and last saved it, who changed or commented on what and when, the hidden text itself, and the camera, location and time a photo was taken.
+- **Names look the same wherever you type them.** Edit Name and Add Other Name on a Directory record now use exactly the same fields, in the same order, as New Person. While you edit a name, the list of names steps aside so the name is not shown twice.
+- **Optional fields are marked the same way everywhere.** A field you can leave empty now shows a light "Optional" after its name, in every window, instead of "(optional)" written different ways in different places.
+- **The "Optional" note beside a field's name is now in italics**, so it is quieter than the name itself.
+- **Plainer Magnus disclosure and signing agreement.** The statement you accept before using Magnus, and the agreement a signer sees before signing electronically, are reworded more plainly. Because the Magnus statement changed, you will be asked to accept it once more.
+- Toggles with two to four choices, such as the Date, Name and Matter # sort in Magnus, are now fully rounded.
+- **Printing trust checks: a Confirm Print step, the check number in your hands, and the whole page
+  shown as it prints.** Print Checks now opens Confirm Print, which lists the checks in the order they
+  will come out and lets you set the first check number for the batch. You can change the account's
+  next check number at any time from the Checks screen. After printing, you record each check as
+  Printed Right or Misprinted, and a misprinted check goes straight back to Confirm Print on the next
+  number. A check already recorded as printed can be voided and reprinted from its row. The check
+  stock editor shows each page layout as a miniature of the letter page, and the whole chosen page as
+  it will print, with sample values.
+- **Printing trust checks: the PDF opens straight away.** Print Checks opens the checks to print
+  with no window in between. When they are out of the printer, press Mark Printed to record them, or
+  Cancel if you did not print them.
+- **Printing trust checks is shorter.** Printed checks are taken to be right, so nothing asks you
+  afterwards. If a check misprints, choose **Return to List** on its row: the number is voided and
+  kept, and the payment waits to be printed again. The first check number now sits on the Checks
+  screen beside Print, and the next number follows on from the last check you printed.
+- **Clearer messages in a few more places.** Sign-in, System Status and a few other screens use shorter, plainer wording.
+
+### Fixed
+
+- **A rate set for a client on a rate card now applies to that client's time.** It sits between a
+  rate set on the matter and a rate set for the timekeeper. A payment, credit, write-off or transfer
+  from trust can no longer be dated before the bill it is set against was issued, and undoing one can
+  no longer be dated before the thing it undoes.
+- A conflicts check run on a matter now lists the matter's parties under Details, and in the Parties column of the conflicts log, instead of "None named".
+- On a phone, the side menu now rests as icons, the top bar keeps the profile menu on screen, and Magnus's conversation list and title fit the screen.
+- When Repair or Text Recognition cannot run, the tab now says whether the feature has not been set up yet or the engine behind it is failing, so you know whether to wait or to tell your administrator.
+
 ## 2026-11-14
 
 ### Added
