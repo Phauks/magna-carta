@@ -493,6 +493,7 @@ describe("end-to-end", () => {
         "tools:safeBrowse",
         "tools:shipping",
         "tools:speedTest",
+        "tools:translation",
         "tools:whois",
         // trust:read reaches Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Admin, Attorney, and Billing
