@@ -929,9 +929,9 @@ The owner picked Plaid on 2026-11-20 (`docs/decisions/pending/bank-feeds-run-on-
 **Switching it on**
 
 1. Sign up at plaid.com (the free **Trial** plan covers 10 live bank connections). Under **Developers, Keys**, copy the client id and the secret for the environment you want.
-2. Create both in the Secrets Store (scope _Workers_) as `PLAID_CLIENT_ID` and `PLAID_SECRET`. `apps/api-worker/wrangler.jsonc` binds them as `SECRETS_STORE_PLAID_CLIENT_ID` and `SECRETS_STORE_PLAID_SECRET`; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store").
-3. To try it with Plaid's test banks first, also create `PLAID_ENVIRONMENT` with the value `sandbox` and use the sandbox secret. Without it the Worker calls Plaid's production host.
-4. The next deploy picks the keys up. An owner or administrator opens Banking and presses Connect Bank.
+2. On `magna-carta-api`, open Settings, Variables and Secrets, and add `PLAID_CLIENT_ID` and `PLAID_SECRET` as secrets. To keep them in the Secrets Store instead, create the store secrets FIRST (scope _Workers_) and only then add `SECRETS_STORE_PLAID_CLIENT_ID` and `SECRETS_STORE_PLAID_SECRET` entries to `apps/api-worker/wrangler.jsonc`: a store binding that names a secret the store does not hold fails the deploy.
+3. To try it with Plaid's test banks first, also add `PLAID_ENVIRONMENT` with the value `sandbox` and use the sandbox secret. Without it the Worker calls Plaid's production host.
+4. A secret set in the dashboard takes effect at once. An owner or administrator opens Banking and presses Connect Bank.
 
 **What it costs.** Plaid bills per connected account per month for Transactions and per balance read; the screen reads balances at most every 30 minutes per connection, and only when someone opens it. Prices: [`docs/operating-costs.md`](../operating-costs.md).
 
