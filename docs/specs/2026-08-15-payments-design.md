@@ -658,3 +658,29 @@ held.
   account returns to zero and one bank line matches one entry.
 - **A trust deposit that reconciles**: gross to the trust bank, the fee entirely on operating, the
   three-way proof balanced, and the firm-funds leg unmoved.
+
+## 14. Addendum (2026-11-20): the manual receipt is a deposit
+
+K1 shipped first, and the owner then widened it: a payment recorded by hand is entered the way it
+reached the bank, as one **deposit** with many lines, following the QuickBooks _Make Deposits_ model
+(one deposit per deposit slip, bank fees as their own lines, the total worked out and never typed).
+
+- **Shape.** `recordPaymentDeposit` (`packages/billing/src/deposit.ts`) takes a destination account,
+  a date deposited, an optional slip number, up to sixty lines and up to ten fee lines. Each line
+  names its own matter and bill, its method, reference, payer, **date received** (which may precede
+  the date deposited) and amount, and becomes its own `payment_receipt` row and `payment`
+  application. Postings go through Undeposited Funds: each line is Dr Undeposited Funds / Cr
+  Accounts Receivable on its date received; the deposit is Dr the bank for the net and Dr Bank Fees
+  / Cr Undeposited Funds on the date deposited, so the bank's book carries one line per slip, as the
+  bank statement does.
+- **Methods carry their own details.** `packages/billing/src/payment-methods.ts` is the catalog
+  (check, cashier's check, money order, cash with a bill-and-coin count, ACH, wire, card, payment
+  app, other) and checks each detail field by field; the web copy in
+  `apps/web/src/lib/payments/payment-methods.ts` only draws the fields and must match it.
+- **K4 answered for this rail:** a line may not pay more than its bill still owes, counting the
+  other lines on the same bill. The over-payment question stays open for the processor rails.
+- **Files and notes** attach to a line's receipt or to the whole deposit after it is recorded
+  (`composeDepositFile`, `composeDepositNote`); bytes go to the firm's R2, never to the database.
+- **One currency per deposit**, and fees must be less than the payments.
+- Trust money is still out of scope here: a deposit goes to an operating account, and a trust
+  deposit is applied to a bill through Apply Trust Funds.

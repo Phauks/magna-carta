@@ -1,4 +1,6 @@
+import { isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { BillingValidationError } from "./billing-validation.ts";
+import { aggregateMinor, countedMinor } from "./line-amounts.ts";
 
 // HOW A PAYMENT RECORDED BY HAND ARRIVED, and the details each way of paying carries. The method list
 // is closed (the payment_receipt CHECK holds the same list); the details are a JSON object on the
@@ -57,57 +59,58 @@ export const CARD_BRANDS = ["Visa", "Mastercard", "American Express", "Discover"
 export const CARD_ENTRY = ["Chip", "Tap", "Swipe", "Typed in"];
 export const PAYMENT_APPS = ["Zelle", "Venmo", "PayPal", "Cash App", "Other"];
 
-export const METHOD_DETAILS: Readonly<Record<PaymentMethod, Readonly<Record<string, FieldRule>>>> = {
-  check: {
-    checkDate: date("Date on Check"),
-    nameOnCheck: text("Name on Check"),
-    bank: text("Bank"),
-    routing: { label: "Routing Number", required: false, shape: { kind: "routing" } },
-    account: lastFour("Account Ending In"),
-  },
-  cashiers_check: {
-    bank: text("Issuing Bank", true),
-    purchaser: text("Purchased By"),
-    issueDate: date("Issue Date"),
-  },
-  money_order: {
-    issuer: choice("Issuer", MONEY_ORDER_ISSUERS, true),
-    purchaser: text("Purchased By"),
-    issueDate: date("Issue Date"),
-  },
-  cash: {
-    receivedBy: text("Received By", true),
-    countedBy: text("Counted By"),
-    receiptGiven: choice("Receipt Given", ["Yes", "No"]),
-  },
-  ach: {
-    bank: text("Sending Bank"),
-    account: lastFour("Account Ending In"),
-    sent: date("Date Sent"),
-    description: text("Description on Statement"),
-  },
-  wire: {
-    scope: choice("Domestic or International", ["Domestic", "International"], true),
-    bank: text("Sending Bank"),
-    account: lastFour("Account Ending In"),
-    bankReference: text("Bank Reference"),
-    swift: text("SWIFT / BIC"),
-  },
-  card: {
-    brand: choice("Card Brand", CARD_BRANDS, true),
-    lastFour: lastFour("Card Ending In", true),
-    transaction: text("Transaction ID"),
-    entry: choice("How It Was Taken", CARD_ENTRY),
-    terminal: text("Terminal"),
-  },
-  payment_app: {
-    service: choice("Service", PAYMENT_APPS, true),
-    sender: text("Sent From"),
-  },
-  other: {
-    describe: text("How It Was Paid", true),
-  },
-};
+export const METHOD_DETAILS: Readonly<Record<PaymentMethod, Readonly<Record<string, FieldRule>>>> =
+  {
+    check: {
+      checkDate: date("Date on Check"),
+      nameOnCheck: text("Name on Check"),
+      bank: text("Bank"),
+      routing: { label: "Routing Number", required: false, shape: { kind: "routing" } },
+      account: lastFour("Account Ending In"),
+    },
+    cashiers_check: {
+      bank: text("Issuing Bank", true),
+      purchaser: text("Purchased By"),
+      issueDate: date("Issue Date"),
+    },
+    money_order: {
+      issuer: choice("Issuer", MONEY_ORDER_ISSUERS, true),
+      purchaser: text("Purchased By"),
+      issueDate: date("Issue Date"),
+    },
+    cash: {
+      receivedBy: text("Received By", true),
+      countedBy: text("Counted By"),
+      receiptGiven: choice("Receipt Given", ["Yes", "No"]),
+    },
+    ach: {
+      bank: text("Sending Bank"),
+      account: lastFour("Account Ending In"),
+      sent: date("Date Sent"),
+      description: text("Description on Statement"),
+    },
+    wire: {
+      scope: choice("Domestic or International", ["Domestic", "International"], true),
+      bank: text("Sending Bank"),
+      account: lastFour("Account Ending In"),
+      bankReference: text("Bank Reference"),
+      swift: text("SWIFT / BIC"),
+    },
+    card: {
+      brand: choice("Card Brand", CARD_BRANDS, true),
+      lastFour: lastFour("Card Ending In", true),
+      transaction: text("Transaction ID"),
+      entry: choice("How It Was Taken", CARD_ENTRY),
+      terminal: text("Terminal"),
+    },
+    payment_app: {
+      service: choice("Service", PAYMENT_APPS, true),
+      sender: text("Sent From"),
+    },
+    other: {
+      describe: text("How It Was Paid", true),
+    },
+  };
 
 // Cash counted by bill and coin: each key is a denomination, each value how many. The dollar coin is
 // its own key so a count of dollar bills and dollar coins reads back as the person counted it.
@@ -128,7 +131,6 @@ export const CASH_DENOMINATIONS: Readonly<Record<string, number>> = {
 };
 
 const MAX_TEXT = 200;
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export type PaymentDetails = Readonly<Record<string, string | Readonly<Record<string, number>>>>;
 
@@ -156,10 +158,11 @@ export function checkPaymentDetails(
     if (typeof raw !== "string") refuse(line, `${rule.label} must be text`);
     const value = raw.trim();
     if (value === "") continue;
-    if (value.length > MAX_TEXT) refuse(line, `${rule.label} is longer than ${MAX_TEXT} characters`);
+    if (value.length > MAX_TEXT)
+      refuse(line, `${rule.label} is longer than ${MAX_TEXT} characters`);
     switch (rule.shape.kind) {
       case "date":
-        if (!CIVIL_DATE.test(value)) refuse(line, `${rule.label} must be a date (YYYY-MM-DD)`);
+        if (!isCivilDate(value)) refuse(line, `${rule.label} must be a date (YYYY-MM-DD)`);
         break;
       case "lastFour":
         if (!/^\d{4}$/.test(value)) refuse(line, `${rule.label} must be exactly 4 digits`);
@@ -197,7 +200,8 @@ export function checkPaymentDetails(
       }
       if (pieces === 0) continue;
       counted[denomination] = pieces;
-      totalMinor += value * pieces;
+      // The denominations are United States bills and coins, so the count is in dollars.
+      totalMinor = aggregateMinor([totalMinor, countedMinor(value, pieces, "USD")], "USD");
     }
     if (Object.keys(counted).length > 0) {
       if (totalMinor !== amountMinor) {

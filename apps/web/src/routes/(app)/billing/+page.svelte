@@ -45,6 +45,8 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
+  import Banknote from "@lucide/svelte/icons/banknote";
+  import FileText from "@lucide/svelte/icons/file-text";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -262,6 +264,15 @@
     return undefined;
   });
 
+  /** Record a Payment is a page of its own; recording one needs the right to apply money to a bill. */
+  const paymentRefusal = $derived.by((): string | undefined => {
+    if (permissions === null) return "Reading your session.";
+    if (!permissions.includes(BILLING_PERMISSIONS.apply)) {
+      return permissionRefusal("Recording a payment", BILLING_PERMISSIONS.apply);
+    }
+    return undefined;
+  });
+
   /** Whether the loaded register already holds a draft for this client, for the dialog's warning. */
   function draftIsOpenFor(clientEntityId: string): boolean {
     return rows.some(
@@ -358,10 +369,18 @@
       />
 
       <CreateControl
-        noun="Bill"
-        title="Open a draft bill on the matter it charges. Its work is claimed on that matter's Billing section."
-        refusal={createRefusal}
-        onpress={() => (draftOpen = true)}
+        noun={null}
+        title="Open a draft bill, or record payments the firm received."
+        refusal={permissions === null ? "Reading your session." : undefined}
+        choices={[
+          { label: "New Bill", icon: FileText, refusal: createRefusal, onselect: () => (draftOpen = true) },
+          {
+            label: "Record a Payment",
+            icon: Banknote,
+            refusal: paymentRefusal,
+            onselect: () => void goto("/billing/payments/new"),
+          },
+        ]}
       />
 
       <DataTable.ClearFilters

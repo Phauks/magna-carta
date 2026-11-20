@@ -18,7 +18,7 @@ export type FieldNecessity = "required" | "optional";
 export type NecessityMarking = "mark-optional" | "mark-required";
 
 /** The one setting every label reads. */
-export const NECESSITY_MARKING: NecessityMarking = "mark-optional";
+export const NECESSITY_MARKING: NecessityMarking = "mark-required";
 
 /** What a label shows after its name, or null for nothing. */
 export interface NecessityMark {

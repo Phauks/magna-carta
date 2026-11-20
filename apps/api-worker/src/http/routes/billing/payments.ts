@@ -275,22 +275,19 @@ const depositFileRoute = defineOpenAPIRoute(writeMeta("billing.attachDepositFile
   },
 });
 
-const depositFileRemovalRoute = defineOpenAPIRoute(
-  writeMeta("billing.removeDepositFile", APPLY),
-  {
-    method: "post",
-    path: "/api/v1/billing/deposits/{depositId}/files/{fileId}/removal",
-    description: "Takes a file off a deposit. The bytes are kept, as payment records are.",
-    request: { headers: idempotencyKeyHeader, params: fileParam },
-    responses: {
-      201: {
-        description: "The file was taken off",
-        content: { "application/json": { schema: Acknowledged } },
-      },
-      ...mutationResponses,
+const depositFileRemovalRoute = defineOpenAPIRoute(writeMeta("billing.removeDepositFile", APPLY), {
+  method: "post",
+  path: "/api/v1/billing/deposits/{depositId}/files/{fileId}/removal",
+  description: "Takes a file off a deposit. The bytes are kept, as payment records are.",
+  request: { headers: idempotencyKeyHeader, params: fileParam },
+  responses: {
+    201: {
+      description: "The file was taken off",
+      content: { "application/json": { schema: Acknowledged } },
     },
+    ...mutationResponses,
   },
-);
+});
 
 const depositFileReadRoute = defineOpenAPIRoute(readMeta("billing.depositFile"), {
   method: "get",

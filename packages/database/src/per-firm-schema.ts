@@ -7496,7 +7496,10 @@ export const paymentReceipt = sqliteTable(
     ),
     check("payment_receipt_received_from_check", sql`length(trim(${table.receivedFrom})) > 0`),
     check("payment_receipt_line_number_check", sql`${table.lineNumber} >= 1`),
-    check("payment_receipt_details_check", sql`json_valid(${table.details}) AND json_type(${table.details}) = 'object'`),
+    check(
+      "payment_receipt_details_check",
+      sql`json_valid(${table.details}) AND json_type(${table.details}) = 'object'`,
+    ),
   ],
 );
 

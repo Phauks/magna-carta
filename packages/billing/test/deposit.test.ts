@@ -13,6 +13,7 @@ import { composeDepositNote, recordPaymentDeposit, type DepositLineInput } from 
 import { readOpenBillShares, readPaymentDeposit } from "../src/deposit-reads.ts";
 import { addClaimsToDraft, createInvoiceDraft } from "../src/draft.ts";
 import { finalizeInvoice } from "../src/finalize.ts";
+import { differenceMinor } from "../src/line-amounts.ts";
 import {
   accountsReceivableTieOutStatement,
   billingCompositionsWithoutTheirReceivablePostingStatement,
@@ -56,7 +57,12 @@ async function depositBooks(fixture: BillingFixture): Promise<DepositBooks> {
   );
   await commit(fixture.database, mergeEffects(undeposited.effect, bankFees.effect));
   await fixture.database.batch([
-    setAccountRoleStatement(fixture.database, "undeposited_funds", undeposited.accountId, clock.now()),
+    setAccountRoleStatement(
+      fixture.database,
+      "undeposited_funds",
+      undeposited.accountId,
+      clock.now(),
+    ),
     setAccountRoleStatement(fixture.database, "bank_fees", bankFees.accountId, clock.now()),
     fixture.database
       .prepare(
@@ -70,7 +76,10 @@ async function depositBooks(fixture: BillingFixture): Promise<DepositBooks> {
         clock.now(),
       ),
   ]);
-  return { undepositedFundsAccountId: undeposited.accountId, bankFeesAccountId: bankFees.accountId };
+  return {
+    undepositedFundsAccountId: undeposited.accountId,
+    bankFeesAccountId: bankFees.accountId,
+  };
 }
 
 interface Bill {
@@ -121,7 +130,7 @@ async function owed(fixture: BillingFixture, bill: Bill): Promise<number> {
     (candidate) => candidate.matterId === bill.matterId,
   );
   if (!row) throw new Error("no balance row");
-  return row.totalMinor - row.appliedMinor;
+  return differenceMinor(row.totalMinor, row.appliedMinor, "USD");
 }
 
 async function expectTiedOut(fixture: BillingFixture): Promise<void> {
@@ -200,12 +209,18 @@ describe("a deposit of payments recorded by hand", () => {
       depositMinor: 381_000,
       fees: [{ lineNumber: 1, description: "Deposit fee", amountMinor: 1_500 }],
     });
-    expect(deposit?.lines.map((each) => [each.lineNumber, each.method, each.reference, each.receivedOn])).toEqual([
+    expect(
+      deposit?.lines.map((each) => [each.lineNumber, each.method, each.reference, each.receivedOn]),
+    ).toEqual([
       [1, "check", "1043", "2026-08-04"],
       [2, "check", "1044", "2026-08-04"],
       [3, "cash", null, "2026-08-05"],
     ]);
-    expect(deposit?.lines[0]?.details).toEqual({ bank: "Wells Fargo", account: "6621", checkDate: "2026-08-03" });
+    expect(deposit?.lines[0]?.details).toEqual({
+      bank: "Wells Fargo",
+      account: "6621",
+      checkDate: "2026-08-03",
+    });
     expect(deposit?.lines[2]?.details).toEqual({
       receivedBy: "Pat Lee",
       cashCount: { bill10000: 9, bill2000: 5 },
@@ -222,7 +237,12 @@ describe("a deposit of payments recorded by hand", () => {
     // A note added later lands on the line.
     const later = composeDepositNote(
       fixture.database,
-      { depositId: recorded.depositId, receiptId: recorded.receiptIds[1]!, body: "Cleared", writtenBy: null },
+      {
+        depositId: recorded.depositId,
+        receiptId: recorded.receiptIds[1]!,
+        body: "Cleared",
+        writtenBy: null,
+      },
       options,
     );
     await commit(fixture.database, later.effect);
@@ -238,7 +258,13 @@ describe("a deposit of payments recorded by hand", () => {
       {
         depositToAccountId: fixture.operatingBankAccountId,
         depositedOn: "2026-08-04",
-        lines: [line(acme, { method: "card", reference: "A1B2C3", details: { brand: "Visa", lastFour: "4242" } })],
+        lines: [
+          line(acme, {
+            method: "card",
+            reference: "A1B2C3",
+            details: { brand: "Visa", lastFour: "4242" },
+          }),
+        ],
         recordedBy: null,
       },
       options,
@@ -259,7 +285,9 @@ describe("a deposit of payments recorded by hand", () => {
       options,
     );
     await commit(fixture.database, reversal.effect);
-    expect((await readPaymentDeposit(fixture.database, recorded.depositId))?.lines[0]?.reversed).toBe(true);
+    expect(
+      (await readPaymentDeposit(fixture.database, recorded.depositId))?.lines[0]?.reversed,
+    ).toBe(true);
   });
 
   it("refuses what a deposit cannot be", async () => {
@@ -272,17 +300,59 @@ describe("a deposit of payments recorded by hand", () => {
       recordedBy: null,
     };
     const refusals: [string, Parameters<typeof recordPaymentDeposit>[1]][] = [
-      ["two lines together pay more than the bill owes", { ...base, lines: [line(acme, { amountMinor: 60_000 }), line(acme, { amountMinor: 60_000 })] }],
+      [
+        "two lines together pay more than the bill owes",
+        {
+          ...base,
+          lines: [line(acme, { amountMinor: 60_000 }), line(acme, { amountMinor: 60_000 })],
+        },
+      ],
       ["a check with no number", { ...base, lines: [line(acme, { reference: "  " })] }],
-      ["received after it was deposited", { ...base, depositedOn: "2026-08-04", lines: [line(acme, { receivedOn: "2026-08-05" })] }],
-      ["received before the bill was issued", { ...base, lines: [line(acme, { receivedOn: "2026-08-02" })] }],
-      ["a full account number", { ...base, lines: [line(acme, { details: { account: "123456789" } })] }],
-      ["a detail another method carries", { ...base, lines: [line(acme, { details: { brand: "Visa" } })] }],
-      ["a card with no last four", { ...base, lines: [line(acme, { method: "card", reference: "A1", details: { brand: "Visa" } })] }],
-      ["cash counted to a different total", { ...base, lines: [line(acme, { method: "cash", reference: null, details: { receivedBy: "Pat", cashCount: { bill10000: 1 } } })] }],
-      ["fees as large as the payments", { ...base, lines: [line(acme)], fees: [{ description: "Fee", amountMinor: 100_000 }] }],
+      [
+        "received after it was deposited",
+        { ...base, depositedOn: "2026-08-04", lines: [line(acme, { receivedOn: "2026-08-05" })] },
+      ],
+      [
+        "received before the bill was issued",
+        { ...base, lines: [line(acme, { receivedOn: "2026-08-02" })] },
+      ],
+      [
+        "a full account number",
+        { ...base, lines: [line(acme, { details: { account: "123456789" } })] },
+      ],
+      [
+        "a detail another method carries",
+        { ...base, lines: [line(acme, { details: { brand: "Visa" } })] },
+      ],
+      [
+        "a card with no last four",
+        {
+          ...base,
+          lines: [line(acme, { method: "card", reference: "A1", details: { brand: "Visa" } })],
+        },
+      ],
+      [
+        "cash counted to a different total",
+        {
+          ...base,
+          lines: [
+            line(acme, {
+              method: "cash",
+              reference: null,
+              details: { receivedBy: "Pat", cashCount: { bill10000: 1 } },
+            }),
+          ],
+        },
+      ],
+      [
+        "fees as large as the payments",
+        { ...base, lines: [line(acme)], fees: [{ description: "Fee", amountMinor: 100_000 }] },
+      ],
       ["no lines", { ...base, lines: [] }],
-      ["an account that is not an operating account", { ...base, depositToAccountId: fixture.feeIncomeAccountId, lines: [line(acme)] }],
+      [
+        "an account that is not an operating account",
+        { ...base, depositToAccountId: fixture.feeIncomeAccountId, lines: [line(acme)] },
+      ],
     ];
     for (const [, input] of refusals) {
       await expect(
@@ -298,7 +368,12 @@ describe("a deposit of payments recorded by hand", () => {
     const acme = await finalizedBill(fixture, "entity_acme", 100_000);
     const recorded = await recordPaymentDeposit(
       fixture.database,
-      { depositToAccountId: fixture.operatingBankAccountId, depositedOn: "2026-08-04", lines: [line(acme)], recordedBy: null },
+      {
+        depositToAccountId: fixture.operatingBankAccountId,
+        depositedOn: "2026-08-04",
+        lines: [line(acme)],
+        recordedBy: null,
+      },
       options,
     );
     await commit(fixture.database, recorded.effect);
@@ -310,7 +385,10 @@ describe("a deposit of payments recorded by hand", () => {
     ]) {
       await expect(
         expectRefusal(() =>
-          fixture.database.prepare(sql).bind(recorded.depositId as PaymentDepositId).run(),
+          fixture.database
+            .prepare(sql)
+            .bind(recorded.depositId as PaymentDepositId)
+            .run(),
         ),
       ).rejects.toThrow(/append-only/);
     }

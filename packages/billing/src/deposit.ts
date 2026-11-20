@@ -20,6 +20,7 @@ import { composeInvoiceApplication, issueDateOfFinalizedInvoice } from "./applic
 import { BillingValidationError } from "./billing-validation.ts";
 import { readPaymentDepositFile } from "./deposit-reads.ts";
 import { BILLING_AGGREGATE_KEY } from "./draft.ts";
+import { aggregateMinor, differenceMinor } from "./line-amounts.ts";
 import {
   checkPaymentDetails,
   METHODS_WITHOUT_REFERENCE,
@@ -124,14 +125,17 @@ export async function recordPaymentDeposit(
   if (!isCivilDate(input.depositedOn)) refuse("the date deposited must be a date (YYYY-MM-DD)");
   if (input.lines.length === 0) refuse("a deposit needs at least one line");
   if (input.lines.length > MAXIMUM_LINES_PER_DEPOSIT) {
-    refuse(`a deposit carries at most ${MAXIMUM_LINES_PER_DEPOSIT} lines; record the rest as a second deposit`);
+    refuse(
+      `a deposit carries at most ${MAXIMUM_LINES_PER_DEPOSIT} lines; record the rest as a second deposit`,
+    );
   }
   const fees = input.fees ?? [];
   if (fees.length > MAXIMUM_FEES_PER_DEPOSIT) {
     refuse(`a deposit carries at most ${MAXIMUM_FEES_PER_DEPOSIT} bank fees`);
   }
   const slipNumber = trimmed(input.slipNumber);
-  if (slipNumber !== null && slipNumber.length > MAX_TEXT) refuse("the deposit slip number is too long");
+  if (slipNumber !== null && slipNumber.length > MAX_TEXT)
+    refuse("the deposit slip number is too long");
   const depositNote = trimmed(input.note);
   if (depositNote !== null && depositNote.length > MAX_NOTE) refuse("the note is too long");
 
@@ -163,13 +167,16 @@ export async function recordPaymentDeposit(
     }
     if (!isCivilDate(line.receivedOn)) refuse(`line ${number}: the date received must be a date`);
     if (line.receivedOn > input.depositedOn) {
-      refuse(`line ${number}: it was received on ${line.receivedOn}, after the deposit date ${input.depositedOn}`);
+      refuse(
+        `line ${number}: it was received on ${line.receivedOn}, after the deposit date ${input.depositedOn}`,
+      );
     }
     const reference = trimmed(line.reference);
     if (reference === null && !METHODS_WITHOUT_REFERENCE.has(line.method)) {
       refuse(`line ${number}: the reference number is required for this method`);
     }
-    if (reference !== null && reference.length > MAX_TEXT) refuse(`line ${number}: the reference is too long`);
+    if (reference !== null && reference.length > MAX_TEXT)
+      refuse(`line ${number}: the reference is too long`);
     const receivedFrom = trimmed(line.receivedFrom);
     if (receivedFrom === null) refuse(`line ${number}: say who it was received from`);
     if (receivedFrom.length > MAX_TEXT) refuse(`line ${number}: the name it came from is too long`);
@@ -198,7 +205,10 @@ export async function recordPaymentDeposit(
     if (!invoice) {
       invoice = await readInvoice(database, line.invoiceId);
       if (!invoice) {
-        throw new BillingValidationError("unknown-invoice", `line ${number}: no such bill: ${line.invoiceId}`);
+        throw new BillingValidationError(
+          "unknown-invoice",
+          `line ${number}: no such bill: ${line.invoiceId}`,
+        );
       }
       if (invoice.status !== "final") {
         throw new BillingValidationError(
@@ -210,7 +220,7 @@ export async function recordPaymentDeposit(
       for (const balance of await readInvoiceMatterBalances(database, line.invoiceId)) {
         owedByShare.set(
           `${line.invoiceId}|${balance.matterId}`,
-          balance.totalMinor - balance.appliedMinor,
+          differenceMinor(balance.totalMinor, balance.appliedMinor, invoice.currency),
         );
       }
     }
@@ -225,7 +235,10 @@ export async function recordPaymentDeposit(
         `line ${number}: bill ${invoice.invoiceNumber ?? line.invoiceId} does not bill matter ${line.matterId}`,
       );
     }
-    paidByShare.set(share, (paidByShare.get(share) ?? 0) + line.amountMinor);
+    paidByShare.set(
+      share,
+      aggregateMinor([paidByShare.get(share) ?? 0, line.amountMinor], invoice.currency),
+    );
     if ((paidByShare.get(share) ?? 0) > (owedByShare.get(share) ?? 0)) {
       throw new BillingValidationError(
         "payment-exceeds-unpaid-balance",
@@ -235,8 +248,14 @@ export async function recordPaymentDeposit(
   }
   const currencyCode = currency as string;
   const currencyValue = currencyFromCode(currencyCode);
-  const paymentsMinor = checked.reduce((sum, { line }) => sum + line.amountMinor, 0);
-  const feesMinor = fees.reduce((sum, fee) => sum + fee.amountMinor, 0);
+  const paymentsMinor = aggregateMinor(
+    checked.map(({ line }) => line.amountMinor),
+    currencyCode,
+  );
+  const feesMinor = aggregateMinor(
+    fees.map((fee) => fee.amountMinor),
+    currencyCode,
+  );
   if (feesMinor >= paymentsMinor) {
     refuse("the bank fees are as much as the payments: a deposit puts money into the bank");
   }
@@ -261,11 +280,17 @@ export async function recordPaymentDeposit(
         {
           accountId: input.depositToAccountId,
           direction: "debit" as const,
-          amount: money(paymentsMinor - feesMinor, currencyValue),
+          amount: money(differenceMinor(paymentsMinor, feesMinor, currencyCode), currencyValue),
         },
         ...(bankFees === null
           ? []
-          : [{ accountId: bankFees, direction: "debit" as const, amount: money(feesMinor, currencyValue) }]),
+          : [
+              {
+                accountId: bankFees,
+                direction: "debit" as const,
+                amount: money(feesMinor, currencyValue),
+              },
+            ]),
         {
           accountId: undepositedFunds,
           direction: "credit" as const,
@@ -295,7 +320,7 @@ export async function recordPaymentDeposit(
         id: newIdentifier("paymentDepositFee", options.randomSource) as PaymentDepositFeeId,
         depositId,
         lineNumber: index + 1,
-        description: (trimmed(fee.description) as string),
+        description: trimmed(fee.description) as string,
         amountMinor: fee.amountMinor,
       }),
     );
@@ -324,8 +349,16 @@ export async function recordPaymentDeposit(
         description: `Payment received, bill ${label}`,
         effectiveDate: line.receivedOn,
         lines: [
-          { accountId: undepositedFunds, direction: "debit" as const, amount: money(line.amountMinor, currencyValue) },
-          { accountId: accountsReceivable, direction: "credit" as const, amount: money(line.amountMinor, currencyValue) },
+          {
+            accountId: undepositedFunds,
+            direction: "debit" as const,
+            amount: money(line.amountMinor, currencyValue),
+          },
+          {
+            accountId: accountsReceivable,
+            direction: "credit" as const,
+            amount: money(line.amountMinor, currencyValue),
+          },
         ],
       },
       options,
@@ -378,21 +411,17 @@ export async function recordPaymentDeposit(
     }
     // Identifiers, the amount and the method: never the reference or who paid, which are the
     // client's own facts and would fan out to every subscriber's notification record.
-    outboxMessages.push(
-      ...posting.effect.outboxMessages,
-      ...application.effect.outboxMessages,
-      {
-        topic: INVOICE_PAID_TOPIC,
-        payload: {
-          invoiceId: line.invoiceId,
-          matterId: line.matterId,
-          amountMinor: line.amountMinor,
-          currency: invoice.currency,
-          method: line.method,
-        },
-        aggregateKey: BILLING_AGGREGATE_KEY,
+    outboxMessages.push(...posting.effect.outboxMessages, ...application.effect.outboxMessages, {
+      topic: INVOICE_PAID_TOPIC,
+      payload: {
+        invoiceId: line.invoiceId,
+        matterId: line.matterId,
+        amountMinor: line.amountMinor,
+        currency: invoice.currency,
+        method: line.method,
       },
-    );
+      aggregateKey: BILLING_AGGREGATE_KEY,
+    });
   }
 
   return {
@@ -493,7 +522,10 @@ export async function composeDepositFileRemoval(
 ): Promise<EffectWrite> {
   const file = await readPaymentDepositFile(database, depositId, fileId);
   if (!file) {
-    throw new BillingValidationError("unknown-deposit-file", `no such file on this deposit: ${fileId}`);
+    throw new BillingValidationError(
+      "unknown-deposit-file",
+      `no such file on this deposit: ${fileId}`,
+    );
   }
   return {
     statements: [

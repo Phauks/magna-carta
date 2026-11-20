@@ -533,29 +533,6 @@ export function writeOffBalance(
   );
 }
 
-/** How money the firm recorded by hand reached it. */
-export type PaymentMethod = "check" | "cash" | "bank_transfer" | "card_terminal";
-
-/** Record a payment the firm received by hand against what one matter owes on a bill. */
-export function recordPayment(
-  fetchImpl: typeof fetch,
-  invoiceId: string,
-  request: {
-    matterId: string;
-    amountMinor: number;
-    method: PaymentMethod;
-    reference: string | null;
-    effectiveDate: string;
-  },
-  idempotencyKey: string,
-): Promise<ApiOutcome<{ receiptId: string; applicationId: string }>> {
-  return requestJson(
-    fetchImpl,
-    `/api/v1/billing/invoices/${encodeURIComponent(invoiceId)}/payments`,
-    { method: "POST", body: request, idempotencyKey },
-  );
-}
-
 /** Set an open client credit against a bill. No money moves: the debt and the credit cancel. */
 export function applyClientCredit(
   fetchImpl: typeof fetch,

@@ -10,6 +10,7 @@ import type {
   PaymentReceiptId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { aggregateMinor, differenceMinor } from "./line-amounts.ts";
 import type { PaymentDetails, PaymentMethod } from "./payment-methods.ts";
 
 // What a recorded deposit holds, read back for its own page: each line with its matter and bill, the
@@ -183,8 +184,14 @@ export async function readPaymentDeposit(
     description: row.description,
     amountMinor: row.amount_minor,
   }));
-  const paymentsMinor = lines.reduce((sum, line) => sum + line.amountMinor, 0);
-  const feesMinor = fees.reduce((sum, fee) => sum + fee.amountMinor, 0);
+  const paymentsMinor = aggregateMinor(
+    lines.map((line) => line.amountMinor),
+    head.currency,
+  );
+  const feesMinor = aggregateMinor(
+    fees.map((fee) => fee.amountMinor),
+    head.currency,
+  );
   return {
     id: head.id,
     depositToAccountId: head.deposit_to_account_id,
@@ -194,7 +201,7 @@ export async function readPaymentDeposit(
     currency: head.currency,
     paymentsMinor,
     feesMinor,
-    depositMinor: paymentsMinor - feesMinor,
+    depositMinor: differenceMinor(paymentsMinor, feesMinor, head.currency),
     recordedBy: head.recorded_by,
     recordedAt: head.recorded_at,
     lines,

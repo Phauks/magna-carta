@@ -23,6 +23,7 @@
    */
   import type { Snippet } from "svelte";
   import { page } from "$app/state";
+  import { goto } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -65,7 +66,6 @@
   import FinalizeBillDialog from "./finalize-bill-dialog.svelte";
   import InvoiceLineDialog from "./invoice-line-dialog.svelte";
   import RecordDeliveryDialog from "./record-delivery-dialog.svelte";
-  import RecordPaymentDialog from "./record-payment-dialog.svelte";
   import VoidDraftDialog from "./void-draft-dialog.svelte";
   import WriteOffDialog from "./write-off-dialog.svelte";
   import {
@@ -149,7 +149,6 @@
   let trustOpen = $state(false);
   let creditNoteOpen = $state(false);
   let writeOffOpen = $state(false);
-  let paymentOpen = $state(false);
   let lineOpen = $state(false);
   let editingLine = $state<InvoiceLine | null>(null);
 
@@ -314,7 +313,10 @@
         writeOffOpen = true;
         return;
       case "recordPayment":
-        paymentOpen = true;
+        // Record a Payment is its own page; it starts its first line on this bill and matter.
+        void goto(
+          `/billing/payments/new?invoice=${encodeURIComponent(target.summary.id)}&matter=${encodeURIComponent(matterId)}`,
+        );
         return;
       case "creditNote":
         creditNoteOpen = true;
@@ -627,17 +629,6 @@
       clientCreditMinor > 0
         ? `Credit note issued. ${money(clientCreditMinor)} opened as a client credit the firm owes back.`
         : "Credit note issued.";
-    onChanged();
-  }}
-/>
-
-<RecordPaymentDialog
-  bind:open={paymentOpen}
-  row={openRow ?? soleRow}
-  {matterId}
-  {money}
-  onRecorded={(amountMinor) => {
-    actionNotice = `Recorded a payment of ${money(amountMinor)}.`;
     onChanged();
   }}
 />

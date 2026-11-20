@@ -28,15 +28,15 @@
 
 - id: payments.manual-receipt
   name: Manually recorded receipt
-  scope: Record a check, cash, wire or in-person terminal payment against a finalized invoice, with no processor, port or adapter involved.
+  scope: Record payments the firm received by hand (check, cashier's check, money order, cash, ACH, wire, card on its own terminal, payment app) as one deposit of many lines, each against its own matter and bill, with no processor, port or adapter involved.
   status: shipped
   surface: screen
   slices: 3-4-billing-and-invoicing
   spec: docs/specs/2026-08-15-payments-design.md
-  evidence: packages/billing/src/receipt.ts (recordPaymentReceipt: Dr Operating Bank / Cr Accounts Receivable plus a payment application), the append-only payment_receipt table, POST /api/v1/billing/invoices/{invoiceId}/payments, and Record Payment in the bill's Payments & Credits tab (apps/web/src/lib/billing/record-payment-dialog.svelte).
+  evidence: packages/billing/src/deposit.ts (recordPaymentDeposit: each line Dr Undeposited Funds / Cr Accounts Receivable on its date received, the deposit Dr the bank account and Bank Fees / Cr Undeposited Funds on its date deposited), the append-only payment_deposit, payment_receipt, payment_deposit_fee, payment_deposit_note and payment_deposit_file tables, POST /api/v1/billing/deposits, and the Record a Payment page (apps/web/src/lib/payments/record-payment-screen.svelte) with the deposit's own page (apps/web/src/lib/payments/deposit-view.svelte).
   audience: public
   public-name: Record a payment
-  public-summary: Mark a bill as paid when a client sends a check, cash or a bank transfer.
+  public-summary: Record the checks, cash and transfers you deposit together, each line against its own matter and bill, with scans and notes.
   notes: An over-payment is refused rather than held as unapplied cash (design flag K4 still open); the firm records what the bill is owed and returns or credits the rest.
 
 - id: payments.ach

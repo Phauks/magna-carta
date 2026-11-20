@@ -95,6 +95,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         href: "/developer-console/trust-reconciliation",
         note: "The Reconciliation list and one reconciliation over fixtures, ticking and all",
       },
+      {
+        label: "Record a payment",
+        href: "/developer-console/record-payment",
+        note: "Record a Payment and a recorded deposit over example bills, in each state",
+      },
     ],
   },
   {
