@@ -170,7 +170,7 @@
    */
   $effect(() => {
     if (!seededFromAddress) return;
-    const next = addressAfterFilters(page.url, { status: chosenStatuses });
+    const next = addressAfterFilters(new URL(page.url.href), { status: chosenStatuses });
     if (next.href !== page.url.href) replaceState(next, page.state);
   });
 
@@ -211,14 +211,14 @@
     openInvoiceId = row.summary.id;
     windowOpen = true;
     void bills.openDetail(fetch, row.summary.id, row.summary.status);
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     url.searchParams.set("invoice", row.summary.id);
     replaceState(url, page.state);
   }
 
   function closeBill(): void {
     openInvoiceId = null;
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     url.searchParams.delete("invoice");
     replaceState(url, page.state);
   }

@@ -28,9 +28,7 @@ import { describe, expect, it } from "vitest";
 import type {
   TrustAccountPosition,
   TrustAuthorizationPolicyVersion,
-  TrustBankStatement,
   TrustPendingRequest,
-  TrustReconciliation,
 } from "../src/lib/trust/trust-api.ts";
 import {
   accountsMatching,
@@ -38,10 +36,8 @@ import {
   postureSentence,
   postureVersionText,
   queueInOrder,
-  reconciliationRows,
   requestActions,
   requestMatterText,
-  statementsInOrder,
 } from "../src/lib/trust/firm-trust-model.ts";
 import {
   DEFAULT_CUSHION_NODE_NAME,
@@ -106,41 +102,6 @@ function position(overrides: Partial<TrustAccountPosition> = {}): TrustAccountPo
 
 /** The screen's own money wording, so the figures are asserted as a reader reads them. */
 const money = (amountMinor: number): string => trustMoneyText(amountMinor, "USD");
-
-function statement(overrides: Partial<TrustBankStatement> = {}): TrustBankStatement {
-  return {
-    id: "trustBankStatement_one",
-    trustAccountId: "trustAccount_one",
-    periodStart: "2026-08-01",
-    periodEnd: "2026-08-31",
-    openingBalanceMinor: 1_000_00,
-    closingBalanceMinor: 1_250_00,
-    currency: "USD",
-    statementReference: "AUG-2026",
-    source: "entered",
-    supersedesStatementId: null,
-    recordedBy: "user_two",
-    recordedAt: "2026-09-02T10:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function reconciliation(overrides: Partial<TrustReconciliation> = {}): TrustReconciliation {
-  return {
-    id: "trustReconciliation_one",
-    trustAccountId: "trustAccount_one",
-    statementId: "trustBankStatement_one",
-    status: "closed",
-    openedBy: "user_two",
-    openedAt: "2026-09-02T11:00:00.000Z",
-    closedBy: "user_two",
-    closedAt: "2026-09-02T12:00:00.000Z",
-    frozenProof: null,
-    supersedesReconciliationId: null,
-    note: null,
-    ...overrides,
-  };
-}
 
 function account(overrides: Partial<TrustAccountListing> = {}): TrustAccountListing {
   return {
@@ -239,42 +200,6 @@ describe("what a reader may do to a waiting request", () => {
       request({ id: "first", requestedAt: "2026-09-10T09:00:00.000Z" }),
     ]);
     expect(ordered.map((entry) => entry.id)).toEqual(["first", "second"]);
-  });
-});
-
-describe("joining a reconciliation to the period it was run against", () => {
-  it("carries the statement, so a reader sees a period rather than a handle", () => {
-    const rows = reconciliationRows([reconciliation()], [statement()]);
-    expect(rows[0]?.statement?.periodEnd).toBe("2026-08-31");
-  });
-
-  it("says so when the statement is not among the ones read, rather than failing", () => {
-    // A superseded statement can leave a closed reconciliation pointing at a period the current
-    // listing no longer carries. That is a fact about the record, not a broken read.
-    const rows = reconciliationRows(
-      [reconciliation({ statementId: "trustBankStatement_gone" })],
-      [statement()],
-    );
-    expect(rows[0]?.statement).toBeNull();
-  });
-
-  it("reads most recently opened first", () => {
-    const rows = reconciliationRows(
-      [
-        reconciliation({ id: "older", openedAt: "2026-07-02T11:00:00.000Z" }),
-        reconciliation({ id: "newer", openedAt: "2026-09-02T11:00:00.000Z" }),
-      ],
-      [],
-    );
-    expect(rows.map((row) => row.reconciliation.id)).toEqual(["newer", "older"]);
-  });
-
-  it("reads statements most recent period first", () => {
-    const ordered = statementsInOrder([
-      statement({ id: "july", periodStart: "2026-07-01", periodEnd: "2026-07-31" }),
-      statement({ id: "august" }),
-    ]);
-    expect(ordered.map((entry) => entry.id)).toEqual(["august", "july"]);
   });
 });
 

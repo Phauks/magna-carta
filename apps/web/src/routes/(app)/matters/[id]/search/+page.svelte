@@ -80,7 +80,7 @@
   // above. One path, so the field and the address can never say different things.
   function submit(next: string): void {
     if (next.trim() === addressQuery.trim()) return;
-    void goto(addressFor(next, addressScope), { replaceState: true, keepFocus: true });
+    void goto(addressFor(next, addressScope), { replace: true, reset: false });
   }
 
   const scopeLabel = $derived(

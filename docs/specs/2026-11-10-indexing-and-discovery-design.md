@@ -620,19 +620,69 @@ leaves off while no firm has indexing on.
 beside each split of which words it holds, read from the firm's database, so that a firm-wide
 question asks only the matters that can answer it.
 
+### 4.6 The Search page's filter panel
+
+The owner set natural-language search aside on 2026-11-16 ("a good search screen would be
+beneficial ... leave natural language once we find the best way to implement it") and picked the
+filter panel (mockup option B in the project files, `search-screen/`) on 2026-11-19. A rule-based
+reader of typed questions was built and not shipped; it survives in this branch's history only.
+
+**One panel, four filters, all in the address.** Places (ticked boxes), Matters (every matter, my
+matters, one client's, or matters picked one by one), Date (any time, last 30 days, this year, or
+between two days) and By (one member). `apps/web/src/lib/search/search-address.ts` carries them as
+`in` (repeatable), `scope=mine`, `client`, `matter` (repeatable), `from`, `to` and `by`, so a
+reload, the back button and a shared link land on the same search. Every filter narrows; none
+widens what the visible-matter predicate admits.
+
+**Every place is asked, whichever are ticked.** The ticks decide what the list shows, so the panel
+counts a place the reader unticked and ticking it back costs no request. Matters, days and a
+person are part of the question and ask again. The answer is one list, newest first by the date
+each place is listed by, each record labelled with its place; matters and people found by name have
+no date and come first, in their own short lists, only where ticked.
+
+**Matters picked one by one** are `matterId` on `GET /api/v1/search`, at most 25 (the
+`fewMattersLimit`, so naming matters never costs a reader the words inside files), composed as one
+more narrowing inside the visible-matter predicate (`chosenMattersNarrowing` in
+`packages/matters/src/matter-narrowing.ts`). A matter the reader may not see reaches nothing.
+
+**Days are held in the statement, before the limit, against the date each place is listed by.**
+`visibleMattersSearchSelect` composes `sort >= from` and `sort < the day after to` beside the
+visible-matter predicate (`packages/matter-search/src/sources/build.ts`). Every place that answers
+across matters is listed newest first by a date or a moment (a note's own date, a time entry's work
+date, a call's moment, a file's upload, a party's joining), so the comparison is the place's own
+reading of "when". A day and a stored instant both compare as text against a day's first
+characters; an instant is held to its day in UTC. A place listed alphabetically has no date to
+hold, and the builder refuses a range for one rather than answering as though it had applied it.
+
+**One person** is `by` on `GET /api/v1/search`, held against the row's acting member in the same
+statement. Only a place whose across-matters declaration says `recordsAuthor` is asked (notes,
+calls and time); every other place answers `no-author`, which the panel marks, rather than
+answering as though the person had been applied. The builder refuses a person for a place whose
+acting member is the literal NULL, so a declaration that does not match its columns fails loudly.
+
+Limits, stated so nobody finds them later. A place that reads the record index draws on the newest
+2,000 matches before the days and the person are applied (section 4.2), so a narrow filter with a
+common word can come back short; the answer says `broad` only about the words. Inside Files asks its
+engine for the best passages first and holds them to the filters afterwards. Each place answers at
+most 25 records. Matters and people by name are not asked under a date or a person, and people not
+under a narrowed choice of matters; the panel marks them By Name and says why.
+
+Not built: a sort other than newest first (the mockup drew one), a status or an amount filter, and
+a file's uploader as its author (the uploader is on the file's versions, not the file).
+
 ## 5. Build order
 
-| Step | What                                                                                        | State                                                                                         |
-| ---- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 1    | This specification and its decision record                                                  | Built                                                                                         |
-| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                         |
-| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index              |
-| 4    | Search across matters from the top bar, snippets shown                                      | Built for nine places (inside files where few matters are reached), Search In (4.2-4.5)       |
-| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                         |
-| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers for a firm that has turned indexing on                                         |
-| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; bound 2026-11-13; two checks left in [`../deploy-queue.md`](../deploy-queue.md) |
-| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                              |
-| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                                     |
+| Step | What                                                                                        | State                                                                                          |
+| ---- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1    | This specification and its decision record                                                  | Built                                                                                          |
+| 2    | The record index, the list of searchable places, and matter search reading it for prose     | Built                                                                                          |
+| 3    | The Search and Indexing status screen: what is searchable, how much is indexed, rebuild     | Built (section 4.1): counts, standings, and a queued rebuild of the record index               |
+| 4    | Search across matters from the top bar, snippets shown                                      | Built for nine places (inside files where few matters are reached), the filter panel (4.2-4.6) |
+| 5    | The conflicts check reads the record index instead of scanning                              | Built                                                                                          |
+| 6a   | A matter's search reads the file contents index: files whose text matches, and their pages  | Built; answers for a firm that has turned indexing on                                          |
+| 6b   | File contents turned on: the firm's switch, and the search worker deployed and bound        | Switch built; bound 2026-11-13; two checks left in [`../deploy-queue.md`](../deploy-queue.md)  |
+| 6c   | The kept text that lets a file result quote its sentence, and the per-split word summary    | Kept text and the quoted sentence built; the word summary is not                               |
+| 7    | Discovery review screens: coding, and refusing removal of the last person on an access list | Coding panel waits on two owner questions                                                      |
 
 ## 6. Open with the owner
 

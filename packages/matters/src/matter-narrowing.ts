@@ -52,3 +52,17 @@ export function clientMattersNarrowing(clientEntityId: string): MatterNarrowing 
     bindings: [clientEntityId],
   };
 }
+
+// The matters a member named one by one. Like the other two it is composed with AND inside the
+// visible-matter predicate, so naming a matter the member may not see reaches nothing and shows
+// nothing about it. An empty list names no matter and so reaches none.
+export function chosenMattersNarrowing(matterIds: readonly string[]): MatterNarrowing {
+  if (matterIds.length === 0) {
+    return { fragmentFor: () => "0", bindings: [] };
+  }
+  return {
+    fragmentFor: (matterIdExpression) =>
+      `${matterIdExpression} IN (${matterIds.map(() => "?").join(", ")})`,
+    bindings: [...matterIds],
+  };
+}
