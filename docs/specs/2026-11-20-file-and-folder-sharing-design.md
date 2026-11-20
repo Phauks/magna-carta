@@ -27,7 +27,7 @@ reads these records through `@magna-carta/sharing`.
 | Scope    | `matter` (files in no folder, shown as Home), `folder` (files directly inside, live), `file` (optionally pinned to a version) |
 | Role     | `viewer`, `commenter`, `editor`. Commenter is not offered until files have comments                                           |
 | Download | separate yes/no, default yes                                                                                                  |
-| Sign-in  | `link`, `emailCode`, `twoStep`, default `emailCode`                                                                               |
+| Sign-in  | `link`, `emailCode`, `twoStep`, default `emailCode`                                                                           |
 | End date | optional civil date, read in `Etc/GMT+12`                                                                                     |
 | Status   | `active` or `revoked`; revoked rows are kept                                                                                  |
 

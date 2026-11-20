@@ -1,5 +1,9 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
-import { guarded, type EffectStatement, type EffectWrite } from "@magna-carta/data-access/effect-batch";
+import {
+  guarded,
+  type EffectStatement,
+  type EffectWrite,
+} from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -264,8 +268,7 @@ export async function shareItems(
           scope: item.scope,
           folderId: item.scope === "folder" ? item.folderId : null,
           fileId: item.scope === "file" ? item.fileId : null,
-          fileVersionId:
-            item.scope === "file" ? ((item.fileVersionId ?? null) as FileVersionId | null) : null,
+          fileVersionId: item.scope === "file" ? (item.fileVersionId ?? null) : null,
           recipientEntityId: person.entityId,
           ...settings,
           sharedByUserId: options.actorUserId,
@@ -362,7 +365,11 @@ export async function revokeShare(
     effect: {
       statements: [
         guarded(
-          revokeShareStatement(database, { id: shareId, revokedByUserId: options.actorUserId, now }),
+          revokeShareStatement(database, {
+            id: shareId,
+            revokedByUserId: options.actorUserId,
+            now,
+          }),
           "share.active",
         ),
         domainAuditStatement(database, {
