@@ -649,7 +649,16 @@ const PLATFORM_OPERATOR_OPERATIONS: ReadonlySet<string> = new Set([
   "meetings.inspect",
   "platform.recentErrors",
   "platform.errorLookup",
+  "platform.sharedProblemReports",
+  "platform.sharedProblemReport",
+  "platform.sharedProblemReportScreenshot",
 ]);
+
+// AN ANONYMOUS READ. The signed-out screens ask for the bot check's public site key before anybody
+// has a session, so the read cannot require one. It changes nothing and returns only a key that is
+// public by design (it is rendered into the page), and each member is asserted below to be a
+// non-mutating, permissionless, unauthenticated read so a write cannot hide behind this set.
+const ANONYMOUS_READ_OPERATIONS: ReadonlySet<string> = new Set(["humanVerification.settings"]);
 
 /**
  * THE FOURTH POPULATION, AND THE ONE ON THE APP SURFACE: a MEETING GUEST's lane.
@@ -857,7 +866,8 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       (entry) =>
         !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string) &&
         !PROVIDER_NOTICE_OPERATIONS.has(entry.operation["operationId"] as string) &&
-        !PLATFORM_OPERATOR_OPERATIONS.has(entry.operation["operationId"] as string),
+        !PLATFORM_OPERATOR_OPERATIONS.has(entry.operation["operationId"] as string) &&
+        !ANONYMOUS_READ_OPERATIONS.has(entry.operation["operationId"] as string),
     );
     expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual([
       "firms.provision",
@@ -904,6 +914,18 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       expect(operation["x-mc-permission"], label).toBeNull();
       // A READ. An operator act that CHANGED a firm's data would be a different posture needing its
       // own argument, so this pin refuses one here rather than waiting to be told about it.
+      expect(MUTATING_METHODS, label).not.toContain(method);
+    }
+
+    const anonymousReadSurface = publicSurface.filter((entry) =>
+      ANONYMOUS_READ_OPERATIONS.has(entry.operation["operationId"] as string),
+    );
+    expect(anonymousReadSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual(
+      [...ANONYMOUS_READ_OPERATIONS].toSorted(),
+    );
+    for (const { operation, method, label } of anonymousReadSurface) {
+      expect(operation["x-mc-authenticated"], label).toBe(false);
+      expect(operation["x-mc-permission"], label).toBeNull();
       expect(MUTATING_METHODS, label).not.toContain(method);
     }
 

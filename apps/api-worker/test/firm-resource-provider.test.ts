@@ -375,6 +375,7 @@ describe("FirmResourceProvider — the bucket's lifecycle rules", () => {
       "conversions/",
       `${MEETING_RECORDING_STAGING_PREFIX}/`,
       "files/",
+      "transfers/",
     ]);
     expect(us.rules.every((rule) => rule.enabled)).toBe(true);
     const eu = await appliedLifecycleRules("eu");
@@ -416,6 +417,13 @@ describe("FirmResourceProvider — the bucket's lifecycle rules", () => {
     // Past the one-day browser upload session and the hours a twelve-hour recording's compose can
     // take even when retried, so the rule cannot cut off an upload something will still complete.
     expect(files.abortMultipartUploadsTransition?.condition.maxAge).toBe(7 * DAY_SECONDS);
+  });
+
+  it("never expires a record transfer's files, and aborts an abandoned upload under transfers/ after a week", async () => {
+    const { byPrefix } = await appliedLifecycleRules();
+    const transfers = byPrefix("transfers/");
+    expect(transfers.deleteObjectsTransition).toBeUndefined();
+    expect(transfers.abortMultipartUploadsTransition?.condition.maxAge).toBe(7 * DAY_SECONDS);
   });
 
   it("carries an abandoned-upload abort on every prefix", async () => {
