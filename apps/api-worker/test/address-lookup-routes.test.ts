@@ -201,7 +201,9 @@ describe("the provisioned state", () => {
   });
 
   it("refuses with a retryable 502 when Google refuses, saying nothing of what was typed", async () => {
-    answerGoogleWith(() => Response.json({ error: { status: "PERMISSION_DENIED" } }, { status: 403 }));
+    answerGoogleWith(() =>
+      Response.json({ error: { status: "PERMISSION_DENIED" } }, { status: 403 }),
+    );
     const response = await app.request(
       ...post("suggestions", { country: "US", query: "14 Rosewood" }, ownerCookie),
       PROVISIONED,
