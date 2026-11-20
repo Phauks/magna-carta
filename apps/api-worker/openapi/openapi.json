@@ -27400,13 +27400,13 @@
           "name"
         ]
       },
-      "BatesPrefixList": {
+      "BatesLogList": {
         "type": "object",
         "properties": {
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/BatesPrefixSummary"
+              "$ref": "#/components/schemas/BatesLogSummary"
             }
           },
           "capped": {
@@ -27418,9 +27418,16 @@
           "capped"
         ]
       },
-      "BatesPrefixSummary": {
+      "BatesLogSummary": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string"
+          },
           "prefix": {
             "type": "string"
           },
@@ -27437,16 +27444,86 @@
             "type": "integer"
           },
           "lastStampedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
             "type": "string"
           }
         },
         "required": [
+          "id",
+          "name",
           "prefix",
           "digits",
           "nextNumber",
           "rangeCount",
           "pagesStamped",
-          "lastStampedAt"
+          "lastStampedAt",
+          "createdAt"
+        ]
+      },
+      "BatesLogRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "digits": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "digits"
+        ]
+      },
+      "CreateBatesLogRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "prefix": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "digits": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          }
+        },
+        "required": [
+          "name",
+          "prefix",
+          "digits"
+        ]
+      },
+      "RenameBatesLogRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "BatesRangeList": {
@@ -27476,6 +27553,19 @@
           "id": {
             "type": "string",
             "pattern": "^batesRange_[A-Za-z0-9_-]{21}$"
+          },
+          "logId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
+          "logName": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "prefix": {
             "type": "string"
@@ -27550,6 +27640,8 @@
         },
         "required": [
           "id",
+          "logId",
+          "logName",
           "prefix",
           "digits",
           "firstNumber",
@@ -27573,6 +27665,10 @@
             "type": "string",
             "pattern": "^batesRange_[A-Za-z0-9_-]{21}$"
           },
+          "logId": {
+            "type": "string",
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
           "prefix": {
             "type": "string"
           },
@@ -27588,6 +27684,7 @@
         },
         "required": [
           "id",
+          "logId",
           "prefix",
           "digits",
           "firstNumber",
@@ -27597,14 +27694,9 @@
       "TakeBatesRangeRequest": {
         "type": "object",
         "properties": {
-          "prefix": {
+          "logId": {
             "type": "string",
-            "maxLength": 40
-          },
-          "digits": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 12
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
           },
           "pageCount": {
             "type": "integer",
@@ -27639,8 +27731,7 @@
           }
         },
         "required": [
-          "prefix",
-          "digits",
+          "logId",
           "pageCount",
           "purpose"
         ]
@@ -100868,14 +100959,14 @@
         }
       }
     },
-    "/api/v1/matters/{matterId}/bates-prefixes": {
+    "/api/v1/matters/{matterId}/bates-logs": {
       "get": {
-        "description": "Each Bates prefix stamped on the matter, most recently used first, with the next number under it, the padding it was last stamped with, and how many ranges and pages it holds.",
-        "operationId": "bates.listBatesPrefixes",
+        "description": "The matter's Bates logs, the one used most recently first, each with its prefix, padding, the next number in it, and how many ranges and pages it holds.",
+        "operationId": "bates.listBatesLogs",
         "tags": [
           "bates"
         ],
-        "x-mc-operationId": "bates.listBatesPrefixes",
+        "x-mc-operationId": "bates.listBatesLogs",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": null,
@@ -100901,11 +100992,11 @@
         ],
         "responses": {
           "200": {
-            "description": "The matter's Bates prefixes",
+            "description": "The matter's Bates logs",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BatesPrefixList"
+                  "$ref": "#/components/schemas/BatesLogList"
                 }
               }
             }
@@ -100931,7 +101022,282 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Starts a Bates log on the matter with a name, a prefix and a padding. It counts from 1. Two logs may share a prefix; no two share a name.",
+        "operationId": "bates.createBatesLog",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.createBatesLog",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBatesLogRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The log started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatesLogRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/bates-logs/{logId}": {
+      "patch": {
+        "description": "Renames a Bates log. Its prefix and padding never change.",
+        "operationId": "bates.renameBatesLog",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.renameBatesLog",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "logId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameBatesLogRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The log renamed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatesLogRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -100955,7 +101321,7 @@
     },
     "/api/v1/matters/{matterId}/bates-ranges": {
       "get": {
-        "description": "Every range of Bates numbers taken on the matter, newest first: the prefix and numbers, the file stamped, the saved copy if there is one, who took it and when.",
+        "description": "Every range of Bates numbers taken on the matter, newest first, or in one log: the log, the prefix and numbers, the file stamped, the saved copy if there is one, who took it and when.",
         "operationId": "bates.listBatesRanges",
         "tags": [
           "bates"
@@ -100994,10 +101360,10 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 40
+              "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
             },
             "required": false,
-            "name": "prefix",
+            "name": "logId",
             "in": "query"
           }
         ],
@@ -101033,7 +101399,7 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101055,7 +101421,7 @@
         }
       },
       "post": {
-        "description": "Takes a range of Bates numbers for one stamp: one number per page, under a prefix. With no start number given it starts one past the highest number stamped under the prefix (1 for a new prefix). Refused when any number in the range is already stamped under the prefix.",
+        "description": "Takes a range of Bates numbers from one of the matter's Bates logs for one stamp: one number per page, under the log's prefix and padding. With no start number given it starts one past the highest number stamped in the log (1 for a new log). Refused when any number in the range is already stamped in the log.",
         "operationId": "bates.takeBatesRange",
         "tags": [
           "bates"
@@ -101145,7 +101511,7 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101155,7 +101521,7 @@
             }
           },
           "409": {
-            "description": "Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101296,7 +101662,7 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101306,7 +101672,7 @@
             }
           },
           "409": {
-            "description": "Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
