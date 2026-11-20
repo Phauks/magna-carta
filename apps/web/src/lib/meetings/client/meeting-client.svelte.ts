@@ -964,6 +964,8 @@ export class MeetingClient {
         // means for the mark and whether it is news is the recording module's to decide.
         recording: (frame) => {
           this.recording.noteFrame(readRecordingAnnouncement(frame));
+          // In an encrypted meeting a recording pauses the encryption, proposed by a host.
+          this.#followRecordingPause();
           // A recording started while alone wants the full picture back.
           void this.#budgetCamera();
         },
@@ -1077,6 +1079,23 @@ export class MeetingClient {
     this.encryptionPaused = epoch.pause !== 0;
     this.encryptionPauseBits = epoch.pause;
     this.encryptionGroupMembers = epoch.members;
+    // After the engine has finished applying the commit that brought this epoch, never inside it.
+    queueMicrotask(() => this.#followRecordingPause());
+  }
+
+  /**
+   * A recording is one of the three reasons encryption pauses, and the room's frame is the one thing
+   * that says a recording runs. A host's browser proposes the group's recording bit to match it
+   * whenever either side moves: the frame lighting or clearing the mark, the welcome naming a
+   * recording already running, or an epoch whose bits disagree with it (a host who arrives after the
+   * recording started, or a proposal that lost to another commit). `setEncryptionPause` sends
+   * nothing where the bits already agree, so every host's browser converging on the same answer
+   * costs nothing. Live captions and a phone caller are the other two reasons; neither reaches this
+   * client yet, so neither is followed here.
+   */
+  #followRecordingPause(): void {
+    if (!this.hosting) return;
+    this.setEncryptionPause("recording", this.recording.running !== null);
   }
 
   /**
@@ -1763,6 +1782,7 @@ export class MeetingClient {
     // The recording running as this socket arrived — the "and on arrival" half of the consent
     // ruling. Absent is "not recording", which is what a welcome without the field always meant.
     this.recording.noteWelcome(readRecordingAnnouncement(frame.recording));
+    this.#followRecordingPause();
     if (!this.#publishOnWelcome) return;
     this.#publishOnWelcome = false;
     void this.publish();

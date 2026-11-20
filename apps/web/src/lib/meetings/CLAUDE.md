@@ -237,12 +237,24 @@ rising mark), `meeting-reaction-counts.svelte` (the strip a large room draws ins
 answered) and `meeting-questions-panel.svelte` (the queue and the composer) are reading
 `ActionDialog`s on the lobby panel's precedent, where the design named a sheet.
 In the member's room polls and the roster are drawn `inline` as tabs of
-`meeting-side-panel.svelte` (Chat, Polls, People) beside the picture, and QUESTIONS ARE PART OF
+`meeting-side-panel.svelte` (Chat, Polls, People, and Security in an encrypted meeting; the strip
+scrolls sideways where the tabs do not fit, and the room widens the panel on a wide screen when it
+carries Security) beside the picture, and QUESTIONS ARE PART OF
 CHAT: `meeting-chat-panel.svelte` takes the question queue and draws each question in the timeline
 (`screen/chat-timeline.ts`, merged by when each was said) with an All / Questions filter and an "Ask
 as a question" box; `meeting-questions-panel.svelte` remains for a screen without chat; the room page derives each
 one's "open", which drives its unseen count, from the panel's tab. The guest page still opens chat as
 a popover.
+AN ENCRYPTED MEETING'S THREE SURFACES READ ONE PROJECTION, `client.encryptionState`, so they cannot
+disagree: `encryption-mark.svelte` (the header's shield and words, a shield and never a lock because
+the lock means the door; also beside a running encrypted meeting's Join on the entry),
+`encryption-pause-notice.svelte` (the banner, with no dismiss, because the meeting's claim holds only
+while it is absent) and `meeting-security-panel.svelte` (the Security tab: the state, the code's digit
+groups with Copy, and the key group's members, guests marked from the roster). Start's End-to-end
+encrypted switch in `meeting-entry-action.svelte` is drawn only where the session's
+`meetings.endToEndEncryption` says the deployment honours it. A host's browser proposes the recording
+pause itself (`#followRecordingPause` in the client) from the recording frame, the welcome and every
+epoch; the over-fixtures review page is `src/routes/developer-console/meeting-encryption/`.
 `meeting-layout.ts` is the pure arithmetic that picks the gallery's column count for the largest
 16:9 tile in the measured space (tiles keep the camera's shape; speaker view, the default, puts the
 others in a strip along the top). `meeting-view-preference.svelte.ts` beside this directory keeps the

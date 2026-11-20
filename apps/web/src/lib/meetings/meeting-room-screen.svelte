@@ -101,6 +101,10 @@
   import MeetingSidePanel, {
     type MeetingSideTab,
   } from "$lib/meetings/screen/meeting-side-panel.svelte";
+  import MeetingSecurityPanel from "$lib/meetings/screen/meeting-security-panel.svelte";
+  import EncryptionMark from "$lib/meetings/screen/encryption-mark.svelte";
+  import EncryptionPauseNotice from "$lib/meetings/screen/encryption-pause-notice.svelte";
+  import { securityCodeGroups } from "$lib/meetings/client/encryption-status.ts";
   import MessageSquare from "@lucide/svelte/icons/message-square";
   import MeetingHandsPanel from "$lib/meetings/screen/meeting-hands-panel.svelte";
   import MeetingPollsPanel from "$lib/meetings/screen/meeting-polls-panel.svelte";
@@ -1365,6 +1369,20 @@
   {@render hostMenuFor(tile.participantId ?? "", tile.userId, tile.name, tile.hostRole)}
 {/snippet}
 
+{#snippet securityTab()}
+  <!-- The roster only says whether a stay is a guest's; who is in the group is the group's own
+       list, which `encryptionMembers` already reads. -->
+  <MeetingSecurityPanel
+    encryption={client.encryptionState}
+    codeGroups={securityCodeGroups(client.securityCode)}
+    members={client.encryptionMembers}
+    isGuest={(participantId) =>
+      client.participants.some(
+        (participant) => participant.participantId === participantId && participant.kind === "guest",
+      )}
+  />
+{/snippet}
+
 {#snippet rowMenu(participant: MeetingParticipant)}
   {@render hostMenuFor(
     participant.participantId,
@@ -1564,6 +1582,10 @@
                anything pressed on this screen. -->
           <RecordingMark />
         {/if}
+        <!-- THE ENCRYPTION MARK, a shield and never a lock: the lock here already means the door is
+             shut. Drawn only in a meeting opened end-to-end encrypted, from the group state this
+             browser verified, so it reads the same projection the banner and the Security tab do. -->
+        <EncryptionMark encryption={client.encryptionState} />
         {#if client.roomState.locked}
           <!-- On the line that already carries the day and the head count, because whether the
                door is shut is a fact about the room rather than an act anybody here can take. -->
@@ -1589,6 +1611,10 @@
   <!-- The banner across the header, until the member dismisses it; the mark beside the title is
        what stays. -->
   <RecordingNotice recording={client.recording} />
+
+  <!-- The pause banner, for as long as the key group says encryption is paused. It has no dismiss:
+       the meeting's claim to be encrypted end to end holds only while this banner is absent. -->
+  <EncryptionPauseNotice encryption={client.encryptionState} />
 
   {#if canHost && summary !== null}
     <!-- Beside the header whose control opens it, rather than inside the room: a host who has not
@@ -1813,7 +1839,9 @@
           />
         </div>
         {#if sideOpen}
-          <div class="min-h-0 w-xs shrink-0">
+          <!-- An encrypted meeting has a fourth tab, and the panel widens on a wide screen so all four
+               fit; below that the strip scrolls sideways. -->
+          <div class={["min-h-0 w-xs shrink-0", client.encrypted && "lg:w-sm"]}>
             <MeetingSidePanel
               bind:tab={sideTab}
               chatUnread={chat.unread}
@@ -1823,6 +1851,8 @@
               onClose={() => (sideOpen = false)}
               chat={chatControl}
               polls={pollsTab}
+              security={client.encrypted ? securityTab : undefined}
+              securityPaused={client.encryptionState.kind === "paused"}
             >
               {#snippet people()}
           <MeetingRoster
