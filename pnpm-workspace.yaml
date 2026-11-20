@@ -163,6 +163,9 @@ catalog:
   # secret from it). Pure TypeScript with no dependencies, and it hands back the module matrix rather
   # than markup, so the component draws its own SVG from design tokens.
   uqr: 0.1.3
+  # The problem-report screenshot: renders the page behind the report dialog to a canvas in the
+  # browser (TypeScript, no native code), so the sender can cover parts before anything is sent.
+  modern-screenshot: 4.7.0
   # The IANA top-level-domain list (auto-published from the root zone). The single source for
   # email/URL TLD validation, shared by the design-system form story and the app's real form schemas
   # so both track the same list — never a hand-maintained set.

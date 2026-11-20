@@ -63,10 +63,6 @@ export const COST_LEDGER_GAPS = {
     field: "Expense Code",
     waitsOn: "expense codes",
   },
-  screenshot: {
-    field: "Screenshot",
-    waitsOn: "screenshots in problem reports",
-  },
 } as const satisfies Readonly<Record<string, CostLedgerGap>>;
 
 export type CostLedgerGapName = keyof typeof COST_LEDGER_GAPS;
