@@ -8844,6 +8844,10 @@ export const calendarSyncLink = sqliteTable(
     remoteVersionTag: text("remote_version_tag"),
     agreedHash: text("agreed_hash").notNull(),
     state: text("state", { enum: ["pending", "synced", "failed"] }).notNull(),
+    // The provider's event was the member's own before it was a copy: they made it in their own
+    // calendar and then put it on a matter. It is kept in step like any copy, and it is never
+    // deleted or moved by a pass, because it was never this platform's to take away.
+    adopted: integer("adopted", { mode: "boolean" }).notNull().default(false),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

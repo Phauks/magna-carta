@@ -391,9 +391,10 @@ export type Bindings = {
   TELNYX_API_KEY?: string;
   // The Telnyx number a signer's code is texted from, in E.164 (signing/text-message-wiring.ts).
   // Optional. With it and TELNYX_API_KEY both set, a firm may turn on text codes for its signers;
-  // without either, the firm's signing settings say the text service is not ready. Set it as a
-  // per-Worker secret. A Secrets Store binding is added only once the store secret exists, because
-  // a store binding that names a missing secret fails the deploy. Not confidential, but set in the
+  // without either, the firm's signing settings say the text service is not ready. It belongs in
+  // the Secrets Store; its SECRETS_STORE_TELNYX_TEXT_FROM binding is added to wrangler.jsonc only
+  // after the store secret exists, because a store binding that names a missing secret fails the
+  // deploy. Not confidential, but set in the
   // dashboard rather than committed. The number must be
   // registered for business texting (10DLC, or toll-free verification) before US carriers deliver.
   TELNYX_TEXT_FROM?: string;

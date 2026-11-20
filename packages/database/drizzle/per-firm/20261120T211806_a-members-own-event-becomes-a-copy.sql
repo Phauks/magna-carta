@@ -1,0 +1,1 @@
+ALTER TABLE `calendar_sync_link` ADD `adopted` integer DEFAULT false NOT NULL;
