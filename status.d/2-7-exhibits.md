@@ -9,7 +9,7 @@ built: in-progress by="Claude"
 ui: in-progress by="Claude"
 load-profile: todo
 tested: todo
-next: The owner reviews the exhibit list, cover sheets and Bates-stamped package; then in-text exhibit references.
+next: The owner reviews the exhibit list, cover sheets, Bates-stamped package and separate Bates logs; then in-text exhibit references.
 active-work:
 link-spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
 link-plan: docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md
