@@ -14673,7 +14673,7 @@ export const bankFeedAccount = sqliteTable(
     currency: text("currency").notNull(),
     currentBalanceMinor: integer("current_balance_minor"),
     availableBalanceMinor: integer("available_balance_minor"),
-    balanceAsOf: text("balance_as_of"), // UTC instant the bank gave the balance
+    balancesReadAt: text("balances_read_at"), // UTC instant the bank gave the balance
     ledgerAccountId: text("ledger_account_id")
       .$type<LedgerAccountId>()
       .references(() => ledgerAccount.id),
@@ -14692,8 +14692,8 @@ export const bankFeedAccount = sqliteTable(
     check("bank_feed_account_currency_check", sql`length(${table.currency}) = 3`),
     check("bank_feed_account_name_check", sql`length(${table.name}) BETWEEN 1 AND 200`),
     check(
-      "bank_feed_account_balance_as_of_check",
-      sql`(${table.currentBalanceMinor} IS NULL AND ${table.availableBalanceMinor} IS NULL) OR ${table.balanceAsOf} IS NOT NULL`,
+      "bank_feed_account_balances_read_at_check",
+      sql`(${table.currentBalanceMinor} IS NULL AND ${table.availableBalanceMinor} IS NULL) OR ${table.balancesReadAt} IS NOT NULL`,
     ),
   ],
 );

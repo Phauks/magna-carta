@@ -31,7 +31,7 @@ CREATE TABLE `bank_feed_account` (
 	`currency` text NOT NULL,
 	`current_balance_minor` integer,
 	`available_balance_minor` integer,
-	`balance_as_of` text,
+	`balances_read_at` text,
 	`ledger_account_id` text,
 	`linked_by` text,
 	`linked_at` text,
@@ -40,7 +40,7 @@ CREATE TABLE `bank_feed_account` (
 	FOREIGN KEY (`ledger_account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "bank_feed_account_currency_check" CHECK(length("bank_feed_account"."currency") = 3),
 	CONSTRAINT "bank_feed_account_name_check" CHECK(length("bank_feed_account"."name") BETWEEN 1 AND 200),
-	CONSTRAINT "bank_feed_account_balance_as_of_check" CHECK(("bank_feed_account"."current_balance_minor" IS NULL AND "bank_feed_account"."available_balance_minor" IS NULL) OR "bank_feed_account"."balance_as_of" IS NOT NULL)
+	CONSTRAINT "bank_feed_account_balances_read_at_check" CHECK(("bank_feed_account"."current_balance_minor" IS NULL AND "bank_feed_account"."available_balance_minor" IS NULL) OR "bank_feed_account"."balances_read_at" IS NOT NULL)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `bank_feed_account_remote_unique_index` ON `bank_feed_account` (`connection_id`,`remote_account_id`);--> statement-breakpoint

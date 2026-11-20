@@ -687,8 +687,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "balance_as_of": {
-          "name": "balance_as_of",
+        "balances_read_at": {
+          "name": "balances_read_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -780,9 +780,9 @@
           "name": "bank_feed_account_name_check",
           "value": "length(\"bank_feed_account\".\"name\") BETWEEN 1 AND 200"
         },
-        "bank_feed_account_balance_as_of_check": {
-          "name": "bank_feed_account_balance_as_of_check",
-          "value": "(\"bank_feed_account\".\"current_balance_minor\" IS NULL AND \"bank_feed_account\".\"available_balance_minor\" IS NULL) OR \"bank_feed_account\".\"balance_as_of\" IS NOT NULL"
+        "bank_feed_account_balances_read_at_check": {
+          "name": "bank_feed_account_balances_read_at_check",
+          "value": "(\"bank_feed_account\".\"current_balance_minor\" IS NULL AND \"bank_feed_account\".\"available_balance_minor\" IS NULL) OR \"bank_feed_account\".\"balances_read_at\" IS NOT NULL"
         }
       }
     },

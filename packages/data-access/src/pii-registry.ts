@@ -1817,6 +1817,13 @@ export const NO_PII_TABLES: readonly string[] = [
   // `location` sits on. Its display fragment is four digits of the firm's account number, which is
   // not a fact about any data subject.
   "trust_account",
+  // A bank connection and its accounts are the firm's own bank accounts as the bank feed reports
+  // them: the bank's name, the account's name, four digits of its number and its balance, which are
+  // facts about the firm and not about any data subject. connected_by / linked_by is firm-member
+  // provenance, the class trust_hold's placed_by sits on. The bank's lines, which may name a payer,
+  // are registered in PII_TABLES (bank_feed_transaction).
+  "bank_connection",
+  "bank_feed_account",
   // A hold and a transfer are records about MONEY: an amount, a reason, the entries that moved it,
   // and firm-member provenance (placed_by / authorized_by) on an append-only row. The authorizing
   // member on a disbursement is the electronic-transfer authorization memo the rules require the

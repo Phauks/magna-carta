@@ -136,7 +136,7 @@ export async function readBankingOverview(
         currency: row.currency,
         bankBalanceMinor: row.current_balance_minor,
         availableBalanceMinor: row.available_balance_minor,
-        balanceAsOf: row.balance_as_of,
+        balanceAsOf: row.balances_read_at,
         bookAccount: book,
         booksBalanceMinor: book === null ? null : row.books_balance_minor,
         notInBooksCount,

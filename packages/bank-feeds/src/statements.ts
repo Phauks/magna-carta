@@ -76,7 +76,7 @@ export interface BankFeedAccountRow {
   readonly currency: string;
   readonly current_balance_minor: number | null;
   readonly available_balance_minor: number | null;
-  readonly balance_as_of: string | null;
+  readonly balances_read_at: string | null;
   readonly ledger_account_id: string | null;
   /** The books' balance of the tied account: debits less credits, as for any bank account. */
   readonly books_balance_minor: number | null;
@@ -85,7 +85,7 @@ export interface BankFeedAccountRow {
 /** The feed accounts of every live connection, with the books' balance of each tied account. */
 export function selectLiveBankFeedAccountsStatement(database: SqlDatabase): SqlStatement {
   return database.prepare(
-    `SELECT a.id, a.connection_id, c.institution_name, c.institution_logo, a.remote_account_id, a.name, a.mask, a.subtype, a.currency, a.current_balance_minor, a.available_balance_minor, a.balance_as_of, a.ledger_account_id, CASE WHEN a.ledger_account_id IS NULL THEN NULL ELSE (SELECT COALESCE(SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END), 0) FROM ledger_line l WHERE l.account_id = a.ledger_account_id) END AS books_balance_minor FROM bank_feed_account a JOIN bank_connection c ON c.id = a.connection_id WHERE c.disconnected_at IS NULL ORDER BY c.connected_at, c.id, a.name, a.id`,
+    `SELECT a.id, a.connection_id, c.institution_name, c.institution_logo, a.remote_account_id, a.name, a.mask, a.subtype, a.currency, a.current_balance_minor, a.available_balance_minor, a.balances_read_at, a.ledger_account_id, CASE WHEN a.ledger_account_id IS NULL THEN NULL ELSE (SELECT COALESCE(SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END), 0) FROM ledger_line l WHERE l.account_id = a.ledger_account_id) END AS books_balance_minor FROM bank_feed_account a JOIN bank_connection c ON c.id = a.connection_id WHERE c.disconnected_at IS NULL ORDER BY c.connected_at, c.id, a.name, a.id`,
   );
 }
 
@@ -227,7 +227,7 @@ export function upsertBankFeedAccountStatement(
   const hasBalance = account.currentBalanceMinor !== null || account.availableBalanceMinor !== null;
   return database
     .prepare(
-      `INSERT INTO bank_feed_account (id, connection_id, remote_account_id, name, mask, kind, subtype, currency, current_balance_minor, available_balance_minor, balance_as_of, ledger_account_id, linked_by, linked_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, NULL, NULL, NULL, ?12) ON CONFLICT (connection_id, remote_account_id) DO UPDATE SET name = excluded.name, mask = excluded.mask, kind = excluded.kind, subtype = excluded.subtype, currency = excluded.currency, current_balance_minor = excluded.current_balance_minor, available_balance_minor = excluded.available_balance_minor, balance_as_of = excluded.balance_as_of`,
+      `INSERT INTO bank_feed_account (id, connection_id, remote_account_id, name, mask, kind, subtype, currency, current_balance_minor, available_balance_minor, balances_read_at, ledger_account_id, linked_by, linked_at, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, NULL, NULL, NULL, ?12) ON CONFLICT (connection_id, remote_account_id) DO UPDATE SET name = excluded.name, mask = excluded.mask, kind = excluded.kind, subtype = excluded.subtype, currency = excluded.currency, current_balance_minor = excluded.current_balance_minor, available_balance_minor = excluded.available_balance_minor, balances_read_at = excluded.balances_read_at`,
     )
     .bind(
       input.id,
