@@ -1455,6 +1455,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // bucket that nothing can ever find again to delete. The object key has to be read off the row
   // before the row goes. The route that removes a picture does exactly that
   // (apps/api-worker/src/http/routes/session/me-photo.ts).
+  // Who has a record open right now. It names a member and nothing else about them, and it is gone
+  // within the hour by design (a touch on the record clears older rows), so it goes outright at
+  // the subject: there is nothing in it any record depends on.
+  {
+    table: "record_presence",
+    subjectKey: "member_user_id",
+    action: "hard-delete",
+    note: "ephemeral; rows older than an hour are cleared on the next touch of the same record",
+  },
   {
     table: "member_photo",
     subjectKey: "member_user_id",
@@ -1961,6 +1970,9 @@ export const NO_PII_TABLES: readonly string[] = [
   // A Bates range: a matter, a prefix, two numbers, file handles and firm-member provenance. A prefix
   // can be a party's name ("SMITH"), the same free-text residue class as a set's name above.
   "bates_range",
+  // A Bates log: a matter, a name, a prefix, a padding and firm-member provenance. The name and
+  // prefix can name a party ("Smith Production"), the same free-text residue class as above.
+  "bates_log",
   // A note's link to one of the matter's files: two handles, an instant, and firm-member provenance
   // (linked_by). Whose document it is resolves through the file and the matter, never through a
   // column here — the same shape matter_asset_document sits in directly above.

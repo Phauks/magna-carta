@@ -133,16 +133,16 @@ describe("feature states", () => {
   it("says what is missing from the alternative closest to done", () => {
     expect(
       missingRequirements({
-        id: "addressSuggestions",
+        id: "outlookCalendarSync",
         alternatives: [
-          [{ name: "ADDRESS_SERVICE", present: false }],
+          [{ name: "EXAMPLE_BINDING", present: false }],
           [
-            { name: "SMARTY_AUTH_ID", present: true },
-            { name: "SMARTY_AUTH_TOKEN", present: false },
+            { name: "MICROSOFT_CLIENT_ID", present: true },
+            { name: "MICROSOFT_CLIENT_SECRET", present: false },
           ],
         ],
       }),
-    ).toEqual(["ADDRESS_SERVICE"]);
+    ).toEqual(["EXAMPLE_BINDING"]);
     expect(missingRequirements(undefined)).toEqual([]);
   });
 
@@ -160,13 +160,13 @@ describe("feature states", () => {
     ).toBe("From the Secrets Store: REALTIME_SFU_APP_SECRET · On the Worker: REALTIME_SFU_APP_ID");
     expect(
       describeSecretSources({
-        id: "addressSuggestions",
+        id: "outlookCalendarSync",
         alternatives: [
           [
-            { name: "SMARTY_AUTH_ID", present: true, source: "worker" },
-            { name: "SMARTY_AUTH_TOKEN", present: false, source: null },
+            { name: "MICROSOFT_CLIENT_ID", present: true, source: "worker" },
+            { name: "MICROSOFT_CLIENT_SECRET", present: false, source: null },
           ],
-          [{ name: "ADDRESS_SERVICE", present: true, source: null }],
+          [{ name: "EXAMPLE_BINDING", present: true, source: null }],
         ],
       }),
     ).toBeNull();
@@ -264,17 +264,16 @@ describe("what each feature runs on", () => {
 
   it("puts the Worker first, then the outside services", () => {
     const chips = featureDependencyChips(
-      { id: "addressSuggestions", state: "working" },
+      { id: "passwordRecovery", state: "working" },
       {
-        services: [row("magna-carta-address", "unbound")],
+        services: [row("magna-carta-recovery", "reported")],
         connectedServices: [],
         requirements: undefined,
       },
     );
     expect(chips.map((chip) => chip.name)).toEqual([
-      "magna-carta-address",
-      "Google Places",
-      "Smarty",
+      "magna-carta-recovery",
+      "GPU compute (slow passwords)",
     ]);
   });
 

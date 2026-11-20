@@ -205,7 +205,7 @@
      * Which tab of the room's side panel is showing, or null where the screen has no side panel or
      * it is closed. The tab's control is drawn pressed.
      */
-    sideTab?: "chat" | "questions" | "polls" | "people" | null;
+    sideTab?: "chat" | "questions" | "polls" | "people" | "security" | null;
     /** How many people are in the room, on the People control. */
     peopleCount?: number;
     /** Open the side panel on who is here. Absent where the screen has no side panel. */

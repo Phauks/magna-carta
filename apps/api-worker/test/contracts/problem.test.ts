@@ -40,6 +40,7 @@ describe("problem-type URI registry", () => {
         "idempotency-fingerprint-mismatch",
         "rate-limited",
         "bates-range-taken",
+        "bates-log-name-taken",
         "registration-not-confirmable",
         "report-period-invalid",
         "report-period-too-large",

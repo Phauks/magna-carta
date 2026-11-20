@@ -875,7 +875,10 @@ export function createSealEngine(wasmInput?: BufferSource | WebAssembly.Module):
   };
 }
 
-import { extractPdfText as wasmExtractPdfText } from "./pkg/pdf_core.js";
+import {
+  extractPdfText as wasmExtractPdfText,
+  extractPdfTextGlyphs as wasmExtractPdfTextGlyphs,
+} from "./pkg/pdf_core.js";
 
 /** One reconstructed line of a page's own text layer, in reading order. */
 export interface ExtractedPdfLine {
@@ -924,6 +927,47 @@ export async function extractPdfText(
   await ensureReady(wasmInput);
   try {
     return wasmExtractPdfText(bytes) as ExtractedPdfText;
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/** One visible glyph and where it was drawn: PDF user space, bottom-left origin, in points. */
+export interface PositionedPdfGlyph {
+  text: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** One page's visible glyphs with their positions, and whether recognition has work to do on it. */
+export interface PositionedPdfPage {
+  /** Zero-based, as the recognition engine reports it. */
+  pageIndex: number;
+  widthPt: number;
+  heightPt: number;
+  /** The same gate `extractPdfText` reports: true when the page's words are pixels. */
+  needsRecognition: boolean;
+  /** In paint order. Empty for a page whose words exist only as pixels. */
+  glyphs: PositionedPdfGlyph[];
+}
+
+export interface PositionedPdfText {
+  pages: PositionedPdfPage[];
+}
+
+/**
+ * The document's visible text WITH positions, for a reader that needs to know which column a word
+ * sat in (a bank statement's table). Same page ceiling and same refusals as `extractPdfText`.
+ */
+export async function extractPdfTextGlyphs(
+  bytes: Uint8Array,
+  wasmInput?: BufferSource | WebAssembly.Module,
+): Promise<PositionedPdfText> {
+  await ensureReady(wasmInput);
+  try {
+    return wasmExtractPdfTextGlyphs(bytes) as PositionedPdfText;
   } catch (error) {
     mapGuardError(error);
   }

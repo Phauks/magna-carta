@@ -73,3 +73,32 @@ export const AttachIncidentScreenshotRequest = z
 
 export type IncidentSummaryValue = z.infer<typeof IncidentSummary>;
 export type IncidentDetailValue = z.infer<typeof IncidentDetail>;
+
+/** Whether the firm's problem reports also reach Magna Carta. */
+export const ProblemReportSharing = z
+  .object({ sharesWithMagnaCarta: z.boolean() })
+  .meta({ id: "ProblemReportSharing" });
+
+/** One report a firm shared, as Magna Carta's list shows it: redacted facts, no words. */
+export const SharedProblemReportSummary = z
+  .object({
+    incidentId: z.string(),
+    firmId: z.string(),
+    firmName: z.string(),
+    sentAt: z.string(),
+    route: z.string().nullable(),
+    errorIdCount: z.number().int(),
+    status: z.enum(INCIDENT_STATUSES),
+  })
+  .meta({ id: "SharedProblemReportSummary" });
+
+export const SharedProblemReportList = z
+  .object({ reports: z.array(SharedProblemReportSummary) })
+  .meta({ id: "SharedProblemReportList" });
+
+/** One shared report in full, opened through the audited read the firm can see. */
+export const SharedProblemReportDetail = z
+  .object({ firmId: z.string(), firmName: z.string(), report: IncidentDetail })
+  .meta({ id: "SharedProblemReportDetail" });
+
+export type SharedProblemReportSummaryValue = z.infer<typeof SharedProblemReportSummary>;

@@ -7,10 +7,7 @@
   "exports": {
     "./contract": "./src/contract.ts",
     "./google": "./src/google.ts",
-    "./port": "./src/port.ts",
-    "./routed": "./src/routed.ts",
-    "./self-hosted": "./src/self-hosted.ts",
-    "./smarty": "./src/smarty.ts"
+    "./port": "./src/port.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -19,7 +16,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@magna-carta/address-formats": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"

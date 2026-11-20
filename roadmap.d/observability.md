@@ -86,30 +86,30 @@
 - id: observability.incidents
   name: Incident reports
   scope: User-initiated firm-scoped incident rows: Error IDs, redacted breadcrumbs, free-text description, context metadata; access-gated and audited.
-  status: partial
+  status: shipped
   slices: 0-6-telemetry-baseline-platform-closeout
-  evidence: Ingest endpoint shipped; screenshot capture and the acknowledgement loop unbuilt.
+  evidence: Filing, screenshot and answer all live; apps/web/src/lib/diagnostics/report-dialog.svelte, apps/web/src/routes/(app)/settings/problem-reports, apps/web/src/routes/(app)/settings/my-reports.
 
 - id: observability.incidents.ingest
   name: Incident ingest endpoint
   scope: POST incidents route writing a bounded, redacted-by-construction firm-scoped row; description sealed under the firm key with an audited decrypt permission.
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   evidence: apps/api-worker/src/http/routes/platform/incidents.ts (protected-field write, incidents:viewDescription gate, incident.created event).
 
 - id: observability.incidents.screenshot
   name: Opt-in redactable screenshot
   scope: User-redactable screenshot attached to a report, stored in R2.
-  status: partial
-  surface: awaiting-screen
-  evidence: Storage side built. The sender attaches one PNG or JPEG (up to 4 MB) to their own report after sending it (PUT /api/v1/incidents/mine/{incidentId}/screenshot), kept in the firm's bucket and recorded once only, and both the sender and an answerer read it back. The capture and covering step in the report dialog is unbuilt, waiting on the owner's pick of a mockup.
+  status: shipped
+  surface: screen
+  evidence: Both report dialogs take two steps, the words and then the screenshot. The picture is drawn from the page's own DOM as the dialog opens, without the dialog (apps/web/src/lib/diagnostics/screen-capture.ts, modern-screenshot); the sender drags covers that are painted into the pixels before upload and can send without it. The server keeps one PNG or JPEG of up to 4 MB in the firm's bucket (PUT /api/v1/incidents/mine/{incidentId}/screenshot), and two uploads racing keep one.
 
 - id: observability.incidents.acknowledgement
   name: Reporter acknowledgement loop
   scope: Receipt and resolution status posted back to the reporter in-app/portal.
-  status: partial
-  surface: awaiting-screen
-  evidence: Storage side built. The incident row carries a status (open, investigating, fixed, closed), a note sealed under the firm key, and who answered and when. Holders of incidents:viewDescription list, read and answer reports (/api/v1/incidents); the sender reads their own (/api/v1/incidents/mine) through a grant scoped to their own rows. Two notifications reach the sender: system.incident.received when the report is filed and system.incident.answered when it is answered, neither carrying the note. The Problem Reports and My Reports screens are unbuilt, waiting on the owner's picks.
+  status: shipped
+  surface: screen
+  evidence: The sender is notified when a report arrives (system.incident.received) and each time it is answered (system.incident.answered, status only, never the note). Admins answer under Settings, Problem Reports (status and a note sealed under the firm key); the sender reads their reports under Settings, My Reports. A firm switch (firm.shares_problem_reports, on by default) also shares reports with Magna Carta, whose operators open them one at a time through an audited read in System Status (apps/api-worker/src/http/routes/platform/shared-problem-reports.ts).
 
 - id: observability.diagnostics-agent-pipeline
   name: Diagnostics agent pipeline

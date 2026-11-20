@@ -28,6 +28,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
+  import HumanCheck from "$lib/auth/human-check.svelte";
   import { startRegistration } from "$lib/auth/joining-api.ts";
   import { MINIMUM_PASSWORD_LENGTH } from "$lib/auth/password-rule.ts";
   import { rememberInvitationCode } from "$lib/auth/pending-invitation.ts";
@@ -51,6 +52,7 @@
   let sentAt = $state(new Date());
 
   let emailFieldReference = $state<HTMLInputElement | null>(null);
+  let humanCheckWidget = $state<HumanCheck | null>(null);
 
   // The form opens with focus in its first field, so the keyboard never has to catch up.
   $effect(() => {
@@ -71,12 +73,17 @@
     // NO NAME TRAVELS, because the form no longer asks for one: the server falls back to the
     // address as the account's display name, which is a placeholder somebody can replace rather
     // than a guess split out of the address, which cannot be undone.
-    const outcome = await startRegistration(fetch, {
-      email: email.trim(),
-      // NOT trimmed. Leading and trailing spaces are part of a password — trimming one here would
-      // hash something the person never typed and lock them out of their own account at sign-in.
-      password,
-    });
+    const solution = (await humanCheckWidget?.solution()) ?? null;
+    const outcome = await startRegistration(
+      fetch,
+      {
+        email: email.trim(),
+        // NOT trimmed. Leading and trailing spaces are part of a password — trimming one here would
+        // hash something the person never typed and lock them out of their own account at sign-in.
+        password,
+      },
+      solution,
+    );
     pending = false;
     if (outcome.kind !== "ok") {
       rejection = joiningErrorMessage(outcome, REGISTRATION_REFUSED);
@@ -105,7 +112,11 @@
       {supportErrorId}
       onSubmit={register}
       back={() => goto("/login")}
-    />
+    >
+      {#snippet humanCheck()}
+        <HumanCheck bind:this={humanCheckWidget} action="register" />
+      {/snippet}
+    </RegisterAccountScreen>
   {:else}
     <CheckEmailScreen
       address={email.trim()}

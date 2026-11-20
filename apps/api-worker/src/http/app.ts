@@ -25,6 +25,7 @@ import type { PluginRuntime } from "../plugins/runtime.ts";
 import { integrationCredentialStoreForFirm } from "../plugins/credential-store.ts";
 import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstrap.ts";
 import { attemptBudgetMiddleware, createAttemptLadder } from "./auth-attempt-budget.ts";
+import { signInVerificationMiddleware } from "./human-verification/sign-in-verification.ts";
 import { registerPreviewServeRoute } from "../files/preview-serve.ts";
 import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
 import { createUsageConsentResolver } from "../usage/consent.ts";
@@ -156,6 +157,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // reason — per-request state would reset on every attempt and limit nothing.
   const attemptLadder = createAttemptLadder();
   app.use("/api/auth/*", attemptBudgetMiddleware(attemptLadder));
+  // The bot check on signing in and asking for a reset email, behind the attempt budget so a
+  // locked-out visitor costs no outbound call (human-verification/sign-in-verification.ts).
+  app.use("/api/auth/*", signInVerificationMiddleware(options.humanVerification));
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
 
   // Slice 2·2: the WOPI host callback surface (/wopi/files/*) — cookieless, access-token-guarded,

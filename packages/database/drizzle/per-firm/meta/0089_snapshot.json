@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e9a0706b-ee5d-485e-a2bb-acdd80df057f",
+  "id": "aea89901-9c84-49c7-a6ca-19408e3a4406",
   "prevId": "86518891-14f3-40a9-aa17-ea1506d5b8df",
   "tables": {
     "account_balance": {
@@ -27329,6 +27329,82 @@
         }
       }
     },
+    "record_presence": {
+      "name": "record_presence",
+      "columns": {
+        "record_kind": {
+          "name": "record_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seen_at": {
+          "name": "seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "record_presence_record_seen_index": {
+          "name": "record_presence_record_seen_index",
+          "columns": [
+            "record_kind",
+            "record_id",
+            "seen_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "record_presence_member_user_id_member_user_id_fk": {
+          "name": "record_presence_member_user_id_member_user_id_fk",
+          "tableFrom": "record_presence",
+          "tableTo": "member",
+          "columnsFrom": [
+            "member_user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "record_presence_record_kind_record_id_member_user_id_pk": {
+          "columns": [
+            "record_kind",
+            "record_id",
+            "member_user_id"
+          ],
+          "name": "record_presence_record_kind_record_id_member_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "record_presence_kind_length_check": {
+          "name": "record_presence_kind_length_check",
+          "value": "length(\"record_presence\".\"record_kind\") BETWEEN 1 AND 64"
+        }
+      }
+    },
     "record_text_entry": {
       "name": "record_text_entry",
       "columns": {
@@ -30257,20 +30333,6 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "code_channel": {
-          "name": "code_channel",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "mobile_number": {
-          "name": "mobile_number",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

@@ -2,6 +2,7 @@ import {
   BATES_PURPOSES,
   MAX_BATES_NUMBER,
   MAX_DIGITS,
+  MAX_LOG_NAME_LENGTH,
   MAX_PAGES_PER_RANGE,
   MAX_PREFIX_LENGTH,
   MIN_DIGITS,
@@ -12,12 +13,15 @@ import {
 // messages, drive the mapping.
 export type BatesValidationCode =
   | "bates-invalid-input"
-  // The file or exhibit set named is not on this matter.
+  // The file, exhibit set or log named is not on this matter.
   | "bates-unknown-file"
+  | "bates-unknown-log"
   | "bates-unknown-set"
   | "bates-unknown-range"
-  // Some number in the asked-for range is already stamped under this prefix.
+  // Some number in the asked-for range is already stamped in this log.
   | "bates-range-taken"
+  // Another log on the matter already has this name.
+  | "bates-log-name-taken"
   // The range's stamped copy is already recorded.
   | "bates-range-already-saved";
 
@@ -47,6 +51,18 @@ export function assertPrefix(value: unknown): string {
   if (CONTROL_CHARACTER.test(value))
     refuse("prefix must not hold a line break or control character");
   return value;
+}
+
+/** A log's name: what a member picks it by. Trimmed, never empty. */
+export function assertLogName(value: unknown): string {
+  if (typeof value !== "string") refuse("name must be text");
+  const name = value.trim();
+  if (name.length === 0) refuse("name must not be empty");
+  if (name.length > MAX_LOG_NAME_LENGTH) {
+    refuse(`name must be at most ${String(MAX_LOG_NAME_LENGTH)} characters`);
+  }
+  if (CONTROL_CHARACTER.test(name)) refuse("name must not hold a line break or control character");
+  return name;
 }
 
 function assertInteger(value: unknown, field: string, minimum: number, maximum: number): number {

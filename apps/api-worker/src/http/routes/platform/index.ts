@@ -5,6 +5,8 @@ import { registerClientErrorsRoute } from "./client-errors.ts";
 import { registerFirmsRoute } from "./firms.ts";
 import { registerIncidentAnswerRoutes } from "./incident-answers.ts";
 import { registerIncidentsRoute } from "./incidents.ts";
+import { registerProblemReportSharingRoutes } from "./problem-report-sharing.ts";
+import { registerSharedProblemReportRoutes } from "./shared-problem-reports.ts";
 import { registerMetaDatabaseHealthRoute } from "./meta-database-health.ts";
 import { registerMetaVersionsRoute } from "./meta-versions.ts";
 import { registerPlatformErrorLookupRoute } from "./platform-error-lookup.ts";
@@ -12,7 +14,7 @@ import { registerPlatformReleaseChannelRoute } from "./platform-release-channel.
 import { registerPlatformRecentErrorsRoute } from "./platform-recent-errors.ts";
 import { registerPlatformStatusRoute } from "./platform-status.ts";
 
-// Platform plumbing: the public firms door and its alpha release-channel twin, the operator's status, recent-errors, error-lookup and incident surfaces, the browser-crash record, and the version and database-health probes.
+// Platform plumbing: the public firms door and its alpha release-channel twin, the operator's status, recent-errors, error-lookup, incident and shared-report surfaces, the browser-crash record, and the version and database-health probes.
 //
 // One sub-app per domain, built by the one constructor and mounted at the root by the manifest
 // (src/http/routes/manifest.ts). Every route below registers exactly as it did on the root app — through
@@ -31,7 +33,10 @@ export function mountPlatform(
   registerPlatformStatusRoute(domain, chokepoint);
   registerPlatformRecentErrorsRoute(domain, chokepoint);
   registerPlatformErrorLookupRoute(domain, chokepoint);
+  registerSharedProblemReportRoutes(domain, chokepoint);
   registerIncidentsRoute(domain, chokepoint);
+  // The sharing switch registers before the {incidentId} routes, so "sharing" is never read as an id.
+  registerProblemReportSharingRoutes(domain, chokepoint);
   registerIncidentAnswerRoutes(domain, chokepoint);
   registerClientErrorsRoute(domain, chokepoint);
   app.route("/", domain);

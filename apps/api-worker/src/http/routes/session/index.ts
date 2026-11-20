@@ -2,6 +2,7 @@ import { createAttemptLadder } from "../../auth-attempt-budget.ts";
 import { authForEnv, emailAdapterForEnv } from "../../../auth-instance.ts";
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerHumanVerificationSettingsRoute } from "./human-verification-settings.ts";
 import { registerInvitationRoutes } from "./invitations.ts";
 import { registerMeCommunityHandoffRoute } from "./me-community-handoff.ts";
 import { registerMeNameRoutes } from "./me-name.ts";
@@ -41,6 +42,8 @@ export function mountSession(app: AppRouter, chokepoint: Chokepoint, deps: Domai
   // redeeming an invitation. Not the confirmation route: its emailed token is the only credential
   // its caller can hold, and a link opened out of a mailbox has no form to carry a challenge.
   const humanVerification = deps.humanVerification ?? {};
+  // The public site key the signed-out screens render the bot check with.
+  registerHumanVerificationSettingsRoute(domain, chokepoint);
   registerRegistrationRoutes(domain, chokepoint, emailAdapterForEnv, authForEnv, humanVerification);
   registerInvitationRoutes(
     domain,

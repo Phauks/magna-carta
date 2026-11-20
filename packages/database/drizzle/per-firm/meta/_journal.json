@@ -628,8 +628,22 @@
     {
       "idx": 89,
       "version": "6",
-      "when": 1795206579177,
-      "tag": "20261120T202939_signers-can-get-a-code-by-text",
+      "when": 1795205747091,
+      "tag": "20261120T201547_record-presence",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "6",
+      "when": 1795204966363,
+      "tag": "20261120T203600_bates-logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "6",
+      "when": 1795208102018,
+      "tag": "20261120T205502_signers-can-get-a-code-by-text",
       "breakpoints": true
     }
   ]
