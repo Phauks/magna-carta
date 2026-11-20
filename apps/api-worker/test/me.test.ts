@@ -333,6 +333,7 @@ describe("GET /api/v1/me", () => {
         // every button the holder's role refuses.
         "tools:shipping",
         "tools:speedTest",
+        "tools:translation",
         "tools:whois",
         // trust:read reaches Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Admin, Attorney, and Billing

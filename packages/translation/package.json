@@ -1,0 +1,25 @@
+{
+  "name": "@magna-carta/translation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./contract": "./src/contract.ts",
+    "./google": "./src/google.ts",
+    "./port": "./src/port.ts",
+    "./settings": "./src/settings.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -302,6 +302,9 @@
       "path": "packages/tools/tsconfig.test.json"
     },
     {
+      "path": "packages/translation/tsconfig.test.json"
+    },
+    {
       "path": "packages/trust-jurisdictions/tsconfig.test.json"
     },
     {

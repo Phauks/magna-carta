@@ -132,7 +132,9 @@ export type AcrossMattersSkipReason =
   | "one-matter-only"
   // The source answers across matters only where the search reaches few enough of them to ask one
   // at a time, and this search reaches more. A reader can change it: by choosing fewer matters.
-  | "too-many-matters";
+  | "too-many-matters"
+  // The search is held to one person, and this place does not record who wrote its rows.
+  | "no-author";
 
 // One source's contribution to an answer across matters.
 export interface AcrossMattersGroup {
