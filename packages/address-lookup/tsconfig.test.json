@@ -11,9 +11,6 @@
   "references": [
     {
       "path": "./tsconfig.build.json"
-    },
-    {
-      "path": "../address-formats/tsconfig.build.json"
     }
   ],
   "include": [

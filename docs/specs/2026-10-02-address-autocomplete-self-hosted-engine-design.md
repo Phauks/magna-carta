@@ -1,7 +1,9 @@
 # Address autocomplete — the self-hosted engine
 
 **Date:** 2026-10-02
-**Status:** Built · Area: `crates/address-core` (new), `containers/address` (new), `apps/address-worker`
+**Status:** Retired 2026-11-20 — built, never switched on, and removed when the owner chose Google
+Places as the only address engine (operations runbook, section 20). Kept as the record of the measured
+case. · Area: `crates/address-core` (new), `containers/address` (new), `apps/address-worker`
 (new), `packages/address-lookup`, `apps/api-worker/src/address-lookup/`
 **Scope:** The engine behind `AddressLookupPort` for the United States, run on the platform's own
 Cloudflare account from open address data, so that typing an address into a form is answered without a

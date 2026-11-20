@@ -2,12 +2,11 @@
  * The features this deployment can switch on, and what each one needs from the account before it
  * works. The System Status page reads this to say, per feature, whether it is working, not set up,
  * or set up and failing — the question the Worker rows beside it could never answer, because a
- * member uses Outlook sync or address suggestions, not `magna-carta-address`.
+ * member uses Outlook sync or file search, not `magna-carta-search`.
  *
  * Each feature names its requirements as ALTERNATIVES: the feature is set up when every name in at
- * least one alternative is present in the environment. Address suggestions is the case that needs
- * several — the Google key, the platform's own address engine, or the Smarty key pair — and every
- * other feature has one. A name is a binding, a secret or a variable on this Worker (`keyof Bindings`), so a renamed
+ * least one alternative is present in the environment. Every feature has one alternative today; the
+ * shape stays so a feature that can be set up two ways needs no new machinery. A name is a binding, a secret or a variable on this Worker (`keyof Bindings`), so a renamed
  * binding fails the type check here rather than leaving a row that can never turn green.
  *
  * Presence is all that is ever read. The value of a secret never leaves this module: the report
@@ -94,15 +93,7 @@ export const FEATURE_ROSTER = [
   // Search and lookups
   { id: "fileContentsSearch", alternatives: [["SEARCH_SERVICE"]], worker: "search" },
   { id: "naturalLanguageSearch", alternatives: [["AI_SEARCH", "AI_SEARCH_NAMESPACES"]] },
-  {
-    id: "addressSuggestions",
-    alternatives: [
-      ["GOOGLE_PLACES_API_KEY"],
-      ["ADDRESS_SERVICE"],
-      ["SMARTY_AUTH_ID", "SMARTY_AUTH_TOKEN"],
-    ],
-    worker: "address",
-  },
+  { id: "addressSuggestions", alternatives: [["GOOGLE_PLACES_API_KEY"]] },
   // AI
   { id: "aiTextDetection", alternatives: [["PANGRAM_API_KEY"]] },
   { id: "translation", alternatives: [["GOOGLE_TRANSLATE_API_KEY"]] },
@@ -198,8 +189,7 @@ export function featureStatuses(
       if (state === "refused" || state === "unreachable") return { id, state: "fault" };
       if (state === "not-configured") return { id, state: "not-set-up" };
     }
-    // Address suggestions can be set up through Google or Smarty alone, so its Worker being unbound is not a
-    // fault; only a Worker that is bound and silent is.
+    // A Worker that is unbound reads as not set up above; only a Worker that is bound and silent is a fault.
     if (feature.worker !== undefined && probes.workers.get(feature.worker) === "unreachable") {
       return { id, state: "fault" };
     }

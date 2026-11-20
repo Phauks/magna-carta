@@ -31,18 +31,10 @@ import {
 } from "@magna-carta/address-lookup/contract";
 import type { AddressSuggestion as PortSuggestion } from "@magna-carta/address-lookup/port";
 import type { Context } from "hono";
-import { readMemberPrimaryOfficeRegion } from "@magna-carta/locations/statements";
-import {
-  resolveAddressLookupPort,
-  type AddressLookupEngine,
-} from "../../../address-lookup/address-lookup-engine.ts";
+import { resolveAddressLookupPort } from "../../../address-lookup/address-lookup-engine.ts";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
-import {
-  requireChokepointFirmContext,
-  requireChokepointUserId,
-} from "../../chokepoint/context-accessors.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
@@ -147,34 +139,6 @@ function lookupFailed(c: Context) {
   });
 }
 
-/**
- * The caller's primary office region, standing in for the `near` a form did not send — most clients
- * live near the office that takes them on. Only the platform's own engine ranks by region, so nobody
- * else's request pays for the read; and an office in another country says nothing about this one.
- *
- * A bias is a nicety: a read that fails costs the ranking, never the suggestions, so it is swallowed
- * here rather than turned into a failed lookup.
- */
-async function primaryOfficeRegion(
-  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
-  country: string,
-  engine: AddressLookupEngine,
-): Promise<string | undefined> {
-  if (engine !== "openaddresses") return undefined;
-  try {
-    const office = await readMemberPrimaryOfficeRegion(
-      requireChokepointFirmContext(c).firmDatabase,
-      requireChokepointUserId(c),
-    );
-    if (office === null || office.country.toUpperCase() !== country.toUpperCase()) return undefined;
-    // An office records its region as the form wrote it; only a subdivision code is a bias the
-    // engine can match, so a free-text region ("North Carolina") is not passed on.
-    return /^[A-Za-z0-9]{1,3}$/u.test(office.region) ? office.region : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export function registerAddressLookupRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -186,14 +150,12 @@ export function registerAddressLookupRoutes(
     },
     async (c) => {
       const { country, query, limit, near } = c.req.valid("json");
-      const lookup = resolveAddressLookupPort(c.env);
-      const engine = lookup.engineForCountry(country);
-      const region = near ?? (await primaryOfficeRegion(c, country, engine));
-      const answer = await lookup.port.suggest({
+      const { port, engine } = resolveAddressLookupPort(c.env);
+      const answer = await port.suggest({
         country: country.toUpperCase(),
         query,
         ...(limit !== undefined && { limit }),
-        ...(region !== undefined && { near: region.toUpperCase() }),
+        ...(near !== undefined && { near: near.toUpperCase() }),
       });
       const count = (outcome: string) =>
         c.get("logger")?.count("addresses.lookup", { operation: "suggest", engine, outcome });
@@ -230,9 +192,8 @@ export function registerAddressLookupRoutes(
     },
     async (c) => {
       const { suggestionId } = c.req.valid("json");
-      const lookup = resolveAddressLookupPort(c.env);
-      const engine = lookup.engineForSuggestion(suggestionId);
-      const answer = await lookup.port.resolve({ suggestionId });
+      const { port, engine } = resolveAddressLookupPort(c.env);
+      const answer = await port.resolve({ suggestionId });
       const count = (outcome: string) =>
         c.get("logger")?.count("addresses.lookup", { operation: "resolve", engine, outcome });
 
