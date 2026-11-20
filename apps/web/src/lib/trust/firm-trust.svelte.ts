@@ -1,11 +1,10 @@
 /*
  * What the firm's Trust screen reads, in one place.
  *
- * SEVEN READS, SEVEN FAILURES, AND ONLY ONE OF THEM IS THE SCREEN. The roster of accounts is the
+ * FIVE READS, FIVE FAILURES, AND ONLY ONE OF THEM IS THE SCREEN. The roster of accounts is the
  * screen's subject: without it there is no register and no panel, so its failure is the screen's.
- * The queue, the position, the statements, the reconciliations, the cushion and the firm's posture
- * each answer a different question about ONE account, and a firm whose statements cannot be read
- * still has an approval queue somebody owes an answer to. So each keeps its own failure and its own
+ * The queue, the position, the cushion and the firm's posture each answer a different question
+ * about ONE account, and a firm whose cushion cannot be read still has an approval queue somebody owes an answer to. So each keeps its own failure and its own
  * absence, and a section that cannot be read goes quiet on its own while the rest of the panel
  * stands.
  *
@@ -35,18 +34,14 @@ import {
   isCushionNotOpened,
   listPendingTrustRequests,
   listTrustAccounts,
-  listTrustBankStatements,
-  listTrustReconciliations,
   readTrustAccountPosition,
   readTrustAuthorizationPolicy,
   readTrustFirmFunds,
   type TrustAccountListing,
   type TrustAccountPosition,
   type TrustAuthorizationPolicy,
-  type TrustBankStatement,
   type TrustFirmFundsPosition,
   type TrustPendingRequest,
-  type TrustReconciliation,
 } from "./trust-api.ts";
 
 /** What the cushion read settled to: the position, or the fact that nobody opened one. */
@@ -68,12 +63,6 @@ export class FirmTrust {
   /** What the selected account holds today: the bank's book balance and what stands against it. */
   position = $state<TrustAccountPosition | null>(null);
   positionFailure = $state<Failure | null>(null);
-
-  statements = $state<readonly TrustBankStatement[] | null>(null);
-  statementsFailure = $state<Failure | null>(null);
-
-  reconciliations = $state<readonly TrustReconciliation[] | null>(null);
-  reconciliationsFailure = $state<Failure | null>(null);
 
   cushion = $state<TrustCushionReading | null>(null);
   cushionFailure = $state<Failure | null>(null);
@@ -132,17 +121,11 @@ export class FirmTrust {
     this.requestsFailure = null;
     this.position = null;
     this.positionFailure = null;
-    this.statements = null;
-    this.statementsFailure = null;
-    this.reconciliations = null;
-    this.reconciliationsFailure = null;
     this.cushion = null;
     this.cushionFailure = null;
     if (trustAccountId === null) return;
     const attempt = this.#accountReads.attempt();
     void this.#readQueue(fetchImpl, trustAccountId, attempt);
-    void this.#readStatements(fetchImpl, trustAccountId, attempt);
-    void this.#readReconciliations(fetchImpl, trustAccountId, attempt);
     void this.#readCushion(fetchImpl, trustAccountId, attempt);
     void this.#readPosition(fetchImpl, trustAccountId, this.#positionReads.attempt());
   }
@@ -177,18 +160,6 @@ export class FirmTrust {
     void this.#readCushion(fetchImpl, trustAccountId, this.#accountReads.attempt());
   }
 
-  /** Read the statements again, after one was recorded or imported. */
-  reloadStatements(fetchImpl: typeof fetch, trustAccountId: string): void {
-    if (trustAccountId !== this.#showing) return;
-    void this.#readStatements(fetchImpl, trustAccountId, this.#accountReads.attempt());
-  }
-
-  /** Read the reconciliations again, after a failed read of them. */
-  reloadReconciliations(fetchImpl: typeof fetch, trustAccountId: string): void {
-    if (trustAccountId !== this.#showing) return;
-    void this.#readReconciliations(fetchImpl, trustAccountId, this.#accountReads.attempt());
-  }
-
   async #readQueue(
     fetchImpl: typeof fetch,
     trustAccountId: string,
@@ -219,38 +190,6 @@ export class FirmTrust {
     }
     this.position = null;
     this.positionFailure = outcome.failure;
-  }
-
-  async #readStatements(
-    fetchImpl: typeof fetch,
-    trustAccountId: string,
-    attempt: ReadAttempt,
-  ): Promise<void> {
-    const outcome = await listTrustBankStatements(fetchImpl, trustAccountId);
-    if (!attempt.current) return;
-    if (outcome.kind === "ok") {
-      this.statements = outcome.value.statements;
-      this.statementsFailure = null;
-      return;
-    }
-    this.statements = null;
-    this.statementsFailure = outcome.failure;
-  }
-
-  async #readReconciliations(
-    fetchImpl: typeof fetch,
-    trustAccountId: string,
-    attempt: ReadAttempt,
-  ): Promise<void> {
-    const outcome = await listTrustReconciliations(fetchImpl, trustAccountId);
-    if (!attempt.current) return;
-    if (outcome.kind === "ok") {
-      this.reconciliations = outcome.value.reconciliations;
-      this.reconciliationsFailure = null;
-      return;
-    }
-    this.reconciliations = null;
-    this.reconciliationsFailure = outcome.failure;
   }
 
   async #readCushion(
