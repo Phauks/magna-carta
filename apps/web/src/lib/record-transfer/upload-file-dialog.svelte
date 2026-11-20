@@ -8,20 +8,29 @@
    *
    * Nothing is sent until Upload is pressed. A file the run already has is refused by its
    * checksum, and a file over the size limit is refused before it is sent.
+   *
+   * A large file goes up in pieces, and the line under the file says how much has been sent. That
+   * line stands from the moment a large file is chosen, so the panel does not move when the upload
+   * begins. The panel cannot be closed while it is sending, so Stop Upload is the way out: no
+   * further piece is sent, and the run has no file from an upload that was stopped.
    */
   import ActionDialog, { type ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import Button from "@magna-carta/design-system/button";
   import FileInput from "@magna-carta/design-system/file-input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
+  import Progress from "@magna-carta/design-system/progress";
   import ChoicePicker from "$lib/components/choice-picker.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { formatBytes } from "$lib/file-manager/file-rows.ts";
   import type { RecordTransferSourceFile } from "@magna-carta/api-client";
   import {
     FILE_KIND_CHOICES,
     fileKindChoiceFor,
     type TransferRecordKind,
   } from "./column-mapping.ts";
-  import { SOURCE_FILE_BYTE_CAP, uploadSourceFile } from "./record-transfer-api.ts";
+  import { SOURCE_FILE_BYTE_CAP, uploadRouteFor } from "./file-upload-plan.ts";
+  import { uploadSourceFile } from "./record-transfer-api.ts";
 
   let {
     open = $bindable(false),
@@ -46,7 +55,22 @@
   let failure = $state<StatedFailure | null>(null);
 
   const fileMissing = $derived(chosen === null);
-  const fileTooLarge = $derived(chosen !== null && chosen.size > SOURCE_FILE_BYTE_CAP);
+  const route = $derived(chosen === null ? null : uploadRouteFor(chosen.size));
+  const fileTooLarge = $derived(route === "tooLarge");
+  /** Bytes sent so far of a file that goes up in pieces. */
+  let sentBytes = $state(0);
+  /** The upload in flight, held so it can be stopped. */
+  let sending: AbortController | null = null;
+
+  function stopUpload(): void {
+    sending?.abort();
+  }
+
+  // The panel going away, by whatever road, ends the upload it started.
+  $effect(() => {
+    if (!open) stopUpload();
+    return stopUpload;
+  });
   const kindMissing = $derived(recordKind === "");
 
   function reset(): void {
@@ -54,6 +78,7 @@
     recordKind = "";
     attempted = false;
     failure = null;
+    sentBytes = 0;
   }
 
   async function upload(): Promise<ActionOutcome> {
@@ -61,8 +86,21 @@
     failure = null;
     if (chosen === null || fileTooLarge || kindMissing) return "refused";
     const kind = recordKind as TransferRecordKind;
-    const outcome = await uploadSourceFile(runId, chosen, fileKindChoiceFor(kind).fileKind);
+    sentBytes = 0;
+    sending = new AbortController();
+    const outcome = await uploadSourceFile(runId, chosen, fileKindChoiceFor(kind).fileKind, {
+      signal: sending.signal,
+      onProgress: (progress) => {
+        sentBytes = progress.sentBytes;
+      },
+    });
+    sending = null;
+    if (outcome.kind === "stopped") {
+      sentBytes = 0;
+      return "refused";
+    }
     if (outcome.kind !== "ok") {
+      sentBytes = 0;
       failure = stated(outcome.failure, "Upload failed.");
       return "refused";
     }
@@ -101,7 +139,7 @@
         error={attempted && fileMissing
           ? "Choose a file."
           : fileTooLarge
-            ? `This file is over the ${String(SOURCE_FILE_BYTE_CAP / (1024 * 1024))} MB limit.`
+            ? `This file is over the ${String(SOURCE_FILE_BYTE_CAP / (1024 * 1024 * 1024))} GB limit.`
             : undefined}
       >
         {#snippet children({ props })}
@@ -111,10 +149,24 @@
             disabled={busy}
             onchange={(event) => {
               chosen = event.currentTarget.files?.[0] ?? null;
+              sentBytes = 0;
             }}
           />
         {/snippet}
       </LabelledField>
+      {#if chosen !== null && route === "pieces"}
+        <div class="flex flex-col gap-8">
+          <Progress value={sentBytes} max={chosen.size} aria-label="Upload progress" />
+          <div class="flex flex-wrap items-center justify-between gap-8">
+            <span class="text-sm text-text-muted tabular-nums">
+              {formatBytes(sentBytes)} of {formatBytes(chosen.size)}
+            </span>
+            <Button variant="secondary" size="sm" disabled={!busy} onclick={stopUpload}>
+              Stop Upload
+            </Button>
+          </div>
+        </div>
+      {/if}
       <LabelledField necessity="required"
         label="Contents"
         error={attempted && kindMissing ? "Choose the contents of this file." : undefined}

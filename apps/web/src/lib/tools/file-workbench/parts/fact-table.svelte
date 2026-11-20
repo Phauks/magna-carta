@@ -49,7 +49,7 @@
   <DataTable.Body>
     {#each facts as fact (fact.label)}
       <DataTable.Row>
-        <DataTable.Cell class="w-96 align-top text-text-subtle">{fact.label}</DataTable.Cell>
+        <DataTable.Cell class="w-96 align-top text-text-subtle @lg:whitespace-nowrap">{fact.label}</DataTable.Cell>
         <DataTable.Cell class="align-top break-words">
           {#if fact.render}
             {@render fact.render()}
