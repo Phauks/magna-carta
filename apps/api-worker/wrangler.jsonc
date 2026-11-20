@@ -190,12 +190,6 @@
     // The key usage-analytics events pseudonymize firm and user ids under before they reach the
     // TELEMETRY dataset. Without it every usage event is dropped, so the dataset only ever holds
     // the operational counters.
-    // The Telnyx number a signer's code is texted from. Absent, text codes stay off for every firm.
-    {
-      "binding": "SECRETS_STORE_TELNYX_TEXT_FROM",
-      "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
-      "secret_name": "TELNYX_TEXT_FROM",
-    },
     {
       "binding": "SECRETS_STORE_USAGE_ANALYTICS_PEPPER",
       "store_id": "9ce4ac3eb1774c8c9e46e40edb0efaef",
