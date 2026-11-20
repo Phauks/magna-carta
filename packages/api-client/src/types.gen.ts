@@ -396,12 +396,12 @@ export type ConnectedServiceStatus = {
 };
 
 export type FeatureStatus = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'translation' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     state: 'working' | 'not-set-up' | 'fault';
 };
 
 export type FeatureRequirements = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'translation' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     alternatives: Array<Array<{
         name: string;
         present: boolean;
@@ -1383,6 +1383,21 @@ export type SearchStatusRecordPlace = {
 
 export type FirmSearchRebuildResponse = {
     requestedAt: string;
+};
+
+export type FirmTranslationSettingsResponse = {
+    /**
+     * Whether members may translate text.
+     */
+    enabled: boolean;
+    /**
+     * Whether a translation engine is set up in this deployment. Read-only.
+     */
+    engineConnected: boolean;
+};
+
+export type PatchFirmTranslationSettingsRequest = {
+    enabled?: boolean;
 };
 
 export type ExportRenderRequest = {
@@ -3780,6 +3795,50 @@ export type SafeBrowseLocationProbe = {
     };
     sessionHonoursLocation: boolean;
     quickActionHonoursLocation: boolean;
+};
+
+export type TranslationLanguagesResponse = {
+    languages: Array<TranslationLanguage>;
+};
+
+export type TranslationLanguage = {
+    code: string;
+    name: string;
+};
+
+export type TranslateResponse = {
+    /**
+     * One per paragraph of the text, in order, each beside its translation.
+     */
+    passages: Array<TranslatedPassage>;
+    /**
+     * The language the text was in: the one asked for, or the one the engine found.
+     */
+    source: string | null;
+    target: string;
+    engine: 'google';
+    /**
+     * The characters sent to the engine, which is what it charges by.
+     */
+    characters: number;
+};
+
+export type TranslatedPassage = {
+    original: string;
+    translation: string;
+};
+
+export type TranslateRequest = {
+    text: string;
+    target: string;
+    /**
+     * The language the text is in. Absent, the engine detects it.
+     */
+    source?: string;
+    /**
+     * The matter the translation is for, recorded on the firm's log of the run.
+     */
+    matterId?: string;
 };
 
 export type MatterSuggestionList = {
@@ -17114,6 +17173,95 @@ export type FirmSearchStatusRebuildResponses = {
 
 export type FirmSearchStatusRebuildResponse = FirmSearchStatusRebuildResponses[keyof FirmSearchStatusRebuildResponses];
 
+export type FirmTranslationSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/translation-settings';
+};
+
+export type FirmTranslationSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageAiSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTranslationSettingsGetError = FirmTranslationSettingsGetErrors[keyof FirmTranslationSettingsGetErrors];
+
+export type FirmTranslationSettingsGetResponses = {
+    /**
+     * The firm's translation settings
+     */
+    200: FirmTranslationSettingsResponse;
+};
+
+export type FirmTranslationSettingsGetResponse = FirmTranslationSettingsGetResponses[keyof FirmTranslationSettingsGetResponses];
+
+export type FirmTranslationSettingsUpdateData = {
+    body: PatchFirmTranslationSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/translation-settings';
+};
+
+export type FirmTranslationSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageAiSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTranslationSettingsUpdateError = FirmTranslationSettingsUpdateErrors[keyof FirmTranslationSettingsUpdateErrors];
+
+export type FirmTranslationSettingsUpdateResponses = {
+    /**
+     * The firm's translation settings after the change
+     */
+    200: FirmTranslationSettingsResponse;
+};
+
+export type FirmTranslationSettingsUpdateResponse = FirmTranslationSettingsUpdateResponses[keyof FirmTranslationSettingsUpdateResponses];
+
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;
     path?: never;
@@ -23264,6 +23412,90 @@ export type SafeBrowseLiveCloseResponses = {
 };
 
 export type SafeBrowseLiveCloseResponse = SafeBrowseLiveCloseResponses[keyof SafeBrowseLiveCloseResponses];
+
+export type TranslationLanguagesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        display?: string;
+    };
+    url: '/api/v1/translation/languages';
+};
+
+export type TranslationLanguagesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:translation
+     */
+    403: Problem;
+    /**
+     * No translation engine is set up
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The translation engine did not answer
+     */
+    502: Problem;
+};
+
+export type TranslationLanguagesError = TranslationLanguagesErrors[keyof TranslationLanguagesErrors];
+
+export type TranslationLanguagesResponses = {
+    /**
+     * The engine's languages, sorted by name
+     */
+    200: TranslationLanguagesResponse;
+};
+
+export type TranslationLanguagesResponse2 = TranslationLanguagesResponses[keyof TranslationLanguagesResponses];
+
+export type TranslationTranslateData = {
+    body: TranslateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/translation/translate';
+};
+
+export type TranslationTranslateErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:translation
+     */
+    403: Problem;
+    /**
+     * Translation is off for this firm, no engine is set up, the text has nothing to translate, a paragraph is too long, or the engine refused the request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The translation engine did not answer
+     */
+    502: Problem;
+};
+
+export type TranslationTranslateError = TranslationTranslateErrors[keyof TranslationTranslateErrors];
+
+export type TranslationTranslateResponses = {
+    /**
+     * Each paragraph beside its translation
+     */
+    200: TranslateResponse;
+};
+
+export type TranslationTranslateResponse = TranslationTranslateResponses[keyof TranslationTranslateResponses];
 
 export type EmailInspectorInspectData = {
     body: unknown;

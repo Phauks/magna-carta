@@ -379,6 +379,12 @@ export type Bindings = {
   // (stored-secrets.ts resolves it into this string), with a per-Worker secret as the fallback; while it is set, Google answers every country ahead of the platform's index and Smarty, and every
   // lookup is billed by Google. Sent only in a request header, never a URL; never logged.
   GOOGLE_PLACES_API_KEY?: string;
+  // The Google Cloud Translation API key behind the Translate tool (translation/translation-engine.ts).
+  // Optional. Kept in the Secrets Store and bound as SECRETS_STORE_GOOGLE_TRANSLATE_API_KEY
+  // (stored-secrets.ts resolves it into this string), with a per-Worker secret as the fallback. While
+  // it is set, a firm that has turned translation on sends pasted text to Google, which bills for every
+  // character. Sent only in a request header, never a URL; never logged.
+  GOOGLE_TRANSLATE_API_KEY?: string;
   // The Telnyx API key behind the call record's "Look up caller ID" (caller-lookup/
   // caller-lookup-engine.ts). Optional, and ABSENT IS THE SHIPPED STATE: without it the record shows
   // the free Directory match and area-code region and offers no paid lookup at all. Production sets

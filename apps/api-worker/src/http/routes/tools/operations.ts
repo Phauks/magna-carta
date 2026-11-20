@@ -10,5 +10,7 @@ export const OPERATIONS: readonly string[] = [
   "safeBrowse.stream",
   "toolsConnection.get",
   "toolsTurnCredentials.get",
+  "translation.languages",
+  "translation.translate",
   "whois.get",
 ];
