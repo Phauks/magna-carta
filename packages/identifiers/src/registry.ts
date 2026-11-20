@@ -531,6 +531,9 @@ export const ENTITY_PREFIXES = {
   // document is keyed by this id. Not a notification and never one — a generated file is platform
   // mechanics rather than a fact about the firm's work.
   downloadItem: "downloadItem",
+  // One file, one folder or a matter's top level shared with one Directory person outside the firm,
+  // with what that person may do. Revoked, never deleted, so who could see what stays answerable.
+  share: "share",
   // The In/Out Log — what crosses the front desk that is not held in custody: copies, papers, a
   // physical file. An `inOutEntry` is one thing dropped off, from the moment it arrives until it is
   // picked up or moved into Custodian; an `inOutEntryRecipient` is one person the entry is To, any

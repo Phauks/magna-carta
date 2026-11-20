@@ -26,6 +26,7 @@ import { countPhrase, type SafetyKey } from "./file-manager-vocabulary.ts";
 /** Stable column identities. Nothing keys off a label — a label is what a reader sees. */
 export const FILE_COLUMN_IDENTIFIERS = {
   name: "name",
+  sharedWith: "sharedWith",
   fileType: "fileType",
   documentType: "documentType",
   safety: "safety",
@@ -98,6 +99,11 @@ export interface FileColumnContext {
    * this honestly it returns the empty string and the cell renders blank rather than "You".
    */
   readonly createdBy: (file: MatterFile) => string;
+  /**
+   * The names of the people outside the firm who can see the row, joined, or the empty string when
+   * only the firm can. Left out, the column reads blank: a surface with no share list says nothing.
+   */
+  readonly sharedWith?: (row: FileManagerRow) => string;
 }
 
 const emptyIfNull = (value: string | null): string => value ?? "";
@@ -109,6 +115,7 @@ const emptyIfNull = (value: string | null): string => value ?? "";
  */
 export function browseColumns(context: FileColumnContext): GridColumn<FileManagerRow>[] {
   const { index, hideExtensions, documentTypeName, createdBy } = context;
+  const sharedWith = context.sharedWith ?? (() => "");
   const aggregate = (folderId: string) => folderAggregate(index, folderId, safetyKeyOf);
 
   return [
@@ -123,6 +130,15 @@ export function browseColumns(context: FileColumnContext): GridColumn<FileManage
       fitExtra: 28,
       value: (row) =>
         row.kind === "folder" ? row.folder.name : displayName(row.file.name, hideExtensions),
+    },
+    {
+      // Beside the name, because who can see a file is read together with which file it is. The
+      // value is the names, so sort, filter and fit all read words; the cell draws initials.
+      id: FILE_COLUMN_IDENTIFIERS.sharedWith,
+      label: "Shared With",
+      type: "text",
+      filter: "set",
+      value: (row) => sharedWith(row),
     },
     {
       id: FILE_COLUMN_IDENTIFIERS.fileType,

@@ -17,6 +17,7 @@ import { registerPlayableCopyRoutes } from "./playable-copy.ts";
 import { registerRecoveryRoutes } from "./recovery.ts";
 import { registerScanDiagnoseRoute } from "./scan-diagnose.ts";
 import { registerScanMatterRoute } from "./scan-matter.ts";
+import { registerSharesRoutes } from "./shares.ts";
 import { registerUploadReadinessRoute } from "./upload-readiness.ts";
 import { registerUploadsRoutes } from "./uploads.ts";
 
@@ -45,6 +46,8 @@ export function mountFiles(app: AppRouter, chokepoint: Chokepoint, _deps: Domain
   // streaming ZIP64 bulk download — each composed through the same chokepoint.
   registerFoldersRoutes(domain, chokepoint);
   registerFilesRoutes(domain, chokepoint);
+  // Sharing files and folders with people outside the firm: the matter's share list and the writes.
+  registerSharesRoutes(domain, chokepoint);
   // A copy of a video every browser plays, asked for when the browser in front of the member cannot
   // play the original, and looked up while it is made.
   registerPlayableCopyRoutes(domain, chokepoint);

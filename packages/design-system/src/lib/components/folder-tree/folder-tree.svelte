@@ -42,6 +42,7 @@
   import ChevronsDownUp from "@lucide/svelte/icons/chevrons-down-up";
   import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
   import FolderPlus from "@lucide/svelte/icons/folder-plus";
+  import Users from "@lucide/svelte/icons/users";
   import * as ContextMenu from "../context-menu/index.ts";
   import Separator from "../separator/index.ts";
   import Skeleton from "../skeleton/index.ts";
@@ -514,10 +515,16 @@
     >
       <FolderPlus class="mc-folder-tree-control-icon" aria-hidden="true" />
     </button>
-  {:else if showFileCounts}
-    {@const count = foldersById.get(context.node.id)?.fileCount}
-    {#if count !== undefined}
-      <span class="mc-folder-tree-count">{count}</span>
+  {:else}
+    {#if foldersById.get(context.node.id)?.shared === true}
+      <!-- Shared outside the firm: the same people mark the file list draws beside a shared name. -->
+      <Users class="mc-folder-tree-shared" aria-label="Shared" role="img" />
+    {/if}
+    {#if showFileCounts}
+      {@const count = foldersById.get(context.node.id)?.fileCount}
+      {#if count !== undefined}
+        <span class="mc-folder-tree-count">{count}</span>
+      {/if}
     {/if}
   {/if}
 {/snippet}

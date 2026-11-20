@@ -177,6 +177,8 @@ export interface MenuScope {
    */
   readonly openIssueCount?: number;
   readonly ignoredIssueCount?: number;
+  /** Why this member cannot share, when they cannot. Share is offered whenever they can. */
+  readonly shareRefusal?: string;
 }
 
 const separator: FileMenuSeparator = { kind: "separator" };
@@ -256,8 +258,7 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
       kind: "item",
       command: "share",
       label: counted("Share", files.length, folders.length),
-      disabledReason: waitingReason("share"),
-      soon: true,
+      disabledReason: scope.shareRefusal,
     },
   ];
 

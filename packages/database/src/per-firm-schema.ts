@@ -185,6 +185,7 @@ import type {
   ReviewTagId,
   RoleId,
   RolePermissionId,
+  ShareId,
   ShipmentId,
   ShipmentLabelId,
   SigningEventId,
@@ -14614,6 +14615,96 @@ export const batesRange = sqliteTable(
       "bates_range_saved_shape_check",
       sql`(${table.stampedFileId} IS NULL) = (${table.stampedFileSavedAt} IS NULL)`,
     ),
+  ],
+);
+
+// ONE THING SHARED WITH ONE PERSON OUTSIDE THE FIRM.
+//
+// A share names a Directory person (a client, an expert, opposing counsel, co-counsel) and one of
+// three things on one matter: a single file, a folder, or the matter's top level (the files that sit
+// in no folder). A folder share is live: a file added to the folder later is shared too. A folder
+// INSIDE a shared folder is not: it stays private until it is shared itself, so creating a folder
+// never widens what anybody outside the firm can see.
+//
+// `target_id` repeats whichever of matter_id / folder_id / file_id the scope names, so "one live share
+// per person per thing" is a plain unique index. The CHECKs hold the repetition honest.
+//
+// The role is what the person may do: a viewer reads, a commenter reads and comments, an editor
+// reads, comments, saves changes and adds files. Download is separate, because "read it on screen but
+// do not keep a copy" is a real instruction for a draft or a privileged exhibit. `sign_in` is how
+// strongly the person must prove who they are before this share opens: a one-time link, an emailed
+// code, or an emailed code plus a second step.
+//
+// Revoked, never deleted: who could see what, and from when to when, is part of the matter's record.
+// `ends_on` is a civil date and is enforced on every read, so a share past its end date refuses
+// whether or not anything has swept it. A share is also refused once the person who made it can no
+// longer share, so leaving the firm never leaves a door open behind them.
+export const share = sqliteTable(
+  "share",
+  {
+    id: text("id").primaryKey().$type<ShareId>(), // share_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    scope: text("scope", { enum: ["matter", "folder", "file"] }).notNull(),
+    folderId: text("folder_id")
+      .$type<FolderId>()
+      .references(() => folder.id),
+    fileId: text("file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    // A file share may hold one version still, so "the copy we sent" never changes under the person.
+    // Null means the file's current version, whatever it is when they open it.
+    fileVersionId: text("file_version_id")
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    targetId: text("target_id").notNull(),
+    // A directoryPerson_ handle, by value with no cross-domain foreign key (the matter_party precedent).
+    recipientEntityId: text("recipient_entity_id").notNull().$type<DirectoryPersonId>(),
+    role: text("role", { enum: ["viewer", "commenter", "editor"] }).notNull(),
+    allowDownload: integer("allow_download").notNull().default(1), // 0/1
+    signIn: text("sign_in", { enum: ["link", "emailCode", "twoStep"] })
+      .notNull()
+      .default("emailCode"),
+    endsOn: text("ends_on"), // civil date, the last day the share opens
+    status: text("status", { enum: ["active", "revoked"] })
+      .notNull()
+      .default("active"),
+    sharedByUserId: text("shared_by_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    revokedByUserId: text("revoked_by_user_id")
+      .$type<UserId>()
+      .references(() => member.userId),
+    revokedAt: text("revoked_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("share_recipient_target_active_unique_index")
+      .on(table.recipientEntityId, table.targetId)
+      .where(sql`${table.status} = 'active'`),
+    // The matter's Sharing list, and the Shared With column of a folder being shown.
+    index("share_matter_id_status_index").on(table.matterId, table.status),
+    index("share_target_id_index").on(table.targetId),
+    check("share_scope_check", sql`${table.scope} IN ('matter', 'folder', 'file')`),
+    check(
+      "share_target_shape_check",
+      sql`(${table.scope} = 'matter' AND ${table.folderId} IS NULL AND ${table.fileId} IS NULL AND ${table.fileVersionId} IS NULL AND ${table.targetId} = ${table.matterId})
+        OR (${table.scope} = 'folder' AND ${table.folderId} IS NOT NULL AND ${table.fileId} IS NULL AND ${table.fileVersionId} IS NULL AND ${table.targetId} = ${table.folderId})
+        OR (${table.scope} = 'file' AND ${table.fileId} IS NOT NULL AND ${table.folderId} IS NULL AND ${table.targetId} = ${table.fileId})`,
+    ),
+    check("share_role_check", sql`${table.role} IN ('viewer', 'commenter', 'editor')`),
+    check("share_allow_download_check", sql`${table.allowDownload} IN (0, 1)`),
+    check("share_sign_in_check", sql`${table.signIn} IN ('link', 'emailCode', 'twoStep')`),
+    check("share_status_check", sql`${table.status} IN ('active', 'revoked')`),
+    check(
+      "share_revoked_shape_check",
+      sql`(${table.status} = 'revoked') = (${table.revokedAt} IS NOT NULL AND ${table.revokedByUserId} IS NOT NULL)`,
+    ),
+    check("share_ends_on_shape_check", civilDateShape(table.endsOn, true)),
   ],
 );
 

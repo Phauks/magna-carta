@@ -20,8 +20,15 @@ import { NavigationHistory, type NavigationPlace } from "./navigation-history.ts
 /** The scale steps the slider snaps to, from half size to double. */
 export const SCALE_STEPS = [50, 62.5, 75, 87.5, 100, 112.5, 125, 150, 175, 200] as const;
 
-/** The views this surface offers. Four of them are not places in the folder tree. */
-export const FILE_MANAGER_VIEWS = ["browse", "analysis", "deleted", "results", "history"] as const;
+/** The views this surface offers. Five of them are not places in the folder tree. */
+export const FILE_MANAGER_VIEWS = [
+  "browse",
+  "analysis",
+  "deleted",
+  "results",
+  "history",
+  "sharing",
+] as const;
 export type FileManagerView = (typeof FILE_MANAGER_VIEWS)[number];
 
 /** Which of the two ways the files are laid out. */
@@ -33,8 +40,15 @@ export interface Clipboard {
   readonly mode: "copy" | "cut";
 }
 
-/** The details panel's five tabs for a file. Preview is separate from Details, deliberately. */
-export const INSPECTOR_TABS = ["preview", "details", "versions", "hashes", "safety"] as const;
+/** The details panel's six tabs for a file. Preview is separate from Details, deliberately. */
+export const INSPECTOR_TABS = [
+  "preview",
+  "details",
+  "sharing",
+  "versions",
+  "hashes",
+  "safety",
+] as const;
 export type InspectorTab = (typeof INSPECTOR_TABS)[number];
 
 const openClosed = (key: string, fallback: "open" | "closed") =>
