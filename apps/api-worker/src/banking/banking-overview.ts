@@ -8,6 +8,7 @@ import type {
   BankingOverviewResponse,
 } from "@magna-carta/bank-feeds/contract";
 import { TRANSACTION_WINDOW_DAYS } from "@magna-carta/bank-feeds/contract";
+import { addCalendarDays, civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { DATE_WINDOW_DAYS, matchBankLines } from "@magna-carta/bank-feeds/matching";
 import {
   selectBankBookAccountsStatement,
@@ -27,16 +28,10 @@ type Overview = z.infer<typeof BankingOverviewResponse>;
 type BookAccount = z.infer<typeof BankBookAccount>;
 type Transaction = z.infer<typeof BankFeedTransaction>;
 
-const DAY_MS = 86_400_000;
-
-function civilDateDaysBefore(now: Date, days: number): string {
-  return new Date(now.getTime() - days * DAY_MS).toISOString().slice(0, 10);
-}
-
 export function transactionWindow(now: Date): { from: string; to: string } {
   return {
-    from: civilDateDaysBefore(now, TRANSACTION_WINDOW_DAYS),
-    to: now.toISOString().slice(0, 10),
+    from: addCalendarDays(civilDateOf(now), -TRANSACTION_WINDOW_DAYS),
+    to: civilDateOf(now),
   };
 }
 

@@ -15,6 +15,9 @@
   },
   "references": [
     {
+      "path": "../civil-time/tsconfig.build.json"
+    },
+    {
       "path": "../data-access/tsconfig.build.json"
     },
     {

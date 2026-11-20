@@ -15,6 +15,7 @@
  * port speaks the firm's way round (positive is money in), so every amount is negated here and
  * nowhere else.
  */
+import { isCivilDate } from "@magna-carta/civil-time/civil-date";
 import {
   bankFeedFailure,
   decimalToMinor,
@@ -89,8 +90,6 @@ const asRecord = (value: unknown): Record<string, unknown> | null =>
     : null;
 const asArray = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
 
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/u;
-
 function readAccount(value: unknown): ReportedAccount | null {
   const account = asRecord(value);
   if (account === null) return null;
@@ -125,7 +124,7 @@ function readTransaction(value: unknown): ReportedTransaction | null {
     remoteTransactionId === null ||
     remoteAccountId === null ||
     postedOn === null ||
-    !CIVIL_DATE.test(postedOn) ||
+    !isCivilDate(postedOn) ||
     amount === null
   ) {
     return null;

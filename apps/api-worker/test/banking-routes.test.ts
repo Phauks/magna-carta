@@ -5,6 +5,7 @@
  * account in the books, that In Books is decided against the books, that a stale connection is read
  * again when the screen opens, and that the bank asking for a sign-in is shown rather than failed.
  */
+import { addCalendarDays, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { env } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { createAccount } from "@magna-carta/ledger/create-account";
@@ -39,10 +40,9 @@ let otherLedgerAccountId: string;
 
 const clock = {
   now: () => new Date().toISOString(),
-  today: () => new Date().toISOString().slice(0, 10),
+  today: () => todayInUtc(),
 };
-const daysAgo = (days: number) =>
-  new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+const daysAgo = (days: number) => addCalendarDays(todayInUtc(), -days);
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);

@@ -272,6 +272,7 @@ export function upsertBankFeedTransactionStatement(
     );
 }
 
+// fitness:unguarded-write — matching no row means the bank withdrew a line this firm never stored, which is the outcome wanted.
 /** A line the bank withdrew. Kept, marked: what the bank once said stays on the record. */
 export function markBankFeedTransactionRemovedStatement(
   database: SqlDatabase,
@@ -331,6 +332,7 @@ export function linkBankFeedAccountStatement(
  * Ends a connection. Its feed accounts are untied in the same batch, so the book account is free to
  * take a feed from a new sign-in; the bank's lines stay.
  */
+// fitness:unguarded-write — matching no row means nothing was tied or the connection was already closed; disconnecting again is not refused.
 export function disconnectBankConnectionStatements(
   database: SqlDatabase,
   input: { readonly connectionId: BankConnectionId; readonly by: UserId; readonly now: string },

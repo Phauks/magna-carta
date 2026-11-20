@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z } from "zod";
 
 // What the Banking API accepts and answers, as plain zod named with `.meta({ id })`, which the
@@ -8,7 +9,7 @@ import { z } from "zod";
 // the provider's window) and hands back a one-time public token; the access token that reads the
 // bank never leaves the Worker.
 
-const CivilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
+const CivilDate = z.string().regex(CIVIL_DATE_PATTERN);
 
 export const BankBookAccountKind = z
   .enum(["operating", "trust"])

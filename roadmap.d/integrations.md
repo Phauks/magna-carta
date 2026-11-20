@@ -61,7 +61,7 @@
 - id: integrations.ports
   name: Integration category ports
   scope: The named outward-reaching category ports (email/calendar, legal research, accounting, payments, e-signature, messaging, password manager)
-  status: not-started
+  status: partial
   notes: The port framework itself is shipped; the first credentialed port (email/calendar) is gated on the compliance review
 
 - id: integrations.ports.email-calendar
