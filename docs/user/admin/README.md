@@ -69,6 +69,8 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [Connecting your postage account](postage-account.md) — the firm's own carrier account, under
   Settings › Integrations: connecting it, reading its health, why the key is never shown again and
   can only be replaced, disconnecting, and the two permissions a member needs to spend postage.
+- [Problem reports](problem-reports.md) — reading and answering the problems members report, and
+  whether reports also go to Magna Carta.
 - [The beta branch](beta-branch.md) — running the build ahead of the released one: what joining
   asks you to accept, why cancelling leaves the switch off, stepping back, and the alpha channel the
   platform sets.

@@ -96,6 +96,13 @@ export const firm = sqliteTable("firm", {
   // provisioning (a jurisdiction-bound Durable Object id differs from the bare id, so a region change
   // would orphan the firm's data). DEFAULT keeps pre-region rows valid (expand-contract).
   dataRegion: text("data_region").notNull().default("us").$type<DataRegion>(),
+  // Whether the problem reports the firm's members send also reach Magna Carta, so a fault nobody
+  // at Magna Carta would otherwise hear about can be fixed. On by default; whoever answers the
+  // firm's reports can turn it off. Only reports sent while it is on are shared, and turning it off
+  // withdraws every report shared so far (shared_problem_report below).
+  sharesProblemReports: integer("shares_problem_reports", { mode: "boolean" })
+    .notNull()
+    .default(true),
   // ISO-8601 UTC instant.
   createdAt: text("created_at").notNull(),
 });
@@ -821,4 +828,28 @@ export const errorRecord = sqliteTable(
     correlationId: text("correlation_id"),
   },
   (table) => [index("error_record_recorded_at_index").on(table.recordedAt)],
+);
+
+// A problem report a firm shared with Magna Carta: the address of the report and the few redacted
+// facts the platform operator's list shows, never the words or the picture. Those stay in the
+// firm's own database and bucket, sealed under the firm key, and are opened one report at a time
+// through an audited read the firm can see. A row exists only while the firm shares: the firm's
+// switch deletes its rows when it is turned off.
+export const sharedProblemReport = sqliteTable(
+  "shared_problem_report",
+  {
+    incidentId: text("incident_id").primaryKey(), // the report's incident_ id in the firm's database
+    firmId: text("firm_id")
+      .notNull()
+      .references(() => firm.id)
+      .$type<FirmId>(),
+    sentAt: text("sent_at").notNull(), // ISO-8601 instant the report was filed
+    route: text("route"), // the app route it was sent from, as the report's context recorded it
+    errorIdCount: integer("error_id_count").notNull(),
+    status: text("status").notNull(), // open | investigating | fixed | closed, kept current on answer
+  },
+  (table) => [
+    index("shared_problem_report_sent_at_index").on(table.sentAt),
+    index("shared_problem_report_firm_index").on(table.firmId),
+  ],
 );

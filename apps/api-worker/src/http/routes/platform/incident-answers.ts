@@ -21,6 +21,7 @@ import {
   selectIncidentsStatement,
   type IncidentRow,
 } from "@magna-carta/data-access/incident-statements";
+import { updateSharedProblemReportStatusStatement } from "@magna-carta/data-access/shared-problem-report-statements";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../../../bindings.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
@@ -28,6 +29,7 @@ import { protectedReadContext } from "../../../protected-read-context.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
@@ -425,6 +427,18 @@ export function registerIncidentAnswerRoutes(
         },
         { now: () => now },
       );
+      // Magna Carta's copy of a shared report follows its status. A no-op for an unshared one, and
+      // a failure here leaves the firm's answer standing.
+      try {
+        await updateSharedProblemReportStatusStatement(
+          c.env.DB_CONTROL,
+          requireChokepointFirmId(c),
+          incidentId,
+          status,
+        ).run();
+      } catch {
+        // The sender has their answer; only the operator's list shows the older status.
+      }
       const answered = await readIncident(firmDatabase, incidentId);
       if (answered === undefined) return notFound(c);
       return c.json(await incidentDetailOf(context, answered), 200);

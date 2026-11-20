@@ -84,7 +84,7 @@
   spec: docs/specs/2026-11-20-client-portal-design.md
   surface: internal
   adrs: ADR-0073
-  evidence: user.principal_kind and portal_membership (control-plane migration 20261120T193642_portal-client-kind); client invitations name a Directory person and provision no member row; the chokepoint refuses a portal user on every route that is not a portal route. Sign-in levels per grant not built.
+  evidence: user.principal_kind and portal_membership (control-plane migration 20261120T205156_portal-client-kind); client invitations name a Directory person and provision no member row; the chokepoint refuses a portal user on every route that is not a portal route. Sign-in levels per grant not built.
 
 - id: portal.lifecycle
   name: Grant lifecycle

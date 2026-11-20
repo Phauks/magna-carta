@@ -2187,149 +2187,34 @@
           "correlationId"
         ]
       },
-      "ReportIncidentResponse": {
+      "SharedProblemReportList": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ]
-      },
-      "ReportIncidentRequest": {
-        "type": "object",
-        "properties": {
-          "errorIds": {
+          "reports": {
             "type": "array",
             "items": {
-              "type": "string",
-              "pattern": "^error_[A-Za-z0-9_-]{21}$"
-            },
-            "maxItems": 10
-          },
-          "breadcrumbs": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "at": {
-                  "type": "string",
-                  "maxLength": 40
-                },
-                "action": {
-                  "type": "string",
-                  "maxLength": 120
-                },
-                "route": {
-                  "type": "string",
-                  "maxLength": 200
-                }
-              },
-              "required": [
-                "at",
-                "action",
-                "route"
-              ]
-            },
-            "maxItems": 50
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 5000
-          },
-          "context": {
-            "type": "object",
-            "properties": {
-              "route": {
-                "type": "string",
-                "maxLength": 200
-              },
-              "appVersion": {
-                "type": "string",
-                "maxLength": 60
-              },
-              "clientAt": {
-                "type": "string",
-                "maxLength": 40
-              },
-              "deployment": {
-                "type": "string",
-                "maxLength": 4000
-              }
-            },
-            "required": [
-              "route",
-              "appVersion",
-              "clientAt"
-            ]
-          }
-        },
-        "required": [
-          "errorIds",
-          "breadcrumbs",
-          "description",
-          "context"
-        ]
-      },
-      "IncidentList": {
-        "type": "object",
-        "properties": {
-          "incidents": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IncidentSummary"
+              "$ref": "#/components/schemas/SharedProblemReportSummary"
             }
           }
         },
         "required": [
-          "incidents"
+          "reports"
         ]
       },
-      "IncidentSummary": {
+      "SharedProblemReportSummary": {
         "type": "object",
         "properties": {
-          "id": {
+          "incidentId": {
             "type": "string"
           },
-          "createdAt": {
+          "firmId": {
             "type": "string"
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "open",
-              "investigating",
-              "fixed",
-              "closed"
-            ]
-          },
-          "statusChangedAt": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "reportedBy": {
+          "firmName": {
             "type": "string"
           },
-          "reporterName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "summary": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "sentAt": {
+            "type": "string"
           },
           "route": {
             "type": [
@@ -2340,21 +2225,43 @@
           "errorIdCount": {
             "type": "integer"
           },
-          "hasScreenshot": {
-            "type": "boolean"
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "investigating",
+              "fixed",
+              "closed"
+            ]
           }
         },
         "required": [
-          "id",
-          "createdAt",
-          "status",
-          "statusChangedAt",
-          "reportedBy",
-          "reporterName",
-          "summary",
+          "incidentId",
+          "firmId",
+          "firmName",
+          "sentAt",
           "route",
           "errorIdCount",
-          "hasScreenshot"
+          "status"
+        ]
+      },
+      "SharedProblemReportDetail": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": "string"
+          },
+          "firmName": {
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/IncidentDetail"
+          }
+        },
+        "required": [
+          "firmId",
+          "firmName",
+          "report"
         ]
       },
       "IncidentDetail": {
@@ -2473,6 +2380,187 @@
           "route",
           "appVersion",
           "deployment",
+          "hasScreenshot"
+        ]
+      },
+      "ReportIncidentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "ReportIncidentRequest": {
+        "type": "object",
+        "properties": {
+          "errorIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^error_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 10
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "action": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "route": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "at",
+                "action",
+                "route"
+              ]
+            },
+            "maxItems": 50
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "route": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "appVersion": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "clientAt": {
+                "type": "string",
+                "maxLength": 40
+              },
+              "deployment": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "route",
+              "appVersion",
+              "clientAt"
+            ]
+          }
+        },
+        "required": [
+          "errorIds",
+          "breadcrumbs",
+          "description",
+          "context"
+        ]
+      },
+      "ProblemReportSharing": {
+        "type": "object",
+        "properties": {
+          "sharesWithMagnaCarta": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sharesWithMagnaCarta"
+        ]
+      },
+      "IncidentList": {
+        "type": "object",
+        "properties": {
+          "incidents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentSummary"
+            }
+          }
+        },
+        "required": [
+          "incidents"
+        ]
+      },
+      "IncidentSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "investigating",
+              "fixed",
+              "closed"
+            ]
+          },
+          "statusChangedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reportedBy": {
+            "type": "string"
+          },
+          "reporterName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "route": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorIdCount": {
+            "type": "integer"
+          },
+          "hasScreenshot": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "status",
+          "statusChangedAt",
+          "reportedBy",
+          "reporterName",
+          "summary",
+          "route",
+          "errorIdCount",
           "hasScreenshot"
         ]
       },
@@ -58020,6 +58108,263 @@
         }
       }
     },
+    "/api/v1/platform/problem-reports": {
+      "get": {
+        "description": "The problem reports firms share with Magna Carta, newest first. No words.",
+        "operationId": "platform.sharedProblemReports",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.sharedProblemReports",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The shared reports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedProblemReportList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/problem-reports/{firmId}/{incidentId}": {
+      "get": {
+        "description": "One shared report in full. The words and the answer are opened through the audited read, which the firm sees in its own record.",
+        "operationId": "platform.sharedProblemReport",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.sharedProblemReport",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^incident_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "incidentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedProblemReportDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such report, or its firm does not share it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/problem-reports/{firmId}/{incidentId}/screenshot": {
+      "get": {
+        "description": "The screenshot a shared report was sent with.",
+        "operationId": "platform.sharedProblemReportScreenshot",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.sharedProblemReportScreenshot",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^incident_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "incidentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such report, or its firm does not share it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/incidents": {
       "post": {
         "description": "Files a diagnostic incident from the session firm: writes the per-firm incident row and the incident.created outbox row in one atomic batch (the diagnostics agent's future feed). Any member may report; the description is the user's words, the rest is id-and-action shaped.",
@@ -58165,6 +58510,152 @@
           },
           "404": {
             "description": "No such report in this firm, or not one this member filed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/sharing": {
+      "get": {
+        "description": "Whether the firm's problem reports also reach Magna Carta.",
+        "operationId": "incidents.getSharing",
+        "tags": [
+          "incidents"
+        ],
+        "x-mc-operationId": "incidents.getSharing",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:reportIncident",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "incidents"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's switch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemReportSharing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the route's permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Turns sharing with Magna Carta on or off. Off withdraws every report shared so far; on shares reports sent from now on.",
+        "operationId": "incidents.setSharing",
+        "tags": [
+          "incidents"
+        ],
+        "x-mc-operationId": "incidents.setSharing",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "incidents:viewDescription",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "incidents"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemReportSharing"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's switch, as set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemReportSharing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the route's permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
             "content": {
               "application/problem+json": {
                 "schema": {
