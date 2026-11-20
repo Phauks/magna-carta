@@ -1,8 +1,9 @@
 ---
+number: 540
 slug: who-else-is-here-is-one-shared-record-presence
 status: Accepted
-area: Collaboration
 date: 2026-11-20
+area: Collaboration
 summary: "Who else has a record open is one shared feature: a per-firm record_presence table touched every few seconds by the screen, read back as the members seen in the last 30 seconds, served under each record's own path with the permission that reads the record. Trust reconciliation is its first user."
 ---
 

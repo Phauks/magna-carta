@@ -56,6 +56,7 @@ import {
   remindRoute,
   cancelRoute,
 } from "./signing-request-routes.ts";
+import { readOfferedChecks } from "../../../signing/signer-check-settings.ts";
 
 // A member's side of sending a document for signature: start a request on a file, save its signers
 // and fields while it is a draft, send it, follow it, remind and cancel. The decisions are the
@@ -267,6 +268,8 @@ export function registerSigningRequestRoutes(
               email: signer.email,
               attribution: signer.attribution,
               ...(signer.userId === undefined ? {} : { userId: signer.userId as UserId }),
+              ...(signer.codeChannel === undefined ? {} : { codeChannel: signer.codeChannel }),
+              ...(signer.mobileNumber === undefined ? {} : { mobileNumber: signer.mobileNumber }),
             })),
           },
           options,
@@ -327,6 +330,7 @@ export function registerSigningRequestRoutes(
           requestId as SigningRequestId,
           { sha256: await sha256Hex(bytes), pageCount },
           options,
+          await readOfferedChecks(c.env, firm.firmDatabase),
         );
         const links = await linkStatements(
           firm.firmDatabase,

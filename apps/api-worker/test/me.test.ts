@@ -160,6 +160,7 @@ describe("GET /api/v1/me", () => {
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",
+        "esign:manageSettings",
         "esign:seal",
         "esign:send",
         "esign:sign",

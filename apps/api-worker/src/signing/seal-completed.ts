@@ -402,11 +402,25 @@ function completionOf(detail: RequestDetail, signer: SigningSignerRow): SignerCo
       ...(signed?.userAgent !== null && signed?.userAgent !== undefined
         ? { userAgent: signed.userAgent }
         : {}),
-      ...(signer.attributionLevel === "access-code" && signer.email !== ""
-        ? { codeDestination: signer.email }
-        : {}),
+      ...codeDestinationOf(signer),
     },
   };
+}
+
+/**
+ * Where the signer's code went, for the certificate: the address in full, as the request was sent
+ * to it, or a texted number by its last four digits alone.
+ */
+function codeDestinationOf(
+  signer: Pick<SigningSignerRow, "attributionLevel" | "codeChannel" | "email" | "mobileNumber">,
+): { codeDestination?: string } {
+  if (signer.attributionLevel !== "access-code") return {};
+  if (signer.codeChannel === "text") {
+    return signer.mobileNumber === null
+      ? {}
+      : { codeDestination: `Text to the number ending ${signer.mobileNumber.slice(-4)}` };
+  }
+  return signer.email === "" ? {} : { codeDestination: signer.email };
 }
 
 /**

@@ -738,7 +738,7 @@
   scope: Configurable signer assurance — authenticated internal, tokenized link, email/SMS code, ID/KBA, portal-authenticated.
   status: partial
   surface: screen
-  evidence: packages/signing/src/request.ts offers three tiers (emailed link, link plus emailed code, signed in to the firm), chosen per signer on the Signature tab and stored on signing_signer; the emailed link and the emailed six-digit code are checked on the signer lane (apps/api-worker/src/signing/signer-service.ts). Signing in to the firm is signable in the app: the member lane finds the session's user on the request and never asks for a link or a code. SMS codes, ID checks and portal sign-in are not offered.
+  evidence: Outside signers prove who they are through signer checks the firm turns on (packages/signing/src/signer-checks.ts; the firm setting signing.signer_checks behind apps/api-worker/src/http/routes/documents/signing-settings.ts) - the emailed link, a six-digit code by email, and a code by text message through Telnyx (packages/signing/src/text-message.ts, off until TELNYX_API_KEY and TELNYX_TEXT_FROM are set) - chosen per signer on the Signature tab and checked on the signer lane (apps/api-worker/src/signing/signer-service.ts). Signing in to the firm is signable in the app through the member lane. An outside identity check and online notary have a port (packages/signing/src/outside-service.ts) and no vendor adapter; portal sign-in waits on the client portal. The settings screen waits on the owner's layout pick.
 
 - id: documents.esignature.vendor-port
   name: Vendor adapter seam

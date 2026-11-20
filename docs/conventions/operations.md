@@ -905,7 +905,24 @@ The owner chose Google on 2026-11-19. With `GOOGLE_TRANSLATE_API_KEY` set, a fir
 
 **Switching it off.** Turn the firm switch off to stop one firm, or delete `GOOGLE_TRANSLATE_API_KEY` from the Secrets Store (and any per-Worker copy) to stop every firm. The next request answers that translation is not set up.
 
-## 19c. Bank feeds — Plaid
+## 19c. Signer codes by text message — Telnyx
+
+With `TELNYX_API_KEY` (already set for caller lookup) and `TELNYX_TEXT_FROM` both present, a firm may turn on **Text Code** for its outside signers (Settings, Signing); without either, the firm's signing settings say the text service is not ready and no member can pick it. Adapter: `packages/signing/src/text-message.ts`.
+
+**Switching it on**
+
+1. In the Telnyx portal, buy or choose a number and create a **Messaging Profile** under Messaging; assign the number to it.
+2. **Register the number for business texting.** US carriers block unregistered business texts. A regular (long code) number needs 10DLC registration: a brand for the firm and a campaign (use case "2FA" or "Account Notification", sample message "123456 is your code to sign the document Example Law sent you. It works for 10 minutes."). A toll-free number needs toll-free verification instead, which is usually quicker. Telnyx answers 403 until it is done, counted as `number-not-allowed` on `signing.text_codes_undelivered`. Reference: https://developers.telnyx.com/docs/messaging/messages/phone-number-configuration
+3. Create `TELNYX_TEXT_FROM` in the Secrets Store (scope _Workers_) with the number in E.164, for example `+17025550100`. `apps/api-worker/wrangler.jsonc` binds it as `SECRETS_STORE_TELNYX_TEXT_FROM`; a per-Worker secret of the same name is the fallback (see "Secrets Store").
+4. A firm administrator turns **Text Code** on under Settings, Signing.
+
+**What is sent** is the code, the firm's name and how long the code works, to the signer's number. No document title, matter or signer name. The number and the code are never logged; a failure is logged by its reason under an Error ID the signer's page shows.
+
+**What it costs.** Telnyx bills each outbound message segment plus a carrier pass-through fee, and 10DLC carries a one-time brand fee and a monthly campaign fee. Prices: [`docs/operating-costs.md`](../operating-costs.md).
+
+**Switching it off.** Delete `TELNYX_TEXT_FROM`. Text Code drops out of every firm's choices at once; a signer already given a text code is asked to have the sender choose another way.
+
+## 19d. Bank feeds — Plaid
 
 The owner picked Plaid on 2026-11-20 (`docs/decisions/pending/bank-feeds-run-on-plaid-read-only.md`). With `PLAID_CLIENT_ID` and `PLAID_SECRET` set, the Banking screen's Connect Bank opens Plaid's sign-in window; without them it says Banking is not set up. Adapter: `packages/bank-feeds/src/plaid.ts`.
 

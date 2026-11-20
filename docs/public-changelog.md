@@ -15,6 +15,39 @@ behind it.
 
 Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 
+## 2026-11-20
+
+### Added
+
+- Record Transfer now takes files of up to 4 GB, so a whole table from the system you are leaving can be uploaded in one go.
+- Bates numbers now follow on from one another across a matter. The PDF Editor's Bates tab fills in the next number for you, and every number stamped is logged on the matter with the file and who stamped it, so the same number is never used twice.
+- Exhibit sets can now be printed. **Exhibit List** saves the set's list as a PDF, and **Package** saves one PDF of the list, a cover sheet for each exhibit and the exhibits themselves, with Bates numbers on every page that carry on from the last number used on the matter. The PDF Editor's Bates, Watermark and Secure tabs also show the page beside the settings again, and fit on a phone.
+- The File Workbench has a **PDF** tab. It shows a PDF's pages and their size, its form, whether it needs a password, and any Bates numbers already on its pages, and lists the PDF Editor's tools. **Open** works on the file in the same PDF Editor a matter's PDFs use, and whatever the editor makes (a redacted, watermarked or protected copy, extracted or split pages, a filled form) goes back on the workbench as a new file. Nothing is added to a matter. Bates numbering needs a matter, and the tab says so.
+- **In/Out Log.** Record copies, papers and files left at the front desk for someone to pick up, see what is still waiting, record who picked it up and save a picture of their ID, and move anything that needs safekeeping into Custodian.
+- Reporting a problem now takes two steps: describe it, then send a screenshot of the screen you were
+  on, with anything private covered before it leaves your computer. Your firm's admins read and answer
+  reports under Settings › Problem Reports, and you see where each of yours stands under My Reports,
+  with a notification when it arrives and each time it is answered. Firms send their reports to Magna
+  Carta too, so problems get fixed; an admin can turn that off.
+- Groundwork for showing who else is working on a reconciliation at the same time.
+- **Filter your searches.** The Search page now has filters beside the results: pick which places to look in, which matters (including just the ones you pick), a date range, and who wrote it. Results show as one list, newest first.
+- When you send a document for signature, you can now have a signer confirm it is them with a code sent by text message, as well as by email. Your firm decides which ways to offer.
+- **Reconcile a trust account.** A new Reconciliation screen lets you tick off each bank statement against the trust account, see the difference as you go, keep notes on any line, undo any change, and print a draft or final report.
+
+### Changed
+
+- A matter can now keep separate Bates logs, one for each filing or production that needs its own numbers. Pick the log in the PDF Editor's Bates tab or when making an exhibit package, or start a new one with its own name, prefix and digits. Each log counts on its own.
+- The link signers get when a document is complete now shows the signed copy and its Certificate of Completion right on the page, as well as letting them download both. On a phone, documents to sign now fit the screen's width.
+
+### Removed
+
+- **One place to reconcile.** The older reconciliation on the Trust screen has been retired. Use **Reconciliation** in the sidebar, or **Open Reconciliation** on an account.
+
+### Security
+
+- **Bank statements are checked for malware.** A statement attached to a reconciliation is scanned before it is kept, and one that fails the check is refused with a message saying so.
+- Signing in, resetting a password, registering and redeeming an invitation can now be protected by a Cloudflare security check. For most people it runs out of sight; now and then it asks you to tick a box.
+
 ## 2026-11-19
 
 ### Added

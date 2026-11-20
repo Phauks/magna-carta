@@ -7,6 +7,12 @@
 // a record that cannot be defended.
 
 import type { AttributionLevel } from "./esign.ts";
+import {
+  checkOf,
+  SIGNER_CHECK_MODULES,
+  type CodeChannel,
+  type SignerCheck,
+} from "./signer-checks.ts";
 
 /** Whether signers are asked one after another, or all at once. */
 export type SigningOrder = "in-order" | "all-at-once";
@@ -66,6 +72,10 @@ export interface RequestSigner {
   readonly attribution: AttributionLevel;
   /** The member who signs, for `firm-authenticated` only. */
   readonly userId?: string;
+  /** Where the code goes, for `access-code` only. Absent is email. */
+  readonly codeChannel?: CodeChannel;
+  /** The mobile number a text code goes to, in E.164, for a text code only. */
+  readonly mobileNumber?: string;
   readonly status: SignerStatus;
 }
 
@@ -83,8 +93,16 @@ export const MINIMUM_FIELD_SIZE_PT = 8;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** What stops a draft being sent, as sentences a member can act on. Empty means it can be sent. */
-export function draftProblems(request: SigningRequestState, pageCount: number): string[] {
+/**
+ * What stops a draft being sent, as sentences a member can act on. Empty means it can be sent.
+ * `offeredChecks`, when given, is what the firm offers today: a signer given a check the firm has
+ * since turned off, or that is not ready, has to be given another before the request goes.
+ */
+export function draftProblems(
+  request: SigningRequestState,
+  pageCount: number,
+  offeredChecks?: readonly SignerCheck[],
+): string[] {
   const problems: string[] = [];
   if (request.status !== "draft") problems.push("This request has already been sent.");
   if (request.signers.length === 0) problems.push("Add at least one signer.");
@@ -97,8 +115,19 @@ export function draftProblems(request: SigningRequestState, pageCount: number): 
     }
     if (signer.attribution === "firm-authenticated") {
       if (signer.userId === undefined) problems.push(`Choose which firm member ${who} is.`);
-    } else if (!EMAIL.test(signer.email.trim())) {
-      problems.push(`${who} needs an email address the request can be sent to.`);
+    } else {
+      if (!EMAIL.test(signer.email.trim())) {
+        problems.push(`${who} needs an email address the request can be sent to.`);
+      }
+      const check = checkOf(signer.attribution, signer.codeChannel ?? null);
+      if (check === "text-code" && (signer.mobileNumber ?? "") === "") {
+        problems.push(`${who} needs a mobile number to text the code to.`);
+      }
+      if (offeredChecks !== undefined && check !== null && !offeredChecks.includes(check)) {
+        problems.push(
+          `${SIGNER_CHECK_MODULES[check].label} is not offered by the firm now. Choose another way for ${who} to prove who they are.`,
+        );
+      }
     }
     const own = request.fields.filter((field) => field.signerId === signer.id);
     if (!own.some((field) => field.kind === "signature")) {
@@ -179,8 +208,12 @@ function closedReason(status: RequestStatus): string | null {
 }
 
 /** Send a draft: it is out for signing, and the first signers are asked. */
-export function send(request: SigningRequestState, pageCount: number): Transition {
-  const problems = draftProblems(request, pageCount);
+export function send(
+  request: SigningRequestState,
+  pageCount: number,
+  offeredChecks?: readonly SignerCheck[],
+): Transition {
+  const problems = draftProblems(request, pageCount, offeredChecks);
   if (problems.length > 0) return { ok: false, reason: problems[0] ?? "" };
   const sent: SigningRequestState = { ...request, status: "sent" };
   const notify = signersToNotify(sent);
