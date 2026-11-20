@@ -7,7 +7,9 @@ audience: public
 beside its Google Cloud Translation, paragraph by paragraph, and `translate-line.svelte` drops a
 Translate button under a text message, a saved note and an email in the File Workbench. Both show
 "Powered by Google Translate" in place of a notice. The `tools:translation` role permission is the
-only gate; nothing of the text is stored.
+only gate; nothing of the text is stored. The firm switch `translation.enabled` that the Google engine
+shipped behind is removed, with its settings route and contract types: the owner ruled that
+translation is its own service, not an AI feature.
 
 ## Public
 

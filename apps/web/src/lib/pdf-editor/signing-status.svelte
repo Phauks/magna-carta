@@ -229,7 +229,7 @@
               {/if}
             </span>
           </DataTable.Cell>
-          <DataTable.Cell>{attributionLabel(signer.attribution)}</DataTable.Cell>
+          <DataTable.Cell>{attributionLabel(signer)}</DataTable.Cell>
           <DataTable.Cell>
             <Badge variant={signer.status === "signed" ? "success" : signer.status === "declined" ? "danger" : "neutral"}>
               {SIGNER_STATUS_LABEL[signer.status]}

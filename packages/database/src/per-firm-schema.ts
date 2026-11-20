@@ -14170,6 +14170,11 @@ export const signingSigner = sqliteTable(
     userId: text("user_id")
       .$type<UserId>()
       .references(() => member.userId),
+    // 'access-code' only: where the code is sent, 'email' or 'text'. Null on every other signer and
+    // on a row written before codes could be texted, which read as email.
+    codeChannel: text("code_channel", { enum: ["email", "text"] }),
+    // A text code only: the mobile number the code is texted to, in E.164.
+    mobileNumber: text("mobile_number"),
     status: text("status", {
       enum: ["waiting", "notified", "opened", "signed", "declined"],
     })

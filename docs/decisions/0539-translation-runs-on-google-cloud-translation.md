@@ -1,6 +1,7 @@
 ---
+number: 539
 slug: translation-runs-on-google-cloud-translation
-status: Accepted
+status: Accepted (amended 2026-11-20)
 area: Translation
 date: 2026-11-19
 summary: "Translation runs on Google Cloud Translation (the Basic v2 API, keyed by GOOGLE_TRANSLATE_API_KEY from the Secrets Store), chosen by the owner on 2026-11-19. This answers translation design flag T1 the other way from its recommendation, which was the on-platform Workers AI model with third-party translation vendors refused. Translation is its own service, not an AI feature: the member permission tools:translation (every default role) is the one gate, there is no firm switch and no member notice, and the firm's log records each run without its text."
@@ -10,7 +11,7 @@ summary: "Translation runs on Google Cloud Translation (the Basic v2 API, keyed 
 Google Cloud Translation.**
 
 **Context.** The translation design
-([`../specs/2026-08-10-translation-services-design.md`](../specs/2026-08-10-translation-services-design.md))
+([`../specs/2026-08-10-translation-services-design.md`](specs/2026-08-10-translation-services-design.md))
 left the engine to the owner as flag T1 and recommended the on-platform Workers AI model, with the
 dedicated translation vendors (DeepL, Google, Azure) refused because they add a data processor to the
 privilege chain. The owner chose Google.

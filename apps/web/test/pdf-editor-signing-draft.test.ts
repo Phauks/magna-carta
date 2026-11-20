@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { SigningRequestDetail } from "../src/lib/pdf-editor/signing-api.ts";
 import {
   dayAfter,
+  attributionLabel,
+  checkOfSigner,
   draftFromDetail,
   draftRequest,
+  withCheck,
   endOfDay,
   fieldAt,
   fieldCounts,
@@ -171,5 +174,43 @@ describe("a signing draft", () => {
         required: false,
       },
     ]);
+  });
+});
+
+describe("a signer's check", () => {
+  const outside = {
+    key: "a",
+    name: "Jordan Smith",
+    email: "jordan@example.com",
+    attribution: "email-link" as const,
+  };
+
+  it("sends a text code with the number, and an email code with neither", () => {
+    const texted = withCheck({ ...outside, mobileNumber: "702 555 0147" }, "text-code");
+    expect(attributionLabel(texted)).toBe("Text Code");
+    const sent = draftRequest({ ...draft(), signers: [texted] });
+    expect(sent.signers[0]).toEqual({
+      key: "a",
+      name: "Jordan Smith",
+      email: "jordan@example.com",
+      attribution: "access-code",
+      codeChannel: "text",
+      mobileNumber: "702 555 0147",
+    });
+    const emailed = withCheck(texted, "email-code");
+    expect(attributionLabel(emailed)).toBe("Email Code");
+    expect(draftRequest({ ...draft(), signers: [emailed] }).signers[0]).toEqual({
+      key: "a",
+      name: "Jordan Smith",
+      email: "jordan@example.com",
+      attribution: "access-code",
+      codeChannel: "email",
+    });
+  });
+
+  it("names a firm member's way plainly", () => {
+    expect(checkOfSigner({ attribution: "firm-authenticated" })).toBeNull();
+    expect(attributionLabel({ attribution: "firm-authenticated" })).toBe("Signed In to the Firm");
+    expect(attributionLabel({ attribution: "access-code", codeChannel: null })).toBe("Email Code");
   });
 });

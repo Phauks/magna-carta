@@ -43,6 +43,7 @@
     "@magna-carta/product-updates": "workspace:*",
     "@magna-carta/safe-browse": "workspace:*",
     "@magna-carta/segmentation": "workspace:*",
+    "@magna-carta/signing": "workspace:*",
     "@magna-carta/tools": "workspace:*",
     "@magna-carta/trust": "workspace:*",
     "@noble/hashes": "catalog:",

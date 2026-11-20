@@ -845,6 +845,9 @@ export const PROBLEM_TYPES = {
   // The signer is ahead of their own steps: not yet their turn, the code not yet entered, the
   // agreement to sign electronically not yet given, or a field left empty (HTTP 409 or 422).
   "signing-step-refused": "signing-step-refused",
+  // A signer's code could not be texted: the text service refused it, is not set up, or could not be
+  // reached (HTTP 503). The detail carries the Error ID; never the number.
+  "text-undeliverable": "text-undeliverable",
   // The one-time link to the community board cannot be minted because this deployment holds no
   // COMMUNITY_HANDOFF_SECRET (HTTP 503). A fact about configuration, not about the member.
   "community-sign-in-not-configured": "community-sign-in-not-configured",

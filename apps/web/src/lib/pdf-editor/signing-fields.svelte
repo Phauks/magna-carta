@@ -25,9 +25,13 @@
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { boxBetween, pointsToScreen, screenToPoints, type ScreenRect } from "./redactions.ts";
+  import type { SignerCheck } from "@magna-carta/signing/signer-checks";
+  import { readSigningSettings } from "./signing-api.ts";
   import {
-    ATTRIBUTIONS,
     FIELD_KINDS,
+    checkItem,
+    checkOfSigner,
+    withCheck,
     fieldAt,
     fieldCounts,
     fieldLabel,
@@ -35,7 +39,6 @@
     moveSigner,
     toneOf,
     withoutSigner,
-    type Attribution,
     type DraftField,
     type FieldKind,
     type PointRect,
@@ -85,13 +88,32 @@
   const pagesWithFields = $derived(new Set(draft.fields.map((field) => field.page - 1)));
   const selected = $derived(draft.fields.find((field) => field.key === selectedKey) ?? null);
   const signerItems = $derived(draft.signers.map((signer) => ({ value: signer.key, label: signer.name })));
-  const attributionItems = ATTRIBUTIONS.map((one) => ({ value: one.value, label: one.label }));
+  // What the firm offers. Until its settings arrive, the two checks every firm had before it could
+  // choose; the server holds the send to what is offered whatever this screen shows.
+  let offered = $state<readonly SignerCheck[]>(["email-link", "email-code"]);
+  let startWith = $state<SignerCheck>("email-code");
+  /** The checks a signer can be given: what is offered, plus their own if the firm has since turned it off. */
+  function checkItemsFor(current: SignerCheck | null): { value: SignerCheck; label: string }[] {
+    const checks = current === null || offered.includes(current) ? offered : [...offered, current];
+    return checks.map((check) => {
+      const item = checkItem(check);
+      return { value: item.value, label: item.label };
+    });
+  }
   const memberItems = $derived(
     firmRoster.active
       .filter((member) => !draft.signers.some((signer) => signer.userId === member.userId))
       .map((member) => ({ value: member.userId, label: member.displayName })),
   );
   const canAddOutside = $derived(newName.trim() !== "" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim()));
+
+  $effect(() => {
+    void readSigningSettings().then((outcome) => {
+      if (gone || outcome.kind !== "ok") return;
+      offered = outcome.value.offered;
+      startWith = outcome.value.startingCheck;
+    });
+  });
 
   $effect(() => {
     void firmRoster.load(fetch);
@@ -201,7 +223,10 @@
     const key = freshKey("signer");
     draft = {
       ...draft,
-      signers: [...draft.signers, { key, name: newName.trim(), email: newEmail.trim(), attribution: "access-code" }],
+      signers: [
+        ...draft.signers,
+        withCheck({ key, name: newName.trim(), email: newEmail.trim(), attribution: "email-link" }, startWith),
+      ],
     };
     activeSignerKey = key;
     newName = "";
@@ -223,10 +248,17 @@
     newMember = "";
   }
 
-  function setAttribution(key: string, attribution: Attribution): void {
+  function setCheck(key: string, check: SignerCheck): void {
     draft = {
       ...draft,
-      signers: draft.signers.map((signer) => (signer.key === key ? { ...signer, attribution } : signer)),
+      signers: draft.signers.map((signer) => (signer.key === key ? withCheck(signer, check) : signer)),
+    };
+  }
+
+  function setMobileNumber(key: string, mobileNumber: string): void {
+    draft = {
+      ...draft,
+      signers: draft.signers.map((signer) => (signer.key === key ? { ...signer, mobileNumber } : signer)),
     };
   }
 
@@ -363,21 +395,36 @@
             </Button>
           </div>
           {#if signer.attribution !== "firm-authenticated"}
+            {@const check = checkOfSigner(signer)}
+            {@const items = checkItemsFor(check)}
             <Select.Root
               type="single"
-              items={attributionItems.filter((item) => item.value !== "firm-authenticated")}
+              {items}
               allowDeselect={false}
-              bind:value={() => signer.attribution, (picked) => setAttribution(signer.key, (picked || signer.attribution) as Attribution)}
+              bind:value={() => check ?? "email-link", (picked) => setCheck(signer.key, (picked || check || "email-link") as SignerCheck)}
             >
               <Select.Trigger aria-label="How {signer.name} proves who they are">
                 <Select.Value />
               </Select.Trigger>
               <Select.Content>
-                {#each ATTRIBUTIONS.filter((one) => one.value !== "firm-authenticated") as one (one.value)}
-                  <Select.Item value={one.value} label={one.label} />
+                {#each items as item (item.value)}
+                  <Select.Item value={item.value} label={item.label} />
                 {/each}
               </Select.Content>
             </Select.Root>
+            {#if check === "text-code"}
+              <LabelledField necessity="required" label="Mobile Number">
+                {#snippet children({ props })}
+                  <Input
+                    {...props}
+                    type="tel"
+                    autocomplete="off"
+                    maxlength={40}
+                    bind:value={() => signer.mobileNumber ?? "", (typed) => setMobileNumber(signer.key, typed)}
+                  />
+                {/snippet}
+              </LabelledField>
+            {/if}
           {/if}
         </div>
       {:else}

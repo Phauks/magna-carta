@@ -76,7 +76,7 @@
                 </span>
               </span>
             </DataTable.Cell>
-            <DataTable.Cell>{attributionLabel(signer.attribution)}</DataTable.Cell>
+            <DataTable.Cell>{attributionLabel(signer)}</DataTable.Cell>
             <DataTable.Cell class="tabular-nums">{counts.get(signer.key) ?? 0}</DataTable.Cell>
           </DataTable.Row>
         {:else}
