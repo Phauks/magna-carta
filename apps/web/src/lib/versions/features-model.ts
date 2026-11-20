@@ -304,8 +304,8 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     name: "Usage analytics",
     group: "platform",
     steps: [
-      "Bind the Analytics Engine dataset TELEMETRY.",
-      "Set the secret USAGE_ANALYTICS_PEPPER on the magna-carta Worker.",
+      "The Analytics Engine dataset TELEMETRY is bound on every deploy.",
+      "Create USAGE_ANALYTICS_PEPPER in the Cloudflare Secrets Store: a long random value, made once and never changed.",
     ],
     deployQueueHeading: null,
   },

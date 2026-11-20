@@ -1045,3 +1045,42 @@ share a name.
 within five minutes, because each isolate keeps a value that long (`packages/worker-secrets`).
 `packages/worker-secrets/*` also belongs in the Build Watch Paths of every dedicated Worker that
 imports it (§12), so a change to the resolver rebuilds them.
+
+## 24. Usage analytics — switching on Workers Analytics Engine
+
+Both `magna-carta` and `magna-carta-edit` bind the Analytics Engine dataset
+`magna-carta-production-telemetry` as `TELEMETRY` in their `wrangler.jsonc`, so the operational
+counters (`addresses.lookup`, `communications.caller_lookup` and the rest) are written on every
+deploy with no dashboard step. The dataset is created on its first write.
+
+Usage events (which features a firm reaches and completes) need one more thing: the key
+`USAGE_ANALYTICS_PEPPER`. Firm and user ids are pseudonymized under it with HMAC before an event is
+written, and an event is dropped entirely when the key is absent (`packages/telemetry`), so without it
+System Status shows Usage analytics as not set up and no usage event ever reaches the dataset.
+
+**Switching it on**
+
+1. Make a long random value (for example a password manager's 64-character generator) and keep a copy
+   in the password manager. **Never change it once set:** a new value gives every firm and user a new
+   pseudonym, which breaks every trend that spans the change.
+2. Create it in the Secrets Store as `USAGE_ANALYTICS_PEPPER` (scope _Workers_). `apps/api-worker/wrangler.jsonc`
+   binds that name as `SECRETS_STORE_USAGE_ANALYTICS_PEPPER`; a per-Worker secret of the same name on
+   `magna-carta` is the fallback (§23). System Status then shows Usage analytics as set up.
+
+A firm administrator can turn usage analytics off for the firm (the firm setting
+`usage_analytics.enabled`, on by default), and each member can opt out for themselves.
+
+**Reading the data** is the Analytics Engine SQL API, which needs an API token with **Account ·
+Account Analytics · Read**. Nothing in the platform reads it yet, so no such token is set on a Worker:
+
+```bash
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/analytics_engine/sql" \
+  --data "SELECT blob1, count() AS events FROM \"magna-carta-production-telemetry\" WHERE timestamp > NOW() - INTERVAL '1' DAY GROUP BY blob1 ORDER BY events DESC"
+```
+
+**What it costs.** Cloudflare's pricing page (read 2026-11-20) says Analytics Engine is not billed
+yet; the published prices for when it is are 10 million data points written and 1 million read
+queries a month included with Workers Paid, then $0.25 per further million written and $1.00 per
+further million read
+([pricing](https://developers.cloudflare.com/analytics/analytics-engine/pricing/)).
