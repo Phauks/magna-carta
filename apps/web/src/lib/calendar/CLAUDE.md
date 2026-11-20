@@ -61,6 +61,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   selection the rail does through the same controller
 - `own-account-events.ts` — the reader's own events from their connected calendar account: the
   read, and whether they chose any calendar to be shown (which is what lists the rail's row)
+- `own-event-on-matter.ts`, `own-event-window.svelte` — the window one of the reader's own events
+  opens in, and Add to Matter: the two questions it asks (matter, type), when the event reads as
+  being, and the create request that names the own event as the one the matter event is made from
 - `member-busy-time.ts` — when a colleague is busy, from the calendars of their own account they
   chose to share as busy: hours only, painted as the word Busy on that colleague's calendar and
   counted on the availability line. Never the reader's own
@@ -437,8 +440,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   which the firm-wide grid otherwise never does, because they are the reader's own and the server
   answers them to nobody else. A timed one arrives as two instants with no zone, so
   `entryFromOwnAccountEvent` places it at the reader's hour: the one conversion in the projection,
-  and it does not weaken the rule below for records, which name their own zone. They open nowhere;
-  the record is in Outlook.
+  and it does not weaken the rule below for records, which name their own zone. They open in
+  `own-event-window.svelte`, which offers Add to Matter; the record itself is changed in Outlook.
 
 ## Invariants that apply here
 
