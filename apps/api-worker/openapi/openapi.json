@@ -824,6 +824,11 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 90
+          },
+          "directoryEntityId": {
+            "type": "string",
+            "pattern": "^directoryPerson_[A-Za-z0-9_-]+$",
+            "description": "The Directory person this client invitation is for. Required when `kind` is `clientOfFirm`; not allowed when it is `firmMember`."
           }
         },
         "required": [
@@ -55630,7 +55635,7 @@
             }
           },
           "422": {
-            "description": "The request body is malformed, or the Idempotency-Key was reused with a different payload",
+            "description": "The request body is malformed, a client invitation names no Directory person the firm has (or a staff invitation names one), or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {

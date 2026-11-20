@@ -3,24 +3,31 @@ import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-st
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { selectPersonStatement } from "@magna-carta/directory/statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { DirectoryPersonId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { attemptLadderKey, type AttemptLadder } from "../../auth-attempt-budget.ts";
 import {
+  joiningWrites,
   neutralRedemptionRefusal,
   resolveInvitationRedemption,
 } from "../../invitation-redemption.ts";
 import type { createAuth } from "../../../auth.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
+  requireChokepointFirmContext,
   requireChokepointFirmId,
   requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { isUserEmailConflict } from "../../../control-plane-conflicts.ts";
+import {
+  isPortalMembershipConflict,
+  isUserEmailConflict,
+} from "../../../control-plane-conflicts.ts";
 import {
   enforceHumanVerification,
   humanVerificationTokenHeader,
@@ -93,6 +100,18 @@ const IssueInvitationRequest = z
       .string()
       .refine(isCalendarDate, "dateOfBirth must be a real calendar date in YYYY-MM-DD form"),
     expiresInDays: z.number().int().min(1).max(90).optional(),
+    // The Directory person a client invitation is for. Required for `clientOfFirm` and refused for
+    // `firmMember`: a portal client is always somebody the firm already has on record, so the
+    // account it creates is tied to that record from the start.
+    directoryEntityId: z
+      .string()
+      .regex(/^directoryPerson_[A-Za-z0-9_-]+$/)
+      .optional()
+      .openapi({
+        description:
+          "The Directory person this client invitation is for. Required when `kind` is " +
+          "`clientOfFirm`; not allowed when it is `firmMember`.",
+      }),
   })
   .openapi("IssueInvitationRequest");
 
@@ -197,7 +216,9 @@ export const issueInvitationRoute = defineOpenAPIRoute(issueInvitationMeta, {
     },
     422: {
       description:
-        "The request body is malformed, or the Idempotency-Key was reused with a different payload",
+        "The request body is malformed, a client invitation names no Directory person the firm " +
+        "has (or a staff invitation names one), or the Idempotency-Key was reused with a different " +
+        "payload",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -297,6 +318,12 @@ export function registerInvitationRoutes(
       const request = c.req.valid("json");
       const idempotency = requireChokepointIdempotency(c);
 
+      // A client invitation names the person it is for, and the person must be on the firm's own
+      // records and not merged away. Checked here, before a code exists, so a refusal costs
+      // nothing; the database refuses a client invitation with no person as well.
+      const personProblem = await invitationPersonProblem(c, request);
+      if (personProblem !== null) return personProblem;
+
       const email = request.email.trim().toLowerCase();
       const code = generateInvitationCode();
       const [codeHash, verifierHash] = await Promise.all([
@@ -323,8 +350,9 @@ export function registerInvitationRoutes(
               statements: [
                 c.env.DB_CONTROL.prepare(
                   "INSERT INTO invitation (id, firm_id, kind, email, display_name, code_hash, " +
-                    "verifier_hash, status, attempt_count, expires_at, invited_by_user_id, created_at) " +
-                    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 0, ?8, ?9, ?10)",
+                    "verifier_hash, status, attempt_count, expires_at, invited_by_user_id, created_at, " +
+                    "directory_entity_id) " +
+                    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 0, ?8, ?9, ?10, ?11)",
                 ).bind(
                   invitationId,
                   firmId,
@@ -336,6 +364,7 @@ export function registerInvitationRoutes(
                   expiresAt,
                   actingUserId,
                   nowInstant,
+                  request.directoryEntityId ?? null,
                 ),
                 insertAuthAuditStatement(c.env.DB_CONTROL, {
                   id: newIdentifier("authAudit"),
@@ -408,6 +437,7 @@ export function registerInvitationRoutes(
       const invitation = outcome.invitation;
       const nowEpochMilliseconds = Date.now();
       const invitedUserId = newIdentifier("user");
+      const joining = joiningWrites(c.env.DB_CONTROL, invitation, invitedUserId, nowInstant);
 
       try {
         await commitEffectBatch(
@@ -425,36 +455,34 @@ export function registerInvitationRoutes(
               ).bind(invitation.id, nowInstant, invitedUserId),
               // The same write into the Better Auth user table members.invite makes: unverified,
               // with no credential account. The password-setting link below is what creates the
-              // credential and, in doing so, proves control of the mailbox.
+              // credential and, in doing so, proves control of the mailbox. A staff invitation
+              // gives the account its firm; a client invitation gives it NONE, and the firm that
+              // shares with the client is the membership row written beside it.
               c.env.DB_CONTROL.prepare(
-                'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) ' +
-                  "VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)",
+                'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id, ' +
+                  "principal_kind) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5, ?6)",
               ).bind(
                 invitedUserId,
                 invitation.display_name,
                 invitation.email,
                 nowEpochMilliseconds,
-                invitation.firm_id,
+                joining.client ? null : invitation.firm_id,
+                joining.client ? "portalClient" : "firmMember",
               ),
+              ...joining.statements,
               insertAuthAuditStatement(c.env.DB_CONTROL, {
                 id: newIdentifier("authAudit"),
                 event: "invitation.redeemed",
                 userId: invitedUserId,
-                metadata: { invitationId: invitation.id, firmId: invitation.firm_id },
+                metadata: {
+                  invitationId: invitation.id,
+                  firmId: invitation.firm_id,
+                  kind: invitation.kind,
+                },
                 now: nowInstant,
               }),
             ],
-            outboxMessages: [
-              {
-                topic: "member.provision",
-                payload: {
-                  userId: invitedUserId,
-                  firmId: invitation.firm_id,
-                  displayName: invitation.display_name,
-                  roleName: null,
-                },
-              },
-            ],
+            outboxMessages: joining.outboxMessages,
           },
           { now: () => nowInstant },
         );
@@ -466,7 +494,7 @@ export function registerInvitationRoutes(
         // is spent here too, so this refusal is indistinguishable from a plain wrong guess at the
         // same rung — leaving it unspent would mark out the one caller who had all three facts
         // right.
-        if (isUserEmailConflict(caught)) {
+        if (isUserEmailConflict(caught) || isPortalMembershipConflict(caught)) {
           return neutralRedemptionRefusal(c, redemptionAttemptLadder.spend(ladderKey));
         }
         throw caught;
@@ -493,4 +521,44 @@ export function registerInvitationRoutes(
       );
     },
   );
+}
+
+// The 422 for a client invitation that does not name a person the firm has, or a staff invitation
+// that names one. Null when the request is consistent.
+async function invitationPersonProblem(
+  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+  request: { kind: "firmMember" | "clientOfFirm"; directoryEntityId?: string | undefined },
+): Promise<ProblemResponse<422> | null> {
+  const refuse = (code: string, detail: string): ProblemResponse<422> =>
+    problemJson(c, {
+      type: "validation",
+      status: 422,
+      title: "Validation failed",
+      errors: [{ path: "directoryEntityId", code, detail }],
+    });
+  if (request.kind === "firmMember") {
+    return request.directoryEntityId === undefined
+      ? null
+      : refuse("not-allowed", "Leave this out when inviting staff.");
+  }
+  if (request.directoryEntityId === undefined) {
+    return refuse("required", "Choose the person in the Directory this invitation is for.");
+  }
+  const { firmDatabase } = requireChokepointFirmContext(c);
+  const row = await selectPersonStatement(
+    firmDatabase,
+    request.directoryEntityId as DirectoryPersonId,
+  ).first<{ status: string; merged_into_id: string | null }>();
+  if (row === null || row.status !== "active" || row.merged_into_id !== null) {
+    return refuse("unknown-person", "That person isn't in the Directory.");
+  }
+  const existing = await c.env.DB_CONTROL.prepare(
+    "SELECT 1 AS present FROM portal_membership WHERE firm_id = ?1 AND directory_entity_id = ?2",
+  )
+    .bind(requireChokepointFirmId(c), request.directoryEntityId)
+    .first<{ present: number }>();
+  if (existing !== null) {
+    return refuse("already-has-access", "That person already has portal access.");
+  }
+  return null;
 }

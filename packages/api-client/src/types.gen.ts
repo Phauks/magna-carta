@@ -284,6 +284,10 @@ export type IssueInvitationRequest = {
     lastName: string;
     dateOfBirth: string;
     expiresInDays?: number;
+    /**
+     * The Directory person this client invitation is for. Required when `kind` is `clientOfFirm`; not allowed when it is `firmMember`.
+     */
+    directoryEntityId?: string;
 };
 
 export type RedeemInvitationResponse = {
@@ -13060,7 +13064,7 @@ export type InvitationsIssueErrors = {
      */
     409: Problem;
     /**
-     * The request body is malformed, or the Idempotency-Key was reused with a different payload
+     * The request body is malformed, a client invitation names no Directory person the firm has (or a staff invitation names one), or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**

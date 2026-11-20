@@ -37,16 +37,18 @@ Steps 1 to 3 have no client-facing screen. Step 2 has one staff screen (the Shar
 
 ## 4. Identity (step 1)
 
-ADR-0304 is Proposed and not built. The shipped invitation route still writes a client exactly like a staff member: `apps/api-worker/src/http/routes/session/invitations.ts` inserts the `user` row with the inviting firm's `firm_id` for both invitation kinds. A surface that forgets to check the kind therefore places a client **inside** the firm. Step 1 makes ADR-0304 true and moves it to Accepted:
+ADR-0304 is Proposed and not built. The shipped invitation route writes a client exactly like a staff member: `apps/api-worker/src/http/routes/session/invitations.ts` inserts the `user` row with the inviting firm's `firm_id` for both invitation kinds, and both redemption routes provision a member row. A surface that forgets to check the kind therefore places a client **inside** the firm.
 
-- `user.principal_kind` (`firmMember | portalClient`), NOT NULL, unchangeable (a `BEFORE UPDATE` trigger raises).
-- `CHECK ((principal_kind = 'portalClient') = (firm_id IS NULL))`.
-- `portal_membership(principal_id, firm_id, directory_entity_id, status, created_at)` in the control-plane database. `status` is `active | suspended`, and suspending is the firm's lever.
-- The `clientOfFirm` invitation writes `principal_kind = 'portalClient'`, a null `firm_id`, and a membership row naming the Directory entity the invitation was sent to. The invitation gains a required `directory_entity_id` for that kind.
-- The session carries the kind. `RouteMeta` gains `principals`, default `["firmMember"]`. The chokepoint refuses an unlisted kind as if the route did not exist, before tenancy runs.
-- The community board's invitation-count subquery becomes a read of the kind.
+ADR-0304 was written before account-first joining (`docs/specs/2026-08-29-account-first-joining-design.md`), and two of its details no longer fit. An account now exists before anyone knows whether it will join as staff or as a client, so its kind cannot be fixed at creation. And `firm_id` is already NULL for that unattached account, so the CHECK `(principal_kind = 'portalClient') = (firm_id IS NULL)` would be false for it. Step 1 builds the ADR with those two corrections, recorded as an amendment (`docs/decisions/pending/principal-kind-has-an-account-state.md`):
 
-Existing `clientOfFirm` users are migrated in the same migration: kind set, `firm_id` moved into a membership row. If any exist without a Directory link, the migration stops and lists them, since a membership must name an entity.
+- `user.principal_kind` is `account | firmMember | portalClient`, NOT NULL, default `account`. `account` may become either of the other two, once; the other two never change.
+- A firm member always has a `firm_id`; a portal client never has one. `user` is a parent table with rows, so SQLite cannot gain a CHECK in place. The rules are triggers in the migration instead (`20261120T193642_portal-client-kind`): a `BEFORE` pair refuses a mismatch or a settled kind changing, and an `AFTER` pair makes an `account` that gains a firm a `firmMember` in the same statement, so the staff joining paths need not name the kind.
+- `portal_membership(principal_id, firm_id, directory_entity_id, status, created_at, updated_at)` in the control-plane database, one row per firm, one account per Directory person per firm. `status` is `active | suspended`, and suspending is the firm's lever.
+- A `clientOfFirm` invitation must name a Directory person (`directory_entity_id`); the issuing route checks the person exists and is not merged, and a trigger refuses a client invitation with none. Redeeming it, signed in or not, writes `principal_kind = 'portalClient'`, no firm, and the membership row, and provisions **no** member row in the firm database. A staff invitation is unchanged.
+- The session carries the kind. `RouteMeta` gains `principals`, default `["account", "firmMember"]`. The chokepoint refuses an unlisted kind with the reserved 404 before it resolves a firm. No route lists `portalClient` yet, so a client reaches nothing until step 3, including the bootstrap.
+- The community board no longer counts invitations (that subquery is gone); the hand-off route it signs in through keeps the default list, so a portal client is refused there too.
+
+The migration converts any account made by redeeming a client invitation under the old code to a portal client with no firm. Those invitations named no Directory person, so no membership can be written for them and they reach nothing until the firm invites them again. The web app has no screen that issues a client invitation, so none are expected in production. A client invitation issued before the column existed is refused at redemption.
 
 **Sign-in.** The default is the one-time email code the identity spec already designs. A grant whose assurance is `magic-link` admits the holder of a single-use emailed link for that grant only. `account-2fa` grants require a passkey or authenticator code. The session is challenged up to the strongest level among the grants a page reads. The sign-in page never answers differently for an address with grants at one firm, four, or none.
 

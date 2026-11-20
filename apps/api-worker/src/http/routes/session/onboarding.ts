@@ -11,6 +11,7 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { Problem } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import {
+  joiningWrites,
   neutralRedemptionRefusal,
   resolveInvitationRedemption,
 } from "../../invitation-redemption.ts";
@@ -19,6 +20,7 @@ import {
   generateConfirmationToken,
   isCalendarDate,
 } from "../../../joining-secrets.ts";
+import { isPortalMembershipConflict } from "../../../control-plane-conflicts.ts";
 import { readJoiningState } from "../../../joining-state.ts";
 import { scheduleRequestPathSweep } from "../../request-path-sweep.ts";
 
@@ -329,49 +331,61 @@ export function registerOnboardingRoutes(
       }
 
       const nowInstant = new Date().toISOString();
-      await commitEffectBatch(
-        c.env.DB_CONTROL,
-        {
-          statements: [
-            // The redemption fence. A guarded UPDATE cannot abort a D1 batch at zero rows, so two
-            // redemptions racing one invitation would both pass — the fence below is what stops the
-            // second, by colliding with the user's own primary key unless this account still
-            // belongs to no firm.
-            c.env.DB_CONTROL.prepare(
-              "UPDATE invitation SET status = 'redeemed', redeemed_at = ?2, redeemed_user_id = ?3 " +
-                "WHERE id = ?1 AND status = 'pending'",
-            ).bind(invitation.id, nowInstant, userId),
-            c.env.DB_CONTROL.prepare(
-              "INSERT INTO \"user\" (id, name, email, firm_id) SELECT ?1, '', '', NULL " +
-                'WHERE (SELECT firm_id FROM "user" WHERE id = ?1) IS NOT NULL',
-            ).bind(userId),
-            // The attachment itself — the whole difference between this route and the anonymous
-            // one. No user is created; the one signing in acquires a firm.
-            c.env.DB_CONTROL.prepare(
-              'UPDATE "user" SET firm_id = ?2, updated_at = ?3 WHERE id = ?1 AND firm_id IS NULL',
-            ).bind(userId, invitation.firm_id, Date.now()),
-            insertAuthAuditStatement(c.env.DB_CONTROL, {
-              id: newIdentifier("authAudit"),
-              event: "invitation.redeemed",
-              userId,
-              metadata: { invitationId: invitation.id, firmId: invitation.firm_id },
-              now: nowInstant,
-            }),
-          ],
-          outboxMessages: [
-            {
-              topic: "member.provision",
-              payload: {
+      const joining = joiningWrites(c.env.DB_CONTROL, invitation, userId, nowInstant);
+      try {
+        await commitEffectBatch(
+          c.env.DB_CONTROL,
+          {
+            statements: [
+              // The redemption fence. A guarded UPDATE cannot abort a D1 batch at zero rows, so two
+              // redemptions racing one invitation would both pass — the fence below is what stops the
+              // second, by colliding with the user's own primary key unless this account is still
+              // an account that has settled into nothing: no firm, and not a portal client.
+              c.env.DB_CONTROL.prepare(
+                "UPDATE invitation SET status = 'redeemed', redeemed_at = ?2, redeemed_user_id = ?3 " +
+                  "WHERE id = ?1 AND status = 'pending'",
+              ).bind(invitation.id, nowInstant, userId),
+              c.env.DB_CONTROL.prepare(
+                "INSERT INTO \"user\" (id, name, email, firm_id) SELECT ?1, '', '', NULL " +
+                  "WHERE (SELECT principal_kind FROM \"user\" WHERE id = ?1) <> 'account'",
+              ).bind(userId),
+              // The attachment itself — the whole difference between this route and the anonymous
+              // one. No user is created. A staff invitation gives the account its firm (the database
+              // makes it a firm member in the same statement); a client invitation makes it a portal
+              // client with no firm, tied to the firm by the membership row written beside it.
+              joining.client
+                ? c.env.DB_CONTROL.prepare(
+                    "UPDATE \"user\" SET principal_kind = 'portalClient', updated_at = ?2 " +
+                      "WHERE id = ?1 AND principal_kind = 'account'",
+                  ).bind(userId, Date.now())
+                : c.env.DB_CONTROL.prepare(
+                    'UPDATE "user" SET firm_id = ?2, updated_at = ?3 WHERE id = ?1 AND firm_id IS NULL',
+                  ).bind(userId, invitation.firm_id, Date.now()),
+              ...joining.statements,
+              insertAuthAuditStatement(c.env.DB_CONTROL, {
+                id: newIdentifier("authAudit"),
+                event: "invitation.redeemed",
                 userId,
-                firmId: invitation.firm_id,
-                displayName: invitation.display_name,
-                roleName: null,
-              },
-            },
-          ],
-        },
-        { now: () => nowInstant },
-      );
+                metadata: {
+                  invitationId: invitation.id,
+                  firmId: invitation.firm_id,
+                  kind: invitation.kind,
+                },
+                now: nowInstant,
+              }),
+            ],
+            outboxMessages: joining.outboxMessages,
+          },
+          { now: () => nowInstant },
+        );
+      } catch (caught) {
+        // Another account already holds this person's portal access in the firm. The same
+        // refusal as every other failure here: which one it was is not the caller's to learn.
+        if (isPortalMembershipConflict(caught)) {
+          return neutralRedemptionRefusal(c, redemptionAttemptLadder.spend(ladderKey));
+        }
+        throw caught;
+      }
 
       // A redemption that worked clears the caller's ladder: they were who they said they were, and
       // the mistypes that got them here should not follow them.

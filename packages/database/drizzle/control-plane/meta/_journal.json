@@ -85,6 +85,13 @@
       "when": 1794616031873,
       "tag": "20261114T002711_error-record",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795203402349,
+      "tag": "20261120T193642_portal-client-kind",
+      "breakpoints": true
     }
   ]
 }

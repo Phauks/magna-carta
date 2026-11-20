@@ -29,7 +29,12 @@ import type { Permission } from "@magna-carta/access-control/registry";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { problemJson } from "../contracts/problem.ts";
 import type { ProblemTypeKey } from "../contracts/problem-types.ts";
-import { routeMetaOf, type ResolvedRouteMeta, type RouteMeta } from "../contracts/route-meta.ts";
+import {
+  DEFAULT_ROUTE_PRINCIPALS,
+  routeMetaOf,
+  type ResolvedRouteMeta,
+  type RouteMeta,
+} from "../contracts/route-meta.ts";
 import {
   GUEST_CREDENTIAL_HEADER,
   GUEST_CREDENTIAL_QUERY_PARAMETER,
@@ -48,6 +53,11 @@ export interface ResolvedSession {
   // firmlessSession, so a firmless session is closed by default on every route that never
   // considered it.
   readonly firmId: FirmId | null;
+  // What kind of person this is. A portal client is admitted only by a route whose meta lists
+  // `portalClient` in `principals`, and refused as absent everywhere else, before any firm is
+  // resolved. Optional so a port that predates the kind (a support session, a test fake) still
+  // types; absent is read as the kind the firm id implies, which can never be a portal client.
+  readonly principalKind?: "account" | "firmMember" | "portalClient";
   // Present when the principal is a support session (a staff identity under a firm grant). The
   // chokepoint threads it to loadPermissions to choose the tier-scoped permission set.
   readonly support?: {
@@ -594,6 +604,22 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
         }
 
         if (session !== null) {
+          // Step 3a·-1 — WHAT KIND OF PERSON, ahead of everything that reads a firm. A portal client
+          // holds no firm and no member row; a route that never listed the kind answers it with the
+          // same reserved absence a cross-firm request gets, so a staff route cannot be reached by a
+          // client even if its handler forgot to look. The default list (route-meta.ts) leaves the
+          // kind out, which is the closed direction.
+          const principalKind =
+            session.principalKind ?? (session.firmId === null ? "account" : "firmMember");
+          if (!(meta.principals ?? DEFAULT_ROUTE_PRINCIPALS).includes(principalKind)) {
+            return problemJson(c, {
+              type: "not-found",
+              status: 404,
+              title: "Not found",
+              detail: "No such resource in this firm.",
+            });
+          }
+
           // Step 3a·0 — FIRMLESS ADMISSION, ahead of the firm context because there is no firm to
           // resolve. Three outcomes, and the default is the closed one:
           //

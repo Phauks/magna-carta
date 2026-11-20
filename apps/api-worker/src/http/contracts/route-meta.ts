@@ -128,7 +128,21 @@ export interface RouteMeta {
    * token, admitted only once the request is completed and sealed, for a fixed time after sealing.
    */
   signerLane?: "link" | "signed-copy";
+  /**
+   * WHICH KINDS OF PERSON a signed-in session may be to reach this route: `account` (signed up, no
+   * firm yet), `firmMember`, `portalClient`. Absent means DEFAULT_ROUTE_PRINCIPALS, which leaves the
+   * portal client out, so a client is refused as absent by every staff route that never thought
+   * about clients. The chokepoint checks it before it resolves a firm. Routes for clients list the
+   * kind; nothing else should.
+   */
+  principals?: readonly RoutePrincipalKind[];
 }
+
+export type RoutePrincipalKind = "account" | "firmMember" | "portalClient";
+
+// Who reaches a route that does not say: everybody who is not a portal client. Whether an `account`
+// with no firm gets past the next gate is `firmlessSession`'s question, unchanged.
+export const DEFAULT_ROUTE_PRINCIPALS: readonly RoutePrincipalKind[] = ["account", "firmMember"];
 
 // The meta as attached to a defined route: optional fields resolved to their defaults, so the
 // chokepoint and the conformance suite never re-derive them.
@@ -375,6 +389,18 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     );
   }
 
+  // #7 A principals list names at least one kind, each once. An empty list would be a route nobody
+  // signed in can reach, which is never what was meant.
+  if (
+    meta.principals !== undefined &&
+    (meta.principals.length === 0 || new Set(meta.principals).size !== meta.principals.length)
+  ) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} declares principals ${JSON.stringify(meta.principals)} ` +
+        `but the list must name at least one kind, each once.`,
+    );
+  }
+
   const namespace = meta.operationId.slice(0, meta.operationId.indexOf("."));
   const resolvedMeta: ResolvedRouteMeta = {
     ...meta,
@@ -416,6 +442,11 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     ...(resolvedMeta.signerLane === undefined
       ? {}
       : { "x-mc-signerLane": resolvedMeta.signerLane }),
+    // Emitted only where a route declares it, so every route that keeps the default publishes
+    // nothing new.
+    ...(resolvedMeta.principals === undefined
+      ? {}
+      : { "x-mc-principals": resolvedMeta.principals }),
     "x-mc-tags": resolvedMeta.tags,
     "x-mc-deprecated": resolvedMeta.deprecated,
   });

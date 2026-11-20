@@ -14,6 +14,7 @@ import type {
   CommunityCommentId,
   CommunityFlagId,
   CommunityPostId,
+  DirectoryPersonId,
   FirmId,
   IdempotencyRecordId,
   InvitationId,
@@ -143,6 +144,21 @@ export const user = sqliteTable("user", {
   firmId: text("firm_id")
     .$type<FirmId>()
     .references(() => firm.id),
+  // WHAT KIND OF PERSON THIS ACCOUNT IS, which a firm-scoped surface must never have to work out.
+  //   account      — signed up, belongs to no firm yet; firm_id is null.
+  //   firmMember   — works at the firm named by firm_id, which is set.
+  //   portalClient — somebody a firm shares with; firm_id is NULL, always, and the firms that
+  //                  share with them are rows in portal_membership.
+  // The null firm_id is the point: every firm-scoped surface places a caller by firm_id, so a
+  // client whose row named the inviting firm would be placed INSIDE it by any surface that forgot
+  // to check. With no firm the same forgetful surface finds nothing and answers 404.
+  //
+  // `account` may become either of the others, once; neither of the others ever changes. Both
+  // rules, and the pairing with firm_id, are enforced by triggers in the migration that added this
+  // column (SQLite cannot add a CHECK to a table holding rows), so a handler cannot get it wrong.
+  principalKind: text("principal_kind", { enum: ["account", "firmMember", "portalClient"] })
+    .notNull()
+    .default("account"),
 });
 
 export const session = sqliteTable(
@@ -321,6 +337,11 @@ export const invitation = sqliteTable(
       .references(() => firm.id),
     // `firmMember` becomes a user of the firm; `clientOfFirm` becomes a portal client of it.
     kind: text("kind", { enum: ["firmMember", "clientOfFirm"] }).notNull(),
+    // The Directory person a `clientOfFirm` invitation is for, in the issuing firm's database. A
+    // portal client is always somebody the firm already knows, never a name typed into an
+    // invitation, so redemption writes this onto the portal membership. Null for `firmMember`, and
+    // for a client invitation issued before the column existed (which can no longer be redeemed).
+    directoryEntityId: text("directory_entity_id").$type<DirectoryPersonId>(),
     email: text("email").notNull(),
     displayName: text("display_name").notNull(),
     codeHash: text("code_hash").notNull(),
@@ -340,6 +361,42 @@ export const invitation = sqliteTable(
     uniqueIndex("invitation_code_hash_unique").on(table.codeHash),
     index("invitation_firm_id_index").on(table.firmId),
     index("invitation_email_index").on(table.email),
+  ],
+);
+
+// One row per firm that shares with a portal client: the firm, and the Directory person the client
+// is in that firm's records. There is no shadow list of clients anywhere: every row names a person
+// the firm can see and conflict-check.
+//
+// A portal session carries no firm. What a client can reach is decided on each request from the
+// grant the request names, and the grant names its firm; this table is what says the firm still
+// recognises the person at all. `suspended` is the firm's own lever, and it reaches only this firm's
+// row, never another firm that works with the same person.
+//
+// It holds no permission and no grant. A portal client has no `member` row in any firm database, so
+// role-based access gives them nothing anywhere, and nothing here may change that.
+export const portalMembership = sqliteTable(
+  "portal_membership",
+  {
+    principalId: text("principal_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id),
+    firmId: text("firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    directoryEntityId: text("directory_entity_id").notNull().$type<DirectoryPersonId>(),
+    status: text("status", { enum: ["active", "suspended"] }).notNull(),
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+    updatedAt: text("updated_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    primaryKey({ columns: [table.principalId, table.firmId] }),
+    // One account per person in a firm's records: two accounts both claiming to be the same client
+    // is a question for the firm, not something the second redemption may settle by itself.
+    uniqueIndex("portal_membership_firm_entity_unique").on(table.firmId, table.directoryEntityId),
+    check("portal_membership_status_check", sql`${table.status} IN ('active', 'suspended')`),
   ],
 );
 
