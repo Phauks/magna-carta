@@ -269,6 +269,8 @@ export function visibleMattersSearchSelect(
 ): SqlStatement {
   const { request } = spec;
   const conditions = [...spec.conditions, request.visibility.fragmentFor(spec.matterExpression)];
+  const dateBindings = dateConditions(spec, conditions);
+  const authorBindings = authorConditions(spec, conditions);
   const sql =
     `SELECT ${projectedColumns(spec)} ` +
     `FROM ${spec.from} ` +
@@ -281,8 +283,51 @@ export function visibleMattersSearchSelect(
       ...(spec.fromBindings ?? []),
       ...spec.bindings,
       ...request.visibility.bindings,
+      ...dateBindings,
+      ...authorBindings,
       request.limit + 1,
     );
+}
+
+// THE READER'S DAYS, composed into the WHERE clause before the limit like everything else that
+// decides whether a row is in the answer. They are held against the expression the place is
+// listed by, which across matters is always a date or a moment, newest first: the order a reader
+// reads "since June" against. A place listed in alphabetical order has no date to hold, and is
+// refused here rather than answered as though the days had been applied.
+function dateConditions(spec: VisibleMattersSearchSelectSpec, conditions: string[]): unknown[] {
+  const dates = spec.request.dates;
+  if (dates === undefined || (dates.from === undefined && dates.before === undefined)) return [];
+  if (spec.ascending === true) {
+    throw new Error(
+      "A place listed in alphabetical order cannot be held to a range of days; list it by a date.",
+    );
+  }
+  const bindings: unknown[] = [];
+  if (dates.from !== undefined) {
+    conditions.push(`${spec.sortExpression} >= ?`);
+    bindings.push(dates.from);
+  }
+  if (dates.before !== undefined) {
+    conditions.push(`${spec.sortExpression} < ?`);
+    bindings.push(dates.before);
+  }
+  return bindings;
+}
+
+// THE ONE PERSON THE READER ASKED ABOUT, composed like the days. The runner asks only a place that
+// declared it records who acted (`recordsAuthor` in registry.ts), so a place that records nobody
+// reaching here is a declaration that does not match its columns, and is refused rather than
+// answered as though the person had been applied.
+function authorConditions(spec: VisibleMattersSearchSelectSpec, conditions: string[]): unknown[] {
+  const author = spec.request.actorUserId;
+  if (author === undefined) return [];
+  if (spec.actorExpression === "NULL") {
+    throw new Error(
+      "A place that records nobody as its rows' author cannot be held to one person.",
+    );
+  }
+  conditions.push(`${spec.actorExpression} = ?`);
+  return [author];
 }
 
 // The deep link a person follows to see the row itself, in the section that owns it and behind that
