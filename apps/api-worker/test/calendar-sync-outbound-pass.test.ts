@@ -31,6 +31,7 @@
  */
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { insertAdoptedSyncLinkStatement } from "@magna-carta/calendar/sync-link-statements";
 import type {
   CalendarSyncPort,
   ProviderEventSnapshot,
@@ -1528,5 +1529,113 @@ describe("a member with an account at each of two providers", () => {
       expect(quietGoogle.calls).toEqual([]);
     }
     expect(eventsChanged).toBe(1);
+  });
+});
+
+describe("an event the member made themselves and put on a matter", () => {
+  const OWN = "own-outlook-event-1";
+  const EVENT = "matterEvent_outboundadopt01";
+
+  async function adopt(remote: Map<string, RemoteCopy>): Promise<void> {
+    await seedEvent(EVENT, MATTER, hearingTypeId, "Call with R. Alvarez", "2026-12-03", true);
+    // The member's own event, as they wrote it in their own calendar.
+    remote.set(OWN, {
+      versionTag: "theirs",
+      event: {
+        title: "Call with R. Alvarez",
+        notes: null,
+        location: "Phone",
+        startsOn: "2026-12-03",
+        startsAtTime: "09:30",
+        endsOn: null,
+        endsAtTime: "11:00",
+        timeZone: "America/Chicago",
+      },
+    });
+    await insertAdoptedSyncLinkStatement(
+      firmDatabase,
+      { connectionId: CONNECTION, localKind: "matter_event", localId: EVENT },
+      { calendarRemoteId: "own-calendar", remoteEventId: OWN, transactionId: "txn-adopt" },
+      NOW,
+    ).run();
+  }
+
+  it("writes the event into the member's own one, with no rule, and never makes a second", async () => {
+    const provider = recorder();
+    // An event the member wrote is not one this side marked, so the list of written copies
+    // never carries it.
+    provider.listed.hide.add(OWN);
+    await adopt(provider.remote);
+
+    expect(await pass(provider.port)).toMatchObject({ kind: "settled", report: { updated: 1 } });
+    expect(provider.calls.map((call) => call.op)).toEqual(["update"]);
+    expect(provider.calls[0]).toMatchObject({ op: "update", remoteId: OWN });
+    expect(provider.remote.get(OWN)?.event.notes).toContain("Matter 2026-0001");
+
+    // A second pass finds it as sent and writes nothing.
+    const again = recorder(provider.remote);
+    again.listed.hide.add(OWN);
+    expect(await pass(again.port)).toMatchObject({ kind: "settled" });
+    expect(again.calls).toEqual([]);
+    expect(await links()).toEqual([{ local_id: EVENT, state: "synced", remote_event_id: OWN }]);
+  });
+
+  it("keeps it in the calendar they made it in, whatever a rule for the type names", async () => {
+    const provider = recorder();
+    provider.listed.hide.add(OWN);
+    await adopt(provider.remote);
+    await setRule(hearingTypeId, "cal-work", "mine");
+
+    await pass(provider.port);
+    expect(provider.calls.map((call) => call.op)).toEqual(["update"]);
+    expect(provider.remote.has(OWN)).toBe(true);
+  });
+
+  it("forgets the link and leaves their event alone when the event is cancelled", async () => {
+    const provider = recorder();
+    provider.listed.hide.add(OWN);
+    await adopt(provider.remote);
+    await pass(provider.port);
+    await run("UPDATE matter_event SET status = 'cancelled' WHERE id = ?1", EVENT);
+
+    const after = recorder(provider.remote);
+    after.listed.hide.add(OWN);
+    expect(await pass(after.port)).toMatchObject({ kind: "settled", report: { removed: 1 } });
+    expect(after.calls).toEqual([]);
+    expect(after.remote.has(OWN)).toBe(true);
+    expect(await links()).toEqual([]);
+  });
+
+  it("forgets the link without a delete when the firm closes the type", async () => {
+    const provider = recorder();
+    provider.listed.hide.add(OWN);
+    await adopt(provider.remote);
+    await run(
+      "INSERT INTO calendar_sync_firm_limit (subject, event_type_id, may_leave, detail, updated_at, updated_by) VALUES (?1, ?1, 0, 'full', ?2, ?3)",
+      hearingTypeId,
+      NOW,
+      memberUserId,
+    );
+
+    expect(await pass(provider.port)).toMatchObject({ kind: "settled" });
+    expect(provider.calls).toEqual([]);
+    expect(provider.remote.get(OWN)?.versionTag).toBe("theirs");
+    expect(await links()).toEqual([]);
+  });
+
+  it("asks the member, and cancels nothing, when they delete it from their own calendar", async () => {
+    const provider = recorder();
+    provider.listed.hide.add(OWN);
+    await adopt(provider.remote);
+    await pass(provider.port);
+    provider.remote.delete(OWN);
+
+    const after = recorder(provider.remote);
+    expect(await pass(after.port)).toMatchObject({ kind: "settled", report: { flagged: 1 } });
+    const event = await firmDatabase
+      .prepare("SELECT status FROM matter_event WHERE id = ?1")
+      .bind(EVENT)
+      .first<{ status: string }>();
+    expect(event?.status).toBe("scheduled");
   });
 });
