@@ -15,6 +15,7 @@
    * thing the heading does. What a person needs here is the address field, not a sentence about
    * what happens after they fill it.
    */
+  import type { Snippet } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -22,6 +23,7 @@
   import CredentialNotice from "../credential-notice.svelte";
 
   let {
+    humanCheck,
     email = $bindable(""),
     pending = false,
     rejection = null,
@@ -29,6 +31,8 @@
     onSubmit,
     back,
   }: {
+    /** The bot check, drawn just above the main button when the page supplies one. */
+    humanCheck?: Snippet;
     email?: string;
     pending?: boolean;
     /** The failure sentence — only ever an outage or a rate limit, never a verdict on the address. */
@@ -60,6 +64,8 @@
           required
         />
       </div>
+
+      {@render humanCheck?.()}
 
       <Button type="submit" variant="primary" size="lg" class="w-full" disabled={!canSubmit}>
         {pending ? "Sending…" : "Reset Password"}

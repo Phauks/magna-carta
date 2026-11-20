@@ -449,9 +449,12 @@ export const ENTITY_PREFIXES = {
   exhibitSetMember: "exhibitSetMember",
   exhibitReference: "exhibitReference",
   exhibitPackage: "exhibitPackage",
-  // Bates numbers — a `batesRange` is one run of page numbers taken from a matter's register under
-  // one prefix, for one stamped document. Ranges under a prefix never overlap.
+  // Bates numbers — a `batesRange` is one run of page numbers taken from one of a matter's Bates
+  // logs, for one stamped document. Ranges in a log never overlap.
   batesRange: "batesRange",
+  // A `batesLog` is one named run of Bates numbers on a matter (one filing, one production), with its
+  // own prefix and its own count.
+  batesLog: "batesLog",
   // The matter's own identity records beyond the shell. A `matterAssignment` is one firm member
   // staffed onto a matter in a named working role (the responsible attorney stays on the matter row
   // itself); a `matterCourtCase` is the matter's court-and-case identity — the court, the case
