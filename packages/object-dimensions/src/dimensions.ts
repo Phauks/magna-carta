@@ -152,7 +152,10 @@ export type FirmScopedObjectClass =
   // The screenshot a member sent with a problem report, covered parts already painted out. It is a
   // picture of whatever screen they were on, which may span matters or be none, and it belongs to
   // the report, which belongs to the firm.
-  | "incident-screenshot";
+  | "incident-screenshot"
+  // The picture of the ID a person showed when they picked something up at the front desk. It
+  // belongs to an In/Out Log entry, which may name no matter, so it belongs to the firm.
+  | "in-out-identity-scan";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -194,6 +197,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "transfer-pass-report",
   "transfer-file-mapping",
   "incident-screenshot",
+  "in-out-identity-scan",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [
