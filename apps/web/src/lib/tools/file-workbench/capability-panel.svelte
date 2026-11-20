@@ -24,6 +24,7 @@
     files,
     onOpenCapability,
     onAddFiles,
+    onOpenPdfEditor,
   }: {
     capability: CapabilityModule;
     file: WorkbenchFile;
@@ -31,6 +32,7 @@
     files: readonly WorkbenchFile[];
     onOpenCapability?: (capability: CapabilityModule) => void;
     onAddFiles?: (files: readonly File[]) => void;
+    onOpenPdfEditor?: (file: WorkbenchFile, tool: string) => void;
   } = $props();
 
   const applicability = $derived(capability.applies(file));
@@ -40,7 +42,7 @@
 {#if !applicability.applies}
   <Absence kind="not-applicable" reason={applicability.reason} />
 {:else if Panel}
-  <Panel {file} {files} {onOpenCapability} {onAddFiles} />
+  <Panel {file} {files} {onOpenCapability} {onAddFiles} {onOpenPdfEditor} />
 {:else}
   <PendingCapability
     action={capability.pendingAction}

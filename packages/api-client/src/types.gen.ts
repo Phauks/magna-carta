@@ -831,7 +831,7 @@ export type NumberingSchemesResponse = {
 };
 
 export type NumberingListedPurpose = {
-    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     title: string;
     label: string;
     subject: string;
@@ -898,13 +898,13 @@ export type NumberingSampleContext = {
 
 export type NumberingSchemeResponse = {
     segments: Array<NumberSegment> | null;
-    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     usingDefault: boolean;
 };
 
 export type NumberingScheme = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
 };
 
 export type NumberingPreviewResponse = {
@@ -915,7 +915,7 @@ export type NumberingPreviewResponse = {
 
 export type NumberingPreviewRequest = {
     segments: Array<NumberSegment>;
-    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+    purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     counterValue?: number;
     context?: {
         openedDate?: string;
@@ -935,7 +935,7 @@ export type NumberReservationResponse = {
 };
 
 export type NumberReservationRequest = {
-    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'communication';
+    purpose: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'communication' | 'in_out_entry';
     token?: string;
     occurredAt?: string;
     context?: {
@@ -9980,6 +9980,97 @@ export type CustodyWillCapability = {
     verifiedOn: string;
 };
 
+export type InOutEntryPage = {
+    data: Array<InOutEntry>;
+    nextCursor: string | null;
+};
+
+export type InOutEntry = {
+    id: string;
+    number: string;
+    description: string;
+    from: {
+        kind: 'member' | 'entity' | 'external';
+        userId: string | null;
+        entityId: string | null;
+        name: string;
+    };
+    to: Array<InOutRecipient>;
+    matter: {
+        id: string;
+        title: string;
+        number: string | null;
+    } | null;
+    keptAt: string | null;
+    notes: string | null;
+    status: 'waiting' | 'picked_up' | 'moved_to_custodian';
+    droppedOffAt: string;
+    recordedByUserId: string;
+    pickedUp: {
+        at: string;
+        by: {
+            kind: 'member' | 'entity' | 'external';
+            userId: string | null;
+            entityId: string | null;
+            name: string;
+        };
+        identityChecked: boolean;
+        identityScanned: boolean;
+        handedOverByUserId: string | null;
+    } | null;
+    movedToCustodian: {
+        at: string;
+        packetId: string;
+        custodyNumber: string | null;
+        movedByUserId: string | null;
+    } | null;
+};
+
+export type InOutRecipient = {
+    id: string;
+    kind: 'member' | 'entity' | 'external';
+    userId: string | null;
+    entityId: string | null;
+    name: string;
+};
+
+export type InOutEntryCreated = {
+    id: string;
+    number: string;
+};
+
+export type InOutDropOffRequest = {
+    description: string;
+    from: InOutParty;
+    to: Array<InOutParty>;
+    matterId?: string | null;
+    keptAt?: string | null;
+    notes?: string | null;
+    numberReservation?: string;
+};
+
+export type InOutParty = {
+    kind: 'member' | 'entity' | 'external';
+    userId?: string | null;
+    entityId?: string | null;
+    name: string;
+};
+
+export type InOutAcknowledged = {
+    ok: true;
+};
+
+export type InOutMoveToCustodianRequest = {
+    packetId: string;
+};
+
+export type InOutPickUpRequest = {
+    recipientId?: string | null;
+    collector?: InOutParty;
+    identityChecked: boolean;
+    identityScanBase64?: string;
+};
+
 export type MagnusAvailability = {
     state: 'open' | 'firm-ineligible' | 'feature-disabled' | 'acknowledgement-required';
     disclosureVersion?: number;
@@ -12128,6 +12219,29 @@ export type RecordTransferFileMapping = {
 
 export type SaveRecordTransferFileMappingRequest = {
     mapping: RecordTransferFileMapping;
+};
+
+export type StartRecordTransferFileUploadResponse = {
+    fileId: string;
+    uploadId: string;
+    partBytes: number;
+};
+
+export type RecordTransferFileUploadPartResponse = {
+    part: {
+        partNumber: number;
+        etag: string;
+    };
+};
+
+export type CompleteRecordTransferFileUploadRequest = {
+    uploadId: string;
+    fileName: string;
+    sourceKind: string;
+    parts: Array<{
+        partNumber: number;
+        etag: string;
+    }>;
 };
 
 export type RecordTransferPassResponse = {
@@ -14842,7 +14956,7 @@ export type NumberingGetData = {
     body?: never;
     path?: never;
     query?: {
-        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication';
+        purpose?: 'matter' | 'consultation' | 'intake' | 'conflicts_check' | 'custody_packet' | 'invoice' | 'time_entry' | 'communication' | 'in_out_entry';
     };
     url: '/api/v1/numbering-scheme';
 };
@@ -46333,6 +46447,343 @@ export type CustodyWillDepositDutiesResponses = {
 
 export type CustodyWillDepositDutiesResponse = CustodyWillDepositDutiesResponses[keyof CustodyWillDepositDutiesResponses];
 
+export type InOutLogListEntriesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: 'waiting' | 'all';
+        search?: string;
+        cursor?: string;
+    };
+    url: '/api/v1/in-out-entries';
+};
+
+export type InOutLogListEntriesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogListEntriesError = InOutLogListEntriesErrors[keyof InOutLogListEntriesErrors];
+
+export type InOutLogListEntriesResponses = {
+    /**
+     * One page of the log
+     */
+    200: InOutEntryPage;
+};
+
+export type InOutLogListEntriesResponse = InOutLogListEntriesResponses[keyof InOutLogListEntriesResponses];
+
+export type InOutLogDropOffData = {
+    body: InOutDropOffRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/in-out-entries';
+};
+
+export type InOutLogDropOffErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogDropOffError = InOutLogDropOffErrors[keyof InOutLogDropOffErrors];
+
+export type InOutLogDropOffResponses = {
+    /**
+     * The entry and its number
+     */
+    201: InOutEntryCreated;
+};
+
+export type InOutLogDropOffResponse = InOutLogDropOffResponses[keyof InOutLogDropOffResponses];
+
+export type InOutLogDeleteEntryData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}';
+};
+
+export type InOutLogDeleteEntryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogDeleteEntryError = InOutLogDeleteEntryErrors[keyof InOutLogDeleteEntryErrors];
+
+export type InOutLogDeleteEntryResponses = {
+    /**
+     * Deleted
+     */
+    200: InOutAcknowledged;
+};
+
+export type InOutLogDeleteEntryResponse = InOutLogDeleteEntryResponses[keyof InOutLogDeleteEntryResponses];
+
+export type InOutLogGetEntryData = {
+    body?: never;
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}';
+};
+
+export type InOutLogGetEntryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogGetEntryError = InOutLogGetEntryErrors[keyof InOutLogGetEntryErrors];
+
+export type InOutLogGetEntryResponses = {
+    /**
+     * The entry
+     */
+    200: InOutEntry;
+};
+
+export type InOutLogGetEntryResponse = InOutLogGetEntryResponses[keyof InOutLogGetEntryResponses];
+
+export type InOutLogMoveToCustodianData = {
+    body: InOutMoveToCustodianRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}/custody-packet';
+};
+
+export type InOutLogMoveToCustodianErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogMoveToCustodianError = InOutLogMoveToCustodianErrors[keyof InOutLogMoveToCustodianErrors];
+
+export type InOutLogMoveToCustodianResponses = {
+    /**
+     * Moved to Custodian
+     */
+    200: InOutAcknowledged;
+};
+
+export type InOutLogMoveToCustodianResponse = InOutLogMoveToCustodianResponses[keyof InOutLogMoveToCustodianResponses];
+
+export type InOutLogPickUpData = {
+    body: InOutPickUpRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}/pick-up';
+};
+
+export type InOutLogPickUpErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogPickUpError = InOutLogPickUpErrors[keyof InOutLogPickUpErrors];
+
+export type InOutLogPickUpResponses = {
+    /**
+     * Picked up
+     */
+    200: InOutAcknowledged;
+};
+
+export type InOutLogPickUpResponse = InOutLogPickUpResponses[keyof InOutLogPickUpResponses];
+
+export type InOutLogIdentityScanData = {
+    body?: never;
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}/identity-scan';
+};
+
+export type InOutLogIdentityScanErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogIdentityScanError = InOutLogIdentityScanErrors[keyof InOutLogIdentityScanErrors];
+
+export type InOutLogIdentityScanResponses = {
+    /**
+     * The picture
+     */
+    200: string;
+};
+
+export type InOutLogIdentityScanResponse = InOutLogIdentityScanResponses[keyof InOutLogIdentityScanResponses];
+
 export type MagnusAvailabilityData = {
     body?: never;
     path?: never;
@@ -55431,6 +55882,164 @@ export type RecordTransferSaveSourceFileMappingResponses = {
 };
 
 export type RecordTransferSaveSourceFileMappingResponse = RecordTransferSaveSourceFileMappingResponses[keyof RecordTransferSaveSourceFileMappingResponses];
+
+export type RecordTransferStartSourceFileUploadData = {
+    body?: never;
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/file-uploads';
+};
+
+export type RecordTransferStartSourceFileUploadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferStartSourceFileUploadError = RecordTransferStartSourceFileUploadErrors[keyof RecordTransferStartSourceFileUploadErrors];
+
+export type RecordTransferStartSourceFileUploadResponses = {
+    /**
+     * The upload that was opened
+     */
+    201: StartRecordTransferFileUploadResponse;
+};
+
+export type RecordTransferStartSourceFileUploadResponse = RecordTransferStartSourceFileUploadResponses[keyof RecordTransferStartSourceFileUploadResponses];
+
+export type RecordTransferAddSourceFileUploadPartData = {
+    body: unknown;
+    path: {
+        runId: string;
+        fileId: string;
+        partNumber: number;
+    };
+    query: {
+        uploadId: string;
+    };
+    url: '/api/v1/record-transfer/runs/{runId}/file-uploads/{fileId}/parts/{partNumber}';
+};
+
+export type RecordTransferAddSourceFileUploadPartErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The file is larger than a source file may be
+     */
+    413: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferAddSourceFileUploadPartError = RecordTransferAddSourceFileUploadPartErrors[keyof RecordTransferAddSourceFileUploadPartErrors];
+
+export type RecordTransferAddSourceFileUploadPartResponses = {
+    /**
+     * The piece as stored
+     */
+    200: RecordTransferFileUploadPartResponse;
+};
+
+export type RecordTransferAddSourceFileUploadPartResponse = RecordTransferAddSourceFileUploadPartResponses[keyof RecordTransferAddSourceFileUploadPartResponses];
+
+export type RecordTransferCompleteSourceFileUploadData = {
+    body: CompleteRecordTransferFileUploadRequest;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/file-uploads/{fileId}/complete';
+};
+
+export type RecordTransferCompleteSourceFileUploadErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The file is larger than a source file may be
+     */
+    413: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferCompleteSourceFileUploadError = RecordTransferCompleteSourceFileUploadErrors[keyof RecordTransferCompleteSourceFileUploadErrors];
+
+export type RecordTransferCompleteSourceFileUploadResponses = {
+    /**
+     * The file as the run now holds it
+     */
+    201: RecordTransferSourceFileResponse;
+};
+
+export type RecordTransferCompleteSourceFileUploadResponse = RecordTransferCompleteSourceFileUploadResponses[keyof RecordTransferCompleteSourceFileUploadResponses];
 
 export type RecordTransferRequestPassData = {
     body: RequestRecordTransferPassRequest;

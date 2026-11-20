@@ -32,7 +32,8 @@ export type NumberingPurpose =
   | "custody_packet"
   | "invoice"
   | "time_entry"
-  | "communication";
+  | "communication"
+  | "in_out_entry";
 
 /**
  * The purposes whose shape the firm writes as a scheme — every one of them, since the owner's
@@ -226,6 +227,17 @@ export const DEFAULT_TIME_ENTRY_SCHEME: readonly NumberSegment[] = [
 ];
 
 /*
+ * The In/Out Log sequence: "IO-" and a four-digit count that never restarts — "IO-0187". The owner
+ * asked for a number on every entry (2026-11-19) so the front desk can write it on the envelope or
+ * read it back to the person collecting. A firm-wide run because an entry is looked up by its number
+ * for days, not years, and a short number is what gets written on a sticky note.
+ */
+export const DEFAULT_IN_OUT_ENTRY_SCHEME: readonly NumberSegment[] = [
+  { kind: "literal", text: "IO-" },
+  { kind: "counter", padWidth: 4, start: 1 },
+];
+
+/*
  * The call and text sequence: the day it happened, then a four-digit count for that day —
  * "2026-09-08-0042", which is what it rendered before the firm could shape it. The day is in the
  * number so a reader knows when the call was without a lookup, and the three date parts scope the
@@ -380,6 +392,21 @@ const DEFINITIONS: readonly NumberingPurposeDefinition[] = [
     scopeDistinguishedBy: null,
     scopePrefix: "",
     fallbackScheme: DEFAULT_COMMUNICATION_SCHEME,
+  },
+  {
+    purpose: "in_out_entry",
+    formulation: "scheme",
+    title: "In/Out Log Numbers",
+    label: "in/out log number",
+    subject: "in/out log entry",
+    subjects: "in/out log entries",
+    drawnWhen: "Drawn when something is dropped off at the front desk.",
+    draftNumber: "held",
+    segmentKinds: DATE_ONLY_KINDS,
+    scopeSource: "segments",
+    scopeDistinguishedBy: null,
+    scopePrefix: "",
+    fallbackScheme: DEFAULT_IN_OUT_ENTRY_SCHEME,
   },
 ];
 
