@@ -393,6 +393,28 @@ be turned on; the switch is instead the Microsoft application's two secrets, abs
 registers one ([`../deploy-queue.md`](../deploy-queue.md)). Pages stay out of the settings navigation
 until there is something for a member to do on them.
 
+### Adding a member's own event to a matter (2026-11-20)
+
+The owner chose one window and one step: pressing an own event opens a window that asks for the
+matter and the type, and Add to Matter records it.
+
+- `POST /api/v1/matters/{matterId}/events` takes an optional `fromAccountEvent: { provider, id }`.
+  The event is found through the session member's own account and the rows a pass last read from
+  it. One that is not theirs answers 404.
+- In the same batch as the new event, a `calendar_sync_link` row is written with `adopted` set,
+  naming the provider's event as the copy, and the row in `external_calendar_event` is removed. No
+  pass ever sees the event without its link, so no second copy is made.
+- The link is written as sent with no agreement recorded, so the next pass updates the provider's
+  event from the matter event, at the detail the firm allows.
+- An adopted copy needs no rule and stays in the calendar the member made it in. It is still
+  subject to the firm's limit for its type.
+- A pass never deletes or moves an adopted provider event. Where the copy should no longer be out
+  (the event was cancelled, left the window, the member no longer takes part, or the firm closed
+  the type) the link alone is removed, and the provider's event is the member's own again.
+- Not verified against a live provider: updating an event this platform did not create, and
+  adopting one day of a provider's repeating event (it is linked by that day's own identifier).
+  An adopted copy carries no mark of ours, so each pass reads it by identifier, one request each.
+
 ## 12. Open
 
 - Whether Google classes the Calendar scopes as sensitive or restricted. The verification pages name

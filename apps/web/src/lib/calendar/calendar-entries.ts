@@ -85,6 +85,11 @@ export interface CalendarEntry extends CalendarGridEntry {
    * "this event only" or "this and all later events" needs to know. Absent on everything else.
    */
   readonly occurrenceOn?: string;
+  /**
+   * The reader's own event this entry painted, where it is one from their connected account.
+   * What its window shows, and what putting it on a matter sends. Absent on everything else.
+   */
+  readonly ownAccountEvent?: OwnAccountEvent;
 }
 
 /** What the projection needs to know beyond the row: the names identifiers resolve to. */
@@ -402,7 +407,8 @@ export function withoutSeriesRows(
  * its own; the only honest hour to draw it at is the reader's. A whole-day one is civil days and
  * is drawn on them.
  *
- * It opens nowhere: the record is in the reader's own calendar, which is where it is changed.
+ * It opens in a window of its own (own-event-window.svelte), which shows it and offers to put it
+ * on a matter. It is changed in the reader's own calendar, which is where the record is.
  */
 export function entryFromOwnAccountEvent(
   event: OwnAccountEvent,
@@ -420,6 +426,7 @@ export function entryFromOwnAccountEvent(
     label: event.title.trim() === "" ? UNTITLED_OWN_EVENT_LABEL : event.title,
     detail: event.location ?? undefined,
     tone: "neutral" as const,
+    ownAccountEvent: event,
   };
   if (event.wholeDay) {
     if (event.startsOn === null) return null;

@@ -56,7 +56,8 @@ export type OutboundStep =
   | { readonly action: "update"; readonly desired: OutboundDesired; readonly link: SyncLinkRow }
   // A copy is out and should not be: the event was cancelled or left the window, the rule was
   // removed, the firm closed the type, or the rule now names another calendar (in which case a
-  // create for the new place follows on the next pass).
+  // create for the new place follows on the next pass). For an event the member made themselves
+  // and put on a matter, the pass forgets the link and leaves their event where it is.
   | { readonly action: "remove"; readonly link: SyncLinkRow };
 
 function joinLines(lines: readonly (string | null)[]): string | null {
@@ -145,29 +146,39 @@ function linkKey(localKind: string, localId: string): string {
 }
 
 // Everything that should be out, under the rules and limits as they stand.
+//
+// AN EVENT THE MEMBER PUT ON A MATTER FROM THEIR OWN CALENDAR needs no rule. Its copy is the event
+// they made, in the calendar they made it in, and it stays there whatever their rules say about
+// the type: `adoptedCalendarOf` answers that calendar, or null for everything else. The firm's
+// limit still decides whether it is written to and how much of the event is written.
 export function desiredCopies(
   rules: readonly OutboundRule[],
   limitFor: (subject: string) => OutboundLimit,
   candidates: readonly OutboundCandidate[],
+  adoptedCalendarOf: (localKind: SyncLocalKind, localId: string) => string | null = () => null,
 ): OutboundDesired[] {
   const ruleBySubject = new Map(rules.map((rule) => [rule.subject, rule]));
   const desired: OutboundDesired[] = [];
   for (const candidate of candidates) {
+    const adoptedCalendar = adoptedCalendarOf(candidate.localKind, candidate.row.id);
     const rule = ruleBySubject.get(candidate.row.subject);
-    if (rule === undefined) continue;
+    if (rule === undefined && adoptedCalendar === null) continue;
     const limit = limitFor(candidate.row.subject);
     // A rule cannot be saved for a closed subject and closing one deletes its rules, so this is
     // the third lock on the same door: a pass never sends what the firm does not let leave, even
     // if a rule somehow outlived the limit.
     if (!limit.mayLeave) continue;
     const inScope =
+      adoptedCalendar !== null ||
       candidate.row.takes_part === 1 ||
-      (rule.scope === "my_matters" && candidate.row.on_own_matter === 1);
+      (rule?.scope === "my_matters" && candidate.row.on_own_matter === 1);
     if (!inScope) continue;
+    const calendarRemoteId = adoptedCalendar ?? rule?.calendarRemoteId;
+    if (calendarRemoteId === undefined) continue;
     desired.push({
       localKind: candidate.localKind,
       localId: candidate.row.id,
-      calendarRemoteId: rule.calendarRemoteId,
+      calendarRemoteId,
       detail: limit.detail,
       event: providerEventFor(candidate, limit.detail),
     });
