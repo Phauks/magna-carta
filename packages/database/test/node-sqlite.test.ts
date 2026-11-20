@@ -298,6 +298,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "exhibits:issue",
         "exhibits:manage",
         "files:organize",
+        // Sharing a matter's files with the client or another outside party is ordinary paralegal
+        // work; Billing and Read-only do not share.
+        "files:share",
         "files:upload",
         // Writing one's own name reaches every seat, Read-only included: it is the platform's
         // one self-scoped mutation, and every statement behind it is scoped to the session's
