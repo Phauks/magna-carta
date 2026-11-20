@@ -13123,7 +13123,7 @@ export type InvitationsIssueErrors = {
      */
     409: Problem;
     /**
-     * The request body is malformed, a client invitation names no Directory person the firm has (or a staff invitation names one), or the Idempotency-Key was reused with a different payload
+     * The body is malformed, names the wrong Directory person, or reuses an Idempotency-Key
      */
     422: Problem;
     /**

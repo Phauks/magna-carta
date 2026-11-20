@@ -3,9 +3,7 @@ import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-st
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import { selectPersonStatement } from "@magna-carta/directory/statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { DirectoryPersonId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { attemptLadderKey, type AttemptLadder } from "../../auth-attempt-budget.ts";
@@ -17,7 +15,6 @@ import {
 import type { createAuth } from "../../../auth.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
-  requireChokepointFirmContext,
   requireChokepointFirmId,
   requireChokepointIdempotency,
   requireChokepointUserId,
@@ -49,6 +46,7 @@ import { Problem, problemJson, type ProblemResponse } from "../../contracts/prob
 import { idempotencyKeyHeader } from "../../contracts/common.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { scheduleRequestPathSweep } from "../../request-path-sweep.ts";
+import { InvitationDirectoryEntityId, invitationPersonProblem } from "./invitation-person.ts";
 
 // INVITATIONS — how a person who is not a stranger gets in.
 //
@@ -100,18 +98,7 @@ const IssueInvitationRequest = z
       .string()
       .refine(isCalendarDate, "dateOfBirth must be a real calendar date in YYYY-MM-DD form"),
     expiresInDays: z.number().int().min(1).max(90).optional(),
-    // The Directory person a client invitation is for. Required for `clientOfFirm` and refused for
-    // `firmMember`: a portal client is always somebody the firm already has on record, so the
-    // account it creates is tied to that record from the start.
-    directoryEntityId: z
-      .string()
-      .regex(/^directoryPerson_[A-Za-z0-9_-]+$/)
-      .optional()
-      .openapi({
-        description:
-          "The Directory person this client invitation is for. Required when `kind` is " +
-          "`clientOfFirm`; not allowed when it is `firmMember`.",
-      }),
+    directoryEntityId: InvitationDirectoryEntityId,
   })
   .openapi("IssueInvitationRequest");
 
@@ -216,9 +203,7 @@ export const issueInvitationRoute = defineOpenAPIRoute(issueInvitationMeta, {
     },
     422: {
       description:
-        "The request body is malformed, a client invitation names no Directory person the firm " +
-        "has (or a staff invitation names one), or the Idempotency-Key was reused with a different " +
-        "payload",
+        "The body is malformed, names the wrong Directory person, or reuses an Idempotency-Key",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -318,9 +303,6 @@ export function registerInvitationRoutes(
       const request = c.req.valid("json");
       const idempotency = requireChokepointIdempotency(c);
 
-      // A client invitation names the person it is for, and the person must be on the firm's own
-      // records and not merged away. Checked here, before a code exists, so a refusal costs
-      // nothing; the database refuses a client invitation with no person as well.
       const personProblem = await invitationPersonProblem(c, request);
       if (personProblem !== null) return personProblem;
 
@@ -487,27 +469,21 @@ export function registerInvitationRoutes(
           { now: () => nowInstant },
         );
       } catch (caught) {
-        // The address is already a user — either this invitation was raced, or the firm invited
-        // somebody who already has an account. Both answer the SAME neutral refusal as every other
-        // failure: "that address is already registered" on an anonymous endpoint is precisely the
-        // account-existence oracle the rest of this handler is built to deny. The caller's ladder
-        // is spent here too, so this refusal is indistinguishable from a plain wrong guess at the
-        // same rung — leaving it unspent would mark out the one caller who had all three facts
-        // right.
+        // The address is already a user, or the person already has portal access (a raced
+        // invitation either way). Both answer the SAME neutral refusal, with the ladder spent, so
+        // this is indistinguishable from a wrong guess: "already registered" on an anonymous
+        // endpoint is the account-existence oracle this handler is built to deny.
         if (isUserEmailConflict(caught) || isPortalMembershipConflict(caught)) {
           return neutralRedemptionRefusal(c, redemptionAttemptLadder.spend(ladderKey));
         }
         throw caught;
       }
 
-      // A redemption that worked clears the caller's ladder: they were who they said they were, and
-      // the mistypes that got them here should not follow them to a second invitation.
+      // A redemption that worked clears the caller's ladder, so mistypes do not follow them.
       redemptionAttemptLadder.clear(ladderKey);
 
-      // After the commit, by design: the membership is real before the mail, and it stays real if
-      // the mail will not go. The send's outcome is recorded at the port (app.ts) — the only layer
-      // that can observe it — so a mail that does not leave is a counted, correlated fact even
-      // though this response cannot carry it.
+      // After the commit, by design: the membership is real before the mail and stays real if the
+      // mail will not go. The port (app.ts) records the send's outcome, which this response cannot.
       await authForEnv(c.env).api.requestPasswordReset({ body: { email: invitation.email } });
       scheduleRequestPathSweep(c.executionCtx, c.env);
 
@@ -521,44 +497,4 @@ export function registerInvitationRoutes(
       );
     },
   );
-}
-
-// The 422 for a client invitation that does not name a person the firm has, or a staff invitation
-// that names one. Null when the request is consistent.
-async function invitationPersonProblem(
-  c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
-  request: { kind: "firmMember" | "clientOfFirm"; directoryEntityId?: string | undefined },
-): Promise<ProblemResponse<422> | null> {
-  const refuse = (code: string, detail: string): ProblemResponse<422> =>
-    problemJson(c, {
-      type: "validation",
-      status: 422,
-      title: "Validation failed",
-      errors: [{ path: "directoryEntityId", code, detail }],
-    });
-  if (request.kind === "firmMember") {
-    return request.directoryEntityId === undefined
-      ? null
-      : refuse("not-allowed", "Leave this out when inviting staff.");
-  }
-  if (request.directoryEntityId === undefined) {
-    return refuse("required", "Choose the person in the Directory this invitation is for.");
-  }
-  const { firmDatabase } = requireChokepointFirmContext(c);
-  const row = await selectPersonStatement(
-    firmDatabase,
-    request.directoryEntityId as DirectoryPersonId,
-  ).first<{ status: string; merged_into_id: string | null }>();
-  if (row === null || row.status !== "active" || row.merged_into_id !== null) {
-    return refuse("unknown-person", "That person isn't in the Directory.");
-  }
-  const existing = await c.env.DB_CONTROL.prepare(
-    "SELECT 1 AS present FROM portal_membership WHERE firm_id = ?1 AND directory_entity_id = ?2",
-  )
-    .bind(requireChokepointFirmId(c), request.directoryEntityId)
-    .first<{ present: number }>();
-  if (existing !== null) {
-    return refuse("already-has-access", "That person already has portal access.");
-  }
-  return null;
 }
