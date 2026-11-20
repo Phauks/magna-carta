@@ -107,7 +107,7 @@ function seenFrom(observed: Observed): { observedIp: string | null; userAgent: s
   return { observedIp: observed.ip, userAgent: observed.userAgent };
 }
 
-/** Whether the signer still owes the emailed code before anything else. */
+/** Whether the signer still owes the code they were sent before anything else. */
 export function needsCode(view: SignerView): boolean {
   return (
     view.signer.attributionLevel === "access-code" && view.progress.identityVerifiedAt === null
@@ -146,7 +146,7 @@ function assertTurn(view: SignerView): void {
   if (!outcome.ok) throw new SignerStepRefusal(409, outcome.reason);
 }
 
-/** A fresh code for a signer who proves who they are with one. The caller mails the digits. */
+/** A fresh code for a signer who proves who they are with one. The caller mails or texts the digits. */
 export function issueAccessCode(
   database: SqlDatabase,
   view: SignerView,
@@ -178,7 +178,7 @@ export function checkAccessCode(
   if (!needsCode(view)) return { effect: write([]), verified: true };
   const { accessCodeHash, accessCodeExpiresAt, accessCodeAttempts } = view.progress;
   if (accessCodeHash === null || accessCodeExpiresAt === null) {
-    throw new SignerStepRefusal(409, "Ask for a code first. It is sent to your email address.");
+    throw new SignerStepRefusal(409, "Ask for a code first.");
   }
   if (accessCodeAttempts >= MAXIMUM_ACCESS_CODE_ATTEMPTS) {
     throw new SignerStepRefusal(409, "Too many wrong codes. Ask for a new code.");
@@ -214,7 +214,7 @@ export function checkAccessCode(
         event(view.detail.request.id, "identity-verified", observed.now, {
           signerId: view.signer.id,
           actor: view.signer.name,
-          detail: "email code",
+          detail: view.signer.codeChannel === "text" ? "text code" : "email code",
           ...seenFrom(observed),
         }),
       ),
@@ -229,7 +229,7 @@ export function giveConsent(
   observed: Observed,
 ): EffectWrite {
   assertTurn(view);
-  if (needsCode(view)) throw new SignerStepRefusal(409, "Enter the code sent to your email first.");
+  if (needsCode(view)) throw new SignerStepRefusal(409, "Enter the code you were sent first.");
   if (view.signer.consentedAt !== null) return write([]);
   return write([
     guarded(
@@ -250,7 +250,7 @@ export function giveConsent(
 
 function assertReadyToSign(view: SignerView): void {
   assertTurn(view);
-  if (needsCode(view)) throw new SignerStepRefusal(409, "Enter the code sent to your email first.");
+  if (needsCode(view)) throw new SignerStepRefusal(409, "Enter the code you were sent first.");
   if (view.signer.consentedAt === null) {
     throw new SignerStepRefusal(409, "Agree to sign electronically first.");
   }

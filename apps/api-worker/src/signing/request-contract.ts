@@ -76,6 +76,10 @@ export const SigningRequestDetail = z
         email: z.string(),
         attribution: z.enum(OFFERED),
         userId: z.string().nullable(),
+        // Where the code goes, for an access-code signer; null for every other signer.
+        codeChannel: z.enum(["email", "text"]).nullable(),
+        // The mobile number a text code goes to, in E.164; null unless the code is texted.
+        mobileNumber: z.string().nullable(),
         status: z.enum(["waiting", "notified", "opened", "signed", "declined"]),
         notifiedAt: z.string().nullable(),
         openedAt: z.string().nullable(),
@@ -121,6 +125,10 @@ export const SaveSigningDraftRequest = z
           email: z.string().trim().max(320),
           attribution: z.enum(OFFERED),
           userId: z.string().optional(),
+          // For an access-code signer: send the code by email (the default) or by text message.
+          codeChannel: z.enum(["email", "text"]).optional(),
+          // For a text code: the signer's mobile number, as the member wrote it.
+          mobileNumber: z.string().trim().max(40).optional(),
         }),
       )
       .max(MAXIMUM_SIGNERS),
@@ -173,6 +181,9 @@ export function signingRequestBody(detail: StoredDetail): z.infer<typeof Signing
       email: signer.email,
       attribution: signer.attributionLevel as "email-link" | "access-code" | "firm-authenticated",
       userId: signer.userId,
+      codeChannel:
+        signer.attributionLevel === "access-code" ? (signer.codeChannel ?? "email") : null,
+      mobileNumber: signer.mobileNumber,
       status: signer.status,
       notifiedAt: signer.notifiedAt,
       openedAt: signer.openedAt,

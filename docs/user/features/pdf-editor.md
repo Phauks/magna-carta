@@ -168,9 +168,10 @@ or pick a colleague under **Firm Member**. Each signer gets a colour.
 3. Click the page where it goes, or drag to draw it at the size you want. Click a field to change
    its kind, give it to another signer, make it optional, or remove it.
 
-For each outside signer, choose how they prove who they are: **Emailed Link** (anyone who opens the
-email can sign) or **Link and Email Code** (they also enter a one-time code sent by email).
-Colleagues sign while signed in to Magna Carta.
+For each outside signer, choose how they prove who they are: **Email Link** (anyone who opens the
+email can sign), **Email Code** (they also enter a one-time code sent by email) or **Text Code**
+(they also enter a one-time code sent by text message to the mobile number you enter). The list
+shows only the ways your firm has turned on. Colleagues sign while signed in to Magna Carta.
 
 **Review and Send.** Choose whether people sign **In Order** or **All at Once**, write the email's
 subject and message, choose the last day it can be signed and how often reminders go out, then
@@ -200,7 +201,7 @@ from the document itself.
 
 **What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
 link opens a page with your firm's name, the document's title and your message. If you chose
-**Link and Email Code**, they first ask for a code by email and enter it. They then read and agree
+**Email Code** or **Text Code**, they first ask for a code, by email or by text, and enter it. They then read and agree
 to sign electronically, and the document opens with their own fields marked on it. **Next Field**
 takes them to the next thing to fill in. On the first signature or initials field they adopt their
 signature by typing their name, drawing it, or uploading a picture of it, and tick that it is as

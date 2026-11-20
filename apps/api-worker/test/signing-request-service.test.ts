@@ -153,4 +153,54 @@ describe("a signing request", () => {
     await commit(database, first.effect);
     await expect(commit(database, second.effect)).rejects.toThrow(GuardedWriteRefusedError);
   });
+
+  it("keeps a text-code signer's number in E.164, and refuses one it cannot text", async () => {
+    const { database } = setup();
+    const draft = createDraft(
+      database,
+      { matterId: MATTER, fileId: FILE, fileVersionId: VERSION, title: "Brief.pdf" },
+      options,
+    );
+    await commit(database, draft.effect);
+    const texted: DraftContents = {
+      ...contents,
+      signers: contents.signers.map((signer) =>
+        signer.key === "client"
+          ? {
+              ...signer,
+              attribution: "access-code",
+              codeChannel: "text",
+              mobileNumber: "(702) 555-0147",
+            }
+          : signer,
+      ),
+    };
+    await commit(database, await saveDraft(database, draft.id, texted, options));
+    const client = (await readRequestDetail(database, draft.id))?.signers[0];
+    expect(client?.codeChannel).toBe("text");
+    expect(client?.mobileNumber).toBe("+17025550147");
+
+    const unreadable: DraftContents = {
+      ...texted,
+      signers: texted.signers.map((signer) =>
+        signer.key === "client" ? { ...signer, mobileNumber: "555-0147" } : signer,
+      ),
+    };
+    await expect(saveDraft(database, draft.id, unreadable, options)).rejects.toThrow(
+      "Jordan Smith's mobile number cannot be texted.",
+    );
+
+    await expect(
+      sendRequest(database, draft.id, { sha256: HASH, pageCount: 6 }, options, [
+        "email-link",
+        "email-code",
+      ]),
+    ).rejects.toThrow("Text Code is not offered by the firm now.");
+    const sent = await sendRequest(database, draft.id, { sha256: HASH, pageCount: 6 }, options, [
+      "email-link",
+      "email-code",
+      "text-code",
+    ]);
+    await commit(database, sent.effect);
+  });
 });

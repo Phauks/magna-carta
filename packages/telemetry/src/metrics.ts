@@ -549,6 +549,14 @@ export const signingSignedCopiesUndelivered = defineMetric(
   [] as const,
 );
 
+// A signer's code that could not be texted, by why: a label from the text-message port, never the
+// number and never the code. `number-not-allowed` climbing means the sending number has lost its
+// registration for business texting.
+//   reason: not-configured | transport | refused | number-not-allowed | rate-limited | malformed
+export const signingTextCodesUndelivered = defineMetric("signing.text_codes_undelivered", [
+  "reason",
+] as const);
+
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
   unloggableField,
@@ -629,6 +637,7 @@ const CATALOG: readonly MetricDefinition[] = [
   signingRemindersUndelivered,
   signingSealOutcome,
   signingSignedCopiesUndelivered,
+  signingTextCodesUndelivered,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

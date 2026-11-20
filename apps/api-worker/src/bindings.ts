@@ -392,6 +392,13 @@ export type Bindings = {
   // starts the per-query bill. Not in wrangler.jsonc's secrets.required, for the same reason as the
   // Turnstile key. Never logged, never echoed to a caller.
   TELNYX_API_KEY?: string;
+  // The Telnyx number a signer's code is texted from, in E.164 (signing/text-message-wiring.ts).
+  // Optional. With it and TELNYX_API_KEY both set, a firm may turn on text codes for its signers;
+  // without either, the firm's signing settings say the text service is not ready. Kept in the
+  // Secrets Store and bound as SECRETS_STORE_TELNYX_TEXT_FROM, with a per-Worker secret as the
+  // fallback. Not confidential, but set in the dashboard rather than committed. The number must be
+  // registered for business texting (10DLC, or toll-free verification) before US carriers deliver.
+  TELNYX_TEXT_FROM?: string;
   // What a protected anonymous endpoint does when no verifier is provisioned: "fail-open" (the
   // default — serve, unprotected, and count it) or "fail-closed" (refuse). Public deployment
   // configuration, not a secret: bound via wrangler.jsonc vars. An unset or unrecognized value takes
