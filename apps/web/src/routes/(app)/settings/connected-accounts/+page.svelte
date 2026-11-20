@@ -59,9 +59,9 @@
   // What the return from the provider said, and which provider it was, read from the address the
   // member was sent back to. A return naming no provider is one from before there were two.
   const returned = $derived.by(() => {
-    const outcome = signInOutcomeFrom(page.url.searchParams);
+    const outcome = signInOutcomeFrom(new URLSearchParams(page.url.search));
     if (outcome === null) return null;
-    const provider = providerFrom(page.url.searchParams) ?? "microsoft";
+    const provider = providerFrom(new URLSearchParams(page.url.search)) ?? "microsoft";
     return { provider, notice: noticeForOutcome(outcome, provider) };
   });
 

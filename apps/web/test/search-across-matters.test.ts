@@ -7,38 +7,43 @@ import type {
   AcrossMattersGroup,
 } from "$lib/search/search-across-matters-api.ts";
 import {
-  OVERVIEW_LIMIT,
+  NAMES_NOT_FILTERED_REASON,
+  PEOPLE_NOT_SEARCHED_REASON,
+  PLACE_LIMIT,
   SearchAcrossMatters,
-  railPlaces,
-  unsearchedPlaces,
-  type SearchOverview,
+  listedHits,
+  panelPlaces,
+  tickedPlacesHoldMore,
+  type SearchAnswer,
 } from "$lib/search/search-across-matters.svelte.ts";
 import {
-  ALL_PLACES,
+  CHOSEN_MATTERS_LIMIT,
   EVERYTHING,
   MATTERS_PLACE,
   MY_MATTERS,
+  NO_FILTERS,
   PEOPLE_PLACE,
-  isNarrowed,
+  askedKey,
+  filtersFromAddress,
   isRecordPlace,
-  placeFromAddress,
-  reachFromAddress,
-  reachKey,
+  placeTicked,
   searchAddress,
-  type SearchReach,
+  type SearchFilters,
 } from "$lib/search/search-address.ts";
 import {
-  REACH_CHOICES,
   UNNAMED_CLIENT,
   clientNamed,
-  reachFieldLabel,
-  reachSentence,
-} from "$lib/search/search-reach.ts";
+  dateChoiceOf,
+  daysOfChoice,
+  filterCount,
+  withMatter,
+  withPlace,
+  withoutMatter,
+} from "$lib/search/search-filters.ts";
 
 const CLIENT = "directoryPerson_hargrove";
-const ONE_CLIENT: SearchReach = { kind: "client", entityId: CLIENT };
-
 const ORIGIN = "https://app.example";
+const TODAY = "2026-11-19";
 
 function group(source: string, overrides: Partial<AcrossMattersGroup> = {}): AcrossMattersGroup {
   return {
@@ -53,16 +58,16 @@ function group(source: string, overrides: Partial<AcrossMattersGroup> = {}): Acr
   };
 }
 
-function hit(id: string, matterId = "matter_a") {
+function hit(id: string, sortKey = "2026-06-04T15:00:00.000Z", matterId = "matter_a") {
   return {
     id,
-    title: "2026-06-04T15:00:00.000Z",
+    title: sortKey,
     titleMarks: [],
     snippet: "The easement runs along the eastern boundary.",
     snippetMarks: [{ start: 4, end: 12 }],
     secondary: null,
     actorUserId: null,
-    sortKey: "2026-06-04T15:00:00.000Z",
+    sortKey,
     link: `/matters/${matterId}/notes?entry=${id}`,
     matter: { id: matterId, title: "Ashgrove easement dispute", number: "AM-0001" },
   };
@@ -85,93 +90,148 @@ function matter(id: string): MatterSummary {
   };
 }
 
-function overviewOf(
+function filtered(part: Partial<SearchFilters> = {}): SearchFilters {
+  return { ...NO_FILTERS, ...part };
+}
+
+function answerOf(
   groups: AcrossMattersGroup[],
-  overrides: Partial<SearchOverview> = {},
-): SearchOverview {
+  overrides: Partial<SearchAnswer> = {},
+): SearchAnswer {
   return {
     query: "easement",
-    reach: EVERYTHING,
-    matters: { rows: [matter("matter_a")], more: false, standing: "answered" },
-    people: { rows: [], more: false, standing: "answered" },
+    filters: NO_FILTERS,
+    matters: { rows: [], more: false, standing: "not-searched" },
+    people: { rows: [], more: false, standing: "not-searched" },
     records: { query: "easement", broad: false, fewMattersLimit: 25, groups },
     ...overrides,
   };
 }
 
 const REGISTRY_ANSWER: AcrossMattersGroup[] = [
-  group("files"),
+  group("files", { hits: [hit("file_1", "2026-08-01T00:00:00.000Z")] }),
   group("file-contents", { answerShape: "ranked" }),
-  group("time"),
+  group("time", { hits: [hit("time_1", "2026-07-01")] }),
   group("costs"),
   group("billing"),
   group("parties"),
   group("calendar", { skipped: "one-matter-only" }),
-  group("notes", { hits: [hit("note_1"), hit("note_2")], hasMore: true }),
+  group("notes", {
+    hits: [hit("note_1", "2026-07-14"), hit("note_2", "2026-06-04")],
+    hasMore: true,
+  }),
   group("custody"),
   group("communications"),
 ];
 
 describe("the address is the page's state", () => {
-  it("carries the question and leaves every place unnamed", () => {
+  it("carries the question alone when nothing is filtered", () => {
     expect(searchAddress("  Hargrove easement ")).toBe("/search?q=Hargrove+easement");
-    expect(searchAddress("easement", ALL_PLACES)).toBe("/search?q=easement");
     expect(searchAddress("")).toBe("/search");
   });
 
-  it("names a chosen place", () => {
-    expect(searchAddress("easement", "notes")).toBe("/search?q=easement&in=notes");
-    expect(searchAddress("easement", MATTERS_PLACE)).toBe("/search?q=easement&in=matters");
-  });
-
-  it("reads an absent or empty place as every place", () => {
-    expect(placeFromAddress(null)).toBe(ALL_PLACES);
-    expect(placeFromAddress("  ")).toBe(ALL_PLACES);
-    expect(placeFromAddress("notes")).toBe("notes");
-  });
-
-  it("knows which places the search across matters answers", () => {
-    expect(isRecordPlace("notes")).toBe(true);
-    expect(isRecordPlace(ALL_PLACES)).toBe(false);
-    expect(isRecordPlace(MATTERS_PLACE)).toBe(false);
-    expect(isRecordPlace(PEOPLE_PLACE)).toBe(false);
-  });
-
-  it("carries the reader's choice of matters, and nothing for every matter", () => {
-    expect(searchAddress("easement", ALL_PLACES, EVERYTHING)).toBe("/search?q=easement");
-    expect(searchAddress("easement", ALL_PLACES, MY_MATTERS)).toBe("/search?q=easement&scope=mine");
-    expect(searchAddress("easement", "notes", ONE_CLIENT)).toBe(
-      `/search?q=easement&in=notes&client=${CLIENT}`,
+  it("carries every filter, places and matters one parameter each", () => {
+    const address = searchAddress("easement", {
+      places: ["notes", "files"],
+      reach: { kind: "matters", matterIds: ["matter_a", "matter_b"] },
+      days: { from: "2026-06-01", to: "2026-11-16" },
+      by: "user_a",
+    });
+    expect(address).toBe(
+      "/search?q=easement&in=notes&in=files&matter=matter_a&matter=matter_b" +
+        "&from=2026-06-01&to=2026-11-16&by=user_a",
+    );
+    expect(searchAddress("easement", { reach: MY_MATTERS })).toBe("/search?q=easement&scope=mine");
+    expect(searchAddress("easement", { reach: { kind: "client", entityId: CLIENT } })).toBe(
+      `/search?q=easement&client=${CLIENT}`,
     );
   });
 
-  it("reads the choice back, and anything it does not know as every matter", () => {
-    expect(reachFromAddress(null, null)).toEqual(EVERYTHING);
-    expect(reachFromAddress("mine", null)).toEqual(MY_MATTERS);
-    expect(reachFromAddress(null, CLIENT)).toEqual(ONE_CLIENT);
-    expect(reachFromAddress("everyone", "  ")).toEqual(EVERYTHING);
-    expect(isNarrowed(EVERYTHING)).toBe(false);
-    expect(isNarrowed(MY_MATTERS)).toBe(true);
-    expect(reachKey(ONE_CLIENT)).not.toBe(reachKey({ kind: "client", entityId: "another" }));
+  it("reads every filter back as it was written", () => {
+    const filters: SearchFilters = {
+      places: ["notes", MATTERS_PLACE],
+      reach: { kind: "matters", matterIds: ["matter_a"] },
+      days: { from: "2026-06-01" },
+      by: "user_a",
+    };
+    const address = new URL(searchAddress("easement", filters), ORIGIN);
+    expect(filtersFromAddress(address.searchParams)).toEqual(filters);
+  });
+
+  it("reads anything it does not know as no filter, never as an error", () => {
+    const parameters = new URLSearchParams("q=easement&scope=theirs&from=2026-02-30&by=&in=");
+    expect(filtersFromAddress(parameters)).toEqual(NO_FILTERS);
+  });
+
+  it("names each chosen matter once, and no more of them than the server takes", () => {
+    const ids = Array.from({ length: CHOSEN_MATTERS_LIMIT + 3 }, (_, index) => `matter_${index}`);
+    const parameters = new URLSearchParams(
+      [...ids, "matter_0"].map((id) => `matter=${id}`).join("&"),
+    );
+    const reach = filtersFromAddress(parameters).reach;
+    expect(reach.kind === "matters" ? reach.matterIds : []).toHaveLength(CHOSEN_MATTERS_LIMIT);
+  });
+
+  it("ticks every record place and no names until the reader changes them", () => {
+    expect(placeTicked(NO_FILTERS, "notes")).toBe(true);
+    expect(placeTicked(NO_FILTERS, MATTERS_PLACE)).toBe(false);
+    expect(placeTicked(NO_FILTERS, PEOPLE_PLACE)).toBe(false);
+    expect(placeTicked(filtered({ places: [MATTERS_PLACE] }), "notes")).toBe(false);
+    expect(isRecordPlace(PEOPLE_PLACE)).toBe(false);
+  });
+
+  it("asks the server again for matters, days and a person, and not for a tick", () => {
+    expect(askedKey(filtered({ places: ["notes"] }))).toBe(askedKey(NO_FILTERS));
+    expect(askedKey(filtered({ by: "user_a" }))).not.toBe(askedKey(NO_FILTERS));
+    expect(askedKey(filtered({ days: { from: "2026-06-01" } }))).not.toBe(askedKey(NO_FILTERS));
+    expect(
+      askedKey(filtered({ reach: { kind: "matters", matterIds: ["matter_b", "matter_a"] } })),
+    ).toBe(askedKey(filtered({ reach: { kind: "matters", matterIds: ["matter_a", "matter_b"] } })));
   });
 });
 
-describe("what the Search In row offers and says", () => {
-  it("offers the three reaches and one matter, everything first", () => {
-    expect(REACH_CHOICES.map((choice) => choice.label)).toEqual([
-      "Everything I Can See",
-      "My Matters",
-      "One Client",
-      "One Matter",
+describe("what the filter panel decides", () => {
+  const every = ["notes", "files", "time", MATTERS_PLACE, PEOPLE_PLACE];
+
+  it("writes the places out in full once one is unticked, and says nothing once back to the start", () => {
+    const unticked = withPlace(NO_FILTERS, every, "files", false);
+    expect(unticked).toEqual(["notes", "time"]);
+    expect(withPlace(filtered({ places: unticked }), every, "files", true)).toBeNull();
+    expect(withPlace(NO_FILTERS, every, MATTERS_PLACE, true)).toEqual([
+      "notes",
+      "files",
+      "time",
+      MATTERS_PLACE,
     ]);
   });
 
-  it("says what is searched, and mentions people only where they are", () => {
-    expect(reachSentence(EVERYTHING)).toContain("matters and people by name");
-    expect(reachSentence(MY_MATTERS)).toContain("responsible for or assigned to");
-    expect(reachSentence(MY_MATTERS)).not.toContain("people");
-    expect(reachSentence(ONE_CLIENT)).toContain("is a client on");
-    expect(reachFieldLabel(MY_MATTERS)).toBe("Search your own matters");
+  it("adds a chosen matter once, never past the limit, and goes back to every matter at none", () => {
+    const one = withMatter(EVERYTHING, "matter_a");
+    expect(one).toEqual({ kind: "matters", matterIds: ["matter_a"] });
+    expect(withMatter(one, "matter_a")).toEqual(one);
+    const full = {
+      kind: "matters" as const,
+      matterIds: Array.from({ length: CHOSEN_MATTERS_LIMIT }, (_, index) => `matter_${index}`),
+    };
+    expect(withMatter(full, "matter_more")).toEqual(full);
+    expect(withoutMatter(one, "matter_a")).toEqual(EVERYTHING);
+  });
+
+  it("counts the named date choices from the reader's today, and reads them back", () => {
+    expect(daysOfChoice("any", TODAY)).toBeNull();
+    expect(daysOfChoice("last-30-days", TODAY)).toEqual({ from: "2026-10-21", to: TODAY });
+    expect(daysOfChoice("this-year", TODAY)).toEqual({ from: "2026-01-01" });
+    expect(dateChoiceOf(null, TODAY)).toBe("any");
+    expect(dateChoiceOf({ from: "2026-10-21", to: TODAY }, TODAY)).toBe("last-30-days");
+    expect(dateChoiceOf({ from: "2026-01-01" }, TODAY)).toBe("this-year");
+    expect(dateChoiceOf({ from: "2026-06-01", to: "2026-06-30" }, TODAY)).toBe("between");
+  });
+
+  it("counts the filters set, for the phone's Filters button", () => {
+    expect(filterCount(NO_FILTERS)).toBe(0);
+    expect(
+      filterCount({ places: ["notes"], reach: MY_MATTERS, days: { from: TODAY }, by: "user_a" }),
+    ).toBe(4);
   });
 
   it("names the client an address carries, and fills the field even where it cannot", () => {
@@ -182,8 +242,8 @@ describe("what the Search In row offers and says", () => {
           data: [
             {
               entityId: CLIENT,
-              entityKind: "person",
               displayName: "Ruth Hargrove",
+              entityKind: "person",
               mergedIntoId: null,
             },
           ],
@@ -198,130 +258,75 @@ describe("what the Search In row offers and says", () => {
   });
 });
 
-describe("the places beside the results", () => {
+describe("the panel's Places list", () => {
   it("is empty before anything has answered", () => {
-    expect(railPlaces(null)).toEqual([]);
+    expect(panelPlaces(null, NO_FILTERS)).toEqual([]);
   });
 
-  it("lists everything, then matters and people, then each place that answers across matters", () => {
-    const places = railPlaces(overviewOf(REGISTRY_ANSWER));
-    expect(places.map((place) => place.key)).toEqual([
-      ALL_PLACES,
+  it("lists each record place in the server's order, then matters and people by name", () => {
+    const keys = panelPlaces(answerOf(REGISTRY_ANSWER), NO_FILTERS).map((place) => place.key);
+    expect(keys).toEqual([
+      ...REGISTRY_ANSWER.map((entry) => entry.source),
       MATTERS_PLACE,
       PEOPLE_PLACE,
-      "files",
-      "file-contents",
-      "time",
-      "costs",
-      "billing",
-      "parties",
-      "notes",
-      "custody",
-      "communications",
-    ]);
-    expect(places.map((place) => place.label)).toEqual([
-      "All Places",
-      "Matters",
-      "People",
-      "Files",
-      "Inside Files",
-      "Time",
-      "Costs",
-      "Billing",
-      "Parties",
-      "Notes",
-      "Custodian",
-      "Messaging",
     ]);
   });
 
-  it("counts what is on screen and marks a place that holds more, never a total", () => {
-    const places = railPlaces(overviewOf(REGISTRY_ANSWER));
-    const notes = places.find((place) => place.key === "notes");
-    expect(notes).toEqual({ key: "notes", label: "Notes", shown: 2, more: true });
-    const all = places.find((place) => place.key === ALL_PLACES);
-    // One matter and two notes are on screen; the mark says a place holds more.
-    expect(all?.shown).toBe(3);
-    expect(all?.more).toBe(true);
-  });
-
-  it("leaves out a place the reader may not read", () => {
-    const places = railPlaces(
-      overviewOf([group("notes", { skipped: "permission" }), group("files")]),
+  it("counts what answered and marks a place that holds more, never a total", () => {
+    const notes = panelPlaces(answerOf(REGISTRY_ANSWER), NO_FILTERS).find(
+      (place) => place.key === "notes",
     );
-    expect(places.map((place) => place.key)).not.toContain("notes");
+    expect(notes).toMatchObject({ shown: 2, more: true, mark: null });
   });
 
-  it("shows no count for a read by name that was refused", () => {
-    const places = railPlaces(
-      overviewOf(REGISTRY_ANSWER, {
-        people: { rows: [], more: false, standing: "no-access" },
-      }),
+  it("marks a place the search did not reach, and writes out the reasons a reader can act on", () => {
+    const places = panelPlaces(
+      answerOf([
+        group("calendar", { skipped: "one-matter-only" }),
+        group("file-contents", { skipped: "too-many-matters" }),
+        group("files", { skipped: "no-author" }),
+        group("billing", { skipped: "permission" }),
+      ]),
+      NO_FILTERS,
     );
-    expect(places.find((place) => place.key === PEOPLE_PLACE)?.shown).toBeNull();
+    const byKey = new Map(places.map((place) => [place.key, place]));
+    expect(byKey.get("calendar")).toMatchObject({
+      mark: "In A Matter",
+      shown: null,
+      writtenOut: false,
+    });
+    expect(byKey.get("file-contents")).toMatchObject({ mark: "Fewer Matters", writtenOut: true });
+    expect(byKey.get("file-contents")?.reason).toContain("25 matters or fewer");
+    expect(byKey.get("files")).toMatchObject({ mark: "No Author" });
+    expect(byKey.get("billing")).toMatchObject({ mark: "No Access" });
   });
 
-  it("still lists matters and people when the search across matters failed", () => {
-    const places = railPlaces(overviewOf([], { records: null }));
-    expect(places.map((place) => place.key)).toEqual([ALL_PLACES, MATTERS_PLACE, PEOPLE_PLACE]);
+  it("says why matters and people are not found by name under a date, a person or some matters", () => {
+    const dated = filtered({ places: [MATTERS_PLACE, PEOPLE_PLACE], days: { from: TODAY } });
+    const named = panelPlaces(answerOf([]), dated);
+    expect(named.map((place) => place.reason)).toEqual([
+      NAMES_NOT_FILTERED_REASON,
+      NAMES_NOT_FILTERED_REASON,
+    ]);
+    const mine = filtered({ places: [PEOPLE_PLACE], reach: MY_MATTERS });
+    expect(panelPlaces(answerOf([]), mine).at(-1)?.reason).toBe(PEOPLE_NOT_SEARCHED_REASON);
   });
 });
 
-describe("what the search did not look at", () => {
-  it("names the places searched only inside a matter, from the server's own answer", () => {
-    const unsearched = unsearchedPlaces(overviewOf(REGISTRY_ANSWER));
-    expect(unsearched.map((place) => [place.label, place.mark])).toEqual([
-      ["Calendar", "In A Matter"],
-      ["Discovery Sets", "Never"],
+describe("the list of records", () => {
+  it("is every ticked place's records as one list, newest first by the date each lists by", () => {
+    const listed = listedHits(answerOf(REGISTRY_ANSWER), NO_FILTERS);
+    expect(listed.map((entry) => entry.hit.id)).toEqual(["file_1", "note_1", "time_1", "note_2"]);
+    expect(listed[0]?.place).toBe("files");
+  });
+
+  it("leaves out an unticked place, and says more is there only for a ticked one", () => {
+    const onlyFiles = filtered({ places: ["files"] });
+    expect(listedHits(answerOf(REGISTRY_ANSWER), onlyFiles).map((entry) => entry.hit.id)).toEqual([
+      "file_1",
     ]);
-  });
-
-  it("says a place asked one matter at a time needs fewer matters, with the server's number", () => {
-    const overview = overviewOf([group("file-contents", { skipped: "too-many-matters" })]);
-    const [insideFiles] = unsearchedPlaces(overview);
-    expect(insideFiles).toMatchObject({
-      label: "Inside Files",
-      mark: "Fewer Matters",
-      // Written under the list, because the mark alone does not say how few or where to choose.
-      writtenOut: true,
-    });
-    expect(insideFiles?.reason).toBe(
-      "Inside Files is searched when a search reaches 25 matters or fewer. " +
-        "Choose fewer matters under Search In, or open a matter and use its own search.",
-    );
-    // It is a place the search did not read, so it is not offered beside the results.
-    expect(railPlaces(overview).map((place) => place.key)).not.toContain("file-contents");
-  });
-
-  it.each([
-    ["not-indexed", "Off", "turned off for this firm"],
-    ["engine-not-connected", "Soon", "not switched on yet"],
-    ["engine-unavailable", "Unavailable", "could not be searched just now"],
-  ] as const)(
-    "names a place whose index is %s as not searched, and why",
-    (skipped, mark, words) => {
-      const overview = overviewOf([group("file-contents", { skipped })]);
-      const [insideFiles] = unsearchedPlaces(overview);
-      expect(insideFiles).toMatchObject({ label: "Inside Files", mark });
-      expect(insideFiles?.reason).toContain(words);
-      expect(railPlaces(overview).map((place) => place.key)).not.toContain("file-contents");
-    },
-  );
-
-  it("keeps a place the question is too short for beside the results", () => {
-    const overview = overviewOf([group("notes", { skipped: "query-too-short" })]);
-    expect(railPlaces(overview).find((place) => place.key === "notes")?.shown).toBeNull();
-    expect(unsearchedPlaces(overview).map((place) => place.key)).toEqual(["discovery-sets"]);
-  });
-
-  it("names a place the reader's role does not reach, and says so instead of an empty result", () => {
-    const unsearched = unsearchedPlaces(overviewOf([group("notes", { skipped: "permission" })]));
-    expect(unsearched[0]).toMatchObject({ label: "Notes", mark: "No Access" });
-    expect(unsearched[0]?.reason).toContain("Notes");
-  });
-
-  it("always names discovery review sets, which no search outside a set reaches", () => {
-    expect(unsearchedPlaces(null).map((place) => place.key)).toEqual(["discovery-sets"]);
+    expect(tickedPlacesHoldMore(answerOf(REGISTRY_ANSWER), onlyFiles)).toBe(false);
+    expect(tickedPlacesHoldMore(answerOf(REGISTRY_ANSWER), NO_FILTERS)).toBe(true);
   });
 });
 
@@ -343,31 +348,6 @@ describe("one question, three reads", () => {
     client.setConfig({ baseUrl: "" });
   });
 
-  function answering(calls: string[], records: AcrossMattersAnswer): typeof fetch {
-    return (async (input: RequestInfo | URL) => {
-      const address = addressOf(input);
-      calls.push(address);
-      if (address.startsWith("/api/v1/matters?")) {
-        return Response.json({ data: [matter("matter_a")], nextCursor: null });
-      }
-      if (address.startsWith("/api/v1/directory/search?")) {
-        return Response.json({ data: people, capped: false });
-      }
-      if (address.startsWith("/api/v1/search?")) {
-        const parameters = new URL(address, "https://example.com").searchParams;
-        const named = parameters.getAll("in");
-        return Response.json({
-          ...records,
-          groups:
-            named.length === 0
-              ? records.groups
-              : records.groups.filter((entry) => named.includes(entry.source)),
-        });
-      }
-      return new Response(null, { status: 404 });
-    }) as typeof fetch;
-  }
-
   const records: AcrossMattersAnswer = {
     query: "easement",
     broad: false,
@@ -375,114 +355,116 @@ describe("one question, three reads", () => {
     groups: REGISTRY_ANSWER,
   };
 
-  it("asks the matters listing, the directory and the search across matters once each", async () => {
+  function answering(calls: string[]): typeof fetch {
+    return (async (input: RequestInfo | URL) => {
+      const address = addressOf(input);
+      calls.push(address);
+      if (address.startsWith("/api/v1/matters?")) {
+        return Response.json({ data: [matter("matter_a"), matter("matter_b")], nextCursor: null });
+      }
+      if (address.startsWith("/api/v1/directory/search?")) {
+        return Response.json({ data: people, capped: false });
+      }
+      if (address.startsWith("/api/v1/search?")) return Response.json(records);
+      return new Response(null, { status: 404 });
+    }) as typeof fetch;
+  }
+
+  it("asks only the search across matters, every place at once, when names are not ticked", async () => {
     const calls: string[] = [];
     const search = new SearchAcrossMatters();
-    await search.run(answering(calls, records), "easement", ALL_PLACES);
-    expect(calls.toSorted()).toEqual([
-      "/api/v1/directory/search?q=easement",
-      "/api/v1/matters?search=easement",
-      `/api/v1/search?q=easement&limit=${OVERVIEW_LIMIT}`,
-    ]);
-    expect(search.overview?.matters.rows).toHaveLength(1);
-    expect(search.overview?.records?.groups).toHaveLength(REGISTRY_ANSWER.length);
-    expect(search.place).toBeNull();
+    await search.run(answering(calls), "easement", NO_FILTERS);
+    expect(calls).toEqual([`/api/v1/search?q=easement&limit=${PLACE_LIMIT}`]);
+    expect(search.answer?.records?.groups).toHaveLength(REGISTRY_ANSWER.length);
+    expect(search.answer?.matters.standing).toBe("not-searched");
     expect(search.busy).toBe(false);
   });
 
-  it("asks only the chosen place again, and keeps the overview it already has", async () => {
+  it("asks for matters and people by name when ticked, and asks nothing for a tick it already has", async () => {
     const calls: string[] = [];
     const search = new SearchAcrossMatters();
-    const fetchImpl = answering(calls, records);
-    await search.run(fetchImpl, "easement", ALL_PLACES);
+    const fetchImpl = answering(calls);
+    await search.run(fetchImpl, "easement", NO_FILTERS);
     calls.length = 0;
-    await search.run(fetchImpl, "easement", "notes");
-    expect(calls).toEqual(["/api/v1/search?q=easement&in=notes&limit=50"]);
-    expect(search.place?.source).toBe("notes");
-    expect(search.overview?.matters.rows).toHaveLength(1);
-  });
-
-  it("asks nothing more for matters or people, which the overview already read", async () => {
-    const calls: string[] = [];
-    const search = new SearchAcrossMatters();
-    const fetchImpl = answering(calls, records);
-    await search.run(fetchImpl, "easement", ALL_PLACES);
+    await search.run(fetchImpl, "easement", filtered({ places: ["notes", MATTERS_PLACE] }));
+    expect(calls).toEqual(["/api/v1/matters?search=easement"]);
+    expect(search.answer?.matters.rows).toHaveLength(2);
     calls.length = 0;
-    await search.run(fetchImpl, "easement", MATTERS_PLACE);
+    await search.run(fetchImpl, "easement", filtered({ places: [MATTERS_PLACE] }));
     expect(calls).toEqual([]);
-    expect(search.place).toBeNull();
+    await search.run(fetchImpl, "easement", filtered({ places: [PEOPLE_PLACE] }));
+    expect(calls).toEqual(["/api/v1/directory/search?q=easement"]);
   });
 
-  it("asks the reader's own matters of the search and the matters list, and no people", async () => {
+  it("sends the chosen matters, days and person, and finds no names under a date or a person", async () => {
     const calls: string[] = [];
     const search = new SearchAcrossMatters();
-    await search.run(answering(calls, records), "easement", ALL_PLACES, MY_MATTERS);
+    await search.run(
+      answering(calls),
+      "easement",
+      filtered({
+        places: [MATTERS_PLACE, PEOPLE_PLACE, "notes"],
+        reach: { kind: "matters", matterIds: ["matter_a", "matter_b"] },
+        days: { from: "2026-06-01", to: "2026-06-30" },
+        by: "user_a",
+      }),
+    );
+    expect(calls).toEqual([
+      `/api/v1/search?q=easement&limit=${PLACE_LIMIT}&matterId=matter_a&matterId=matter_b` +
+        "&by=user_a&from=2026-06-01&to=2026-06-30",
+    ]);
+  });
+
+  it("keeps only the chosen matters among the matters found by name", async () => {
+    const calls: string[] = [];
+    const search = new SearchAcrossMatters();
+    await search.run(
+      answering(calls),
+      "easement",
+      filtered({ places: [MATTERS_PLACE], reach: { kind: "matters", matterIds: ["matter_b"] } }),
+    );
+    expect(search.answer?.matters.rows.map((row) => row.id)).toEqual(["matter_b"]);
+  });
+
+  it("asks the reader's own matters of both reads, and no people", async () => {
+    const calls: string[] = [];
+    const search = new SearchAcrossMatters();
+    await search.run(
+      answering(calls),
+      "easement",
+      filtered({ places: [MATTERS_PLACE, PEOPLE_PLACE], reach: MY_MATTERS }),
+    );
     expect(calls.toSorted()).toEqual([
       "/api/v1/matters?search=easement&mine=true",
-      `/api/v1/search?q=easement&limit=${OVERVIEW_LIMIT}&mine=true`,
+      `/api/v1/search?q=easement&limit=${PLACE_LIMIT}&mine=true`,
     ]);
-    expect(search.overview?.people.standing).toBe("not-searched");
-    expect(railPlaces(search.overview).map((place) => place.key)).not.toContain(PEOPLE_PLACE);
-    const people = unsearchedPlaces(search.overview).find((place) => place.key === PEOPLE_PLACE);
-    expect(people?.mark).toBe("Firm-Wide");
+    expect(search.answer?.people.standing).toBe("not-searched");
   });
 
-  it("asks one client's matters of both, and of a chosen place", async () => {
+  it("asks again when the matters, days or person change, and starts over for a new question", async () => {
     const calls: string[] = [];
     const search = new SearchAcrossMatters();
-    const fetchImpl = answering(calls, records);
-    await search.run(fetchImpl, "easement", "notes", ONE_CLIENT);
-    expect(calls.toSorted()).toEqual([
-      `/api/v1/matters?search=easement&clientEntityId=${CLIENT}`,
-      `/api/v1/search?q=easement&in=notes&limit=50&clientEntityId=${CLIENT}`,
-      `/api/v1/search?q=easement&limit=${OVERVIEW_LIMIT}&clientEntityId=${CLIENT}`,
-    ]);
-  });
-
-  it("asks again when the choice of matters changes, and not when it stays", async () => {
-    const calls: string[] = [];
-    const search = new SearchAcrossMatters();
-    const fetchImpl = answering(calls, records);
-    await search.run(fetchImpl, "easement", ALL_PLACES, MY_MATTERS);
-    calls.length = 0;
-    await search.run(fetchImpl, "easement", ALL_PLACES, { kind: "mine" });
-    expect(calls).toEqual([]);
-    await search.run(fetchImpl, "easement", ALL_PLACES, EVERYTHING);
+    const fetchImpl = answering(calls);
+    await search.run(fetchImpl, "easement", NO_FILTERS);
+    await search.run(fetchImpl, "easement", filtered({ days: { from: "2026-06-01" } }));
+    await search.run(fetchImpl, "easement", filtered({ days: { from: "2026-06-01" } }));
+    await search.run(fetchImpl, "boundary", filtered({ days: { from: "2026-06-01" } }));
     expect(calls).toHaveLength(3);
-    expect(search.overview?.reach).toEqual(EVERYTHING);
-    expect(search.overview?.people.standing).toBe("answered");
-  });
-
-  it("starts over for a new question", async () => {
-    const calls: string[] = [];
-    const search = new SearchAcrossMatters();
-    const fetchImpl = answering(calls, records);
-    await search.run(fetchImpl, "easement", ALL_PLACES);
-    calls.length = 0;
-    await search.run(fetchImpl, "drainage", ALL_PLACES);
-    expect(calls).toHaveLength(3);
-    expect(search.overview?.query).toBe("drainage");
   });
 
   it("clears everything when the field is emptied", async () => {
     const search = new SearchAcrossMatters();
-    await search.run(answering([], records), "easement", ALL_PLACES);
-    await search.run(answering([], records), "   ", ALL_PLACES);
-    expect(search.overview).toBeNull();
+    await search.run(answering([]), "easement", NO_FILTERS);
+    await search.run(answering([]), "  ", NO_FILTERS);
+    expect(search.answer).toBeNull();
     expect(search.failure).toBeNull();
   });
 
-  it("keeps matters and people on screen when the search across matters is refused", async () => {
+  it("keeps matters on screen when the search across matters is refused", async () => {
     const fetchImpl = (async (input: RequestInfo | URL) => {
       const address = addressOf(input);
       if (address.startsWith("/api/v1/matters?")) {
         return Response.json({ data: [matter("matter_a")], nextCursor: null });
-      }
-      if (address.startsWith("/api/v1/directory/search?")) {
-        return new Response(JSON.stringify({ status: 403, title: "Forbidden" }), {
-          status: 403,
-          headers: { "content-type": "application/problem+json" },
-        });
       }
       return new Response(JSON.stringify({ status: 500, title: "Fault" }), {
         status: 500,
@@ -490,10 +472,9 @@ describe("one question, three reads", () => {
       });
     }) as typeof fetch;
     const search = new SearchAcrossMatters();
-    await search.run(fetchImpl, "easement", ALL_PLACES);
+    await search.run(fetchImpl, "easement", filtered({ places: [MATTERS_PLACE] }));
     expect(search.failure).not.toBeNull();
-    expect(search.overview?.records).toBeNull();
-    expect(search.overview?.matters.rows).toHaveLength(1);
-    expect(search.overview?.people.standing).toBe("no-access");
+    expect(search.answer?.records).toBeNull();
+    expect(search.answer?.matters.rows).toHaveLength(1);
   });
 });

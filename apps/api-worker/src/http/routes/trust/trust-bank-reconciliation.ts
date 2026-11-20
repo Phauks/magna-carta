@@ -1,3 +1,5 @@
+import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
+import { computeVerdict, ScanFaultError } from "@magna-carta/file-manager/verdict";
 import { type OpenAPIHono } from "@hono/zod-openapi";
 import type {
   TrustAccountId,
@@ -307,6 +309,35 @@ export function registerTrustBankReconciliationRoutes(
           title: "File too large",
           status: 422,
           detail: "Attach a file of 25 MB or less.",
+        });
+      }
+      // A statement is a file from outside the firm, so it is scanned like any upload, with the same
+      // engine, the firm's own scan policy and the same verdict. A flagged file is refused and never
+      // kept. An engine that does not answer is a 503 the member can retry, never an Error ID. A
+      // deployment with no engine keeps the file unscanned, as every other upload path does there.
+      const { resolveScanPort } = await import("../../../files/scan-port-binding.ts");
+      let verdict: ReturnType<typeof computeVerdict>;
+      try {
+        const raw = await resolveScanPort(c.env).scan(
+          new Response(bytes as unknown as BodyInit).body!,
+          { sizeBytes: bytes.byteLength, sniffedContentType: sniffed.contentType },
+        );
+        verdict = computeVerdict(raw, await readFirmScanPolicy(firm.firmDatabase));
+      } catch (error) {
+        if (!(error instanceof ScanFaultError)) throw error;
+        return problemJson(c, {
+          type: "service-unavailable",
+          title: "The scan engine is unreachable",
+          status: 503,
+          detail: "The malware scan did not answer, so the file was not kept. Try again shortly.",
+        });
+      }
+      if (verdict.verdict === "flagged") {
+        return problemJson(c, {
+          type: "validation",
+          title: "This file failed the malware scan",
+          status: 422,
+          detail: "The file was not kept. Ask the bank for a fresh copy of the statement.",
         });
       }
       // The bytes go to the bucket BEFORE the row that names them, so a row never points at nothing.

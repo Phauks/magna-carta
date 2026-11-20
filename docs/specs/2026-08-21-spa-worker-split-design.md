@@ -54,7 +54,7 @@ it is worth stating that it rests on a dependency graph read today rather than o
 
 ## 3. What the SPA actually is
 
-`apps/web/svelte.config.js` uses **`adapter-static`**, not `adapter-cloudflare`:
+`apps/web/vite.config.ts` (the `sveltekit()` plugin options) uses **`adapter-static`**, not `adapter-cloudflare`:
 
 ```js
 adapter: adapter({ fallback: "index.html", pages: "build", assets: "build" });
