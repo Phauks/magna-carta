@@ -2,6 +2,7 @@
 // conformance suite mounts each module alone and holds it to its list; the union of the lists is
 // what the whole document must carry. A domain in the manifest with no entry here, or an entry
 // with no domain, fails there by name.
+import { OPERATIONS as banking } from "../../src/http/routes/banking/operations.ts";
 import { OPERATIONS as billing } from "../../src/http/routes/billing/operations.ts";
 import { OPERATIONS as calendar } from "../../src/http/routes/calendar/operations.ts";
 import { OPERATIONS as communications } from "../../src/http/routes/communications/operations.ts";
@@ -44,6 +45,7 @@ export const DOMAIN_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map
   ["discovery", discovery],
   ["timekeeping", timekeeping],
   ["trust", trust],
+  ["banking", banking],
   ["notifications", notifications],
   ["support", support],
   ["developer", developer],

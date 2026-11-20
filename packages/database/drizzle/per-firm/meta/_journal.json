@@ -617,6 +617,13 @@
       "when": 1795116917089,
       "tag": "20261119T202718_translation-tool-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "6",
+      "when": 1795205530745,
+      "tag": "20261120T201210_bank-feeds",
+      "breakpoints": true
     }
   ]
 }

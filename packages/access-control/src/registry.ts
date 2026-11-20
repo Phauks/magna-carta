@@ -282,6 +282,14 @@ export const PERMISSIONS = [
   // are structurally incapable of naming a client or a matter — so its whole job is to keep the
   // exception in named hands.
   "trust:firmFunds", // open the bank-charge carve-out on a trust account; deposit the firm's own cushion; record a bank service charge against it
+  // Bank feeds — what the firm's banks report about its operating and trust accounts, read through
+  // the feed provider, set beside the books. Two keys, because reading what the bank says and
+  // signing the firm in to its bank are different capabilities: a billing clerk checking whether a
+  // deposit cleared needs the read, and only someone the firm trusts with its bank sign-in should
+  // connect one. Both bind resource: "firm". Neither moves money or writes to the books: a feed is
+  // evidence, and entering a bank line into the books goes through that entry's own permission.
+  "banking:read", // read the Banking screen: connected banks, the bank's balances and lines, and which are in the books
+  "banking:manage", // connect a bank, sign in again, tie a bank account to an account in the books, disconnect
   // Billing and invoicing — the firm's own bill, and the money that comes back against it. Six keys
   // rather than a read/manage pair, because the capabilities genuinely differ and a firm's shape
   // separates them: a billing clerk assembles drafts for a partner to finalize, so drafting and

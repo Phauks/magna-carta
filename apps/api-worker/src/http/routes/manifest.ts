@@ -17,6 +17,7 @@ import { mountMagnus } from "./magnus/index.ts";
 import { mountDiscovery } from "./discovery/index.ts";
 import { mountTimekeeping } from "./timekeeping/index.ts";
 import { mountTrust } from "./trust/index.ts";
+import { mountBanking } from "./banking/index.ts";
 import { mountNotifications } from "./notifications/index.ts";
 import { mountSupport } from "./support/index.ts";
 import { mountDeveloper } from "./developer/index.ts";
@@ -45,6 +46,7 @@ export const DOMAIN_MODULES: readonly DomainModule[] = [
   { domain: "discovery", mount: mountDiscovery },
   { domain: "timekeeping", mount: mountTimekeeping },
   { domain: "trust", mount: mountTrust },
+  { domain: "banking", mount: mountBanking },
   { domain: "notifications", mount: mountNotifications },
   { domain: "support", mount: mountSupport },
   { domain: "developer", mount: mountDeveloper },

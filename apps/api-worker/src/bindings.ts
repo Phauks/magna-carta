@@ -385,6 +385,15 @@ export type Bindings = {
   // it is set, a firm that has turned translation on sends pasted text to Google, which bills for every
   // character. Sent only in a request header, never a URL; never logged.
   GOOGLE_TRANSLATE_API_KEY?: string;
+  // The Plaid keys behind the Banking screen's bank feed (banking/bank-feed-engine.ts). Optional:
+  // without both, Connect Bank says bank feeds are not set up. Kept in the Secrets Store and bound as
+  // SECRETS_STORE_PLAID_CLIENT_ID / SECRETS_STORE_PLAID_SECRET (stored-secrets.ts resolves them),
+  // with per-Worker secrets as the fallback. Sent only in a request body to Plaid; never logged.
+  PLAID_CLIENT_ID?: string;
+  PLAID_SECRET?: string;
+  // Which Plaid host the keys belong to: "sandbox" for Plaid's test banks, anything else (or unset)
+  // for production. Set in the dashboard beside the keys, because the keys differ between the two.
+  PLAID_ENVIRONMENT?: string;
   // The Telnyx API key behind the call record's "Look up caller ID" (caller-lookup/
   // caller-lookup-engine.ts). Optional, and ABSENT IS THE SHIPPED STATE: without it the record shows
   // the free Directory match and area-code region and offers no paid lookup at all. Production sets

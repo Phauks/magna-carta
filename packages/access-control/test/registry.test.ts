@@ -183,6 +183,10 @@ describe("permission registry", () => {
     expect(permissionsForNamespace("")).toEqual([]);
   });
 
+  it("permissionsForNamespace('banking') returns the read and manage keys", () => {
+    expect(permissionsForNamespace("banking")).toEqual(["banking:read", "banking:manage"]);
+  });
+
   it("registers the custom-fields permissions", () => {
     expect(isPermission("customFields:manage")).toBe(true);
     expect(isPermission("customFields:purge")).toBe(true);

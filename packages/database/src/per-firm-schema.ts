@@ -15,6 +15,9 @@ import { civilDateShape } from "./date-shape-checks.ts";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  BankConnectionId,
+  BankFeedAccountId,
+  BankFeedTransactionId,
   BatesRangeId,
   BillingArrangementId,
   CalendarEventLinkId,
@@ -14371,5 +14374,122 @@ export const batesRange = sqliteTable(
       "bates_range_saved_shape_check",
       sql`(${table.stampedFileId} IS NULL) = (${table.stampedFileSavedAt} IS NULL)`,
     ),
+  ],
+);
+
+// BANK FEEDS — what the firm's banks report, read through the feed provider. Evidence beside the
+// books, the way a statement is, and never a posting: nothing here is referenced by a ledger line,
+// and no write here touches the ledger.
+//
+// A connection is one sign-in at one bank. The access token that reads it is sealed in the
+// integration credential store under `credential_ref`, never on this row. Disconnecting keeps the
+// rows (what the bank said is still what the bank said) and ends the sign-in at the provider.
+export const bankConnection = sqliteTable(
+  "bank_connection",
+  {
+    id: text("id").primaryKey().$type<BankConnectionId>(), // bankConnection_ handle
+    provider: text("provider", { enum: ["plaid"] }).notNull(),
+    remoteItemId: text("remote_item_id").notNull(), // the provider's id for this sign-in
+    institutionName: text("institution_name").notNull(),
+    credentialRef: text("credential_ref").notNull(),
+    syncCursor: text("sync_cursor"), // where the next transaction read starts; null before the first
+    // 1 while the bank wants the firm to sign in again; cleared by the next read that succeeds.
+    signInNeeded: integer("sign_in_needed").notNull().default(0),
+    lastSyncedAt: text("last_synced_at"), // UTC instant of the last read that succeeded
+    connectedBy: text("connected_by").notNull().$type<UserId>(),
+    connectedAt: text("connected_at").notNull(),
+    disconnectedBy: text("disconnected_by").$type<UserId>(),
+    disconnectedAt: text("disconnected_at"),
+  },
+  (table) => [
+    uniqueIndex("bank_connection_remote_item_unique_index").on(table.provider, table.remoteItemId),
+    check("bank_connection_provider_check", sql`${table.provider} IN ('plaid')`),
+    check("bank_connection_sign_in_needed_check", sql`${table.signInNeeded} IN (0, 1)`),
+    check(
+      "bank_connection_institution_name_check",
+      sql`length(${table.institutionName}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "bank_connection_disconnected_shape_check",
+      sql`(${table.disconnectedAt} IS NULL) = (${table.disconnectedBy} IS NULL)`,
+    ),
+  ],
+);
+
+// One account the bank reported under a connection, and which bank account in the books it is.
+// `ledger_account_id` is the bank account's own leaf in the chart (a trust account's
+// bank_ledger_account_id, or an operating bank account's); null means the firm chose not to use it.
+// One feed per book account, so a book account never has two banks' word for its balance.
+export const bankFeedAccount = sqliteTable(
+  "bank_feed_account",
+  {
+    id: text("id").primaryKey().$type<BankFeedAccountId>(), // bankFeedAccount_ handle
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<BankConnectionId>()
+      .references(() => bankConnection.id),
+    remoteAccountId: text("remote_account_id").notNull(),
+    name: text("name").notNull(),
+    mask: text("mask"),
+    kind: text("kind").notNull(), // depository, credit, ... as the provider classes it
+    subtype: text("subtype"),
+    currency: text("currency").notNull(),
+    currentBalanceMinor: integer("current_balance_minor"),
+    availableBalanceMinor: integer("available_balance_minor"),
+    balanceAsOf: text("balance_as_of"), // UTC instant the bank gave the balance
+    ledgerAccountId: text("ledger_account_id")
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    linkedBy: text("linked_by").$type<UserId>(),
+    linkedAt: text("linked_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("bank_feed_account_remote_unique_index").on(
+      table.connectionId,
+      table.remoteAccountId,
+    ),
+    uniqueIndex("bank_feed_account_ledger_account_unique_index")
+      .on(table.ledgerAccountId)
+      .where(sql`${table.ledgerAccountId} IS NOT NULL`),
+    check("bank_feed_account_currency_check", sql`length(${table.currency}) = 3`),
+    check("bank_feed_account_name_check", sql`length(${table.name}) BETWEEN 1 AND 200`),
+    check(
+      "bank_feed_account_balance_as_of_check",
+      sql`(${table.currentBalanceMinor} IS NULL AND ${table.availableBalanceMinor} IS NULL) OR ${table.balanceAsOf} IS NOT NULL`,
+    ),
+  ],
+);
+
+// One line the bank reported on a feed account. Kept as the bank last described it: a pending line
+// that posts arrives as a change to the same row, and one the bank withdraws is marked removed and
+// kept. `amount_minor` is signed the firm's way: positive is money into the account.
+export const bankFeedTransaction = sqliteTable(
+  "bank_feed_transaction",
+  {
+    id: text("id").primaryKey().$type<BankFeedTransactionId>(), // bankFeedTransaction_ handle
+    accountId: text("account_id")
+      .notNull()
+      .$type<BankFeedAccountId>()
+      .references(() => bankFeedAccount.id),
+    remoteTransactionId: text("remote_transaction_id").notNull(),
+    postedOn: text("posted_on").notNull(), // YYYY-MM-DD, as the bank dates it
+    description: text("description").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    checkNumber: text("check_number"),
+    pending: integer("pending").notNull().default(0),
+    removedAt: text("removed_at"), // UTC instant the bank withdrew it
+    firstSeenAt: text("first_seen_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("bank_feed_transaction_remote_unique_index").on(
+      table.accountId,
+      table.remoteTransactionId,
+    ),
+    index("bank_feed_transaction_account_posted_index").on(table.accountId, table.postedOn),
+    check("bank_feed_transaction_posted_on_shape_check", civilDateShape(table.postedOn)),
+    check("bank_feed_transaction_pending_check", sql`${table.pending} IN (0, 1)`),
+    check("bank_feed_transaction_description_check", sql`length(${table.description}) <= 500`),
   ],
 );

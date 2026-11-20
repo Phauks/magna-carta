@@ -907,6 +907,12 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     note: "the payee printed on a trust check, copied from the disbursement it paid, held as free text with no structured subject",
   },
   {
+    table: "bank_feed_transaction",
+    subjectKey: "description",
+    action: "report-manual",
+    note: "a line a bank reported on one of the firm's accounts, the bank's own text, which may name a payer or payee",
+  },
+  {
     table: "trust_bank_reconciliation_note",
     subjectKey: "body",
     action: "report-manual",
