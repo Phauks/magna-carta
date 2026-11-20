@@ -246,11 +246,9 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     name: "Address suggestions",
     group: "search",
     steps: [
-      "Either deploy the magna-carta-address Worker and bind it as ADDRESS_SERVICE,",
-      "or set the secrets SMARTY_AUTH_ID and SMARTY_AUTH_TOKEN on the magna-carta Worker.",
+      "Put the Google Places API key in the Secrets Store as GOOGLE_PLACES_API_KEY, or set it as a secret on the magna-carta Worker.",
     ],
-    deployQueueHeading:
-      "Address engine activation — a bucket, a new worker, one binding (2026-10-02)",
+    deployQueueHeading: null,
   },
   aiTextDetection: {
     name: "AI-text detection",
@@ -335,7 +333,6 @@ export const FEATURE_WORKERS: Record<string, string> = {
   passwordRecovery: "magna-carta-recovery",
   discoveryProcessing: "magna-carta-discovery",
   fileContentsSearch: "magna-carta-search",
-  addressSuggestions: "magna-carta-address",
   communitySignIn: "magna-carta-community",
 };
 

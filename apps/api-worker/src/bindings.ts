@@ -133,12 +133,6 @@ export type Bindings = {
   // stays optional because a deployment may be without it (a preview, a rollback), and while unset
   // resolveSearchIndexPort returns the deferred port (engine-not-implemented).
   SEARCH_SERVICE?: Fetcher;
-  // The dedicated address engine worker (magna-carta-address), reached over a service binding. It owns
-  // the OpenAddresses index Containers and the platform bucket the index lives in. Optional: absent in
-  // every test environment and until the deploy-time binding is added; while unset, US addresses are
-  // suggested by Smarty when its secrets are set and by nothing otherwise
-  // (address-lookup/address-lookup-engine.ts).
-  ADDRESS_SERVICE?: Fetcher;
   // The in-app document-editing worker (magna-carta-edit), reached over a service binding ONLY for
   // the aggregate version read — the editing traffic itself flows the other way (that worker calls
   // this one's WOPI host over its own APP_WORKER binding). Optional: absent in every test
@@ -366,19 +360,11 @@ export type Bindings = {
   // (src/calendar-sync/google-application.ts).
   GOOGLE_CALENDAR_CLIENT_ID?: string;
   GOOGLE_CALENDAR_CLIENT_SECRET?: string;
-  // The Smarty key pair behind address autocomplete (address-lookup/address-lookup-engine.ts).
-  // Optional, and ABSENT IS THE SHIPPED STATE: with either missing, every request gets the deferred
-  // port and the address form behaves exactly as it did before autocomplete existed. Production sets
-  // both with `wrangler secret put SMARTY_AUTH_ID` and `wrangler secret put SMARTY_AUTH_TOKEN`, and
-  // doing so is what switches suggestions on — and starts the provider's meter. Deliberately NOT in
-  // wrangler.jsonc's secrets.required, for the same reason as the Turnstile key. Never logged, never
-  // echoed to a caller: Smarty takes them in the query string, so the adapter never quotes a URL.
-  SMARTY_AUTH_ID?: string;
-  SMARTY_AUTH_TOKEN?: string;
   // The Google Places API key behind address autocomplete (address-lookup/address-lookup-engine.ts).
   // Optional. Kept in the Secrets Store and bound as SECRETS_STORE_GOOGLE_PLACES_API_KEY
-  // (stored-secrets.ts resolves it into this string), with a per-Worker secret as the fallback; while it is set, Google answers every country ahead of the platform's index and Smarty, and every
-  // lookup is billed by Google. Sent only in a request header, never a URL; never logged.
+  // (stored-secrets.ts resolves it into this string), with a per-Worker secret as the fallback. Google is the only address
+  // engine: while the key is set it answers every country and every lookup is billed by Google; without
+  // it the address form is a plain set of fields. Sent only in a request header, never a URL; never logged.
   GOOGLE_PLACES_API_KEY?: string;
   // The Google Cloud Translation API key behind the Translate tool (translation/translation-engine.ts).
   // Optional. Kept in the Secrets Store and bound as SECRETS_STORE_GOOGLE_TRANSLATE_API_KEY

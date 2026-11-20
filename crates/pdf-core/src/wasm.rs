@@ -364,7 +364,7 @@ pub fn read_form_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
         set(
             &o,
             "page",
-            &f.page.map(|p| JsValue::from(p)).unwrap_or(JsValue::NULL),
+            &f.page.map(JsValue::from).unwrap_or(JsValue::NULL),
         );
         let rect_js = match f.rect {
             Some(r) => {
@@ -1305,6 +1305,57 @@ pub fn extract_pdf_text_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
             "rasterCoverage",
             &JsValue::from(page.raster_coverage),
         );
+        pages.push(&page_object);
+    }
+
+    let result = js_sys::Object::new();
+    set(&result, "pages", &pages.into());
+    Ok(result.into())
+}
+
+/// Every page's visible text glyphs WITH their positions, for a reader that needs to know which
+/// column a word sat in -- a bank statement's table, where `extractPdfText`'s single reading-order
+/// line runs the date, the description and the amounts together. Rectangles are in PDF user space
+/// with a bottom-left origin, in points, beside the page's own size. `needsRecognition` is the same
+/// per-page gate `extractPdfText` reports, so a caller sends exactly the pages it marks to OCR.
+#[wasm_bindgen(js_name = extractPdfTextGlyphs)]
+pub fn extract_pdf_text_glyphs_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let document = Document::load(bytes)?;
+    if document.page_count() > crate::MAX_TEXT_EXTRACTION_PAGES {
+        return Err(JsError::new("document has too many pages"));
+    }
+    let facts = document.document_text_facts(crate::MAX_TEXT_EXTRACTION_PAGES)?;
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+
+    let pages = js_sys::Array::new();
+    for page in &facts {
+        let size = document.page_size(page.page_index)?;
+        let glyphs = js_sys::Array::new();
+        for glyph in document.page_text_glyphs(page.page_index)? {
+            let glyph_object = js_sys::Object::new();
+            set(&glyph_object, "text", &glyph.text.as_str().into());
+            set(&glyph_object, "x0", &JsValue::from(glyph.rect.x0));
+            set(&glyph_object, "y0", &JsValue::from(glyph.rect.y0));
+            set(&glyph_object, "x1", &JsValue::from(glyph.rect.x1));
+            set(&glyph_object, "y1", &JsValue::from(glyph.rect.y1));
+            glyphs.push(&glyph_object);
+        }
+        let page_object = js_sys::Object::new();
+        set(
+            &page_object,
+            "pageIndex",
+            &JsValue::from(page.page_index as u32),
+        );
+        set(&page_object, "widthPt", &JsValue::from(size.width_pt));
+        set(&page_object, "heightPt", &JsValue::from(size.height_pt));
+        set(
+            &page_object,
+            "needsRecognition",
+            &JsValue::from(page.needs_recognition),
+        );
+        set(&page_object, "glyphs", &glyphs.into());
         pages.push(&page_object);
     }
 

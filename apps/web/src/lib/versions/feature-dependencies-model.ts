@@ -147,12 +147,6 @@ export const FEATURE_OUTSIDE_SERVICES: Record<string, readonly OutsideService[]>
       settings: ["GOOGLE_PLACES_API_KEY"],
       noLiveCheckReason: BILLED,
     },
-    {
-      name: "Smarty",
-      liveCheck: null,
-      settings: ["SMARTY_AUTH_ID", "SMARTY_AUTH_TOKEN"],
-      noLiveCheckReason: BILLED,
-    },
   ],
   aiTextDetection: [
     { name: "Pangram", liveCheck: null, settings: ["PANGRAM_API_KEY"], noLiveCheckReason: BILLED },
