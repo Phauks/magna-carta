@@ -137,31 +137,37 @@ const linkRoute = defineOpenAPIRoute(manageMeta("banking.linkAccount", "required
 
 const disconnectRoute = defineOpenAPIRoute(
   // Putting it back is signing in to the bank again through Connect Bank.
-  { ...manageMeta("banking.disconnect", "required"), reversal: { kind: "inverse", by: "banking.connect" } },
   {
-  method: "delete",
-  path: "/api/v1/banking/connections/{connectionId}",
-  description:
-    "Stops reading a bank: ends the sign-in at the provider and unties its accounts. What the bank " +
-    "already reported stays on the record.",
-  request: { headers: idempotencyKeyHeader, params: connectionParams },
-  responses: {
-    204: { description: "Disconnected" },
-    400: problem("The Idempotency-Key header is missing"),
-    401: problem("No valid session"),
-    403: problem("The session member lacks banking:manage"),
-    404: problem("No connected bank has that id"),
-    409: problem("A request with this Idempotency-Key is already in progress"),
-    422: problem("The Idempotency-Key was reused with a different request"),
-    429: problem("Rate limit exceeded"),
+    ...manageMeta("banking.disconnect", "required"),
+    reversal: { kind: "inverse", by: "banking.connect" },
   },
+  {
+    method: "delete",
+    path: "/api/v1/banking/connections/{connectionId}",
+    description:
+      "Stops reading a bank: ends the sign-in at the provider and unties its accounts. What the bank " +
+      "already reported stays on the record.",
+    request: { headers: idempotencyKeyHeader, params: connectionParams },
+    responses: {
+      204: { description: "Disconnected" },
+      400: problem("The Idempotency-Key header is missing"),
+      401: problem("No valid session"),
+      403: problem("The session member lacks banking:manage"),
+      404: problem("No connected bank has that id"),
+      409: problem("A request with this Idempotency-Key is already in progress"),
+      422: problem("The Idempotency-Key was reused with a different request"),
+      429: problem("Rate limit exceeded"),
+    },
   },
 );
 
 const unavailable = (c: Context, failure: BankFeedFailure) =>
   problemJson(c, {
     type: "service-unavailable",
-    title: failure.reason === "not-configured" ? "Bank feeds are not set up" : "The bank feed did not answer",
+    title:
+      failure.reason === "not-configured"
+        ? "Bank feeds are not set up"
+        : "The bank feed did not answer",
     status: 503,
     detail:
       failure.reason === "not-configured"
@@ -179,9 +185,15 @@ class BankRefusal extends Error {
   }
 }
 
-async function liveConnection(c: Context, connectionId: string): Promise<BankConnectionRow | undefined> {
+async function liveConnection(
+  c: Context,
+  connectionId: string,
+): Promise<BankConnectionRow | undefined> {
   const firm = requireChokepointFirmContext(c);
-  const { results } = await selectLiveBankConnectionStatement(firm.firmDatabase, connectionId).all<BankConnectionRow>();
+  const { results } = await selectLiveBankConnectionStatement(
+    firm.firmDatabase,
+    connectionId,
+  ).all<BankConnectionRow>();
   return results[0];
 }
 
@@ -238,8 +250,10 @@ export function registerBankingConnectionRoutes(
       if (connectionId !== undefined) {
         const connection = await liveConnection(c, connectionId);
         if (connection === undefined) return notFound(c, "No connected bank has that id.");
-        accessToken = (await readBankAccessToken(credentials(c), connection.credential_ref)) ?? undefined;
-        if (accessToken === undefined) return notFound(c, "That bank's sign-in is missing. Connect it again.");
+        accessToken =
+          (await readBankAccessToken(credentials(c), connection.credential_ref)) ?? undefined;
+        if (accessToken === undefined)
+          return notFound(c, "That bank's sign-in is missing. Connect it again.");
       }
       const answer = await port.signInToken({
         clientUserId: requireChokepointFirmId(c),
@@ -265,6 +279,7 @@ export function registerBankingConnectionRoutes(
           if (!exchanged.ok) throw new BankRefusal(exchanged);
           const institution = await port.institution(exchanged.value.accessToken);
           const institutionName = institution.ok ? institution.value.name : "Bank";
+          const institutionLogo = institution.ok ? institution.value.logo : null;
           const { results } = await selectBankConnectionByRemoteItemStatement(
             firm.firmDatabase,
             port.provider,
@@ -288,11 +303,17 @@ export function registerBankingConnectionRoutes(
                       provider: port.provider,
                       remoteItemId: exchanged.value.remoteItemId,
                       institutionName,
+                      institutionLogo,
                       credentialRef,
                       connectedBy: userId,
                       connectedAt: now,
                     })
-                  : reopenBankConnectionStatement(firm.firmDatabase, connectionId, institutionName),
+                  : reopenBankConnectionStatement(
+                      firm.firmDatabase,
+                      connectionId,
+                      institutionName,
+                      institutionLogo,
+                    ),
                 insertAuditLogStatement(firm.firmDatabase, {
                   id: newIdentifier("auditLog"),
                   event: "banking.bank_connected",
@@ -342,8 +363,9 @@ export function registerBankingConnectionRoutes(
       const userId = requireChokepointUserId(c);
       const { accountId } = c.req.valid("param");
       const { ledgerAccountId } = c.req.valid("json");
-      const { results } =
-        await selectLiveBankFeedAccountsStatement(firm.firmDatabase).all<BankFeedAccountRow>();
+      const { results } = await selectLiveBankFeedAccountsStatement(
+        firm.firmDatabase,
+      ).all<BankFeedAccountRow>();
       if (!results.some((row) => row.id === accountId)) {
         return notFound(c, "No connected bank account has that id.");
       }

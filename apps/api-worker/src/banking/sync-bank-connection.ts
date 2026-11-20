@@ -72,7 +72,10 @@ export async function syncBankConnection(
   const signInNeeded = async (): Promise<BankSyncOutcome> => {
     await commitEffectBatch(
       database,
-      { statements: [recordBankSignInNeededStatement(database, connection.id)], outboxMessages: [] },
+      {
+        statements: [recordBankSignInNeededStatement(database, connection.id)],
+        outboxMessages: [],
+      },
       { now: instant },
     );
     return "sign-in-needed";

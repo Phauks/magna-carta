@@ -56,6 +56,30 @@ describe("plaidBankFeedPort", () => {
     expect(seen[0]!.body.products).toBeUndefined();
   });
 
+  it("reads the bank's name and logo, and keeps the name when the logo cannot be read", async () => {
+    const { seen, fetcher } = fakeFetch([
+      { body: { item: { institution_name: "Cumberland Bank", institution_id: "ins_1" } } },
+      { body: { institution: { name: "Cumberland Bank", logo: "iVBORw0KGgo=" } } },
+    ]);
+    expect(await plaidBankFeedPort(credentials, fetcher).institution("access-1")).toEqual({
+      ok: true,
+      value: { name: "Cumberland Bank", logo: "iVBORw0KGgo=" },
+    });
+    expect(seen[1]!.url).toBe("https://sandbox.plaid.com/institutions/get_by_id");
+    expect(seen[1]!.body).toMatchObject({
+      institution_id: "ins_1",
+      options: { include_optional_metadata: true },
+    });
+    const failing = fakeFetch([
+      { body: { item: { institution_name: "Cumberland Bank", institution_id: "ins_1" } } },
+      { status: 400, body: { error_type: "INVALID_INPUT", error_code: "INVALID_INSTITUTION" } },
+    ]);
+    expect(await plaidBankFeedPort(credentials, failing.fetcher).institution("access-1")).toEqual({
+      ok: true,
+      value: { name: "Cumberland Bank", logo: null },
+    });
+  });
+
   it("turns Plaid's amounts round so money in is positive, and keeps the bank's own words", async () => {
     const { fetcher } = fakeFetch([
       {
@@ -114,13 +138,19 @@ describe("plaidBankFeedPort", () => {
       { body: { added: [], modified: [], removed: [], next_cursor: "p1", has_more: true } },
       {
         status: 400,
-        body: { error_type: "TRANSACTIONS_ERROR", error_code: "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION" },
+        body: {
+          error_type: "TRANSACTIONS_ERROR",
+          error_code: "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION",
+        },
       },
       { body: { added: [], modified: [], removed: [], next_cursor: "p1", has_more: true } },
       { body: { added: [], modified: [], removed: [], next_cursor: "p2", has_more: false } },
     ]);
     const answer = await plaidBankFeedPort(credentials, fetcher).transactions("access", null);
-    expect(answer).toEqual({ ok: true, value: { added: [], modified: [], removed: [], nextCursor: "p2" } });
+    expect(answer).toEqual({
+      ok: true,
+      value: { added: [], modified: [], removed: [], nextCursor: "p2" },
+    });
     expect(seen.map((call) => call.body.cursor)).toEqual([undefined, "p1", undefined, "p1"]);
   });
 

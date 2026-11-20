@@ -51499,6 +51499,13 @@
           "institutionName": {
             "type": "string"
           },
+          "institutionLogo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The bank's logo as a base64 PNG. Null when the bank feed has none for it."
+          },
           "signInNeeded": {
             "type": "boolean",
             "description": "The bank asked the firm to sign in again before it shares anything more."
@@ -51520,6 +51527,7 @@
         "required": [
           "id",
           "institutionName",
+          "institutionLogo",
           "signInNeeded",
           "connectedAt",
           "connectedBy",
@@ -51537,6 +51545,13 @@
           },
           "institutionName": {
             "type": "string"
+          },
+          "institutionLogo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The bank's logo as a base64 PNG. Null when the bank feed has none for it."
           },
           "name": {
             "type": "string"
@@ -51628,6 +51643,7 @@
           "id",
           "connectionId",
           "institutionName",
+          "institutionLogo",
           "name",
           "mask",
           "subtype",

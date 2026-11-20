@@ -10,7 +10,9 @@ import { z } from "zod";
 
 const CivilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
 
-export const BankBookAccountKind = z.enum(["operating", "trust"]).meta({ id: "BankBookAccountKind" });
+export const BankBookAccountKind = z
+  .enum(["operating", "trust"])
+  .meta({ id: "BankBookAccountKind" });
 
 export const BankBookAccount = z
   .object({
@@ -27,6 +29,9 @@ export const BankConnection = z
   .object({
     id: z.string(),
     institutionName: z.string(),
+    institutionLogo: z.string().nullable().meta({
+      description: "The bank's logo as a base64 PNG. Null when the bank feed has none for it.",
+    }),
     signInNeeded: z.boolean().meta({
       description: "The bank asked the firm to sign in again before it shares anything more.",
     }),
@@ -41,6 +46,9 @@ export const BankFeedAccount = z
     id: z.string(),
     connectionId: z.string(),
     institutionName: z.string(),
+    institutionLogo: z.string().nullable().meta({
+      description: "The bank's logo as a base64 PNG. Null when the bank feed has none for it.",
+    }),
     name: z.string(),
     mask: z.string().nullable(),
     subtype: z.string().nullable(),
@@ -63,7 +71,8 @@ export const BankFeedAccount = z
 export const BankingOverviewResponse = z
   .object({
     providerConfigured: z.boolean().meta({
-      description: "Whether this deployment has bank feed keys set. False: Connect Bank cannot work.",
+      description:
+        "Whether this deployment has bank feed keys set. False: Connect Bank cannot work.",
     }),
     connections: z.array(BankConnection),
     accounts: z.array(BankFeedAccount),

@@ -71,7 +71,8 @@ function failureFrom(status: number, body: unknown): BankFeedFailure {
   const error = (typeof body === "object" && body !== null ? body : {}) as PlaidError;
   const code = typeof error.error_code === "string" ? error.error_code : null;
   const type = typeof error.error_type === "string" ? error.error_type : null;
-  const detail = code === null ? `The bank feed answered ${status}.` : `The bank feed answered ${code}.`;
+  const detail =
+    code === null ? `The bank feed answered ${status}.` : `The bank feed answered ${code}.`;
   if (code !== null && SIGN_IN_CODES.has(code)) return bankFeedFailure("sign-in-needed", detail);
   if (status >= 500 || (type !== null && RETRYABLE_TYPES.has(type))) {
     return bankFeedFailure("unavailable", detail);
@@ -149,7 +150,10 @@ function readTransaction(value: unknown): ReportedTransaction | null {
   };
 }
 
-export function plaidBankFeedPort(credentials: PlaidCredentials, fetcher: Fetch = fetch): BankFeedPort {
+export function plaidBankFeedPort(
+  credentials: PlaidCredentials,
+  fetcher: Fetch = fetch,
+): BankFeedPort {
   const host = HOSTS[credentials.environment];
 
   async function call(
@@ -178,7 +182,8 @@ export function plaidBankFeedPort(credentials: PlaidCredentials, fetcher: Fetch 
     }
     if (!response.ok) return failureFrom(response.status, parsed);
     const record = asRecord(parsed);
-    if (record === null) return bankFeedFailure("unavailable", "The bank feed answered nothing readable.");
+    if (record === null)
+      return bankFeedFailure("unavailable", "The bank feed answered nothing readable.");
     return { ok: true, value: record };
   }
 
@@ -224,7 +229,18 @@ export function plaidBankFeedPort(credentials: PlaidCredentials, fetcher: Fetch 
       if (!answer.ok) return answer;
       const item = asRecord(answer.value.item);
       const name = item === null ? null : asString(item.institution_name);
-      return { ok: true, value: { name: name ?? "Bank" } };
+      const institutionId = item === null ? null : asString(item.institution_id);
+      // The logo is a nicety: a failure to read it never fails the connection.
+      let logo: string | null = null;
+      if (institutionId !== null) {
+        const record = await call("/institutions/get_by_id", {
+          institution_id: institutionId,
+          country_codes: ["US"],
+          options: { include_optional_metadata: true },
+        });
+        if (record.ok) logo = asString(asRecord(record.value.institution)?.logo);
+      }
+      return { ok: true, value: { name: name ?? "Bank", logo } };
     },
 
     async accounts(accessToken) {

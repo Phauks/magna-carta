@@ -97,7 +97,10 @@ export function registerBankingReadRoutes(
         if (stale.length > 0) {
           const ports = {
             port: deps.port(c.env),
-            credentials: bankFeedCredentialStore(protectedReadContext(c), deps.credentialStoreForFirm),
+            credentials: bankFeedCredentialStore(
+              protectedReadContext(c),
+              deps.credentialStoreForFirm,
+            ),
             database: firm.firmDatabase,
             now: deps.now,
           };
@@ -126,8 +129,9 @@ export function registerBankingReadRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { accountId } = c.req.valid("param");
-      const { results } =
-        await selectLiveBankFeedAccountsStatement(firm.firmDatabase).all<BankFeedAccountRow>();
+      const { results } = await selectLiveBankFeedAccountsStatement(
+        firm.firmDatabase,
+      ).all<BankFeedAccountRow>();
       const account = results.find((row) => row.id === accountId);
       if (account === undefined) {
         return problemJson(c, {

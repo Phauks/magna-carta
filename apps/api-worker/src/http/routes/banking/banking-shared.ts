@@ -49,7 +49,10 @@ export const readMeta = (operationId: string): RouteMeta => ({
   rateLimit: "default",
 });
 
-export const manageMeta = (operationId: string, idempotency: "required" | "optional"): RouteMeta => ({
+export const manageMeta = (
+  operationId: string,
+  idempotency: "required" | "optional",
+): RouteMeta => ({
   operationId,
   surface: "app",
   authenticated: true,

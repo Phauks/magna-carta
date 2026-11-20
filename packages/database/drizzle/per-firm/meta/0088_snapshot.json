@@ -513,6 +513,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "institution_logo": {
+          "name": "institution_logo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "credential_ref": {
           "name": "credential_ref",
           "type": "text",
@@ -596,6 +603,10 @@
         "bank_connection_institution_name_check": {
           "name": "bank_connection_institution_name_check",
           "value": "length(\"bank_connection\".\"institution_name\") BETWEEN 1 AND 200"
+        },
+        "bank_connection_institution_logo_check": {
+          "name": "bank_connection_institution_logo_check",
+          "value": "\"bank_connection\".\"institution_logo\" IS NULL OR length(\"bank_connection\".\"institution_logo\") BETWEEN 1 AND 100000"
         },
         "bank_connection_disconnected_shape_check": {
           "name": "bank_connection_disconnected_shape_check",

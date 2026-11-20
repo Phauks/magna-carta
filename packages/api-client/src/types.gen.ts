@@ -11851,6 +11851,10 @@ export type BankConnection = {
     id: string;
     institutionName: string;
     /**
+     * The bank's logo as a base64 PNG. Null when the bank feed has none for it.
+     */
+    institutionLogo: string | null;
+    /**
      * The bank asked the firm to sign in again before it shares anything more.
      */
     signInNeeded: boolean;
@@ -11866,6 +11870,10 @@ export type BankFeedAccount = {
     id: string;
     connectionId: string;
     institutionName: string;
+    /**
+     * The bank's logo as a base64 PNG. Null when the bank feed has none for it.
+     */
+    institutionLogo: string | null;
     name: string;
     mask: string | null;
     subtype: string | null;

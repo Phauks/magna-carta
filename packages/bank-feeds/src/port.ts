@@ -35,6 +35,8 @@ export interface ExchangedConnection {
 
 export interface Institution {
   readonly name: string;
+  /** The bank's logo as a base64 PNG, or null when the provider has none for it. */
+  readonly logo: string | null;
 }
 
 export interface ReportedAccount {

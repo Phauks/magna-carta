@@ -3,6 +3,7 @@ CREATE TABLE `bank_connection` (
 	`provider` text NOT NULL,
 	`remote_item_id` text NOT NULL,
 	`institution_name` text NOT NULL,
+	`institution_logo` text,
 	`credential_ref` text NOT NULL,
 	`sync_cursor` text,
 	`sign_in_needed` integer DEFAULT 0 NOT NULL,
@@ -14,6 +15,7 @@ CREATE TABLE `bank_connection` (
 	CONSTRAINT "bank_connection_provider_check" CHECK("bank_connection"."provider" IN ('plaid')),
 	CONSTRAINT "bank_connection_sign_in_needed_check" CHECK("bank_connection"."sign_in_needed" IN (0, 1)),
 	CONSTRAINT "bank_connection_institution_name_check" CHECK(length("bank_connection"."institution_name") BETWEEN 1 AND 200),
+	CONSTRAINT "bank_connection_institution_logo_check" CHECK("bank_connection"."institution_logo" IS NULL OR length("bank_connection"."institution_logo") BETWEEN 1 AND 100000),
 	CONSTRAINT "bank_connection_disconnected_shape_check" CHECK(("bank_connection"."disconnected_at" IS NULL) = ("bank_connection"."disconnected_by" IS NULL))
 );
 --> statement-breakpoint

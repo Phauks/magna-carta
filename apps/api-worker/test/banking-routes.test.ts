@@ -37,8 +37,12 @@ let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 let operatingLedgerAccountId: string;
 let otherLedgerAccountId: string;
 
-const clock = { now: () => new Date().toISOString(), today: () => new Date().toISOString().slice(0, 10) };
-const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+const clock = {
+  now: () => new Date().toISOString(),
+  today: () => new Date().toISOString().slice(0, 10),
+};
+const daysAgo = (days: number) =>
+  new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -82,8 +86,16 @@ beforeAll(async () => {
       description: "Retainer deposit",
       effectiveDate: daysAgo(3),
       lines: [
-        { accountId: bank.accountId, direction: "debit", amount: money(50_000, currencyFromCode("USD")) },
-        { accountId: equity.accountId, direction: "credit", amount: money(50_000, currencyFromCode("USD")) },
+        {
+          accountId: bank.accountId,
+          direction: "debit",
+          amount: money(50_000, currencyFromCode("USD")),
+        },
+        {
+          accountId: equity.accountId,
+          direction: "credit",
+          amount: money(50_000, currencyFromCode("USD")),
+        },
       ],
     },
     { clock },
@@ -128,7 +140,9 @@ function answerPlaid(): void {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       plaidCalls.push({ path: url.pathname, body });
       const answer = plaidAnswers[url.pathname];
-      return Promise.resolve(answer === undefined ? json({ error_code: "UNEXPECTED" }, 400) : answer());
+      return Promise.resolve(
+        answer === undefined ? json({ error_code: "UNEXPECTED" }, 400) : answer(),
+      );
     }
     return originalFetch(input, init);
   }) as typeof fetch;
@@ -154,19 +168,45 @@ const PLAID_ACCOUNTS = {
 
 function healthyPlaid(): void {
   plaidAnswers = {
-    "/link/token/create": () => json({ link_token: "link-sandbox-1", expiration: "2099-01-01T00:00:00Z" }),
-    "/item/public_token/exchange": () => json({ access_token: "access-sandbox-secret", item_id: "item-1" }),
-    "/item/get": () => json({ item: { institution_name: "Cumberland Bank" } }),
+    "/link/token/create": () =>
+      json({ link_token: "link-sandbox-1", expiration: "2099-01-01T00:00:00Z" }),
+    "/item/public_token/exchange": () =>
+      json({ access_token: "access-sandbox-secret", item_id: "item-1" }),
+    "/item/get": () =>
+      json({ item: { institution_name: "Cumberland Bank", institution_id: "ins_cumberland" } }),
+    "/institutions/get_by_id": () =>
+      json({ institution: { name: "Cumberland Bank", logo: "iVBORw0KGgo=" } }),
     "/accounts/balance/get": () => json(PLAID_ACCOUNTS),
     "/transactions/sync": () =>
       json({
         added: [
           // $500.00 in, two days after the books' deposit: In Books.
-          { transaction_id: "t-in", account_id: "acct-checking", date: daysAgo(1), amount: -500, name: "DEPOSIT", pending: false },
+          {
+            transaction_id: "t-in",
+            account_id: "acct-checking",
+            date: daysAgo(1),
+            amount: -500,
+            name: "DEPOSIT",
+            pending: false,
+          },
           // $412.00 out that the books do not hold: Not in Books.
-          { transaction_id: "t-out", account_id: "acct-checking", date: daysAgo(2), amount: 412, original_description: "WESTLAW ACH", pending: false },
+          {
+            transaction_id: "t-out",
+            account_id: "acct-checking",
+            date: daysAgo(2),
+            amount: 412,
+            original_description: "WESTLAW ACH",
+            pending: false,
+          },
           // Pending: neither.
-          { transaction_id: "t-pending", account_id: "acct-checking", date: daysAgo(0), amount: 25, name: "FEE", pending: true },
+          {
+            transaction_id: "t-pending",
+            account_id: "acct-checking",
+            date: daysAgo(0),
+            amount: 25,
+            name: "FEE",
+            pending: true,
+          },
         ],
         modified: [],
         removed: [],
@@ -183,7 +223,9 @@ describe("who may use Banking", () => {
   });
 
   it("refuses a member without banking:read or banking:manage", async () => {
-    expect((await app.request(...request("GET", "banking", unprivilegedCookie), KEYED)).status).toBe(403);
+    expect(
+      (await app.request(...request("GET", "banking", unprivilegedCookie), KEYED)).status,
+    ).toBe(403);
     const connect = await app.request(
       ...request("POST", "banking/connections", unprivilegedCookie, { publicToken: "public-1" }),
       KEYED,
@@ -196,8 +238,15 @@ describe("a deployment with no Plaid keys", () => {
   it("says bank feeds are not set up and refuses to start a sign-in", async () => {
     const overview = await app.request(...request("GET", "banking", ownerCookie), UNKEYED);
     expect(overview.status).toBe(200);
-    expect(await overview.json()).toMatchObject({ providerConfigured: false, connections: [], accounts: [] });
-    const token = await app.request(...request("POST", "banking/sign-in-token", ownerCookie, {}), UNKEYED);
+    expect(await overview.json()).toMatchObject({
+      providerConfigured: false,
+      connections: [],
+      accounts: [],
+    });
+    const token = await app.request(
+      ...request("POST", "banking/sign-in-token", ownerCookie, {}),
+      UNKEYED,
+    );
     expect(token.status).toBe(503);
   });
 });
@@ -209,10 +258,20 @@ describe("connecting a bank and tying its account to the books", () => {
   it("hands the browser a sign-in token and keeps the keys in the body", async () => {
     healthyPlaid();
     answerPlaid();
-    const response = await app.request(...request("POST", "banking/sign-in-token", ownerCookie, {}), KEYED);
+    const response = await app.request(
+      ...request("POST", "banking/sign-in-token", ownerCookie, {}),
+      KEYED,
+    );
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ token: "link-sandbox-1", expiresAt: "2099-01-01T00:00:00Z" });
-    expect(plaidCalls[0]?.body).toMatchObject({ client_id: "test-client", secret: "test-secret", products: ["transactions"] });
+    expect(await response.json()).toEqual({
+      token: "link-sandbox-1",
+      expiresAt: "2099-01-01T00:00:00Z",
+    });
+    expect(plaidCalls[0]?.body).toMatchObject({
+      client_id: "test-client",
+      secret: "test-secret",
+      products: ["transactions"],
+    });
   });
 
   it("connects, seals the access token, and reads the bank's accounts and lines", async () => {
@@ -229,6 +288,7 @@ describe("connecting a bank and tying its account to the books", () => {
     expect(plaidCalls.map((call) => call.path)).toEqual([
       "/item/public_token/exchange",
       "/item/get",
+      "/institutions/get_by_id",
       "/accounts/balance/get",
       "/transactions/sync",
     ]);
@@ -236,9 +296,13 @@ describe("connecting a bank and tying its account to the books", () => {
     const { results } = await firmDatabase
       .prepare("SELECT * FROM bank_connection WHERE id = ?1")
       .bind(connectionId)
-      .all<Record<string, unknown>>();
+      .all();
     expect(JSON.stringify(results)).not.toContain("access-sandbox-secret");
-    expect(results[0]).toMatchObject({ institution_name: "Cumberland Bank", sync_cursor: "cursor-1" });
+    expect(results[0]).toMatchObject({
+      institution_name: "Cumberland Bank",
+      institution_logo: "iVBORw0KGgo=",
+      sync_cursor: "cursor-1",
+    });
   });
 
   it("lists the account untied, with the bank's balance and the books' accounts to choose from", async () => {
@@ -252,7 +316,13 @@ describe("connecting a bank and tying its account to the books", () => {
       connections: { institutionName: string; signInNeeded: boolean }[];
     };
     expect(body.providerConfigured).toBe(true);
-    expect(body.connections).toEqual([expect.objectContaining({ institutionName: "Cumberland Bank", signInNeeded: false })]);
+    expect(body.connections).toEqual([
+      expect.objectContaining({
+        institutionName: "Cumberland Bank",
+        institutionLogo: "iVBORw0KGgo=",
+        signInNeeded: false,
+      }),
+    ]);
     expect(body.accounts).toEqual([
       expect.objectContaining({ mask: "4417", bankBalanceMinor: 6_188_012, bookAccount: null }),
     ]);
@@ -282,8 +352,14 @@ describe("connecting a bank and tying its account to the books", () => {
       KEYED,
     );
     expect(tie.status).toBe(204);
-    const overview = (await (await app.request(...request("GET", "banking", ownerCookie), KEYED)).json()) as {
-      accounts: { booksBalanceMinor: number; notInBooksCount: number; bookAccount: { kind: string } }[];
+    const overview = (await (
+      await app.request(...request("GET", "banking", ownerCookie), KEYED)
+    ).json()) as {
+      accounts: {
+        booksBalanceMinor: number;
+        notInBooksCount: number;
+        bookAccount: { kind: string };
+      }[];
     };
     expect(overview.accounts[0]).toMatchObject({
       booksBalanceMinor: 50_000,
@@ -306,11 +382,14 @@ describe("connecting a bank and tying its account to the books", () => {
 
   it("shows a bank that wants a new sign-in, and asks again when the screen opens", async () => {
     await firmDatabase
-      .prepare("UPDATE bank_connection SET last_synced_at = '2000-01-01T00:00:00.000Z' WHERE id = ?1")
+      .prepare(
+        "UPDATE bank_connection SET last_synced_at = '2000-01-01T00:00:00.000Z' WHERE id = ?1",
+      )
       .bind(connectionId)
       .run();
     plaidAnswers = {
-      "/accounts/balance/get": () => json({ error_type: "ITEM_ERROR", error_code: "ITEM_LOGIN_REQUIRED" }, 400),
+      "/accounts/balance/get": () =>
+        json({ error_type: "ITEM_ERROR", error_code: "ITEM_LOGIN_REQUIRED" }, 400),
     };
     answerPlaid();
     const response = await app.request(...request("GET", "banking", ownerCookie), KEYED);
@@ -330,7 +409,9 @@ describe("connecting a bank and tying its account to the books", () => {
     );
     expect(response.status).toBe(204);
     expect(plaidCalls.map((call) => call.path)).toEqual(["/item/remove"]);
-    const overview = (await (await app.request(...request("GET", "banking", ownerCookie), KEYED)).json()) as {
+    const overview = (await (
+      await app.request(...request("GET", "banking", ownerCookie), KEYED)
+    ).json()) as {
       connections: unknown[];
       accounts: unknown[];
       bookAccounts: { feedAccountId: string | null }[];

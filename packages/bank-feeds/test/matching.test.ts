@@ -7,11 +7,18 @@ const bank = (id: string, postedOn: string, amountMinor: number, pending = false
   amountMinor,
   pending,
 });
-const book = (id: string, effectiveOn: string, amountMinor: number) => ({ id, effectiveOn, amountMinor });
+const book = (id: string, effectiveOn: string, amountMinor: number) => ({
+  id,
+  effectiveOn,
+  amountMinor,
+});
 
 describe("matchBankLines", () => {
   it("marks a line In Books when an entry of the same amount is within the window", () => {
-    const result = matchBankLines([bank("b1", "2026-11-10", 50_000)], [book("k1", "2026-11-08", 50_000)]);
+    const result = matchBankLines(
+      [bank("b1", "2026-11-10", 50_000)],
+      [book("k1", "2026-11-08", 50_000)],
+    );
     expect(result.get("b1")).toEqual({ status: "inBooks", bookLineId: "k1" });
   });
 

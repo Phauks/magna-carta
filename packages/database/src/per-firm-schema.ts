@@ -14391,6 +14391,8 @@ export const bankConnection = sqliteTable(
     provider: text("provider", { enum: ["plaid"] }).notNull(),
     remoteItemId: text("remote_item_id").notNull(), // the provider's id for this sign-in
     institutionName: text("institution_name").notNull(),
+    // The bank's logo as the provider gives it (base64 PNG), or null when it gives none.
+    institutionLogo: text("institution_logo"),
     credentialRef: text("credential_ref").notNull(),
     syncCursor: text("sync_cursor"), // where the next transaction read starts; null before the first
     // 1 while the bank wants the firm to sign in again; cleared by the next read that succeeds.
@@ -14408,6 +14410,10 @@ export const bankConnection = sqliteTable(
     check(
       "bank_connection_institution_name_check",
       sql`length(${table.institutionName}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "bank_connection_institution_logo_check",
+      sql`${table.institutionLogo} IS NULL OR length(${table.institutionLogo}) BETWEEN 1 AND 100000`,
     ),
     check(
       "bank_connection_disconnected_shape_check",

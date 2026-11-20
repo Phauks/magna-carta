@@ -22,6 +22,7 @@ export interface BankConnectionRow {
   readonly provider: BankFeedProvider;
   readonly remote_item_id: string;
   readonly institution_name: string;
+  readonly institution_logo: string | null;
   readonly credential_ref: string;
   readonly sync_cursor: string | null;
   readonly sign_in_needed: number;
@@ -31,7 +32,7 @@ export interface BankConnectionRow {
   readonly connected_at: string;
 }
 
-const CONNECTION_COLUMNS = `c.id, c.provider, c.remote_item_id, c.institution_name, c.credential_ref, c.sync_cursor, c.sign_in_needed, c.last_synced_at, c.connected_by, ${memberName("c.connected_by")} AS connected_by_name, c.connected_at`;
+const CONNECTION_COLUMNS = `c.id, c.provider, c.remote_item_id, c.institution_name, c.institution_logo, c.credential_ref, c.sync_cursor, c.sign_in_needed, c.last_synced_at, c.connected_by, ${memberName("c.connected_by")} AS connected_by_name, c.connected_at`;
 
 /** Every connection still in use, oldest first. */
 export function selectLiveBankConnectionsStatement(database: SqlDatabase): SqlStatement {
@@ -67,6 +68,7 @@ export interface BankFeedAccountRow {
   readonly id: BankFeedAccountId;
   readonly connection_id: BankConnectionId;
   readonly institution_name: string;
+  readonly institution_logo: string | null;
   readonly remote_account_id: string;
   readonly name: string;
   readonly mask: string | null;
@@ -83,7 +85,7 @@ export interface BankFeedAccountRow {
 /** The feed accounts of every live connection, with the books' balance of each tied account. */
 export function selectLiveBankFeedAccountsStatement(database: SqlDatabase): SqlStatement {
   return database.prepare(
-    `SELECT a.id, a.connection_id, c.institution_name, a.remote_account_id, a.name, a.mask, a.subtype, a.currency, a.current_balance_minor, a.available_balance_minor, a.balance_as_of, a.ledger_account_id, CASE WHEN a.ledger_account_id IS NULL THEN NULL ELSE (SELECT COALESCE(SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END), 0) FROM ledger_line l WHERE l.account_id = a.ledger_account_id) END AS books_balance_minor FROM bank_feed_account a JOIN bank_connection c ON c.id = a.connection_id WHERE c.disconnected_at IS NULL ORDER BY c.connected_at, c.id, a.name, a.id`,
+    `SELECT a.id, a.connection_id, c.institution_name, c.institution_logo, a.remote_account_id, a.name, a.mask, a.subtype, a.currency, a.current_balance_minor, a.available_balance_minor, a.balance_as_of, a.ledger_account_id, CASE WHEN a.ledger_account_id IS NULL THEN NULL ELSE (SELECT COALESCE(SUM(CASE WHEN l.direction = 'debit' THEN l.amount_minor ELSE -l.amount_minor END), 0) FROM ledger_line l WHERE l.account_id = a.ledger_account_id) END AS books_balance_minor FROM bank_feed_account a JOIN bank_connection c ON c.id = a.connection_id WHERE c.disconnected_at IS NULL ORDER BY c.connected_at, c.id, a.name, a.id`,
   );
 }
 
@@ -92,9 +94,7 @@ export function selectBankFeedAccountsOfConnectionStatement(
   connectionId: BankConnectionId,
 ): SqlStatement {
   return database
-    .prepare(
-      `SELECT a.id, a.remote_account_id FROM bank_feed_account a WHERE a.connection_id = ?1`,
-    )
+    .prepare(`SELECT a.id, a.remote_account_id FROM bank_feed_account a WHERE a.connection_id = ?1`)
     .bind(connectionId);
 }
 
@@ -165,6 +165,10 @@ export function selectBookLinesStatement(
     .bind(ledgerAccountId, from, MOST_TRANSACTIONS_LISTED * 2);
 }
 
+/** A logo the column can hold, or none: an empty or oversized one is dropped rather than refused. */
+const logoOrNull = (logo: string | null): string | null =>
+  logo !== null && logo.length > 0 && logo.length <= 100_000 ? logo : null;
+
 // ---- writes --------------------------------------------------------------------------------------
 
 export function insertBankConnectionStatement(
@@ -174,6 +178,7 @@ export function insertBankConnectionStatement(
     readonly provider: BankFeedProvider;
     readonly remoteItemId: string;
     readonly institutionName: string;
+    readonly institutionLogo: string | null;
     readonly credentialRef: string;
     readonly connectedBy: UserId;
     readonly connectedAt: string;
@@ -181,7 +186,7 @@ export function insertBankConnectionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO bank_connection (id, provider, remote_item_id, institution_name, credential_ref, sync_cursor, sign_in_needed, last_synced_at, connected_by, connected_at, disconnected_by, disconnected_at) VALUES (?1, ?2, ?3, ?4, ?5, NULL, 0, NULL, ?6, ?7, NULL, NULL)`,
+      `INSERT INTO bank_connection (id, provider, remote_item_id, institution_name, institution_logo, credential_ref, sync_cursor, sign_in_needed, last_synced_at, connected_by, connected_at, disconnected_by, disconnected_at) VALUES (?1, ?2, ?3, ?4, ?8, ?5, NULL, 0, NULL, ?6, ?7, NULL, NULL)`,
     )
     .bind(
       input.id,
@@ -191,6 +196,7 @@ export function insertBankConnectionStatement(
       input.credentialRef,
       input.connectedBy,
       input.connectedAt,
+      logoOrNull(input.institutionLogo),
     );
 }
 
@@ -199,12 +205,13 @@ export function reopenBankConnectionStatement(
   database: SqlDatabase,
   connectionId: BankConnectionId,
   institutionName: string,
+  institutionLogo: string | null,
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE bank_connection SET institution_name = ?2, sign_in_needed = 0, disconnected_by = NULL, disconnected_at = NULL WHERE id = ?1`,
+      `UPDATE bank_connection SET institution_name = ?2, institution_logo = ?3, sign_in_needed = 0, disconnected_by = NULL, disconnected_at = NULL WHERE id = ?1`,
     )
-    .bind(connectionId, institutionName.slice(0, 200) || "Bank");
+    .bind(connectionId, institutionName.slice(0, 200) || "Bank", logoOrNull(institutionLogo));
 }
 
 export function upsertBankFeedAccountStatement(

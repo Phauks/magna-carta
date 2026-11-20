@@ -34,7 +34,10 @@ function civilDateDaysBefore(now: Date, days: number): string {
 }
 
 export function transactionWindow(now: Date): { from: string; to: string } {
-  return { from: civilDateDaysBefore(now, TRANSACTION_WINDOW_DAYS), to: now.toISOString().slice(0, 10) };
+  return {
+    from: civilDateDaysBefore(now, TRANSACTION_WINDOW_DAYS),
+    to: now.toISOString().slice(0, 10),
+  };
 }
 
 export async function readLiveConnections(database: SqlDatabase): Promise<BankConnectionRow[]> {
@@ -49,7 +52,11 @@ export async function readMarkedTransactions(
 ): Promise<Transaction[]> {
   const { from } = transactionWindow(now);
   const bankRows = (
-    await selectBankFeedTransactionsStatement(database, account.id, from).all<BankFeedTransactionRow>()
+    await selectBankFeedTransactionsStatement(
+      database,
+      account.id,
+      from,
+    ).all<BankFeedTransactionRow>()
   ).results;
   // Book entries a little older than the window can still be the books' side of a line inside it.
   const bookRows =
@@ -115,7 +122,8 @@ export async function readBankingOverview(
   const bookByLedger = new Map(bookAccounts.map((account) => [account.ledgerAccountId, account]));
   const accounts = await Promise.all(
     accountRows.results.map(async (row) => {
-      const book = row.ledger_account_id === null ? null : (bookByLedger.get(row.ledger_account_id) ?? null);
+      const book =
+        row.ledger_account_id === null ? null : (bookByLedger.get(row.ledger_account_id) ?? null);
       const notInBooksCount =
         book === null
           ? 0
@@ -126,6 +134,7 @@ export async function readBankingOverview(
         id: row.id,
         connectionId: row.connection_id,
         institutionName: row.institution_name,
+        institutionLogo: row.institution_logo,
         name: row.name,
         mask: row.mask,
         subtype: row.subtype,
@@ -144,6 +153,7 @@ export async function readBankingOverview(
     connections: connections.map((connection) => ({
       id: connection.id,
       institutionName: connection.institution_name,
+      institutionLogo: connection.institution_logo,
       signInNeeded: connection.sign_in_needed === 1,
       connectedAt: connection.connected_at,
       connectedBy: connection.connected_by_name ?? "A former member",
