@@ -248,6 +248,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent integration_connection; holds the copy as sent to the member and as their calendar has it",
   },
+  // One day of a repeating event a member deleted from their own calendar. It names a person only
+  // through its connection, and holds that day of the event as it was sent to them.
+  {
+    table: "connection_sync_day_issue",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; holds one day of an event as sent to the member",
+  },
   // Which of their own calendars a member chose to be shown. It names a person only through its
   // connection, and holds the calendar's name as their provider gives it.
   {
@@ -860,6 +868,44 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "how the person collecting an original was identified, frozen on an append-only row that can never be edited",
   },
+  // The In/Out Log names people three ways, the custody borrower's shape: a Directory person or
+  // organization, a firm member, or a typed name for somebody who is neither (a courier). The frozen
+  // name is keyed beside the entity id for the reason custody_movement.borrower_name is: an external
+  // party has no Directory record, so the name is erasure's only handle on them. A log entry is a
+  // record of what crossed the desk, so the row stays and its personal columns are scrubbed. The
+  // member columns (recorded_by, handed_over_by, moved_by and a member collector) are firm-member
+  // provenance, the class recorded_by_user_id already sits in.
+  { table: "in_out_entry", subjectKey: "from_entity_id", action: "anonymize" },
+  {
+    table: "in_out_entry",
+    subjectKey: "from_name",
+    action: "anonymize",
+    note: "who dropped it off, frozen; for a courier the only handle erasure has on them",
+  },
+  { table: "in_out_entry", subjectKey: "picked_up_by_entity_id", action: "anonymize" },
+  {
+    table: "in_out_entry",
+    subjectKey: "picked_up_by_name",
+    action: "anonymize",
+    note: "who collected it, frozen; for somebody not on file the only handle erasure has on them",
+  },
+  { table: "in_out_entry_recipient", subjectKey: "entity_id", action: "anonymize" },
+  {
+    table: "in_out_entry_recipient",
+    subjectKey: "name",
+    action: "anonymize",
+    note: "a person the entry is To, frozen; for somebody not on file the only handle erasure has on them",
+  },
+  // The picture of the ID a person showed at pick up. It is the most sensitive thing the log holds
+  // and nothing about the log's record needs it once its owner is erased, so it goes outright. It
+  // resolves to its subject through the entry (entry_id to in_out_entry.picked_up_by_*), a two-hop
+  // like directory_name_phonetic_code's, and the row is the only thing naming its object.
+  {
+    table: "in_out_identity_scan",
+    subjectKey: "entry_id",
+    action: "hard-delete",
+    note: "the row names an R2 object; read object_key before deleting the row",
+  },
   // Trust accounting. The sub-ledger node is the one trust table with a structured subject
   // reference: it says the firm holds money for this client on this matter. That is retained on the
   // same basis as matter_party and the custody owner link — a record of client money the firm is
@@ -897,6 +943,18 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "payee",
     action: "report-manual",
     note: "the payee printed on a trust check, copied from the disbursement it paid, held as free text with no structured subject",
+  },
+  {
+    table: "trust_bank_reconciliation_note",
+    subjectKey: "body",
+    action: "report-manual",
+    note: "a note a firm member wrote about a line of a trust bank reconciliation, free text that may name a client or payee",
+  },
+  {
+    table: "trust_bank_reconciliation_file",
+    subjectKey: "object_key",
+    action: "report-manual",
+    note: "a bank statement or deposit slip kept with a trust reconciliation; it names clients and payees and is a trust record kept for the retention period",
   },
   {
     table: "trust_disbursement_request",
@@ -1397,6 +1455,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // bucket that nothing can ever find again to delete. The object key has to be read off the row
   // before the row goes. The route that removes a picture does exactly that
   // (apps/api-worker/src/http/routes/session/me-photo.ts).
+  // Who has a record open right now. It names a member and nothing else about them, and it is gone
+  // within the hour by design (a touch on the record clears older rows), so it goes outright at
+  // the subject: there is nothing in it any record depends on.
+  {
+    table: "record_presence",
+    subjectKey: "member_user_id",
+    action: "hard-delete",
+    note: "ephemeral; rows older than an hour are cleared on the next touch of the same record",
+  },
   {
     table: "member_photo",
     subjectKey: "member_user_id",
@@ -1725,6 +1792,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // No column about a person (the matter_number_counter / matter_number_allocation precedent).
   "custody_number_counter",
   "custody_number_allocation",
+  // In/Out Log numbering bookkeeping, on the same footing: a scope key, the integer drawn, the
+  // entry it went to, and when. No column about a person.
+  "in_out_entry_number_counter",
+  "in_out_entry_number_allocation",
   // A stocktake is a control row about counting OBJECTS: the firm's own label, a location scope, and
   // firm-member provenance (opened_by / closed_by) — the custody_hold / custody_scan line. A sighting
   // adds observed_by (the same provenance class) and, for an unregistered object only, a free-text
@@ -1789,6 +1860,14 @@ export const NO_PII_TABLES: readonly string[] = [
   // a client, a matter or a payee.
   "trust_check_event",
   "trust_check_stock",
+  // Bank reconciliation. A period, its numbered changes, its restore points, the items its finish
+  // cleared and its IOLTA interest lines are figures and handles about the firm's own bookkeeping;
+  // the only people they name are the firm members who made them.
+  "trust_bank_reconciliation",
+  "trust_bank_reconciliation_change",
+  "trust_bank_reconciliation_restore_point",
+  "trust_bank_reconciliation_cleared",
+  "trust_bank_reconciliation_interest",
   // Billing. The two tables with a subject reference (invoice, invoice_line) are registered in
   // PII_TABLES above; these five carry none of their own.
   // A claim says which work-in-progress row an invoice took. It is two handles, an amount, and two
@@ -1888,6 +1967,9 @@ export const NO_PII_TABLES: readonly string[] = [
   "exhibit_set",
   "exhibit_set_member",
   "exhibit_reference",
+  // A Bates range: a matter, a prefix, two numbers, file handles and firm-member provenance. A prefix
+  // can be a party's name ("SMITH"), the same free-text residue class as a set's name above.
+  "bates_range",
   // A note's link to one of the matter's files: two handles, an instant, and firm-member provenance
   // (linked_by). Whose document it is resolves through the file and the matter, never through a
   // column here — the same shape matter_asset_document sits in directly above.

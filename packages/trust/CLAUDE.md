@@ -52,6 +52,18 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   nothing) then `confirmTrustStatementImport` (stores, only against the previewed fingerprint)
 - `src/reconciliation.ts` — `openTrustReconciliation` / `closeTrustReconciliation` (the freeze) /
   `readTrustThreeWayProof`
+- `src/bank-reconciliation.ts` — the tick-to-clear reconciliation the Reconciliation screen runs,
+  beside (not replacing) the statement-and-match workbench above. A period is a start date and
+  balance (carried over from the last finished one, or typed for an account's first), an end date
+  and balance, and numbered changes: a tick, an untick, an end-date or end-balance edit. Whether a
+  line is cleared is the fold of its changes (`foldBankReconciliationChanges`); Undo, Redo, an undo
+  from History and a restore are themselves new changes (`inverseOfChange`, `undoRedoTargets`), so
+  the change table, interest lines, notes and files are all append-only, and a removal is a row
+  that names what it removes. One open period per account is a partial unique index
+  (`trust_bank_reconciliation_one_open_unique_index`). Nothing locks the ledger: an entry recorded
+  after the period started is still an item, read as New. IOLTA interest lines live on the period
+  and are never posted to the trust book. `composeTrustBankReconciliationFinish` freezes the figures
+  and which items cleared; notes stay open after it
 - `src/three-way-proof.ts` — `computeTrustThreeWayProof` plus the two reads it is derived from, which
   every other surface shares: `readOutstandingTrustBankItems` and
   `readUnmatchedTrustBankStatementLines`
@@ -60,8 +72,8 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
 - `src/fitness.ts` — re-proves the invariants over stored data
 - `src/checks.ts` — check printing: `readTrustChecksToPrint` (the derived queue),
   `readTrustCheckRegister` (THE register; the reconciliation report reads it too),
-  `composeTrustCheckPrint` (numbers a batch from `readNextTrustCheckNumber`),
-  `composeTrustCheckResults` / `composeTrustCheckVoid` / `composeTrustCheckNumberVoid`, and the stock
+  `composeTrustCheckPrint` (numbers a batch from `readNextTrustCheckNumber` and records it printed),
+  `composeTrustCheckVoid` (a misprint, or a check lost later) / `composeTrustCheckNumberVoid`, and the stock
   (`readCurrentTrustCheckStock` / `composeTrustCheckStockSave`). `src/check-layout.ts` is pure (the
   web app imports it): field positions in thousandths of an inch, the MICR band refusal, the
   standard positions, amount in words. `src/check-statements.ts` holds the live-check SQL fragments
@@ -281,8 +293,10 @@ ADR-0072.) **Invariants:** [`docs/conventions/invariants.md`](../../docs/convent
   refuse to record the condition reconciliation exists to catch.
 - **Clock injection.** No wall-clock reads — `ClockPort` only.
 - **A check number follows the paper, and a check's history is events.** The number is the person's: the
-  next number is the first unused one at or after the stock's starting number, and a print may name
-  its own first number; a number is never reused (a print over a used one refuses
+  next number is one past the last printed check, or the stock's starting number when the stock was
+  saved after that print, skipping any number already used, and a print may name its own first
+  number. A print records each check printed in the same batch (no one is asked afterwards); a
+  misprint is a void, which returns the payment to the list; a number is never reused (a print over a used one refuses
   `check-number-used`), and `trust_check_account_number_unique_index` is what separates two prints that read
   the same one. A check's status is its `trust_check_event` rows (a trigger holds the sequences), and
   a payment's one LIVE check is `liveTrustCheckPredicate`. Printing and voiding never touch the

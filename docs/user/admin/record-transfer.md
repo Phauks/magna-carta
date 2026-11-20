@@ -15,7 +15,7 @@ then the real one.
 2. Name the run, for example "Rehearsal 1", and choose **Start Run**.
 
 The list shows every run, newest first, with who started it and whether it is open, accepted or
-abandoned. Open a run to work on its files.
+stopped. Open a run to work on its files.
 
 ## Uploading a file
 
@@ -27,6 +27,11 @@ abandoned. Open a run to work on its files.
 The file is a table saved as text, one row per record, with the column names on the first row.
 Upload people and organizations before matters. A matter names its client and its other parties by
 their key in the people or organizations file, so those records need to be there first.
+
+A file can be up to 4 GB. A large file shows how much has been sent while it uploads, and the panel
+stays open until it finishes. To give up part way, choose **Stop Upload**. A stopped upload adds no
+file to the run, so choose **Upload** again to start over. If an upload fails, the panel says so and
+**Upload** tries again.
 
 ## Saying what each column has in it
 
@@ -40,9 +45,30 @@ In**.
 - In a matters file, a **Client** or **Party** column asks which file its keys come from, and a
   party column asks for the party's role.
 - A **Matter Type** column asks you to match the codes in the file to your firm's matter types.
-  Choose **Match Types**, add each code and pick its type.
+  Choose **Match Types** and pick a type for each code.
 - A **Responsible Member** column asks you to match staff codes to members the same way, under
   **Match Staff**. **Everyone Else** is the member who takes a matter whose code is not matched.
+
+Choose **Save** under the table to keep your choices. The line beside it shows **Not saved** while
+you have changes and **Saved** once they are kept, so you can leave the page and come back to the
+same columns. Running a file also saves its columns. If you leave the page without saving or
+running, your changes are lost. If a save fails, a notice above the tabs says so. Your changes stay
+on the page, and you can choose **Retry**.
+
+### Matching codes
+
+**Match Types** and **Match Staff** list the codes that are in the file's column, the most used
+first, each with the number of rows that use it. Pick a matter type or a member for each code, then
+choose **Match**. A code left at **(Not Matched)** stays unmatched.
+
+Beside the column, a count such as **2 of 9 not matched** shows how many of the file's codes still
+have no match. It reads **All 9 matched** when none are left.
+
+A matter whose type code is not matched arrives with no type. A matter whose staff code is not
+matched goes to the member under **Everyone Else**. If there is nobody there, the row is rejected.
+
+A column with a very large number of different codes is not listed in full. The panel says the
+list is incomplete, and **Add Code** lets you type the missing codes yourself.
 
 The **Still Needed** line lists what the file cannot be run without. If you choose **Run** while
 something is still needed, the fields to fix are outlined in red.
@@ -70,6 +96,10 @@ number in the file and the reason:
 - **Left-Out Values** are single values that could not be read, such as an email that is not an
   address. The record arrived without that value.
 
+To correct the rejected rows outside Magna Carta, choose **Download Rejected Rows**. The download
+is a table with the same columns as your file, with the reason for each row in the first column.
+Fix the rows, then upload them as a new file or correct the original and run it again.
+
 If the pass failed, the report says why. For example, a quoted value in the file is never closed,
 with the line it starts on.
 
@@ -86,3 +116,17 @@ The left panel keeps count of what stands between this run and switching over:
   or waiting in the latest pass of each file.
 - **Trust balances match** and **10 samples checked by eye** are not counted yet. They show as Not
   run and Not done.
+
+## Finishing a run
+
+When a run has done its job, end it from the **...** menu beside the run's name. Neither choice can
+be undone, and both wait until no file is still running.
+
+- **Accept Run** marks the run complete. Each open matter the run brought in gets a conflicts check.
+  Use this for the real transfer, once the report is clean and the samples look right.
+- **Stop Run** ends the run without accepting it. Everything that arrived stays where it is, and no
+  conflicts checks are run. Use this for a rehearsal you are done with.
+
+After either, the run shows as **Accepted** or **Stopped**. You can still read its columns, reports
+and samples and download rejected rows, but it takes no more files, no more passes and no changes
+to its columns. To carry on, start a new run.

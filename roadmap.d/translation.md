@@ -7,10 +7,10 @@
 - id: translation
   name: Translation services
   scope: Machine translation of pasted text and of matter documents, aligned side-by-side and target-only renditions, and a provenance record of how each translation was produced.
-  status: designed
+  status: partial
   adrs: ADR-0109, ADR-0110, ADR-0111
   spec: docs/specs/2026-08-10-translation-services-design.md
-  evidence: Merged design with four slices and no implementation plan; no translation package, no port, no per-firm table, no route and no screen. Every seam it rides — per-page native/OCR extraction, the conversion registry, the asynchronous job shape, OOXML assembly and the inference chokepoint — is shipped and belongs to other nodes.
+  evidence: The engine is built (packages/translation, Google Cloud Translation behind the firm switch, the owner's choice of 2026-11-19 recorded as ADR-translation-runs-on-google-cloud-translation); the pasted-text screen, document translation, renditions and the provenance record are not.
   audience: public
   public-name: Translation
   public-summary: Translate a pasted passage or a whole document, read the original and the translation side by side, and keep a record of exactly how the translation was produced.
@@ -51,13 +51,14 @@
 
 - id: translation.engines
   name: Translation engines and consent gates
-  scope: Which engine may see a privileged document under which consent — the on-platform engine behind the feature gate alone, and a frontier model through the shipped inference chokepoint behind all three gates.
-  status: designed
+  scope: Which engine may see a firm's text under which consent: Google Cloud Translation behind the firm switch, and later a frontier model through the shipped inference chokepoint.
+  status: partial
+  surface: awaiting-screen
   adrs: ADR-0109, ADR-0110, ADR-0111
   spec: docs/specs/2026-08-10-translation-services-design.md
-  evidence: The port, the two adapters, the deterministic stub and the two firm settings are specified against the shipped gateway chokepoint and the shipped feature-specific consent pattern; none of them is written, and no translation setting is declared.
-  awaiting-owner: Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
-  notes: The engine actually used is recorded per run rather than as a policy statement, so a firm asked later what saw a client's document has an answer for each translation.
+  evidence: packages/translation (the port, the Google Basic v2 adapter, the translation.enabled switch); POST /api/v1/translation/translate and GET /api/v1/translation/languages behind tools:translation; GET/PATCH /api/v1/firm/translation-settings behind firm:manageAiSettings; GOOGLE_TRANSLATE_API_KEY from the Secrets Store. No screen yet, and the member notice is not built.
+  awaiting-owner: Whether a pasted translation is kept (flag T4). Built on the recommendation of a log row per run without the text; keeping the text means a run table and an object per paste.
+  notes: The owner chose Google on 2026-11-19, answering flag T1 against its recommendation of the on-platform model. The engine used is recorded on every run's log row, so a firm asked later what saw a client's text has an answer for each translation.
 
 - id: translation.certification
   name: Human-attested certification

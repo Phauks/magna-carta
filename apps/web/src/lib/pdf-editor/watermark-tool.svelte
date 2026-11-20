@@ -21,7 +21,7 @@
   import Slider from "@magna-carta/design-system/slider";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import type { EditorSubject } from "./editor-subject.ts";
   import { BATES_TYPEFACES, type BatesTypeface } from "./bates.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
@@ -38,7 +38,7 @@
     type WatermarkSettings,
   } from "./watermark.ts";
 
-  let { file }: { file: MatterFile } = $props();
+  let { subject }: { subject: EditorSubject } = $props();
 
   const PREVIEW_ZOOM = 0.7;
   const OTHER = "other";
@@ -112,7 +112,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      subject,
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and mark that.",
     );
     if (gone) {
@@ -214,7 +214,7 @@
       };
       return;
     }
-    const filed = await fileMadeDocument(file, made, watermarkedCopyName(file.name, settings));
+    const filed = await fileMadeDocument(subject, made, watermarkedCopyName(subject.name, settings));
     if (gone) return;
     result = { kind: "done", filed };
   }
@@ -231,7 +231,7 @@
   </div>
 {:else}
   <div class="flex min-h-0 flex-1">
-    <aside aria-label="Watermark" class="mc-scrollbar flex min-h-0 w-352 shrink-0 flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
+    <aside aria-label="Watermark" class="mc-scrollbar flex min-h-0 w-full shrink-0 md:w-sm flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
       <div class="flex flex-col gap-8">
         <Label id="watermark-kind-label">Mark</Label>
         <RadioGroup.Root
@@ -411,6 +411,11 @@
             <Alert.Description>The original is unchanged.</Alert.Description>
             <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.filed.fileId)}>Open the Marked Copy</Button>
           </Alert.Root>
+        {:else if result.kind === "done" && result.filed.kind === "benched"}
+          <Alert.Root variant="success">
+            <Alert.Title>Added to the Bench</Alert.Title>
+            <Alert.Description>{result.filed.name} is on the bench beside the original, which is unchanged.</Alert.Description>
+          </Alert.Root>
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">
             <Alert.Title>Not Filed</Alert.Title>
@@ -431,7 +436,7 @@
       </div>
     </aside>
 
-    <div class="mc-scrollbar flex min-h-0 min-w-0 flex-1 items-start justify-center overflow-auto bg-surface-sunken p-24">
+    <div class="mc-scrollbar hidden min-h-0 min-w-0 flex-1 items-start justify-center md:flex overflow-auto bg-surface-sunken p-24">
       {#if sizes[previewIndex] !== undefined}
         {@const size = sizes[previewIndex] as PdfPageSize}
         {@const box = pageDisplaySize(size, PREVIEW_ZOOM)}

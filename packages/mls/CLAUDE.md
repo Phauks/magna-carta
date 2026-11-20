@@ -11,8 +11,9 @@ the frame cipher (RFC 9605) on WebCrypto that the meeting's frame transform runs
 - **The tests hold it to the RFC.** Every header vector in RFC 9605 appendix C.1 is in
   `test/sframe-header-vectors.json`, and the AES_128_GCM_SHA256_128 encryption vector from appendix
   C.3 is checked both ways.
-- **`./sframe` needs no WebAssembly**, so the transform worker imports it alone; the MLS engine loads
-  only when an encrypted meeting is joined.
+- **`./sframe` and `./pause` need no WebAssembly**, so the transform worker imports the cipher alone
+  and the meeting screen names a pause from the bit table alone; the MLS engine loads only when an
+  encrypted meeting is joined.
 - **The generated `src/pkg/` is git-ignored.** `pnpm exec vp run bootstrap` builds it; the Docker
   build in `crates/mls-core/wasm.Dockerfile` is the canonical one.
 - **Errors are codes** (`MLS_ERROR_CODES`, `SframeError`), never key material or media.

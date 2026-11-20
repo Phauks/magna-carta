@@ -138,6 +138,7 @@ export const PERMISSIONS = [
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
   "tools:legalCitations", // legal citations — read a link or rough citation and format it in a court's citation format
   "tools:aiTextDetection", // AI-text detection — likelihood that text was machine-generated (a signal, not proof)
+  "tools:translation", // translate pasted text with the firm's translation engine (Google); the firm switch translation.enabled gates it too
   // Documents — in-app editing of a file's content (Collabora), versioning, and the offline
   // check-out / reconciliation flow. Each document route is matter-scoped (RouteMeta resource: "matter").
   "documents:edit", // open a document for editing; a deliberate Save or session-close cuts a version
@@ -258,6 +259,13 @@ export const PERMISSIONS = [
   // tenancy root.
   "custody:read", // read the register — locations, packets, items, owners, movements, holds, scans
   "custody:manage", // create/edit packets, items, locations and the type catalog; record movements; place and release holds
+  // The In/Out Log — what crosses the front desk that is NOT held in custody: copies, papers, a
+  // physical file a client collects. Its own namespace rather than a corner of custody:*, because the
+  // person who works the front desk records what came in and what went out and is not thereby
+  // someone who may move a client's original will. Two keys on the house read/manage split. Both
+  // bind resource: "firm" — an entry may have no matter, the custody:* reasoning.
+  "inOutLog:read", // read the log: what is waiting for pickup and everything dropped off or picked up
+  "inOutLog:manage", // record a drop off and a pick up, link an entry to a custody packet, delete a waiting entry
   // Trust accounting — client money the firm holds and owes back. Two keys, because reading a
   // client's trust balance and moving client money are genuinely different capabilities: a
   // timekeeper answering "how much of this client's money do we hold" needs the read and must not

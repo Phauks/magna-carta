@@ -1,0 +1,30 @@
+{
+  "name": "@magna-carta/bates",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./label": "./src/label.ts",
+    "./validation": "./src/validation.ts",
+    "./range-statements": "./src/range-statements.ts",
+    "./range-service": "./src/range-service.ts",
+    "./queries": "./src/queries.ts",
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

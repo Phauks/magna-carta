@@ -14,6 +14,7 @@ import type {
 } from "@magna-carta/pdf";
 import type { ArrangementPlan } from "./page-arrangement.ts";
 import type { DocumentReadings } from "./secure.ts";
+import type { PdfSummary } from "./pdf-summary.ts";
 
 /** One operation the worker can run. Each later tool adds its own variant here. */
 export type PdfOperation =
@@ -31,6 +32,12 @@ export type PdfOperation =
       /** Make one new document per plan, each from the original's pages (`page-arrangement.ts`). */
       readonly kind: "arrange";
       readonly plans: readonly ArrangementPlan[];
+      /**
+       * The files whose pages were inserted, in the order they were inserted. They are joined onto
+       * the end of the original before any plan is carried out, which is where the plans number
+       * their pages. Copied to the worker, not transferred: the tab keeps them for the next save.
+       */
+      readonly additions?: readonly ArrayBuffer[];
     }
   | {
       /** Stamp a Bates label on every page (`bates.ts`). */
@@ -51,6 +58,10 @@ export type PdfOperation =
       readonly kind: "secure";
       readonly options: SecureOptions;
       readonly scrubFirst: boolean;
+    }
+  | {
+      /** Read what the PDF is: pages, form, password, Bates labels (`pdf-summary.ts`). Makes no document. */
+      readonly kind: "summarize";
     }
   | {
       /** Read the form's fields and their current values (`forms.ts`). Makes no document. */
@@ -94,6 +105,8 @@ export type PdfOperationReply =
       readonly readings?: DocumentReadings;
       /** The form's fields. Present for a form reading only. */
       readonly fields?: readonly FormField[];
+      /** What the PDF is. Present for a summary only. */
+      readonly summary?: PdfSummary;
     }
   | {
       readonly kind: "failed";

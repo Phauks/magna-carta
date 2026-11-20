@@ -344,3 +344,41 @@ Written 2026-11-14. Sections 11 to 15 built what a transfer does to one file. Th
 - **One pass is one queue delivery.** The job reads the whole file in one invocation. A file of a few thousand rows fits; a file of several hundred thousand needs the pass to resume from a row number across deliveries, which the row-numbered reader allows and nothing yet does.
 - **Text is read as UTF-8.** A file in another encoding still reads as rows, with letters outside ASCII replaced. A named encoding per file waits for a real export that needs one.
 - **Completing, abandoning and releasing.** The statements that end a run and release a file's bytes exist (sections 5 and 11) and have no route yet. They arrive with accepting a run (section 16, item 1).
+
+## 18. The seventh slice: finishing a run
+
+Written 2026-11-19, after the owner confirmed that the transfer is run from inside the product. Sections 17 let a person start a run and ask for passes. This slice lets them keep their work, see what a column holds, get rejected rows back, and end the run.
+
+| Route                                             | What it does                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| `GET`, `PUT /runs/{runId}/files/{fileId}/mapping` | Reads and saves the mapping a person is working on for a file       |
+| `GET /runs/{runId}/files/{fileId}/column-values`  | The different values of one column, with the rows that use each     |
+| `GET /runs/{runId}/passes/{passId}/rejected-rows` | The rows a finished pass rejected, as a file in the source's shape  |
+| `POST /runs/{runId}/accept`                       | Ends the run as complete and asks for the withheld conflicts checks |
+| `POST /runs/{runId}/abandon`                      | Stops the run and asks for nothing                                  |
+
+**A saved mapping is an object beside the file, not a row.** It is the screen's working state (what each column holds, the date order, the codes matched so far), kept at `transfers/{run}/mappings/{file}.json` and replaced whole on each save. It is a declared, strict shape, so nothing but column names, the source's codes and the firm's identifiers can be saved in it, and it need not be enough to run a pass: asking for a pass is still where rules are held to their full shape. It is an object and not a table because it belongs to one file, nothing queries across mappings, and it shares the run's prefix, so releasing a run's objects takes it too. Each save writes an audit row naming the file.
+
+**Two more reads answer values from a file.** Section 17 kept file values to the preview. A person cannot match every code a column uses without seeing the codes, and cannot correct rejected rows without the rows, so both are answered to the member who asks and stored nowhere. The column read is bounded: at most 500 different values of at most 100 characters, with a flag when the column holds more, so a column of free text does not leave through it. The rejected rows are the source file read again and sent a line at a time, each with its reason from the report in a first column; the download is named for the pass, never for the source file.
+
+**Accepting a run is item 1 of section 16.** It writes the run's completed time, an audit row and one outbox message in a single batch. The message's consumer reads the live matters the run linked and records one conflicts request per matter in the conflicts ledger, with the run as the cause; the ledger queues as many as one event may and its own sweep takes the rest, so a run of any size is recorded whole. A closed matter is not asked about, which is the conflicts check's existing rule. The check a transferred matter gets is labelled comprehensive, as an opened matter's is. Accepting is refused while a pass is waiting or running, and an accepted run takes no more files, passes or mapping saves.
+
+**Abandoning stops a run and removes nothing.** It is the statement of section 5 given a route.
+
+**Removing what a run created is not built, and needs the owner.** Item 2 of section 16 assumed the records could be deleted in reverse order. The product has no operation that deletes a matter or a Directory record: 43 tables refer to a matter, and a person or organization leaves only through merge or erasure. A removal would therefore be the first hard delete of either, on records that members may have worked on since they arrived. The open choice is between deleting only records nothing has touched, archiving instead of deleting, or leaving removal out and relying on rehearsal in a separate firm.
+
+**Still owed.** Releasing a run's source files once it is accepted (the statement exists, no route); the top-up run; duplicate candidates; passes that resume across deliveries; named encodings; documents; money.
+
+## 19. A database, not a spreadsheet: what changes
+
+Written 2026-11-20, when the owner said to assume the source hands over a database and wants the move made quickly, and asked whether Cloudflare's Super Slurper helps.
+
+**Super Slurper moves files, not a database.** It copies objects from Amazon S3, Google Cloud Storage, R2 or another S3-compatible bucket into an R2 bucket as a one-off job, given read-only keys to the source; it can be limited to a prefix, keeps custom metadata, overwrites or skips what is already there, and skips objects over 1 TB and those in archive tiers (Cloudflare, "Super Slurper", R2 data migration documentation, last updated 2026-04-21). It suits the documents half of a transfer if the source will grant keys to a bucket of the firm's documents: the files arrive in the firm's storage without passing through a person's computer. Each file must still be filed on its matter, which needs a list tying file to matter. It does nothing for the database, which arrives as a backup file that something must open.
+
+**A table is rows with column names, so the framework stands.** The reader sits behind `SOURCE_FILE_FORMATS`; mapping, passes, reports, rejected rows and accepting a run do not care where rows came from. A database handover needs three additions.
+
+1. **A way to open the backup.** A backup of a database server is not readable by a Worker. Until its format is known, the route that needs no new machinery is to restore it once on a temporary server and export each table as delimited text, which the existing screens take. A reader that takes a table directly is a new entry in `SOURCE_FILE_FORMATS` once the format is known.
+2. **Large files.** Built in this slice: a source file is given in pieces of 32 MiB, up to 4 GiB, through three routes under `/runs/{runId}/file-uploads` (start, a piece, complete). The pieces go to the firm's bucket under the key the file will have; completing joins them, reads the object once for its digest, and only then writes the row, so the rules of section 17 hold: no row without its object, and the same bytes are not taken twice. Nothing is remembered between requests; the caller returns the upload's identifier. A bucket rule reclaims the pieces of an upload nobody completed, for buckets provisioned from now on.
+3. **A saved mapping for a source's tables**, so a known source maps itself. Not built; it needs the real table and column names.
+
+**Passes that resume were measured, not built.** One pass is still one queue delivery. Under the local test pool a pass created 3,000 people in 7.8 seconds and passed over 3,000 already-linked rows in 1.1 seconds. A deployed pass will be slower per row, and these numbers are not a production measurement. They are enough to say that card and matter tables of a firm fit one delivery, and that when a pass does run out of time, asking for it again continues the work at several times the speed, because linked rows are only read. Resuming inside one pass waits for a table that proves to need it, which will be a ledger or time table in the money slice.

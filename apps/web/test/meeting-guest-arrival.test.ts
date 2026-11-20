@@ -913,7 +913,7 @@ describe("a guest's page that breaks", () => {
 
   it("says the same when the page failed while it loaded", () => {
     page.url = new URL(ADDRESS);
-    page.error = { message: "Internal Error", errorId: "client_ABCDEFGH" };
+    page.error = { status: 500, message: "Internal Error", errorId: "client_ABCDEFGH" };
 
     instance = mount(GuestErrorPage, { target });
     flushSync();

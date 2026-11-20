@@ -46,6 +46,7 @@ import Users from "@lucide/svelte/icons/users";
 import FileText from "@lucide/svelte/icons/file-text";
 import ClipboardPenLine from "@lucide/svelte/icons/clipboard-pen-line";
 import Inbox from "@lucide/svelte/icons/inbox";
+import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
 import Clock from "@lucide/svelte/icons/clock";
 import Coins from "@lucide/svelte/icons/coins";
 import Landmark from "@lucide/svelte/icons/landmark";
@@ -62,6 +63,7 @@ import FolderInput from "@lucide/svelte/icons/folder-input";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
+import BookCheck from "@lucide/svelte/icons/book-check";
 
 export type DestinationGroup =
   | "favorites"
@@ -468,6 +470,19 @@ const DESTINATION_LIST = [
     stage: "alpha",
     defaultShown: true,
   },
+  {
+    // The front desk's record of what is dropped off for somebody and picked up later: copies,
+    // papers, a file handed back. Beside Custodian because a thing on it can be moved there.
+    id: "in-out-log",
+    label: "In/Out Log",
+    href: "/in-out-log",
+    icon: ArrowRightLeft,
+    description: "Copies and papers left at the front desk for someone to pick up.",
+    group: "work",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+  },
   // Money — in the order the money moves: hours and flat charges are recorded, disbursements are
   // advanced, then a bill claims all three and trust settles it.
   {
@@ -564,6 +579,19 @@ const DESTINATION_LIST = [
     href: "/trust",
     icon: Landmark,
     description: "Client money held in trust, to the penny.",
+    group: "money",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+  },
+  {
+    // Matching a trust account's book to its bank statement, one period at a time. A screen of
+    // its own beside Trust because it is a monthly job with its own list, not a section of one.
+    id: "reconciliation",
+    label: "Reconciliation",
+    href: "/reconciliation",
+    icon: BookCheck,
+    description: "Tick off a trust account's bank statement, period by period.",
     group: "money",
     shipped: true,
     stage: "alpha",

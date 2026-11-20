@@ -246,6 +246,19 @@ export const ENTITY_PREFIXES = {
   trustCheck: "trustCheck",
   trustCheckEvent: "trustCheckEvent",
   trustCheckStock: "trustCheckStock",
+  // Bank reconciliation, the tick-to-clear way. A `trustBankReconciliation` is one period of one
+  // account checked against the bank's statement; a `trustBankReconciliationChange` is one tick,
+  // untick, end date or end balance, kept in order so History, Undo and restore points read it; a
+  // `trustBankReconciliationRestorePoint` is a named place in that order to go back to; a
+  // `trustBankReconciliationInterest` is an IOLTA interest line the bank credited or swept out; a
+  // `trustBankReconciliationNote` is a note or a review flag on a line; a
+  // `trustBankReconciliationFile` is a statement or other file kept with the period.
+  trustBankReconciliation: "trustBankReconciliation",
+  trustBankReconciliationChange: "trustBankReconciliationChange",
+  trustBankReconciliationRestorePoint: "trustBankReconciliationRestorePoint",
+  trustBankReconciliationInterest: "trustBankReconciliationInterest",
+  trustBankReconciliationNote: "trustBankReconciliationNote",
+  trustBankReconciliationFile: "trustBankReconciliationFile",
   // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
   // entities); an `invoiceLine` is what the client is told, in presentation order; an
   // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the
@@ -436,6 +449,9 @@ export const ENTITY_PREFIXES = {
   exhibitSetMember: "exhibitSetMember",
   exhibitReference: "exhibitReference",
   exhibitPackage: "exhibitPackage",
+  // Bates numbers — a `batesRange` is one run of page numbers taken from a matter's register under
+  // one prefix, for one stamped document. Ranges under a prefix never overlap.
+  batesRange: "batesRange",
   // The matter's own identity records beyond the shell. A `matterAssignment` is one firm member
   // staffed onto a matter in a named working role (the responsible attorney stays on the matter row
   // itself); a `matterCourtCase` is the matter's court-and-case identity — the court, the case
@@ -512,6 +528,14 @@ export const ENTITY_PREFIXES = {
   // document is keyed by this id. Not a notification and never one — a generated file is platform
   // mechanics rather than a fact about the firm's work.
   downloadItem: "downloadItem",
+  // The In/Out Log — what crosses the front desk that is not held in custody: copies, papers, a
+  // physical file. An `inOutEntry` is one thing dropped off, from the moment it arrives until it is
+  // picked up or moved into Custodian; an `inOutEntryRecipient` is one person the entry is To, any
+  // of whom may pick it up.
+  inOutEntry: "inOutEntry",
+  inOutEntryRecipient: "inOutEntryRecipient",
+  // An `inOutIdentityScan` is the picture of the ID a person showed when they picked an entry up.
+  inOutIdentityScan: "inOutIdentityScan",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

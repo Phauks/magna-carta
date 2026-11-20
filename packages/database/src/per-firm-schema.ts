@@ -15,10 +15,14 @@ import { civilDateShape } from "./date-shape-checks.ts";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  BatesRangeId,
   BillingArrangementId,
   CalendarEventLinkId,
   ClientCreditId,
   CommunicationId,
+  InOutEntryId,
+  InOutEntryRecipientId,
+  InOutIdentityScanId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
@@ -212,6 +216,12 @@ import type {
   TrustCheckId,
   TrustCheckEventId,
   TrustCheckStockId,
+  TrustBankReconciliationChangeId,
+  TrustBankReconciliationFileId,
+  TrustBankReconciliationId,
+  TrustBankReconciliationInterestId,
+  TrustBankReconciliationNoteId,
+  TrustBankReconciliationRestorePointId,
   TrustUnclaimedFundsReviewId,
   UploadSessionId,
   UserId,
@@ -743,6 +753,7 @@ export const numberingScheme = sqliteTable(
         "invoice",
         "time_entry",
         "communication",
+        "in_out_entry",
       ],
     })
       .notNull()
@@ -1634,10 +1645,17 @@ export const incident = sqliteTable("incident", {
   // exists; the plaintext `description` is dropped in a later slice after a verification window.
   descriptionCiphertext: text("description_ciphertext"),
   context: text("context").notNull(), // JSON { route, appVersion, clientAt }
-  screenshotKey: text("screenshot_key"), // R2 seam, nullable; the UI slice populates capture/upload
-  // Lifecycle stays open text (not an enum): the diagnostics agent defines the states it transitions
-  // through later — constraining now would be premature (no consumer exists yet).
+  // The firm-bucket key of the reporter's screenshot, covered parts already painted out on their
+  // device before upload. Null when none was sent. Written once, by the reporter, after the row.
+  screenshotKey: text("screenshot_key"),
+  // open (shown as Received) | investigating | fixed | closed. Open text rather than a CHECK, so a
+  // state the diagnostics agent adds later is a code change, not a table rebuild.
   status: text("status").notNull().default("open"),
+  // The answerer's note to the reporter with the latest status, sealed under the firm key like the
+  // description. Null when the status changed without one.
+  statusNoteCiphertext: text("status_note_ciphertext"),
+  statusChangedAt: text("status_changed_at"), // ISO-8601 instant; null until first answered
+  statusChangedBy: text("status_changed_by").$type<UserId>(), // who set the status; null until then
   reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no cross-plane FK
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
@@ -6174,6 +6192,275 @@ export const trustCheckEvent = sqliteTable(
   ],
 );
 
+// BANK RECONCILIATION, the way QuickBooks does it: a person types the statement's end date and end
+// balance, ticks each book item the statement shows, and finishes when the difference is zero.
+// Nothing here moves money and nothing locks the account while a period is open. Every tick, untick
+// and change of end date or end balance is a row of its own, in order, so History, Undo, Redo and
+// restore points are all reads of one list and two people can work one period at once.
+//
+// The period's row takes exactly one update, its finish, which freezes the figures. The items it
+// cleared are copied into trust_bank_reconciliation_cleared in the same batch, and that table's
+// key is what stops one book item being cleared in two finished periods.
+export const trustBankReconciliation = sqliteTable(
+  "trust_bank_reconciliation",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationId>(), // trustBankReconciliation_ handle
+    trustAccountId: text("trust_account_id")
+      .notNull()
+      .$type<TrustAccountId>()
+      .references(() => trustAccount.id),
+    currency: text("currency").notNull(),
+    startDate: text("start_date").notNull(), // YYYY-MM-DD civil date
+    startBalanceMinor: integer("start_balance_minor").notNull(), // signed: an account can be overdrawn
+    // 1 when the start came from the last finished period, 0 when a person typed it (the first one).
+    startCarriedOver: integer("start_carried_over").notNull(),
+    startedBy: text("started_by").notNull().$type<UserId>(),
+    startedAt: text("started_at").notNull(), // UTC instant
+    finishedBy: text("finished_by").$type<UserId>(),
+    finishedAt: text("finished_at"), // UTC instant
+    finishedEndDate: text("finished_end_date"),
+    finishedEndBalanceMinor: integer("finished_end_balance_minor"),
+    finishedClearedBalanceMinor: integer("finished_cleared_balance_minor"),
+    finishedDepositedMinor: integer("finished_deposited_minor"),
+    finishedWithdrawnMinor: integer("finished_withdrawn_minor"),
+    finishedDifferenceMinor: integer("finished_difference_minor"),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_account_index").on(table.trustAccountId, table.startDate),
+    // One period in progress per account at a time.
+    uniqueIndex("trust_bank_reconciliation_one_open_unique_index")
+      .on(table.trustAccountId)
+      .where(sql`${table.finishedAt} IS NULL`),
+    check("trust_bank_reconciliation_currency_check", sql`length(${table.currency}) = 3`),
+    check("trust_bank_reconciliation_start_date_shape_check", civilDateShape(table.startDate)),
+    check(
+      "trust_bank_reconciliation_end_date_shape_check",
+      civilDateShape(table.finishedEndDate, true),
+    ),
+    check("trust_bank_reconciliation_carried_over_check", sql`${table.startCarriedOver} IN (0, 1)`),
+    check(
+      "trust_bank_reconciliation_finish_shape_check",
+      sql`(${table.finishedAt} IS NULL AND ${table.finishedBy} IS NULL AND ${table.finishedEndDate} IS NULL AND ${table.finishedEndBalanceMinor} IS NULL AND ${table.finishedClearedBalanceMinor} IS NULL AND ${table.finishedDepositedMinor} IS NULL AND ${table.finishedWithdrawnMinor} IS NULL AND ${table.finishedDifferenceMinor} IS NULL)
+        OR (${table.finishedAt} IS NOT NULL AND ${table.finishedBy} IS NOT NULL AND ${table.finishedEndDate} >= ${table.startDate} AND ${table.finishedEndBalanceMinor} IS NOT NULL AND ${table.finishedClearedBalanceMinor} IS NOT NULL AND ${table.finishedDepositedMinor} >= 0 AND ${table.finishedWithdrawnMinor} >= 0 AND ${table.finishedDifferenceMinor} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// An IOLTA interest line: interest the bank credited, or the bank's sweep of it to the bar
+// foundation. It belongs to no matter and never touches a client ledger or the trust book. Removing
+// one is a new row naming it.
+export const trustBankReconciliationInterest = sqliteTable(
+  "trust_bank_reconciliation_interest",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationInterestId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    kind: text("kind", { enum: ["credited", "swept"] }).notNull(),
+    postedOn: text("posted_on").notNull(), // YYYY-MM-DD, as the statement shows it
+    amountMinor: integer("amount_minor").notNull(),
+    description: text("description").notNull(),
+    removesInterestId: text("removes_interest_id").$type<TrustBankReconciliationInterestId>(),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_interest_reconciliation_index").on(table.reconciliationId),
+    uniqueIndex("trust_bank_reconciliation_interest_removes_unique_index").on(
+      table.removesInterestId,
+    ),
+    check(
+      "trust_bank_reconciliation_interest_kind_check",
+      sql`${table.kind} IN ('credited', 'swept')`,
+    ),
+    check(
+      "trust_bank_reconciliation_interest_posted_on_shape_check",
+      civilDateShape(table.postedOn),
+    ),
+    check("trust_bank_reconciliation_interest_amount_check", sql`${table.amountMinor} > 0`),
+    check(
+      "trust_bank_reconciliation_interest_description_check",
+      sql`length(${table.description}) > 0`,
+    ),
+  ],
+);
+
+// One change to a period, numbered in order within it. A tick names a book item (a ledger entry
+// touching the account's bank account) or an interest line. `cause` says how the change came about,
+// which is what History shows and what Undo and Redo walk.
+export const trustBankReconciliationChange = sqliteTable(
+  "trust_bank_reconciliation_change",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationChangeId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    sequence: integer("sequence").notNull(),
+    kind: text("kind", { enum: ["cleared", "uncleared", "end_date", "end_balance"] }).notNull(),
+    entryId: text("entry_id")
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    interestId: text("interest_id")
+      .$type<TrustBankReconciliationInterestId>()
+      .references(() => trustBankReconciliationInterest.id),
+    endDate: text("end_date"),
+    endBalanceMinor: integer("end_balance_minor"),
+    cause: text("cause", { enum: ["edit", "undo", "redo", "history", "restore"] }).notNull(),
+    revertsChangeId: text("reverts_change_id").$type<TrustBankReconciliationChangeId>(),
+    restorePointId: text("restore_point_id").$type<TrustBankReconciliationRestorePointId>(),
+    changedBy: text("changed_by").notNull().$type<UserId>(),
+    changedAt: text("changed_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("trust_bank_reconciliation_change_sequence_unique_index").on(
+      table.reconciliationId,
+      table.sequence,
+    ),
+    index("trust_bank_reconciliation_change_entry_index").on(table.reconciliationId, table.entryId),
+    check("trust_bank_reconciliation_change_sequence_check", sql`${table.sequence} > 0`),
+    check(
+      "trust_bank_reconciliation_change_kind_check",
+      sql`${table.kind} IN ('cleared', 'uncleared', 'end_date', 'end_balance')`,
+    ),
+    check(
+      "trust_bank_reconciliation_change_cause_check",
+      sql`${table.cause} IN ('edit', 'undo', 'redo', 'history', 'restore')`,
+    ),
+    check(
+      "trust_bank_reconciliation_change_end_date_shape_check",
+      civilDateShape(table.endDate, true),
+    ),
+    check(
+      "trust_bank_reconciliation_change_shape_check",
+      sql`(${table.kind} IN ('cleared', 'uncleared') AND ((${table.entryId} IS NULL) <> (${table.interestId} IS NULL)) AND ${table.endDate} IS NULL AND ${table.endBalanceMinor} IS NULL)
+        OR (${table.kind} = 'end_date' AND ${table.entryId} IS NULL AND ${table.interestId} IS NULL AND ${table.endDate} IS NOT NULL AND ${table.endBalanceMinor} IS NULL)
+        OR (${table.kind} = 'end_balance' AND ${table.entryId} IS NULL AND ${table.interestId} IS NULL AND ${table.endDate} IS NULL AND ${table.endBalanceMinor} IS NOT NULL)`,
+    ),
+    check(
+      "trust_bank_reconciliation_change_cause_shape_check",
+      sql`(${table.cause} = 'edit' AND ${table.revertsChangeId} IS NULL AND ${table.restorePointId} IS NULL)
+        OR (${table.cause} IN ('undo', 'redo', 'history') AND ${table.revertsChangeId} IS NOT NULL AND ${table.restorePointId} IS NULL)
+        OR (${table.cause} = 'restore' AND ${table.revertsChangeId} IS NULL AND ${table.restorePointId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// A named place in a period's changes to go back to. Restoring writes the changes that put the
+// ticks, end date and end balance back as they were at `atSequence`; notes and files are kept.
+export const trustBankReconciliationRestorePoint = sqliteTable(
+  "trust_bank_reconciliation_restore_point",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationRestorePointId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    name: text("name").notNull(),
+    atSequence: integer("at_sequence").notNull(),
+    // 1 for the point saved by itself just before a restore, so the restore can be gone back on.
+    automatic: integer("automatic").notNull(),
+    savedBy: text("saved_by").notNull().$type<UserId>(),
+    savedAt: text("saved_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_restore_point_reconciliation_index").on(
+      table.reconciliationId,
+    ),
+    check("trust_bank_reconciliation_restore_point_name_check", sql`length(${table.name}) > 0`),
+    check("trust_bank_reconciliation_restore_point_sequence_check", sql`${table.atSequence} >= 0`),
+    check(
+      "trust_bank_reconciliation_restore_point_automatic_check",
+      sql`${table.automatic} IN (0, 1)`,
+    ),
+  ],
+);
+
+// A note on a line, or a change to whether it needs review. Notes are never undone or restored, and
+// may be added after the period is finished: they outlive the review.
+export const trustBankReconciliationNote = sqliteTable(
+  "trust_bank_reconciliation_note",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationNoteId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    entryId: text("entry_id")
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    interestId: text("interest_id")
+      .$type<TrustBankReconciliationInterestId>()
+      .references(() => trustBankReconciliationInterest.id),
+    kind: text("kind", { enum: ["note", "needs_review", "resolved"] }).notNull(),
+    body: text("body"),
+    writtenBy: text("written_by").notNull().$type<UserId>(),
+    writtenAt: text("written_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_note_reconciliation_index").on(table.reconciliationId),
+    check(
+      "trust_bank_reconciliation_note_kind_check",
+      sql`${table.kind} IN ('note', 'needs_review', 'resolved')`,
+    ),
+    check(
+      "trust_bank_reconciliation_note_line_check",
+      sql`(${table.entryId} IS NULL) <> (${table.interestId} IS NULL)`,
+    ),
+    check(
+      "trust_bank_reconciliation_note_body_check",
+      sql`(${table.kind} = 'note' AND length(${table.body}) > 0) OR (${table.kind} <> 'note' AND ${table.body} IS NULL)`,
+    ),
+  ],
+);
+
+// A file kept with a period: the bank statement, a deposit slip. The bytes are in the firm's bucket
+// under the key. Removing one is a new row naming it; the bytes stay, as trust records are kept.
+export const trustBankReconciliationFile = sqliteTable(
+  "trust_bank_reconciliation_file",
+  {
+    id: text("id").primaryKey().$type<TrustBankReconciliationFileId>(),
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    name: text("name").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    objectKey: text("object_key").notNull(),
+    sha256: text("sha256").notNull(),
+    removesFileId: text("removes_file_id").$type<TrustBankReconciliationFileId>(),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_file_reconciliation_index").on(table.reconciliationId),
+    uniqueIndex("trust_bank_reconciliation_file_removes_unique_index").on(table.removesFileId),
+    check("trust_bank_reconciliation_file_name_check", sql`length(${table.name}) > 0`),
+    check("trust_bank_reconciliation_file_size_check", sql`${table.sizeBytes} >= 0`),
+  ],
+);
+
+// The book items a finished period cleared, written by its finish.
+export const trustBankReconciliationCleared = sqliteTable(
+  "trust_bank_reconciliation_cleared",
+  {
+    reconciliationId: text("reconciliation_id")
+      .notNull()
+      .$type<TrustBankReconciliationId>()
+      .references(() => trustBankReconciliation.id),
+    // The primary key is the guarantee: one item is cleared in one finished period, ever.
+    entryId: text("entry_id")
+      .primaryKey()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+  },
+  (table) => [
+    index("trust_bank_reconciliation_cleared_reconciliation_index").on(table.reconciliationId),
+  ],
+);
+
 // Billing and invoicing — the invoice spine.
 //
 // The tables below are organized by their MUTABILITY posture, which is the property worth organizing
@@ -8609,6 +8896,45 @@ export const connectionSyncIssue = sqliteTable(
     check(
       "connection_sync_issue_found_shape_check",
       sql`(${table.kind} = 'removed') = (${table.foundJson} IS NULL)`,
+    ),
+  ],
+);
+
+// One day of a repeating event that a member deleted from their own calendar while the rest of the
+// series stayed. Told to the member and never acted on: the event keeps the day. `open` until they
+// answer, `left` once they say to leave it, `restoring` while a pass is asked to put the day back.
+// `day_remote_id` is the provider's handle for putting the day back, null where it has none.
+export const connectionSyncDayIssue = sqliteTable(
+  "connection_sync_day_issue",
+  {
+    connectionId: text("connection_id")
+      .notNull()
+      .$type<IntegrationConnectionId>()
+      .references(() => integrationConnection.id),
+    localKind: text("local_kind", { enum: ["matter_event", "firm_event"] }).notNull(),
+    localId: text("local_id").notNull(),
+    occurrenceOn: text("occurrence_on").notNull(), // the civil day of the series that is gone
+    state: text("state", { enum: ["open", "left", "restoring"] }).notNull(),
+    dayRemoteId: text("day_remote_id"),
+    sentJson: text("sent_json").notNull(), // the day as the series sent it
+    detectedAt: text("detected_at").notNull(),
+    settledAt: text("settled_at"),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.connectionId, table.localKind, table.localId, table.occurrenceOn],
+    }),
+    check(
+      "connection_sync_day_issue_local_kind_check",
+      sql`${table.localKind} IN ('matter_event', 'firm_event')`,
+    ),
+    check(
+      "connection_sync_day_issue_state_check",
+      sql`${table.state} IN ('open', 'left', 'restoring')`,
+    ),
+    check(
+      "connection_sync_day_issue_occurrence_on_shape_check",
+      civilDateShape(table.occurrenceOn),
     ),
   ],
 );
@@ -13990,5 +14316,288 @@ export const signingEvent = sqliteTable(
       "signing_event_kind_check",
       sql`${table.kind} IN ('created', 'sent', 'delivered', 'viewed', 'identity-verified', 'consented', 'signed', 'declined', 'reassigned', 'reminded', 'voided', 'completed', 'sealed')`,
     ),
+  ],
+);
+
+// THE IN/OUT LOG — what crosses the front desk that is NOT held in custody: copies of a closing set,
+// a stack of bank statements, the physical file handed back at the end of a matter.
+//
+// A separate record from Custodian on the owner's ruling of 2026-11-19, and deliberately the
+// lighter one. A custody packet must have a Directory owner, draws a custody number, and moves only by
+// an append-only ledger row, because it is the register of a client's ORIGINALS. Logging every set of
+// copies that way is exactly the verbosity the owner wanted to avoid. An entry here is one row that
+// is dropped off, then picked up or moved into Custodian, and its few transitions overwrite its own
+// columns; the audit row written beside each one records who did it and when.
+//
+// The people on it — who it came from, who it is To, who collected it — are each one of three kinds,
+// the custody borrower's shape and for its reasons: a firm member, a Directory person or
+// organization, or a typed name for somebody who is neither (a courier). Forcing a courier into the
+// Directory would put a person who is party to nothing into the conflicts corpus. The name is kept
+// on the row for all three kinds, because a log records who it was at the time and the screen reads
+// it without a join per row.
+export const inOutEntry = sqliteTable(
+  "in_out_entry",
+  {
+    id: text("id").primaryKey().$type<InOutEntryId>(), // inOutEntry_ handle
+    // The number the front desk writes on the envelope and reads back to the person collecting,
+    // drawn from the firm's `in_out_entry` scheme (IO-0187 by default). Frozen once drawn.
+    number: text("number").notNull(),
+    // What it is, in the desk's own words: "Copies of closing documents".
+    description: text("description").notNull(),
+    fromKind: text("from_kind", { enum: ["member", "entity", "external"] }).notNull(),
+    fromUserId: text("from_user_id").$type<UserId>(),
+    fromEntityId: text("from_entity_id"),
+    fromName: text("from_name").notNull(),
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // Where at the desk it is waiting: "Front desk tray". Free text, because a tray is not a
+    // custody container and naming one should not require building a tree.
+    keptAt: text("kept_at"),
+    notes: text("notes"),
+    // waiting → picked_up, or waiting → moved_to_custodian. Nothing moves back: a pick up recorded
+    // against the wrong entry is deleted and recorded again only while it is still waiting.
+    status: text("status", { enum: ["waiting", "picked_up", "moved_to_custodian"] })
+      .notNull()
+      .default("waiting"),
+    droppedOffAt: text("dropped_off_at").notNull(),
+    recordedByUserId: text("recorded_by_user_id").notNull().$type<UserId>(),
+    pickedUpAt: text("picked_up_at"),
+    pickedUpByKind: text("picked_up_by_kind", { enum: ["member", "entity", "external"] }),
+    pickedUpByUserId: text("picked_up_by_user_id").$type<UserId>(),
+    pickedUpByEntityId: text("picked_up_by_entity_id"),
+    pickedUpByName: text("picked_up_by_name"),
+    // That the person at the desk looked at an identity document. A yes or no, never the document's
+    // number: the log does not need it and an identity number written here could not be taken back.
+    identityChecked: integer("identity_checked"),
+    handedOverByUserId: text("handed_over_by_user_id").$type<UserId>(),
+    custodyPacketId: text("custody_packet_id")
+      .$type<CustodyPacketId>()
+      .references(() => custodyPacket.id),
+    movedToCustodianAt: text("moved_to_custodian_at"),
+    movedByUserId: text("moved_by_user_id").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("in_out_entry_number_unique_index").on(table.number),
+    // Waiting for Pickup, oldest first, and the whole log newest first.
+    index("in_out_entry_status_dropped_off_at_index").on(
+      table.status,
+      table.droppedOffAt,
+      table.id,
+    ),
+    index("in_out_entry_dropped_off_at_index").on(table.droppedOffAt, table.id),
+    index("in_out_entry_matter_index").on(table.matterId),
+    index("in_out_entry_custody_packet_index").on(table.custodyPacketId),
+    check("in_out_entry_description_check", sql`length(${table.description}) > 0`),
+    check("in_out_entry_from_name_check", sql`length(${table.fromName}) > 0`),
+    check(
+      "in_out_entry_from_kind_check",
+      sql`${table.fromKind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "in_out_entry_from_shape_check",
+      sql`(${table.fromKind} = 'member' AND ${table.fromUserId} IS NOT NULL) OR (${table.fromKind} = 'entity' AND ${table.fromEntityId} IS NOT NULL) OR (${table.fromKind} = 'external')`,
+    ),
+    check(
+      "in_out_entry_status_check",
+      sql`${table.status} IN ('waiting', 'picked_up', 'moved_to_custodian')`,
+    ),
+    // A picked-up entry names who collected it and when; nothing else carries those columns.
+    check(
+      "in_out_entry_picked_up_shape_check",
+      sql`(${table.status} = 'picked_up') = (${table.pickedUpAt} IS NOT NULL AND ${table.pickedUpByName} IS NOT NULL AND ${table.pickedUpByKind} IS NOT NULL)`,
+    ),
+    check(
+      "in_out_entry_picked_up_by_kind_check",
+      sql`${table.pickedUpByKind} IS NULL OR ${table.pickedUpByKind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "in_out_entry_moved_shape_check",
+      sql`(${table.status} = 'moved_to_custodian') = (${table.custodyPacketId} IS NOT NULL AND ${table.movedToCustodianAt} IS NOT NULL)`,
+    ),
+    check(
+      "in_out_entry_identity_checked_check",
+      sql`${table.identityChecked} IS NULL OR ${table.identityChecked} IN (0, 1)`,
+    ),
+  ],
+);
+
+// One person an entry is To — anybody listed may pick it up (owner ruling, 2026-11-19). The order the
+// desk listed them in is kept, so the screen names them the way they were written down.
+export const inOutEntryRecipient = sqliteTable(
+  "in_out_entry_recipient",
+  {
+    id: text("id").primaryKey().$type<InOutEntryRecipientId>(), // inOutEntryRecipient_ handle
+    entryId: text("entry_id")
+      .notNull()
+      .$type<InOutEntryId>()
+      .references(() => inOutEntry.id),
+    position: integer("position").notNull(),
+    kind: text("kind", { enum: ["member", "entity", "external"] }).notNull(),
+    userId: text("user_id").$type<UserId>(),
+    entityId: text("entity_id"),
+    name: text("name").notNull(),
+  },
+  (table) => [
+    index("in_out_entry_recipient_entry_index").on(table.entryId, table.position),
+    index("in_out_entry_recipient_user_index").on(table.userId),
+    index("in_out_entry_recipient_entity_index").on(table.entityId),
+    check("in_out_entry_recipient_name_check", sql`length(${table.name}) > 0`),
+    check(
+      "in_out_entry_recipient_kind_check",
+      sql`${table.kind} IN ('member', 'entity', 'external')`,
+    ),
+    check(
+      "in_out_entry_recipient_shape_check",
+      sql`(${table.kind} = 'member' AND ${table.userId} IS NOT NULL) OR (${table.kind} = 'entity' AND ${table.entityId} IS NOT NULL) OR (${table.kind} = 'external')`,
+    ),
+  ],
+);
+
+// The picture of the ID a person showed when they picked an entry up (owner, 2026-11-20). At most
+// one per entry, written in the same batch as the pick up. The bytes live in the firm's bucket under
+// `object_key`; the row is the only thing that names them, so it is read before it is deleted. A
+// leaf table on purpose: erasing a person removes the picture outright while the log entry beside
+// it keeps its place with the name scrubbed.
+export const inOutIdentityScan = sqliteTable(
+  "in_out_identity_scan",
+  {
+    id: text("id").primaryKey().$type<InOutIdentityScanId>(), // inOutIdentityScan_ handle
+    entryId: text("entry_id")
+      .notNull()
+      .$type<InOutEntryId>()
+      .references(() => inOutEntry.id),
+    objectKey: text("object_key").notNull(),
+    sha256: text("sha256").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    widthPixels: integer("width_pixels").notNull(),
+    heightPixels: integer("height_pixels").notNull(),
+    recordedByUserId: text("recorded_by_user_id").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("in_out_identity_scan_entry_unique_index").on(table.entryId),
+    check(
+      "in_out_identity_scan_content_type_check",
+      sql`${table.contentType} IN ('image/png', 'image/jpeg')`,
+    ),
+    check("in_out_identity_scan_size_check", sql`${table.sizeBytes} > 0`),
+  ],
+);
+
+// The In/Out Log number's counter and allocation ledger, on the custody number's model: the
+// mechanism is @magna-carta/sequence-numbering's, and the allocation primary key is the backstop on
+// the draw race (a scheme may render different strings from one counter value).
+export const inOutEntryNumberCounter = sqliteTable(
+  "in_out_entry_number_counter",
+  {
+    scopeKey: text("scope_key").primaryKey(),
+    nextValue: integer("next_value").notNull(),
+  },
+  (table) => [check("in_out_entry_number_counter_next_value_check", sql`${table.nextValue} > 0`)],
+);
+
+export const inOutEntryNumberAllocation = sqliteTable(
+  "in_out_entry_number_allocation",
+  {
+    scopeKey: text("scope_key").notNull(),
+    drawnValue: integer("drawn_value").notNull(),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<InOutEntryId>()
+      .references(() => inOutEntry.id),
+    allocatedAt: text("allocated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scopeKey, table.drawnValue] }),
+    index("in_out_entry_number_allocation_entry_index").on(table.entryId),
+  ],
+);
+
+// Bates numbers. One row per run of page numbers a stamp took from the matter's register under one
+// prefix. The register is these rows and nothing else: the next number under a prefix is one past
+// the highest last_number, and ranges under one prefix never overlap, because the insert that takes
+// a range is guarded on no row overlapping it (packages/bates/src/range-statements.ts). A range is
+// never deleted or renumbered, so a number once stamped is never handed out again, even when the
+// stamped copy was never saved.
+export const batesRange = sqliteTable(
+  "bates_range",
+  {
+    id: text("id").primaryKey().$type<BatesRangeId>(), // batesRange_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    prefix: text("prefix").notNull(),
+    // How many digits the number is padded to when stamped. A floor, not a ceiling.
+    digits: integer("digits").notNull(),
+    firstNumber: integer("first_number").notNull(),
+    lastNumber: integer("last_number").notNull(),
+    // What took the range: a stamp in the PDF Editor, or an exhibit package.
+    purpose: text("purpose", { enum: ["pdfEditor", "exhibitPackage"] }).notNull(),
+    sourceFileId: text("source_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    exhibitSetId: text("exhibit_set_id")
+      .$type<ExhibitSetId>()
+      .references(() => exhibitSet.id),
+    // The stamped copy, once it is saved to the matter's files. Written once.
+    stampedFileId: text("stamped_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
+    stampedFileSavedAt: text("stamped_file_saved_at"),
+    createdBy: text("created_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("bates_range_matter_prefix_first_unique_index").on(
+      table.matterId,
+      table.prefix,
+      table.firstNumber,
+    ),
+    index("bates_range_matter_created_index").on(table.matterId, table.createdAt),
+    index("bates_range_source_file_index").on(table.sourceFileId),
+    index("bates_range_stamped_file_index").on(table.stampedFileId),
+    index("bates_range_exhibit_set_index").on(table.exhibitSetId),
+    check("bates_range_purpose_check", sql`${table.purpose} IN ('pdfEditor', 'exhibitPackage')`),
+    check(
+      "bates_range_numbers_check",
+      sql`${table.firstNumber} >= 0 AND ${table.lastNumber} >= ${table.firstNumber}`,
+    ),
+    check("bates_range_digits_check", sql`${table.digits} BETWEEN 1 AND 12`),
+    check("bates_range_prefix_length_check", sql`length(${table.prefix}) <= 40`),
+    check(
+      "bates_range_saved_shape_check",
+      sql`(${table.stampedFileId} IS NULL) = (${table.stampedFileSavedAt} IS NULL)`,
+    ),
+  ],
+);
+
+// WHO ELSE IS HERE — one row per member per record they have open, kept current by the screen.
+//
+// A screen showing a record that several people may work on at once (a trust reconciliation first)
+// touches its row every few seconds while it is in view and deletes it on leaving. Whoever touched
+// within the last half-minute is "here". The row holds nothing but the fact and its instant, so it
+// is safe to forget: each touch on a record also clears that record's rows older than an hour, and a
+// lost leave only means a face lingers for the half-minute window. `record_kind` names the screen's
+// record type (the routes that serve it decide who may ask), and `record_id` is that record's id.
+export const recordPresence = sqliteTable(
+  "record_presence",
+  {
+    recordKind: text("record_kind").notNull(),
+    recordId: text("record_id").notNull(),
+    memberUserId: text("member_user_id")
+      .$type<UserId>()
+      .notNull()
+      .references(() => member.userId),
+    seenAt: text("seen_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    primaryKey({ columns: [table.recordKind, table.recordId, table.memberUserId] }),
+    index("record_presence_record_seen_index").on(table.recordKind, table.recordId, table.seenAt),
+    check("record_presence_kind_length_check", sql`length(${table.recordKind}) BETWEEN 1 AND 64`),
   ],
 );

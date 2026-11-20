@@ -542,6 +542,13 @@ export const signingRemindersUndelivered = defineMetric(
 // a member is waiting on.
 export const signingSealOutcome = defineMetric("signing.seal_outcome", ["outcome"] as const);
 
+// Completion mails carrying the link to a signed copy that could not be handed to the mail service.
+// Non-zero means a signer is waiting for a copy they were never sent.
+export const signingSignedCopiesUndelivered = defineMetric(
+  "signing.signed_copies_undelivered",
+  [] as const,
+);
+
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
   unloggableField,
@@ -621,6 +628,7 @@ const CATALOG: readonly MetricDefinition[] = [
   signingRequestsReminded,
   signingRemindersUndelivered,
   signingSealOutcome,
+  signingSignedCopiesUndelivered,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

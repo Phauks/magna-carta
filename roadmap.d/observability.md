@@ -100,14 +100,16 @@
 - id: observability.incidents.screenshot
   name: Opt-in redactable screenshot
   scope: User-redactable screenshot attached to a report, stored in R2.
-  status: not-started
-  evidence: No screenshot field in the incident request schema; no R2 write path.
+  status: partial
+  surface: awaiting-screen
+  evidence: Storage side built. The sender attaches one PNG or JPEG (up to 4 MB) to their own report after sending it (PUT /api/v1/incidents/mine/{incidentId}/screenshot), kept in the firm's bucket and recorded once only, and both the sender and an answerer read it back. The capture and covering step in the report dialog is unbuilt, waiting on the owner's pick of a mockup.
 
 - id: observability.incidents.acknowledgement
   name: Reporter acknowledgement loop
   scope: Receipt and resolution status posted back to the reporter in-app/portal.
-  status: not-started
-  evidence: No acknowledgement path, and the reason is the direction of the one notification that exists rather than the absence of a channel. incident.created is a registered notification type, but its audience is firm:manageMembers holders — whoever administers the firm, not the person who filed it — and it carries only an error-identifier count, since the description is sealed under the firm key. The email digest ships as a delivery channel; the in-app centre still has no surface. A receipt to the REPORTER, and a resolution status behind it, are unbuilt on both channels.
+  status: partial
+  surface: awaiting-screen
+  evidence: Storage side built. The incident row carries a status (open, investigating, fixed, closed), a note sealed under the firm key, and who answered and when. Holders of incidents:viewDescription list, read and answer reports (/api/v1/incidents); the sender reads their own (/api/v1/incidents/mine) through a grant scoped to their own rows. Two notifications reach the sender: system.incident.received when the report is filed and system.incident.answered when it is answered, neither carrying the note. The Problem Reports and My Reports screens are unbuilt, waiting on the owner's picks.
 
 - id: observability.diagnostics-agent-pipeline
   name: Diagnostics agent pipeline

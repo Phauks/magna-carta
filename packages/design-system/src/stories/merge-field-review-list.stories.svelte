@@ -72,7 +72,7 @@
   name="Proposals to confirm"
   play={async ({ canvas, step }) => {
     await step("The standing line says plainly that nothing has changed yet", async () => {
-      await expect(canvas.getByText(/Nothing has been changed/)).toBeVisible();
+      await expect(canvas.getByText(/Nothing has changed yet/)).toBeVisible();
     });
 
     await step("Each proposal is a checkbox naming the field and the placeholder", async () => {

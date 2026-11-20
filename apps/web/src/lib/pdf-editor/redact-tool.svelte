@@ -32,7 +32,7 @@
     type PdfPageSize,
   } from "$lib/documents/pdf-pages.ts";
   import { uploadIntoFolder } from "$lib/file-manager/file-upload.ts";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import type { EditorSubject } from "./editor-subject.ts";
   import { fileMadeDocument, openEditorDocument } from "./editor-document.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
   import {
@@ -52,7 +52,7 @@
     type ScreenRect,
   } from "./redactions.ts";
 
-  let { file }: { file: MatterFile } = $props();
+  let { subject }: { subject: EditorSubject } = $props();
 
   const ZOOM_FACTORS: readonly number[] = [0.75, 1, 1.25, 1.5, 2];
   const THUMBNAIL_ZOOM = 0.15;
@@ -65,7 +65,8 @@
   type Result =
     | { readonly kind: "idle" }
     | { readonly kind: "applying" }
-    | { readonly kind: "saved"; readonly fileId: string; readonly name: string; readonly pages: number }
+    /** The file id is null for a copy put on the File Workbench, which has no record to open. */
+    | { readonly kind: "saved"; readonly fileId: string | null; readonly name: string; readonly pages: number }
     | { readonly kind: "downloadOnly"; readonly url: string; readonly name: string; readonly why: string }
     | { readonly kind: "failed"; readonly message: string };
 
@@ -122,7 +123,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      subject,
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and redact that.",
     );
     if (gone) {
@@ -235,13 +236,13 @@
       result = { kind: "failed", message: describeOperationFailure(reply.reason, reply.message) };
       return;
     }
-    const name = redactedCopyName(file.name);
+    const name = redactedCopyName(subject.name);
     const made = reply.documents[0];
     if (made === undefined) {
       result = { kind: "failed", message: describeOperationFailure("refused", "") };
       return;
     }
-    const filed = await fileMadeDocument(file, made, name);
+    const filed = await fileMadeDocument(subject, made, name);
     if (gone) return;
     if (filed.kind === "notFiled") {
       result = {
@@ -255,17 +256,28 @@
     if (saveLog) {
       const csv = redactionLogCsv(name, redactionLog(applied), new Date().toISOString());
       const logName = name.replace(/\.pdf$/i, "") + " Log.csv";
-      await uploadIntoFolder({
-        fetchImpl: fetch,
-        matterId: file.matterId,
-        folderId: file.folderId,
-        file: new File([csv], logName, { type: "text/csv" }),
-        name: logName,
-      });
+      const log = new File([csv], logName, { type: "text/csv" });
+      // The log goes where the copy went: beside it on the matter, or beside it on the bench.
+      if (subject.kind === "bench") {
+        subject.putOnBench(log);
+      } else {
+        await uploadIntoFolder({
+          fetchImpl: fetch,
+          matterId: subject.file.matterId,
+          folderId: subject.file.folderId,
+          file: log,
+          name: logName,
+        });
+      }
     }
     marks = [];
     selectedKey = null;
-    result = { kind: "saved", fileId: filed.fileId, name, pages: reply.pagesChanged };
+    result = {
+      kind: "saved",
+      fileId: filed.kind === "filed" ? filed.fileId : null,
+      name,
+      pages: reply.pagesChanged,
+    };
   }
 </script>
 
@@ -356,7 +368,7 @@
     </div>
 
     <!-- The marks, their reasons, and the one act that applies them. -->
-    <aside aria-label="Redactions" class="flex min-h-0 w-352 shrink-0 flex-col border-s border-border-default bg-surface-default">
+    <aside aria-label="Redactions" class="flex min-h-0 w-sm shrink-0 flex-col border-s border-border-default bg-surface-default">
       <div class="flex flex-none items-center gap-8 px-16 pt-16 pb-8">
         <h2 class="text-sm font-semibold">Redactions</h2>
         <span class="rounded-full bg-surface-selected px-8 text-xs font-semibold tabular-nums">{marks.length}</span>
@@ -431,11 +443,13 @@
       <div class="flex flex-none flex-col gap-8 border-t border-border-default p-16">
         {#if result.kind === "saved"}
           <Alert.Root variant="success">
-            <Alert.Title>Saved {result.name}</Alert.Title>
+            <Alert.Title>{result.fileId === null ? "Added to the Bench" : `Saved ${result.name}`}</Alert.Title>
             <Alert.Description>
-              {result.pages === 1 ? "1 page" : `${result.pages} pages`} redacted. The original is unchanged.
+              {result.pages === 1 ? "1 page" : `${result.pages} pages`} redacted{result.fileId === null ? ` in ${result.name}` : ""}. The original is unchanged.
             </Alert.Description>
-            <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.fileId)}>Open the Redacted Copy</Button>
+            {#if result.fileId !== null}
+              <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.fileId)}>Open the Redacted Copy</Button>
+            {/if}
           </Alert.Root>
         {:else if result.kind === "downloadOnly"}
           <Alert.Root variant="warning">

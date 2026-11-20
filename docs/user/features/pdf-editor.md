@@ -2,7 +2,7 @@
 
 Use the PDF Editor to change a PDF that is on a matter. Nothing you rely on is overwritten:
 redacting, numbering, watermarking, protecting, extracting, splitting and signing save new files beside the original, and arranging the pages
-saves a new version, with the version before it kept in the file's history.
+(including inserting pages from another PDF) saves a new version, with the version before it kept in the file's history.
 
 To open it, open a PDF from the matter's documents and choose **Edit PDF**. Choose **Read** to go
 back to reading it.
@@ -22,6 +22,21 @@ Put the pages in a new order, turn them, or take some out.
    back as it was.
 
 Each page shows its new number, and **was** with its old number if you moved it.
+
+### Insert pages from another PDF
+
+1. Choose **Insert Pages**.
+2. Under **From**, choose **This Matter** to pick one of the matter's PDFs, or **Your Computer** to
+   choose a PDF on your computer.
+3. Under **Where**, choose **Before Page** or **After Page** and enter the page number, or choose
+   **At the End**. If you had pages selected, the pages go after the last one you selected unless
+   you change it.
+4. Choose **Insert**.
+
+The inserted pages appear selected, marked **Inserted**, so you can move, rotate or delete them
+like any other page. Choose **Save as New Version** to keep them, or **Reset** to take them out
+again. The other PDF is not changed. A PDF locked with a password must be unlocked in the
+[File Workbench](file-workbench.md) before its pages can be inserted.
 
 Two more tools make new files and leave this one as it is:
 
@@ -80,8 +95,10 @@ The answers are saved as a new version of the same file, and earlier versions ar
 Bates numbering prints a running number on every page, such as **SMITH-000041**, so each page of
 a production can be cited.
 
-1. Enter a **Prefix** and, if you use one, a **Suffix**.
-2. Set the **First Number**. For a second production, start where the last one stopped.
+1. Enter a **Prefix** and, if you use one, a **Suffix**. The tab opens on the prefix last used on
+   this matter.
+2. The **First Number** is filled in for you: the next number not yet stamped under that prefix on
+   this matter. Change it only if you need to start somewhere else.
 3. Set the **Digits**. Numbers shorter than this are padded with zeros, so 6 digits writes 41 as 000041.
 4. Choose the **Position**, **Typeface** and **Size**. The first and last pages show where the
    number will go.
@@ -89,7 +106,12 @@ a production can be cited.
 
 The numbered copy is saved beside the original, named with its first and last numbers, for example
 **Production (SMITH-000001 to SMITH-000016).pdf**. The message afterwards tells you the number the
-next production should start at.
+next stamp under that prefix starts at.
+
+Each matter keeps one log of its Bates numbers. Every number you stamp is recorded there with the
+file it was stamped on, the numbered copy, and who stamped it and when, and is never handed out
+again, even if the numbered copy was not saved. If you type a first number that has already been
+stamped under the same prefix, nothing is numbered and the message tells you the next free number.
 
 Numbering adds text to each page and removes nothing. To withhold something, redact it first, then
 number the redacted copy.
@@ -170,6 +192,11 @@ as its own file. This takes a few minutes; the Signature tab says **Being Sealed
 then **Signed and Sealed** with a button to open the certificate. Dates are written as the day in
 the time zone of the matter's office. A name in a script other than Western European letters is
 left off the page and printed on the certificate.
+
+**Signers get their copy by email.** Once the copy is sealed, each signer from outside the firm is
+emailed a link to a page that shows the signed copy and its certificate, with a button to download
+each. The link works for 30 days, so tell them to save both. Colleagues who signed in Magna Carta are not emailed; they open the signed copy
+from the document itself.
 
 **What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
 link opens a page with your firm's name, the document's title and your message. If you chose

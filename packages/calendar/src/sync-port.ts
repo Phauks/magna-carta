@@ -110,6 +110,14 @@ export interface ProviderSeriesChangedDay extends ProviderEventSnapshot {
   readonly originalStartsAtMilliseconds: number;
 }
 
+// One day of a series this platform wrote that the member took out of their own calendar, leaving
+// the rest of the series. `dayRemoteId` is the handle the day is put back by, and is null where
+// the provider has no way to put one day back.
+export interface ProviderSeriesDeletedDay {
+  readonly originalStartsAtMilliseconds: number;
+  readonly dayRemoteId: string | null;
+}
+
 // Two instants. An event that touches the time between them is inside.
 export interface ProviderEventWindow {
   readonly fromInstant: string;
@@ -174,11 +182,20 @@ export interface CalendarSyncPort {
     window: ProviderEventWindow,
   ): Promise<Dispatch<ProviderCalendarEvents | null>>;
   // The days of one series the member changed on their own, each still part of the series. A day
-  // they deleted is not among them: a provider's series does not say which days were taken out of
-  // it by whom. Null when the provider no longer has the series.
+  // they deleted is not among them. Null when the provider no longer has the series.
   listSeriesChangedDays(
     seriesRemoteId: string,
   ): Promise<Dispatch<readonly ProviderSeriesChangedDay[] | null>>;
+  // The days of one series that are gone from the member's calendar while the series remains. A
+  // provider does not say who took a day out, so the days this platform itself asked to be skipped
+  // may be among them and the caller sets those aside. Null when the provider no longer has the
+  // series.
+  listSeriesDeletedDays(
+    seriesRemoteId: string,
+  ): Promise<Dispatch<readonly ProviderSeriesDeletedDay[] | null>>;
+  // Puts one deleted day of a series back, by the handle `listSeriesDeletedDays` gave for it.
+  // `found: false` when the provider would not or cannot.
+  restoreSeriesDay(dayRemoteId: string): Promise<Dispatch<ProviderEventPresence>>;
   // Writes one day of a series, by that day's own identifier, and leaves the series alone. Only
   // what a member can see is written: when, the title and the place.
   updateSeriesDay(
@@ -206,6 +223,8 @@ export const CALENDAR_SYNC_OPERATIONS = [
   "readEvent",
   "listCalendarEvents",
   "listSeriesChangedDays",
+  "listSeriesDeletedDays",
+  "restoreSeriesDay",
   "updateSeriesDay",
   "watchChanges",
   "renewWatch",

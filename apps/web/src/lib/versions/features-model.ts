@@ -258,6 +258,15 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     steps: ["On the magna-carta Worker, set the secret PANGRAM_API_KEY, once a firm has asked."],
     deployQueueHeading: null,
   },
+  translation: {
+    name: "Translation",
+    group: "ai",
+    steps: [
+      "Enable the Cloud Translation API in Google Cloud and make a key restricted to it,",
+      "then create GOOGLE_TRANSLATE_API_KEY in the Cloudflare Secrets Store.",
+    ],
+    deployQueueHeading: null,
+  },
   modelAvailabilityCheck: {
     name: "AI model availability check",
     group: "ai",
@@ -294,13 +303,13 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     name: "Usage analytics",
     group: "platform",
     steps: [
-      "Bind the Analytics Engine dataset TELEMETRY.",
-      "Set the secret USAGE_ANALYTICS_PEPPER on the magna-carta Worker.",
+      "The Analytics Engine dataset TELEMETRY is bound on every deploy.",
+      "Create USAGE_ANALYTICS_PEPPER in the Cloudflare Secrets Store: a long random value. Changing it later loses no data but splits usage trends at the change.",
     ],
     deployQueueHeading: null,
   },
   recentErrors: {
-    name: "Other Workers' background errors",
+    name: "Errors from Workers Logs",
     group: "platform",
     steps: [
       "Create a Cloudflare API token with only Account > Workers Observability > Read.",

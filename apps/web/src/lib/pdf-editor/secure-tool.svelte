@@ -22,7 +22,7 @@
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import type { EditorSubject } from "./editor-subject.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
   import {
@@ -36,7 +36,7 @@
     type SecureSettings,
   } from "./secure.ts";
 
-  let { file }: { file: MatterFile } = $props();
+  let { subject }: { subject: EditorSubject } = $props();
 
   const PREVIEW_ZOOM = 0.8;
 
@@ -122,7 +122,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      subject,
       "This document already has a password. Unlock it in the File Workbench first to change its protection.",
     );
     if (gone) {
@@ -184,7 +184,7 @@
       };
       return;
     }
-    const filed = await fileMadeDocument(file, document, protectedCopyName(file.name));
+    const filed = await fileMadeDocument(subject, document, protectedCopyName(subject.name));
     if (gone) return;
     // The passwords leave this screen with the result; nothing keeps them.
     settings = { ...settings, openPassword: "", permissionsPassword: "" };
@@ -212,7 +212,7 @@
   </div>
 {:else}
   <div class="flex min-h-0 flex-1">
-    <div class="mc-scrollbar flex min-h-0 min-w-0 flex-1 items-start justify-center overflow-auto bg-surface-sunken p-24">
+    <div class="mc-scrollbar hidden min-h-0 min-w-0 flex-1 items-start justify-center md:flex overflow-auto bg-surface-sunken p-24">
       {#if sizes[0] !== undefined}
         {@const box = pageDisplaySize(sizes[0], PREVIEW_ZOOM)}
         <div class="flex-none border border-border-default bg-surface-raised" style="width: {box.width}px; height: {box.height}px">
@@ -221,7 +221,7 @@
       {/if}
     </div>
 
-    <aside aria-label="Protection" class="mc-scrollbar flex min-h-0 w-384 shrink-0 flex-col gap-16 overflow-auto border-s border-border-default bg-surface-default p-16">
+    <aside aria-label="Protection" class="mc-scrollbar flex min-h-0 w-full shrink-0 md:w-sm flex-col gap-16 overflow-auto border-s border-border-default bg-surface-default p-16">
       <div class="flex flex-col gap-8">
         <h2 class="text-sm font-semibold">What This File Carries</h2>
         <DataTable.Root class="w-full">
@@ -324,6 +324,17 @@
               </Alert.Description>
             {/if}
             <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.filed.fileId)}>Open the Protected Copy</Button>
+          </Alert.Root>
+        {:else if result.kind === "done" && result.filed.kind === "benched"}
+          <Alert.Root variant="success">
+            <Alert.Title>Added to the Bench</Alert.Title>
+            <Alert.Description>{result.filed.name} is on the bench beside the original, which is unchanged and isn't protected.</Alert.Description>
+            {#if result.madePassword !== null}
+              <Alert.Description>
+                The password to change its permissions is <span class="font-mono select-all">{result.madePassword}</span>.
+                Keep it somewhere safe. Magna Carta doesn't store it, and it's only shown this once.
+              </Alert.Description>
+            {/if}
           </Alert.Root>
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">

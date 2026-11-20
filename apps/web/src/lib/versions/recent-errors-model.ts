@@ -2,9 +2,10 @@
  * The Recent Errors tab's words and its reads: GET /api/v1/platform/recent-errors, a platform
  * operator's view of the deployment's failures over the last day, one row per kind of failure, and
  * GET /api/v1/platform/errors/{errorId}, what one Error ID was. Requests and browser crashes come
- * from the control plane's own error record; background failures come from Workers Logs where a
- * log-read token is set (apps/api-worker/src/system-status/recorded-errors.ts). This file says what
- * each outcome means to a reader. Pure apart from the fetch helpers, so the words are testable
+ * from the control plane's own error record, and so do the failures the API, editor and forum
+ * Workers log; Workers Logs adds what the record could not take where a log-read token is set
+ * (apps/api-worker/src/system-status/recorded-errors.ts). This file says what each outcome means to
+ * a reader. Pure apart from the fetch helpers, so the words are testable
  * without a browser.
  */
 import { platformErrorLookup, platformRecentErrors } from "@magna-carta/api-client";
@@ -59,19 +60,21 @@ export function describeRecentErrorsState(state: RecentErrorsState): string | nu
 }
 
 /**
- * What is missing when background failures (sweeps, queue consumers, Cron passes) could not be read
- * from Workers Logs. Null when they were. Requests and browser crashes are shown either way.
+ * What is missing when Workers Logs could not be read. Null when it was. Everything the error record
+ * holds is shown either way: requests, browser crashes, and the failures the API, editor and forum
+ * Workers log. Workers Logs only adds a failure the record could not take, such as one from before
+ * recording began.
  */
 export function describeBackgroundState(state: BackgroundErrorsState): string | null {
   switch (state) {
     case "read":
       return null;
     case "not-configured":
-      return "Background failures in the other Workers (editing, scanning, conversion) are not shown: Workers Logs needs a read-only token first.";
+      return "Failures that could not be recorded are not shown: Workers Logs needs a read-only token first.";
     case "refused":
-      return "Background failures in the other Workers are not shown: Cloudflare did not accept the log-read token.";
+      return "Failures that could not be recorded are not shown: Cloudflare did not accept the log-read token.";
     case "unreachable":
-      return "Background failures in the other Workers aren't shown. Couldn't connect to the error log in time.";
+      return "Failures that could not be recorded aren't shown. Couldn't connect to the error log in time.";
   }
 }
 
@@ -105,7 +108,7 @@ export function describeErrorWhat(group: RecentErrorGroup): string {
 export interface ErrorRecordValue {
   readonly errorId: string;
   readonly recordedAt: string;
-  readonly source: "server" | "browser";
+  readonly source: RecentErrorSource;
   readonly service: string | null;
   readonly operation: string | null;
   readonly status: number | null;
@@ -153,7 +156,15 @@ export function errorRecordRows(
   const add = (label: string, value: string | null, mono = false) => {
     if (value !== null && value !== "") rows.push({ label, value, mono });
   };
-  add(record.source === "browser" ? "App route" : "Request", record.operation, true);
+  add(
+    record.source === "browser"
+      ? "App route"
+      : record.source === "background"
+        ? "Background work"
+        : "Request",
+    record.operation,
+    true,
+  );
   add(
     "Answer",
     record.status === null

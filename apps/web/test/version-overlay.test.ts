@@ -812,13 +812,13 @@ describe("the fleet fold", () => {
 describe("the upstream-update notice", () => {
   const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
-  const svelteConfig = repositoryFile("apps/web/svelte.config.js");
+  const viteConfig = repositoryFile("apps/web/vite.config.ts");
 
   it("names each build by its commit and polls for a newer one", () => {
     // The poll compares version names, so the name has to change exactly when the bytes do: the
     // commit, from the same shared resolution every Worker stamp uses.
-    expect(svelteConfig).toContain("resolveCommitIdentity");
-    expect(svelteConfig).toContain("pollInterval");
+    expect(viteConfig).toContain("resolveCommitIdentity");
+    expect(viteConfig).toContain("pollInterval");
   });
 
   it("watches the poll and answers it with the one gesture", () => {
@@ -878,7 +878,10 @@ describe("where the public chip is mounted", () => {
         stripComments(source(path)),
       );
       expect(actions, path).not.toBeNull();
-      const firstElement = /<([A-Za-z][\w.]*)/.exec(actions?.[1] ?? "");
+      // A `contents` wrapper draws no box of its own (the app shell's hides the chip at phone
+      // width), so the first element inside it is the one that takes the seat.
+      const cluster = (actions?.[1] ?? "").replace(/^\s*<div class="contents[^"]*">/, "");
+      const firstElement = /<([A-Za-z][\w.]*)/.exec(cluster);
       expect(firstElement?.[1], path).toBe("VersionChip");
     }
   });

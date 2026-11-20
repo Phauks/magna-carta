@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { money, rate, USD } from "../src/money.ts";
-import { format, formatRate } from "../src/format.ts";
+import { decimalText, format, formatRate } from "../src/format.ts";
 
 describe("format", () => {
   it("formats Money with explicit currency via Intl", () => {
@@ -26,5 +26,17 @@ describe("formatRate", () => {
 
   it("keeps the finer places a rate card holds", () => {
     expect(formatRate(rate(4_500_125, USD))).toBe("$450.0125");
+  });
+});
+
+describe("decimalText", () => {
+  it("prints two places, no symbol and no grouping", () => {
+    expect(decimalText(money(123_450, USD))).toBe("1234.50");
+    expect(decimalText(money(5, USD))).toBe("0.05");
+    expect(decimalText(money(0, USD))).toBe("0.00");
+  });
+
+  it("stays exact at the top of the supported range", () => {
+    expect(decimalText(money(9007199254740991, USD))).toBe("90071992547409.91");
   });
 });

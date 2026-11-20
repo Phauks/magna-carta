@@ -139,11 +139,23 @@ export type FirmScopedObjectClass =
   // editor and never printed. It belongs to the account, not to any matter.
   | "check-stock-scan"
 
-  // A file a firm gave a record transfer, kept unchanged, and the report of a pass over one. Both
-  // belong to the firm and to no matter: a source file is a list of many matters or of none, and
-  // a report names rows of such a file.
+  // A file kept with a trust bank reconciliation: the bank's statement, a deposit slip. It belongs
+  // to the trust account's period, not to any matter.
+  | "trust-reconciliation-file"
+
+  // A file a firm gave a record transfer, kept unchanged, the report of a pass over one, and the
+  // mapping a person is still working on for one. All three belong to the firm and to no matter: a
+  // source file is a list of many matters or of none, and a report and a mapping describe such a file.
   | "transfer-source-file"
-  | "transfer-pass-report";
+  | "transfer-pass-report"
+  | "transfer-file-mapping"
+  // The screenshot a member sent with a problem report, covered parts already painted out. It is a
+  // picture of whatever screen they were on, which may span matters or be none, and it belongs to
+  // the report, which belongs to the firm.
+  | "incident-screenshot"
+  // The picture of the ID a person showed when they picked something up at the front desk. It
+  // belongs to an In/Out Log entry, which may name no matter, so it belongs to the firm.
+  | "in-out-identity-scan";
 
 // Classes a reader of these objects may encounter one day and which NOTHING in this platform writes
 // today. They are named here so the vocabulary is closed rather than open-ended, and so a filter that
@@ -180,8 +192,12 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "member-photo",
   "directory-photo",
   "check-stock-scan",
+  "trust-reconciliation-file",
   "transfer-source-file",
   "transfer-pass-report",
+  "transfer-file-mapping",
+  "incident-screenshot",
+  "in-out-identity-scan",
 ];
 
 export const RESERVED_OBJECT_CLASSES: readonly ReservedObjectClass[] = [

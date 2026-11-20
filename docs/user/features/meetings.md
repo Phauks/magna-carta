@@ -921,6 +921,37 @@ was not recorded keeps no note of what was said out loud — if the meeting is w
 file, record your time and write a matter note the way you would after a meeting in a conference
 room.
 
+## End-to-end encryption
+
+Where your firm's deployment encrypts meetings, **Start meeting** has a switch beside **Hold arrivals
+in a lobby**: **End-to-end encrypted**, on unless you turn it off. It is decided when the meeting
+opens and cannot be changed afterwards. Where the switch is not there, meetings open without it. A
+running meeting's **Join meeting** shows **End-to-end encrypted** beside it when the meeting is.
+
+In an encrypted meeting, the pictures and sound are locked on each person's computer before they
+leave it, and only the people in the meeting hold the keys. The header shows a shield and
+**End-to-end encrypted**.
+
+### The Security tab
+
+The side panel gains a **Security** tab beside **Chat**, **Polls** and **People**. It shows:
+
+- Whether the meeting is encrypted right now, or paused and why.
+- The **security code**, six groups of digits. Everyone in the meeting sees the same code. If you
+  need to be sure nobody else is listening, read your groups aloud and check the other person sees
+  the same ones. The code changes whenever somebody joins or leaves.
+- Who holds the keys, by name, with guests marked.
+
+### When encryption pauses
+
+A recording needs Magna Carta to hear the meeting, so starting one pauses encryption. While it is
+paused, a banner across the top of the meeting says so and why ("Not end-to-end encrypted while
+this meeting is being recorded."), the header reads **Encryption paused**, and the meeting is
+protected the way an ordinary meeting is. The banner cannot be closed: as long as it is not there,
+the meeting is encrypted end to end. When the recording stops, encryption resumes with new keys and
+the banner goes. Live captions and a caller on the telephone will pause it the same way once they
+are built.
+
 ## What is not built yet
 
 - **Reviewing people added from a meeting.** A guest invited by an address nobody in the Directory
@@ -931,6 +962,9 @@ room.
   the matter, but captions are not yet shown while the meeting runs, and the transcript is in the
   language that was spoken and is not translated. Video is never recorded.
 - **Dialling in by telephone.** There is no number to call. Everybody joins from a browser.
+- **End-to-end encryption, turned on.** The screens above are built, but no deployment encrypts
+  meetings yet, so you will not see the switch or the Security tab until it is switched on. The
+  attendance record does not yet list when encryption was paused.
 - **Meetings that belong to no event.** Every meeting starts from something on the calendar. For an
   unscheduled meeting, open your own room: it puts the event on your calendar for you.
 - **A standing room link for people outside the firm.** Your room's link works for colleagues signed

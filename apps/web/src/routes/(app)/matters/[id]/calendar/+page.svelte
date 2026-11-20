@@ -84,7 +84,7 @@
   /** The component mirrors its own views; List is this page's, so this page mirrors it. */
   function showList(): void {
     sectionView = "list";
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     url.searchParams.set("view", "list");
     replaceState(url, page.state);
   }

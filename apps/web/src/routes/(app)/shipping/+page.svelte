@@ -65,11 +65,11 @@
   const openShipmentId = $derived(page.url.searchParams.get(SHIPMENT_WINDOW_PARAMETER));
 
   function openShipment(row: ShipmentListRow): void {
-    void goto(shipmentWindowHref(row.id), { noScroll: true, keepFocus: true });
+    void goto(shipmentWindowHref(row.id), { reset: false });
   }
 
   function closeShipment(): void {
-    void goto("/shipping", { noScroll: true, keepFocus: true, replaceState: true });
+    void goto("/shipping", { reset: false, replace: true });
   }
 
   const grid = DataTable.createDataTableGrid<ShipmentListRow>({

@@ -3,6 +3,12 @@
    * The PDF Editor's Bates tab: set up the numbering, see it on the first and last page, and stamp
    * a numbered copy filed beside the original.
    *
+   * The numbers come from the matter's Bates register. The tab opens on the prefix last stamped on
+   * the matter with its next number filled in, and changing the prefix moves the first number to
+   * that prefix's next one. Before stamping, the tab takes the range from the register, so a number
+   * already stamped on this matter under the prefix is refused rather than printed twice, and once
+   * the copy is saved it records which file carries the range.
+   *
    * The preview draws the label over the page in the browser; it is a guide to where the label
    * goes and how large it reads, not the engine's own output. The engine draws the real label in a
    * standard PDF font, and the numbered copy is checked by opening it.
@@ -15,9 +21,17 @@
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import * as Select from "@magna-carta/design-system/select";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import {
+    listBatesPrefixes,
+    recordBatesStampedFile,
+    takeBatesRange,
+    type BatesPrefixSummary,
+  } from "$lib/bates/bates-api.ts";
   import {
     BATES_LIMITS,
     BATES_POSITIONS,
@@ -32,6 +46,7 @@
     type BatesTypeface,
   } from "./bates.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
+  import { matterSubject } from "./editor-subject.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
 
   let { file }: { file: MatterFile } = $props();
@@ -49,7 +64,9 @@
     | { readonly kind: "idle" }
     | { readonly kind: "stamping" }
     | { readonly kind: "done"; readonly filed: Filed; readonly next: number }
-    | { readonly kind: "failed"; readonly message: string };
+    | { readonly kind: "failed"; readonly message: string }
+    /** The register refused the numbers, or could not be reached. Nothing was stamped. */
+    | { readonly kind: "refused"; readonly failure: StatedFailure };
 
   let phase = $state<Phase>({ kind: "opening" });
   let sizes = $state<readonly PdfPageSize[]>([]);
@@ -57,6 +74,10 @@
   let result = $state<Result>({ kind: "idle" });
   let firstCanvas = $state<HTMLCanvasElement | null>(null);
   let lastCanvas = $state<HTMLCanvasElement | null>(null);
+  /** The matter's prefixes and the next number under each. Empty until read, and on a new matter. */
+  let register = $state<readonly BatesPrefixSummary[]>([]);
+  /** Set once the reader types a first number, so changing the prefix no longer replaces it. */
+  let startTyped = $state(false);
 
   let source: PdfDocumentSource | null = null;
   let original: ArrayBuffer | null = null;
@@ -65,6 +86,27 @@
   const problems = $derived(batesProblems(settings));
   const ready = $derived(Object.keys(problems).length === 0);
   const range = $derived(batesRange(settings, sizes.length));
+  const registerNext = $derived(nextOnRegister(settings.prefix));
+
+  /** One past the highest number stamped under the prefix on this matter, or 1 for a new prefix. */
+  function nextOnRegister(prefix: string): number {
+    return register.find((entry) => entry.prefix === prefix)?.nextNumber ?? 1;
+  }
+
+  async function readRegister(): Promise<void> {
+    const outcome = await listBatesPrefixes(fetch, file.matterId);
+    if (gone || outcome.kind !== "ok") return;
+    register = outcome.value;
+    const latest = outcome.value[0];
+    if (latest !== undefined && !startTyped && settings.prefix === DEFAULT_BATES.prefix) {
+      settings = {
+        ...settings,
+        prefix: latest.prefix,
+        digits: latest.digits,
+        startNumber: latest.nextNumber,
+      };
+    }
+  }
   const lastIndex = $derived(Math.max(0, sizes.length - 1));
   const typefaceClass: Record<BatesTypeface, string> = {
     sans: "font-sans",
@@ -90,7 +132,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      matterSubject(file),
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and number that.",
     );
     if (gone) {
@@ -109,6 +151,7 @@
 
   onMount(() => {
     void open();
+    void readRegister();
     return () => {
       gone = true;
       source?.close();
@@ -126,7 +169,13 @@
   });
 
   function update(change: Partial<BatesSettings>): void {
-    settings = { ...settings, ...change };
+    if (change.startNumber !== undefined) startTyped = true;
+    const followsRegister = change.prefix !== undefined && !startTyped;
+    settings = {
+      ...settings,
+      ...change,
+      ...(followsRegister ? { startNumber: nextOnRegister(change.prefix ?? "") } : {}),
+    };
     if (result.kind !== "stamping") result = { kind: "idle" };
   }
 
@@ -151,12 +200,36 @@
   async function stamp(): Promise<void> {
     if (original === null || !ready || result.kind === "stamping") return;
     result = { kind: "stamping" };
+    // A typed start is asked for as typed; otherwise the register hands out its next number, which
+    // is the one shown unless another stamp took it a moment ago.
+    const taken = await takeBatesRange(fetch, file.matterId, {
+      prefix: settings.prefix,
+      digits: settings.digits,
+      pageCount: Math.max(sizes.length, 1),
+      ...(settings.startNumber === registerNext ? {} : { firstNumber: settings.startNumber }),
+      purpose: "pdfEditor",
+      sourceFileId: file.id,
+    });
+    if (gone) return;
+    if (taken.kind !== "ok") {
+      result = {
+        kind: "refused",
+        failure: stated(
+          taken.failure,
+          "The numbers couldn't be taken from this matter's Bates log.",
+          "Couldn't connect, so nothing was numbered.",
+        ),
+      };
+      return;
+    }
+    const numbered = { ...settings, startNumber: taken.value.firstNumber };
+    const stampedRange = batesRange(numbered, sizes.length);
     const reply = await runPdfOperation(original.slice(0), {
       kind: "bates",
       options: {
         prefix: settings.prefix,
         suffix: settings.suffix,
-        startNumber: settings.startNumber,
+        startNumber: taken.value.firstNumber,
         padding: settings.digits,
         position: settings.position,
         font: batesFont(settings.typeface),
@@ -176,9 +249,31 @@
       };
       return;
     }
-    const filed = await fileMadeDocument(file, made, batesCopyName(file.name, range.first, range.last));
+    const filed = await fileMadeDocument(
+      matterSubject(file),
+      made,
+      batesCopyName(file.name, stampedRange.first, stampedRange.last),
+    );
+    if (filed.kind === "filed") {
+      await recordBatesStampedFile(fetch, file.matterId, taken.value.id, filed.fileId);
+    }
     if (gone) return;
-    result = { kind: "done", filed, next: range.next };
+    const next = taken.value.lastNumber + 1;
+    const before = register.find((entry) => entry.prefix === settings.prefix);
+    register = [
+      {
+        prefix: settings.prefix,
+        digits: settings.digits,
+        nextNumber: next,
+        rangeCount: (before?.rangeCount ?? 0) + 1,
+        pagesStamped: (before?.pagesStamped ?? 0) + taken.value.lastNumber - taken.value.firstNumber + 1,
+        lastStampedAt: new Date().toISOString(),
+      },
+      ...register.filter((entry) => entry !== before),
+    ];
+    settings = { ...settings, startNumber: next };
+    startTyped = false;
+    result = { kind: "done", filed, next };
   }
 </script>
 
@@ -213,7 +308,7 @@
   </div>
 {:else}
   <div class="flex min-h-0 flex-1">
-    <aside aria-label="Bates numbering" class="mc-scrollbar flex min-h-0 w-352 shrink-0 flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
+    <aside aria-label="Bates numbering" class="mc-scrollbar flex min-h-0 w-full shrink-0 md:w-sm flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
       <FieldRow columns={2}>
         <LabelledField necessity="optional" label="Prefix" error={problems.prefix}>
           {#snippet children({ props })}
@@ -227,7 +322,12 @@
         </LabelledField>
       </FieldRow>
       <FieldRow columns={2}>
-        <LabelledField necessity="required" label="First Number" error={problems.startNumber}>
+        <LabelledField
+          necessity="required"
+          label="First Number"
+          hint={settings.startNumber === registerNext ? "Next on this matter" : `Next on this matter is ${String(registerNext)}`}
+          error={problems.startNumber}
+        >
           {#snippet children({ props })}
             <Input
               {...props}
@@ -309,8 +409,8 @@
 
       <p class="text-sm">
         {sizes.length === 1 ? "1 page" : `${sizes.length} pages`}, numbered
-        <span class="font-semibold tabular-nums">{range.first}</span>
-        {#if sizes.length > 1}to <span class="font-semibold tabular-nums">{range.last}</span>{/if}.
+        <span class="font-semibold tabular-nums">{range.first}</span>{#if sizes.length > 1}
+          to <span class="font-semibold tabular-nums">{range.last}</span>{/if}.
       </p>
 
       <div class="mt-auto flex flex-col gap-8">
@@ -318,7 +418,7 @@
           <Alert.Root variant="success">
             <Alert.Title>Saved {result.filed.name}</Alert.Title>
             <Alert.Description>
-              The original is unchanged. The next production from this matter starts at
+              The original is unchanged. The next stamp under this prefix starts at
               <span class="tabular-nums">{batesLabel(settings, result.next)}</span>.
             </Alert.Description>
             <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.filed.fileId)}>Open the Numbered Copy</Button>
@@ -329,6 +429,13 @@
             <Alert.Description>The numbered copy was made but couldn't be saved to the matter. Download it now; nothing was saved.</Alert.Description>
             <Button variant="secondary" size="sm" class="self-start" href={result.filed.url} download={result.filed.name}>Download</Button>
           </Alert.Root>
+        {:else if result.kind === "refused"}
+          <FailureNotice
+            failure={result.failure.failure}
+            title="Nothing Was Numbered"
+            fallback={result.failure.fallback}
+            whenSilent={result.failure.whenSilent}
+          />
         {:else if result.kind === "failed"}
           <Alert.Root variant="danger">
             <Alert.Title>Nothing Was Numbered</Alert.Title>
@@ -339,11 +446,11 @@
           <Hash class="size-16" aria-hidden="true" />
           {result.kind === "stamping" ? "Numbering" : "Number the Pages"}
         </Button>
-        <p class="text-center text-xs text-text-muted">Saves a numbered copy beside the original, which stays as it is.</p>
+        <p class="text-center text-xs text-text-muted">Saves a numbered copy beside the original, which stays as it is. The numbers are logged on this matter and never used again.</p>
       </div>
     </aside>
 
-    <div class="mc-scrollbar flex min-h-0 min-w-0 flex-1 items-start justify-center gap-24 overflow-auto bg-surface-sunken p-24">
+    <div class="mc-scrollbar hidden min-h-0 min-w-0 flex-1 items-start justify-center md:flex gap-24 overflow-auto bg-surface-sunken p-24">
       {#if sizes[0] !== undefined}
         {@render preview(sizes[0], 0, range.first)}
       {/if}

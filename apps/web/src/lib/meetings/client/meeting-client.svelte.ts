@@ -136,6 +136,14 @@ import {
 } from "./signaling.ts";
 import type { GroupEpoch, GroupStanding } from "./encryption-group.ts";
 import { type FrameEncryptionSeams, MeetingEncryption } from "./meeting-encryption.ts";
+import {
+  encryptionState,
+  type EncryptionState,
+  keyGroupMembers,
+  type KeyGroupMember,
+  pauseBitsWith,
+  type PauseReason,
+} from "./encryption-status.ts";
 import { browserNamingSeams, MeetingNaming } from "./naming.ts";
 import {
   MeetingSubscriptions,
@@ -565,6 +573,25 @@ export class MeetingClient {
   securityCode = $state<string | null>(null);
   /** Whether the group says a recording, captions or a phone caller has paused the sealing. */
   encryptionPaused = $state(false);
+  /** The pause bits of the last epoch this browser verified; zero is encrypted. */
+  encryptionPauseBits = $state(0);
+  /** Who the verified key group holds, by leaf, each identity a stay. Empty outside the group. */
+  encryptionGroupMembers = $state<GroupEpoch["members"]>([]);
+  /**
+   * What the pause banner, the security panel and the header read: off, connecting, on, paused
+   * (with every reason that holds) or failed. Read from the verified group state alone.
+   */
+  get encryptionState(): EncryptionState {
+    return encryptionState({
+      encrypted: this.encrypted,
+      standing: this.encryptionStanding,
+      pause: this.encryptionPauseBits,
+    });
+  }
+  /** Who is in the key group, named from the roster where it holds the stay. */
+  get encryptionMembers(): readonly KeyGroupMember[] {
+    return keyGroupMembers(this.encryptionGroupMembers, this.participants, this.participantId);
+  }
   /**
    * What this room carries, as the join stated it. It decides what is captured and what is offered,
    * and it never changes while a meeting is open — the room refuses a picture published into a call,
@@ -937,6 +964,8 @@ export class MeetingClient {
         // means for the mark and whether it is news is the recording module's to decide.
         recording: (frame) => {
           this.recording.noteFrame(readRecordingAnnouncement(frame));
+          // In an encrypted meeting a recording pauses the encryption, proposed by a host.
+          this.#followRecordingPause();
           // A recording started while alone wants the full picture back.
           void this.#budgetCamera();
         },
@@ -1018,7 +1047,10 @@ export class MeetingClient {
             send: (frame) => this.#signaling.send(frame),
             onStanding: (standing) => {
               this.encryptionStanding = standing;
-              if (standing !== "member") this.securityCode = null;
+              if (standing !== "member") {
+                this.securityCode = null;
+                this.encryptionGroupMembers = [];
+              }
             },
             onEpoch: (epoch) => this.#noteEpoch(epoch),
           });
@@ -1045,6 +1077,38 @@ export class MeetingClient {
   #noteEpoch(epoch: GroupEpoch): void {
     this.securityCode = epoch.securityCode;
     this.encryptionPaused = epoch.pause !== 0;
+    this.encryptionPauseBits = epoch.pause;
+    this.encryptionGroupMembers = epoch.members;
+    // After the engine has finished applying the commit that brought this epoch, never inside it.
+    queueMicrotask(() => this.#followRecordingPause());
+  }
+
+  /**
+   * A recording is one of the three reasons encryption pauses, and the room's frame is the one thing
+   * that says a recording runs. A host's browser proposes the group's recording bit to match it
+   * whenever either side moves: the frame lighting or clearing the mark, the welcome naming a
+   * recording already running, or an epoch whose bits disagree with it (a host who arrives after the
+   * recording started, or a proposal that lost to another commit). `setEncryptionPause` sends
+   * nothing where the bits already agree, so every host's browser converging on the same answer
+   * costs nothing. Live captions and a phone caller are the other two reasons; neither reaches this
+   * client yet, so neither is followed here.
+   */
+  #followRecordingPause(): void {
+    if (!this.hosting) return;
+    this.setEncryptionPause("recording", this.recording.running !== null);
+  }
+
+  /**
+   * A host starting or stopping one of the three things that pause encryption: a proposal to the
+   * group that keeps every other reason that holds. The banner moves only when the committed epoch
+   * says so, never on this press, so a pause nobody committed is never shown and a server that
+   * claims one cannot make it true. Nothing in a meeting opened in the clear.
+   */
+  setEncryptionPause(reason: PauseReason, running: boolean): void {
+    if (this.#encryption === null || this.encryptionStanding !== "member") return;
+    const wanted = pauseBitsWith(this.encryptionPauseBits, reason, running);
+    if (wanted === this.encryptionPauseBits) return;
+    this.#encryption.proposePause(wanted);
   }
 
   /**
@@ -1718,6 +1782,7 @@ export class MeetingClient {
     // The recording running as this socket arrived — the "and on arrival" half of the consent
     // ruling. Absent is "not recording", which is what a welcome without the field always meant.
     this.recording.noteWelcome(readRecordingAnnouncement(frame.recording));
+    this.#followRecordingPause();
     if (!this.#publishOnWelcome) return;
     this.#publishOnWelcome = false;
     void this.publish();
@@ -2255,5 +2320,7 @@ export class MeetingClient {
     this.encryptionStanding = "off";
     this.securityCode = null;
     this.encryptionPaused = false;
+    this.encryptionPauseBits = 0;
+    this.encryptionGroupMembers = [];
   }
 }

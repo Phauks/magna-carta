@@ -70,6 +70,8 @@ describe("schema conformance (fitness functions)", () => {
       time_entry_number_counter: "scope_key",
       communication_number_counter: "scope_key",
       conflicts_check_number_counter: "scope_key",
+      // The In/Out Log's entry sequence: the same counter shape again, keyed by its scope.
+      in_out_entry_number_counter: "scope_key",
       setting: "key",
       // The firm's limit is keyed by what it limits: an event type's id, or deadlines as one kind.
       calendar_sync_firm_limit: "subject",
@@ -79,6 +81,9 @@ describe("schema conformance (fitness functions)", () => {
       community_profile: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
+      // A book entry is cleared at the finish of exactly one bank reconciliation, ever: keying the
+      // row by the entry is what makes clearing the same deposit twice impossible at commit.
+      trust_bank_reconciliation_cleared: "entry_id",
       // A class's structured attributes are one-to-one WITH the asset and have no identity of their
       // own: the asset id IS the row's identity, exactly as account_balance IS its account. A separate
       // handle would add a unique lookup on every read that already arrives holding the asset.
@@ -185,7 +190,11 @@ describe("schema conformance (fitness functions)", () => {
     // number, and the write is an upsert on this key so a second paid lookup replaces the first.
     // number_reservation is keyed by (purpose, scope_key, drawn_value) — a held or given-back counter
     // value IS that triple, the same reasoning as the allocation tables beside it.
+    // record_presence is keyed by (record_kind, record_id, member_user_id): one member on one record
+    // IS the row, and the touch is an upsert on that triple. A handle would let a member be on a record
+    // twice.
     const compositeKeyTables = new Set([
+      "record_presence",
       "number_reservation",
       "caller_identity",
       "file_version_participant",
@@ -202,6 +211,7 @@ describe("schema conformance (fitness functions)", () => {
       "invoice_number_allocation",
       "time_entry_number_allocation",
       "conflicts_check_number_allocation",
+      "in_out_entry_number_allocation",
       "time_entry_attachment",
       "magnus_conversation_attachment",
       "invoice_matter_balance",
@@ -230,6 +240,8 @@ describe("schema conformance (fitness functions)", () => {
       "calendar_sync_link",
       // A question about a copy is keyed as the copy is, so a copy never has two.
       "connection_sync_issue",
+      // A question about one day of a series is that copy and the day.
+      "connection_sync_day_issue",
       // Where a record came from is the pair itself: one source record is linked once to each kind
       // of record it became, so a surrogate key would let the same link exist twice.
       "source_record_link",
@@ -261,6 +273,7 @@ describe("schema conformance (fitness functions)", () => {
       "invoice_number_allocation.drawn_value",
       "time_entry_number_allocation.drawn_value",
       "conflicts_check_number_allocation.drawn_value",
+      "in_out_entry_number_allocation.drawn_value",
       "index_split_member.version",
       // A fed object's version is the same integer the file entry and the split catalog already carry;
       // spelling it as text here would let the feed row disagree with the split row about which

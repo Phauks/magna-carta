@@ -65,6 +65,9 @@
       "path": "packages/ai-detection/tsconfig.test.json"
     },
     {
+      "path": "packages/bates/tsconfig.test.json"
+    },
+    {
       "path": "packages/billing-core/tsconfig.test.json"
     },
     {
@@ -182,6 +185,9 @@
       "path": "packages/identifiers/tsconfig.test.json"
     },
     {
+      "path": "packages/in-out-log/tsconfig.test.json"
+    },
+    {
       "path": "packages/inference/tsconfig.test.json"
     },
     {
@@ -294,6 +300,9 @@
     },
     {
       "path": "packages/tools/tsconfig.test.json"
+    },
+    {
+      "path": "packages/translation/tsconfig.test.json"
     },
     {
       "path": "packages/trust-jurisdictions/tsconfig.test.json"

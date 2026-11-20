@@ -19,7 +19,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import type { FormField } from "@magna-carta/pdf";
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import { savesVersions, type EditorSubject } from "./editor-subject.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
   import {
     answerOf,
@@ -33,7 +33,7 @@
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
   import { pointsToScreen } from "./redactions.ts";
 
-  let { file, onSaved }: { file: MatterFile; onSaved: () => void } = $props();
+  let { subject, onSaved }: { subject: EditorSubject; onSaved: () => void } = $props();
 
   const PREVIEW_ZOOM = 0.9;
 
@@ -67,6 +67,8 @@
   const selectedField = $derived(fields.find((field) => field.name === selected) ?? null);
   const shownPage = $derived(selectedField?.page ?? fields[0]?.page ?? 0);
   const canSave = $derived((changedCount > 0 || flatten) && result.kind !== "saving");
+  /** A matter file takes the filled form as its next version; a bench file gets a filled copy beside it. */
+  const savedAs = $derived(savesVersions(subject) ? "New Version" : "New File");
 
   async function paint(target: HTMLCanvasElement | null, index: number): Promise<void> {
     const engine = source;
@@ -86,7 +88,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      subject,
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and fill that.",
     );
     if (gone) {
@@ -148,7 +150,7 @@
       };
       return;
     }
-    const filed = await fileMadeDocument(file, made, file.name, { asVersionOf: file.id });
+    const filed = await fileMadeDocument(subject, made, subject.name, { asNextVersion: true, benchChange: "Filled" });
     if (gone) return;
     result = { kind: "done", filed };
     if (filed.kind === "filed") onSaved();
@@ -187,7 +189,7 @@
       {/if}
     </div>
 
-    <aside aria-label="Form fields" class="flex min-h-0 w-480 shrink-0 flex-col border-s border-border-default bg-surface-default">
+    <aside aria-label="Form fields" class="flex min-h-0 w-lg shrink-0 flex-col border-s border-border-default bg-surface-default">
       <div class="flex flex-none items-center gap-8 px-16 pt-16 pb-8">
         <h2 class="text-sm font-semibold">Fields</h2>
         <span class="rounded-full bg-surface-selected px-8 text-xs font-semibold tabular-nums">{fields.length}</span>
@@ -262,6 +264,11 @@
             <Alert.Title>Saved as a New Version</Alert.Title>
             <Alert.Description>The version before it is still in the file's history.</Alert.Description>
           </Alert.Root>
+        {:else if result.kind === "done" && result.filed.kind === "benched"}
+          <Alert.Root variant="success">
+            <Alert.Title>Added to the Bench</Alert.Title>
+            <Alert.Description>{result.filed.name} is on the bench beside the original, which is unchanged.</Alert.Description>
+          </Alert.Root>
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">
             <Alert.Title>Not Filed</Alert.Title>
@@ -276,7 +283,7 @@
         {/if}
         <Button disabled={!canSave} onclick={save}>
           <Save class="size-16" aria-hidden="true" />
-          {result.kind === "saving" ? "Saving" : changedCount === 1 ? "Save 1 Answer as New Version" : changedCount > 1 ? `Save ${changedCount} Answers as New Version` : "Save as New Version"}
+          {result.kind === "saving" ? "Saving" : changedCount === 1 ? `Save 1 Answer as ${savedAs}` : changedCount > 1 ? `Save ${changedCount} Answers as ${savedAs}` : `Save as ${savedAs}`}
         </Button>
       </div>
     </aside>

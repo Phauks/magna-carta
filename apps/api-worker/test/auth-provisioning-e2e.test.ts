@@ -228,6 +228,8 @@ describe("end-to-end", () => {
       // The owner's member record has reached the firm's own database — which is a separate fact
       // from belonging to the firm, and the one the app's guards wait on before letting anybody in.
       membership: { state: "active" },
+      // The test pool leaves meetings encryption off, as every deployment does today.
+      meetings: { endToEndEncryption: false },
       // Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
@@ -370,6 +372,9 @@ describe("end-to-end", () => {
         "firm:scanFile",
         // Bringing records in from the system the firm is leaving: Owner/Admin alone.
         "firm:transferRecords",
+        // The In/Out Log: every seat reads it, and every seat but Read-only works the front desk.
+        "inOutLog:manage",
+        "inOutLog:read",
         "incidents:viewDescription",
         // The four intake keys. intake:read and intake:record reach every seat that does firm work
         // (Admin, Attorney, Paralegal, Billing); intake:waive and intake:manageProcedures stop
@@ -493,6 +498,7 @@ describe("end-to-end", () => {
         "tools:safeBrowse",
         "tools:shipping",
         "tools:speedTest",
+        "tools:translation",
         "tools:whois",
         // trust:read reaches Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Admin, Attorney, and Billing
@@ -669,6 +675,16 @@ const GUEST_LANE_OPERATIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The signed-copy link the completion email carries: the same signer's secret minted as its own
+ * kind of token, admitted only once the request is sealed, and never accepted by the signing routes.
+ */
+const SIGNED_COPY_OPERATIONS: ReadonlySet<string> = new Set([
+  "signer.readSignedCopy",
+  "signer.readSignedCopyCertificate",
+  "signer.readSignedCopyDocument",
+]);
+
+/**
  * AND AN OUTSIDE SIGNER'S LANE: the same shape for a signing link, admitted by the chokepoint's
  * signer lane (`x-mc-signerLane`), which verifies the link before anything is read and checks it
  * against the signer's row on every request. Enumerated for the same reason.
@@ -683,6 +699,7 @@ const SIGNER_LANE_OPERATIONS: ReadonlySet<string> = new Set([
   "signer.adopt",
   "signer.finish",
   "signer.decline",
+  ...SIGNED_COPY_OPERATIONS,
 ]);
 
 function expectSignerLaneShape(operation: OpenApiOperation, label: string): void {
@@ -690,7 +707,9 @@ function expectSignerLaneShape(operation: OpenApiOperation, label: string): void
   expect(operation["x-mc-permission"], label).toBeNull();
   expect(operation["x-mc-surface"], label).toBe("app");
   expect(operation["x-mc-resource"], label).toBe("firm");
-  expect(operation["x-mc-signerLane"], label).toBe("link");
+  expect(operation["x-mc-signerLane"], label).toBe(
+    SIGNED_COPY_OPERATIONS.has(operation["operationId"] as string) ? "signed-copy" : "link",
+  );
 }
 
 /** The shape every guest-lane operation must have, asserted wherever the sweeps meet one. */

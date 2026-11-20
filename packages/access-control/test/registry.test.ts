@@ -127,6 +127,7 @@ describe("permission registry", () => {
       "tools:fileConverter",
       "tools:legalCitations",
       "tools:aiTextDetection",
+      "tools:translation",
       "tools:metadataScrubber",
       "tools:fileIntegrity",
       "tools:fileTypeVerifier",

@@ -4,7 +4,7 @@
    *
    * Nothing here knows what a report is. The declaration says which controls to draw (a span, a
    * single date or no period at all, a knowledge instant on a bitemporal report, a trust account
-   * where the report is about one, an office where the rows can be narrowed to one), the read
+   * or a client where the report is about one, an office where the rows can be narrowed to one), the read
    * fires through the declaration's port when
    * the scope is complete, and the answer arrives as titled sections the screen draws as tables
    * and the export menu renders as a file. Adding a report never touches this file.
@@ -79,6 +79,10 @@
   } from "$lib/reports/reports-api.ts";
   import type { ReportCaptions } from "$lib/reports/trust-compliance-presenter.ts";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
+  import { readDirectoryEntity } from "$lib/directory/directory-api.ts";
+  import { directoryEntityName } from "$lib/directory/entity-presentation.ts";
   import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
   import { matterDisplay } from "$lib/time/time-sheet-model.ts";
   import { civilDateOf } from "@magna-carta/civil-time/civil-date";
@@ -171,6 +175,37 @@
       DEFAULT_KNOWLEDGE_ZONE,
   );
 
+  // ---- the subject: one client of the firm's directory --------------------------------------------
+
+  /*
+   * The client rides the address as its handle, like an account does. The field shows a name, so a
+   * link opened cold reads the name back from the directory; until it lands, or where it cannot be
+   * read, the field shows the handle rather than looking empty over a client that is chosen.
+   */
+  let chosenClient = $state<PickableEntity | null>(null);
+  $effect(() => {
+    const subject = scope.subject;
+    if (built?.scope.client !== true) return;
+    if (subject === null) {
+      chosenClient = null;
+      return;
+    }
+    if (chosenClient?.identifier === subject) return;
+    const kind = subject.startsWith("directoryOrganization_") ? "organization" : "person";
+    chosenClient = { identifier: subject, name: subject, kind };
+    void (async () => {
+      const outcome = await readDirectoryEntity(fetch, subject);
+      if (outcome.kind === "ok" && chosenClient?.identifier === subject) {
+        chosenClient = { identifier: subject, name: directoryEntityName(outcome.value), kind };
+      }
+    })();
+  });
+
+  function chooseClient(next: PickableEntity | null): void {
+    chosenClient = next;
+    goToScope({ ...scope, subject: next?.identifier ?? null });
+  }
+
   // ---- the scope: what is asked for --------------------------------------------------------------
 
   /** A report taken at one date defaults to today; a report over a span, to this month. */
@@ -179,10 +214,10 @@
       ? { from: today, to: today, label: formatDate(today) }
       : reportPeriodPreset("month", today),
   );
-  const scope = $derived(readReportScope(page.url.searchParams, defaultPeriod));
+  const scope = $derived(readReportScope(new URLSearchParams(page.url.search), defaultPeriod));
 
   function goToScope(next: ReportScope): void {
-    replaceState(writeReportScope(page.url, next), page.state);
+    replaceState(writeReportScope(new URL(page.url.href), next), page.state);
   }
 
   // ---- the office: a filter, never a gate --------------------------------------------------------
@@ -282,6 +317,9 @@
     if (built.scope.trustAccount && scope.subject === null) {
       return "Choose a trust account to run this report.";
     }
+    if (built.scope.client === true && scope.subject === null) {
+      return "Choose a client to run this report.";
+    }
     return null;
   });
   const scopeComplete = $derived(built !== null && scopeGap === null);
@@ -359,7 +397,11 @@
             : `as known at the end of ${formatDate(knowledgeDateOf(scope.knownAsOf, subjectZone))}`;
       return [officeName, when, known].filter((part) => part !== null).join(" · ");
     }
+    // A client report states the client's name alone, as the approved board does; the file's own
+    // subtitle keeps the handle beside it.
+    const clientName: string | null = built?.scope.client === true ? (chosenClient?.name ?? null) : null;
     const subjectName =
+      clientName ??
       presentation?.subtitle ??
       accountChoices.find((choice) => choice.value === scope.subject)?.label ??
       null;
@@ -415,6 +457,24 @@
               {/each}
             </Select.Content>
           </Select.Root>
+        {/snippet}
+      </LabelledField>
+    {/if}
+
+    {#if built !== null && built.scope.client === true}
+      <!-- From the directory, never typed, and never recorded from here: a statement is of a client
+           the firm already bills. -->
+      <LabelledField label="Client" class="w-full sm:w-xs">
+        {#snippet children({ props })}
+          <DirectoryEntityPicker
+            value={chosenClient}
+            label="Client"
+            inputId={props.id}
+            allowCreate={false}
+            onSelect={(entity) => chooseClient(entity)}
+            onClear={() => chooseClient(null)}
+            class="w-full max-w-xs"
+          />
         {/snippet}
       </LabelledField>
     {/if}
@@ -593,10 +653,16 @@
         {/if}
       {/snippet}
       {#snippet emptyState()}
-        <EmptyState title="Choose a Trust Account">
-          {scopeGap ?? "Nothing has been asked for yet."} The report runs as soon as the scope is
-          complete.
-        </EmptyState>
+        {#if built?.scope.client === true}
+          <EmptyState title="Choose a Client">
+            The statement shows one client's bills, payments and credits for the period.
+          </EmptyState>
+        {:else}
+          <EmptyState title="Choose a Trust Account">
+            {scopeGap ?? "Nothing has been asked for yet."} The report runs as soon as the scope is
+            complete.
+          </EmptyState>
+        {/if}
       {/snippet}
       {#snippet fixture()}
         {#if samplePresentation !== null}

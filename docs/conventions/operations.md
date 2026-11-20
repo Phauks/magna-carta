@@ -902,6 +902,24 @@ The owner asked on 2026-11-13 to try Google's addresses before deciding whether 
 
 **Switching it off.** Delete `GOOGLE_PLACES_API_KEY` from the Secrets Store (and any per-Worker copy); a deleted store secret leaves the binding answering nothing, which reads as unset. The next request goes to the platform's index or Smarty if either is provisioned, and otherwise answers `unavailable`.
 
+## 19b. Translation — Google Cloud Translation
+
+The owner chose Google on 2026-11-19. With `GOOGLE_TRANSLATE_API_KEY` set, a firm that has turned translation on (Settings, AI) sends pasted text to Google's Cloud Translation **Basic (v2)** API; without it the Translate tool answers that translation is not set up. Adapter: `packages/translation/src/google.ts`.
+
+**Switching it on**
+
+1. In the Google Cloud console, open the project that holds the Places key (or any project with a billing account) and enable **Cloud Translation API** under APIs & Services, Library.
+2. **APIs & Services, Credentials, Create credentials, API key.** Name it for translation. Under **API restrictions** choose **Restrict key** and tick only Cloud Translation API. Leave application restrictions at none: the key is used from a Worker and never reaches a browser. Use a separate key from `GOOGLE_PLACES_API_KEY`, so either can be revoked alone.
+3. **Set a quota** under Cloud Translation API, Quotas (characters per day), and a budget alert under Billing. Google has no hard spending cap; the quota is the ceiling.
+4. Create it in the Secrets Store as `GOOGLE_TRANSLATE_API_KEY` (scope _Workers_). `apps/api-worker/wrangler.jsonc` binds that name as `SECRETS_STORE_GOOGLE_TRANSLATE_API_KEY`, so the next deploy picks it up; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store"). System Status then shows Translation as set up.
+5. A firm administrator turns translation on for the firm (`PATCH /api/v1/firm/translation-settings`; the switch on Settings, AI lands with the Translate screen).
+
+**What it costs.** Google bills every character sent, spaces included; the first 500,000 a month are free (a $10 monthly credit shared with Advanced), then $20 per million. A two-page letter is about 5,000 characters. Prices: [`docs/operating-costs.md`](../operating-costs.md).
+
+**What crosses, and what is kept.** The text goes to Google in a request body and the key in a header; Google states it holds the text in memory only while translating and does not train on it. Basic is served globally, so the text cannot be kept in one region; that needs Advanced (v3), which takes a service account and is a new adapter. Nothing here keeps the text: each run writes a `translation.translated` row to the firm's log with the engine, languages, character count and matter, and nothing the member typed.
+
+**Switching it off.** Turn the firm switch off to stop one firm, or delete `GOOGLE_TRANSLATE_API_KEY` from the Secrets Store (and any per-Worker copy) to stop every firm. The next request answers that translation is not set up.
+
 ## 20. Address autocomplete — the platform's own index (OpenAddresses)
 
 The United States is answered from an index the platform builds itself, with no per-lookup bill (§19 covers Smarty, which answers every other country). Design: [`docs/specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md`](../specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md). Three parts: `apps/address-worker` (the `magna-carta-address` Worker, reached only by service binding), its two Containers built from `containers/address` (`AddressIndexContainer` answers queries on a `basic` instance; `AddressBuildContainer` builds on a `standard-4`), and the `magna-carta-addresses` R2 bucket the index lives in.
@@ -1027,3 +1045,44 @@ share a name.
 within five minutes, because each isolate keeps a value that long (`packages/worker-secrets`).
 `packages/worker-secrets/*` also belongs in the Build Watch Paths of every dedicated Worker that
 imports it (§12), so a change to the resolver rebuilds them.
+
+## 24. Usage analytics — switching on Workers Analytics Engine
+
+Both `magna-carta` and `magna-carta-edit` bind the Analytics Engine dataset
+`magna-carta-production-telemetry` as `TELEMETRY` in their `wrangler.jsonc`, so the operational
+counters (`addresses.lookup`, `communications.caller_lookup` and the rest) are written on every
+deploy with no dashboard step. The dataset is created on its first write.
+
+Usage events (which features a firm reaches and completes) need one more thing: the key
+`USAGE_ANALYTICS_PEPPER`. Firm and user ids are pseudonymized under it with HMAC before an event is
+written, and an event is dropped entirely when the key is absent (`packages/telemetry`), so without it
+System Status shows Usage analytics as not set up and no usage event ever reaches the dataset.
+
+**Switching it on**
+
+1. Make a long random value (for example a password manager's 64-character generator) and keep a copy
+   in the password manager. Unlike `ROOT_KEK` it encrypts nothing, so losing or changing it loses no
+   data: events already written keep their old pseudonyms and new events get new ones. The only cost
+   is that a trend spanning the change can no longer join the same firm or user across it, so change
+   it only when there is a reason to (a suspected leak).
+2. Create it in the Secrets Store as `USAGE_ANALYTICS_PEPPER` (scope _Workers_). `apps/api-worker/wrangler.jsonc`
+   binds that name as `SECRETS_STORE_USAGE_ANALYTICS_PEPPER`; a per-Worker secret of the same name on
+   `magna-carta` is the fallback (§23). System Status then shows Usage analytics as set up.
+
+A firm administrator can turn usage analytics off for the firm (the firm setting
+`usage_analytics.enabled`, on by default), and each member can opt out for themselves.
+
+**Reading the data** is the Analytics Engine SQL API, which needs an API token with **Account ·
+Account Analytics · Read**. Nothing in the platform reads it yet, so no such token is set on a Worker:
+
+```bash
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/analytics_engine/sql" \
+  --data "SELECT blob1, count() AS events FROM \"magna-carta-production-telemetry\" WHERE timestamp > NOW() - INTERVAL '1' DAY GROUP BY blob1 ORDER BY events DESC"
+```
+
+**What it costs.** Cloudflare's pricing page (read 2026-11-20) says Analytics Engine is not billed
+yet; the published prices for when it is are 10 million data points written and 1 million read
+queries a month included with Workers Paid, then $0.25 per further million written and $1.00 per
+further million read
+([pricing](https://developers.cloudflare.com/analytics/analytics-engine/pricing/)).

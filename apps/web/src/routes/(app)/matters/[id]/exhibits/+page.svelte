@@ -30,6 +30,7 @@
   import Hash from "@lucide/svelte/icons/hash";
   import Lock from "@lucide/svelte/icons/lock";
   import Pin from "@lucide/svelte/icons/pin";
+  import PackageIcon from "@lucide/svelte/icons/package";
   import Send from "@lucide/svelte/icons/send";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -47,6 +48,9 @@
   import NewSetDialog from "$lib/exhibits/new-set-dialog.svelte";
   import NumberingDialog from "$lib/exhibits/numbering-dialog.svelte";
   import WithdrawDialog from "$lib/exhibits/withdraw-dialog.svelte";
+  import PackageDialog from "$lib/exhibits/package-dialog.svelte";
+  import { makeExhibitList, type PackageOutcome } from "$lib/exhibits/exhibit-package.ts";
+  import { viewerHref } from "$lib/documents/editable-documents.ts";
   import {
     ISSUE_EXHIBITS_PERMISSION,
     MANAGE_EXHIBITS_PERMISSION,
@@ -97,6 +101,22 @@
   let fileOpen = $state(false);
   let withdrawOpen = $state(false);
   let withdrawing = $state<ExhibitSetMember | null>(null);
+  let packageOpen = $state(false);
+  let makingList = $state(false);
+  /** What the last Exhibit List or package made: shown above the table until the set changes. */
+  let made = $state<PackageOutcome | null>(null);
+
+  async function exhibitList(set: ExhibitSetDetail): Promise<void> {
+    if (makingList) return;
+    makingList = true;
+    made = await makeExhibitList({
+      matterId: matter.id,
+      matterTitle: matter.title,
+      set,
+      folderId: set.sourceFolderId,
+    });
+    makingList = false;
+  }
 
   const canManage = $derived(
     session === null || session.permissions.includes(MANAGE_EXHIBITS_PERMISSION),
@@ -233,10 +253,11 @@
 
   function choose(setId: string): void {
     selected = setId;
-    const url = new URL(page.url);
+    made = null;
+    const url = new URL(page.url.href);
     if (setId === REGISTER) url.searchParams.delete("entry");
     else url.searchParams.set("entry", setId);
-    void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+    void goto(url, { replace: true, reset: false });
   }
 
   /* Reordering. Drag a grip, or use the row menu; either holds the order until Save Order. */
@@ -487,6 +508,24 @@
             >
               <Hash class="size-16" aria-hidden="true" />{schemeSummary(set.scheme)}
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={makingList || set.members.length === 0}
+              title={set.members.length === 0 ? "The set has no exhibits yet" : "Save the exhibit list as a PDF in this matter's files"}
+              onclick={() => void exhibitList(set)}
+            >
+              <FileText class="size-16" aria-hidden="true" />{makingList ? "Making List" : "Exhibit List"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={set.members.length === 0}
+              title={set.members.length === 0 ? "The set has no exhibits yet" : "The list, cover sheets and exhibits as one PDF"}
+              onclick={() => (packageOpen = true)}
+            >
+              <PackageIcon class="size-16" aria-hidden="true" />Package
+            </Button>
             {#if isDraft}
               <Button
                 variant="primary"
@@ -528,6 +567,51 @@
                 Made from the folder {followedFolder?.name ?? "it was made from"}. It stopped following the folder when it was marked as filed.
               {/if}
             </p>
+          {/if}
+
+          {#if made !== null && made.kind === "saved"}
+            <Alert.Root variant="success">
+              <Alert.Title>Saved {made.name}</Alert.Title>
+              <Alert.Description>
+                <div class="flex flex-col gap-8">
+                  {#if made.bates !== null}
+                    <span>Numbered <span class="tabular-nums">{made.bates.first}</span> to <span class="tabular-nums">{made.bates.last}</span>.</span>
+                  {/if}
+                  {#if made.leftOut.length > 0}
+                    <span>Left out because they aren't PDFs that can be opened: {made.leftOut.join(", ")}. Convert them to PDF and make the package again.</span>
+                  {/if}
+                  <span class="flex gap-8">
+                    <Button variant="secondary" size="sm" href={viewerHref(made.fileId)}>Open</Button>
+                    <Button variant="ghost" size="sm" onclick={() => (made = null)}>Dismiss</Button>
+                  </span>
+                </div>
+              </Alert.Description>
+            </Alert.Root>
+          {:else if made !== null && made.kind === "notSaved"}
+            <Alert.Root variant="warning">
+              <Alert.Title>Not Saved</Alert.Title>
+              <Alert.Description>
+                <div class="flex flex-col gap-8">
+                  <span>The PDF was made but couldn't be saved to the matter. Download it now.</span>
+                  <span class="flex gap-8">
+                    <Button variant="secondary" size="sm" href={made.url} download={made.name}>Download</Button>
+                    <Button variant="ghost" size="sm" onclick={() => (made = null)}>Dismiss</Button>
+                  </span>
+                </div>
+              </Alert.Description>
+            </Alert.Root>
+          {:else if made !== null && made.kind === "failed"}
+            <Alert.Root variant="danger">
+              <Alert.Title>Nothing Was Made</Alert.Title>
+              <Alert.Description>{made.message}</Alert.Description>
+            </Alert.Root>
+          {:else if made !== null && made.kind === "refused"}
+            <FailureNotice
+              failure={made.failure.failure}
+              title="Nothing Was Made"
+              fallback={made.failure.fallback}
+              whenSilent={made.failure.whenSilent}
+            />
           {/if}
 
           {#if followFailure !== null}
@@ -752,6 +836,11 @@
           <AddExhibitsDialog bind:open={addOpen} {set} {register} onAdded={refreshAll} />
           <NumberingDialog bind:open={numberingOpen} {set} onChanged={refreshAll} />
           <MarkAsFiledDialog bind:open={fileOpen} {set} onIssued={refreshAll} />
+          <PackageDialog
+            bind:open={packageOpen}
+            context={{ matterId: matter.id, matterTitle: matter.title, set, folderId: set.sourceFolderId }}
+            onMade={(outcome) => (made = outcome)}
+          />
           <WithdrawDialog
             bind:open={withdrawOpen}
             {set}

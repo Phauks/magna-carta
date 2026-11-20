@@ -837,3 +837,33 @@ fn a_report_page_of_figures_totals_and_signature_lines_composes_from_json() {
     let wrong = json("").replace(r#""muted""#, r#""loud""#);
     assert!(pdf_compose_core::document_from_json(&wrong, &[]).is_err());
 }
+
+#[test]
+fn a_watermark_reads_back_on_every_page_and_only_when_asked_for() {
+    let json = |watermark: &str| {
+        format!(
+            r#"{{ {watermark} "blocks": [
+                    {{ "type": "paragraph", "text": "First." }},
+                    {{ "type": "pageBreak" }},
+                    {{ "type": "paragraph", "text": "Second." }}
+                ] }}"#
+        )
+    };
+    let fonts = FontFamily::bundled();
+    let marked =
+        pdf_compose_core::compose_json(&json(r#""watermark": "DRAFT","#), &[], &fonts).unwrap();
+    let pages = page_texts(&marked.pdf);
+    assert_eq!(pages.len(), 2);
+    // Turned, each letter sits on a line of its own to a reader that reads across the page.
+    let letters = |page: &str| {
+        let mut letters: Vec<&str> = page.lines().filter(|line| line.len() == 1).collect();
+        letters.sort_unstable();
+        letters.concat()
+    };
+    for page in &pages {
+        assert_eq!(letters(page), "ADFRT", "{page}");
+    }
+    assert!(pages[1].contains("Second."));
+    let plain = pdf_compose_core::compose_json(&json(""), &[], &fonts).unwrap();
+    assert_eq!(letters(&page_texts(&plain.pdf)[0]), "");
+}

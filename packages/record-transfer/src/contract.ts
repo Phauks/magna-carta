@@ -173,6 +173,42 @@ export const TransferSourceFileResponse = z
   .object({ file: TransferSourceFile })
   .meta({ id: "RecordTransferSourceFileResponse" });
 
+// A source file too large for one request is given in pieces. Starting answers the file's identifier
+// and the upload's own identifier, which the caller sends back with every piece and with the
+// completion; nothing is recorded until the completion, so an upload that is walked away from
+// leaves no file in the run.
+export const SOURCE_FILE_PART_BYTES = 32 * 1024 * 1024;
+// The largest file taken in pieces. A whole table of a practice-management database is well inside it.
+export const SOURCE_FILE_IN_PARTS_BYTE_CAP = 4 * 1024 * 1024 * 1024;
+
+export const StartTransferFileUploadResponse = z
+  .object({
+    fileId: z.string(),
+    uploadId: z.string(),
+    // Every piece but the last is exactly this many bytes.
+    partBytes: z.number().int().positive(),
+  })
+  .meta({ id: "StartRecordTransferFileUploadResponse" });
+
+const uploadedPart = z.strictObject({
+  partNumber: z.number().int().min(1).max(1000),
+  etag: z.string().min(1).max(200),
+});
+
+export const TransferFileUploadPartResponse = z
+  .object({ part: uploadedPart })
+  .meta({ id: "RecordTransferFileUploadPartResponse" });
+
+export const CompleteTransferFileUploadRequest = z
+  .strictObject({
+    uploadId: z.string().min(1).max(1024),
+    fileName: z.string().trim().min(1).max(255),
+    // What the file is a list of, as a slug the operator chooses: `card-list`, `matter-list`.
+    sourceKind: slug,
+    parts: z.array(uploadedPart).min(1).max(1000),
+  })
+  .meta({ id: "CompleteRecordTransferFileUploadRequest" });
+
 // The header row and the first few data rows, so a person can say what each column holds. These
 // are values from the file, shown to the member who uploaded it and stored nowhere.
 export const TransferSourceFilePreviewResponse = z
@@ -181,6 +217,81 @@ export const TransferSourceFilePreviewResponse = z
     rows: z.array(z.array(z.string())),
   })
   .meta({ id: "RecordTransferSourceFilePreviewResponse" });
+
+// The different values one column holds and how many rows hold each, so a screen can say how many
+// of a column's codes are matched before any pass has run. These are values from the file, answered
+// to the member and stored nowhere. `truncated` says the column holds more different values than a
+// column of codes would, or a value too long to be a code.
+export const TransferSourceFileColumnValuesResponse = z
+  .object({
+    values: z.array(z.object({ value: z.string(), rowCount: z.number().int().positive() })),
+    rowsWithValue: z.number().int().nonnegative(),
+    rowsRead: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+  })
+  .meta({ id: "RecordTransferSourceFileColumnValuesResponse" });
+
+// The mapping a person is working on for one file, saved so it is there when they come back and
+// before any pass has been asked for. It is what they have said so far and need not yet be enough to
+// run: asking for a pass is where the rules are held to their full shape. It names columns, the
+// source's own codes and this firm's identifiers, and holds no row of the file.
+const code = z.string().min(1).max(200);
+// Empty where the person has not yet chosen.
+const chosenIdentifier = z.string().max(100);
+
+export const TransferFileMappingSchema = z
+  .strictObject({
+    recordKind: z.enum(TRANSFER_PASS_RECORD_KINDS),
+    sourceKind: slug,
+    delimiter: z.enum(["comma", "tab", "semicolon", "pipe"]),
+    // What each column holds, by the column's own name.
+    assignments: z.record(
+      column,
+      z.strictObject({
+        holds: z.string().max(40),
+        referenceSourceKind: z.string().max(63),
+        role: z.string().max(100),
+      }),
+    ),
+    dateOrder: z.union([SourceDateOrderSchema, z.literal("")]),
+    timeZone: z.string().max(64),
+    addressCountry: z.string().max(2),
+    matterTypes: z.record(code, chosenIdentifier),
+    members: z.record(code, chosenIdentifier),
+    otherwiseMember: chosenIdentifier,
+  })
+  .refine((mapping) => Object.keys(mapping.assignments).length <= 500, {
+    message: "a mapping names at most 500 columns",
+    path: ["assignments"],
+  })
+  .refine(
+    (mapping) =>
+      Object.keys(mapping.matterTypes).length <= 500 && Object.keys(mapping.members).length <= 500,
+    { message: "a mapping matches at most 500 codes of each kind", path: ["matterTypes"] },
+  )
+  .meta({ id: "RecordTransferFileMapping" });
+
+export const SaveTransferFileMappingRequest = z
+  .strictObject({ mapping: TransferFileMappingSchema })
+  .meta({ id: "SaveRecordTransferFileMappingRequest" });
+
+// The saved mapping with who saved it and when, or null where nothing has been saved for the file.
+export const TransferFileMappingResponse = z
+  .object({
+    saved: z
+      .object({
+        mapping: TransferFileMappingSchema,
+        savedBy: z.string(),
+        savedAt: z.string(),
+      })
+      .nullable(),
+  })
+  .meta({ id: "RecordTransferFileMappingResponse" });
+
+// A run after it was accepted or abandoned.
+export const TransferRunEndedResponse = z
+  .object({ run: TransferRun })
+  .meta({ id: "RecordTransferRunEndedResponse" });
 
 const passTarget = {
   fileId: z.string().min(1).max(100),
@@ -277,3 +388,6 @@ export type TransferPassFailureBody = z.infer<typeof TransferPassFailure>;
 export type TransferPassReportResponseBody = z.infer<typeof TransferPassReportResponse>;
 export type TransferPassStatedResponseBody = z.infer<typeof TransferPassStatedResponse>;
 export type TransferRunResponseBody = z.infer<typeof TransferRunResponse>;
+export type TransferFileMappingBody = z.infer<typeof TransferFileMappingSchema>;
+export type TransferFileMappingResponseBody = z.infer<typeof TransferFileMappingResponse>;
+export type TransferRunEndedResponseBody = z.infer<typeof TransferRunEndedResponse>;

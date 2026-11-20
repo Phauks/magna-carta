@@ -161,9 +161,8 @@ export type Bindings = {
   // index.html, which the probe reads as "unreported". Optional: absent in every test environment.
   WEB_SERVICE?: Fetcher;
   // The community board's worker (magna-carta-community), for the aggregate version read alone; the
-  // board's data is the control plane's, never read through this binding. Optional, and NOT declared
-  // in wrangler.jsonc yet: a service binding to a worker the account does not have fails the deploy,
-  // so it is added once magna-carta-community has deployed. Until then its row reads "unbound".
+  // board's data is the control plane's, never read through this binding. Optional: absent in a
+  // deployment whose account has no magna-carta-community, where its row reads "unbound".
   COMMUNITY_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
@@ -381,6 +380,12 @@ export type Bindings = {
   // (stored-secrets.ts resolves it into this string), with a per-Worker secret as the fallback; while it is set, Google answers every country ahead of the platform's index and Smarty, and every
   // lookup is billed by Google. Sent only in a request header, never a URL; never logged.
   GOOGLE_PLACES_API_KEY?: string;
+  // The Google Cloud Translation API key behind the Translate tool (translation/translation-engine.ts).
+  // Optional. Kept in the Secrets Store and bound as SECRETS_STORE_GOOGLE_TRANSLATE_API_KEY
+  // (stored-secrets.ts resolves it into this string), with a per-Worker secret as the fallback. While
+  // it is set, a firm that has turned translation on sends pasted text to Google, which bills for every
+  // character. Sent only in a request header, never a URL; never logged.
+  GOOGLE_TRANSLATE_API_KEY?: string;
   // The Telnyx API key behind the call record's "Look up caller ID" (caller-lookup/
   // caller-lookup-engine.ts). Optional, and ABSENT IS THE SHIPPED STATE: without it the record shows
   // the free Directory match and area-code region and offers no paid lookup at all. Production sets

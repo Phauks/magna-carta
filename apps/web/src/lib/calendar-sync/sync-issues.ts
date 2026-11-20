@@ -15,8 +15,14 @@ import { actionsColumn } from "$lib/settings/catalog-columns.ts";
 
 type CalendarSyncCopyReading = CalendarSyncIssue["sent"];
 
-export function issueKey(issue: Pick<CalendarSyncIssue, "localKind" | "localId">): string {
-  return `${issue.localKind}:${issue.localId}`;
+export function issueKey(
+  issue: Pick<CalendarSyncIssue, "localKind" | "localId"> & { occurrenceOn?: string | null },
+): string {
+  // A question about one day of a repeating event is its own row beside the event's.
+  const day = issue.occurrenceOn ?? null;
+  return day === null
+    ? `${issue.localKind}:${issue.localId}`
+    : `${issue.localKind}:${issue.localId}:${day}`;
 }
 
 /** When a copy happens, in words: its day or days, and its times when it has them. */
@@ -45,7 +51,12 @@ export function whenText(reading: CalendarSyncCopyReading): string {
  */
 export function foundText(issue: CalendarSyncIssue, product = "Outlook"): string {
   if (issue.kind === "not_sent") return `Not sent. ${product} would not take this event.`;
-  if (issue.found === null) return `Deleted in ${product}`;
+  if (issue.found === null) {
+    // One day of a repeating event: the rest of the series is still there.
+    return (issue.occurrenceOn ?? null) === null
+      ? `Deleted in ${product}`
+      : `This day deleted in ${product}`;
+  }
   const differences: string[] = [];
   if (issue.found.title !== issue.sent.title) differences.push(`Titled "${issue.found.title}"`);
   if (whenText(issue.found) !== whenText(issue.sent)) differences.push(whenText(issue.found));

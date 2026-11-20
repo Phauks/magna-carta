@@ -2,7 +2,11 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { TRANSFER_PASS_REQUESTED_TOPIC } from "@magna-carta/record-transfer/transfer-requests";
+import { CONFLICTS_TRANSFER_ACCEPTED_TOPIC } from "@magna-carta/conflicts/recheck-cause";
+import {
+  TRANSFER_PASS_REQUESTED_TOPIC,
+  TRANSFER_RUN_ACCEPTED_TOPIC,
+} from "@magna-carta/record-transfer/transfer-requests";
 import {
   perFirmQueue,
   type PerFirmQueueMessage,
@@ -27,6 +31,7 @@ const CARDS = ["Id,First,Last", "c-1,Ada,Lovelace", "c-2,Byron,Lovelace", "c-3,,
 let firmId: FirmId;
 let ownerCookie: string;
 let attorneyCookie: string;
+let ownerUserId: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -36,6 +41,7 @@ beforeAll(async () => {
     userName: "Transfer Owner",
     firmId,
   });
+  ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "Transfer Owner", firmId);
   ownerCookie = await signInForSessionCookie("transfer-owner@example.com");
   const attorney = await seedCredentialedUser("transfer-attorney@example.com", {
@@ -89,13 +95,17 @@ const personPass = (fileId: string, rules: unknown = { given: "First", family: "
   rules,
 });
 
-async function deliver(passId: string): Promise<"acked" | "retried"> {
+function deliver(passId: string): Promise<"acked" | "retried"> {
+  return deliverMessage(TRANSFER_PASS_REQUESTED_TOPIC, { transferPassId: passId });
+}
+
+async function deliverMessage(topic: string, payload: unknown): Promise<"acked" | "retried"> {
   let outcome: "acked" | "retried" | null = null;
   const body: PerFirmQueueMessage = {
     id: newIdentifier("outbox"),
     firmId,
-    topic: TRANSFER_PASS_REQUESTED_TOPIC,
-    payload: JSON.stringify({ transferPassId: passId }),
+    topic,
+    payload: JSON.stringify(payload),
     aggregateKey: null,
     seq: null,
   };
@@ -328,5 +338,315 @@ describe("a record transfer over its routes", () => {
         .bind(runId)
         .first<{ n: number }>(),
     ).toEqual({ n: 0 });
+  });
+});
+
+describe("finishing a transfer run", () => {
+  const get = (url: string, cookie = ownerCookie) => SELF.fetch(url, { headers: { cookie } });
+  const post = (url: string, key: string = crypto.randomUUID()) =>
+    SELF.fetch(url, {
+      method: "POST",
+      headers: { cookie: ownerCookie, origin: "https://example.com", "Idempotency-Key": key },
+    });
+
+  const MAPPING = {
+    recordKind: "matter",
+    sourceKind: "matter",
+    delimiter: "comma",
+    assignments: { Number: { holds: "number", referenceSourceKind: "card", role: "" } },
+    dateOrder: "",
+    timeZone: "Australia/Sydney",
+    addressCountry: "",
+    matterTypes: { FAM: "" },
+    members: {},
+    otherwiseMember: "",
+  };
+
+  function save(runId: string, fileId: string, mapping: unknown): Promise<Response> {
+    return SELF.fetch(`${BASE}/${runId}/files/${fileId}/mapping`, {
+      method: "PUT",
+      headers: {
+        cookie: ownerCookie,
+        origin: "https://example.com",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ mapping }),
+    });
+  }
+
+  it("keeps the mapping a person is working on, replaced whole on each save", async () => {
+    const runId = await startRun("Mapping");
+    const fileId = await giveFile(runId, `${CARDS}c-20,Mary,Shelley\n`);
+    const url = `${BASE}/${runId}/files/${fileId}/mapping`;
+    expect(await (await get(url)).json()).toEqual({ saved: null });
+
+    const saved = await save(runId, fileId, MAPPING);
+    expect(saved.status).toBe(200);
+    expect(await (await get(url)).json()).toEqual({
+      saved: { mapping: MAPPING, savedBy: ownerUserId, savedAt: expect.any(String) },
+    });
+    await save(runId, fileId, { ...MAPPING, dateOrder: "day-month-year" });
+    const read = await (await get(url)).json<{ saved: { mapping: { dateOrder: string } } }>();
+    expect(read.saved.mapping.dateOrder).toBe("day-month-year");
+
+    // A mapping is a declared shape: anything else is refused, so a row of a file cannot ride in it.
+    expect((await save(runId, fileId, { ...MAPPING, rows: [["Ada"]] })).status).toBe(422);
+    expect((await get(url, attorneyCookie)).status).toBe(403);
+    const stored = await env.R2.get(`transfers/${runId}/mappings/${fileId}.json`);
+    expect(stored?.customMetadata?.object_class).toBe("transfer-file-mapping");
+  });
+
+  it("answers the different values of a column with the rows that use each", async () => {
+    const runId = await startRun("Values");
+    const fileId = await giveFile(runId, "Number,Type\nM-1,FAM\nM-2,WIL\nM-3, FAM\nM-4,\n");
+    const url = `${BASE}/${runId}/files/${fileId}/column-values`;
+    expect(await (await get(`${url}?column=Type`)).json()).toEqual({
+      values: [
+        { value: "FAM", rowCount: 2 },
+        { value: "WIL", rowCount: 1 },
+      ],
+      rowsWithValue: 3,
+      rowsRead: 4,
+      truncated: false,
+    });
+    expect((await get(`${url}?column=Kind`)).status).toBe(422);
+    expect((await get(`${url}?column=Type`, attorneyCookie)).status).toBe(403);
+  });
+
+  it("gives the rejected rows back as a file, accepts the run once and asks for the conflicts checks", async () => {
+    const runId = await startRun("Cutover");
+    const cards = await giveFile(runId, `${CARDS}c-30,Jane,Austen\n`);
+    const asked = await SELF.fetch(`${BASE}/${runId}/passes`, json(ownerCookie, personPass(cards)));
+    const { pass } = await asked.json<PassBody>();
+    const rejectedUrl = `${BASE}/${runId}/passes/${pass.id}/rejected-rows`;
+    expect((await get(rejectedUrl)).status).toBe(409);
+
+    // A pass that has not run holds the run open.
+    expect((await post(`${BASE}/${runId}/accept`)).status).toBe(409);
+    await deliver(pass.id);
+
+    const rejected = await get(rejectedUrl);
+    expect(rejected.status).toBe(200);
+    expect(rejected.headers.get("content-type")).toContain("text/csv");
+    expect(rejected.headers.get("content-disposition")).toBe(
+      `attachment; filename="rejected-rows-${pass.id}.csv"`,
+    );
+    expect(await rejected.text()).toBe("Not Brought In Because,Id,First,Last\r\nnoName,c-3,,\r\n");
+
+    const matters = await giveFile(
+      runId,
+      "Number,Title,Opened,Closed\nM-100,Estate of Austen,01/02/2020,\nM-101,Old Lease,01/02/2019,03/04/2019\n",
+    );
+    const matterPass = await SELF.fetch(
+      `${BASE}/${runId}/passes`,
+      json(ownerCookie, {
+        recordKind: "matter",
+        fileId: matters,
+        sourceKind: "matter",
+        keyColumn: "Number",
+        rules: {
+          title: "Title",
+          number: "Number",
+          openedDate: "Opened",
+          closedDate: "Closed",
+          dateOrder: "day-month-year",
+          timeZone: "Australia/Sydney",
+          responsibleMember: { members: {}, otherwise: ownerUserId },
+        },
+      }),
+    );
+    expect(matterPass.status).toBe(202);
+    const matterPassId = (await matterPass.json<PassBody>()).pass.id;
+    await deliver(matterPassId);
+    const read = await get(`${BASE}/${runId}/passes/${matterPassId}`);
+    expect((await read.json<PassBody>()).pass.counts).toMatchObject({ created: 2 });
+    // Nothing asked for a check while the matters were arriving.
+    const requests = () =>
+      database()
+        .prepare(
+          "SELECT matter.matter_number AS number FROM conflicts_recheck_request AS request JOIN matter ON matter.id = request.matter_id WHERE request.cause_reference = ?1",
+        )
+        .bind(runId)
+        .all<{ number: string }>();
+    expect((await requests()).results).toEqual([]);
+
+    const key = crypto.randomUUID();
+    const accepted = await post(`${BASE}/${runId}/accept`, key);
+    expect(accepted.status).toBe(200);
+    const body = await accepted.json<{ run: { completedAt: string | null } }>();
+    expect(body.run.completedAt).not.toBeNull();
+    const replayed = await post(`${BASE}/${runId}/accept`, key);
+    expect(await replayed.json()).toEqual(body);
+    // Asked again with a new key, the run is answered as it stands; the other ending is refused.
+    expect((await post(`${BASE}/${runId}/accept`)).status).toBe(200);
+    expect((await post(`${BASE}/${runId}/abandon`)).status).toBe(409);
+    expect((await upload(runId, "Id\nz-1\n")).status).toBe(409);
+    expect((await save(runId, cards, MAPPING)).status).toBe(409);
+
+    const queued = await database()
+      .prepare("SELECT payload FROM outbox WHERE topic = ?1 AND payload LIKE ?2")
+      .bind(TRANSFER_RUN_ACCEPTED_TOPIC, `%${runId}%`)
+      .all<{ payload: string }>();
+    expect(queued.results).toHaveLength(1);
+    expect(
+      await deliverMessage(TRANSFER_RUN_ACCEPTED_TOPIC, JSON.parse(queued.results[0]!.payload)),
+    ).toBe("acked");
+    // The open matter is asked about; the closed one is not. A second delivery adds nothing.
+    expect((await requests()).results).toEqual([{ number: "M-100" }]);
+    await deliverMessage(TRANSFER_RUN_ACCEPTED_TOPIC, { transferRunId: runId });
+    expect((await requests()).results).toHaveLength(1);
+  });
+
+  it("stops a run without asking for anything, and keeps what arrived", async () => {
+    const runId = await startRun("Stopped");
+    const stopped = await post(`${BASE}/${runId}/abandon`);
+    expect(stopped.status).toBe(200);
+    const body = await stopped.json<{ run: { abandonedAt: string | null; completedAt: null } }>();
+    expect(body.run.abandonedAt).not.toBeNull();
+    expect(body.run.completedAt).toBeNull();
+    expect((await post(`${BASE}/${runId}/accept`)).status).toBe(409);
+    const queued = await database()
+      .prepare("SELECT payload FROM outbox WHERE topic = ?1 AND payload LIKE ?2")
+      .bind(TRANSFER_RUN_ACCEPTED_TOPIC, `%${runId}%`)
+      .all();
+    expect(queued.results).toEqual([]);
+  });
+
+  it("spells the accepted-run topic the way the conflicts check knows it", () => {
+    expect(CONFLICTS_TRANSFER_ACCEPTED_TOPIC).toBe(TRANSFER_RUN_ACCEPTED_TOPIC);
+  });
+});
+
+describe("a source file given in pieces", () => {
+  const headers = () => ({ cookie: ownerCookie, origin: "https://example.com" });
+  // The bucket takes pieces of five mebibytes or more, the last excepted.
+  const FIRST_PIECE_BYTES = 5 * 1024 * 1024;
+
+  function table(): Uint8Array {
+    const lines = ["Id,First,Last"];
+    let length = lines[0]!.length + 1;
+    for (let row = 1; length < FIRST_PIECE_BYTES + 2000; row += 1) {
+      const line = `p-${row},Given${row},Family${row}`;
+      lines.push(line);
+      length += line.length + 1;
+    }
+    return new TextEncoder().encode(`${lines.join("\n")}\n`);
+  }
+
+  async function start(runId: string): Promise<{ fileId: string; uploadId: string }> {
+    const response = await SELF.fetch(`${BASE}/${runId}/file-uploads`, {
+      method: "POST",
+      headers: headers(),
+    });
+    expect(response.status).toBe(201);
+    return response.json();
+  }
+
+  async function sendPart(
+    runId: string,
+    upload: { fileId: string; uploadId: string },
+    partNumber: number,
+    bytes: Uint8Array,
+  ): Promise<Response> {
+    return SELF.fetch(
+      `${BASE}/${runId}/file-uploads/${upload.fileId}/parts/${partNumber}?uploadId=${encodeURIComponent(upload.uploadId)}`,
+      {
+        method: "PUT",
+        headers: { ...headers(), "content-type": "application/octet-stream" },
+        body: bytes,
+      },
+    );
+  }
+
+  function complete(
+    runId: string,
+    upload: { fileId: string; uploadId: string },
+    parts: unknown[],
+  ): Promise<Response> {
+    return SELF.fetch(`${BASE}/${runId}/file-uploads/${upload.fileId}/complete`, {
+      method: "POST",
+      headers: { ...headers(), "content-type": "application/json" },
+      body: JSON.stringify({
+        uploadId: upload.uploadId,
+        fileName: "People.csv",
+        sourceKind: "card-list",
+        parts,
+      }),
+    });
+  }
+
+  async function give(runId: string, bytes: Uint8Array) {
+    const upload = await start(runId);
+    const parts = [];
+    for (const [index, piece] of [
+      bytes.subarray(0, FIRST_PIECE_BYTES),
+      bytes.subarray(FIRST_PIECE_BYTES),
+    ].entries()) {
+      const sent = await sendPart(runId, upload, index + 1, piece);
+      expect(sent.status).toBe(200);
+      parts.push((await sent.json<{ part: unknown }>()).part);
+    }
+    return { upload, parts };
+  }
+
+  it("joins the pieces into one file with the digest of the whole, and takes the same bytes once", async () => {
+    const runId = await startRun("Tables");
+    const bytes = table();
+    const { upload, parts } = await give(runId, bytes);
+    // No file is in the run until the upload is completed.
+    const before = await SELF.fetch(`${BASE}/${runId}`, { headers: headers() });
+    expect((await before.json<{ files: unknown[] }>()).files).toEqual([]);
+
+    const done = await complete(runId, upload, parts);
+    expect(done.status).toBe(201);
+    const { file } = await done.json<{
+      file: { id: string; byteLength: number; contentSha256: string; fileName: string };
+    }>();
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const expected = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    expect(file).toMatchObject({
+      id: upload.fileId,
+      byteLength: bytes.byteLength,
+      contentSha256: expected,
+      fileName: "People.csv",
+    });
+    const stored = await env.R2.get(`transfers/${runId}/${upload.fileId}`);
+    expect(stored?.size).toBe(bytes.byteLength);
+    expect(stored?.customMetadata?.object_class).toBe("transfer-source-file");
+
+    // The completion delivered again answers the same file.
+    const again = await complete(runId, upload, parts);
+    expect(again.status).toBe(201);
+    expect((await again.json<{ file: { id: string } }>()).file.id).toBe(upload.fileId);
+
+    // The same bytes given again, in pieces, are refused and nothing is kept.
+    const second = await give(runId, bytes);
+    expect((await complete(runId, second.upload, second.parts)).status).toBe(409);
+    expect(await env.R2.get(`transfers/${runId}/${second.upload.fileId}`)).toBeNull();
+
+    const preview = await SELF.fetch(`${BASE}/${runId}/files/${upload.fileId}/preview`, {
+      headers: headers(),
+    });
+    expect((await preview.json<{ columns: string[] }>()).columns).toEqual(["Id", "First", "Last"]);
+  });
+
+  it("refuses a piece for an upload it does not know, and a member without the permission", async () => {
+    const runId = await startRun("Tables 2");
+    const upload = await start(runId);
+    const stray = await sendPart(
+      runId,
+      { fileId: upload.fileId, uploadId: "not-an-upload" },
+      1,
+      new Uint8Array([65]),
+    );
+    expect(stray.status).toBe(409);
+    expect((await complete(runId, upload, [{ partNumber: 1, etag: "nothing" }])).status).toBe(409);
+    const refused = await SELF.fetch(`${BASE}/${runId}/file-uploads`, {
+      method: "POST",
+      headers: { cookie: attorneyCookie, origin: "https://example.com" },
+    });
+    expect(refused.status).toBe(403);
   });
 });

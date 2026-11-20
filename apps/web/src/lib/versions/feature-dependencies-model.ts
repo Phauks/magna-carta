@@ -157,6 +157,14 @@ export const FEATURE_OUTSIDE_SERVICES: Record<string, readonly OutsideService[]>
   aiTextDetection: [
     { name: "Pangram", liveCheck: null, settings: ["PANGRAM_API_KEY"], noLiveCheckReason: BILLED },
   ],
+  translation: [
+    {
+      name: "Google Cloud Translation",
+      liveCheck: null,
+      settings: ["GOOGLE_TRANSLATE_API_KEY"],
+      noLiveCheckReason: BILLED,
+    },
+  ],
   modelAvailabilityCheck: [
     {
       name: "Anthropic",

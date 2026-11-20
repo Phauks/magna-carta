@@ -3,12 +3,20 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { sendMessage } from "../email-delivery.ts";
 import type { SendEmail } from "../email-port.ts";
-import { hashSignerSecret, mintSignerLink, signerLinkSecret } from "./signer-link.ts";
+import {
+  SIGNED_COPY_LIFETIME_DAYS,
+  hashSignerSecret,
+  mintSignedCopyLink,
+  mintSignerLink,
+  signerLinkSecret,
+} from "./signer-link.ts";
 import { setSignerLinkStatement } from "./signer-statements.ts";
 import {
+  SIGNING_COMPLETED_MESSAGE_CLASS,
   SIGNING_REMINDER_MESSAGE_CLASS,
   SIGNING_REQUEST_MESSAGE_CLASS,
   lastDayOf,
+  signedCopyEmail,
   signingReminderEmail,
   signingRequestEmail,
 } from "./signing-mail.ts";
@@ -104,4 +112,49 @@ export async function mailSigners(
     if (!delivery.delivered) failed += 1;
   }
   return { failed };
+}
+
+/**
+ * Mail each outside signer the link to the signed copy, once the request is sealed. A colleague
+ * finds the signed copy in the app. A failed delivery is recorded by the delivery guard and changes
+ * nothing: the copy is filed either way, and the firm can send it by hand.
+ */
+export async function mailSignedCopies(
+  mailing: SignerMailing,
+  request: SigningRequestRow & { readonly sealedAt: string },
+  signers: readonly SigningSignerRow[],
+): Promise<{ readonly mailed: number; readonly failed: number }> {
+  let mailed = 0;
+  let failed = 0;
+  const until = new Date(
+    Date.parse(request.sealedAt) + SIGNED_COPY_LIFETIME_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  for (const signer of outside(signers)) {
+    if (signer.status !== "signed") continue;
+    const token = await mintSignedCopyLink(mailing.key, {
+      firmId: mailing.firmId,
+      requestId: request.id,
+      signerId: signer.id,
+      secretVersion: signer.secretVersion,
+      sealedAt: request.sealedAt,
+    });
+    const { subject, text } = signedCopyEmail({
+      firmName: mailing.firmName,
+      senderName: mailing.senderName,
+      title: request.title,
+      linkWorksUntil: lastDayOf(until),
+      origin: mailing.origin,
+      token,
+    });
+    const delivery = await sendMessage({
+      send: mailing.send,
+      surface: "signing.signers",
+      ...(mailing.logger === undefined ? {} : { logger: mailing.logger }),
+      ...(mailing.correlationId === undefined ? {} : { correlationId: mailing.correlationId }),
+      message: { to: signer.email, subject, text, messageClass: SIGNING_COMPLETED_MESSAGE_CLASS },
+    });
+    if (delivery.delivered) mailed += 1;
+    else failed += 1;
+  }
+  return { mailed, failed };
 }

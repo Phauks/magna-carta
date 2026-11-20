@@ -88,10 +88,10 @@
   });
   $effect(() => {
     if (!navigated || resourceId === null) return;
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (url.searchParams.get(RESOURCE_KEY) === resourceId) return;
     url.searchParams.set(RESOURCE_KEY, resourceId);
-    void goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+    void goto(url, { replace: true, reset: false });
   });
 </script>
 

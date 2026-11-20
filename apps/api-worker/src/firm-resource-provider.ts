@@ -192,6 +192,13 @@ const LIFECYCLE_RULES: readonly BucketLifecycleRule[] = [
     prefix: FILES_NOTIFICATION_PREFIX,
     abortIncompleteUploadsAfterSeconds: FILES_ABANDONED_UPLOAD_LIFETIME_SECONDS,
   },
+  // A record transfer's source files, reports and mappings: never expired, only the pieces of a
+  // large source file whose upload nobody completed reclaimed.
+  {
+    id: "abort-abandoned-transfer-uploads",
+    prefix: "transfers/",
+    abortIncompleteUploadsAfterSeconds: FILES_ABANDONED_UPLOAD_LIFETIME_SECONDS,
+  },
 ];
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
