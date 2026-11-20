@@ -23,10 +23,9 @@ import {
  * which is the project someone would open in the dashboard to act on the row — and it is the only
  * name a row carries: the overlay shows the deployed unit itself, never an invented product name
  * for it. A fleet worker with no service binding here still appears, as an honest "unbound" row
- * (`magna-carta-email` and `magna-carta-community` today: binding a worker not yet on the account
+ * (`magna-carta-email` today: binding a worker not yet on the account
  * fails this worker's deploy, so the binding line lands after that worker's first deploy). */
 export const SERVICE_VERSION_ROSTER = [
-  { id: "address", service: "magna-carta-address", binding: "ADDRESS_SERVICE" },
   { id: "bundle", service: "magna-carta-bundle", binding: "BUNDLE_SERVICE" },
   { id: "community", service: "magna-carta-community", binding: "COMMUNITY_SERVICE" },
   { id: "convert", service: "magna-carta-convert", binding: "CONVERT" },
