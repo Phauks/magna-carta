@@ -23,6 +23,7 @@
     "./close-precondition": "./src/close-precondition.ts",
     "./bank-statements": "./src/bank-statements.ts",
     "./statement-import": "./src/statement-import.ts",
+    "./statement-reading": "./src/statement-reading.ts",
     "./reconciliation": "./src/reconciliation.ts",
     "./three-way-proof": "./src/three-way-proof.ts",
     "./matching": "./src/matching.ts",
