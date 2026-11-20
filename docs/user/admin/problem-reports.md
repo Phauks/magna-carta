@@ -13,12 +13,12 @@ the page they were on, any Error ID, the app version, and the last steps they to
 
 Choose a **Status** and, if you like, write a **Note** to the sender, then press **Save and Notify**.
 
-| Status          | Means                                                       |
-| --------------- | ----------------------------------------------------------- |
-| Received        | The report arrived and nobody has answered it yet.           |
-| Looking Into It | Somebody is working on it.                                   |
+| Status          | Means                                                                |
+| --------------- | -------------------------------------------------------------------- |
+| Received        | The report arrived and nobody has answered it yet.                   |
+| Looking Into It | Somebody is working on it.                                           |
 | Fixed           | It is fixed. Say in the note what the sender should do, if anything. |
-| Closed          | Done without a fix. Say why in the note.                     |
+| Closed          | Done without a fix. Say why in the note.                             |
 
 The sender gets a notification with the new status. The note is not in the notification; they read
 it on their report under **My Reports**. The note is stored encrypted.
