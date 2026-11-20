@@ -5228,7 +5228,7 @@ export type SearchAcrossMattersGroup = {
     matchedFields: Array<string>;
     hits: Array<SearchAcrossMattersHit>;
     hasMore: boolean;
-    skipped: 'one-matter-only' | 'too-many-matters' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
+    skipped: 'one-matter-only' | 'too-many-matters' | 'no-author' | 'permission' | 'query-too-short' | 'engine-unavailable' | 'engine-not-connected' | 'not-indexed' | null;
 };
 
 export type SearchAcrossMattersHit = {
@@ -28643,8 +28643,12 @@ export type SearchAcrossMattersData = {
         q: string;
         in?: string | Array<string>;
         limit?: number;
+        from?: string;
+        to?: string;
         mine?: 'true';
         clientEntityId?: string;
+        matterId?: string | Array<string>;
+        by?: string;
     };
     url: '/api/v1/search';
 };
@@ -53398,6 +53402,10 @@ export type TrustAttachBankReconciliationFileErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The malware-scan engine did not answer; nothing was kept
+     */
+    503: Problem;
 };
 
 export type TrustAttachBankReconciliationFileError = TrustAttachBankReconciliationFileErrors[keyof TrustAttachBankReconciliationFileErrors];

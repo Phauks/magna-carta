@@ -1,7 +1,7 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import type { MatterId } from "@magna-carta/identifiers/types";
+import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import type { MatterFileContentsSearcher } from "../file-contents.ts";
 import type {
   AcrossMattersSkipReason,
@@ -139,6 +139,24 @@ export interface AcrossMattersSearchRequest {
   // How a source reaches the index of the words inside files, which lives outside the firm's
   // database. Supplied by the application; absent wherever nothing supplied one.
   readonly fileContents?: MatterFileContentsSearcher | null;
+  // The days the reader asked about, or absent for any day. Applied by the across-matters builder
+  // to the date each place is listed by, before the limit (build.ts).
+  readonly dates?: SearchDateRange;
+  // The member who wrote, logged or recorded a row, or absent for anyone. Applied by the
+  // across-matters builder to the row's acting member, before the limit (build.ts). Only a place
+  // that records who acted is asked: the runner reports the rest as `no-author`.
+  readonly actorUserId?: UserId;
+}
+
+// A range of days a search across matters is held to: on or after `from`, and before `before`.
+// Both are civil dates (YYYY-MM-DD) and either may be absent. `before` is exclusive, so a whole
+// last day is "before the day after it", which is the one comparison that holds for a place
+// listed by a day (a time entry's work date) and a place listed by a moment (a call's instant)
+// alike: both compare as text against a day's first characters. A moment is held to its day in
+// UTC, the day it is stored in.
+export interface SearchDateRange {
+  readonly from?: string;
+  readonly before?: string;
 }
 
 // HOW A SOURCE ANSWERS ACROSS MATTERS, declared separately from how it answers inside one.
@@ -168,6 +186,10 @@ export interface AcrossMattersDeclaration {
   // a number by scanning its table inside a matter matches only its words here.
   readonly matchedFields: readonly string[];
   readonly buildStatements: (request: AcrossMattersSearchRequest) => readonly SqlStatement[];
+  // True where every row names the member who wrote, logged or recorded it, so a search held to
+  // one person can ask this place. A place that records nobody is reported as `no-author` instead
+  // of answering as though it had been asked.
+  readonly recordsAuthor?: boolean;
   // Declared only by a source that must ask something outside the firm's database first, as
   // `prepare` is on the source itself. When it is present the runner calls it INSTEAD of
   // `buildStatements`, and the statements it answers with are held to the visible-matter predicate

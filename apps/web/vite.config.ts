@@ -1,4 +1,6 @@
+import adapter from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type PluginOption, type Rollup } from "vite-plus";
 import {
@@ -55,7 +57,32 @@ const PRODUCTION_OUTPUT: Rollup.OutputOptions = {
 // them structurally runs the type-checker past its depth limit ("excessive stack depth"), so the
 // array is asserted to the vite-plus type rather than compared.
 const PLUGINS = (runningInPackageDir
-  ? [tailwindcss(), sveltekit()]
+  ? [
+      tailwindcss(),
+      // SvelteKit's own configuration. SvelteKit 3 reads it from the plugin and refuses a
+      // svelte.config.js, so this is its one home.
+      sveltekit({
+        preprocess: vitePreprocess(),
+        adapter: adapter({ fallback: "index.html", pages: "build", assets: "build" }),
+        // SvelteKit 3 no longer provides `$lib` itself (it moved to `#lib` subpath imports). The app
+        // imports through `$lib` everywhere, so the alias is declared rather than every import
+        // rewritten.
+        alias: { $lib: "src/lib" },
+        version: {
+          // Each build is named by its commit, so SvelteKit's version poll can tell a running tab
+          // that a newer deployment is live ($app/state `updated`: the version chip renders the
+          // notice). The commit rather than the default timestamp: two builds of the same commit
+          // are the same bytes and must not raise an update; a build that cannot name its commit
+          // falls back to the timestamp, which errs toward announcing a deploy rather than staying
+          // silent about one. The commit is the resolveCommitIdentity() answer above.
+          name: commitIdentity.commit ?? new Date().toISOString(),
+          // How often a running tab compares itself against the deployment (milliseconds). One
+          // minute matches the API's own version-aggregate cache: fast enough that a member sees
+          // the notice within the deploy's settling time, slow enough to cost nothing.
+          pollInterval: 60_000,
+        },
+      }),
+    ]
   : []) as unknown as PluginOption[];
 
 export default defineConfig({
