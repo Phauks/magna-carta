@@ -491,7 +491,7 @@ describe("one of the reader's own events from their connected account", () => {
     endsAt: "2026-11-12T16:30:00.000Z",
   };
 
-  it("paints its own title at the reader's hour, and opens nowhere", () => {
+  it("paints its own title at the reader's hour, and carries the event its window opens on", () => {
     // The context's reader is in New York, five hours behind UTC in November.
     expect(entryFromOwnAccountEvent(own, context)).toMatchObject({
       id: "other:ownAccount:microsoft:own-1",

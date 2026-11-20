@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3baf7200-a4cc-46ec-a14d-3ddcef6d9e59",
+  "id": "02837e43-5de6-4add-91ba-42cae3f72705",
   "prevId": "79f9f313-3042-42d0-8090-645a7e9807e2",
   "tables": {
     "account_balance": {
@@ -1151,6 +1151,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "adopted": {
+          "name": "adopted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -6424,89 +6432,6 @@
         }
       }
     },
-    "directory_entity_referral": {
-      "name": "directory_entity_referral",
-      "columns": {
-        "entity_id": {
-          "name": "entity_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_id": {
-          "name": "source_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "referrer_entity_id": {
-          "name": "referrer_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "directory_entity_referral_source_id_index": {
-          "name": "directory_entity_referral_source_id_index",
-          "columns": [
-            "source_id"
-          ],
-          "isUnique": false
-        },
-        "directory_entity_referral_referrer_entity_id_index": {
-          "name": "directory_entity_referral_referrer_entity_id_index",
-          "columns": [
-            "referrer_entity_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "directory_entity_referral_source_id_directory_referral_source_id_fk": {
-          "name": "directory_entity_referral_source_id_directory_referral_source_id_fk",
-          "tableFrom": "directory_entity_referral",
-          "tableTo": "directory_referral_source",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "directory_entity_referral_states_something_check": {
-          "name": "directory_entity_referral_states_something_check",
-          "value": "\"directory_entity_referral\".\"source_id\" IS NOT NULL OR \"directory_entity_referral\".\"referrer_entity_id\" IS NOT NULL"
-        },
-        "directory_entity_referral_not_self_check": {
-          "name": "directory_entity_referral_not_self_check",
-          "value": "\"directory_entity_referral\".\"referrer_entity_id\" IS NULL OR \"directory_entity_referral\".\"referrer_entity_id\" <> \"directory_entity_referral\".\"entity_id\""
-        }
-      }
-    },
     "directory_identifier": {
       "name": "directory_identifier",
       "columns": {
@@ -7418,69 +7343,6 @@
         "directory_phone_contact_preferred_check": {
           "name": "directory_phone_contact_preferred_check",
           "value": "\"directory_phone\".\"contact_preferred\" IN (0, 1)"
-        }
-      }
-    },
-    "directory_referral_source": {
-      "name": "directory_referral_source",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "archived": {
-          "name": "archived",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "directory_referral_source_name_nonempty_check": {
-          "name": "directory_referral_source_name_nonempty_check",
-          "value": "length(\"directory_referral_source\".\"name\") > 0"
-        },
-        "directory_referral_source_archived_check": {
-          "name": "directory_referral_source_archived_check",
-          "value": "\"directory_referral_source\".\"archived\" IN (0, 1)"
         }
       }
     },

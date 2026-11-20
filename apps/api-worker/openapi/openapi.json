@@ -33475,6 +33475,117 @@
           "meetingId"
         ]
       },
+      "CreateMatterEventFromAccountRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CreateMatterEventRequest"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "fromAccountEvent": {
+                "$ref": "#/components/schemas/FromAccountEvent"
+              }
+            }
+          }
+        ]
+      },
+      "MatterEventParticipantInput": {
+        "type": "object",
+        "properties": {
+          "participantKind": {
+            "type": "string",
+            "enum": [
+              "member",
+              "entity",
+              "external"
+            ]
+          },
+          "memberUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "entityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "participantName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "participantKind"
+        ]
+      },
+      "CalendarEventMeetingInput": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "medium": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio"
+            ]
+          },
+          "lobby": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on"
+            ],
+            "default": "off"
+          }
+        },
+        "required": [
+          "medium"
+        ]
+      },
+      "FromAccountEvent": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "microsoft",
+              "google"
+            ],
+            "description": "Which of the member's accounts holds it."
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "description": "The provider's own identifier for the event."
+          }
+        },
+        "required": [
+          "provider",
+          "id"
+        ],
+        "description": "Names one of the session member's own Outlook or Google events as the one this event is made from. The event in their account is kept and becomes this event's synced copy, so they never see two. It is never deleted or moved by a later sync."
+      },
       "CreateMatterEventRequest": {
         "type": "object",
         "properties": {
@@ -33579,78 +33690,6 @@
           "title",
           "startsOn",
           "timeZone"
-        ]
-      },
-      "MatterEventParticipantInput": {
-        "type": "object",
-        "properties": {
-          "participantKind": {
-            "type": "string",
-            "enum": [
-              "member",
-              "entity",
-              "external"
-            ]
-          },
-          "memberUserId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^user_[A-Za-z0-9_-]{21}$"
-          },
-          "entityId": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "participantName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "role": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 120
-          }
-        },
-        "required": [
-          "participantKind"
-        ]
-      },
-      "CalendarEventMeetingInput": {
-        "type": [
-          "object",
-          "null"
-        ],
-        "properties": {
-          "medium": {
-            "type": "string",
-            "enum": [
-              "video",
-              "audio"
-            ]
-          },
-          "lobby": {
-            "type": "string",
-            "enum": [
-              "off",
-              "on"
-            ],
-            "default": "off"
-          }
-        },
-        "required": [
-          "medium"
         ]
       },
       "CalendarEventUpdatedResponse": {
@@ -110375,7 +110414,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMatterEventRequest"
+                "$ref": "#/components/schemas/CreateMatterEventFromAccountRequest"
               }
             }
           }

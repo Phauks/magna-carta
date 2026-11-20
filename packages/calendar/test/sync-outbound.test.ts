@@ -42,6 +42,7 @@ function link(overrides: Partial<SyncLinkRow> = {}): SyncLinkRow {
     remote_version_tag: "v1",
     agreed_hash: "",
     state: "synced",
+    adopted: 0,
     ...overrides,
   };
 }
