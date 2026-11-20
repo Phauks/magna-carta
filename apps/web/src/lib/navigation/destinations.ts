@@ -46,6 +46,7 @@ import Users from "@lucide/svelte/icons/users";
 import FileText from "@lucide/svelte/icons/file-text";
 import ClipboardPenLine from "@lucide/svelte/icons/clipboard-pen-line";
 import Inbox from "@lucide/svelte/icons/inbox";
+import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
 import Clock from "@lucide/svelte/icons/clock";
 import Coins from "@lucide/svelte/icons/coins";
 import Landmark from "@lucide/svelte/icons/landmark";
@@ -466,6 +467,19 @@ const DESTINATION_LIST = [
     // The register reads: what is held, where, for whom, what is overdue and what is under hold.
     // Logging a packet and recording a movement have no form behind them yet, and each control
     // says so where it stands.
+    stage: "alpha",
+    defaultShown: true,
+  },
+  {
+    // The front desk's record of what is dropped off for somebody and picked up later: copies,
+    // papers, a file handed back. Beside Custodian because a thing on it can be moved there.
+    id: "in-out-log",
+    label: "In/Out Log",
+    href: "/in-out-log",
+    icon: ArrowRightLeft,
+    description: "Copies and papers left at the front desk for someone to pick up.",
+    group: "work",
+    shipped: true,
     stage: "alpha",
     defaultShown: true,
   },

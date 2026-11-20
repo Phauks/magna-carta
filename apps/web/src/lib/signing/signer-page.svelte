@@ -34,7 +34,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { Failure } from "$lib/api/problem.ts";
-  import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
+  import { PdfDocumentSource, fittedZoom, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
   import { pointsToScreen } from "$lib/pdf-editor/redactions.ts";
   import AdoptSignatureDialog, { type AdoptedMarks } from "./adopt-signature-dialog.svelte";
   import {
@@ -201,7 +201,18 @@
   let source: PdfDocumentSource | null = null;
   let pageCanvases = $state<(HTMLCanvasElement | null)[]>([]);
   const painted = new Set<number>();
-  const ZOOM = 1;
+  // The page is drawn once at its full size on this screen, then fitted to the width the reading
+  // column has: on a phone the whole width of a page shows without scrolling sideways, and the
+  // fields over it scale with it. Never larger than the page's own size.
+  let reading = $state<HTMLElement | null>(null);
+  let readingOuterWidth = $state(0);
+  /** The reading column's width inside its padding. */
+  const readingWidth = $derived.by(() => {
+    if (reading === null || readingOuterWidth <= 0) return 0;
+    const style = getComputedStyle(reading);
+    return readingOuterWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  });
+  const zoom = $derived(documentState.kind === "shown" ? fittedZoom(documentState.pages, readingWidth) : 1);
 
   const walking = $derived(view !== null && !view.needsCode && view.consented);
 
@@ -233,7 +244,7 @@
 
   async function paint(canvas: HTMLCanvasElement, index: number): Promise<void> {
     if (source === null) return;
-    const outcome = await source.render(index, renderDpiFor(ZOOM, window.devicePixelRatio));
+    const outcome = await source.render(index, renderDpiFor(1, window.devicePixelRatio));
     if (gone || "failure" in outcome) return;
     const context = canvas.getContext("2d");
     if (context === null) return;
@@ -282,7 +293,7 @@
     const box = pointsToScreen(
       { x0: field.rect[0], y0: field.rect[1], x1: field.rect[2], y1: field.rect[3] },
       page,
-      ZOOM,
+      zoom,
     );
     return `left: ${box.left}px; top: ${box.top}px; width: ${box.width}px; height: ${box.height}px`;
   }
@@ -389,7 +400,7 @@
     {/if}
   {/if}
 
-  <main class="mc-scrollbar min-h-0 flex-1 overflow-auto p-24">
+  <main class="mc-scrollbar min-h-0 flex-1 overflow-auto p-16 sm:p-24" bind:this={reading} bind:clientWidth={readingOuterWidth}>
     <LoadingRegion class="flex w-max min-w-full flex-col items-center" loading={phase.kind === "reading"} label="Reading the document to sign">
       {#snippet fixture()}
         <AuthPanel title={sampleMatter(0).title}>
@@ -485,7 +496,7 @@
         {:else if documentState.kind === "shown"}
           <div class="flex flex-col items-center gap-24">
             {#each documentState.pages as page, index (index)}
-              {@const display = pageDisplaySize(page, ZOOM)}
+              {@const display = pageDisplaySize(page, zoom)}
               <div
                 class="relative flex-none border border-border-default bg-surface-raised"
                 style="width: {display.width}px; height: {display.height}px"

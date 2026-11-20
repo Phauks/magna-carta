@@ -66,6 +66,8 @@
     open = $bindable(false),
     locations,
     matterId = null,
+    heading = "New Packet",
+    prefill = null,
     onCreated,
     onLocationsAdded,
   }: {
@@ -74,6 +76,17 @@
     locations: readonly CustodyLocationNode[];
     /** The matter this packet is being logged against, where the form was opened from one. */
     matterId?: string | null;
+    /** The window's title. Move to Custodian opens this same window under its own name. */
+    heading?: string;
+    /**
+     * What the window starts with, where it was opened from something that already says it (an
+     * In/Out Log entry being moved to Custodian). Everything stays editable.
+     */
+    prefill?: {
+      name: string;
+      owners: readonly { entityId: string; displayName: string }[];
+      notes: string;
+    } | null;
     onCreated: (created: CreatedCustodyPacket) => void;
     /** Containers the form added on the way, so the screen's tree holds them without a re-read. */
     onLocationsAdded: (added: readonly CustodyLocationNode[]) => void;
@@ -174,7 +187,17 @@
   }
 
   function reset(): void {
-    draft = { ...EMPTY_PACKET_DRAFT, matterId };
+    draft = {
+      ...EMPTY_PACKET_DRAFT,
+      matterId,
+      ...(prefill === null
+        ? {}
+        : {
+            name: prefill.name,
+            notes: prefill.notes,
+            owners: prefill.owners.map((owner) => ({ ...owner, ownershipRole: "" })),
+          }),
+    };
     depositorName = null;
     carriedIn = false;
     failure = null;
@@ -220,7 +243,7 @@
 
 <ActionDialog
   bind:open
-  heading="New Packet"
+  {heading}
   {subtitle}
   commitLabel="Save"
   commitBusyLabel="Saving"
