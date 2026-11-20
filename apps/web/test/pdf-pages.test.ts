@@ -13,6 +13,7 @@ import {
 import {
   PDF_BASE_DPI,
   PDF_MAX_DPI,
+  fittedZoom,
   pageDisplaySize,
   pdfWorkerAvailable,
   renderDpiFor,
@@ -162,5 +163,22 @@ describe("the engine the worker draws with", () => {
       userPassword: "open",
     });
     await expect(decryptDocument(pdf, "not it")).rejects.toBeInstanceOf(WrongPasswordError);
+  });
+});
+
+describe("fitting pages to a width", () => {
+  const letter = { widthPt: 612, heightPt: 792 };
+  const wide = { widthPt: 792, heightPt: 612 };
+
+  it("fits the widest page into a phone's width", () => {
+    const zoom = fittedZoom([letter, wide], 358);
+    expect(pageDisplaySize(wide, zoom).width).toBeLessThanOrEqual(358);
+    expect(pageDisplaySize(wide, zoom).width).toBeGreaterThan(355);
+  });
+
+  it("never draws a page past its own size, and reads an unmeasured width as full size", () => {
+    expect(fittedZoom([letter], 4000)).toBe(1);
+    expect(fittedZoom([letter], 0)).toBe(1);
+    expect(fittedZoom([], 300)).toBe(1);
   });
 });
