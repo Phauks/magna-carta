@@ -93,11 +93,10 @@ const SegmentKindSchema = z.enum([
   "client_name",
 ]);
 
-// Which of the firm's sequences a request is about — every one of them, since the owner's ruling of
-// 2026-09-19 that the last three fixed runs become the firm's to shape too. Absent means the matter
-// number: the surface predates the others, and a caller that says nothing means what it always
-// meant. The tuple is spelled here for the OpenAPI document; the register is what it has to agree
-// with, and the assignment below fails to compile if the two ever drift.
+// Which of the firm's sequences a request is about: every one of them, since the owner's ruling of
+// 2026-09-19. Absent means the matter number, because the surface predates the others. The tuple is
+// spelled here for the OpenAPI document; the register is what it has to agree with, and the
+// assignment below fails to compile if the two ever drift.
 const SCHEME_PURPOSES = [
   "matter",
   "consultation",
@@ -107,6 +106,7 @@ const SCHEME_PURPOSES = [
   "invoice",
   "time_entry",
   "communication",
+  "in_out_entry",
 ] as const satisfies readonly SchemeNumberingPurpose[];
 const registerAgreesWithContract: readonly (typeof SCHEME_PURPOSES)[number][] =
   [] as SchemeNumberingPurpose[];
