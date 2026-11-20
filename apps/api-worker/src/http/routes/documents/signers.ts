@@ -11,26 +11,18 @@ import type {
   SigningSignerId,
 } from "@magna-carta/identifiers/types";
 import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions";
-import { maskedNumber } from "@magna-carta/signing/signer-checks";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { constantTimeStringEquals } from "../../../constant-time.ts";
-import { sendMessage } from "../../../email-delivery.ts";
 import type { SendEmail } from "../../../email-port.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
 import { SigningRequestRefusal, readRequestDetail } from "../../../signing/request-service.ts";
-import {
-  MAXIMUM_MARK_BYTES,
-  maskedAddress,
-  signerViewBody,
-} from "../../../signing/signer-contract.ts";
+import { MAXIMUM_MARK_BYTES, signerViewBody } from "../../../signing/signer-contract.ts";
 import { linkStatements, mailSigners } from "../../../signing/signer-delivery.ts";
 import { hashAccessCode, newAccessCode } from "../../../signing/signer-link.ts";
-import { resolveTextMessagePort } from "../../../signing/signer-check-settings.ts";
-import { textAccessCode } from "../../../signing/signer-text.ts";
+import { deliverAccessCode } from "../../../signing/access-code-delivery.ts";
 import { signerLinkRefusal, signerLinkRefusalFor } from "../../../signing/signer-refusals.ts";
 import {
-  ACCESS_CODE_LIFETIME_MINUTES,
   SignerStepRefusal,
   adoptSignature,
   checkAccessCode,
@@ -44,11 +36,6 @@ import {
   type Observed,
   type SignerView,
 } from "../../../signing/signer-service.ts";
-import {
-  SIGNING_ACCESS_CODE_MESSAGE_CLASS,
-  accessCodeEmail,
-  accessCodeText,
-} from "../../../signing/signing-mail.ts";
 import {
   listWaitingOnMember,
   readMemberName,
@@ -362,55 +349,28 @@ export function registerSignerRoutes(
         if (answer !== undefined) return answer;
         throw error;
       }
-      const firmName = await firm.readFirmName();
       const logger = c.get("logger");
-      const correlationId = c.get("correlationId") ?? "";
-      if (view.signer.codeChannel === "text" && view.signer.mobileNumber !== null) {
-        const texted = await textAccessCode({
-          port: resolveTextMessagePort(c.env),
-          message: {
-            to: view.signer.mobileNumber,
-            text: accessCodeText({ firmName, code: digits, minutes: ACCESS_CODE_LIFETIME_MINUTES }),
-          },
-          ...(logger === undefined ? {} : { logger }),
-          correlationId,
-        });
-        if (!texted.delivered) {
-          return problemJson(c, {
-            type: "text-undeliverable",
-            title: "The code was not sent",
-            status: 503,
-            detail: `The code could not be texted. Try again in a minute, or ask the sender to send it by email. Error ID ${texted.errorId}.`,
-          });
-        }
-        return c.json({ sentTo: maskedNumber(view.signer.mobileNumber) }, 202);
-      }
-      const { subject, text } = accessCodeEmail({
-        firmName,
-        code: digits,
-        minutes: ACCESS_CODE_LIFETIME_MINUTES,
-      });
-      const delivery = await sendMessage({
-        send: sendEmail(c.env),
-        surface: "signing.access-code",
+      const delivery = await deliverAccessCode({
+        env: c.env,
+        sendEmail,
+        signer: view.signer,
+        firmName: await firm.readFirmName(),
+        digits,
         ...(logger === undefined ? {} : { logger }),
-        correlationId,
-        message: {
-          to: view.signer.email,
-          subject,
-          text,
-          messageClass: SIGNING_ACCESS_CODE_MESSAGE_CLASS,
-        },
+        correlationId: c.get("correlationId") ?? "",
       });
       if (!delivery.delivered) {
         return problemJson(c, {
-          type: "mail-undeliverable",
+          type: delivery.channel === "text" ? "text-undeliverable" : "mail-undeliverable",
           title: "The code was not sent",
           status: 503,
-          detail: `The code could not be emailed. Try again in a minute. Error ID ${delivery.errorId}.`,
+          detail:
+            delivery.channel === "text"
+              ? `The code could not be texted. Try again in a minute, or ask the sender to send it by email. Error ID ${delivery.errorId}.`
+              : `The code could not be emailed. Try again in a minute. Error ID ${delivery.errorId}.`,
         });
       }
-      return c.json({ sentTo: maskedAddress(view.signer.email) }, 202);
+      return c.json({ sentTo: delivery.sentTo }, 202);
     },
   );
 
