@@ -79,6 +79,9 @@ describe("schema conformance (fitness functions)", () => {
       community_profile: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
+      // A shared problem report is a pointer to one report in a firm's own database: the report's
+      // handle IS the row's identity, so a report can be shared once and only once.
+      shared_problem_report: "incident_id",
       // A book entry is cleared at the finish of exactly one bank reconciliation, ever: keying the
       // row by the entry is what makes clearing the same deposit twice impossible at commit.
       trust_bank_reconciliation_cleared: "entry_id",

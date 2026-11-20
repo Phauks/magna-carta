@@ -127,6 +127,7 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import BookOpen from "@lucide/svelte/icons/book-open";
   import * as Tabs from "@magna-carta/design-system/tabs";
+  import SharedProblemReports from "$lib/diagnostics/shared-problem-reports.svelte";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import { untrack } from "svelte";
   import {
@@ -1691,6 +1692,7 @@
           <Tabs.Trigger value="firm">This Firm</Tabs.Trigger>
           {#if isOperator}
             <Tabs.Trigger value="errors">{RECENT_ERRORS_SECTION_LABEL}</Tabs.Trigger>
+            <Tabs.Trigger value="reports">Problem Reports</Tabs.Trigger>
           {/if}
           <Tabs.Trigger value="flags">{FEATURE_FLAGS_SECTION_LABEL}</Tabs.Trigger>
         </Tabs.List>
@@ -1774,6 +1776,10 @@
         {#if isOperator}
           <Tabs.Content value="errors" class="flex flex-col gap-8 pt-16">
             {@render recentErrorsBlock()}
+          </Tabs.Content>
+          <!-- The reports firms share with Magna Carta: only an operator reads them. -->
+          <Tabs.Content value="reports" class="flex flex-col gap-8 pt-16">
+            <SharedProblemReports />
           </Tabs.Content>
         {/if}
 

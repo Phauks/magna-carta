@@ -17,9 +17,7 @@ export function selectFirmSharesProblemReportsStatement(
   database: SqlDatabase,
   firmId: FirmId,
 ): SqlStatement {
-  return database
-    .prepare("SELECT shares_problem_reports FROM firm WHERE id = ?1")
-    .bind(firmId);
+  return database.prepare("SELECT shares_problem_reports FROM firm WHERE id = ?1").bind(firmId);
 }
 
 /** Whether the firm shares its problem reports. A firm with no row shares nothing. */
@@ -83,6 +81,7 @@ export function insertSharedProblemReportStatement(
 }
 
 /** Keeps a shared report's status current when the firm answers it. A no-op for an unshared one. */
+// fitness:unguarded-write — matching no row means the report was never shared, which is the outcome the caller wants.
 export function updateSharedProblemReportStatusStatement(
   database: SqlDatabase,
   firmId: FirmId,

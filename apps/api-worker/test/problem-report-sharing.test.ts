@@ -27,7 +27,7 @@ let sharedId: string;
 function call(path: string, cookie: string, init: RequestInit = {}): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     ...init,
-    headers: { "content-type": "application/json", cookie, ...(init.headers ?? {}) },
+    headers: { "content-type": "application/json", cookie, ...init.headers },
   });
 }
 
@@ -117,14 +117,19 @@ describe("a shared report", () => {
   });
 
   it("opens through an audited read the firm can see", async () => {
-    const opened = await call(`/api/v1/platform/problem-reports/${firmId}/${sharedId}`, operatorCookie);
+    const opened = await call(
+      `/api/v1/platform/problem-reports/${firmId}/${sharedId}`,
+      operatorCookie,
+    );
     expect(opened.status).toBe(200);
     expect(await opened.json()).toMatchObject({
       firmName: "Sharing Firm",
       report: { id: sharedId, description: "The calendar lost my 3pm hearing." },
     });
     const audit = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
-      .prepare("SELECT actor_user_id FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1")
+      .prepare(
+        "SELECT actor_user_id FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
+      )
       .bind(sharedId)
       .all<{ actor_user_id: string }>();
     expect(audit.results.map((row) => row.actor_user_id)).toContain(operatorId);

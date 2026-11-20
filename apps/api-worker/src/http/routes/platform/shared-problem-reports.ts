@@ -158,8 +158,9 @@ export function registerSharedProblemReportRoutes(
   app.openapi(
     { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute, guarded) },
     async (c) => {
-      const { results } =
-        await selectSharedProblemReportsStatement(c.env.DB_CONTROL).all<SharedProblemReportRow>();
+      const { results } = await selectSharedProblemReportsStatement(
+        c.env.DB_CONTROL,
+      ).all<SharedProblemReportRow>();
       return c.json(
         {
           reports: results.map((row) => ({
