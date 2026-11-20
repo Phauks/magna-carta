@@ -99,7 +99,7 @@ export const FEATURE_ROSTER = [
   { id: "translation", alternatives: [["GOOGLE_TRANSLATE_API_KEY"]] },
   { id: "modelAvailabilityCheck", alternatives: [["ANTHROPIC_MODELS_API_KEY"]] },
   // Platform
-  { id: "signUpBotCheck", alternatives: [["TURNSTILE_SECRET_KEY"]] },
+  { id: "signUpBotCheck", alternatives: [["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"]] },
   { id: "communitySignIn", alternatives: [["COMMUNITY_HANDOFF_SECRET"]], worker: "community" },
   { id: "featureFlags", alternatives: [["FLAGS"]] },
   { id: "usageAnalytics", alternatives: [["TELEMETRY", "USAGE_ANALYTICS_PEPPER"]] },

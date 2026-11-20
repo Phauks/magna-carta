@@ -188,6 +188,9 @@
           },
           "membership": {
             "$ref": "#/components/schemas/Membership"
+          },
+          "meetings": {
+            "$ref": "#/components/schemas/MeetingsDeployment"
           }
         },
         "required": [
@@ -266,6 +269,18 @@
         },
         "required": [
           "state"
+        ]
+      },
+      "MeetingsDeployment": {
+        "type": "object",
+        "properties": {
+          "endToEndEncryption": {
+            "type": "boolean",
+            "description": "Whether this deployment opens meetings end-to-end encrypted. False, every meeting opens in the clear whatever Start asks for."
+          }
+        },
+        "required": [
+          "endToEndEncryption"
         ]
       },
       "FirmMemberListResponse": {
@@ -656,6 +671,21 @@
         },
         "required": [
           "url"
+        ]
+      },
+      "HumanVerificationSettings": {
+        "type": "object",
+        "properties": {
+          "siteKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Cloudflare Turnstile site key the browser renders the widget with, or null when the bot check is not set up and no widget should be shown."
+          }
+        },
+        "required": [
+          "siteKey"
         ]
       },
       "StartRegistrationResponse": {
@@ -2152,149 +2182,34 @@
           "correlationId"
         ]
       },
-      "ReportIncidentResponse": {
+      "SharedProblemReportList": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ]
-      },
-      "ReportIncidentRequest": {
-        "type": "object",
-        "properties": {
-          "errorIds": {
+          "reports": {
             "type": "array",
             "items": {
-              "type": "string",
-              "pattern": "^error_[A-Za-z0-9_-]{21}$"
-            },
-            "maxItems": 10
-          },
-          "breadcrumbs": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "at": {
-                  "type": "string",
-                  "maxLength": 40
-                },
-                "action": {
-                  "type": "string",
-                  "maxLength": 120
-                },
-                "route": {
-                  "type": "string",
-                  "maxLength": 200
-                }
-              },
-              "required": [
-                "at",
-                "action",
-                "route"
-              ]
-            },
-            "maxItems": 50
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 5000
-          },
-          "context": {
-            "type": "object",
-            "properties": {
-              "route": {
-                "type": "string",
-                "maxLength": 200
-              },
-              "appVersion": {
-                "type": "string",
-                "maxLength": 60
-              },
-              "clientAt": {
-                "type": "string",
-                "maxLength": 40
-              },
-              "deployment": {
-                "type": "string",
-                "maxLength": 4000
-              }
-            },
-            "required": [
-              "route",
-              "appVersion",
-              "clientAt"
-            ]
-          }
-        },
-        "required": [
-          "errorIds",
-          "breadcrumbs",
-          "description",
-          "context"
-        ]
-      },
-      "IncidentList": {
-        "type": "object",
-        "properties": {
-          "incidents": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IncidentSummary"
+              "$ref": "#/components/schemas/SharedProblemReportSummary"
             }
           }
         },
         "required": [
-          "incidents"
+          "reports"
         ]
       },
-      "IncidentSummary": {
+      "SharedProblemReportSummary": {
         "type": "object",
         "properties": {
-          "id": {
+          "incidentId": {
             "type": "string"
           },
-          "createdAt": {
+          "firmId": {
             "type": "string"
           },
-          "status": {
-            "type": "string",
-            "enum": [
-              "open",
-              "investigating",
-              "fixed",
-              "closed"
-            ]
-          },
-          "statusChangedAt": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "reportedBy": {
+          "firmName": {
             "type": "string"
           },
-          "reporterName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "summary": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "sentAt": {
+            "type": "string"
           },
           "route": {
             "type": [
@@ -2305,21 +2220,43 @@
           "errorIdCount": {
             "type": "integer"
           },
-          "hasScreenshot": {
-            "type": "boolean"
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "investigating",
+              "fixed",
+              "closed"
+            ]
           }
         },
         "required": [
-          "id",
-          "createdAt",
-          "status",
-          "statusChangedAt",
-          "reportedBy",
-          "reporterName",
-          "summary",
+          "incidentId",
+          "firmId",
+          "firmName",
+          "sentAt",
           "route",
           "errorIdCount",
-          "hasScreenshot"
+          "status"
+        ]
+      },
+      "SharedProblemReportDetail": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": "string"
+          },
+          "firmName": {
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/IncidentDetail"
+          }
+        },
+        "required": [
+          "firmId",
+          "firmName",
+          "report"
         ]
       },
       "IncidentDetail": {
@@ -2438,6 +2375,187 @@
           "route",
           "appVersion",
           "deployment",
+          "hasScreenshot"
+        ]
+      },
+      "ReportIncidentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "ReportIncidentRequest": {
+        "type": "object",
+        "properties": {
+          "errorIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^error_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 10
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "action": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "route": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "at",
+                "action",
+                "route"
+              ]
+            },
+            "maxItems": 50
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "route": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "appVersion": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "clientAt": {
+                "type": "string",
+                "maxLength": 40
+              },
+              "deployment": {
+                "type": "string",
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "route",
+              "appVersion",
+              "clientAt"
+            ]
+          }
+        },
+        "required": [
+          "errorIds",
+          "breadcrumbs",
+          "description",
+          "context"
+        ]
+      },
+      "ProblemReportSharing": {
+        "type": "object",
+        "properties": {
+          "sharesWithMagnaCarta": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sharesWithMagnaCarta"
+        ]
+      },
+      "IncidentList": {
+        "type": "object",
+        "properties": {
+          "incidents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentSummary"
+            }
+          }
+        },
+        "required": [
+          "incidents"
+        ]
+      },
+      "IncidentSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "investigating",
+              "fixed",
+              "closed"
+            ]
+          },
+          "statusChangedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reportedBy": {
+            "type": "string"
+          },
+          "reporterName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "route": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorIdCount": {
+            "type": "integer"
+          },
+          "hasScreenshot": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "status",
+          "statusChangedAt",
+          "reportedBy",
+          "reporterName",
+          "summary",
+          "route",
+          "errorIdCount",
           "hasScreenshot"
         ]
       },
@@ -27385,13 +27503,13 @@
           "name"
         ]
       },
-      "BatesPrefixList": {
+      "BatesLogList": {
         "type": "object",
         "properties": {
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/BatesPrefixSummary"
+              "$ref": "#/components/schemas/BatesLogSummary"
             }
           },
           "capped": {
@@ -27403,9 +27521,16 @@
           "capped"
         ]
       },
-      "BatesPrefixSummary": {
+      "BatesLogSummary": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string"
+          },
           "prefix": {
             "type": "string"
           },
@@ -27422,16 +27547,86 @@
             "type": "integer"
           },
           "lastStampedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
             "type": "string"
           }
         },
         "required": [
+          "id",
+          "name",
           "prefix",
           "digits",
           "nextNumber",
           "rangeCount",
           "pagesStamped",
-          "lastStampedAt"
+          "lastStampedAt",
+          "createdAt"
+        ]
+      },
+      "BatesLogRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "digits": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "digits"
+        ]
+      },
+      "CreateBatesLogRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "prefix": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "digits": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          }
+        },
+        "required": [
+          "name",
+          "prefix",
+          "digits"
+        ]
+      },
+      "RenameBatesLogRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "BatesRangeList": {
@@ -27461,6 +27656,19 @@
           "id": {
             "type": "string",
             "pattern": "^batesRange_[A-Za-z0-9_-]{21}$"
+          },
+          "logId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
+          "logName": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "prefix": {
             "type": "string"
@@ -27535,6 +27743,8 @@
         },
         "required": [
           "id",
+          "logId",
+          "logName",
           "prefix",
           "digits",
           "firstNumber",
@@ -27558,6 +27768,10 @@
             "type": "string",
             "pattern": "^batesRange_[A-Za-z0-9_-]{21}$"
           },
+          "logId": {
+            "type": "string",
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+          },
           "prefix": {
             "type": "string"
           },
@@ -27573,6 +27787,7 @@
         },
         "required": [
           "id",
+          "logId",
           "prefix",
           "digits",
           "firstNumber",
@@ -27582,14 +27797,9 @@
       "TakeBatesRangeRequest": {
         "type": "object",
         "properties": {
-          "prefix": {
+          "logId": {
             "type": "string",
-            "maxLength": 40
-          },
-          "digits": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 12
+            "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
           },
           "pageCount": {
             "type": "integer",
@@ -27624,8 +27834,7 @@
           }
         },
         "required": [
-          "prefix",
-          "digits",
+          "logId",
           "pageCount",
           "purpose"
         ]
@@ -56078,6 +56287,50 @@
         }
       }
     },
+    "/api/v1/human-verification": {
+      "get": {
+        "description": "The public Turnstile site key the signed-out screens render the bot check with. Null while the bot check is not set up.",
+        "operationId": "humanVerification.settings",
+        "tags": [
+          "humanVerification"
+        ],
+        "x-mc-operationId": "humanVerification.settings",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "humanVerification"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The site key, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanVerificationSettings"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/registrations": {
       "post": {
         "description": "Begins joining the platform. A visitor who is a client of a firm, or works at one, is sent to invitation redemption; anyone creating an account chooses their password here and is emailed a confirmation link, and the account — with that password already set — is created only once that link is followed. Every outcome within a door answers identically, so the response never reveals whether an address already has an account.",
@@ -57794,6 +58047,263 @@
         }
       }
     },
+    "/api/v1/platform/problem-reports": {
+      "get": {
+        "description": "The problem reports firms share with Magna Carta, newest first. No words.",
+        "operationId": "platform.sharedProblemReports",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.sharedProblemReports",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The shared reports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedProblemReportList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/problem-reports/{firmId}/{incidentId}": {
+      "get": {
+        "description": "One shared report in full. The words and the answer are opened through the audited read, which the firm sees in its own record.",
+        "operationId": "platform.sharedProblemReport",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.sharedProblemReport",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^incident_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "incidentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedProblemReportDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such report, or its firm does not share it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/problem-reports/{firmId}/{incidentId}/screenshot": {
+      "get": {
+        "description": "The screenshot a shared report was sent with.",
+        "operationId": "platform.sharedProblemReportScreenshot",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.sharedProblemReportScreenshot",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^incident_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "incidentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a platform operator, or 2FA not enabled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such report, or its firm does not share it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/incidents": {
       "post": {
         "description": "Files a diagnostic incident from the session firm: writes the per-firm incident row and the incident.created outbox row in one atomic batch (the diagnostics agent's future feed). Any member may report; the description is the user's words, the rest is id-and-action shaped.",
@@ -57939,6 +58449,152 @@
           },
           "404": {
             "description": "No such report in this firm, or not one this member filed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/sharing": {
+      "get": {
+        "description": "Whether the firm's problem reports also reach Magna Carta.",
+        "operationId": "incidents.getSharing",
+        "tags": [
+          "incidents"
+        ],
+        "x-mc-operationId": "incidents.getSharing",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:reportIncident",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "incidents"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's switch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemReportSharing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the route's permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Turns sharing with Magna Carta on or off. Off withdraws every report shared so far; on shares reports sent from now on.",
+        "operationId": "incidents.setSharing",
+        "tags": [
+          "incidents"
+        ],
+        "x-mc-operationId": "incidents.setSharing",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "incidents:viewDescription",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "incidents"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemReportSharing"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's switch, as set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemReportSharing"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the route's permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -100853,14 +101509,14 @@
         }
       }
     },
-    "/api/v1/matters/{matterId}/bates-prefixes": {
+    "/api/v1/matters/{matterId}/bates-logs": {
       "get": {
-        "description": "Each Bates prefix stamped on the matter, most recently used first, with the next number under it, the padding it was last stamped with, and how many ranges and pages it holds.",
-        "operationId": "bates.listBatesPrefixes",
+        "description": "The matter's Bates logs, the one used most recently first, each with its prefix, padding, the next number in it, and how many ranges and pages it holds.",
+        "operationId": "bates.listBatesLogs",
         "tags": [
           "bates"
         ],
-        "x-mc-operationId": "bates.listBatesPrefixes",
+        "x-mc-operationId": "bates.listBatesLogs",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": null,
@@ -100886,11 +101542,11 @@
         ],
         "responses": {
           "200": {
-            "description": "The matter's Bates prefixes",
+            "description": "The matter's Bates logs",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BatesPrefixList"
+                  "$ref": "#/components/schemas/BatesLogList"
                 }
               }
             }
@@ -100916,7 +101572,282 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Starts a Bates log on the matter with a name, a prefix and a padding. It counts from 1. Two logs may share a prefix; no two share a name.",
+        "operationId": "bates.createBatesLog",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.createBatesLog",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBatesLogRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The log started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatesLogRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/bates-logs/{logId}": {
+      "patch": {
+        "description": "Renames a Bates log. Its prefix and padding never change.",
+        "operationId": "bates.renameBatesLog",
+        "tags": [
+          "bates"
+        ],
+        "x-mc-operationId": "bates.renameBatesLog",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "bates"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "logId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameBatesLogRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The log renamed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatesLogRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -100940,7 +101871,7 @@
     },
     "/api/v1/matters/{matterId}/bates-ranges": {
       "get": {
-        "description": "Every range of Bates numbers taken on the matter, newest first: the prefix and numbers, the file stamped, the saved copy if there is one, who took it and when.",
+        "description": "Every range of Bates numbers taken on the matter, newest first, or in one log: the log, the prefix and numbers, the file stamped, the saved copy if there is one, who took it and when.",
         "operationId": "bates.listBatesRanges",
         "tags": [
           "bates"
@@ -100979,10 +101910,10 @@
           {
             "schema": {
               "type": "string",
-              "maxLength": 40
+              "pattern": "^batesLog_[A-Za-z0-9_-]{21}$"
             },
             "required": false,
-            "name": "prefix",
+            "name": "logId",
             "in": "query"
           }
         ],
@@ -101018,7 +101949,7 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101040,7 +101971,7 @@
         }
       },
       "post": {
-        "description": "Takes a range of Bates numbers for one stamp: one number per page, under a prefix. With no start number given it starts one past the highest number stamped under the prefix (1 for a new prefix). Refused when any number in the range is already stamped under the prefix.",
+        "description": "Takes a range of Bates numbers from one of the matter's Bates logs for one stamp: one number per page, under the log's prefix and padding. With no start number given it starts one past the highest number stamped in the log (1 for a new log). Refused when any number in the range is already stamped in the log.",
         "operationId": "bates.takeBatesRange",
         "tags": [
           "bates"
@@ -101130,7 +102061,7 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101140,7 +102071,7 @@
             }
           },
           "409": {
-            "description": "Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101281,7 +102212,7 @@
             }
           },
           "404": {
-            "description": "The matter, file, exhibit set or range is unknown on this matter",
+            "description": "The matter, Bates log, file, exhibit set or range is unknown on this matter",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101291,7 +102222,7 @@
             }
           },
           "409": {
-            "description": "Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
+            "description": "Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -160823,6 +161754,9 @@
     },
     {
       "name": "health"
+    },
+    {
+      "name": "humanVerification"
     },
     {
       "name": "inOutLog"

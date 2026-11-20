@@ -8,6 +8,8 @@
     "./types": "./src/types.ts",
     "./label": "./src/label.ts",
     "./validation": "./src/validation.ts",
+    "./log-statements": "./src/log-statements.ts",
+    "./log-service": "./src/log-service.ts",
     "./range-statements": "./src/range-statements.ts",
     "./range-service": "./src/range-service.ts",
     "./queries": "./src/queries.ts",
