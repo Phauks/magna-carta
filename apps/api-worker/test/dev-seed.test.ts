@@ -1,3 +1,4 @@
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/http/app.ts";
@@ -166,8 +167,17 @@ describe("dev seed route — a re-seed converges an unsignable account", () => {
     // `user.firm_id` is nullable — the joining surface makes a person before it resolves a firm — so
     // a warm row can authenticate and then resolve no firm at all. A re-seed has to fix that too, or
     // the developer signs in successfully and the app renders nothing.
-    await env.DB_CONTROL.prepare('UPDATE "user" SET firm_id = NULL WHERE email = ?1')
-      .bind(first.credentials.email)
+    // A firm member can never lose its firm (the user table's triggers refuse it), so the warm row is
+    // made the way it arises: an account that signed up and has not joined a firm yet holds the
+    // address. The seeded member's row steps aside under another address first.
+    await env.DB_CONTROL.prepare('UPDATE "user" SET email = ?2 WHERE email = ?1')
+      .bind(first.credentials.email, `retired-${String(Date.now())}@example.com`)
+      .run();
+    await env.DB_CONTROL.prepare(
+      'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at) ' +
+        "VALUES (?1, 'Warm Account', ?2, 0, ?3, ?3)",
+    )
+      .bind(newIdentifier("user"), first.credentials.email, Date.now())
       .run();
 
     const second = await seed();

@@ -20,7 +20,11 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../bindings.ts";
 import { problemJson, type ProblemResponse } from "../contracts/problem.ts";
-import type { ChokepointGuestGrant, ChokepointSignerGrant } from "./chokepoint.ts";
+import type {
+  ChokepointGuestGrant,
+  ChokepointPortalClient,
+  ChokepointSignerGrant,
+} from "./chokepoint.ts";
 import type { AppVariables, FirmContext } from "./ports.ts";
 import type { SessionContext } from "../session-context.ts";
 
@@ -134,6 +138,29 @@ export function requireChokepointSignerGrant(c: AppContext): ChokepointSignerGra
   const grant = c.get("chokepointSignerGrant");
   if (grant === undefined) throw chokepointContextError("chokepointSignerGrant");
   return grant;
+}
+
+// The signed-in client the chokepoint's portal lane admitted, or a throw if absent: stashed ONLY on a
+// portal route, so a portal handler pointed at a staff route fails loudly, as a staff handler pointed
+// at a portal route does on requireChokepointUserId.
+export function requireChokepointPortalClient(c: AppContext): ChokepointPortalClient {
+  const client = c.get("chokepointPortalClient");
+  if (client === undefined) throw chokepointContextError("chokepointPortalClient");
+  return client;
+}
+
+// The same, on a firm-scoped portal route: the firm and the Directory person are present, or a throw.
+export function requireChokepointPortalFirmClient(
+  c: AppContext,
+): ChokepointPortalClient & { readonly firmId: FirmId; readonly directoryEntityId: string } {
+  const client = requireChokepointPortalClient(c);
+  if (client.firmId === null || client.directoryEntityId === null) {
+    throw chokepointContextError("chokepointPortalClient.firmId");
+  }
+  return client as ChokepointPortalClient & {
+    readonly firmId: FirmId;
+    readonly directoryEntityId: string;
+  };
 }
 
 // The idempotency context the chokepoint's idempotency gate stashed on a required-idempotency route,

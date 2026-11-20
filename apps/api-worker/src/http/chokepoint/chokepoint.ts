@@ -6,6 +6,10 @@
 //   0. a meeting guest's lane         (ONLY for a route declaring `guestLane`, and INSTEAD of 1-3:
 //                                      signed credential → firm → live invitation row; never a
 //                                      session, a user id or a permission — see GuestLanePort)
+//   0b. a client's portal lane       (ONLY for a route on `surface: "portal"`, after steps 1-2 and
+//                                      the kind check, INSTEAD of 3: the firm comes from the
+//                                      caller's own active membership, never a member row — see
+//                                      PortalLanePort)
 //   1. resolve session → firm        (cookie → Better Auth → { userId, firmId }; firm from the
 //                                      session, never the URL)
 //   2. authn                          (meta.authenticated && no session → 401)
@@ -26,10 +30,15 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { assertPermission, isPermission } from "@magna-carta/access-control/registry";
 import type { Permission } from "@magna-carta/access-control/registry";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { DirectoryPersonId, FirmId, UserId } from "@magna-carta/identifiers/types";
 import { problemJson } from "../contracts/problem.ts";
 import type { ProblemTypeKey } from "../contracts/problem-types.ts";
-import { routeMetaOf, type ResolvedRouteMeta, type RouteMeta } from "../contracts/route-meta.ts";
+import {
+  DEFAULT_ROUTE_PRINCIPALS,
+  routeMetaOf,
+  type ResolvedRouteMeta,
+  type RouteMeta,
+} from "../contracts/route-meta.ts";
 import {
   GUEST_CREDENTIAL_HEADER,
   GUEST_CREDENTIAL_QUERY_PARAMETER,
@@ -48,6 +57,11 @@ export interface ResolvedSession {
   // firmlessSession, so a firmless session is closed by default on every route that never
   // considered it.
   readonly firmId: FirmId | null;
+  // What kind of person this is. A portal client is admitted only by a route whose meta lists
+  // `portalUser` in `principals`, and refused as absent everywhere else, before any firm is
+  // resolved. Optional so a port that predates the kind (a support session, a test fake) still
+  // types; absent is read as the kind the firm id implies, which can never be a portal client.
+  readonly principalKind?: "account" | "firmMember" | "portalUser";
   // Present when the principal is a support session (a staff identity under a firm grant). The
   // chokepoint threads it to loadPermissions to choose the tier-scoped permission set.
   readonly support?: {
@@ -99,7 +113,41 @@ export interface ChokepointPorts<FirmContext> {
   // Step 0, and only for a route declaring `signerLane`: an outside signer's lane. Absent, a signer
   // route answers the reserved 404.
   signerLane?: SignerLanePort<FirmContext>;
+  // Step 0b, and only for a route on the portal surface. Absent, a portal route answers the reserved
+  // 404.
+  portalLane?: PortalLanePort<FirmContext>;
 }
+
+// A CLIENT'S PORTAL LANE. A portal client holds a session but no firm and no member row, so the
+// firm a portal request is about cannot come from the session and its access cannot come from a role.
+// It comes from the client's own portal membership: the route names a firm in its path, and the lane
+// admits the request only if the caller holds an active membership there and the firm is active.
+// What is stashed is the client, the firm and the Directory person the membership names; never a
+// chokepointUserId, so a staff handler pointed at a portal route fails on its first line.
+
+/** The signed-in client a portal handler is serving, and the firm when the route is about one. */
+export interface ChokepointPortalClient {
+  readonly principalId: UserId;
+  // Null on an account-scoped route, which is about the client and no firm.
+  readonly firmId: FirmId | null;
+  readonly directoryEntityId: DirectoryPersonId | null;
+}
+
+export interface PortalLanePort<FirmContext> {
+  // The firm context and the membership's person, or null when the caller has no ACTIVE membership
+  // in that firm or the firm is not active. Null is the reserved 404, whichever of those it was.
+  resolvePortalFirm: (
+    c: Context,
+    principalId: UserId,
+    firmId: FirmId,
+  ) => Promise<{
+    readonly firmContext: FirmContext;
+    readonly directoryEntityId: DirectoryPersonId;
+  } | null>;
+}
+
+/** The path parameter a firm-scoped portal route names its firm in. */
+export const PORTAL_FIRM_PATH_PARAMETER = "firmId";
 
 // AN OUTSIDE SIGNER'S LANE: the guest lane's shape, for a signing link. A signer holds no session and
 // no capability; what is stashed is the firm and the link's names, never the secret it carried, never
@@ -453,6 +501,46 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
     return await continueToHandler();
   }
 
+  // The portal lane, after the session and the kind check. An account-scoped route needs nothing more
+  // than the client; a firm-scoped route needs the client's own membership in the firm the path names.
+  async function admitPortalClient(
+    c: Context,
+    meta: RouteMeta,
+    session: ResolvedSession,
+    continueToHandler: () => Promise<Response | void>,
+  ): Promise<Response | void> {
+    const reservedAbsence = () =>
+      problemJson(c, {
+        type: "not-found",
+        status: 404,
+        title: "Not found",
+        detail: "No such resource in this firm.",
+      });
+    const port = ports.portalLane;
+    if (port === undefined || meta.portalScope === undefined) return reservedAbsence();
+    if (meta.portalScope === "account") {
+      c.set("chokepointPortalClient", {
+        principalId: session.userId,
+        firmId: null,
+        directoryEntityId: null,
+      } satisfies ChokepointPortalClient);
+      return await continueToHandler();
+    }
+    const named = c.req.param(PORTAL_FIRM_PATH_PARAMETER);
+    if (named === undefined || named === "") return reservedAbsence();
+    const firmId = named as FirmId;
+    const admitted = await port.resolvePortalFirm(c, session.userId, firmId);
+    if (admitted === null) return reservedAbsence();
+    c.set("chokepointPortalClient", {
+      principalId: session.userId,
+      firmId,
+      directoryEntityId: admitted.directoryEntityId,
+    } satisfies ChokepointPortalClient);
+    c.set("chokepointFirmId", firmId);
+    c.set("chokepointFirmContext", admitted.firmContext);
+    return await continueToHandler();
+  }
+
   function forRoute(meta: RouteMeta): MiddlewareHandler {
     if (meta === undefined || meta === null) {
       throw new Error(
@@ -498,6 +586,9 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           const guestGrant = c.get("chokepointGuestGrant") as ChokepointGuestGrant | undefined;
           // A SIGNER is keyed by their own signer row, for the same reason.
           const signerGrant = c.get("chokepointSignerGrant") as ChokepointSignerGrant | undefined;
+          // A PORTAL CLIENT is keyed by their own account across every firm they reach, so a client
+          // cannot spend a firm's budget, and moving between firms does not reset theirs.
+          const portalUser = c.get("chokepointPortalClient") as ChokepointPortalClient | undefined;
           // A MEMBER-SCOPED bucket is keyed by the session's own user within its firm, for an act
           // whose abuse is one person's: a member looping on it meets their own ceiling and leaves
           // the firm's budget to everybody else. Both halves come from the resolved session.
@@ -507,11 +598,13 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
               ? `guest:${guestGrant.invitationId}`
               : signerGrant !== undefined
                 ? `signer:${signerGrant.signerId}`
-                : firmId !== undefined
-                  ? MEMBER_SCOPED_BUCKETS.has(meta.rateLimit) && userId !== undefined
-                    ? `member:${firmId}:${userId}`
-                    : `firm:${firmId}`
-                  : clientRateLimitKey(c);
+                : portalUser !== undefined
+                  ? `portal:${portalUser.principalId}`
+                  : firmId !== undefined
+                    ? MEMBER_SCOPED_BUCKETS.has(meta.rateLimit) && userId !== undefined
+                      ? `member:${firmId}:${userId}`
+                      : `firm:${firmId}`
+                    : clientRateLimitKey(c);
           const verdict = await ports.rateLimiter.check(meta.rateLimit, rateLimitKey);
           if (!verdict.allowed) {
             // Inside this tail closure (an idempotency-middleware next() OR the direct path) the
@@ -594,6 +687,30 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
         }
 
         if (session !== null) {
+          // Step 3a·-1 — WHAT KIND OF PERSON, ahead of everything that reads a firm. A portal client
+          // holds no firm and no member row; a route that never listed the kind answers it with the
+          // same reserved absence a cross-firm request gets, so a staff route cannot be reached by a
+          // client even if its handler forgot to look. The default list (route-meta.ts) leaves the
+          // kind out, which is the closed direction.
+          const principalKind =
+            session.principalKind ?? (session.firmId === null ? "account" : "firmMember");
+          if (!(meta.principals ?? DEFAULT_ROUTE_PRINCIPALS).includes(principalKind)) {
+            return problemJson(c, {
+              type: "not-found",
+              status: 404,
+              title: "Not found",
+              detail: "No such resource in this firm.",
+            });
+          }
+
+          // Step 0b — THE PORTAL LANE, for a portal route and no other. The kind check above has
+          // already refused everybody but a portal client here (registration holds a portal route
+          // to `principals: ["portalUser"]`), and the lane replaces steps 3a and 3b: a client has
+          // no member row to resolve a firm through and no role to hold a permission.
+          if (meta.surface === "portal") {
+            return await admitPortalClient(c, meta, session, runIdempotencyAndHandler);
+          }
+
           // Step 3a·0 — FIRMLESS ADMISSION, ahead of the firm context because there is no firm to
           // resolve. Three outcomes, and the default is the closed one:
           //

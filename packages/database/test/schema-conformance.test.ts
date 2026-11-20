@@ -191,12 +191,16 @@ describe("schema conformance (fitness functions)", () => {
     // caller_identity is keyed by (country_calling_code, national_number) — the network's answer
     // about one number, and the number IS the row. A handle would let two answers exist for one
     // number, and the write is an upsert on this key so a second paid lookup replaces the first.
+    // portal_membership is keyed by (principal_id, firm_id): one row for each firm that shares with
+    // a client, and that pair IS the membership. A handle would let one client hold two memberships
+    // in one firm, each naming a different person.
     // number_reservation is keyed by (purpose, scope_key, drawn_value) — a held or given-back counter
     // value IS that triple, the same reasoning as the allocation tables beside it.
     // record_presence is keyed by (record_kind, record_id, member_user_id): one member on one record
     // IS the row, and the touch is an upsert on that triple. A handle would let a member be on a record
     // twice.
     const compositeKeyTables = new Set([
+      "portal_membership",
       "record_presence",
       "number_reservation",
       "caller_identity",

@@ -23,6 +23,7 @@ import communityBoardSql from "@magna-carta/database/drizzle/control-plane/20261
 import communitySignInAndSwitchSql from "@magna-carta/database/drizzle/control-plane/20261113T211423_community-sign-in-and-switch.sql";
 import errorRecordSql from "@magna-carta/database/drizzle/control-plane/20261114T002711_error-record.sql";
 import problemReportsReachMagnaCartaSql from "@magna-carta/database/drizzle/control-plane/20261120T195616_problem-reports-reach-magna-carta.sql";
+import portalClientKindSql from "@magna-carta/database/drizzle/control-plane/20261120T205156_portal-client-kind.sql";
 
 export function controlPlaneMigrations(): Migration[] {
   return migrationsFromJournal(controlPlaneJournal, {
@@ -40,6 +41,7 @@ export function controlPlaneMigrations(): Migration[] {
     "20261113T211423_community-sign-in-and-switch": communitySignInAndSwitchSql,
     "20261114T002711_error-record": errorRecordSql,
     "20261120T195616_problem-reports-reach-magna-carta": problemReportsReachMagnaCartaSql,
+    "20261120T205156_portal-client-kind": portalClientKindSql,
   });
 }
 

@@ -22,6 +22,7 @@ import { mountNotifications } from "./notifications/index.ts";
 import { mountSupport } from "./support/index.ts";
 import { mountDeveloper } from "./developer/index.ts";
 import { mountRecordTransfer } from "./record-transfer/index.ts";
+import { mountPortal } from "./portal/index.ts";
 
 // The manifest: every domain module this Worker serves, in the order they mount. app.ts iterates it
 // and nothing else registers a chokepoint route, so adding a surface is one directory here and one
@@ -51,4 +52,5 @@ export const DOMAIN_MODULES: readonly DomainModule[] = [
   { domain: "support", mount: mountSupport },
   { domain: "developer", mount: mountDeveloper },
   { domain: "record-transfer", mount: mountRecordTransfer },
+  { domain: "portal", mount: mountPortal },
 ];

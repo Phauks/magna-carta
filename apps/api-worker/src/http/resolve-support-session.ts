@@ -61,6 +61,8 @@ export async function resolveSupportSession(
   return {
     userId: grant.requested_by_user_id,
     firmId: grant.firm_id,
+    // Support works inside a firm on a member's behalf, so it is admitted where staff are.
+    principalKind: "firmMember",
     support: {
       grantId: grant.id,
       principalId: payload.principalId,

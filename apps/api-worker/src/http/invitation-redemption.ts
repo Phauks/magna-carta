@@ -1,3 +1,4 @@
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { Context } from "hono";
 import { attemptLadderKey, type AttemptBudget, type AttemptLadder } from "./auth-attempt-budget.ts";
 import { problemJson, type ProblemResponse } from "./contracts/problem.ts";
@@ -49,6 +50,8 @@ export interface InvitationRow {
   readonly id: string;
   readonly firm_id: string;
   readonly kind: string;
+  // The Directory person a client invitation is for; null on a staff invitation.
+  readonly directory_entity_id: string | null;
   readonly email: string;
   readonly display_name: string;
   readonly verifier_hash: string;
@@ -133,8 +136,8 @@ export async function resolveInvitationRedemption(
 
   const row = await controlPlaneDatabase
     .prepare(
-      "SELECT id, firm_id, kind, email, display_name, verifier_hash, status, attempt_count, " +
-        "locked_until, expires_at FROM invitation WHERE code_hash = ?1",
+      "SELECT id, firm_id, kind, directory_entity_id, email, display_name, verifier_hash, status, " +
+        "attempt_count, locked_until, expires_at FROM invitation WHERE code_hash = ?1",
     )
     .bind(codeHash)
     .first<InvitationRow>();
@@ -147,7 +150,14 @@ export async function resolveInvitationRedemption(
     presentedVerifier,
   );
   const locked = row !== null && row.locked_until !== null && row.locked_until > nowInstant;
-  const live = row !== null && row.status === "pending" && row.expires_at > nowInstant;
+  // A client invitation issued before invitations named their person cannot make a portal account,
+  // because the account would be tied to nobody in the firm's records. It is refused like any dead
+  // invitation; the firm issues a new one.
+  const live =
+    row !== null &&
+    row.status === "pending" &&
+    row.expires_at > nowInstant &&
+    (row.kind !== "clientOfFirm" || row.directory_entity_id !== null);
 
   if (!verifierMatches || !live || locked) {
     // The invitation's own ladder, spent when a real, live invitation was aimed at and missed. It
@@ -173,4 +183,58 @@ export async function resolveInvitationRedemption(
 
   // Past here the row is non-null and every fact matched.
   return { kind: "matched", invitation: row };
+}
+
+// What redeeming an invitation writes beyond the redemption fence and the account itself, shared by
+// both redemption routes so a client can never be joined one way here and another there.
+//
+// A staff invitation provisions a member row in the firm's database, which is where every role and
+// permission hangs. A client invitation provisions NOTHING in the firm's database: a portal client
+// with a member row would hold whatever a member with no role holds, in every firm surface, and the
+// whole point of the separate kind is that they hold nothing there at all. Their tie to the firm is
+// the portal membership naming the Directory person the invitation was for.
+export function joiningWrites(
+  database: D1Database,
+  invitation: {
+    readonly firm_id: string;
+    readonly kind: string;
+    readonly directory_entity_id: string | null;
+    readonly display_name: string;
+  },
+  userId: string,
+  nowInstant: string,
+): {
+  readonly client: boolean;
+  readonly statements: D1PreparedStatement[];
+  readonly outboxMessages: OutboxMessage[];
+} {
+  if (invitation.kind === "clientOfFirm") {
+    return {
+      client: true,
+      statements: [
+        database
+          .prepare(
+            "INSERT INTO portal_membership (principal_id, firm_id, directory_entity_id, status, " +
+              "created_at, updated_at) VALUES (?1, ?2, ?3, 'active', ?4, ?4)",
+          )
+          .bind(userId, invitation.firm_id, invitation.directory_entity_id, nowInstant),
+      ],
+      outboxMessages: [],
+    };
+  }
+  return {
+    client: false,
+    statements: [],
+    outboxMessages: [
+      {
+        topic: "member.provision",
+        payload: {
+          userId,
+          firmId: invitation.firm_id,
+          displayName: invitation.display_name,
+          roleName: null,
+        },
+      },
+    ],
+  };
 }

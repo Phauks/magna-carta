@@ -128,7 +128,38 @@ export interface RouteMeta {
    * token, admitted only once the request is completed and sealed, for a fixed time after sealing.
    */
   signerLane?: "link" | "signed-copy";
+  /**
+   * WHICH KINDS OF PERSON a signed-in session may be to reach this route: `account` (signed up, no
+   * firm yet), `firmMember`, `portalUser`. Absent means DEFAULT_ROUTE_PRINCIPALS, which leaves the
+   * portal client out, so a client is refused as absent by every staff route that never thought
+   * about clients. The chokepoint checks it before it resolves a firm. Routes for clients list the
+   * kind; nothing else should.
+   */
+  principals?: readonly RoutePrincipalKind[];
+  /**
+   * THE PORTAL LANE: what a route on `surface: "portal"` is about. Required on every portal route and
+   * refused on every other.
+   *
+   *   "account" — the signed-in client and nothing else: the list of firms that share with them.
+   *   "firm"    — one firm, named by the `{firmId}` path parameter. The chokepoint admits the
+   *               request only when the caller holds an ACTIVE portal membership in that firm and
+   *               the firm is active; anything else is the reserved 404, the same answer a firm
+   *               that does not exist gets.
+   *
+   * A portal route never stashes `chokepointUserId`, so a staff handler pointed at one fails on its
+   * first line; the handler reads `requireChokepointPortalClient` instead. Registration holds a
+   * portal route to `authenticated: true`, `permission: null`, `resource: "portalShare"` and
+   * `principals: ["portalUser"]`, with no guest lane, signer lane, firmlessSession or
+   * firmDatabaseOutage: a client holds no capability, and what they may see is the share's question.
+   */
+  portalScope?: "account" | "firm";
 }
+
+export type RoutePrincipalKind = "account" | "firmMember" | "portalUser";
+
+// Who reaches a route that does not say: everybody who is not a portal client. Whether an `account`
+// with no firm gets past the next gate is `firmlessSession`'s question, unchanged.
+export const DEFAULT_ROUTE_PRINCIPALS: readonly RoutePrincipalKind[] = ["account", "firmMember"];
 
 // The meta as attached to a defined route: optional fields resolved to their defaults, so the
 // chokepoint and the conformance suite never re-derive them.
@@ -283,8 +314,11 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     // unreachable for any session that HAS a firm (the chokepoint answers those the reserved 404),
     // so "any logged-in user" cannot mean "any member of any firm" here. The principal it does
     // admit belongs to no firm and therefore holds no capability in any firm — there is nothing to
-    // name. "allow" gets no exemption: such a route serves firm-holding sessions too.
-    meta.firmlessSession !== "only"
+    // name. "allow" gets no exemption: such a route serves firm-holding sessions too. A portal route
+    // is exempt on the same footing: only a portal client reaches it, a client holds no capability
+    // in any firm, and the lane admits them to one firm only through their own membership.
+    meta.firmlessSession !== "only" &&
+    meta.surface !== "portal"
   ) {
     throw new TypeError(
       `Route ${JSON.stringify(meta.operationId)} is an authenticated ${routeConfig.method.toUpperCase()} ` +
@@ -375,6 +409,53 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     );
   }
 
+  // #8 The portal lane, both directions. A portal route is a client's and nobody else's, and a client
+  // is admitted to nothing but a portal route: listing `portalUser` on an app route would hand a
+  // person with no member row a firm context that was resolved for members.
+  const isPortalRoute = meta.surface === "portal";
+  if (
+    isPortalRoute &&
+    (meta.portalScope === undefined ||
+      !meta.authenticated ||
+      meta.permission !== null ||
+      meta.resource !== "portalShare" ||
+      meta.principals === undefined ||
+      meta.principals.length !== 1 ||
+      meta.principals[0] !== "portalUser" ||
+      meta.guestLane !== undefined ||
+      meta.signerLane !== undefined ||
+      meta.firmlessSession !== undefined ||
+      meta.firmDatabaseOutage !== undefined)
+  ) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} is on the portal surface but a portal route must ` +
+        `declare portalScope, authenticated: true, permission: null, resource: "portalShare" and ` +
+        `principals: ["portalUser"], with no guestLane, signerLane, firmlessSession or ` +
+        `firmDatabaseOutage.`,
+    );
+  }
+  if (
+    !isPortalRoute &&
+    (meta.portalScope !== undefined || (meta.principals ?? []).includes("portalUser"))
+  ) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} declares portalScope or admits portalUser but ` +
+        `is not on the portal surface; a client reaches only portal routes.`,
+    );
+  }
+
+  // #7 A principals list names at least one kind, each once. An empty list would be a route nobody
+  // signed in can reach, which is never what was meant.
+  if (
+    meta.principals !== undefined &&
+    (meta.principals.length === 0 || new Set(meta.principals).size !== meta.principals.length)
+  ) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} declares principals ${JSON.stringify(meta.principals)} ` +
+        `but the list must name at least one kind, each once.`,
+    );
+  }
+
   const namespace = meta.operationId.slice(0, meta.operationId.indexOf("."));
   const resolvedMeta: ResolvedRouteMeta = {
     ...meta,
@@ -416,6 +497,14 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     ...(resolvedMeta.signerLane === undefined
       ? {}
       : { "x-mc-signerLane": resolvedMeta.signerLane }),
+    // Emitted only where a route declares it, so every route that keeps the default publishes
+    // nothing new.
+    ...(resolvedMeta.principals === undefined
+      ? {}
+      : { "x-mc-principals": resolvedMeta.principals }),
+    ...(resolvedMeta.portalScope === undefined
+      ? {}
+      : { "x-mc-portalScope": resolvedMeta.portalScope }),
     "x-mc-tags": resolvedMeta.tags,
     "x-mc-deprecated": resolvedMeta.deprecated,
   });

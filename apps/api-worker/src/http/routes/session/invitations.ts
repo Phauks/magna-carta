@@ -8,6 +8,7 @@ import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { attemptLadderKey, type AttemptLadder } from "../../auth-attempt-budget.ts";
 import {
+  joiningWrites,
   neutralRedemptionRefusal,
   resolveInvitationRedemption,
 } from "../../invitation-redemption.ts";
@@ -20,7 +21,10 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
-import { isUserEmailConflict } from "../../../control-plane-conflicts.ts";
+import {
+  isPortalMembershipConflict,
+  isUserEmailConflict,
+} from "../../../control-plane-conflicts.ts";
 import {
   enforceHumanVerification,
   humanVerificationTokenHeader,
@@ -42,6 +46,7 @@ import { Problem, problemJson, type ProblemResponse } from "../../contracts/prob
 import { idempotencyKeyHeader } from "../../contracts/common.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { scheduleRequestPathSweep } from "../../request-path-sweep.ts";
+import { InvitationDirectoryEntityId, invitationPersonProblem } from "./invitation-person.ts";
 
 // INVITATIONS — how a person who is not a stranger gets in.
 //
@@ -93,6 +98,7 @@ const IssueInvitationRequest = z
       .string()
       .refine(isCalendarDate, "dateOfBirth must be a real calendar date in YYYY-MM-DD form"),
     expiresInDays: z.number().int().min(1).max(90).optional(),
+    directoryEntityId: InvitationDirectoryEntityId,
   })
   .openapi("IssueInvitationRequest");
 
@@ -197,7 +203,7 @@ export const issueInvitationRoute = defineOpenAPIRoute(issueInvitationMeta, {
     },
     422: {
       description:
-        "The request body is malformed, or the Idempotency-Key was reused with a different payload",
+        "The body is malformed, names the wrong Directory person, or reuses an Idempotency-Key",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -297,6 +303,9 @@ export function registerInvitationRoutes(
       const request = c.req.valid("json");
       const idempotency = requireChokepointIdempotency(c);
 
+      const personProblem = await invitationPersonProblem(c, request);
+      if (personProblem !== null) return personProblem;
+
       const email = request.email.trim().toLowerCase();
       const code = generateInvitationCode();
       const [codeHash, verifierHash] = await Promise.all([
@@ -323,8 +332,9 @@ export function registerInvitationRoutes(
               statements: [
                 c.env.DB_CONTROL.prepare(
                   "INSERT INTO invitation (id, firm_id, kind, email, display_name, code_hash, " +
-                    "verifier_hash, status, attempt_count, expires_at, invited_by_user_id, created_at) " +
-                    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 0, ?8, ?9, ?10)",
+                    "verifier_hash, status, attempt_count, expires_at, invited_by_user_id, created_at, " +
+                    "directory_entity_id) " +
+                    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 0, ?8, ?9, ?10, ?11)",
                 ).bind(
                   invitationId,
                   firmId,
@@ -336,6 +346,7 @@ export function registerInvitationRoutes(
                   expiresAt,
                   actingUserId,
                   nowInstant,
+                  request.directoryEntityId ?? null,
                 ),
                 insertAuthAuditStatement(c.env.DB_CONTROL, {
                   id: newIdentifier("authAudit"),
@@ -408,6 +419,7 @@ export function registerInvitationRoutes(
       const invitation = outcome.invitation;
       const nowEpochMilliseconds = Date.now();
       const invitedUserId = newIdentifier("user");
+      const joining = joiningWrites(c.env.DB_CONTROL, invitation, invitedUserId, nowInstant);
 
       try {
         await commitEffectBatch(
@@ -425,61 +437,53 @@ export function registerInvitationRoutes(
               ).bind(invitation.id, nowInstant, invitedUserId),
               // The same write into the Better Auth user table members.invite makes: unverified,
               // with no credential account. The password-setting link below is what creates the
-              // credential and, in doing so, proves control of the mailbox.
+              // credential and, in doing so, proves control of the mailbox. A staff invitation
+              // gives the account its firm; a client invitation gives it NONE, and the firm that
+              // shares with the client is the membership row written beside it.
               c.env.DB_CONTROL.prepare(
-                'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) ' +
-                  "VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)",
+                'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id, ' +
+                  "principal_kind) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5, ?6)",
               ).bind(
                 invitedUserId,
                 invitation.display_name,
                 invitation.email,
                 nowEpochMilliseconds,
-                invitation.firm_id,
+                joining.client ? null : invitation.firm_id,
+                joining.client ? "portalUser" : "firmMember",
               ),
+              ...joining.statements,
               insertAuthAuditStatement(c.env.DB_CONTROL, {
                 id: newIdentifier("authAudit"),
                 event: "invitation.redeemed",
                 userId: invitedUserId,
-                metadata: { invitationId: invitation.id, firmId: invitation.firm_id },
+                metadata: {
+                  invitationId: invitation.id,
+                  firmId: invitation.firm_id,
+                  kind: invitation.kind,
+                },
                 now: nowInstant,
               }),
             ],
-            outboxMessages: [
-              {
-                topic: "member.provision",
-                payload: {
-                  userId: invitedUserId,
-                  firmId: invitation.firm_id,
-                  displayName: invitation.display_name,
-                  roleName: null,
-                },
-              },
-            ],
+            outboxMessages: joining.outboxMessages,
           },
           { now: () => nowInstant },
         );
       } catch (caught) {
-        // The address is already a user — either this invitation was raced, or the firm invited
-        // somebody who already has an account. Both answer the SAME neutral refusal as every other
-        // failure: "that address is already registered" on an anonymous endpoint is precisely the
-        // account-existence oracle the rest of this handler is built to deny. The caller's ladder
-        // is spent here too, so this refusal is indistinguishable from a plain wrong guess at the
-        // same rung — leaving it unspent would mark out the one caller who had all three facts
-        // right.
-        if (isUserEmailConflict(caught)) {
+        // The address is already a user, or the person already has portal access (a raced
+        // invitation either way). Both answer the SAME neutral refusal, with the ladder spent, so
+        // this is indistinguishable from a wrong guess: "already registered" on an anonymous
+        // endpoint is the account-existence oracle this handler is built to deny.
+        if (isUserEmailConflict(caught) || isPortalMembershipConflict(caught)) {
           return neutralRedemptionRefusal(c, redemptionAttemptLadder.spend(ladderKey));
         }
         throw caught;
       }
 
-      // A redemption that worked clears the caller's ladder: they were who they said they were, and
-      // the mistypes that got them here should not follow them to a second invitation.
+      // A redemption that worked clears the caller's ladder, so mistypes do not follow them.
       redemptionAttemptLadder.clear(ladderKey);
 
-      // After the commit, by design: the membership is real before the mail, and it stays real if
-      // the mail will not go. The send's outcome is recorded at the port (app.ts) — the only layer
-      // that can observe it — so a mail that does not leave is a counted, correlated fact even
-      // though this response cannot carry it.
+      // After the commit, by design: the membership is real before the mail and stays real if the
+      // mail will not go. The port (app.ts) records the send's outcome, which this response cannot.
       await authForEnv(c.env).api.requestPasswordReset({ body: { email: invitation.email } });
       scheduleRequestPathSweep(c.executionCtx, c.env);
 

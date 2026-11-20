@@ -854,6 +854,11 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 90
+          },
+          "directoryEntityId": {
+            "type": "string",
+            "pattern": "^directoryPerson_[A-Za-z0-9_-]+$",
+            "description": "The Directory person this client invitation is for. Required when `kind` is `clientOfFirm`; not allowed when it is `firmMember`."
           }
         },
         "required": [
@@ -54691,6 +54696,62 @@
           "lineNumber"
         ]
       },
+      "PortalAccount": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "firms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PortalFirm"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "firms"
+        ]
+      },
+      "PortalFirm": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": "string"
+          },
+          "firmName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmId",
+          "firmName"
+        ]
+      },
+      "PortalFirmDetail": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": "string"
+          },
+          "firmName": {
+            "type": "string"
+          },
+          "personName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmId",
+          "firmName",
+          "personName"
+        ]
+      },
       "ShippingConnectAck": {
         "type": "object",
         "properties": {
@@ -56867,7 +56928,7 @@
             }
           },
           "422": {
-            "description": "The request body is malformed, or the Idempotency-Key was reused with a different payload",
+            "description": "The body is malformed, names the wrong Directory person, or reuses an Idempotency-Key",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -160931,6 +160992,153 @@
         }
       }
     },
+    "/api/portal/v1/account": {
+      "get": {
+        "description": "The signed-in client and the firms that share with them. Only a portal client reaches it; anyone else is answered as if the route did not exist.",
+        "operationId": "portal.account",
+        "tags": [
+          "portal"
+        ],
+        "x-mc-operationId": "portal.account",
+        "x-mc-surface": "portal",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "portalShare",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-principals": [
+          "portalUser"
+        ],
+        "x-mc-portalScope": "account",
+        "x-mc-tags": [
+          "portal"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The client and their firms",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalAccount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session is not a portal client's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/portal/v1/firms/{firmId}": {
+      "get": {
+        "description": "One firm that shares with the signed-in client, and the name it knows them by. A firm the client holds no active portal access to is answered as absent.",
+        "operationId": "portal.firm",
+        "tags": [
+          "portal"
+        ],
+        "x-mc-operationId": "portal.firm",
+        "x-mc-surface": "portal",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "portalShare",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-principals": [
+          "portalUser"
+        ],
+        "x-mc-portalScope": "firm",
+        "x-mc-tags": [
+          "portal"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalFirmDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such firm, the client's access to it has ended, or the session is not a portal client's (one answer for all three)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/shipping/connection": {
       "post": {
         "description": "Connects the firm's EasyPost postage account, or replaces its key. The key is stored encrypted and is never returned by any route. An administrative act: it requires firm:manageSecrets, not shipping:manage.",
@@ -162424,6 +162632,9 @@
     },
     {
       "name": "platformStatus"
+    },
+    {
+      "name": "portal"
     },
     {
       "name": "rateCards"

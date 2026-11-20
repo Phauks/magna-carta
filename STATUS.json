@@ -3739,6 +3739,49 @@
       },
       "blockedBy": [],
       "notes": "The owner's review round of 2026-09-14, eleven corrections, built through every layer. The firm\ncalendar stops being one grid: a **catalog of individual calendars in folders** (the firm's own two,\na folder per role the firm handed out, the rooms, everything else booked, the dates) with a\nthree-state control per folder, and a **read plan per calendar** — a member calendar is the member\nfilter the server already resolves in SQL, a room calendar the availability read, a date calendar\nthe federated read narrowed to that layer. A calendar that is off is no read at all, so the request\ncount is the reader's choice rather than the roster's size; the same record from two of them merges\ninto one row that knows it is on both. Which calendars are on, and what colour each wears, is\n**personal and per browser** (the week start stays the firm's, on the server) and stores only the\ndepartures from the catalog's defaults, so a calendar shipped later arrives at its own.\n\n**`CalendarGrid.Day`**, the fourth presentation and the only one with a time axis: an hour per row,\na calendar per column, an all-day band above the hours, and the range widened by anything outside\nthe working day. A record on two calendars is drawn in both columns deliberately. It is fed by the\none thing the federated read was missing — **the hour**: `TimelineEntry` gains `timeOfDay` and\n`timeZone`, declared per source, the same class of fact as the sort key and never converted. Before\nthis the firm-wide grid painted no times at all.\n\n**One palette, one home** (`packages/design-system/src/lib/palette/`): the eleven colours the folder\nrail offered, their fills as `--mc-palette-*`, `FOLDER_COLORS` re-exporting them unchanged, and\n`PaletteSwatches` as the one control. A calendar offers the nine that read on a chip and wears its\ncolour as a leading rule, so the status register keeps the fill and a cancelled setting stays\nvisibly cancelled.\n\n**The record forms**: Where becomes Location as the dropdown-with-add over the firm's own offices\nand rooms; a **conference link** gets its own field and its own nullable column on `matter_event`\nand `firm_event`; the times become time fields with the zone beside them as a shortcode worked out\non the record's own day; the day being booked stands in the panel's context pane as the product's\nown calendar with a day view; double-clicking an empty day or hour opens the form on it; and the\n**matter stops being required** — no matter is a choice whose row says what it writes, and the form\nwrites a firm event, which is the table an event belonging to no case already had. Two lines come\noff: \"A matter is needed.\" with the requirement, and \"Nothing recorded in September 2026.\" from\nevery grid, because a month that is empty says so by being empty."
+    },
+    {
+      "slice": "6·11 — Client portal",
+      "group": "phase-6",
+      "order": 11,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done",
+          "by": "Claude"
+        },
+        "plan": {
+          "state": "todo"
+        },
+        "built": {
+          "state": "in-progress",
+          "by": "Claude"
+        },
+        "ui": {
+          "state": "todo"
+        },
+        "load-profile": {
+          "state": "todo"
+        },
+        "tested": {
+          "state": "todo"
+        }
+      },
+      "branch": "claude/project-thread-mg0nu9",
+      "activeWork": null,
+      "next": "Step 4, Home and Documents in apps/web to the picked mockup B; sharing (step 2) is built by its own thread; owner questions 1 to 5 in the spec run on their defaults until answered",
+      "links": {
+        "spec": "docs/specs/2026-11-20-client-portal-design.md",
+        "plan": null,
+        "adrs": [
+          "ADR-0036",
+          "ADR-0304"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "**Design written; the owner picked the To Do First home (option B) on 2026-11-20.** The first release is Home, Documents, Upload requests, Bills with Pay and Sign, built in seven steps. Step 1 makes ADR-0304 true: today the client invitation writes a portal client with the inviting firm's id, so a surface that forgets the kind places the client inside the firm. Grants live in the firm database with a control-plane index that only says which firm to read, because a portal session carries no firm. Pay waits on the payments entry point being built in parallel; messages wait on a firm-side home. Step 1 is built: `user.principal_kind` with an `account` state the ADR did not foresee (account-first joining makes an account before its kind is known), portal membership, client invitations that name a Directory person and provision no member row, and a chokepoint gate that refuses a portal client on every route that does not list the kind. Step 3 is built: portal routes under `/api/portal/v1/` admitted by a portal lane that takes the firm from the person's own active membership, never a member row. The account kind is `portalUser`, because sharing reaches people who are not clients."
     }
   ]
 }

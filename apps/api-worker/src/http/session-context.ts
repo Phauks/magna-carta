@@ -17,8 +17,14 @@ export interface SupportPrincipal {
   readonly tier: SupportGrantTier;
 }
 
+// What kind of person a session belongs to: an account with no firm yet, somebody who works at a
+// firm, or a client a firm shares with. The column and the rules that hold it are in
+// packages/database/src/control-plane-schema.ts (`user.principal_kind`).
+export type PrincipalKind = "account" | "firmMember" | "portalUser";
+
 export interface SessionContext {
   readonly userId: UserId;
+  readonly principalKind: PrincipalKind;
   // NULL while this person belongs to no firm — the state the joining surface creates between
   // making an account and resolving what it is. Every route rejects such a session with the
   // reserved 404 unless it declares firmlessSession; see chokepoint/chokepoint.ts.
@@ -102,10 +108,24 @@ export async function resolveSession(
   // it is the account-before-a-firm state — so it passes through as null and the chokepoint decides
   // what the route makes of it. Absent and empty are the same fact; a firm handle is never "".
   const rawFirmId: unknown = session.user.firmId;
+  const firmId = isFirmlessValue(rawFirmId) ? null : assertIdentifier(rawFirmId, "firm");
   return {
     userId: assertIdentifier(session.user.id, "user"),
-    firmId: isFirmlessValue(rawFirmId) ? null : assertIdentifier(rawFirmId, "firm"),
+    principalKind: principalKindFrom(session.user.principalKind, firmId),
+    firmId,
   };
+}
+
+// The stored kind, read strictly. A value this code does not recognise is treated as a portal
+// client, because that is the kind every staff route refuses: an unreadable kind closes doors and
+// never opens them. An absent value can only come from a session cached before the column existed,
+// and the firm id beside it says what the column's backfill said.
+function principalKindFrom(raw: unknown, firmId: FirmId | null): PrincipalKind {
+  if (raw === "account" || raw === "firmMember" || raw === "portalUser") return raw;
+  if (raw === null || raw === undefined || raw === "") {
+    return firmId === null ? "account" : "firmMember";
+  }
+  return "portalUser";
 }
 
 // Absent and empty are the same fact; a firm handle is never "".

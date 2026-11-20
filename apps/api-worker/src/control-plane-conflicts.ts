@@ -26,3 +26,9 @@ export function isFirmNameConflict(error: unknown): boolean {
 export function isFirmActivationConflict(error: unknown): boolean {
   return isUniqueConstraintConflict(error, "firm.id");
 }
+
+// A second account claiming the same Directory person in the same firm. The issuing route refuses
+// an invitation for a person who already has one; this is the race the check cannot close.
+export function isPortalMembershipConflict(error: unknown): boolean {
+  return isUniqueConstraintConflict(error, "portal_membership.directory_entity_id");
+}
