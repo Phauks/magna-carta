@@ -16,6 +16,7 @@
 
 import { requestJson, type ApiOutcome, type Problem } from "$lib/api/request.ts";
 import type { FirmBuildFacts } from "./firm-build-progress.ts";
+import { humanVerificationHeaders } from "./human-check.ts";
 
 /**
  * A refusal the server described. The shared problem record — named here for the screens that read
@@ -91,13 +92,19 @@ export interface StartRegistrationInput {
   readonly firmName?: string;
 }
 
+/**
+ * Start a registration. `humanCheckSolution` is the bot check's solution for this submit, or `null`
+ * when the bot check is off (human-check.svelte).
+ */
 export function startRegistration(
   fetchImplementation: typeof fetch,
   input: StartRegistrationInput,
+  humanCheckSolution: string | null = null,
 ): Promise<JoiningOutcome<StartedRegistration>> {
   return requestJson(fetchImplementation, "/api/v1/registrations", {
     method: "POST",
     body: input,
+    headers: humanVerificationHeaders(humanCheckSolution),
   });
 }
 
@@ -125,10 +132,12 @@ export interface RedeemInvitationInput {
 export function redeemInvitation(
   fetchImplementation: typeof fetch,
   input: RedeemInvitationInput,
+  humanCheckSolution: string | null = null,
 ): Promise<JoiningOutcome<RedeemedInvitation>> {
   return requestJson(fetchImplementation, "/api/v1/invitations/redemptions", {
     method: "POST",
     body: input,
+    headers: humanVerificationHeaders(humanCheckSolution),
   });
 }
 

@@ -1,12 +1,11 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import {
-  BatesPrefixList,
   BatesRangeList,
   RecordBatesStampedFileRequest,
   TakeBatesRangeRequest,
   TakenBatesRange,
 } from "@magna-carta/bates/contract";
-import { listBatesPrefixes, listBatesRanges } from "@magna-carta/bates/queries";
+import { listBatesRanges } from "@magna-carta/bates/queries";
 import {
   RANGE_OVERLAP_GUARD,
   recordStampedFile,
@@ -17,8 +16,15 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { GuardedWriteRefusedError } from "@magna-carta/data-access/effect-batch";
 import { cursorQuery } from "@magna-carta/data-access/pagination-contract";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { identifierField } from "@magna-carta/identifiers/field";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
-import type { BatesRangeId, ExhibitSetId, FileId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  BatesLogId,
+  BatesRangeId,
+  ExhibitSetId,
+  FileId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
@@ -34,9 +40,9 @@ import { Problem, problemJson, type ProblemResponse } from "../../contracts/prob
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../../idempotency-conflict-problems.ts";
 
-// A matter's Bates numbers: the one register every stamp takes its numbers from. A stamp takes a
-// range before it stamps, and records the saved copy after. Reading the register needs only sight
-// of the matter; taking a range needs the right to add files to it, because a range exists to
+// A matter's Bates numbers: a stamp takes a range from one of the matter's Bates logs before it
+// stamps, and records the saved copy after. The logs themselves are bates-logs.ts. Reading needs only
+// sight of the matter; taking a range needs the right to add files to it, because a range exists to
 // stamp a copy that is saved there.
 
 const UPLOAD = "files:upload" as const;
@@ -50,24 +56,25 @@ const rangeParams = z.object({
   rangeId: identifierPathParam("batesRange", "rangeId"),
 });
 
-function problem<Description extends string>(description: Description) {
+export function problem<Description extends string>(description: Description) {
   return { description, content: { "application/problem+json": { schema: Problem } } };
 }
 
-const errors = {
+export const errors = {
   400: problem("Missing Idempotency-Key (this operation requires one)"),
   401: problem("No valid session"),
   403: problem("The session member lacks the required permission"),
-  404: problem("The matter, file, exhibit set or range is unknown on this matter"),
+  404: problem("The matter, Bates log, file, exhibit set or range is unknown on this matter"),
   409: problem(
-    "Some number in the range is already stamped under that prefix, the range's saved copy is " +
-      "already recorded, or a request with this Idempotency-Key is still in progress",
+    "Some number in the range is already stamped in that log, another log has that name, the " +
+      "range's saved copy is already recorded, or a request with this Idempotency-Key is still in " +
+      "progress",
   ),
   422: problem("The request is invalid"),
   429: problem("Rate limited"),
 } as const;
 
-function readMeta(action: string): RouteMeta {
+export function readMeta(action: string): RouteMeta {
   return {
     operationId: `bates.${action}`,
     surface: "app",
@@ -82,7 +89,7 @@ function readMeta(action: string): RouteMeta {
 
 // Both writes are idempotency-keyed: a retried take must answer the range it took rather than take
 // a second one, which would leave a gap in the numbers.
-function writeMeta(action: string): RouteMeta {
+export function writeMeta(action: string): RouteMeta {
   return {
     operationId: `bates.${action}`,
     surface: "app",
@@ -96,34 +103,15 @@ function writeMeta(action: string): RouteMeta {
   };
 }
 
-const listPrefixesRoute = defineOpenAPIRoute(readMeta("listBatesPrefixes"), {
-  method: "get",
-  path: "/api/v1/matters/{matterId}/bates-prefixes",
-  description:
-    "Each Bates prefix stamped on the matter, most recently used first, with the next number under " +
-    "it, the padding it was last stamped with, and how many ranges and pages it holds.",
-  request: { params: matterIdParam },
-  responses: {
-    200: {
-      description: "The matter's Bates prefixes",
-      content: { "application/json": { schema: BatesPrefixList } },
-    },
-    401: errors[401],
-    403: errors[403],
-    404: errors[404],
-    429: errors[429],
-  },
-});
-
 const listRangesRoute = defineOpenAPIRoute(readMeta("listBatesRanges"), {
   method: "get",
   path: "/api/v1/matters/{matterId}/bates-ranges",
   description:
-    "Every range of Bates numbers taken on the matter, newest first: the prefix and numbers, the " +
-    "file stamped, the saved copy if there is one, who took it and when.",
+    "Every range of Bates numbers taken on the matter, newest first, or in one log: the log, the " +
+    "prefix and numbers, the file stamped, the saved copy if there is one, who took it and when.",
   request: {
     params: matterIdParam,
-    query: cursorQuery.extend({ prefix: z.string().max(40).optional() }),
+    query: cursorQuery.extend({ logId: identifierField("batesLog").optional() }),
   },
   responses: {
     200: {
@@ -141,9 +129,10 @@ const takeRangeRoute = defineOpenAPIRoute(writeMeta("takeBatesRange"), {
   method: "post",
   path: "/api/v1/matters/{matterId}/bates-ranges",
   description:
-    "Takes a range of Bates numbers for one stamp: one number per page, under a prefix. With no " +
-    "start number given it starts one past the highest number stamped under the prefix (1 for a " +
-    "new prefix). Refused when any number in the range is already stamped under the prefix.",
+    "Takes a range of Bates numbers from one of the matter's Bates logs for one stamp: one number " +
+    "per page, under the log's prefix and padding. With no start number given it starts one past " +
+    "the highest number stamped in the log (1 for a new log). Refused when any number in the range " +
+    "is already stamped in the log.",
   request: {
     headers: idempotencyKeyHeader,
     params: matterIdParam,
@@ -193,12 +182,13 @@ const recordStampedFileRoute = defineOpenAPIRoute(writeMeta("recordBatesStampedF
   },
 });
 
-type BatesProblem = ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422>;
+export type BatesProblem = ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422>;
 
-function batesErrorResponse(c: Context, caught: BatesValidationError): BatesProblem {
+export function batesErrorResponse(c: Context, caught: BatesValidationError): BatesProblem {
   const detail = caught.message;
   switch (caught.code) {
     case "bates-unknown-file":
+    case "bates-unknown-log":
     case "bates-unknown-set":
     case "bates-unknown-range":
       return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail });
@@ -206,6 +196,13 @@ function batesErrorResponse(c: Context, caught: BatesValidationError): BatesProb
       return problemJson(c, {
         type: "bates-range-taken",
         title: "Those numbers are already stamped",
+        status: 409,
+        detail,
+      });
+    case "bates-log-name-taken":
+      return problemJson(c, {
+        type: "bates-log-name-taken",
+        title: "That name is taken",
         status: 409,
         detail,
       });
@@ -226,7 +223,7 @@ function batesErrorResponse(c: Context, caught: BatesValidationError): BatesProb
   }
 }
 
-function serviceOptions(c: Context) {
+export function serviceOptions(c: Context) {
   return {
     clock: { now: () => new Date().toISOString() },
     actorUserId: requireChokepointUserId(c),
@@ -239,22 +236,15 @@ export function registerBatesRoutes(
   chokepoint: Chokepoint,
 ): void {
   app.openapi(
-    { ...listPrefixesRoute, middleware: chokepointMiddleware(chokepoint, listPrefixesRoute) },
-    async (c) => {
-      const { matterId } = c.req.valid("param");
-      const database = requireChokepointFirmContext(c).firmDatabase;
-      const summary = await listBatesPrefixes(database, matterId as MatterId);
-      return c.json({ data: summary.data.map((row) => ({ ...row })), capped: summary.capped }, 200);
-    },
-  );
-
-  app.openapi(
     { ...listRangesRoute, middleware: chokepointMiddleware(chokepoint, listRangesRoute) },
     async (c) => {
       const { matterId } = c.req.valid("param");
-      const { cursor, prefix } = c.req.valid("query");
+      const { cursor, logId } = c.req.valid("query");
       const database = requireChokepointFirmContext(c).firmDatabase;
-      const page = await listBatesRanges(database, matterId as MatterId, { cursor, prefix });
+      const page = await listBatesRanges(database, matterId as MatterId, {
+        cursor,
+        logId: logId as BatesLogId | undefined,
+      });
       return c.json(
         { data: page.data.map((range) => ({ ...range })), nextCursor: page.nextCursor },
         200,
@@ -285,8 +275,7 @@ export function registerBatesRoutes(
                 firm.firmDatabase,
                 {
                   matterId: matterId as MatterId,
-                  prefix: body.prefix,
-                  digits: body.digits,
+                  logId: body.logId as BatesLogId,
                   pageCount: body.pageCount,
                   firstNumber: body.firstNumber,
                   purpose: body.purpose,
@@ -297,6 +286,7 @@ export function registerBatesRoutes(
               );
               const responseBody = {
                 id: taken.range.rangeId,
+                logId: taken.range.logId,
                 prefix: taken.range.prefix,
                 digits: taken.range.digits,
                 firstNumber: taken.range.firstNumber,

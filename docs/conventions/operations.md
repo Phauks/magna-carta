@@ -194,12 +194,12 @@ These are free on every plan and easy to miss. A legal SaaS should have them on 
 - [ ] **HSTS** — enable with a long max-age + `includeSubDomains`; only after confirming every hostname (incl. future custom hostnames, §8.4) is HTTPS-only, since HSTS is hard to walk back.
 - [ ] **Modern Rules engine, not legacy Page Rules** — author **Cache Rules** (per-path cache control), **Configuration Rules** (scope zone settings per-route), **Transform Rules** (request/response header rewrites), and **Compression Rules** as needed. Migrate any legacy Page Rules onto these — Page Rules are being sunset.
 - [ ] **Tiered Cache + Smart Tiered Cache** — **Caching → Tiered Cache**: enable both (free on all plans). Modest benefit for a Workers app, but free and harmless; set a cloud-region hint only if an external origin appears.
-- **Turnstile** — **no longer a checkbox here.** Server-side verification is built and shipped
-  dormant (`apps/api-worker/src/http/human-verification/`), gating `POST /api/v1/registrations` and `POST
-  /api/v1/invitations/redemptions`; with no secret provisioned it serves those endpoints unprotected
-  and counts every unprotected pass as `human_verification.decided` / `unenforced`. Switching it on
-  is an ordered activation with a UI prerequisite, not a dashboard toggle — the steps are in the
-  [deploy queue](../deploy-queue.md). Free, and complements Super Bot Fight Mode (§8.2).
+- **Turnstile** — **no longer a checkbox here.** The bot check is built and ships off
+  (`apps/api-worker/src/http/human-verification/`, the widget in `apps/web/src/lib/auth/human-check.svelte`),
+  gating registration, invitation redemption, sign-in and the reset-email request. It switches on when
+  both `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set; the steps are in the
+  [deploy queue](../deploy-queue.md) under _Turnstile activation_. Free, and complements Super Bot
+  Fight Mode (§8.2).
 
 ### 8.2 Phase 1 — the Pro security layer, enable now (the actual reason for Pro)
 
@@ -837,18 +837,17 @@ not a statement about what exists on the account today; for that, list the scrip
 A Worker named here that the account does not carry is a design intent that has not shipped, not a
 discrepancy.
 
-| Worker                    | Container(s) it owns                                  | Why it cleared                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `magna-carta-scan`        | `ScanContainer` (clamd + yara-x + a Rust service)     | The founding case. ② a daily image rebuild bakes current ClamAV signatures and YARA Forge rules; ③ sharded across Durable Object ids at `standard-1`; ④ untrusted bytes, no egress; ⑤ a verdict crosses back, nothing else.                                                                                                                          |
-| `magna-carta-convert`     | `RasterEngineContainer`, `LibreOfficeEngineContainer` | The allowed grouping: two engines in one Worker because they share one pipeline and one cadence. Their differing `instance_type`s (`standard-1` / `standard-2`) show ③ operating within a Worker as well as between.                                                                                                                                 |
-| `magna-carta-ocr`         | `OcrEngineContainer`                                  | ① a native recognition runtime with its models baked into the image, so ④ costs nothing — there is no runtime fetch to allow.                                                                                                                                                                                                                        |
-| `magna-carta-edit`        | `DocumentEditorContainer` (Collabora coolwsd)         | ② the security-patch cadence of a large C++ suite; ④ one isolated instance per open document, no egress, WOPI callbacks reaching the app Worker by outbound interception rather than the network. The `DocumentSession` Durable Object stayed behind.                                                                                                |
-| `magna-carta-bundle`      | `BundleContainer` (a Rust archive builder)            | ③ long CPU-bound archive builds that must not contend with request handling; ④ its R2 access is an outbound handler, not egress. The `BundleBuildCoordinator` Durable Object stayed behind.                                                                                                                                                          |
-| `magna-carta-file-repair` | `FileRepairEngineContainer`                           | ① a pure-Rust repair engine on damaged files — ④ in its purest form: the bytes are both untrusted and malformed.                                                                                                                                                                                                                                     |
-| `magna-carta-recovery`    | `RecoveryEngineContainer`                             | ③ a deliberately CPU-saturating workload; ⑤ trivially clear, since only a hash shard crosses the boundary and no file bytes ever transit.                                                                                                                                                                                                            |
-| `magna-carta-discovery`   | `DiscoveryEngineContainer`                            | ③ stated as contention, not preference: extraction saturates CPU for hours during a bulk load while search must stay warm for sub-second queries. The `DiscoveryLoadCoordinator` stayed behind, holding the load cursor.                                                                                                                             |
-| `magna-carta-search`      | `SearchIndexContainer`                                | The exception above: it failed ⑤ as first posed, got a stateful-service design, and reaches this shape only because the index state now lives in the firm's own R2 and Durable Object rather than in the container.                                                                                                                                  |
-| `magna-carta-address`     | `AddressIndexContainer`, `AddressBuildContainer`      | ③ a monthly build that needs a `standard-4` for an hour beside a query engine that needs a `basic` while anyone types; ⑤ the state is public reference data in one platform bucket, so — unlike search — the worker binds that bucket itself (§20). Its daily `17 7 * * *` cron starts a build only when the index is missing or older than 30 days. |
+| Worker                    | Container(s) it owns                                  | Why it cleared                                                                                                                                                                                                                                        |
+| ------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `magna-carta-scan`        | `ScanContainer` (clamd + yara-x + a Rust service)     | The founding case. ② a daily image rebuild bakes current ClamAV signatures and YARA Forge rules; ③ sharded across Durable Object ids at `standard-1`; ④ untrusted bytes, no egress; ⑤ a verdict crosses back, nothing else.                           |
+| `magna-carta-convert`     | `RasterEngineContainer`, `LibreOfficeEngineContainer` | The allowed grouping: two engines in one Worker because they share one pipeline and one cadence. Their differing `instance_type`s (`standard-1` / `standard-2`) show ③ operating within a Worker as well as between.                                  |
+| `magna-carta-ocr`         | `OcrEngineContainer`                                  | ① a native recognition runtime with its models baked into the image, so ④ costs nothing — there is no runtime fetch to allow.                                                                                                                         |
+| `magna-carta-edit`        | `DocumentEditorContainer` (Collabora coolwsd)         | ② the security-patch cadence of a large C++ suite; ④ one isolated instance per open document, no egress, WOPI callbacks reaching the app Worker by outbound interception rather than the network. The `DocumentSession` Durable Object stayed behind. |
+| `magna-carta-bundle`      | `BundleContainer` (a Rust archive builder)            | ③ long CPU-bound archive builds that must not contend with request handling; ④ its R2 access is an outbound handler, not egress. The `BundleBuildCoordinator` Durable Object stayed behind.                                                           |
+| `magna-carta-file-repair` | `FileRepairEngineContainer`                           | ① a pure-Rust repair engine on damaged files — ④ in its purest form: the bytes are both untrusted and malformed.                                                                                                                                      |
+| `magna-carta-recovery`    | `RecoveryEngineContainer`                             | ③ a deliberately CPU-saturating workload; ⑤ trivially clear, since only a hash shard crosses the boundary and no file bytes ever transit.                                                                                                             |
+| `magna-carta-discovery`   | `DiscoveryEngineContainer`                            | ③ stated as contention, not preference: extraction saturates CPU for hours during a bulk load while search must stay warm for sub-second queries. The `DiscoveryLoadCoordinator` stayed behind, holding the load cursor.                              |
+| `magna-carta-search`      | `SearchIndexContainer`                                | The exception above: it failed ⑤ as first posed, got a stateful-service design, and reaches this shape only because the index state now lives in the firm's own R2 and Durable Object rather than in the container.                                   |
 
 **Workers that exist for other reasons, and did not come through this rubric.** Naming them keeps the fleet from reading as though every Worker is an extraction. `magna-carta-sign` owns no container at all — it exists so the platform signing key lives in exactly one Worker, unreachable from the app Worker, the browser, and every firm-scoped code path (§16); that is a containment argument the rubric's ① does not score. `magna-carta-email` is an Email Routing entrypoint, reached by inbound mail rather than a service binding (§2a). `magna-carta-status` is the public status page. `magna-carta-web` serves the built interface, with one script that guards `/_app/` and no bindings beyond its own files.
 
@@ -856,32 +855,9 @@ discrepancy.
 
 **One caveat named for whoever hits it first.** A _pluggable_ engine that needs outbound network — a cloud OCR or conversion engine a firm supplies — cannot share the `enableInternet = false` containment every Worker above relies on, and needs a policy lane of its own rather than a quiet exception inside one of these.
 
-## 19. Address autocomplete — switching it on (Smarty)
+## 19. Address autocomplete — Google Places
 
-The street box of every address form can offer real addresses as it is typed into. It ships **off**: with no Smarty key pair set, the Worker answers every lookup `unavailable`, and the form behaves exactly as it did before autocomplete existed. Nothing calls out and nothing is billed. The owner authorised an address leaving the tenancy on 2026-09-20; setting the pair is the act that makes it happen, and it starts a per-lookup bill.
-
-**Switching it on**
-
-1. Create a Smarty account under `ops@magnacarta.esq` (credentials into the Bitwarden vault) with **US Address Autocomplete Pro** and **International Address Autocomplete** on the subscription. Autocomplete is priced separately from address verification, so check both are included.
-2. In the Smarty dashboard, **API Keys → Secret Keys**: create a pair. It is the _secret_ pair (an `auth-id` and an `auth-token`), not an embedded key: an embedded key exists for calling Smarty straight from a browser, which this design deliberately never does — every lookup goes through the Worker, where it can be rate-limited, counted and kept out of the logs.
-3. Set both on `magna-carta-api`: `wrangler secret put SMARTY_AUTH_ID`, then `wrangler secret put SMARTY_AUTH_TOKEN`. Both, or neither: half a pair is treated as none.
-4. Open any address form, choose United States, and type the first few characters of a real street. Offers appear after a short pause; choosing one fills the town, state and ZIP code.
-
-Neither name is in `secrets.required` (§3), deliberately — listing them would make every deploy fail until an account nobody has opened exists.
-
-**Watching it**
-
-- `addresses.lookup` in the telemetry dataset, with `operation` (`suggest` / `resolve`), `engine` (`google` / `openaddresses` / `smarty` / `deferred`) and `outcome`. The `suggest` count is what drives the bill. `engine: deferred` on a deployment you believe is switched on means the Worker is not seeing the pair.
-- `outcome: failed` beginning to climb is the first sign Smarty is refusing. A spent subscription answers **402**, a revoked key **401**; the form tells the person the lookup did not answer and stops asking until they press Try Again, and the address can always be typed by hand. The status code is not in the metric — check the Smarty dashboard's usage and key pages.
-- **The Smarty subscription's own quota is the only hard spending ceiling.** The Worker's rate limit is per isolate, so its effective global bound multiplies with traffic; set the subscription tier to the bill you are prepared to pay.
-
-**What never appears anywhere.** The query is a client's address typed a few characters at a time, so the routes are POSTs (the invocation log records full URLs), no failure carries the query or the request URL (Smarty's credentials ride in its query string), and no metric dimension can hold it. Keep it that way when changing any of this.
-
-**Switching it off.** Delete either secret (`wrangler secret delete SMARTY_AUTH_TOKEN`). The next request answers `unavailable` and every form quietly returns to plain typing; addresses already recorded are untouched, because the firm keeps what it chose.
-
-## 19a. Address autocomplete — Google Places (the trial engine)
-
-The owner asked on 2026-11-13 to try Google's addresses before deciding whether the platform's own index (§20) is needed. With `GOOGLE_PLACES_API_KEY` set, **Google answers every country**, ahead of the platform's index and Smarty; delete the key and the lookups go back to whichever of those is provisioned, with nothing else changed. Adapter: `packages/address-lookup/src/google.ts`.
+The street box of every address form can offer real addresses as it is typed into. Google Places is the only engine: the owner tried it from 2026-11-13 and chose it on 2026-11-20, retiring the platform's own US index and the Smarty adapter (§20). With `GOOGLE_PLACES_API_KEY` set, **Google answers every country**; without it the Worker answers every lookup `unavailable` and the form behaves exactly as it did before autocomplete existed. Adapter: `packages/address-lookup/src/google.ts`.
 
 **Switching it on**
 
@@ -891,16 +867,25 @@ The owner asked on 2026-11-13 to try Google's addresses before deciding whether 
 4. Create it in the Secrets Store as `GOOGLE_PLACES_API_KEY` (scope _Workers_). `apps/api-worker/wrangler.jsonc` already binds that name as `SECRETS_STORE_GOOGLE_PLACES_API_KEY`, so the next deploy picks it up; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store").
 5. Open any address form and type the first few characters of a real street. The list shows up to five offers with "Google Maps" under them; choosing one fills the town, region and postal code.
 
+The name is not in `secrets.required` (§3), deliberately: listing it would make every deploy fail until a key exists.
+
 **What it costs.** Two billed calls per address: Autocomplete (New) for each settled pause in typing (the field waits 300 ms and needs three characters), and one Place Details call when an offer is chosen. The field mask (`addressComponents,postalAddress,location`) keeps Place Details in the Essentials tier; adding any other field moves every call to a dearer tier. No session tokens are sent, because a session that ends in an Essentials lookup still bills its first twelve Autocomplete requests. Prices and free monthly caps: [`docs/operating-costs.md`](../operating-costs.md).
+
+**Watching it**
+
+- `addresses.lookup` in the telemetry dataset, with `operation` (`suggest` / `resolve`), `engine` (`google` / `deferred`) and `outcome`. The `suggest` count is what drives the bill. `engine: deferred` on a deployment you believe is switched on means the Worker is not seeing the key.
+- `outcome: failed` beginning to climb is the first sign Google is refusing (a revoked key, a quota reached, billing off). The form tells the person the lookup did not answer and stops asking until they press Try Again, and the address can always be typed by hand. The status code is not in the metric; check the Google Cloud console's quota and credentials pages.
 
 **What Google's terms require, and what is still open**
 
-- **Attribution:** the suggestions route answers `attribution: "google-maps"` and the address field shows "Google Maps" under the offers, untranslated. Google asks for its logo where there is room, or the text in Roboto; the field shows the text in the platform's own typeface. Settle this before Google becomes the permanent engine.
-- **Storage:** Google's terms let a customer keep a place ID indefinitely and allow no other caching beyond short windows. The address a person chooses is written into a record. The owner accepted that open question for the trial; it is the first thing to settle before keeping Google.
+- **Attribution:** the suggestions route answers `attribution: "google-maps"` and the address field shows "Google Maps" under the offers, untranslated. Google asks for its logo where there is room, or the text in Roboto; the field shows the text in the platform's own typeface.
+- **Storage:** Google's terms let a customer keep a place ID indefinitely and allow no other caching beyond short windows. The address a person chooses is written into a record. The owner chose Google as the only engine on 2026-11-20 with this explained; it remains an open terms question rather than a settled one.
 - **No other map:** Places content may not be shown on a non-Google map. Nothing draws a map today.
-- **Disclosure:** each pause in typing sends a client's partial address to Google. Nothing of it is logged here: the query is in the request body, the key in a header.
+- **Disclosure:** each pause in typing sends a client's partial address to Google.
 
-**Switching it off.** Delete `GOOGLE_PLACES_API_KEY` from the Secrets Store (and any per-Worker copy); a deleted store secret leaves the binding answering nothing, which reads as unset. The next request goes to the platform's index or Smarty if either is provisioned, and otherwise answers `unavailable`.
+**What never appears anywhere.** The query is a client's address typed a few characters at a time, so the routes are POSTs (the invocation log records full URLs), the query is in the request body and the key in a header, no failure carries either, and no metric dimension can hold the query. Keep it that way when changing any of this.
+
+**Switching it off.** Delete `GOOGLE_PLACES_API_KEY` from the Secrets Store (and any per-Worker copy); a deleted store secret leaves the binding answering nothing, which reads as unset. The next request answers `unavailable` and every form quietly returns to plain typing; addresses already recorded are untouched.
 
 ## 19b. Translation — Google Cloud Translation
 
@@ -920,29 +905,11 @@ The owner chose Google on 2026-11-19. With `GOOGLE_TRANSLATE_API_KEY` set, a fir
 
 **Switching it off.** Turn the firm switch off to stop one firm, or delete `GOOGLE_TRANSLATE_API_KEY` from the Secrets Store (and any per-Worker copy) to stop every firm. The next request answers that translation is not set up.
 
-## 20. Address autocomplete — the platform's own index (OpenAddresses)
+## 20. Address autocomplete — the retired own index and Smarty
 
-The United States is answered from an index the platform builds itself, with no per-lookup bill (§19 covers Smarty, which answers every other country). Design: [`docs/specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md`](../specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md). Three parts: `apps/address-worker` (the `magna-carta-address` Worker, reached only by service binding), its two Containers built from `containers/address` (`AddressIndexContainer` answers queries on a `basic` instance; `AddressBuildContainer` builds on a `standard-4`), and the `magna-carta-addresses` R2 bucket the index lives in.
+Retired 2026-11-20, when the owner chose Google Places as the only address engine (§19). The platform's own US index (the `magna-carta-address` Worker, its two Containers and the `magna-carta-addresses` R2 bucket) and the Smarty adapter were removed from the repository; their design is kept in [`docs/specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md`](../specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md) for anyone who reopens the question.
 
-**Switching it on, in this order** — each step needs the one before it:
-
-1. Create the R2 bucket `magna-carta-addresses` (no public access, no CORS; nothing outside the address worker reads it).
-2. Connect `apps/address-worker` to Workers Builds the way the other dedicated workers are (§12): production branch `main`, deploy command filtered to `@magna-carta/address-worker`, watch paths covering `apps/address-worker/*`, `containers/address/*` and `crates/*`. The first deploy builds the Container image.
-3. Add the binding to the app worker's `wrangler.jsonc` — `{ "binding": "ADDRESS_SERVICE", "service": "magna-carta-address" }` in `services` — in a pull request. A binding to a worker that does not exist fails the app worker's deploy (§14), which is why this is the last step.
-4. Wait for the first build. The address worker's daily cron (07:17 UTC) starts one whenever no index exists, so the morning after step 2 the bucket holds `us/current.json`. Until then the US answers `unavailable` and the form is a plain text box, exactly as before. To build sooner, open the `magna-carta-address` Worker's Cron Triggers in the dashboard and trigger it by hand.
-
-**Watching it**
-
-- `addresses.lookup` with `engine: openaddresses`. `outcome: unavailable` on that engine means the worker is bound but no index has been published yet.
-- The build bills for about three hours of `standard-4`, not one: the build instance sleeps three hours after the request that started it (`sleepAfter` in `apps/address-worker/src/address-build-container.ts`), and memory and disk bill for every awake second, CPU only while busy.
-- The build: the address worker's logs carry the cron's decision (missing, fresh, stale, running) and the build Container's state. A build takes about an hour. A failed build leaves the previous index answering — nothing user-facing breaks — and the next day's cron tries again once the index is more than 30 days old.
-- The bucket: `us/current.json` names the live build; two builds are kept, so about 20–24 GB at steady state. `us/<build>/attribution.json` lists every source the build used.
-
-**The licence register.** Which OpenAddresses layers are excluded, and why, is `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`, with the reason beside each entry; the rule is in the spec under _Data_. Changing it is a code change that takes effect at the next build. The source list the build reads carries no licence, so the register goes stale as OpenAddresses adds layers: re-read it every few months against the `license` block of each address layer under `sources/us/` in the openaddresses/openaddresses repository, and add any layer recorded as share-alike (`"share-alike": true`), non-commercial, or under a bespoke agreement. Last re-read 2026-11-13.
-
-**What never appears anywhere.** As in §19: the query is a client's address. The Containers log no query text and no address, their error bodies carry engine vocabulary only, and the routes stay POSTs.
-
-**Switching it off.** Remove the `ADDRESS_SERVICE` binding from the app worker. US lookups then go to Smarty if its pair is set, and to nothing otherwise. The worker, bucket and index can stay; with no queries the Containers sleep and bill nothing, and the cron keeps the index fresh for the day the binding returns. To stop the monthly build as well, remove the cron trigger from `apps/address-worker/wrangler.jsonc`.
+Neither was ever switched on, so normally nothing is left on the account. If any of these were created by hand, they can be deleted: the `magna-carta-address` Worker (and its Workers Builds connection), the `magna-carta-addresses` R2 bucket, and the `SMARTY_AUTH_ID` / `SMARTY_AUTH_TOKEN` secrets on `magna-carta-api`. The app Worker no longer reads any of them.
 
 ## 21. Caller ID lookup — switching it on (Telnyx)
 
@@ -955,7 +922,7 @@ The call record's number field says who a typed number belongs to. The Directory
 3. Set it on `magna-carta-api`: `wrangler secret put TELNYX_API_KEY`.
 4. Open **Messaging → New Message**, type a whole US number, and press **Look Up Caller ID**. The caller ID line replaces the button; typing the same number again shows it without the button.
 
-The name is not in `secrets.required` (§3), deliberately, for the same reason as the Smarty pair.
+The name is not in `secrets.required` (§3), deliberately: listing it would make every deploy fail until an account nobody has opened exists.
 
 **Watching it**
 
@@ -1045,3 +1012,44 @@ share a name.
 within five minutes, because each isolate keeps a value that long (`packages/worker-secrets`).
 `packages/worker-secrets/*` also belongs in the Build Watch Paths of every dedicated Worker that
 imports it (§12), so a change to the resolver rebuilds them.
+
+## 24. Usage analytics — switching on Workers Analytics Engine
+
+Both `magna-carta` and `magna-carta-edit` bind the Analytics Engine dataset
+`magna-carta-production-telemetry` as `TELEMETRY` in their `wrangler.jsonc`, so the operational
+counters (`addresses.lookup`, `communications.caller_lookup` and the rest) are written on every
+deploy with no dashboard step. The dataset is created on its first write.
+
+Usage events (which features a firm reaches and completes) need one more thing: the key
+`USAGE_ANALYTICS_PEPPER`. Firm and user ids are pseudonymized under it with HMAC before an event is
+written, and an event is dropped entirely when the key is absent (`packages/telemetry`), so without it
+System Status shows Usage analytics as not set up and no usage event ever reaches the dataset.
+
+**Switching it on**
+
+1. Make a long random value (for example a password manager's 64-character generator) and keep a copy
+   in the password manager. Unlike `ROOT_KEK` it encrypts nothing, so losing or changing it loses no
+   data: events already written keep their old pseudonyms and new events get new ones. The only cost
+   is that a trend spanning the change can no longer join the same firm or user across it, so change
+   it only when there is a reason to (a suspected leak).
+2. Create it in the Secrets Store as `USAGE_ANALYTICS_PEPPER` (scope _Workers_). `apps/api-worker/wrangler.jsonc`
+   binds that name as `SECRETS_STORE_USAGE_ANALYTICS_PEPPER`; a per-Worker secret of the same name on
+   `magna-carta` is the fallback (§23). System Status then shows Usage analytics as set up.
+
+A firm administrator can turn usage analytics off for the firm (the firm setting
+`usage_analytics.enabled`, on by default), and each member can opt out for themselves.
+
+**Reading the data** is the Analytics Engine SQL API, which needs an API token with **Account ·
+Account Analytics · Read**. Nothing in the platform reads it yet, so no such token is set on a Worker:
+
+```bash
+curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/analytics_engine/sql" \
+  --data "SELECT blob1, count() AS events FROM \"magna-carta-production-telemetry\" WHERE timestamp > NOW() - INTERVAL '1' DAY GROUP BY blob1 ORDER BY events DESC"
+```
+
+**What it costs.** Cloudflare's pricing page (read 2026-11-20) says Analytics Engine is not billed
+yet; the published prices for when it is are 10 million data points written and 1 million read
+queries a month included with Workers Paid, then $0.25 per further million written and $1.00 per
+further million read
+([pricing](https://developers.cloudflare.com/analytics/analytics-engine/pricing/)).

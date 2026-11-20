@@ -202,6 +202,9 @@ describe("GET /api/v1/me", () => {
         "firm:scanFile",
         // Bringing records in from the system the firm is leaving: Owner/Admin alone.
         "firm:transferRecords",
+        // The In/Out Log: every seat reads it, and every seat but Read-only works the front desk.
+        "inOutLog:manage",
+        "inOutLog:read",
         "incidents:viewDescription",
         // The four intake keys. intake:read and intake:record reach every seat that does firm work
         // (Admin, Attorney, Paralegal, Billing); intake:waive and intake:manageProcedures stop
@@ -408,6 +411,7 @@ describe("GET /api/v1/me", () => {
       channel: "stable",
       flags: { "release-channels.smoke": false },
       membership: { state: "provisioning" },
+      meetings: { endToEndEncryption: false },
     });
   });
 

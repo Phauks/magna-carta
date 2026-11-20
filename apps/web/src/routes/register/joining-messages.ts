@@ -16,6 +16,7 @@
  * verdict — showing the refusal there would tell somebody a correct code was wrong.
  */
 import type { JoiningOutcome, JoiningProblem } from "$lib/auth/joining-api.ts";
+import { HUMAN_CHECK_FAILED, isHumanCheckRefusal } from "$lib/auth/human-check.ts";
 
 /**
  * The problem type the API stamps on a 503 whose cause is a mail that would not send
@@ -68,6 +69,7 @@ export const JOINING_UNAVAILABLE =
 export function joiningErrorMessage(outcome: JoiningOutcome<unknown>, refusal: string): string {
   if (outcome.kind !== "problem") return JOINING_UNAVAILABLE;
   if (outcome.problem.status === 429) return TOO_MANY_ATTEMPTS;
+  if (isHumanCheckRefusal(outcome.problem)) return HUMAN_CHECK_FAILED;
   // A mail that would not send is a 5xx with a REMEDY, so it is separated out ahead of the generic
   // one: the person can press the button again and it really will send a fresh mail, which is worth
   // saying and which the vaguer sentence below would talk them out of.

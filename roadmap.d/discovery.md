@@ -242,11 +242,11 @@
 
 - id: discovery.production.bates-register
   name: Bates register
-  scope: One register of Bates numbers per matter, by prefix. Every stamp takes its range there first, so two documents stamped on a matter under one prefix never share a number, and each range is logged with the file, the saved copy, who stamped it and when.
+  scope: A matter keeps as many named Bates logs as it needs, one per filing or production, each with its own prefix and padding and counting from its own start. Every stamp takes its range from a log first, so two documents stamped in one log never share a number, and each range is logged with the file, the saved copy, who stamped it and when.
   status: shipped
   surface: screen
-  evidence: packages/bates (overlap-guarded take, append-only ranges by trigger in the bates-numbers per-firm migration); routes in apps/api-worker/src/http/routes/matters/bates.ts; the PDF Editor's Bates tab fills in the next number and takes its range before stamping (apps/web/src/lib/pdf-editor/bates-tool.svelte).
-  notes: The register is the ranges themselves, not a counter, because a counter cannot refuse a typed start inside a stamped range. A production will take its block here too.
+  evidence: packages/bates (logs with fixed prefix and padding; overlap-guarded take within a log; append-only ranges by trigger in the bates-numbers and bates-logs per-firm migrations); routes in apps/api-worker/src/http/routes/matters/bates.ts and bates-logs.ts; the PDF Editor's Bates tab and the exhibit package pick a log or start one (apps/web/src/lib/bates/bates-log-picker.svelte).
+  notes: The register is the ranges themselves, not a counter, because a counter cannot refuse a typed start inside a stamped range. Logs never check each other, so two may share a prefix. A production will take its block here too.
 
 - id: discovery.production.privilege-log
   name: Privilege log
