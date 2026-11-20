@@ -45,6 +45,10 @@ and "return" already mean lending a packet in Custodian, so this log never uses 
   entry and their hash, before the batch; the `in_out_identity_scan` row commits in the pick up's own
   batch, and a refused batch removes the object again. Viewing it takes `inOutLog:manage` and is
   audited before the bytes are served.
+- Room to improve (owner, 2026-11-20): at a desk PC the picture is a scan saved and then chosen as a
+  file, which is slow. Webcam capture was considered and ruled out (it feels awkward for the person
+  at the desk and the visitor). The picture is optional, so this stays as built until a better
+  capture path appears.
 - Move to Custodian is two writes: Custodian's own New Packet route logs the packet under
   `custody:manage`, prefilled from the entry, then the entry is linked to the packet.
 - Delete is for a mistake, and only while waiting. The number is not given back.

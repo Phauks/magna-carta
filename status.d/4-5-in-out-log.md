@@ -11,7 +11,7 @@ load-profile: todo
 tested: done by="Opus 5.5"
 branch: claude/project-thread-r2d6y6
 active-work:
-next: Notify the people an entry is To on Drop Off (needs a notification type); show entries on a matter and on a Directory record
+next: Notify the people an entry is To on Drop Off (needs a notification type); show entries on a matter and on a Directory record; a faster way to capture the ID at a desk PC (today a scan is saved and chosen as a file; webcam capture was ruled out 2026-11-20)
 link-spec: docs/specs/2026-11-19-in-out-log-design.md
 link-plan:
 adrs:
