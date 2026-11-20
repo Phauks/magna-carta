@@ -1,5 +1,5 @@
 /*
- * The column models behind the five settings tables: what each register declares to the one
+ * The column models behind the six settings tables: what each register declares to the one
  * table, so a settings register sorts, filters and counts like a register anywhere else.
  */
 import { describe, expect, it } from "vitest";
@@ -15,6 +15,8 @@ import {
   notificationPreferenceColumns,
   NO_ROLE_LABEL,
   POLICY_MEMBERS_CHOOSE,
+  referralSourceColumns,
+  referralSourceStandingLabel,
   resourceColumns,
   resourceOfficeName,
 } from "$lib/settings/catalog-columns.ts";
@@ -22,6 +24,7 @@ import {
 describe("every settings register", () => {
   const models = [
     eventTypeColumns(true),
+    referralSourceColumns(true),
     resourceColumns(true, new Map([["loc_1", "Downtown"]])),
     memberColumns(true),
     notificationPreferenceColumns(),
@@ -57,6 +60,7 @@ describe("the actions column", () => {
   it("exists only for a member who may act, ends the row, and sorts or filters on nothing", () => {
     const catalogs = [
       { withActions: eventTypeColumns(true), without: eventTypeColumns(false) },
+      { withActions: referralSourceColumns(true), without: referralSourceColumns(false) },
       { withActions: resourceColumns(true, new Map()), without: resourceColumns(false, new Map()) },
       { withActions: memberColumns(true), without: memberColumns(false) },
     ];
@@ -71,6 +75,11 @@ describe("the actions column", () => {
 });
 
 describe("the words the cells read", () => {
+  it("states a referral source as offered or retired", () => {
+    expect(referralSourceStandingLabel({ archived: false })).toBe("Offered");
+    expect(referralSourceStandingLabel({ archived: true })).toBe("Retired");
+  });
+
   it("names a resource's office from the firm's list, and nothing for none", () => {
     const names = new Map([["loc_1", "Downtown"]]);
     expect(resourceOfficeName({ locationId: "loc_1" }, names)).toBe("Downtown");

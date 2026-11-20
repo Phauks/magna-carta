@@ -207,6 +207,36 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     },
   },
   {
+    // A client's own referral (the row's key is the record it belongs to). One row per record, so
+    // when the master already holds a referral the master's stands and the subordinate's is removed,
+    // its handle recorded in the entity_merge event. The same happens when the subordinate was
+    // referred BY the master: moved across, the row would name the master as its own referrer.
+    table: "directory_entity_referral",
+    column: "entity_id",
+    rowColumn: "entity_id",
+    extraColumns: ["referrer_entity_id"],
+    onCollision: "record-only",
+    collides: async (database, masterId, row) => {
+      if (row.referrer_entity_id === masterId) return true;
+      const { results } = await database
+        .prepare(`SELECT 1 FROM directory_entity_referral WHERE entity_id = ?1 LIMIT 1`)
+        .bind(masterId)
+        .all();
+      return results.length > 0;
+    },
+  },
+  {
+    // A referral that names the merged record as the referrer moves to the master. The one
+    // collision is the master's OWN referral naming its duplicate: repointed, the master would have
+    // referred itself, so that row is removed and recorded in the event.
+    table: "directory_entity_referral",
+    column: "referrer_entity_id",
+    rowColumn: "entity_id",
+    extraColumns: [],
+    onCollision: "record-only",
+    collides: async (_database, masterId, row) => row.row === masterId,
+  },
+  {
     // A custom-field value that POINTS AT the merged entity (a contact-reference value's
     // value_reference_id). The value's own row stays put — its target_row_id (the matter or entity the
     // value belongs to) does not move — so only the reference is repointed; nothing can collide.

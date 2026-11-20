@@ -46,6 +46,7 @@ import type {
   CustomFieldValueId,
   DirectoryAddressId,
   DirectoryCategoryId,
+  DirectoryReferralSourceId,
   DirectoryEdgeId,
   DirectoryEmailId,
   DirectoryIdentifierId,
@@ -2051,6 +2052,55 @@ export const directoryEntityCategory = sqliteTable(
       .references(() => directoryCategory.id),
   },
   (table) => [primaryKey({ columns: [table.entityId, table.categoryId] })],
+);
+
+// THE FIRM'S REFERRAL SOURCES — how clients find the firm: Past Client, Another Attorney, Website.
+// A firm-kept list, the directory_category shape: the firm adds, renames, reorders and retires its
+// own words, and a retired source stays readable on the records that already name it. Seeded with a
+// starting list the firm may change.
+export const directoryReferralSource = sqliteTable(
+  "directory_referral_source",
+  {
+    id: text("id").primaryKey().$type<DirectoryReferralSourceId>(), // directoryReferralSource_ handle
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    archived: integer("archived").notNull().default(0), // 0/1
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("directory_referral_source_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("directory_referral_source_archived_check", sql`${table.archived} IN (0, 1)`),
+  ],
+);
+
+// HOW ONE CLIENT CAME TO THE FIRM: a source from the firm's list, the person or organization who
+// sent them, or both. One row per entity at most, keyed by the entity, so "not recorded" is the
+// absence of a row; entity_id and referrer_entity_id name a person OR an organization (the handle's
+// prefix says which), so neither carries a foreign key, as with every entity-generic directory table.
+export const directoryEntityReferral = sqliteTable(
+  "directory_entity_referral",
+  {
+    entityId: text("entity_id").primaryKey(),
+    sourceId: text("source_id")
+      .$type<DirectoryReferralSourceId>()
+      .references(() => directoryReferralSource.id),
+    referrerEntityId: text("referrer_entity_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("directory_entity_referral_source_id_index").on(table.sourceId),
+    index("directory_entity_referral_referrer_entity_id_index").on(table.referrerEntityId),
+    check(
+      "directory_entity_referral_states_something_check",
+      sql`${table.sourceId} IS NOT NULL OR ${table.referrerEntityId} IS NOT NULL`,
+    ),
+    check(
+      "directory_entity_referral_not_self_check",
+      sql`${table.referrerEntityId} IS NULL OR ${table.referrerEntityId} <> ${table.entityId}`,
+    ),
+  ],
 );
 
 // A DIRECTORY RECORD'S PICTURE — a person's photograph or an organization's logo. The member_photo

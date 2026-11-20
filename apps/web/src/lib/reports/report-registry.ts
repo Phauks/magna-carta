@@ -73,6 +73,7 @@ import {
   readRealization,
   readClientStatement,
   readRevenue,
+  readWorkByReferrer,
   readDailyTime,
   readTaskWorkload,
   readMatterProductivity,
@@ -91,6 +92,7 @@ import {
   type Realization,
   type ClientStatement,
   type Revenue,
+  type WorkByReferrer,
   type DailyTime,
   type TaskWorkload,
   type MatterProductivity,
@@ -112,6 +114,7 @@ import {
   samplePaymentsApplied,
   sampleRealization,
   sampleRevenue,
+  sampleWorkByReferrer,
   sampleDailyTime,
   sampleTaskWorkload,
   sampleMatterProductivity,
@@ -121,6 +124,7 @@ import {
 import { presentTrustCompliancePack, type ReportCaptions } from "./trust-compliance-presenter.ts";
 import { presentChangeLog } from "./change-log-presenter.ts";
 import { presentRevenue } from "./revenue-presenter.ts";
+import { presentWorkByReferrer } from "./work-by-referrer-presenter.ts";
 import { presentClientStatement } from "./client-statement-presenter.ts";
 
 export type ReportFamily = "trust-compliance" | "financial" | "productivity" | "operational";
@@ -523,6 +527,27 @@ const revenue = built<Revenue>({
   samplePayload: sampleRevenue,
 });
 
+const workByReferrer = built<WorkByReferrer>({
+  id: "work-by-referrer",
+  family: "financial",
+  name: "Work by Referrer",
+  answers:
+    "Which sources and people send the firm its work, and what that work billed and collected.",
+  permission: FINANCIAL_REPORTS_PERMISSION,
+  temporal: "bitemporal",
+  stage: "alpha",
+  scope: { trustAccount: false, office: true, period: "span" },
+  read: (fetchImpl, scope) =>
+    readWorkByReferrer(fetchImpl, {
+      periodStart: scope.period.from,
+      periodEnd: scope.period.to,
+      knownAsOf: scope.knownAsOf,
+      locationId: scope.office,
+    }),
+  present: (payload) => presentWorkByReferrer(payload),
+  samplePayload: sampleWorkByReferrer,
+});
+
 const clientStatement = built<ClientStatement>({
   id: "client-statement",
   family: "financial",
@@ -621,6 +646,7 @@ const REPORT_LIST = [
   invoices,
   paymentsApplied,
   revenue,
+  workByReferrer,
   clientStatement,
   matterBalances,
   matterBillingGuide,

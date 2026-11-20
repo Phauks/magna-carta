@@ -4,7 +4,7 @@
  * Mirrors `reports.accountsReceivableAging`, `reports.workInProgress`, `reports.realization`,
  * `reports.timekeeperProductivity`, `reports.operationalVolumes`, `reports.invoices`,
  * `reports.paymentsApplied`, `reports.matterBalances`, `reports.mattersList`,
- * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses`, `reports.changeLog`, `reports.revenue`,
+ * `reports.agedWorkInProgress`, `reports.dailyTime`, `reports.matterProductivity`, `reports.clientList`, `reports.taskWorkload`, `reports.agedExpenses`, `reports.changeLog`, `reports.revenue`, `reports.workByReferrer`,
  * `reports.matterBillingGuide` and `reports.clientStatement` in
  * apps/api-worker/openapi/openapi.json, called through the generated client. Field names stay as
  * served.
@@ -31,6 +31,7 @@ import {
   reportsRevenue,
   reportsTaskWorkload,
   reportsTimekeeperProductivity,
+  reportsWorkByReferrer,
   reportsWorkInProgress,
 } from "@magna-carta/api-client";
 import { outcomeOf } from "$lib/api/api-client.ts";
@@ -1029,6 +1030,58 @@ export function readRevenue(
 ): Promise<ApiOutcome<Revenue>> {
   return outcome(() =>
     reportsRevenue({
+      fetch: fetchImpl,
+      throwOnError: true,
+      query: {
+        periodStart: query.periodStart,
+        periodEnd: query.periodEnd,
+        knownAsOf: present(query.knownAsOf),
+        locationId: present(query.locationId),
+      },
+    }),
+  );
+}
+
+/** One person or organization who referred clients, within a source. */
+export interface WorkByReferrerReferrerRow {
+  referrerEntityId: string | null;
+  referrerName: string | null;
+  clientCount: number;
+  matterCount: number;
+  figures: RevenueFigures;
+}
+
+/** One source, or the clients with a referrer and no source, or the clients with nothing recorded. */
+export interface WorkByReferrerSourceRow {
+  kind: "source" | "referrerOnly" | "notRecorded";
+  sourceId: string | null;
+  sourceName: string | null;
+  sourceArchived: boolean;
+  clientCount: number;
+  matterCount: number;
+  figures: RevenueFigures;
+  referrers: WorkByReferrerReferrerRow[];
+}
+
+export interface WorkByReferrer {
+  periodStart: string;
+  periodEnd: string;
+  locationId: string | null;
+  currency: "USD";
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  attributionStatement: string;
+  completeness: ReportCompleteness;
+  totals: RevenueFigures;
+  sources: WorkByReferrerSourceRow[];
+}
+
+export function readWorkByReferrer(
+  fetchImpl: typeof fetch,
+  query: PeriodQuery,
+): Promise<ApiOutcome<WorkByReferrer>> {
+  return outcome(() =>
+    reportsWorkByReferrer({
       fetch: fetchImpl,
       throwOnError: true,
       query: {

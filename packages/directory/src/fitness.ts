@@ -35,6 +35,9 @@ const INBOUND_REFERENCE_PROBES: ReadonlyArray<{ table: string; column: string }>
   { table: "directory_entity_category", column: "entity_id" },
   { table: "custom_field_value", column: "value_reference_id" },
   { table: "custom_field_value", column: "target_row_id" },
+  // A client's referral: the record it belongs to, and the record named as having referred them.
+  { table: "directory_entity_referral", column: "entity_id" },
+  { table: "directory_entity_referral", column: "referrer_entity_id" },
   // The merge pointer itself is an inbound reference: a node whose merged_into_id names a subordinate is
   // a merge CHAIN, and resolution follows exactly one hop, so that node would resolve to an entity that
   // has itself been merged away. A merge flattens the chain by repointing these to the new master, which
@@ -55,7 +58,13 @@ export async function findDanglingToSubordinate(
   for (const probe of INBOUND_REFERENCE_PROBES) {
     // directory_entity_category has no own id column — its identity is the (entity_id, category_id)
     // composite, so report the category_id as the row discriminator. Every other probed table has id.
-    const rowExpression = probe.table === "directory_entity_category" ? "category_id" : "id";
+    // directory_entity_referral is keyed by the record it belongs to, so its entity_id is the row.
+    const rowExpression =
+      probe.table === "directory_entity_category"
+        ? "category_id"
+        : probe.table === "directory_entity_referral"
+          ? "entity_id"
+          : "id";
     const { results } = await database
       .prepare(`SELECT ${rowExpression} AS row FROM ${probe.table} WHERE ${probe.column} = ?1`)
       .bind(subordinateId)

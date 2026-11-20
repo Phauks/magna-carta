@@ -89,9 +89,10 @@ export function isCreditApplication(
   return CREDIT_KINDS.has(row.kind === "reversal" ? (row.reversesKind ?? row.kind) : row.kind);
 }
 
-/** One money movement of the report, attributed to its matter and office. */
-interface Movement {
+/** One money movement of the report, attributed to its matter, its bill's client and its office. */
+export interface RevenueMovement {
   readonly matterId: string;
+  readonly clientEntityId: string;
   readonly locationId: string | null;
   readonly locationName: string | null;
   readonly figures: RevenueFigures;
@@ -99,18 +100,20 @@ interface Movement {
 
 const NO_FIGURES: RevenueFigures = { billedMinor: 0, collectedMinor: 0, creditedMinor: 0 };
 
-function billedMovement(row: InvoiceRegisterRow): Movement {
+function billedMovement(row: InvoiceRegisterRow): RevenueMovement {
   return {
     matterId: row.matterId,
+    clientEntityId: row.clientEntityId,
     locationId: row.locationId,
     locationName: row.locationName,
     figures: { ...NO_FIGURES, billedMinor: row.billedMinor },
   };
 }
 
-function appliedMovement(row: ApplicationRegisterRow): Movement {
+function appliedMovement(row: ApplicationRegisterRow): RevenueMovement {
   return {
     matterId: row.matterId,
+    clientEntityId: row.clientEntityId,
     locationId: row.locationId,
     locationName: row.locationName,
     figures: isCreditApplication(row)
@@ -119,7 +122,8 @@ function appliedMovement(row: ApplicationRegisterRow): Movement {
   };
 }
 
-function figuresOf(movements: readonly Movement[]): RevenueFigures {
+/** The movements added up: the one sum every revenue figure, and every report built on it, takes. */
+export function figuresOf(movements: readonly RevenueMovement[]): RevenueFigures {
   return movements.reduce(
     (total, movement) => ({
       billedMinor: plus(total.billedMinor, movement.figures.billedMinor),
@@ -130,11 +134,11 @@ function figuresOf(movements: readonly Movement[]): RevenueFigures {
   );
 }
 
-function groupBy(
-  movements: readonly Movement[],
-  keyOf: (movement: Movement) => string,
-): Movement[][] {
-  const groups = new Map<string, Movement[]>();
+export function groupBy(
+  movements: readonly RevenueMovement[],
+  keyOf: (movement: RevenueMovement) => string,
+): RevenueMovement[][] {
+  const groups = new Map<string, RevenueMovement[]>();
   for (const movement of movements) {
     const key = keyOf(movement);
     groups.set(key, [...(groups.get(key) ?? []), movement]);
@@ -142,17 +146,23 @@ function groupBy(
   return [...groups.values()];
 }
 
-const byBilledThenCollected = (
+export const byBilledThenCollected = (
   left: { readonly figures: RevenueFigures },
   right: { readonly figures: RevenueFigures },
 ): number =>
   compare(usd(right.figures.billedMinor), usd(left.figures.billedMinor)) ||
   compare(usd(right.figures.collectedMinor), usd(left.figures.collectedMinor));
 
-const matterCountOf = (movements: readonly Movement[]): number =>
+export const matterCountOf = (movements: readonly RevenueMovement[]): number =>
   new Set(movements.map((movement) => movement.matterId)).size;
 
-export async function assembleRevenue(
+/**
+ * The period's money, as movements: the Invoices billed rows and the Payments Applied rows effective
+ * in the period, in the office asked for. Revenue groups these by office, matter type and attorney;
+ * Work by Referrer groups the same movements by how each client found the firm, so the two reports'
+ * totals are one sum over one set.
+ */
+export async function readRevenueMovements(
   database: SqlDatabase,
   input: {
     readonly periodStart: string;
@@ -161,7 +171,10 @@ export async function assembleRevenue(
     readonly locationId: string | null;
   },
   options: { readonly computedAt: string },
-): Promise<RevenueReport> {
+): Promise<{
+  readonly period: ReturnType<typeof resolveReportingPeriod>;
+  readonly movements: readonly RevenueMovement[];
+}> {
   const period = resolveReportingPeriod(input, options.computedAt);
   const query = {
     periodStart: period.periodStart,
@@ -180,10 +193,26 @@ export async function assembleRevenue(
   }
   const inOffice = (row: { readonly locationId: string | null }) =>
     input.locationId === null || row.locationId === input.locationId;
-  const movements = [
-    ...invoices.rows.filter(inOffice).map(billedMovement),
-    ...applications.rows.filter(inOffice).map(appliedMovement),
-  ];
+  return {
+    period,
+    movements: [
+      ...invoices.rows.filter(inOffice).map(billedMovement),
+      ...applications.rows.filter(inOffice).map(appliedMovement),
+    ],
+  };
+}
+
+export async function assembleRevenue(
+  database: SqlDatabase,
+  input: {
+    readonly periodStart: string;
+    readonly periodEnd: string;
+    readonly knownAsOf: string | null;
+    readonly locationId: string | null;
+  },
+  options: { readonly computedAt: string },
+): Promise<RevenueReport> {
+  const { period, movements } = await readRevenueMovements(database, input, options);
 
   const attributionOf = new Map<string, MatterAttribution>(
     (
@@ -192,7 +221,7 @@ export async function assembleRevenue(
       ])
     ).map((attribution) => [attribution.matterId, attribution]),
   );
-  const attributed = (movement: Movement) => attributionOf.get(movement.matterId);
+  const attributed = (movement: RevenueMovement) => attributionOf.get(movement.matterId);
 
   const reproducibility = reproducibilityOf(period, options.computedAt);
   return {

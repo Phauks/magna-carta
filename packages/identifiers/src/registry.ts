@@ -75,6 +75,8 @@ export const ENTITY_PREFIXES = {
   // One re-check the platform owes a matter because the corpus under it moved.
   conflictsRecheckRequest: "conflictsRecheckRequest",
   directoryCategory: "directoryCategory",
+  // A source on the firm's referral list (Past Client, Another Attorney, Website).
+  directoryReferralSource: "directoryReferralSource",
   directoryEmail: "directoryEmail",
   directoryPhone: "directoryPhone",
   directoryAddress: "directoryAddress",

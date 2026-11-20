@@ -52,6 +52,11 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "the row names an R2 object; read object_key before deleting the row",
   },
+  // How a client found the firm. The row belongs to the client (entity_id) and names who referred
+  // them (referrer_entity_id); erasing either person removes the row, because a referral with one
+  // side erased says nothing the firm could act on. Both columns mirror the merge repoint set.
+  { table: "directory_entity_referral", subjectKey: "entity_id", action: "hard-delete" },
+  { table: "directory_entity_referral", subjectKey: "referrer_entity_id", action: "hard-delete" },
   // Edges reference a subject on both endpoints (mirrors the merge repoint set).
   { table: "directory_edge", subjectKey: "from_entity_id", action: "hard-delete" },
   { table: "directory_edge", subjectKey: "to_entity_id", action: "hard-delete" },
@@ -1653,6 +1658,8 @@ export const NO_PII_TABLES: readonly string[] = [
   "integration_credential",
   // Directory classification catalogs — tag/role names, not entity data.
   "directory_category",
+  // The firm's list of referral sources (Past Client, Website): words, not anybody.
+  "directory_referral_source",
   // The nickname equivalence catalogue is a dictionary of NAME FORMS — `bob` implies `robert` — and
   // names no person. A row is about the language, not about anybody in the firm's Directory, so
   // erasing a data subject leaves it untouched; erasing from it would delete a curated linguistic

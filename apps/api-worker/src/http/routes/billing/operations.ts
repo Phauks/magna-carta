@@ -70,5 +70,6 @@ export const OPERATIONS: readonly string[] = [
   "reports.taskWorkload",
   "reports.timekeeperProductivity",
   "reports.trustCompliancePack",
+  "reports.workByReferrer",
   "reports.workInProgress",
 ];

@@ -39,7 +39,8 @@ export type SettingsPermissionArea =
   | "meetings"
   | "ai"
   | "search"
-  | "retention";
+  | "retention"
+  | "directory";
 
 /**
  * The capability that stands for each area — what a firm grants when it means "you may set our
@@ -77,6 +78,9 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   // How long a closed matter's paper file is kept: the firm's policy, not a choice for whoever is
   // closing a matter.
   retention: "matters:manageRetention",
+  // The firm's own directory vocabulary, such as its list of referral sources: kept by whoever may
+  // change a directory record, as the category labels are.
+  directory: "directory:edit",
 };
 
 /** Whether the signed-in member may edit this firm area. False until the session read lands. */

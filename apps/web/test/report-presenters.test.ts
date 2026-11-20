@@ -45,7 +45,12 @@ import {
 } from "../src/lib/reports/report-samples.ts";
 import { IDENTITY_CAPTIONS } from "../src/lib/reports/trust-compliance-presenter.ts";
 import { NO_MATTER_TYPE, presentRevenue } from "../src/lib/reports/revenue-presenter.ts";
-import { sampleRevenue } from "../src/lib/reports/report-samples.ts";
+import { sampleRevenue, sampleWorkByReferrer } from "../src/lib/reports/report-samples.ts";
+import {
+  NO_REFERRER,
+  NOT_RECORDED,
+  presentWorkByReferrer,
+} from "../src/lib/reports/work-by-referrer-presenter.ts";
 
 const numberOf = (cell: ReportCell | undefined): number | null =>
   cell === undefined || typeof cell === "string" ? null : cell.number;
@@ -451,5 +456,48 @@ describe("the revenue presenter", () => {
       revenue.responsibleAttorneys.map((attorney) => money(attorney.figures.billedMinor)),
     );
     expect(types?.totalRow).toBeUndefined();
+  });
+});
+
+describe("the work by referrer presenter", () => {
+  const report = sampleWorkByReferrer();
+  const presentation = presentWorkByReferrer(report);
+  const money = (minor: number) => spreadsheetNumber(fromMinor(minor, USD));
+
+  it("opens with Revenue's three tiles, the payload's totals", () => {
+    const tiles = presentation.summary ?? [];
+    expect(tiles.map((tile) => [tile.label, tile.value, tile.tone])).toEqual([
+      ["Billed", moneyText(report.totals.billedMinor), "plain"],
+      ["Credited and written off", moneyText(report.totals.creditedMinor), "plain"],
+      ["Collected", moneyText(report.totals.collectedMinor), "total"],
+    ]);
+    expect(presentation.title).toBe("Work by Referrer");
+    expect(presentation.stamp).toBe(report.reproducibilityStatement);
+  });
+
+  it("prints every source on a row and every referrer under it, figures as served", () => {
+    const sources = presentation.sections.find((section) => section.id === "by-source");
+    expect(sources?.sortable).toBe(true);
+    expect(sources?.note).toBe(report.attributionStatement);
+    expect(sources?.rows.map((row) => row[0])).toEqual([
+      "Another Attorney",
+      "Past Client",
+      "Search Engine",
+      NOT_RECORDED,
+    ]);
+    expect(sources?.rows.map((row) => numberOf(row[3]))).toEqual(
+      report.sources.map((source) => money(source.figures.billedMinor)),
+    );
+    expect(sources?.rows.map((row) => numberOf(row[5]))).toEqual(
+      report.sources.map((source) => money(source.figures.collectedMinor)),
+    );
+    expect(sources?.rowDetails?.map((details) => details.length)).toEqual(
+      report.sources.map((source) => source.referrers.length),
+    );
+    expect(sources?.rowDetails?.[0]?.map((row) => row[0])).toEqual(
+      report.sources[0]?.referrers.map((referrer) => referrer.referrerName),
+    );
+    expect(sources?.rowDetails?.[2]?.[0]?.[0]).toBe(NO_REFERRER);
+    expect(sources?.totalRow).toBeUndefined();
   });
 });

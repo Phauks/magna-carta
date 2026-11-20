@@ -129,6 +129,9 @@ describe("schema conformance (fitness functions)", () => {
       // One picture per directory record, and the record IS the row: the member_photo reasoning, for
       // a person's photograph or an organization's logo.
       directory_entity_photo: "entity_id",
+      // How one client found the firm, and the record IS the row: a second handle would let two
+      // referrals stand for one client, which a report grouping work by referrer cannot choose between.
+      directory_entity_referral: "entity_id",
       // One running tally per member of how many notifications aged out of their feed while still
       // unread. The MEMBER is the row: it is a count and two instants updated in place, never an
       // event anybody appends, and a handle would let two tallies exist for one person — which is

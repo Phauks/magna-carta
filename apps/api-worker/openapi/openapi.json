@@ -11091,6 +11091,190 @@
           "responsibleAttorneys"
         ]
       },
+      "WorkByReferrerReport": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string"
+          },
+          "periodEnd": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "USD"
+            ]
+          },
+          "reproducibility": {
+            "$ref": "#/components/schemas/ReportReproducibility"
+          },
+          "reproducibilityStatement": {
+            "type": "string"
+          },
+          "attributionStatement": {
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/ReportCompleteness"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "billedMinor": {
+                "type": "integer"
+              },
+              "collectedMinor": {
+                "type": "integer"
+              },
+              "creditedMinor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "billedMinor",
+              "collectedMinor",
+              "creditedMinor"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "source",
+                    "referrerOnly",
+                    "notRecorded"
+                  ]
+                },
+                "sourceId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sourceName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sourceArchived": {
+                  "type": "boolean"
+                },
+                "clientCount": {
+                  "type": "integer"
+                },
+                "matterCount": {
+                  "type": "integer"
+                },
+                "figures": {
+                  "type": "object",
+                  "properties": {
+                    "billedMinor": {
+                      "type": "integer"
+                    },
+                    "collectedMinor": {
+                      "type": "integer"
+                    },
+                    "creditedMinor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "billedMinor",
+                    "collectedMinor",
+                    "creditedMinor"
+                  ]
+                },
+                "referrers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "referrerEntityId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "referrerName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "clientCount": {
+                        "type": "integer"
+                      },
+                      "matterCount": {
+                        "type": "integer"
+                      },
+                      "figures": {
+                        "type": "object",
+                        "properties": {
+                          "billedMinor": {
+                            "type": "integer"
+                          },
+                          "collectedMinor": {
+                            "type": "integer"
+                          },
+                          "creditedMinor": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "billedMinor",
+                          "collectedMinor",
+                          "creditedMinor"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "referrerEntityId",
+                      "referrerName",
+                      "clientCount",
+                      "matterCount",
+                      "figures"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "sourceId",
+                "sourceName",
+                "sourceArchived",
+                "clientCount",
+                "matterCount",
+                "figures",
+                "referrers"
+              ]
+            }
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "locationId",
+          "currency",
+          "reproducibility",
+          "reproducibilityStatement",
+          "attributionStatement",
+          "completeness",
+          "totals",
+          "sources"
+        ]
+      },
       "MatterBillingGuideReport": {
         "type": "object",
         "properties": {
@@ -30494,6 +30678,176 @@
         "required": [
           "imageBase64"
         ]
+      },
+      "DirectoryReferralSourcesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryReferralSource"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "DirectoryReferralSource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^directoryReferralSource_[A-Za-z0-9_-]{21}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "True for a source the firm has retired. Retired sources are still returned: a client recorded under one still shows it, and it is not offered for a new choice."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "position",
+          "archived"
+        ]
+      },
+      "CreateDirectoryReferralSourceRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateDirectoryReferralSourceRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The place in the list the source should take, counted from zero. The rest of the list closes up around it."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "True retires the source; false restores it."
+          }
+        }
+      },
+      "DirectoryEntityReferralResponse": {
+        "type": "object",
+        "properties": {
+          "referral": {
+            "$ref": "#/components/schemas/DirectoryEntityReferral"
+          }
+        },
+        "required": [
+          "referral"
+        ]
+      },
+      "DirectoryEntityReferral": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "source": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^directoryReferralSource_[A-Za-z0-9_-]{21}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "archived": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "archived"
+            ]
+          },
+          "referrer": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "entityId": {
+                "type": "string",
+                "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+              },
+              "displayName": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Null when the directory holds no name for the record."
+              },
+              "mergedIntoId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "entityId",
+              "displayName",
+              "mergedIntoId"
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "referrer"
+        ],
+        "description": "How a client found the firm: a source from the firm's list, the person or organization who referred them, or both. Null where nothing is recorded."
+      },
+      "SetDirectoryEntityReferralRequest": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^directoryReferralSource_[A-Za-z0-9_-]{21}$"
+          },
+          "referrerEntityId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+          }
+        },
+        "required": [
+          "sourceId",
+          "referrerEntityId"
+        ],
+        "description": "Both null removes the record's referral."
       },
       "AddressSuggestionsResponse": {
         "oneOf": [
@@ -70177,6 +70531,128 @@
         }
       }
     },
+    "/api/v1/reports/work-by-referrer": {
+      "get": {
+        "description": "What was billed and collected in a period, grouped by how each bill's client found the firm: by the source on the firm's list, then by the person or organization who referred them. Clients with a referrer and no source, and clients with nothing recorded, stand in groups of their own, so the totals are the Revenue report's for the same period. Each client's money is counted under the referral the client has now. Give a knowledge instant and every figure re-derives from records that can never change; omit it and the answer covers everything known now, which is stamped and not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
+        "operationId": "reports.workByReferrer",
+        "tags": [
+          "reports"
+        ],
+        "x-mc-operationId": "reports.workByReferrer",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "reports:financial",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "reports"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodStart",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": true,
+            "name": "periodEnd",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            "required": false,
+            "name": "knownAsOf",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^location_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What each source and referrer's clients were billed and paid in this period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkByReferrerReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks reports:financial",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was billed or applied than one report can list",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/matter-billing-guide": {
       "get": {
         "description": "How every open and held matter is billed today: the fee agreement in force on the day (hourly, flat fee, contingency or retainer, with its terms), any amendment already recorded to start later, and the hourly rates recorded against the matter itself or its client on the firm's rate cards in use. A matter with no agreement is listed with none, which means it bills hourly at the rates each timekeeper's own card gives. Counts matters by kind of agreement. A live report: it takes no date, answers for the UTC day it is produced, says when it was computed, and is not claimed to reproduce. Choosing an office narrows the rows; it does not limit who may run the report.",
@@ -107580,6 +108056,514 @@
           },
           "404": {
             "description": "The record is unknown, or it holds no picture",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/referral-sources": {
+      "get": {
+        "description": "The firm's list of referral sources in display order, retired sources included and flagged.",
+        "operationId": "directory.listReferralSources",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.listReferralSources",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's referral sources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryReferralSourcesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Adds a referral source to the end of the firm's list.",
+        "operationId": "directory.createReferralSource",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.createReferralSource",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDirectoryReferralSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The source as added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryReferralSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was merged into another, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid (a retired source, a record named as its own referrer, an empty name), or the Idempotency-Key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/referral-sources/{id}": {
+      "patch": {
+        "description": "Renames, moves, retires or restores a referral source. A retired source stays on the clients recorded under it and is not offered for a new choice.",
+        "operationId": "directory.updateReferralSource",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.updateReferralSource",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^directoryReferralSource_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDirectoryReferralSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The source as it now stands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryReferralSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record or the source is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was merged into another, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid (a retired source, a record named as its own referrer, an empty name), or the Idempotency-Key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/directory/entities/{id}/referral": {
+      "get": {
+        "description": "How a client found the firm: a source from the firm's list, the person or organization who referred them, or both. Null where nothing is recorded.",
+        "operationId": "directory.entityReferral",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.entityReferral",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record's referral, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityReferralResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record or the source is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Records a client's referral, replacing what it held. Both fields null removes it. A record is never its own referrer, and a retired source may be kept but not newly chosen.",
+        "operationId": "directory.setEntityReferral",
+        "tags": [
+          "directory"
+        ],
+        "x-mc-operationId": "directory.setEntityReferral",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "directory:edit",
+        "x-mc-resource": "directoryEntity",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "directory"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDirectoryEntityReferralRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The record's referral after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryEntityReferralResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks directory:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record or the source is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was merged into another, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid (a retired source, a record named as its own referrer, an empty name), or the Idempotency-Key was reused",
             "content": {
               "application/problem+json": {
                 "schema": {

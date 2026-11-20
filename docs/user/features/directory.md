@@ -25,8 +25,8 @@ A field with something wrong in it turns red rather than printing a message unde
 form never shifts while you type; hover over the field to read what is wrong.
 
 Press **New** to record a person or an organization. A person is recorded whole, on one form that
-scrolls: their names, the ways to reach them, an address, an About section for their pronouns and
-dates, sealed identifiers and the organizations they belong to, one under another. The parts most people leave empty (an address, an identifier, an organization) start as an **Add** button and open their fields when pressed. Press **Tab**
+scrolls: their names, the ways to reach them, an address, an About section for their pronouns,
+dates and how they found the firm, sealed identifiers and the organizations they belong to, one under another. The parts most people leave empty (an address, an identifier, an organization) start as an **Add** button and open their fields when pressed. Press **Tab**
 to move through every field in order. Each section is a card with its name and how many entries it
 holds at the top; press that header to fold the card away, and press it again to open it. The list
 down the left side jumps to a section (opening it if it was folded), shows how many entries each one
@@ -138,7 +138,17 @@ A record answers the questions the firm keeps an answer to:
   it. Each address has a **Type**, such as business or residential. Addresses are corrected in
   place, the same way. The map button beside a saved address opens it in Google Maps in a new
   window; that sends the address to Google from your own browser.
-- **About**, on a person: the pronouns they stated, and their dates of birth and death.
+- **About**, on a person: the pronouns they stated, and their dates of birth and death. On a person
+  and on an organization, the **Referral**: how the client found the firm. **Source** is picked from
+  the firm's own list (Past Client, Another Attorney, Website and so on); **Referred By** is the
+  person or organization in the Directory who sent them. Either or both may be set; leave Referred
+  By blank for a source with no person, such as a search engine. Press **Edit** to change it in the
+  card, then **Save**. When a referral is recorded, the line under the name at the top of the record
+  says so, for example "Referred by Daniel Okafor (Another Attorney)", and pressing the name opens
+  that record. New Person and New Organization have the same two fields. The list of sources is kept
+  under **Settings**, **Referral Sources**, where it can be added to, renamed, put in order, and
+  retired or restored; a retired source stays on the clients already recorded under it and is not
+  offered for new ones.
 - **Identifiers**: sealed values such as a social security number, a driver's licence, a bar
   number or an account. The type decides what is asked for: nine digits for a social security
   number, the issuing state and the number for a licence, and for an account who it is held with,
@@ -162,7 +172,7 @@ A record answers the questions the firm keeps an answer to:
 ## Who can change the Directory
 
 Reading needs only access to the firm. Adding a record, changing names, contact points,
-relationships and categories needs the Directory edit permission. Revealing a sealed identifier needs
+relationships, categories, referrals and the list of referral sources needs the Directory edit permission. Revealing a sealed identifier needs
 its own permission and is always logged.
 
 ## Related

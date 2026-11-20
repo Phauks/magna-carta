@@ -1,6 +1,6 @@
 /*
- * The column models behind the five settings tables — the event-type catalog, the rooms and
- * resources catalog, the member roster, and the two notification matrices — declared for the
+ * The column models behind the six settings tables — the event-type catalog, the referral
+ * sources, the rooms and resources catalog, the member roster, and the two notification matrices — declared for the
  * platform's one table (DataTable.Grid) so a register in Settings is not a lesser table than a
  * register anywhere else: it sorts, filters from its headers, offers its column roster, resizes,
  * and counts itself in the footer, because the grid supplies all of that from what is declared
@@ -29,6 +29,7 @@ import {
   type EventType,
   type FirmResource,
 } from "$lib/calendar/calendar-api.ts";
+import type { ReferralSource } from "$lib/directory/referral-api.ts";
 import type { FirmMemberSummary } from "$lib/members/members-api.ts";
 import {
   EMAIL_CADENCE_OPTIONS,
@@ -92,6 +93,44 @@ export function eventTypeColumns(canEdit: boolean): GridColumn<EventType>[] {
       filterValues: [EVENT_TYPE_STANDING_LABELS.active, EVENT_TYPE_STANDING_LABELS.retired],
     },
     ...(canEdit ? [actionsColumn<EventType>()] : []),
+  ];
+}
+
+// ---- referral sources ---------------------------------------------------------------------------
+
+export const REFERRAL_SOURCE_STANDING_LABELS = { active: "Offered", retired: "Retired" } as const;
+
+export function referralSourceStandingLabel(source: Pick<ReferralSource, "archived">): string {
+  return source.archived
+    ? REFERRAL_SOURCE_STANDING_LABELS.retired
+    : REFERRAL_SOURCE_STANDING_LABELS.active;
+}
+
+/**
+ * The list in the firm's own order, which is the order the Source field offers it in. Sorting by
+ * the Order column puts the list back the way the field reads.
+ */
+export function referralSourceColumns(canEdit: boolean): GridColumn<ReferralSource>[] {
+  return [
+    { id: "name", label: "Name", anchored: true, value: (source) => source.name },
+    {
+      id: "order",
+      label: "Order",
+      type: "number",
+      filter: "none",
+      value: (source) => source.position + 1,
+    },
+    {
+      id: "standing",
+      label: "Standing",
+      filter: "set",
+      value: referralSourceStandingLabel,
+      filterValues: [
+        REFERRAL_SOURCE_STANDING_LABELS.active,
+        REFERRAL_SOURCE_STANDING_LABELS.retired,
+      ],
+    },
+    ...(canEdit ? [actionsColumn<ReferralSource>()] : []),
   ];
 }
 

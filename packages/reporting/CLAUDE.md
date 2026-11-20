@@ -32,6 +32,9 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
   (`revenue.ts`): the Invoices billed figure and the collection kinds of Payments Applied (payments,
   trust transfers, client credits; credit notes and write-offs apart, as credited) by office, by
   matter type and by responsible attorney, over billing's `readMatterAttributions`;
+  and work by referrer (`work-by-referrer.ts`): Revenue's own movements (`readRevenueMovements`)
+  grouped by each bill's client's referral, by source and then referrer, from the directory's
+  `readEntityReferrals`, its totals proved equal to Revenue's;
   and the matter billing guide (`matter-billing-guide.ts`, live): each open and held matter from
   the matters register beside billing's agreement governing the day and timekeeping's matter- and
   client-tier rates in force, counted by kind of agreement;
@@ -105,7 +108,7 @@ local `CLAUDE.md` of [`packages/trust`](../trust/CLAUDE.md) and
 
 ## Dependencies & contracts
 
-- Depends on `@magna-carta/directory` (the listing row the Client List prints), `@magna-carta/tasks`
+- Depends on `@magna-carta/directory` (the listing row the Client List prints, and the referrals Work by Referrer groups by), `@magna-carta/tasks`
   (the workload Tasks by Person counts), `@magna-carta/trust` (the account tree, the three-way proof, the bitemporal select
   builders), `@magna-carta/ledger` (the stored-balance fitness query and the calendar-date check),
   `@magna-carta/data-access` (the `SqlDatabase` shape, and `readAuditChanges` for the Change Log), and `@magna-carta/identifiers`.

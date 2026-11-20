@@ -63,6 +63,16 @@
   awaiting-owner: Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
   notes: Backend shipped and the Pronouns pane on the record screen enters them. A separate gender field is deliberately not built and is flagged for the owner.
 
+- id: directory.referrals
+  name: Referrals
+  scope: How a client found the firm, a Source from the firm's own list and an optional Referred By record, on persons and organizations; the list kept in Settings.
+  status: shipped
+  surface: screen
+  slices: 1-3-directory
+  evidence: packages/directory/src/referrals.ts (directory_referral_source and directory_entity_referral, migration 20261120T195119_referral-sources; merge repoints both columns); apps/api-worker/src/http/routes/directory/referrals.ts; apps/web/src/lib/directory/referral-pane.svelte and sections/referral-section.svelte (About card, New Person, New Organization), the header line in entity-window.svelte, and apps/web/src/routes/(app)/settings/referral-sources/+page.svelte
+  audience: public
+  public-summary: Record how each client found the firm, from a list of sources the firm keeps, and who referred them.
+
 - id: directory.edges
   name: Typed edges
   scope: First-class typed, dated edges between entities (affiliations, relationships, representation, role assignments) with valid-from/valid-to.

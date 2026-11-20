@@ -958,3 +958,88 @@ export const CreatePersonRequest = z
     organizations: z.array(PersonOrganizationRequest).max(50).optional(),
   })
   .meta({ id: "CreateDirectoryPersonRequest" });
+
+// HOW A CLIENT FOUND THE FIRM: the firm's list of referral sources and one record's referral.
+
+export const DirectoryReferralSource = z
+  .object({
+    id: identifierField("directoryReferralSource"),
+    name: z.string(),
+    position: z.number().int(),
+    archived: z.boolean().meta({
+      description:
+        "True for a source the firm has retired. Retired sources are still returned: a client " +
+        "recorded under one still shows it, and it is not offered for a new choice.",
+    }),
+  })
+  .meta({ id: "DirectoryReferralSource" });
+
+export const DirectoryReferralSourcesResponse = z
+  .object({ data: z.array(DirectoryReferralSource) })
+  .meta({ id: "DirectoryReferralSourcesResponse" });
+
+export const CreateReferralSourceRequest = z
+  .object({ name: z.string().trim().min(1) })
+  .meta({ id: "CreateDirectoryReferralSourceRequest" });
+
+export const UpdateReferralSourceRequest = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    position: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .meta({
+        description:
+          "The place in the list the source should take, counted from zero. The rest of the list " +
+          "closes up around it.",
+      }),
+    archived: z.boolean().optional().meta({
+      description: "True retires the source; false restores it.",
+    }),
+  })
+  .meta({ id: "UpdateDirectoryReferralSourceRequest" });
+
+// ONE registered component, already nullable, used verbatim by the read and the write (the pronoun
+// set's rule, for the pronoun set's reason).
+export const DirectoryEntityReferral = z
+  .object({
+    source: z
+      .object({
+        id: identifierField("directoryReferralSource"),
+        name: z.string(),
+        archived: z.boolean(),
+      })
+      .nullable(),
+    referrer: z
+      .object({
+        entityId: z.string().regex(directoryEntityIdPattern),
+        displayName: z.string().nullable().meta({
+          description: "Null when the directory holds no name for the record.",
+        }),
+        mergedIntoId: z.string().nullable(),
+      })
+      .nullable(),
+  })
+  .nullable()
+  .meta({
+    id: "DirectoryEntityReferral",
+    description:
+      "How a client found the firm: a source from the firm's list, the person or organization who " +
+      "referred them, or both. Null where nothing is recorded.",
+  });
+
+export const DirectoryEntityReferralResponse = z
+  .object({ referral: DirectoryEntityReferral })
+  .meta({ id: "DirectoryEntityReferralResponse" });
+
+export const SetEntityReferralRequest = z
+  .object({
+    sourceId: identifierField("directoryReferralSource").nullable(),
+    referrerEntityId: z.string().regex(directoryEntityIdPattern).nullable(),
+  })
+  .meta({
+    id: "SetDirectoryEntityReferralRequest",
+    description: "Both null removes the record's referral.",
+  });

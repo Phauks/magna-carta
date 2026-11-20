@@ -16,6 +16,7 @@ import { formatDate } from "@magna-carta/design-system/formatters";
 import { recordIsOrigin } from "./edge-draft.ts";
 import type { IdentifierDraft } from "./identifier-draft.ts";
 import { identifierRequestFrom } from "./identifier-draft.ts";
+import { emptyReferralDraft, referralDraftIsEmpty, type ReferralDraft } from "./referral-draft.ts";
 
 export interface PersonNameDraft {
   prefix: string;
@@ -149,6 +150,8 @@ export interface PersonDraft {
   contacts: (ContactDraft & { readonly id: string })[];
   identifiers: (IdentifierDraft & { readonly id: string })[];
   organizations: OrganizationDraft[];
+  /** How they found the firm. Written right after the person is created, as the photo is. */
+  referral: ReferralDraft;
 }
 
 export function emptyPersonDraft(): PersonDraft {
@@ -161,6 +164,7 @@ export function emptyPersonDraft(): PersonDraft {
     contacts: [],
     identifiers: [],
     organizations: [],
+    referral: emptyReferralDraft(),
   };
 }
 
@@ -197,7 +201,8 @@ export function personSectionCounts(draft: PersonDraft): readonly PersonSectionC
       count:
         (draft.pronouns === null ? 0 : 1) +
         (draft.dateOfBirth === "" ? 0 : 1) +
-        (draft.dateOfDeath === "" ? 0 : 1),
+        (draft.dateOfDeath === "" ? 0 : 1) +
+        (referralDraftIsEmpty(draft.referral) ? 0 : 1),
     },
     { id: "identifiers", label: "Identifiers", count: draft.identifiers.length },
     { id: "organizations", label: "Organizations", count: draft.organizations.length },
@@ -232,6 +237,7 @@ export type PersonSummaryMark =
   | "pronouns"
   | "born"
   | "died"
+  | "referral"
   | "identifier"
   | "organization";
 
@@ -273,6 +279,9 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
     lines.push({ label: "Born", value: formatDate(draft.dateOfBirth), mark: "born" });
   if (draft.dateOfDeath !== "")
     lines.push({ label: "Died", value: formatDate(draft.dateOfDeath), mark: "died" });
+  if (draft.referral.referrer !== null) {
+    lines.push({ label: "Referred By", value: draft.referral.referrer.name, mark: "referral" });
+  }
   if (draft.identifiers.length > 0) {
     lines.push({
       label: "Identifiers",
@@ -329,7 +338,8 @@ export function personDraftStarted(draft: PersonDraft): boolean {
     draft.dateOfDeath !== "" ||
     draft.contacts.length > 0 ||
     draft.identifiers.length > 0 ||
-    draft.organizations.length > 0
+    draft.organizations.length > 0 ||
+    !referralDraftIsEmpty(draft.referral)
   );
 }
 

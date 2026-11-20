@@ -272,6 +272,12 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "only from the create route behind directory:edit. A category is archived rather than deleted, " +
     "so the row count is the number of labels the firm has ever decided it files people under. It " +
     "grows with the firm's decisions and stops; it does not grow with the directory's size.",
+  "directory.listReferralSources":
+    "The firm's list of referral sources. Rows come only from the seed in the migration that made " +
+    "the table and from createReferralSource in packages/directory/src/referrals.ts, reached only " +
+    "from the create route behind directory:edit. A source is retired rather than deleted, so the " +
+    "row count is the number of sources the firm has ever named. It grows with the firm's decisions " +
+    "and stops; it does not grow with the directory's size.",
   "directory.listEntityCategories":
     "One entity's assignments, bounded by the vocabulary above: directory_entity_category has a " +
     "composite primary key on (entity_id, category_id) in packages/database/src/per-firm-schema.ts, " +

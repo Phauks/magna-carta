@@ -24,6 +24,7 @@ import type {
   Realization,
   Revenue,
   TimekeeperProductivity,
+  WorkByReferrer,
   TaskWorkload,
   DailyTime,
   MatterProductivity,
@@ -1136,6 +1137,94 @@ export function sampleRevenue(): Revenue {
         responsibleName: samplePerson(1).name,
         matterCount: 2,
         figures: { billedMinor: 600_000, collectedMinor: 400_000, creditedMinor: 25_000 },
+      },
+    ],
+  };
+}
+
+/** Work by Referrer: Revenue's sample totals, grouped by source and then by who referred. */
+export function sampleWorkByReferrer(): WorkByReferrer {
+  const referrer = (
+    index: number | null,
+    clientCount: number,
+    matterCount: number,
+    figures: WorkByReferrer["totals"],
+  ) => ({
+    referrerEntityId: index === null ? null : `directoryPerson_sample_${String(index)}`,
+    referrerName: index === null ? null : samplePerson(index).name,
+    clientCount,
+    matterCount,
+    figures,
+  });
+  return {
+    periodStart: "2026-07-01",
+    periodEnd: "2026-07-31",
+    locationId: null,
+    currency: "USD",
+    ...REPRODUCIBLE_JULY,
+    attributionStatement:
+      "Billed and collected are the Revenue report's figures for the same period. Each bill's money is counted under the referral its client has now: the source on the firm's list, then the person or organization who referred them.",
+    completeness: { scope: "complete" },
+    totals: { billedMinor: 1_850_000, collectedMinor: 1_200_000, creditedMinor: 75_000 },
+    sources: [
+      {
+        kind: "source",
+        sourceId: "directoryReferralSource_sample_attorney",
+        sourceName: "Another Attorney",
+        sourceArchived: false,
+        clientCount: 2,
+        matterCount: 3,
+        figures: { billedMinor: 900_000, collectedMinor: 600_000, creditedMinor: 25_000 },
+        referrers: [
+          referrer(2, 1, 2, {
+            billedMinor: 600_000,
+            collectedMinor: 400_000,
+            creditedMinor: 25_000,
+          }),
+          referrer(3, 1, 1, { billedMinor: 300_000, collectedMinor: 200_000, creditedMinor: 0 }),
+        ],
+      },
+      {
+        kind: "source",
+        sourceId: "directoryReferralSource_sample_pastClient",
+        sourceName: "Past Client",
+        sourceArchived: false,
+        clientCount: 1,
+        matterCount: 1,
+        figures: { billedMinor: 400_000, collectedMinor: 300_000, creditedMinor: 25_000 },
+        referrers: [
+          referrer(4, 1, 1, {
+            billedMinor: 400_000,
+            collectedMinor: 300_000,
+            creditedMinor: 25_000,
+          }),
+        ],
+      },
+      {
+        kind: "source",
+        sourceId: "directoryReferralSource_sample_search",
+        sourceName: "Search Engine",
+        sourceArchived: false,
+        clientCount: 1,
+        matterCount: 1,
+        figures: { billedMinor: 350_000, collectedMinor: 200_000, creditedMinor: 25_000 },
+        referrers: [
+          referrer(null, 1, 1, {
+            billedMinor: 350_000,
+            collectedMinor: 200_000,
+            creditedMinor: 25_000,
+          }),
+        ],
+      },
+      {
+        kind: "notRecorded",
+        sourceId: null,
+        sourceName: null,
+        sourceArchived: false,
+        clientCount: 1,
+        matterCount: 1,
+        figures: { billedMinor: 200_000, collectedMinor: 100_000, creditedMinor: 0 },
+        referrers: [],
       },
     ],
   };
