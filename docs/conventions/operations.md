@@ -920,6 +920,23 @@ The owner chose Google on 2026-11-19. With `GOOGLE_TRANSLATE_API_KEY` set, a fir
 
 **Switching it off.** Turn the firm switch off to stop one firm, or delete `GOOGLE_TRANSLATE_API_KEY` from the Secrets Store (and any per-Worker copy) to stop every firm. The next request answers that translation is not set up.
 
+## 19c. Bank feeds — Plaid
+
+The owner picked Plaid on 2026-11-20 (`docs/decisions/pending/bank-feeds-run-on-plaid-read-only.md`). With `PLAID_CLIENT_ID` and `PLAID_SECRET` set, the Banking screen's Connect Bank opens Plaid's sign-in window; without them it says Banking is not set up. Adapter: `packages/bank-feeds/src/plaid.ts`.
+
+**Switching it on**
+
+1. Sign up at plaid.com (the free **Trial** plan covers 10 live bank connections). Under **Developers, Keys**, copy the client id and the secret for the environment you want.
+2. Create both in the Secrets Store (scope _Workers_) as `PLAID_CLIENT_ID` and `PLAID_SECRET`. `apps/api-worker/wrangler.jsonc` binds them as `SECRETS_STORE_PLAID_CLIENT_ID` and `SECRETS_STORE_PLAID_SECRET`; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store").
+3. To try it with Plaid's test banks first, also create `PLAID_ENVIRONMENT` with the value `sandbox` and use the sandbox secret. Without it the Worker calls Plaid's production host.
+4. The next deploy picks the keys up. An owner or administrator opens Banking and presses Connect Bank.
+
+**What it costs.** Plaid bills per connected account per month for Transactions and per balance read; the screen reads balances at most every 30 minutes per connection, and only when someone opens it. Prices: [`docs/operating-costs.md`](../operating-costs.md).
+
+**What crosses, and what is kept.** The client id and secret go to Plaid in the request body, never a URL. The access token for each connection is sealed in the firm's integration credential store and never leaves the Worker. The bank's lines (date, amount, the bank's description, check number) are stored in the firm's own database.
+
+**Switching it off.** Disconnect each bank on the Banking screen, which removes the connection at Plaid, then delete the two secrets. The screen then says Banking is not set up.
+
 ## 20. Address autocomplete — the platform's own index (OpenAddresses)
 
 The United States is answered from an index the platform builds itself, with no per-lookup bill (§19 covers Smarty, which answers every other country). Design: [`docs/specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md`](../specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md). Three parts: `apps/address-worker` (the `magna-carta-address` Worker, reached only by service binding), its two Containers built from `containers/address` (`AddressIndexContainer` answers queries on a `basic` instance; `AddressBuildContainer` builds on a `standard-4`), and the `magna-carta-addresses` R2 bucket the index lives in.

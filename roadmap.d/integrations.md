@@ -82,8 +82,19 @@
 - id: integrations.ports.accounting-banking
   name: Accounting / banking ports
   scope: QuickBooks-class accounting and banking data ports.
-  status: not-started
-  evidence: No port or adapter code in packages/.
+  status: partial
+  evidence: The banking half is built as the bank feed (integrations.ports.accounting-banking.bank-feed); no accounting port exists.
+
+- id: integrations.ports.accounting-banking.bank-feed
+  name: Bank feed (Banking screen)
+  scope: Read-only bank balances and lines for the firm's operating and trust accounts through Plaid, shown beside the books with each line marked In Books, Not in Books or Pending.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-11-20-bank-feeds-design.md
+  evidence: packages/bank-feeds (port, Plaid adapter, matching rule); apps/api-worker src/banking and routes/banking behind banking:read and banking:manage; apps/web /banking. Needs PLAID_CLIENT_ID and PLAID_SECRET set. Webhooks and check images are not built.
+  audience: public
+  public-name: Banking
+  public-summary: Connect the firm's bank and see each account's bank balance beside the books, with every recent bank line marked as in the books or not.
 
 - id: integrations.ports.payments
   name: Payments port
