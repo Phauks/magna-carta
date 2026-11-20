@@ -68,7 +68,7 @@
   function show(next: string): void {
     const url = new URL(page.url);
     url.searchParams.set("state", next);
-    void goto(url, { replaceState: true, noScroll: true });
+    void goto(url, { replace: true, reset: false });
   }
 
   const PEOPLE = [

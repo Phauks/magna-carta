@@ -124,3 +124,16 @@
   slices: 4-2-custodian
   spec: docs/specs/2026-06-16-safe-custody-design.md
   evidence: Partial because the stocktake half is built and scan-to-locate is not. Slice 4·2·4 shipped packages/custodian/src/{stocktake-service,stocktake-statements,stocktake-reconciliation}.ts over custody_stocktake and custody_stocktake_sighting, with seven routes under /api/v1/custody/stocktakes — open a count over the whole register or one branch of the container tree, record observations in batches, read a reconciliation of missing, misplaced, unexpected and unregistered, and close it, which freezes the findings. A stocktake observes and reports only: nothing on the path writes the movement ledger, a packet or an item, and a source-scan fitness function holds that boundary. Sighting rows are append-only at the database, with a fourth trigger refusing an observation against a closed count. What is genuinely absent is scan-to-locate — the labels are linear Code 128 and no QR encoder exists.
+
+- id: custodian.in-out-log
+  name: In/Out Log
+  scope: The front desk's numbered record of copies, papers and files dropped off for one or more people and then picked up, or moved into Custodian.
+  status: shipped
+  surface: screen
+  slices: 4-5-in-out-log
+  spec: docs/specs/2026-11-19-in-out-log-design.md
+  evidence: packages/in-out-log; six routes in apps/api-worker/src/http/routes/in-out-log/entries.ts; the /in-out-log screen (apps/web/src/routes/(app)/in-out-log/+page.svelte).
+  audience: public
+  public-name: In/Out Log
+  public-summary: Record what is left at the front desk for someone, who picked it up, and move anything that needs safekeeping into Custodian.
+  notes: A separate, lighter record than the custody register by the owner's ruling of 2026-11-19. Not built yet - notifying the people it is To on a drop off, and showing entries on a matter or a Directory record.

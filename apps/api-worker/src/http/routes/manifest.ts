@@ -13,6 +13,7 @@ import { mountCalendar } from "./calendar/index.ts";
 import { mountNotesAndTasks } from "./notes-and-tasks/index.ts";
 import { mountCommunications } from "./communications/index.ts";
 import { mountCustody } from "./custody/index.ts";
+import { mountInOutLog } from "./in-out-log/index.ts";
 import { mountMagnus } from "./magnus/index.ts";
 import { mountDiscovery } from "./discovery/index.ts";
 import { mountTimekeeping } from "./timekeeping/index.ts";
@@ -41,6 +42,7 @@ export const DOMAIN_MODULES: readonly DomainModule[] = [
   { domain: "notes-and-tasks", mount: mountNotesAndTasks },
   { domain: "communications", mount: mountCommunications },
   { domain: "custody", mount: mountCustody },
+  { domain: "in-out-log", mount: mountInOutLog },
   { domain: "magnus", mount: mountMagnus },
   { domain: "discovery", mount: mountDiscovery },
   { domain: "timekeeping", mount: mountTimekeeping },

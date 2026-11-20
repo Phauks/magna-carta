@@ -121,6 +121,16 @@ export function pageDisplaySize(
   };
 }
 
+/**
+ * The zoom that fits the widest page into a width, in CSS pixels, never past the page's own size. A
+ * width not measured yet, or no pages, reads as the page's own size.
+ */
+export function fittedZoom(pages: readonly PdfPageSize[], width: number): number {
+  if (width <= 0 || pages.length === 0) return 1;
+  const widest = Math.max(...pages.map((page) => pageDisplaySize(page, 1).width));
+  return widest <= 0 ? 1 : Math.min(1, width / widest);
+}
+
 /** Whether this environment can run the viewer at all. A test in Node cannot. */
 export function pdfWorkerAvailable(): boolean {
   return typeof Worker === "function" && typeof window !== "undefined";
