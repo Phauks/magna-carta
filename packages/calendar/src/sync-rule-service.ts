@@ -42,7 +42,9 @@ export type SyncRuleRefusalCode =
   // A destination that is not one of the member's calendars at the provider.
   | "calendar-sync-unknown-calendar"
   // A destination the member can read and cannot write to.
-  | "calendar-sync-calendar-read-only";
+  | "calendar-sync-calendar-read-only"
+  // A calendar named to tell colleagues the member is busy that is not also chosen to be shown.
+  | "calendar-sync-busy-calendar-not-shown";
 
 export class SyncRuleRefusal extends Error {
   constructor(

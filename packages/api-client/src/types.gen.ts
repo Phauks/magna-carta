@@ -8001,6 +8001,10 @@ export type CalendarSyncShownCalendar = {
      * The calendar's name when it was chosen, shown when the provider is unreachable.
      */
     calendarName: string;
+    /**
+     * Whether colleagues are told the hours this calendar's events take, as busy time with no title, place or calendar name.
+     */
+    sharedAsBusy: boolean;
 };
 
 export type CalendarSyncRulesReplace = {
@@ -8046,6 +8050,10 @@ export type CalendarSyncShownCalendarsReplace = {
      * The member's whole choice of calendars to be shown. A calendar absent from it is no longer read, and what was read from it is removed.
      */
     calendarRemoteIds: Array<string>;
+    /**
+     * Which of the chosen calendars tell colleagues the member is busy: the whole choice, so one absent from it stops being shared and an absent list shares none. Each must also be in calendarRemoteIds.
+     */
+    busyCalendarRemoteIds?: Array<string>;
 };
 
 export type CalendarSyncAccountEventList = {
@@ -8066,6 +8074,10 @@ export type CalendarSyncAccountShownCalendar = {
      * The calendar's name when it was chosen, shown when the provider is unreachable.
      */
     calendarName: string;
+    /**
+     * Whether colleagues are told the hours this calendar's events take, as busy time with no title, place or calendar name.
+     */
+    sharedAsBusy: boolean;
     /**
      * Which of the member's accounts holds it.
      */
@@ -8098,6 +8110,37 @@ export type CalendarSyncAccountEvent = {
      * The instant a timed event starts. Null on a whole-day one. The reader's screen decides which day and hour that is.
      */
     startsAt: string | null;
+    endsAt: string | null;
+};
+
+export type CalendarMemberBusyTimeList = {
+    /**
+     * When the member is busy, from the calendars of their own accounts they chose to share as busy. Hours only. Empty when they shared none, and always empty for the session member's own, who reads their own events instead.
+     */
+    busy: Array<CalendarMemberBusyTime>;
+    /**
+     * True when the window held more than one answer carries.
+     */
+    truncated: boolean;
+};
+
+export type CalendarMemberBusyTime = {
+    wholeDay: boolean;
+    /**
+     * A whole-day stretch's first day, as YYYY-MM-DD. Null for a timed one.
+     */
+    startsOn: string | null;
+    /**
+     * A whole-day stretch's last day, inclusive. Null for a timed one.
+     */
+    endsOn: string | null;
+    /**
+     * A timed stretch's start, as an instant. Null for a whole-day one.
+     */
+    startsAt: string | null;
+    /**
+     * A timed stretch's end, as an instant.
+     */
     endsAt: string | null;
 };
 
@@ -37127,6 +37170,58 @@ export type CalendarSyncListMyAccountEventsResponses = {
 };
 
 export type CalendarSyncListMyAccountEventsResponse = CalendarSyncListMyAccountEventsResponses[keyof CalendarSyncListMyAccountEventsResponses];
+
+export type CalendarMemberBusyTimeData = {
+    body?: never;
+    path: {
+        memberUserId: string;
+    };
+    query: {
+        /**
+         * The window's first day, as YYYY-MM-DD.
+         */
+        from: string;
+        /**
+         * The window's last day, as YYYY-MM-DD.
+         */
+        to: string;
+    };
+    url: '/api/v1/calendar/members/{memberUserId}/busy-time';
+};
+
+export type CalendarMemberBusyTimeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the permission named
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The window is not two days in order, or is longer than a year
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarMemberBusyTimeError = CalendarMemberBusyTimeErrors[keyof CalendarMemberBusyTimeErrors];
+
+export type CalendarMemberBusyTimeResponses = {
+    /**
+     * The member's busy time in the window
+     */
+    200: CalendarMemberBusyTimeList;
+};
+
+export type CalendarMemberBusyTimeResponse = CalendarMemberBusyTimeResponses[keyof CalendarMemberBusyTimeResponses];
 
 export type CalendarSyncListMyIssuesData = {
     body?: never;

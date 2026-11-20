@@ -44,6 +44,7 @@ import {
 import {
   entryFromDeadline,
   entryFromAvailability,
+  entryFromBusyTime,
   entryFromFirmEvent,
   entryFromMatterEvent,
   entryFromOwnAccountEvent,
@@ -57,6 +58,7 @@ import {
   type EntryContext,
 } from "./calendar-entries.ts";
 import type { CalendarScope } from "./calendar-scope.ts";
+import { readMemberBusyTime } from "./member-busy-time.ts";
 import { readOwnAccountEvents } from "./own-account-events.ts";
 import { windowOverlaps, type CalendarWindow } from "./calendar-window.ts";
 import { calendarLayer, FIRM_CALENDAR_KINDS } from "./calendar-vocabulary.ts";
@@ -413,6 +415,10 @@ async function readFirmEventsCalendar(
  * SETTINGS, NOT DEADLINES. The deadlines read takes a matter and a window and has no member
  * predicate, because a deadline belongs to a case rather than to a person; the firm's Deadlines
  * calendar is where a firm sees its deadlines, and it is on by default.
+ *
+ * AND WHEN THEIR OWN OUTLOOK OR GOOGLE CALENDAR HAS THEM BUSY, where they chose to share that: the
+ * hours only, painted as the word Busy. That read failing costs the calendar nothing it had: the
+ * colleague's settings still paint, and a share nobody could read is no worse than one not made.
  */
 async function readMemberCalendar(
   fetchImpl: typeof fetch,
@@ -422,7 +428,7 @@ async function readMemberCalendar(
   context: EntryContext,
   scope: CalendarScope,
 ): Promise<CalendarWindowResult> {
-  const [events, series] = await Promise.all([
+  const [events, series, busyTime] = await Promise.all([
     walk((cursor) =>
       readFirmCalendar(fetchImpl, {
         from: window.from,
@@ -440,6 +446,7 @@ async function readMemberCalendar(
       context,
       scope,
     ),
+    readMemberBusyTime(memberId, { from: window.from, to: window.to }, fetchImpl),
   ]);
   const entries: CalendarEntry[] = [];
   for (const row of events.rows) {
@@ -447,10 +454,19 @@ async function readMemberCalendar(
     if (entry !== null) entries.push(taggedWith(entry, source.key));
   }
   for (const entry of series.entries) entries.push(taggedWith(entry, source.key));
+  const busy = busyTime.kind === "ok" ? busyTime.value : null;
+  for (const stretch of busy?.busy ?? []) {
+    const entry = entryFromBusyTime(stretch, memberId, context);
+    // The server's window is a day wide of the reader's on each side, since it cannot know their
+    // zone; the days the stretch actually lands on are checked here.
+    if (entry !== null && windowOverlaps(window, entry.date, entry.endDate ?? null)) {
+      entries.push(taggedWith(entry, source.key));
+    }
+  }
   return {
     entries: withoutSeriesRows(entries, series.seriesIds),
     failures: collectFailures([["events", events.failure ?? series.failure]], source.name),
-    truncated: events.truncated || series.truncated,
+    truncated: events.truncated || series.truncated || (busy?.truncated ?? false),
   };
 }
 

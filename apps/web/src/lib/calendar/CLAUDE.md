@@ -61,6 +61,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   selection the rail does through the same controller
 - `own-account-events.ts` — the reader's own events from their connected calendar account: the
   read, and whether they chose any calendar to be shown (which is what lists the rail's row)
+- `member-busy-time.ts` — when a colleague is busy, from the calendars of their own account they
+  chose to share as busy: hours only, painted as the word Busy on that colleague's calendar and
+  counted on the availability line. Never the reader's own
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
 - `calendar-reads.ts` — the read plan per scope: which reads, walked to the end or the ceiling,
   failing independently; how each read's failure is titled and described

@@ -264,9 +264,19 @@ reader's screen decides the day and hour. The read route
 (`GET /api/v1/me/calendar-sync/account-events`) finds the account through the session member and
 nothing a request names, and answers from the table without asking the provider. On the web the events are one calendar in the rail for each account, `My Outlook Calendar` and `My Google Calendar`, listed only
 for a member who chose a calendar there and painted with their own titles at the reader's hour
-(`apps/web/src/lib/calendar/own-account-events.ts`). Colleagues see
-nothing, not even busy time, which leaves that open question as it was. Attaching one of these
-events to a matter is not built. The whole window is read again on each pass; a delta cursor is the
+(`apps/web/src/lib/calendar/own-account-events.ts`). Attaching one of these
+events to a matter is not built.
+
+As built (owner asked for busy time on 2026-11-20), a member may share a shown calendar as busy:
+`calendar_sync_shown_calendar.share_busy`, off by default, set with the member's shown-calendar
+choice (`busyCalendarRemoteIds` on `PUT /api/v1/me/calendar-sync/shown-calendars`, each of which
+must also be shown). `GET /api/v1/calendar/members/{memberUserId}/busy-time` answers one member's
+busy hours in a window to anybody holding `calendar:read`. The statement behind it
+(`packages/calendar/src/sync-busy-statements.ts`) selects only the day or instant columns, and
+only from a calendar shared as busy in an account still connected, so no title, place, identifier
+or calendar name can reach a colleague. The session member's own is always empty. On the web a
+colleague's calendar in the rail paints each stretch as the word Busy, and the availability line
+on the event form counts it (`apps/web/src/lib/calendar/member-busy-time.ts`). The whole window is read again on each pass; a delta cursor is the
 next step if that proves slow.
 
 As built for Graph, a series leaves as one event carrying a `recurrence` pattern and range
@@ -388,8 +398,8 @@ until there is something for a member to do on them.
 - Whether Google classes the Calendar scopes as sensitive or restricted. The verification pages name
   no Calendar scope as restricted, and the scope page read on 2026-11-10 does not state a class.
 - Whether Microsoft meters any of these Graph calls.
-- Whether other members should see "Busy" for a member's private provider events. Today they see
-  nothing.
+- Whether busy time should also reach a member's Outlook or Google free/busy, or count events the
+  member marked as free there. Today every event in a calendar shared as busy counts.
 
 ## 13. Google Calendar as built (2026-11-13)
 

@@ -98,6 +98,7 @@ import problemReportsAreAnsweredSql from "@magna-carta/database/drizzle/per-firm
 import trustBankReconciliationSql from "@magna-carta/database/drizzle/per-firm/20261119T202327_trust-bank-reconciliation.sql";
 import batesNumbersSql from "@magna-carta/database/drizzle/per-firm/20261119T202542_bates-numbers.sql";
 import translationToolPermissionSql from "@magna-carta/database/drizzle/per-firm/20261119T202718_translation-tool-permission.sql";
+import aMemberSharesACalendarAsBusySql from "@magna-carta/database/drizzle/per-firm/20261120T200255_a-member-shares-a-calendar-as-busy.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -200,6 +201,7 @@ export function perFirmMigrations(): Migration[] {
     "20261119T202327_trust-bank-reconciliation": trustBankReconciliationSql,
     "20261119T202542_bates-numbers": batesNumbersSql,
     "20261119T202718_translation-tool-permission": translationToolPermissionSql,
+    "20261120T200255_a-member-shares-a-calendar-as-busy": aMemberSharesACalendarAsBusySql,
   });
 }
 

@@ -8948,6 +8948,9 @@ export const calendarSyncShownCalendar = sqliteTable(
     calendarRemoteId: text("calendar_remote_id").notNull(),
     calendarName: text("calendar_name").notNull(),
     createdAt: text("created_at").notNull(),
+    // The member's second choice for a shown calendar: colleagues are told the hours its events
+    // take, as "Busy" and nothing more. Off until the member turns it on.
+    shareBusy: integer("share_busy", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     primaryKey({ columns: [table.connectionId, table.calendarRemoteId] }),

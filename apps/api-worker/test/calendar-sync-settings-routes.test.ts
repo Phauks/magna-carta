@@ -82,7 +82,7 @@ interface Settings {
   calendars: { remoteId: string; name: string; canWrite: boolean }[] | null;
   subjects: Subject[];
   rules: { subject: string; calendarRemoteId: string; calendarName: string; scope: string }[];
-  shownCalendars: { calendarRemoteId: string; calendarName: string }[];
+  shownCalendars: { calendarRemoteId: string; calendarName: string; sharedAsBusy: boolean }[];
 }
 
 function headers(cookie: string, attempt?: string): Record<string, string> {
@@ -776,10 +776,31 @@ describe("the member's own events, shown back to them", () => {
   const STAMP = "2026-11-10T12:00:00.000Z";
   let connectionId: string;
 
-  async function saveShown(cookie: string, calendarRemoteIds: string[]): Promise<Response> {
+  async function saveShown(
+    cookie: string,
+    calendarRemoteIds: string[],
+    busyCalendarRemoteIds?: string[],
+  ): Promise<Response> {
     return await app.request(
       SHOWN_URL,
-      { method: "PUT", headers: headers(cookie), body: JSON.stringify({ calendarRemoteIds }) },
+      {
+        method: "PUT",
+        headers: headers(cookie),
+        body: JSON.stringify({ calendarRemoteIds, busyCalendarRemoteIds }),
+      },
+      PROVISIONED,
+    );
+  }
+
+  // When the member is busy, as a colleague (or the member) is told it.
+  async function busyTime(cookie: string, window = "from=2026-11-01&to=2026-11-30") {
+    const member = await firmDatabase
+      .prepare("SELECT principal_ref FROM integration_connection WHERE id = ?1")
+      .bind(connectionId)
+      .first<{ principal_ref: string }>();
+    return await app.request(
+      `${ORIGIN}/api/v1/calendar/members/${member?.principal_ref ?? ""}/busy-time?${window}`,
+      { headers: headers(cookie) },
       PROVISIONED,
     );
   }
@@ -847,8 +868,8 @@ describe("the member's own events, shown back to them", () => {
     const saved = await saveShown(memberCookie, ["cal-main", "cal-holidays", "cal-main"]);
     expect(saved.status).toBe(200);
     expect((await readJson<Settings>(saved)).shownCalendars).toEqual([
-      { calendarRemoteId: "cal-main", calendarName: "Calendar" },
-      { calendarRemoteId: "cal-holidays", calendarName: "Holidays" },
+      { calendarRemoteId: "cal-main", calendarName: "Calendar", sharedAsBusy: false },
+      { calendarRemoteId: "cal-holidays", calendarName: "Holidays", sharedAsBusy: false },
     ]);
     await settleBackgroundWork();
   });
@@ -1027,6 +1048,78 @@ describe("the member's own events, shown back to them", () => {
     expect((await saveShown(memberCookie, ["cal-main"])).status).toBe(200);
     await settleBackgroundWork();
     await read(portListing({ "cal-main": { events: [timed("own-1", "Dentist")] } }));
+    expect((await events(memberCookie)).events).toHaveLength(1);
+  });
+
+  it("tells a colleague nothing of a member's own events until that member shares a calendar as busy", async () => {
+    const before = await busyTime(colleagueCookie);
+    expect(before.status).toBe(200);
+    expect(await readJson(before)).toEqual({ busy: [], truncated: false });
+    // A calendar that is not shown has nothing read from it, so it cannot be shared.
+    const refused = await saveShown(memberCookie, ["cal-main"], ["cal-holidays"]);
+    expect(refused.status).toBe(422);
+    expect(await readJson(refused)).toMatchObject({
+      errors: [{ path: "busyCalendarRemoteIds", code: "calendar-sync-busy-calendar-not-shown" }],
+    });
+    expect((await readSettings(memberCookie)).shownCalendars).toEqual([
+      { calendarRemoteId: "cal-main", calendarName: "Calendar", sharedAsBusy: false },
+    ]);
+  });
+
+  it("tells a colleague the hours and nothing else once a calendar is shared as busy", async () => {
+    const saved = await saveShown(memberCookie, ["cal-main"], ["cal-main"]);
+    expect(saved.status).toBe(200);
+    expect((await readJson<Settings>(saved)).shownCalendars).toEqual([
+      { calendarRemoteId: "cal-main", calendarName: "Calendar", sharedAsBusy: true },
+    ]);
+    await settleBackgroundWork();
+    await read(portListing({ "cal-main": { events: [timed("own-1", "Dentist")] } }));
+
+    const told = await busyTime(colleagueCookie);
+    expect(told.status).toBe(200);
+    const body = await told.text();
+    // Exactly these keys: no title, place, identifier or calendar name.
+    expect(JSON.parse(body)).toEqual({
+      busy: [
+        {
+          wholeDay: false,
+          startsOn: null,
+          endsOn: null,
+          startsAt: "2026-11-12T15:00:00.000Z",
+          endsAt: "2026-11-12T16:00:00.000Z",
+        },
+      ],
+      truncated: false,
+    });
+    expect(body).not.toContain("Dentist");
+    expect(body).not.toContain("own-1");
+    expect(body).not.toContain("cal-main");
+    // Outside the window there is nothing, and a window out of order is refused.
+    expect(
+      await readJson(await busyTime(colleagueCookie, "from=2026-12-01&to=2026-12-31")),
+    ).toEqual({ busy: [], truncated: false });
+    expect((await busyTime(colleagueCookie, "from=2026-11-30&to=2026-11-01")).status).toBe(422);
+    // The member's own is never answered here: they read their own events from their own route.
+    expect(await readJson(await busyTime(memberCookie))).toEqual({ busy: [], truncated: false });
+  });
+
+  it("stops telling colleagues when the choice is saved without it, or the account needs a new sign-in", async () => {
+    await firmDatabase
+      .prepare("UPDATE integration_connection SET status = 'needs_reauth' WHERE id = ?1")
+      .bind(connectionId)
+      .run();
+    expect(await readJson(await busyTime(colleagueCookie))).toEqual({ busy: [], truncated: false });
+    await firmDatabase
+      .prepare("UPDATE integration_connection SET status = 'connected' WHERE id = ?1")
+      .bind(connectionId)
+      .run();
+    expect(
+      (await readJson<{ busy: unknown[] }>(await busyTime(colleagueCookie))).busy,
+    ).toHaveLength(1);
+    // A save that names no calendar as busy shares none, though the calendar is still shown.
+    expect((await saveShown(memberCookie, ["cal-main"])).status).toBe(200);
+    await settleBackgroundWork();
+    expect(await readJson(await busyTime(colleagueCookie))).toEqual({ busy: [], truncated: false });
     expect((await events(memberCookie)).events).toHaveLength(1);
   });
 });
