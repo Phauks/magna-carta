@@ -2,7 +2,7 @@
  * Translation through the real chokepoint. Three gates are pinned in the order a request meets them:
  * the member's tools:translation, the firm's translation.enabled switch (off until an administrator
  * turns it on), and whether the deployment has a Google key at all. Google itself is answered by a
- * stub on globalThis.fetch, the shape address-lookup-routes.test.ts takes for Smarty.
+ * stub on globalThis.fetch, the shape address-lookup-routes.test.ts takes for Google Places.
  */
 import { env } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";

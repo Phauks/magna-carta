@@ -2,19 +2,22 @@
   /*
    * Making a set's exhibit package: the list, then a cover sheet and the pages of each exhibit
    * still in the set, as one PDF saved to the matter's files. Bates numbers are on by default, in
-   * the bottom right, and come from the matter's Bates log: the prefix last used on the matter is
-   * filled in, and the numbers carry on from the last one stamped under it.
+   * the bottom right, and come from one of the matter's Bates logs: the log named after the set if
+   * there is one, otherwise a new log named after the set, because a set is usually one filing.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Checkbox from "@magna-carta/design-system/checkbox";
-  import FieldRow from "@magna-carta/design-system/field-row";
-  import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import LabelledField from "@magna-carta/design-system/labelled-field";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import { listBatesPrefixes, type BatesPrefixSummary } from "$lib/bates/bates-api.ts";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import {
+    listBatesLogs,
+    resolveBatesLog,
+    type BatesLogChoice,
+    type BatesLogSummary,
+  } from "$lib/bates/bates-api.ts";
+  import BatesLogPicker, { newLogProblems, openingChoice } from "$lib/bates/bates-log-picker.svelte";
   import * as Alert from "@magna-carta/design-system/alert";
   import { makeExhibitPackage, type PackageContext, type PackageOutcome } from "./exhibit-package.ts";
 
@@ -28,53 +31,60 @@
     onMade: (outcome: PackageOutcome) => void;
   } = $props();
 
-  const DEFAULT_DIGITS = 6;
-
   let stamp = $state(true);
-  let prefix = $state("");
-  let digits = $state(DEFAULT_DIGITS);
-  let prefixes = $state<readonly BatesPrefixSummary[]>([]);
+  let logs = $state<readonly BatesLogSummary[]>([]);
+  let choice = $state<BatesLogChoice>(openingChoice([], null, ""));
   let failure = $state<StatedFailure | null>(null);
   let failedMessage = $state<string | null>(null);
   let progress = $state<string | null>(null);
 
   function reset(): void {
     stamp = true;
-    prefix = "";
-    digits = DEFAULT_DIGITS;
     failure = null;
     failedMessage = null;
     progress = null;
-    void listBatesPrefixes(fetch, context.matterId).then((outcome) => {
+    logs = [];
+    choice = openingChoice([], context.set.name, context.set.name);
+    void listBatesLogs(fetch, context.matterId).then((outcome) => {
       if (outcome.kind !== "ok") return;
-      prefixes = outcome.value;
-      const latest = outcome.value[0];
-      if (latest !== undefined && prefix === "") {
-        prefix = latest.prefix;
-        digits = latest.digits;
-      }
+      logs = outcome.value;
+      choice = openingChoice(outcome.value, context.set.name, context.set.name);
     });
   }
 
-  const nextNumber = $derived(prefixes.find((entry) => entry.prefix === prefix)?.nextNumber ?? 1);
   const included = $derived(context.set.members.filter((member) => member.status === "active").length);
   const refusal = $derived.by((): string | undefined => {
     if (included === 0) return "The set has no exhibits to put in a package.";
-    if (stamp && (!Number.isInteger(digits) || digits < 1 || digits > 12)) return "Use 1 to 12 digits.";
-    if (stamp && prefix.length > 40) return "Keep the prefix to 40 characters.";
+    if (stamp && Object.keys(newLogProblems(choice, logs)).length > 0) {
+      return "Give the new Bates log a name no other log on this matter has.";
+    }
     return undefined;
   });
-
-  function whole(value: string, fallback: number): number {
-    const parsed = Number(value);
-    return value.trim() === "" || !Number.isFinite(parsed) ? fallback : parsed;
-  }
 
   async function commit(): Promise<ActionOutcome> {
     failure = null;
     failedMessage = null;
+    let bates = null;
+    if (stamp) {
+      const log = await resolveBatesLog(fetch, context.matterId, choice);
+      if (log.kind !== "ok") {
+        failure = stated(
+          log.failure,
+          "The Bates log couldn't be started.",
+          "Couldn't connect, so nothing was made.",
+        );
+        return "refused";
+      }
+      bates = { logId: log.value.id, prefix: log.value.prefix, digits: log.value.digits };
+      if (choice.kind === "new") {
+        // Started now, so a second try uses it rather than asking to start it again.
+        const started = { ...log.value, nextNumber: 1, rangeCount: 0, pagesStamped: 0, lastStampedAt: null, createdAt: new Date().toISOString() };
+        logs = [started, ...logs];
+        choice = { kind: "log", log: started };
+      }
+    }
     progress = "Reading the exhibits and making the package";
-    const outcome = await makeExhibitPackage(context, stamp ? { prefix, digits } : null);
+    const outcome = await makeExhibitPackage(context, bates);
     progress = null;
     if (outcome.kind === "refused") {
       failure = outcome.failure;
@@ -134,31 +144,10 @@
         <Label for="exhibit-package-bates">Stamp Bates Numbers</Label>
       </div>
       {#if stamp}
-        <FieldRow columns={2}>
-          <LabelledField necessity="optional" label="Prefix">
-            {#snippet children({ props })}
-              <Input {...props} disabled={busy} bind:value={prefix} placeholder="SMITH-" />
-            {/snippet}
-          </LabelledField>
-          <LabelledField necessity="required" label="Digits">
-            {#snippet children({ props })}
-              <Input
-                {...props}
-                type="number"
-                min="1"
-                max="12"
-                class="tabular-nums"
-                disabled={busy}
-                value={String(digits)}
-                oninput={(event) => (digits = whole(event.currentTarget.value, digits))}
-              />
-            {/snippet}
-          </LabelledField>
-        </FieldRow>
+        <BatesLogPicker {logs} bind:choice disabled={busy} />
         <p class="text-xs text-text-muted">
-          Every page is numbered in the bottom right, starting at
-          <span class="tabular-nums">{prefix}{String(nextNumber).padStart(Math.max(1, digits), "0")}</span>,
-          the next number on this matter. The list shows where each exhibit's pages fall.
+          Every page is numbered in the bottom right, carrying on in the log. The list shows where each
+          exhibit's pages fall.
         </p>
       {/if}
       {#if progress !== null}

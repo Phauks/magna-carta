@@ -100,7 +100,6 @@
   const PASSKEY_GAP = unbuiltCapability("passkey").missing;
   const CHOICE_GAP = unbuiltCapability("second-factor-choice").missing;
   const WORKSPACE_GAP = unbuiltCapability("workspace-selection").missing;
-  const VERIFICATION_GAP = unbuiltCapability("human-verification").missing;
   const PROVIDER_GAP = unbuiltCapability("identity-provider").missing;
 
   let workspaceChoice = $state<string | null>("goldsmith");
@@ -209,7 +208,6 @@
       <ScreenSpecimen
         name="Human verification challenged"
         note="The one thing allowed above the primary button, because a human check is the last step before the act it guards."
-        unbuilt={VERIFICATION_GAP}
       >
         <SignInScreen humanVerificationChallenged onSubmit={swallow} onForgotPassword={noop} />
       </ScreenSpecimen>

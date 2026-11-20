@@ -16,7 +16,10 @@
  * either; a publish cannot land inside somebody else's negotiation; and a connection that cannot
  * describe itself fails its step instead of sending an answer labelled as an offer.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { ensureReady, MeetingGroupSession } from "@magna-carta/mls";
 import {
   DENIED_REASON,
   DENIED_STATEMENT,
@@ -468,6 +471,79 @@ describe("joining an encrypted meeting", () => {
     expect(client.state).toBe("failed");
     expect(client.failureReason).toBe(ENCRYPTION_UNSUPPORTED_REASON);
     expect(socketsOpened).toBe(0);
+  });
+
+  describe("a recording pauses it", () => {
+    beforeAll(async () => {
+      await ensureReady(
+        readFileSync(
+          fileURLToPath(new URL("../../../packages/mls/src/pkg/mls_core_bg.wasm", import.meta.url)),
+        ),
+      );
+    });
+
+    /** A host (or a member) alone in an encrypted room, founded into its own key group. */
+    async function encryptedRoom(hostRole: "host" | null): Promise<{
+      client: MeetingClient;
+      socket: FakeSocket;
+    }> {
+      const socket = new FakeSocket();
+      const seams = {
+        createPeerConnection: () => new FakePeerConnection(),
+        openSocket: () => socket,
+        getUserMedia: () => Promise.resolve(new FakeStream([])),
+        getDisplayMedia: () => Promise.resolve(new FakeStream([])),
+        createMediaStream: () => new FakeStream([]),
+        createAudioLevelMeter: () => new FakeAudioLevelMeter(),
+        createFrameEncryption: () => ({
+          supported: () => true,
+          loadEngine: () =>
+            Promise.resolve((identity: string) => new MeetingGroupSession(identity)),
+          sendKey: () => {},
+          clearKeys: () => {},
+          attach: () => {},
+          preferVp8: () => {},
+          close: () => {},
+        }),
+      } as unknown as MeetingClientSeams;
+      const client = new MeetingClient(seams);
+      opened.push(client);
+      client.join({
+        meetingId: "meeting_1",
+        participantId: "attendance_1",
+        iceServers: [],
+        socketUrl: "wss://example.test/socket",
+        encrypted: true,
+      });
+      await settle();
+      socket.accept();
+      const roster = rosterWithRoles(hostRole).participants as Record<string, unknown>[];
+      socket.deliver({ v: 1, type: "welcome", participantId: "attendance_1", roster: [roster[0]] });
+      socket.deliver({ v: 1, type: "mls-welcome", epoch: 0, welcome: null });
+      await settle();
+      expect(client.encryptionState.kind).toBe("on");
+      return { client, socket };
+    }
+
+    const started = {
+      state: "started",
+      recordingId: "meetingRecording_1",
+      by: { userId: "user_1", displayName: "You" },
+      at: "2026-11-20T15:00:00.000Z",
+    };
+
+    it("is proposed by a host's browser when the room says a recording started", async () => {
+      const { socket } = await encryptedRoom("host");
+      expect(socket.framesOfType("mls-proposal")).toHaveLength(0);
+      socket.deliver({ v: 1, type: "recording", ...started });
+      expect(socket.framesOfType("mls-proposal")).toHaveLength(1);
+    });
+
+    it("is never proposed by a browser that is not running the meeting", async () => {
+      const { socket } = await encryptedRoom(null);
+      socket.deliver({ v: 1, type: "recording", ...started });
+      expect(socket.framesOfType("mls-proposal")).toHaveLength(0);
+    });
   });
 });
 

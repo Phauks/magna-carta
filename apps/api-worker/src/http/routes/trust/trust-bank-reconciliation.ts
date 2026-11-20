@@ -26,6 +26,7 @@ import {
   readTrustBankReconciliation,
   readTrustBankReconciliationFile,
   readTrustBankReconciliations,
+  trustBankReconciliationExists,
   type BankReconciliationEdit,
 } from "@magna-carta/trust/bank-reconciliation";
 import { MAX_BANK_RECONCILIATION_FILE_BYTES } from "@magna-carta/trust/bank-reconciliation-contract";
@@ -41,6 +42,7 @@ import type { AppVariables } from "../../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { problemJson } from "../../contracts/problem.ts";
 import { decodeBase64, sha256Hex } from "../shared/image-bytes.ts";
+import { registerRecordPresenceRoutes } from "../shared/record-presence.ts";
 
 // BANK RECONCILIATION: the list of periods on an account, one period with its book items, and every
 // change a person makes to it. The rules are @magna-carta/trust's (src/bank-reconciliation.ts) and
@@ -67,6 +69,8 @@ import {
   fileRemovalRoute,
   fileReadRoute,
   finishRoute,
+  reconciliationParam,
+  READ,
 } from "./trust-bank-reconciliation-routes.ts";
 
 import {
@@ -83,6 +87,19 @@ export function registerTrustBankReconciliationRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
 ): void {
+  // Who else has the period open, for the "also here" marker. Asking takes what reading it takes.
+  registerRecordPresenceRoutes(app, chokepoint, {
+    recordKind: "trust_bank_reconciliation",
+    recordPath: "/api/v1/trust/bank-reconciliations/{reconciliationId}",
+    parameters: reconciliationParam,
+    idParameter: "reconciliationId",
+    operationPrefix: "trust",
+    operationNoun: "BankReconciliation",
+    permission: READ,
+    exists: (database, recordId) =>
+      trustBankReconciliationExists(database, recordId as TrustBankReconciliationId),
+  });
+
   app.openapi(
     { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
     async (c) => {

@@ -332,34 +332,6 @@ first drain after activation to be a bulk pass rather than a trickle. What a rev
 still owes the index is visible before you start:
 `GET /api/v1/review-sets/{reviewSetId}/index-status`.
 
-## Address engine activation — a bucket, a new worker, one binding (2026-10-02)
-
-`apps/address-worker` (`magna-carta-address`) and `containers/address` now exist: the
-platform's own US address index, built monthly from OpenAddresses. Nothing about them is
-live until the app worker has an `ADDRESS_SERVICE` binding; until then US lookups go to
-Smarty if its pair is set and to nothing otherwise. The full runbook is
-[`operations.md`](conventions/operations.md) §20; the account steps, in order:
-
-1. **Create the R2 bucket `magna-carta-addresses`** — private, no CORS. The worker binds it
-   as `ADDRESS_INDEX`; a deploy fails while it is missing.
-2. **Connect `magna-carta-address` to Workers Builds** — production branch `main`, deploy
-   command filtered to `@magna-carta/address-worker`, watch paths `apps/address-worker/*`,
-   `containers/address/*`, `crates/*`. One image (`containers/address/Dockerfile`, build
-   context = repository root) runs as two Container classes: `AddressIndexContainer`
-   (`basic`) and `AddressBuildContainer` (`standard-4`), migration tag `v1`. No secret, no
-   queue.
-3. **Add `ADDRESS_SERVICE`** (`"service": "magna-carta-address"`) to the app worker's
-   `services` in a pull request, after step 2 has deployed — a binding to a worker that
-   does not exist fails the app worker's deploy (§14 of the runbook).
-4. **Nothing to trigger.** The daily cron builds the first index the morning after step 2
-   (or trigger it from the dashboard). Expect about an hour of `standard-4` time and about
-   10–12 GB in the bucket per build; two builds are kept.
-
-**One ruling is the owner's.** Sources whose only recorded licence is an indemnification
-clause (26 US layers, among them San Diego County, Fulton County and San Antonio) are
-included; share-alike, non-commercial and bespoke-agreement layers are excluded. Reversing
-the indemnification call is an edit to `LICENCE_EXCLUSIONS` in `containers/address/src/build_job.rs`.
-
 ## Split compaction — done: the queues exist and the worker shipped (API-confirmed 2026-08-24)
 
 Both `magna-carta-production-search-compaction` and its deadletter exist, and the app
@@ -517,53 +489,47 @@ Cloudflare's API reference and has not been tried against the live account yet. 
 empty while the dashboard's Workers Logs view shows `error.captured` lines, compare the key it
 displays with the one the query sends.
 
-## Turnstile activation — the order matters, and the widget comes before the secret
+## Turnstile activation
 
-Server-side human verification is built and ships **dormant**
-(`apps/api-worker/src/http/human-verification/`). It gates the two anonymous writes — `POST
-/api/v1/registrations` (founding a firm) and `POST /api/v1/invitations/redemptions`. With no secret
-set it does nothing to either endpoint except count: one `human_verification.decided` point per
-request, outcome `unenforced`. Nothing below is required for the next deploy; the app worker deploys
-and behaves identically whether these steps have happened or not.
+The bot check is built end to end and ships **off**. The server side
+(`apps/api-worker/src/http/human-verification/`) gates `POST /api/v1/registrations`, `POST
+/api/v1/invitations/redemptions`, and Better Auth's `POST /api/auth/sign-in/email` and `POST
+/api/auth/request-password-reset`. The screens behind them (Register, the founding door, Redeem
+Invitation, Sign In and Forgot Password) draw the Turnstile widget (`apps/web/src/lib/auth/human-check.svelte`)
+when `GET /api/v1/human-verification` hands them a site key.
 
-**Do them in this order. Setting the secret (step 3) before the widget exists (step 1) shuts the
-platform's only self-serve front door.**
+**It switches on only when BOTH keys are set** (`resolveTurnstileKeys` in
+`human-verification-wiring.ts`). The site-key read answers `null` until then, so no widget is drawn
+and nothing is asked for; the order the two keys arrive in cannot lock anybody out.
 
-1. **Build the widget into the joining forms — this is UI work, and it is the prerequisite.** The
-   server refuses a request that carries no challenge solution the moment a secret exists. The
-   registration screens at `/register` and the redemption screen are live and mint no token today,
-   so setting the secret first turns every real signup into a `403`. The client must render a
-   Turnstile widget and send its solution in the `X-Human-Verification-Token` request header. The
-   sign-in screen's existing Turnstile row is a static placeholder, not a widget — it mints nothing.
-2. **Create the widget in the Cloudflare dashboard** — **Turnstile → Add widget**. Free on every
-   plan.
-   - **Mode: Managed.** Managed is the mode all four merged designs name: it shows a challenge only
-     to the small minority of attempts that warrant one, which is what makes the extra row on the
-     form honest. Not Invisible (a signup form should be able to show a person why it paused) and
-     not Non-Interactive.
-   - **Hostnames:** the app origin(s) the joining forms are served from. Not the cookieless
-     user-content domain, which serves no forms.
-   - Keep the **site key** (public — it goes in the client) and the **secret key** (never leaves the
-     dashboard and the Worker).
-3. **Set the secret on the app worker** — `wrangler secret put TURNSTILE_SECRET_KEY`, or **Worker →
-   Settings → Variables and Secrets**. Setting it is what switches enforcement on; there is no other
-   flag. Deliberately absent from `wrangler.jsonc`'s `secrets.required`, so a deploy without it
-   succeeds rather than failing on a credential nobody has provisioned yet.
-4. **Which endpoints light up:** the two named above, and only those. The Better Auth credential
-   endpoints (`/api/auth/*` — sign-in, password reset) are **not** gated: their shipped screen mints
-   no token, so gating them today would break a working surface. Mounting Better Auth's own captcha
-   plugin over them is the identity slice's job, once the widget exists.
-5. **Optional, and only if the posture is being changed:** `HUMAN_VERIFICATION_POSTURE` is already in
-   `apps/api-worker/wrangler.jsonc`, set to `fail-open`; changing that one line to `fail-closed` makes
-   those two endpoints refuse with a `503` when **no** secret is provisioned, instead of serving
-   unprotected. `fail-open` is the recorded decision — see the pending ADR
-   `an-unprovisioned-human-check-fails-open-and-counts-itself`, which is **awaiting owner
-   ratification**. The variable has no effect once a secret is set.
+1. **Create the widget** — Cloudflare dashboard, **Turnstile → Add widget**. Free on every plan.
+   - **Mode: Managed.** The widget is drawn with `appearance: interaction-only`, so it stays invisible
+     unless Cloudflare wants the person to click.
+   - **Hostnames:** `magnacarta.esq`, the origin the signed-out screens are served from. Not the
+     cookieless user-content domain, which serves no forms.
+   - Keep the **site key** and the **secret key** in the owner's password manager; the dashboard shows
+     the secret once.
+2. **Put both in the Secrets Store** (Secrets Store → Create secret, scope _Workers_), named exactly
+   `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`. Not on the Worker.
+3. **Bind them** — `apps/api-worker/wrangler.jsonc` `secrets_store_secrets`, as
+   `SECRETS_STORE_TURNSTILE_SITE_KEY` and `SECRETS_STORE_TURNSTILE_SECRET_KEY`. The binding is
+   committed only after step 2, because it is not known whether a deploy succeeds when a binding names
+   a store secret that does not exist yet. Merging deploys it, and that deploy is the switch.
+4. **Check System Status** — the Bot check row reads _Working_ with both keys from the Secrets Store.
+   Then sign out and sign in once.
+
+**Switching it off.** Delete either store secret. The site-key read answers `null` within five minutes
+(the store cache in `packages/worker-secrets`) and the server stops asking for a solution at the same
+moment.
+
+`HUMAN_VERIFICATION_POSTURE` in `apps/api-worker/wrangler.jsonc` (`fail-open`) only decides what the
+gated endpoints do while the check is OFF; it has no effect once both keys are set. `fail-open` is the
+recorded decision — see the pending ADR `an-unprovisioned-human-check-fails-open-and-counts-itself`.
 
 **How to tell it is working.** The `human_verification.decided` counter carries `route`, `outcome`
-(`verified` / `refused` / `unenforced` / `unavailable`) and a closed-set `reason`. Before step 3 the
+(`verified` / `refused` / `unenforced` / `unavailable`) and a closed-set `reason`. Before the switch the
 whole volume is `unenforced`; after it, `unenforced` should fall to zero. A standing
-`unavailable`/`verifier-credential-rejected` count means the secret is wrong — the endpoint is
+`unavailable`/`verifier-credential-rejected` count means the secret is wrong — the endpoints are
 answering `503`, and no visitor is being told it is their fault.
 
 ## New configuration — carried by the 2026-08-21 push

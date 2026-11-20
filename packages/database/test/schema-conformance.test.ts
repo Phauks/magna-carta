@@ -81,6 +81,9 @@ describe("schema conformance (fitness functions)", () => {
       community_profile: "user_id",
       email_capture_route: "token",
       firm_account_role: "role",
+      // A shared problem report is a pointer to one report in a firm's own database: the report's
+      // handle IS the row's identity, so a report can be shared once and only once.
+      shared_problem_report: "incident_id",
       // A book entry is cleared at the finish of exactly one bank reconciliation, ever: keying the
       // row by the entry is what makes clearing the same deposit twice impossible at commit.
       trust_bank_reconciliation_cleared: "entry_id",
@@ -190,7 +193,11 @@ describe("schema conformance (fitness functions)", () => {
     // number, and the write is an upsert on this key so a second paid lookup replaces the first.
     // number_reservation is keyed by (purpose, scope_key, drawn_value) — a held or given-back counter
     // value IS that triple, the same reasoning as the allocation tables beside it.
+    // record_presence is keyed by (record_kind, record_id, member_user_id): one member on one record
+    // IS the row, and the touch is an upsert on that triple. A handle would let a member be on a record
+    // twice.
     const compositeKeyTables = new Set([
+      "record_presence",
       "number_reservation",
       "caller_identity",
       "file_version_participant",

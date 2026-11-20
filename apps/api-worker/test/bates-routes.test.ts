@@ -13,8 +13,8 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The matter's Bates register driven through the chokepoint over real Miniflare bindings: two stamps
-// take consecutive ranges, a typed start inside a stamped range is refused, the saved copy is
+// A matter's Bates logs driven through the chokepoint over real Miniflare bindings: two logs count
+// on their own, two stamps take consecutive ranges, a typed start inside a stamped range is refused, the saved copy is
 // recorded once, and a member with no role can read nothing. This block seeds its own firm, because
 // the rate-limit key is per firm.
 
@@ -114,18 +114,28 @@ beforeAll(async () => {
   matterId = ((await matter.json()) as { matterId: string }).matterId;
 });
 
+async function startLog(name: string, prefix: string, digits = 6): Promise<string> {
+  const response = await send("POST", `/api/v1/matters/${matterId}/bates-logs`, {
+    name,
+    prefix,
+    digits,
+  });
+  expect(response.status).toBe(201);
+  return ((await response.json()) as { id: string }).id;
+}
+
 interface Taken {
   id: string;
   firstNumber: number;
   lastNumber: number;
 }
 
-describe("the matter's Bates register", () => {
+describe("a matter's Bates logs", () => {
   it("hands out consecutive ranges, refuses a stamped number, and records the copy once", async () => {
+    const log = await startLog("Motion to Compel", "ALV-");
     const lease = await seedCleanFile("Lease.pdf");
     const first = await send("POST", `/api/v1/matters/${matterId}/bates-ranges`, {
-      prefix: "ALV-",
-      digits: 6,
+      logId: log,
       pageCount: 12,
       purpose: "pdfEditor",
       sourceFileId: lease,
@@ -135,16 +145,14 @@ describe("the matter's Bates register", () => {
     expect(taken).toMatchObject({ firstNumber: 1, lastNumber: 12 });
 
     const second = await send("POST", `/api/v1/matters/${matterId}/bates-ranges`, {
-      prefix: "ALV-",
-      digits: 6,
+      logId: log,
       pageCount: 3,
       purpose: "pdfEditor",
     });
     expect(((await second.json()) as Taken).firstNumber).toBe(13);
 
     const clash = await send("POST", `/api/v1/matters/${matterId}/bates-ranges`, {
-      prefix: "ALV-",
-      digits: 6,
+      logId: log,
       pageCount: 2,
       firstNumber: 10,
       purpose: "pdfEditor",
@@ -157,12 +165,33 @@ describe("the matter's Bates register", () => {
     expect((await send("POST", path, { fileId: stamped })).status).toBe(200);
     expect((await send("POST", path, { fileId: stamped })).status).toBe(409);
 
-    const prefixes = await get(`/api/v1/matters/${matterId}/bates-prefixes`);
-    expect(prefixes.status).toBe(200);
-    expect(await prefixes.json()).toMatchObject({
-      data: [{ prefix: "ALV-", nextNumber: 16, digits: 6, rangeCount: 2 }],
-      capped: false,
+    // A second filing under the same prefix counts on its own, and a name is used once.
+    const trial = await startLog("Trial Exhibits", "ALV-");
+    const trialTake = await send("POST", `/api/v1/matters/${matterId}/bates-ranges`, {
+      logId: trial,
+      pageCount: 2,
+      purpose: "exhibitPackage",
     });
+    expect(((await trialTake.json()) as Taken).firstNumber).toBe(1);
+    const duplicate = await send("POST", `/api/v1/matters/${matterId}/bates-logs`, {
+      name: "Trial Exhibits",
+      prefix: "",
+      digits: 4,
+    });
+    expect(duplicate.status).toBe(409);
+    expect(((await duplicate.json()) as { type: string }).type).toContain("bates-log-name-taken");
+    const renamed = await send("PATCH", `/api/v1/matters/${matterId}/bates-logs/${trial}`, {
+      name: "Trial Exhibits (Plaintiff)",
+    });
+    expect(renamed.status).toBe(200);
+
+    const logs = await get(`/api/v1/matters/${matterId}/bates-logs`);
+    expect(logs.status).toBe(200);
+    const listed = (await logs.json()) as { data: { name: string; nextNumber: number }[] };
+    expect(listed.data.find((row) => row.name === "Motion to Compel")?.nextNumber).toBe(16);
+    expect(listed.data.find((row) => row.name === "Trial Exhibits (Plaintiff)")?.nextNumber).toBe(
+      3,
+    );
     const ranges = await get(`/api/v1/matters/${matterId}/bates-ranges`);
     const page = (await ranges.json()) as { data: { stampedFileName: string | null }[] };
     expect(page.data.map((range) => range.stampedFileName)).toContain(
@@ -172,7 +201,11 @@ describe("the matter's Bates register", () => {
 
   it("answers a retried take with the range it took rather than a second one", async () => {
     const key = crypto.randomUUID();
-    const body = { prefix: "RETRY-", digits: 4, pageCount: 5, purpose: "pdfEditor" };
+    const body = {
+      logId: await startLog("Retry", "RETRY-", 4),
+      pageCount: 5,
+      purpose: "pdfEditor",
+    };
     const once = await send(
       "POST",
       `/api/v1/matters/${matterId}/bates-ranges`,
@@ -196,7 +229,7 @@ describe("the matter's Bates register", () => {
     const response = await send(
       "POST",
       `/api/v1/matters/${matterId}/bates-ranges`,
-      { prefix: "X", digits: 4, pageCount: 1, purpose: "pdfEditor" },
+      { logId: await startLog("Outsider", "X", 4), pageCount: 1, purpose: "pdfEditor" },
       outsiderCookie,
     );
     expect(response.status).toBe(403);

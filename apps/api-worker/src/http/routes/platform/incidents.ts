@@ -1,3 +1,4 @@
+import { insertSharedProblemReportStatement } from "@magna-carta/data-access/shared-problem-report-statements";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { INCIDENT_CREATED_TOPIC } from "@magna-carta/data-access/incident-statements";
@@ -180,6 +181,22 @@ export function registerIncidentsRoute(
         },
         { now: () => now },
       );
+
+      // Shared with Magna Carta where the firm's switch is on (the statement checks it). After the
+      // report's own commit, never in place of it: a share that fails leaves the firm's report
+      // standing, so the sender is not told it failed and does not send it twice.
+      try {
+        await insertSharedProblemReportStatement(c.env.DB_CONTROL, {
+          incidentId,
+          firmId,
+          sentAt: now,
+          route: request.context.route,
+          errorIdCount,
+          status: "open",
+        }).run();
+      } catch {
+        // The report stands in the firm; only Magna Carta's copy of its address is missing.
+      }
 
       c.get("logger")?.log(
         incidentCreated(

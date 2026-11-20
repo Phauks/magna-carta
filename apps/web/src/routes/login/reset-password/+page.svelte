@@ -17,6 +17,12 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
+  import HumanCheck from "$lib/auth/human-check.svelte";
+  import {
+    HUMAN_CHECK_FAILED,
+    humanVerificationHeaders,
+    isHumanCheckRefusal,
+  } from "$lib/auth/human-check.ts";
   import { authClient } from "$lib/auth/client.ts";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import ResetPasswordRequestScreen from "$lib/auth/screens/reset-password-request-screen.svelte";
@@ -34,6 +40,7 @@
   let email = $state("");
   let newPassword = $state("");
   let pending = $state(false);
+  let humanCheckWidget = $state<HumanCheck | null>(null);
   let completed = $state(false);
   let requestRejection = $state<string | null>(null);
   let setRejection = $state<string | null>(null);
@@ -55,16 +62,23 @@
     requestRejection = null;
     let sent = false;
     let status: number | undefined;
+    let humanCheckRefused = false;
     try {
-      const { error } = await authClient.requestPasswordReset({ email: email.trim() });
-      if (error) status = error.status;
-      else sent = true;
+      const solution = (await humanCheckWidget?.solution()) ?? null;
+      const { error } = await authClient.requestPasswordReset({
+        email: email.trim(),
+        fetchOptions: { headers: humanVerificationHeaders(solution) },
+      });
+      if (error) {
+        status = error.status;
+        humanCheckRefused = isHumanCheckRefusal(error);
+      } else sent = true;
     } catch {
       status = undefined;
     }
     pending = false;
     if (!sent) {
-      requestRejection = requestResetErrorMessage(status);
+      requestRejection = humanCheckRefused ? HUMAN_CHECK_FAILED : requestResetErrorMessage(status);
       return;
     }
     sentAt = new Date();
@@ -121,7 +135,11 @@
       rejection={requestRejection}
       onSubmit={requestLink}
       back={() => goto("/login")}
-    />
+    >
+      {#snippet humanCheck()}
+        <HumanCheck bind:this={humanCheckWidget} action="reset-password" />
+      {/snippet}
+    </ResetPasswordRequestScreen>
   {:else if step === "sent"}
     <CheckEmailScreen
       address={email.trim()}

@@ -95,23 +95,28 @@ The answers are saved as a new version of the same file, and earlier versions ar
 Bates numbering prints a running number on every page, such as **SMITH-000041**, so each page of
 a production can be cited.
 
-1. Enter a **Prefix** and, if you use one, a **Suffix**. The tab opens on the prefix last used on
-   this matter.
-2. The **First Number** is filled in for you: the next number not yet stamped under that prefix on
-   this matter. Change it only if you need to start somewhere else.
-3. Set the **Digits**. Numbers shorter than this are padded with zeros, so 6 digits writes 41 as 000041.
-4. Choose the **Position**, **Typeface** and **Size**. The first and last pages show where the
-   number will go.
+1. Pick the **Bates Log** to take the numbers from. A matter can keep a separate log for each
+   filing or production that needs its own numbers, such as "Initial Production" and "Motion for
+   Summary Judgment". The tab opens on the log used last. Under it you see how many pages the log
+   has stamped and its next number.
+2. To start a log, pick **New Log** and give it a **Name**, a **Prefix** if you use one, and the
+   number of **Digits**. Numbers shorter than this are padded with zeros, so 6 digits writes 41 as 000041. A new log counts from 1. The log is started when you number the pages.
+3. The **First Number** is filled in for you: the next number in that log. Change it only if you
+   need to start somewhere else.
+4. Add a **Suffix** if you use one, then choose the **Position**, **Typeface** and **Size**. The
+   first and last pages show where the number will go.
 5. Choose **Number the Pages**.
 
 The numbered copy is saved beside the original, named with its first and last numbers, for example
 **Production (SMITH-000001 to SMITH-000016).pdf**. The message afterwards tells you the number the
-next stamp under that prefix starts at.
+next stamp in that log starts at.
 
-Each matter keeps one log of its Bates numbers. Every number you stamp is recorded there with the
-file it was stamped on, the numbered copy, and who stamped it and when, and is never handed out
-again, even if the numbered copy was not saved. If you type a first number that has already been
-stamped under the same prefix, nothing is numbered and the message tells you the next free number.
+Every number you stamp is recorded in its log with the file it was stamped on, the numbered copy,
+and who stamped it and when, and is never handed out again in that log, even if the numbered copy
+was not saved. If you type a first number that has already been stamped in the same log, nothing is
+numbered and the message tells you the next free number. Logs count apart from each other, so two
+logs may use the same prefix; the log's name tells the filings apart. A log's prefix and digits
+cannot be changed once it is started.
 
 Numbering adds text to each page and removes nothing. To withhold something, redact it first, then
 number the redacted copy.
@@ -168,9 +173,10 @@ or pick a colleague under **Firm Member**. Each signer gets a colour.
 3. Click the page where it goes, or drag to draw it at the size you want. Click a field to change
    its kind, give it to another signer, make it optional, or remove it.
 
-For each outside signer, choose how they prove who they are: **Emailed Link** (anyone who opens the
-email can sign) or **Link and Email Code** (they also enter a one-time code sent by email).
-Colleagues sign while signed in to Magna Carta.
+For each outside signer, choose how they prove who they are: **Email Link** (anyone who opens the
+email can sign), **Email Code** (they also enter a one-time code sent by email) or **Text Code**
+(they also enter a one-time code sent by text message to the mobile number you enter). The list
+shows only the ways your firm has turned on. Colleagues sign while signed in to Magna Carta.
 
 **Review and Send.** Choose whether people sign **In Order** or **All at Once**, write the email's
 subject and message, choose the last day it can be signed and how often reminders go out, then
@@ -200,7 +206,7 @@ from the document itself.
 
 **What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
 link opens a page with your firm's name, the document's title and your message. If you chose
-**Link and Email Code**, they first ask for a code by email and enter it. They then read and agree
+**Email Code** or **Text Code**, they first ask for a code, by email or by text, and enter it. They then read and agree
 to sign electronically, and the document opens with their own fields marked on it. **Next Field**
 takes them to the next thing to fill in. On the first signature or initials field they adopt their
 signature by typing their name, drawing it, or uploading a picture of it, and tick that it is as

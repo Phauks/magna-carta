@@ -99,8 +99,12 @@ import trustBankReconciliationSql from "@magna-carta/database/drizzle/per-firm/2
 import batesNumbersSql from "@magna-carta/database/drizzle/per-firm/20261119T202542_bates-numbers.sql";
 import translationToolPermissionSql from "@magna-carta/database/drizzle/per-firm/20261119T202718_translation-tool-permission.sql";
 import theFrontDeskKeepsAnInOutLogSql from "@magna-carta/database/drizzle/per-firm/20261119T203231_the-front-desk-keeps-an-in-out-log.sql";
-import operatingBooksAndVendorBillsSql from "@magna-carta/database/drizzle/per-firm/20261120T195426_operating-books-and-vendor-bills.sql";
-import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261120T203532_payments-recorded-by-hand.sql";
+import recordPresenceSql from "@magna-carta/database/drizzle/per-firm/20261120T201547_record-presence.sql";
+import batesLogsSql from "@magna-carta/database/drizzle/per-firm/20261120T203600_bates-logs.sql";
+import signersCanGetACodeByTextSql from "@magna-carta/database/drizzle/per-firm/20261120T205502_signers-can-get-a-code-by-text.sql";
+import aMemberSharesACalendarAsBusySql from "@magna-carta/database/drizzle/per-firm/20261120T211109_a-member-shares-a-calendar-as-busy.sql";
+import operatingBooksAndVendorBillsSql from "@magna-carta/database/drizzle/per-firm/20261120T212524_operating-books-and-vendor-bills.sql";
+import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261120T212524_payments-recorded-by-hand.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -204,8 +208,12 @@ export function perFirmMigrations(): Migration[] {
     "20261119T202542_bates-numbers": batesNumbersSql,
     "20261119T202718_translation-tool-permission": translationToolPermissionSql,
     "20261119T203231_the-front-desk-keeps-an-in-out-log": theFrontDeskKeepsAnInOutLogSql,
-    "20261120T195426_operating-books-and-vendor-bills": operatingBooksAndVendorBillsSql,
-    "20261120T203532_payments-recorded-by-hand": paymentsRecordedByHandSql,
+    "20261120T201547_record-presence": recordPresenceSql,
+    "20261120T203600_bates-logs": batesLogsSql,
+    "20261120T205502_signers-can-get-a-code-by-text": signersCanGetACodeByTextSql,
+    "20261120T211109_a-member-shares-a-calendar-as-busy": aMemberSharesACalendarAsBusySql,
+    "20261120T212524_operating-books-and-vendor-bills": operatingBooksAndVendorBillsSql,
+    "20261120T212524_payments-recorded-by-hand": paymentsRecordedByHandSql,
   });
 }
 

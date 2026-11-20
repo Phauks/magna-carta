@@ -158,6 +158,7 @@ describe("GET /api/v1/me", () => {
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",
+        "esign:manageSettings",
         "esign:seal",
         "esign:send",
         "esign:sign",
@@ -412,6 +413,7 @@ describe("GET /api/v1/me", () => {
       channel: "stable",
       flags: { "release-channels.smoke": false },
       membership: { state: "provisioning" },
+      meetings: { endToEndEncryption: false },
     });
   });
 

@@ -147,12 +147,6 @@ export const FEATURE_OUTSIDE_SERVICES: Record<string, readonly OutsideService[]>
       settings: ["GOOGLE_PLACES_API_KEY"],
       noLiveCheckReason: BILLED,
     },
-    {
-      name: "Smarty",
-      liveCheck: null,
-      settings: ["SMARTY_AUTH_ID", "SMARTY_AUTH_TOKEN"],
-      noLiveCheckReason: BILLED,
-    },
   ],
   aiTextDetection: [
     { name: "Pangram", liveCheck: null, settings: ["PANGRAM_API_KEY"], noLiveCheckReason: BILLED },
@@ -177,7 +171,7 @@ export const FEATURE_OUTSIDE_SERVICES: Record<string, readonly OutsideService[]>
     {
       name: "Cloudflare Turnstile",
       liveCheck: null,
-      settings: ["TURNSTILE_SECRET_KEY"],
+      settings: ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"],
       noLiveCheckReason: NO_FREE_CHECK,
     },
   ],

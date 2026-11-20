@@ -8,7 +8,9 @@ import {
   NOT_SYNCED,
   rulesWithChange,
   scopeLabel,
+  busyIdsWithChange,
   shownCalendarChoices,
+  shownCalendarColumns,
   shownIdsWithChange,
   shownSummary,
   subjectCategory,
@@ -193,25 +195,30 @@ describe("which of the member's own calendars are shown", () => {
     isDefault: false,
     canWrite: false,
   };
-  const shownMain = { calendarRemoteId: "cal-main", calendarName: "Calendar" };
-  const shownGone = { calendarRemoteId: "cal-gone", calendarName: "Old Team" };
+  const shownMain = { calendarRemoteId: "cal-main", calendarName: "Calendar", sharedAsBusy: false };
+  const shownGone = { calendarRemoteId: "cal-gone", calendarName: "Old Team", sharedAsBusy: true };
 
   it("lists every calendar of the account, a read-only one included, with the member's choice", () => {
     expect(shownCalendarChoices([main, holidays], [shownMain])).toEqual([
-      { remoteId: "cal-main", name: "Calendar (My Main One)", shown: true },
-      { remoteId: "cal-holidays", name: "Holidays", shown: false },
+      { remoteId: "cal-main", name: "Calendar (My Main One)", shown: true, sharedAsBusy: false },
+      { remoteId: "cal-holidays", name: "Holidays", shown: false, sharedAsBusy: false },
     ]);
   });
 
   it("still names what is chosen when the provider cannot be asked", () => {
     expect(shownCalendarChoices(null, [shownMain])).toEqual([
-      { remoteId: "cal-main", name: "Calendar", shown: true },
+      { remoteId: "cal-main", name: "Calendar", shown: true, sharedAsBusy: false },
     ]);
   });
 
   it("lists a chosen calendar the account no longer has, and leaves it out of the next save", () => {
     const choices = shownCalendarChoices([main, holidays], [shownMain, shownGone]);
-    expect(choices.at(-1)).toEqual({ remoteId: "cal-gone", name: "Old Team", shown: true });
+    expect(choices.at(-1)).toEqual({
+      remoteId: "cal-gone",
+      name: "Old Team",
+      shown: true,
+      sharedAsBusy: true,
+    });
     expect(shownIdsWithChange(choices, [main, holidays], "cal-holidays", true)).toEqual([
       "cal-main",
       "cal-holidays",
@@ -228,5 +235,26 @@ describe("which of the member's own calendars are shown", () => {
     expect(shownSummary([shownMain])).toBe(
       "1 Outlook calendar is shown in Magna Carta, to you only.",
     );
+    expect(shownSummary([{ ...shownMain, sharedAsBusy: true }, shownMain])).toBe(
+      "2 Outlook calendars are shown in Magna Carta, to you only. Colleagues see when you're busy from 1 of them, without titles or places.",
+    );
+  });
+
+  it("sends which calendars are shared as busy, and only ever ones that are shown", () => {
+    const busyMain = { ...shownMain, sharedAsBusy: true };
+    const choices = shownCalendarChoices([main, holidays], [busyMain]);
+    // Turning the switch on for a shown calendar, and off again.
+    const both = ["cal-main", "cal-holidays"];
+    expect(busyIdsWithChange(choices, both, "cal-holidays", true)).toEqual(both);
+    expect(busyIdsWithChange(choices, both, "cal-main", false)).toEqual([]);
+    // A press on Show in Magna Carta names no calendar here and keeps what was shared.
+    expect(busyIdsWithChange(choices, both, null, false)).toEqual(["cal-main"]);
+    // A calendar no longer shown stops being shared with it.
+    expect(busyIdsWithChange(choices, [], null, false)).toEqual([]);
+    expect(shownCalendarColumns().map((column) => column.label)).toEqual([
+      "Outlook Calendar",
+      "Show in Magna Carta",
+      "Show Colleagues as Busy",
+    ]);
   });
 });

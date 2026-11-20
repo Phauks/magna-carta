@@ -8,6 +8,7 @@ import {
 } from "../../chokepoint/context-accessors.ts";
 import { runInBackground } from "../../deferred-work.ts";
 import { registerCalendarAccountEventRoutes } from "./account-events.ts";
+import { registerCalendarBusyTimeRoutes } from "./busy-time.ts";
 import { registerCalendarRoutes } from "./calendar.ts";
 import { registerConnectedAccountsRoutes } from "./connected-accounts.ts";
 import { registerCalendarSeriesRoutes } from "./series.ts";
@@ -81,6 +82,8 @@ export function mountCalendar(app: AppRouter, chokepoint: Chokepoint, deps: Doma
   registerCalendarSyncSettingsRoutes(domain, chokepoint, deps.connectedAccounts);
   // A member's own events shown back to them: which of their calendars, and what is in them.
   registerCalendarAccountEventRoutes(domain, chokepoint, deps.connectedAccounts);
+  // When a colleague is busy, from the calendars of their own they chose to share as busy.
+  registerCalendarBusyTimeRoutes(domain, chokepoint);
   // The copies a member changed in their own calendar, and their answer to each.
   registerCalendarSyncIssueRoutes(domain, chokepoint, deps.connectedAccounts);
   // Where a calendar provider says a member's calendar changed.

@@ -84,6 +84,11 @@ export interface SessionBootstrap {
   channel: "stable" | "beta" | "alpha";
   /** The flags this firm's channel resolves to, keyed by flag id. */
   flags: Record<string, boolean>;
+  /**
+   * What this deployment does with a meeting, present alongside a firm: whether it opens meetings
+   * end-to-end encrypted at all. Start offers the choice only where it does.
+   */
+  meetings?: { endToEndEncryption: boolean };
 }
 
 /** The scope a listing is asked for. "caseload" names no status, which is the working docket. */

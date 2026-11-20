@@ -244,9 +244,11 @@ export const PROBLEM_TYPES = {
   "exhibit-file-unavailable": "exhibit-file-unavailable",
   // A folder follow asked of a set built by hand, which follows no folder (HTTP 409).
   "exhibit-set-not-following": "exhibit-set-not-following",
-  // Bates numbers. Some number in the asked-for range is already stamped under that prefix on the
-  // matter (HTTP 409); the detail names the clash and the next free number.
+  // Bates numbers. Some number in the asked-for range is already stamped in that Bates log (HTTP
+  // 409); the detail names the clash and the next free number.
   "bates-range-taken": "bates-range-taken",
+  // Another Bates log on the matter already has that name (HTTP 409).
+  "bates-log-name-taken": "bates-log-name-taken",
   // A bulk entry carrying more rows than one commit takes (HTTP 422). A REFUSAL and never a
   // truncation: a caller that sent sixty rows and silently had fifty written cannot tell that from
   // fifty rows it never sent.
@@ -848,6 +850,9 @@ export const PROBLEM_TYPES = {
   // The signer is ahead of their own steps: not yet their turn, the code not yet entered, the
   // agreement to sign electronically not yet given, or a field left empty (HTTP 409 or 422).
   "signing-step-refused": "signing-step-refused",
+  // A signer's code could not be texted: the text service refused it, is not set up, or could not be
+  // reached (HTTP 503). The detail carries the Error ID; never the number.
+  "text-undeliverable": "text-undeliverable",
   // The one-time link to the community board cannot be minted because this deployment holds no
   // COMMUNITY_HANDOFF_SECRET (HTTP 503). A fact about configuration, not about the member.
   "community-sign-in-not-configured": "community-sign-in-not-configured",

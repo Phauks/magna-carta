@@ -228,6 +228,8 @@ describe("end-to-end", () => {
       // The owner's member record has reached the firm's own database — which is a separate fact
       // from belonging to the firm, and the one the app's guards wait on before letting anybody in.
       membership: { state: "active" },
+      // The test pool leaves meetings encryption off, as every deployment does today.
+      meetings: { endToEndEncryption: false },
       // Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
@@ -326,6 +328,7 @@ describe("end-to-end", () => {
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",
+        "esign:manageSettings",
         "esign:seal",
         "esign:send",
         "esign:sign",

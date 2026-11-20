@@ -118,8 +118,12 @@ calendar.
 
 What to know:
 
-- **Only you see these events.** No colleague and no administrator can read them, and they do not
-  show you as busy to anyone.
+- **Only you see these events.** No colleague and no administrator can read them.
+- **Colleagues see you as busy only if you turn it on.** Beside each calendar you show yourself is a
+  second switch, **Show Colleagues as Busy**. With it on, colleagues see the word **Busy** and the
+  times on your calendar, and on the line that says who is free when they book a meeting. They never
+  see the title, the place or which calendar it came from. It is off until you turn it on, and
+  turning off **Show in Magna Carta** for a calendar turns it off too.
 - They are shown with their own titles and at the hour they fall in your time zone.
 - They are not part of any matter, and nothing is changed in Outlook. To change one, change it in
   Outlook.
