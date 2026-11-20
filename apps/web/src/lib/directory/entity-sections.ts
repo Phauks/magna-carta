@@ -32,9 +32,10 @@ export const ENTITY_SECTIONS: readonly EntitySection[] = [
   // Beside Contact rather than inside it: an address is a form whose shape is the country's, not a
   // one-line value like an email or a number, and the two read as one list when they are not one.
   { id: "address", label: "Address", stage: "alpha", appliesTo: "both" },
-  // The pronouns a person stated and their life dates, together: each is one answer, and a section
-  // of one answer is a stop on the rail that holds almost nothing.
-  { id: "about", label: "About", stage: "alpha", appliesTo: "person" },
+  // The pronouns a person stated, their life dates and how they found the firm, together: each is
+  // one answer, and a section of one answer is a stop on the rail that holds almost nothing. An
+  // organization is a client too, so it has the card with its referral alone in it.
+  { id: "about", label: "About", stage: "alpha", appliesTo: "both" },
   { id: "identifiers", label: "Identifiers", stage: "alpha", appliesTo: "both" },
   { id: "duplicates", label: "Duplicates", stage: "alpha", appliesTo: "both" },
   { id: "relationships", label: "Relationships", stage: "alpha", appliesTo: "both" },

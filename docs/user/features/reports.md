@@ -23,8 +23,8 @@ answers. A report you can run opens when you click it, from the index or from th
 marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
 nothing yet.
 
-Twenty reports run today: the trust compliance report, accounts receivable aging, work in
-progress, aged work in progress, aged expenses, realization, revenue, the client statement of account, invoices, payments applied, matter balances, the matter billing guide,
+Twenty-one reports run today: the trust compliance report, accounts receivable aging, work in
+progress, aged work in progress, aged expenses, realization, revenue, work by referrer, the client statement of account, invoices, payments applied, matter balances, the matter billing guide,
 timekeeper productivity, daily time, matter productivity, tasks by person, operational volumes,
 the matters list, the client list, and the change log.
 
@@ -46,6 +46,13 @@ the matters list, the client list, and the change log.
   period; a reversal takes back what it reverses. Credit notes and write-offs are not collections:
   they are shown in their own column, "Credited and written off". Each matter counts under the type
   and responsible attorney it has today. Sort the matter type and attorney tables by any column.
+- **Work by Referrer** shows which sources and people send the firm its work, and what that work
+  billed and collected in the period you choose. It takes the same billed and collected figures as
+  Revenue and groups them by each bill's client's referral: one row per source on the firm's list,
+  and under it one row per person or organization who referred those clients. Clients with a
+  referrer and no source are under "No source", and clients with no referral recorded are under
+  "Not recorded", so the totals are Revenue's for the same period. Each client counts under the
+  referral recorded for them today. Open a source to see who referred its clients.
 - **Aged Work in Progress** shows unbilled time and costs by how long ago the work was done: 0 to
   30 days, 31 to 60, 61 to 90, and over 90. Time counts from the day it was worked and a cost from
   the day it was incurred. Work over 90 days old is shown in red. It adds up to the same total as

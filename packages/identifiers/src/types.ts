@@ -68,6 +68,7 @@ export type ConflictsHitId = Identifier<"conflictsHit">;
 export type ConflictsDispositionId = Identifier<"conflictsDisposition">;
 export type ConflictsRecheckRequestId = Identifier<"conflictsRecheckRequest">;
 export type DirectoryCategoryId = Identifier<"directoryCategory">;
+export type DirectoryReferralSourceId = Identifier<"directoryReferralSource">;
 export type DirectoryEmailId = Identifier<"directoryEmail">;
 export type DirectoryPhoneId = Identifier<"directoryPhone">;
 export type DirectoryAddressId = Identifier<"directoryAddress">;

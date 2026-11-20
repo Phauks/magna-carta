@@ -12,6 +12,7 @@ import {
   directoryEmail,
   directoryEntityCategory,
   directoryEntityPhoto,
+  directoryEntityReferral,
   directoryIdentifier,
   directoryName,
   directoryNamePhoneticCode,
@@ -19,6 +20,7 @@ import {
   directoryPartyRole,
   directoryPerson,
   directoryPhone,
+  directoryReferralSource,
   entityMerge,
   matter,
   matterParty,
@@ -77,6 +79,10 @@ const TOUCHED_TABLES: readonly SQLiteTable[] = [
   customFieldValue,
   // A record's picture (entity-photo.ts): the row naming the object that holds the bytes.
   directoryEntityPhoto,
+  // How a client found the firm (referrals.ts): the firm's list of sources and each client's
+  // referral, which the merge also repoints.
+  directoryReferralSource,
+  directoryEntityReferral,
 ];
 
 const tableNames = new Set(TOUCHED_TABLES.map((table) => getTableConfig(table).name));
@@ -186,6 +192,15 @@ const SANCTIONED_NON_SCHEMA = new Set<string>([
   // total is a COUNT over the union rather than anything stored.
   "sort_name",
   "total",
+  // The referral reads (referrals.ts): the referral row and its source joined under short aliases,
+  // the source's name and flag projected under names that say whose they are, and the upsert's
+  // ON CONFLICT ... excluded surface.
+  "r",
+  "s",
+  "source_name",
+  "source_archived",
+  "conflict",
+  "excluded",
   // FTS5 virtual table + content link pseudo-column
   "directory_name_fts",
   "rowid",

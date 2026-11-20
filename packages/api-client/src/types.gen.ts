@@ -2491,6 +2491,46 @@ export type RevenueReport = {
     }>;
 };
 
+export type WorkByReferrerReport = {
+    periodStart: string;
+    periodEnd: string;
+    locationId: string | null;
+    currency: 'USD';
+    reproducibility: ReportReproducibility;
+    reproducibilityStatement: string;
+    attributionStatement: string;
+    completeness: ReportCompleteness;
+    totals: {
+        billedMinor: number;
+        collectedMinor: number;
+        creditedMinor: number;
+    };
+    sources: Array<{
+        kind: 'source' | 'referrerOnly' | 'notRecorded';
+        sourceId: string | null;
+        sourceName: string | null;
+        sourceArchived: boolean;
+        clientCount: number;
+        matterCount: number;
+        figures: {
+            billedMinor: number;
+            collectedMinor: number;
+            creditedMinor: number;
+        };
+        referrers: Array<{
+            referrerEntityId: string | null;
+            referrerName: string | null;
+            clientCount: number;
+            matterCount: number;
+            figures: {
+                billedMinor: number;
+                collectedMinor: number;
+                creditedMinor: number;
+            };
+        }>;
+    }>;
+};
+
 export type MatterBillingGuideReport = {
     computedAt: string;
     asOfDate: string;
@@ -6946,6 +6986,67 @@ export type DirectoryEntityPhoto = {
 
 export type SetDirectoryEntityPhotoRequest = {
     imageBase64: string;
+};
+
+export type DirectoryReferralSourcesResponse = {
+    data: Array<DirectoryReferralSource>;
+};
+
+export type DirectoryReferralSource = {
+    id: string;
+    name: string;
+    position: number;
+    /**
+     * True for a source the firm has retired. Retired sources are still returned: a client recorded under one still shows it, and it is not offered for a new choice.
+     */
+    archived: boolean;
+};
+
+export type CreateDirectoryReferralSourceRequest = {
+    name: string;
+};
+
+export type UpdateDirectoryReferralSourceRequest = {
+    name?: string;
+    /**
+     * The place in the list the source should take, counted from zero. The rest of the list closes up around it.
+     */
+    position?: number;
+    /**
+     * True retires the source; false restores it.
+     */
+    archived?: boolean;
+};
+
+export type DirectoryEntityReferralResponse = {
+    referral: DirectoryEntityReferral;
+};
+
+/**
+ * How a client found the firm: a source from the firm's list, the person or organization who referred them, or both. Null where nothing is recorded.
+ */
+export type DirectoryEntityReferral = {
+    source: {
+        id: string;
+        name: string;
+        archived: boolean;
+    } | null;
+    referrer: {
+        entityId: string;
+        /**
+         * Null when the directory holds no name for the record.
+         */
+        displayName: string | null;
+        mergedIntoId: string | null;
+    } | null;
+} | null;
+
+/**
+ * Both null removes the record's referral.
+ */
+export type SetDirectoryEntityReferralRequest = {
+    sourceId: string | null;
+    referrerEntityId: string | null;
 };
 
 /**
@@ -18685,6 +18786,52 @@ export type ReportsRevenueResponses = {
 };
 
 export type ReportsRevenueResponse = ReportsRevenueResponses[keyof ReportsRevenueResponses];
+
+export type ReportsWorkByReferrerData = {
+    body?: never;
+    path?: never;
+    query: {
+        periodStart: string;
+        periodEnd: string;
+        knownAsOf?: string;
+        locationId?: string;
+    };
+    url: '/api/v1/reports/work-by-referrer';
+};
+
+export type ReportsWorkByReferrerErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks reports:financial
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The period is not two calendar dates or ends before it starts, the knowledge instant is not a UTC instant or is in the future, or more was billed or applied than one report can list
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ReportsWorkByReferrerError = ReportsWorkByReferrerErrors[keyof ReportsWorkByReferrerErrors];
+
+export type ReportsWorkByReferrerResponses = {
+    /**
+     * What each source and referrer's clients were billed and paid in this period
+     */
+    200: WorkByReferrerReport;
+};
+
+export type ReportsWorkByReferrerResponse = ReportsWorkByReferrerResponses[keyof ReportsWorkByReferrerResponses];
 
 export type ReportsMatterBillingGuideData = {
     body?: never;
@@ -34061,6 +34208,226 @@ export type DirectoryEntityPhotoContentResponses = {
 };
 
 export type DirectoryEntityPhotoContentResponse = DirectoryEntityPhotoContentResponses[keyof DirectoryEntityPhotoContentResponses];
+
+export type DirectoryListReferralSourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/referral-sources';
+};
+
+export type DirectoryListReferralSourcesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryListReferralSourcesError = DirectoryListReferralSourcesErrors[keyof DirectoryListReferralSourcesErrors];
+
+export type DirectoryListReferralSourcesResponses = {
+    /**
+     * The firm's referral sources
+     */
+    200: DirectoryReferralSourcesResponse;
+};
+
+export type DirectoryListReferralSourcesResponse = DirectoryListReferralSourcesResponses[keyof DirectoryListReferralSourcesResponses];
+
+export type DirectoryCreateReferralSourceData = {
+    body: CreateDirectoryReferralSourceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/referral-sources';
+};
+
+export type DirectoryCreateReferralSourceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid (a retired source, a record named as its own referrer, an empty name), or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryCreateReferralSourceError = DirectoryCreateReferralSourceErrors[keyof DirectoryCreateReferralSourceErrors];
+
+export type DirectoryCreateReferralSourceResponses = {
+    /**
+     * The source as added
+     */
+    201: DirectoryReferralSource;
+};
+
+export type DirectoryCreateReferralSourceResponse = DirectoryCreateReferralSourceResponses[keyof DirectoryCreateReferralSourceResponses];
+
+export type DirectoryUpdateReferralSourceData = {
+    body: UpdateDirectoryReferralSourceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/referral-sources/{id}';
+};
+
+export type DirectoryUpdateReferralSourceErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record or the source is unknown
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid (a retired source, a record named as its own referrer, an empty name), or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryUpdateReferralSourceError = DirectoryUpdateReferralSourceErrors[keyof DirectoryUpdateReferralSourceErrors];
+
+export type DirectoryUpdateReferralSourceResponses = {
+    /**
+     * The source as it now stands
+     */
+    200: DirectoryReferralSource;
+};
+
+export type DirectoryUpdateReferralSourceResponse = DirectoryUpdateReferralSourceResponses[keyof DirectoryUpdateReferralSourceResponses];
+
+export type DirectoryEntityReferralData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/referral';
+};
+
+export type DirectoryEntityReferralErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The record or the source is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryEntityReferralError = DirectoryEntityReferralErrors[keyof DirectoryEntityReferralErrors];
+
+export type DirectoryEntityReferralResponses = {
+    /**
+     * The record's referral, or null
+     */
+    200: DirectoryEntityReferralResponse;
+};
+
+export type DirectoryEntityReferralResponse2 = DirectoryEntityReferralResponses[keyof DirectoryEntityReferralResponses];
+
+export type DirectorySetEntityReferralData = {
+    body: SetDirectoryEntityReferralRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/referral';
+};
+
+export type DirectorySetEntityReferralErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks directory:edit
+     */
+    403: Problem;
+    /**
+     * The record or the source is unknown
+     */
+    404: Problem;
+    /**
+     * The record was merged into another, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid (a retired source, a record named as its own referrer, an empty name), or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectorySetEntityReferralError = DirectorySetEntityReferralErrors[keyof DirectorySetEntityReferralErrors];
+
+export type DirectorySetEntityReferralResponses = {
+    /**
+     * The record's referral after the write
+     */
+    200: DirectoryEntityReferralResponse;
+};
+
+export type DirectorySetEntityReferralResponse = DirectorySetEntityReferralResponses[keyof DirectorySetEntityReferralResponses];
 
 export type AddressLookupSuggestData = {
     body: AddressSuggestionsRequest;

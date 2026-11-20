@@ -19,6 +19,7 @@
   import MapPin from "@lucide/svelte/icons/map-pin";
   import Phone from "@lucide/svelte/icons/phone";
   import Printer from "@lucide/svelte/icons/printer";
+  import Handshake from "@lucide/svelte/icons/handshake";
   import User from "@lucide/svelte/icons/user";
   import UserRound from "@lucide/svelte/icons/user-round";
   import type { PersonSummaryLine, PersonSummaryMark } from "./person-draft.ts";
@@ -47,6 +48,7 @@
     pronouns: Info,
     born: Cake,
     died: Cake,
+    referral: Handshake,
     identifier: KeyRound,
     organization: Building2,
   };

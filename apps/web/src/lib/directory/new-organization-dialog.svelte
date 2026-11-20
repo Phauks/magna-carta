@@ -4,7 +4,8 @@
    *
    * The same shape the New Person screen has — the entry on the left, the duplicate gate on the
    * right, permanently in view — with the one section an organization is created from: its legal
-   * name, and the name it is called by when that differs. Everything else an organization holds
+   * name, and the name it is called by when that differs, and how it found the firm (an
+   * organization is a client too). Everything else an organization holds
    * (how to reach it, its people, its identifiers) is recorded on the record afterwards; when its
    * record grows the person's sections this dialog grows the same rail.
    *
@@ -17,10 +18,19 @@
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import { toast } from "@magna-carta/design-system/toast";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { createDirectoryOrganization } from "./directory-api.ts";
   import DuplicateGate from "./duplicate-gate.svelte";
+  import { setEntityReferral } from "./referral-api.ts";
+  import {
+    emptyReferralDraft,
+    referralDraftIsEmpty,
+    referralPayload,
+    type ReferralDraft,
+  } from "./referral-draft.ts";
+  import ReferralSection from "./sections/referral-section.svelte";
 
   let {
     open = $bindable(false),
@@ -36,15 +46,19 @@
 
   let legalName = $state("");
   let displayName = $state("");
+  let referral = $state<ReferralDraft>(emptyReferralDraft());
   let failure = $state<StatedFailure | null>(null);
 
   const ready = $derived(legalName.trim() !== "");
   const refusal = $derived(ready ? undefined : "Give the organization's legal name.");
-  const started = $derived(legalName.trim() !== "" || displayName.trim() !== "");
+  const started = $derived(
+    legalName.trim() !== "" || displayName.trim() !== "" || !referralDraftIsEmpty(referral),
+  );
 
   function reset(): void {
     legalName = prefill?.legalName ?? "";
     displayName = "";
+    referral = emptyReferralDraft();
     failure = null;
   }
 
@@ -61,6 +75,20 @@
       crypto.randomUUID(),
     );
     if (outcome.kind === "ok") {
+      // The referral is written after the record exists to hang it on; the record stands either way.
+      if (!referralDraftIsEmpty(referral)) {
+        const written = await setEntityReferral(
+          fetch,
+          outcome.value.id,
+          referralPayload(referral),
+          crypto.randomUUID(),
+        );
+        if (written.kind !== "ok") {
+          toast.error(
+            "The organization was saved, but the referral wasn't. Add it from its record.",
+          );
+        }
+      }
       onCreated(
         outcome.value.id,
         displayName.trim() === "" ? legalName.trim() : displayName.trim(),
@@ -121,6 +149,7 @@
           />
         {/snippet}
       </LabelledField>
+      <ReferralSection bind:draft={referral} disabled={busy} />
     </div>
   {/snippet}
 

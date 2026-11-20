@@ -536,6 +536,27 @@ export const RevenueResponsibleAttorneyRow = z.object({
   figures: RevenueFigures,
 });
 
+// WORK BY REFERRER. Revenue's figures grouped by how each bill's client found the firm: a group per
+// source, then a row per person or organization who referred the client.
+export const WorkByReferrerReferrerRow = z.object({
+  referrerEntityId: z.string().nullable(),
+  referrerName: z.string().nullable(),
+  clientCount: z.number().int(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+});
+
+export const WorkByReferrerSourceRow = z.object({
+  kind: z.enum(["source", "referrerOnly", "notRecorded"]),
+  sourceId: z.string().nullable(),
+  sourceName: z.string().nullable(),
+  sourceArchived: z.boolean(),
+  clientCount: z.number().int(),
+  matterCount: z.number().int(),
+  figures: RevenueFigures,
+  referrers: z.array(WorkByReferrerReferrerRow),
+});
+
 // MATTER BILLING GUIDE. Each open and held matter with the fee agreement governing the day, any
 // amendment recorded to start later, and the rates recorded against the matter or its client.
 export const MatterBillingTerms = z.object({

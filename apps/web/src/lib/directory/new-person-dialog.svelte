@@ -49,6 +49,9 @@
   import NamesSection from "./sections/names-section.svelte";
   import OrganizationsSection from "./sections/organizations-section.svelte";
   import PronounsSection from "./sections/pronouns-section.svelte";
+  import ReferralSection from "./sections/referral-section.svelte";
+  import { setEntityReferral } from "./referral-api.ts";
+  import { referralDraftIsEmpty, referralPayload } from "./referral-draft.ts";
   import NewPersonContext from "./new-person-context.svelte";
   import {
     contactRowFromDraft,
@@ -149,6 +152,18 @@
         );
         if (photo.kind !== "ok") {
           toast.error("The person was saved, but the photo wasn't. Add it from their record.");
+        }
+      }
+      // The referral is written the same way, after the person exists to hang it on.
+      if (!referralDraftIsEmpty(draft.referral)) {
+        const referral = await setEntityReferral(
+          fetch,
+          outcome.value.id,
+          referralPayload(draft.referral),
+          crypto.randomUUID(),
+        );
+        if (referral.kind !== "ok") {
+          toast.error("The person was saved, but the referral wasn't. Add it from their record.");
         }
       }
       onCreated(outcome.value.id, personDraftDisplayName(draft));
@@ -260,6 +275,7 @@
           <div class="flex flex-col gap-16">
             <PronounsSection bind:value={draft.pronouns} disabled={busy} />
             <DatesSection bind:dateOfBirth={draft.dateOfBirth} bind:dateOfDeath={draft.dateOfDeath} disabled={busy} />
+            <ReferralSection bind:draft={draft.referral} disabled={busy} />
           </div>
         {:else if part.id === "identifiers"}
           <IdentifiersSection

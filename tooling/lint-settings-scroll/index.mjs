@@ -44,6 +44,7 @@ const REGISTER_PAGES = [
   ["notification-policy", "the firm's per-category notification policy"],
   ["notifications", "the member's per-category notification preferences"],
   ["offices", "the firm's offices"],
+  ["referral-sources", "the firm's referral sources"],
   ["resources", "the firm's bookable resources"],
   ["search-and-indexing", "the places the firm's indexes hold, one place to a row"],
   ["users", "the firm's members"],

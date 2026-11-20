@@ -6,6 +6,7 @@ import { registerConflictsRoutes } from "./conflicts.ts";
 import { registerDirectoryRoutes } from "./directory.ts";
 import { registerEntityPhotoRoutes } from "./entity-photo.ts";
 import { registerMatterPartyRoleRoutes } from "./matter-party-role.ts";
+import { registerReferralRoutes } from "./referrals.ts";
 
 // The directory of persons and organizations, and the conflicts-of-interest check run over it.
 //
@@ -26,6 +27,8 @@ export function mountDirectory(
   registerMatterPartyRoleRoutes(domain, chokepoint);
   // A record's picture: a person's photograph or an organization's logo, with its bytes.
   registerEntityPhotoRoutes(domain, chokepoint);
+  // How a client found the firm: the firm's list of referral sources and a record's referral.
+  registerReferralRoutes(domain, chokepoint);
   // Address autocomplete: offers for what has been typed, and a chosen offer resolved into parts.
   // Dormant until an engine is provisioned.
   registerAddressLookupRoutes(domain, chokepoint);

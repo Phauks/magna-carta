@@ -109,7 +109,8 @@ export interface SettingsSection {
     | "meetings"
     | "ai"
     | "search"
-    | "retention";
+    | "retention"
+    | "directory";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
    * is vacuous on such a page and set to "instant" (nothing staged, nothing to commit); the
@@ -452,6 +453,19 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "instant",
     editPermissionArea: "calendar",
+    shipped: true,
+  },
+  {
+    // How clients found the firm: the list a client's Source is picked from. A CATALOG page on the
+    // event-types pattern (add, rename, reorder, retire, restore), each act applying at once against
+    // the referral-source routes, gated on `directory:edit` as the category list is.
+    id: "referral-sources",
+    label: "Referral Sources",
+    href: "/settings/referral-sources",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "directory",
     shipped: true,
   },
   {

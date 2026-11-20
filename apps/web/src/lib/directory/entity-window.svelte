@@ -98,6 +98,13 @@
   import { RECORD_PANEL_BODY_STYLE } from "./record-panel.ts";
   import RecordSections from "./record-sections.svelte";
   import EntityPhoto from "./entity-photo.svelte";
+  import ReferralPane from "./referral-pane.svelte";
+  import { readEntityReferral, type EntityReferral } from "./referral-api.ts";
+  import { referralHeaderLine } from "./referral-draft.ts";
+  import {
+    RecordSubjectLine,
+    SUBJECT_SEPARATOR,
+  } from "@magna-carta/design-system/record-reference";
 
   let {
     open = $bindable(false),
@@ -162,6 +169,37 @@
     reloadToken += 1;
   }
 
+  // ---- how the client found the firm -------------------------------------------------------------
+
+  /*
+   * Read beside the record rather than inside it: the header says it and the About card edits it,
+   * so one read serves both and they cannot disagree. Undefined while it is being read; a read that
+   * fails leaves the header without the line and the card saying nothing is recorded.
+   */
+  let referral = $state<EntityReferral | null | undefined>(undefined);
+  let referralFor = $state<string | null>(null);
+
+  $effect(() => {
+    if (!open) return;
+    const id = entityId;
+    void reloadToken;
+    if (referralFor !== id) {
+      referralFor = id;
+      referral = undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      const outcome = await readEntityReferral(fetch, id);
+      if (cancelled) return;
+      referral = outcome.kind === "ok" ? outcome.value.referral : null;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  const referralLine = $derived(referralHeaderLine(referral ?? null));
+
   /** A pane wrote to the record: it is read again here, and the host is told. */
   function recorded(): void {
     reread();
@@ -224,7 +262,7 @@
   // ---- what the window says --------------------------------------------------------------------
 
   const heading = $derived(entityWindowHeading(entity));
-  const subtitle = $derived(entity === null ? undefined : entityWindowSubtitle(entity));
+  const subjectLine = $derived(entity === null ? undefined : entityWindowSubtitle(entity));
   const name = $derived(entity === null ? "" : directoryEntityName(entity));
   const mergedInto = $derived(entity === null ? null : entityMergedIntoIdentifier(entity));
   const hasStanding = $derived(standing !== null && standing.lines.length > 0);
@@ -353,6 +391,33 @@
   </DataTable.Root>
 {/snippet}
 
+<!-- The line under the name: what the record is and its own facts, then how the client found the
+     firm, the referrer's name a link that opens their record in this same window. -->
+{#snippet subtitleLine()}
+  {#if subjectLine !== undefined}
+    <RecordSubjectLine subject={subjectLine} />
+  {/if}
+  {#if referralLine !== null}
+    <span aria-hidden="true"> {SUBJECT_SEPARATOR} </span>
+    <span>
+      Referred by
+      {#if referralLine.referrer !== null}
+        {@const referrer = referralLine.referrer}
+        <button
+          type="button"
+          class="underline underline-offset-2 hover:text-text-default"
+          onclick={() => openEntity(referrer.entityId)}
+        >
+          {referrer.name}
+        </button>
+        {#if referralLine.sourceName !== null}({referralLine.sourceName}){/if}
+      {:else}
+        {referralLine.sourceName}
+      {/if}
+    </span>
+  {/if}
+{/snippet}
+
 {#snippet recordPhoto()}
   <EntityPhoto {entityId} {name} {mayEdit} />
 {/snippet}
@@ -394,7 +459,7 @@
   bind:open
   kind="reading"
   {heading}
-  {subtitle}
+  subtitle={subjectLine === undefined ? undefined : subtitleLine}
   width="record"
   context={hasStanding ? standingPane : undefined}
   menu={entity !== null ? recordMenu : undefined}
@@ -466,10 +531,22 @@
                      country's, so it stands beside the one-line ways to reach somebody, not inside
                      the list of them. -->
                 <ContactPane {entityId} {mayEdit} {editDisabledReason} channel="addresses" />
-              {:else if part.id === "about" && entity.kind === "person"}
+              {:else if part.id === "about"}
+                <!-- A person's pronouns and dates, then the referral; an organization has the
+                     referral alone. -->
                 <div class="flex flex-col gap-24">
-                  <PronounsPane person={entity.person} {mayEdit} {editDisabledReason} onRecorded={recorded} />
-                  <LifeDatesPane person={entity.person} {mayEdit} {editDisabledReason} onRecorded={recorded} />
+                  {#if entity.kind === "person"}
+                    <PronounsPane person={entity.person} {mayEdit} {editDisabledReason} onRecorded={recorded} />
+                    <LifeDatesPane person={entity.person} {mayEdit} {editDisabledReason} onRecorded={recorded} />
+                  {/if}
+                  <ReferralPane
+                    {entityId}
+                    {referral}
+                    {mayEdit}
+                    {editDisabledReason}
+                    onRecorded={recorded}
+                    onOpenEntity={openEntity}
+                  />
                 </div>
               {:else if part.id === "identifiers"}
                 <IdentifiersPane
