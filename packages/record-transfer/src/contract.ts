@@ -173,6 +173,42 @@ export const TransferSourceFileResponse = z
   .object({ file: TransferSourceFile })
   .meta({ id: "RecordTransferSourceFileResponse" });
 
+// A source file too large for one request is given in pieces. Starting answers the file's identifier
+// and the upload's own identifier, which the caller sends back with every piece and with the
+// completion; nothing is recorded until the completion, so an upload that is walked away from
+// leaves no file in the run.
+export const SOURCE_FILE_PART_BYTES = 32 * 1024 * 1024;
+// The largest file taken in pieces. A whole table of a practice-management database is well inside it.
+export const SOURCE_FILE_IN_PARTS_BYTE_CAP = 4 * 1024 * 1024 * 1024;
+
+export const StartTransferFileUploadResponse = z
+  .object({
+    fileId: z.string(),
+    uploadId: z.string(),
+    // Every piece but the last is exactly this many bytes.
+    partBytes: z.number().int().positive(),
+  })
+  .meta({ id: "StartRecordTransferFileUploadResponse" });
+
+const uploadedPart = z.strictObject({
+  partNumber: z.number().int().min(1).max(1000),
+  etag: z.string().min(1).max(200),
+});
+
+export const TransferFileUploadPartResponse = z
+  .object({ part: uploadedPart })
+  .meta({ id: "RecordTransferFileUploadPartResponse" });
+
+export const CompleteTransferFileUploadRequest = z
+  .strictObject({
+    uploadId: z.string().min(1).max(1024),
+    fileName: z.string().trim().min(1).max(255),
+    // What the file is a list of, as a slug the operator chooses: `card-list`, `matter-list`.
+    sourceKind: slug,
+    parts: z.array(uploadedPart).min(1).max(1000),
+  })
+  .meta({ id: "CompleteRecordTransferFileUploadRequest" });
+
 // The header row and the first few data rows, so a person can say what each column holds. These
 // are values from the file, shown to the member who uploaded it and stored nowhere.
 export const TransferSourceFilePreviewResponse = z
