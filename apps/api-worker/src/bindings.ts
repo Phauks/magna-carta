@@ -390,9 +390,10 @@ export type Bindings = {
   TELNYX_API_KEY?: string;
   // The Telnyx number a signer's code is texted from, in E.164 (signing/text-message-wiring.ts).
   // Optional. With it and TELNYX_API_KEY both set, a firm may turn on text codes for its signers;
-  // without either, the firm's signing settings say the text service is not ready. Kept in the
-  // Secrets Store and bound as SECRETS_STORE_TELNYX_TEXT_FROM, with a per-Worker secret as the
-  // fallback. Not confidential, but set in the dashboard rather than committed. The number must be
+  // without either, the firm's signing settings say the text service is not ready. Set it as a
+  // per-Worker secret. A Secrets Store binding is added only once the store secret exists, because
+  // a store binding that names a missing secret fails the deploy. Not confidential, but set in the
+  // dashboard rather than committed. The number must be
   // registered for business texting (10DLC, or toll-free verification) before US carriers deliver.
   TELNYX_TEXT_FROM?: string;
   // What a protected anonymous endpoint does when no verifier is provisioned: "fail-open" (the
