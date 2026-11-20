@@ -9,7 +9,7 @@
   scope: External-facing surface for clients, co-counsel, experts, and other Directory contacts — document sharing, invoice viewing/payment, secure messaging, e-signature, bug reporting.
   status: not-started
   adrs: ADR-0036
-  evidence: Grant-model decision accepted and PortalGrantId reserved in packages/identifiers/src/types.ts; no portal code, schema, or docs/specs design.
+  evidence: Grant-model decision accepted and PortalGrantId reserved in packages/identifiers/src/types.ts; design in docs/specs/2026-11-20-client-portal-design.md (home screen option B picked 2026-11-20); no portal code or schema.
   audience: public
   public-summary: Share documents, updates and bills with a client through access you can time-limit and withdraw.
   notes: Recipients are always Directory entities (no shadow user list); Directory is shipped.
